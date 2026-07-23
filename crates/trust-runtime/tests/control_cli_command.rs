@@ -63,9 +63,13 @@ fn run_ctl(args: &[&str]) -> Output {
 }
 
 fn write_project_with_control_token(root: &Path, token: &str) {
+    write_project_with_control_target(root, "tcp://127.0.0.1:1", token);
+}
+
+fn write_project_with_control_target(root: &Path, endpoint: &str, token: &str) {
     let runtime = render_runtime_toml(&SmolStr::new("ctl-test"), 10).replacen(
         "endpoint = \"unix:///tmp/trust-runtime.sock\"",
-        &format!("endpoint = \"tcp://127.0.0.1:1\"\nauth_token = \"{token}\""),
+        &format!("endpoint = \"{endpoint}\"\nauth_token = \"{token}\""),
         1,
     );
     std::fs::write(root.join("runtime.toml"), runtime).expect("write runtime config");
@@ -172,5 +176,158 @@ fn ctl_returns_nonzero_when_control_response_omits_ok() {
         String::from_utf8_lossy(&output.stderr).contains("missing boolean 'ok'"),
         "{}",
         String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn ctl_target_resolution_enforces_endpoint_and_token_precedence() {
+    let project = unique_temp_dir("ctl-target-precedence");
+    let (project_endpoint, project_request_rx, project_server) =
+        spawn_control_server(json!({"id": 1, "ok": true, "result": {"ok": true}}));
+    write_project_with_control_target(&project, &project_endpoint, "project-token");
+
+    let project_output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+        .arg("ctl")
+        .arg("--project")
+        .arg(&project)
+        .arg("health")
+        .env("TRUST_CTL_TOKEN", "environment-token")
+        .output()
+        .expect("run ctl with project endpoint and environment token");
+    let project_request = project_request_rx.recv().expect("captured project request");
+    project_server.join().expect("project control server");
+    assert!(
+        project_output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&project_output.stderr)
+    );
+    assert_eq!(project_request["auth"], json!("environment-token"));
+    assert_eq!(
+        String::from_utf8_lossy(&project_output.stdout).trim(),
+        "ok=true"
+    );
+
+    let (explicit_endpoint, explicit_request_rx, explicit_server) =
+        spawn_control_server(json!({"id": 1, "ok": true, "result": {"ok": true}}));
+    let explicit_output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+        .arg("ctl")
+        .arg("--project")
+        .arg(&project)
+        .args([
+            "--endpoint",
+            &explicit_endpoint,
+            "--token",
+            "explicit-token",
+            "health",
+        ])
+        .env("TRUST_CTL_TOKEN", "environment-token")
+        .output()
+        .expect("run ctl with explicit target");
+    let explicit_request = explicit_request_rx.recv().expect("captured explicit request");
+    explicit_server.join().expect("explicit control server");
+    assert!(
+        explicit_output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&explicit_output.stderr)
+    );
+    assert_eq!(explicit_request["auth"], json!("explicit-token"));
+
+    let malformed_project = unique_temp_dir("ctl-malformed-unused-project");
+    std::fs::write(malformed_project.join("runtime.toml"), "not = [valid")
+        .expect("write malformed unused project");
+    let (bypass_endpoint, bypass_request_rx, bypass_server) =
+        spawn_control_server(json!({"id": 1, "ok": true, "result": {"ok": true}}));
+    let bypass_output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+        .arg("ctl")
+        .arg("--project")
+        .arg(&malformed_project)
+        .args([
+            "--endpoint",
+            &bypass_endpoint,
+            "--token",
+            "resolved-token",
+            "health",
+        ])
+        .env_remove("TRUST_CTL_TOKEN")
+        .output()
+        .expect("run ctl without loading resolved project");
+    let bypass_request = bypass_request_rx.recv().expect("captured bypass request");
+    bypass_server.join().expect("bypass control server");
+    assert!(
+        bypass_output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&bypass_output.stderr)
+    );
+    assert_eq!(bypass_request["auth"], json!("resolved-token"));
+
+    let (environment_endpoint, environment_request_rx, environment_server) =
+        spawn_control_server(json!({"id": 1, "ok": true, "result": {"ok": true}}));
+    let environment_output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+        .arg("ctl")
+        .arg("--project")
+        .arg(&malformed_project)
+        .args(["--endpoint", &environment_endpoint, "health"])
+        .env("TRUST_CTL_TOKEN", "environment-token")
+        .output()
+        .expect("run ctl without loading project after environment token resolution");
+    let environment_request = environment_request_rx
+        .recv()
+        .expect("captured environment-token request");
+    environment_server
+        .join()
+        .expect("environment-token control server");
+    assert!(
+        environment_output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&environment_output.stderr)
+    );
+    assert_eq!(environment_request["auth"], json!("environment-token"));
+
+    let missing_target = run_ctl(&["status"]);
+    assert!(!missing_target.status.success());
+    assert!(
+        String::from_utf8_lossy(&missing_target.stderr)
+            .contains("--endpoint or --project required"),
+        "{}",
+        String::from_utf8_lossy(&missing_target.stderr)
+    );
+
+    let _ = std::fs::remove_dir_all(project);
+    let _ = std::fs::remove_dir_all(malformed_project);
+}
+
+#[test]
+fn ctl_stats_renders_each_task_in_stable_compact_form() {
+    let (endpoint, request_rx, server) = spawn_control_server(json!({
+        "id": 1,
+        "ok": true,
+        "result": {
+            "tasks": [{
+                "name": "Main",
+                "min_ms": 1.0,
+                "avg_ms": 2.25,
+                "max_ms": 3.5,
+                "last_ms": 2.0,
+                "overruns": 4
+            }]
+        }
+    }));
+
+    let output = run_ctl(&["--endpoint", &endpoint, "stats"]);
+    let request = request_rx.recv().expect("captured stats request");
+    server.join().expect("stats control server");
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        request,
+        json!({"id": 1, "type": "tasks.stats", "auth": null})
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout).trim(),
+        "task=Main min_ms=1.000 avg_ms=2.250 max_ms=3.500 last_ms=2.000 overruns=4"
     );
 }

@@ -196232,25 +196232,6 @@ last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_1CEB402FCC8C5C367F62ECFCB857F3D1CEFB7203927C29869A8B96ACD3090215"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/ctl.rs"
-qualified_symbol = "trust_runtime::ctl::send_control_request_value"
-item_kind = "rust_function"
-signature_digest = "sha256:2938093ecedc44158f6bda6ee91272c123f82568752fa1694cfe094261d7a10f"
-reviewed_body_digest = "sha256:97635f50b247bfd76ce426753a1589bf9a30e28ac55a53d44612b0a2209859db"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = ["network_io"]
-owner_ack = "RISK_ACK_1CEB402FCC8C5C367F62ECFCB857F3D1CEFB7203927C29869A8B96ACD3090215"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_1CFD7DCA8658661B8D2FBBEF72651EE17D179DD05E23ABA4230FD35051C885AD"
 source_kind = "rust"
 path = "crates/trust-runtime-core/src/memory.rs"
@@ -197888,25 +197869,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_2C1A832B12A4C03107AB797C5E443CBD1CCA8FD5FFCDEEFA6B23300F224F687F"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/ctl.rs"
-qualified_symbol = "trust_runtime::ctl::send_control_request"
-item_kind = "rust_function"
-signature_digest = "sha256:a4dde9671bdb115c873d8170f3aa87fbfaaaf6506e079846b94ab3ec6f151ec8"
-reviewed_body_digest = "sha256:ccd3db76389d9e95baf7abd7b0391595120605c95863eb32217d794946cee9f9"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = ["protocol_response_or_status"]
-owner_ack = "RISK_ACK_2C1A832B12A4C03107AB797C5E443CBD1CCA8FD5FFCDEEFA6B23300F224F687F"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_2C2E0CC786725A9FBAB872B64209760A7AF3113709D716B87480DE4168BF5C97"
 source_kind = "rust"
 path = "crates/trust-runtime/src/bin/trust-runtime/run/logging.rs"
@@ -198615,23 +198577,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_3236DC179911EF6FB21E98257BEBD0E8AC250D23DBB3ACD89580E75103DD8A0E"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/ctl.rs"
-qualified_symbol = "trust_runtime::ctl::run_control"
-item_kind = "rust_function"
-signature_digest = "sha256:406da6a3c8fe5f6c59018f78dd104a19fc8277b0dd4defac96648ca86c0a9151"
-reviewed_body_digest = "sha256:cefade43bed13448b24f07c499f3187e27324e8b61c6ce30d29b3d97ef3f5593"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "public"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_3250ED1A74C7D0F5DC328CCE0F9B90C8A875A1318ED539545D4BDEEEB3BFAAE8"
 source_kind = "rust"
 path = "crates/trust-runtime/src/openot_authoring/instrumentation.rs"
@@ -198700,25 +198645,6 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_334E13F9554E29FB50D45199162B809589B59C13AA94538F6A0DC52960F329D4"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/ctl.rs"
-qualified_symbol = "trust_runtime::ctl::build_request"
-item_kind = "rust_function"
-signature_digest = "sha256:b51f30ac5bead05cf700bfcae312fafe8505021d185ac5bcf8da324dfc0ddc60"
-reviewed_body_digest = "sha256:cf3187aea1ba9527df18f1f986b36f02073d778bc1938d65fe37fe4a1015f05d"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = ["state_mutation"]
-owner_ack = "RISK_ACK_334E13F9554E29FB50D45199162B809589B59C13AA94538F6A0DC52960F329D4"
-owner_ack_expires_on = "2026-10-21"
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
 last_reviewed = "2026-07-21"
@@ -204811,25 +204737,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_6BD601F0A080A36AC3B73E6BBF6622679CAEE46CB6E2E3D49B7C478F9D5F5802"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/ctl.rs"
-qualified_symbol = "trust_runtime::ctl::resolve_control_target"
-item_kind = "rust_function"
-signature_digest = "sha256:b4778917fc5006facd8c2036e42be913eb29b955c735411a0344963cfa6981cd"
-reviewed_body_digest = "sha256:170bb25748a19790dfb00d3fde55006c3e0c40b4878473d7a010fe7ee895f246"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = ["broad_error_suppression", "filesystem_or_environment", "state_mutation"]
-owner_ack = "RISK_ACK_6BD601F0A080A36AC3B73E6BBF6622679CAEE46CB6E2E3D49B7C478F9D5F5802"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_6BF43BFF614665EBA2946D67CC6D3917B9E49E1C37C568D5EB73D0674C28365F"
 source_kind = "rust"
 path = "crates/trust-runtime/src/memory/instances.rs"
@@ -209001,23 +208908,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_92587B0D23710A1F105379F86D6DDC1DC4904AC9C2FEC0EE7FEB31B4CDA74DAB"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/ctl.rs"
-qualified_symbol = "trust_runtime::ctl::exchange_control_request"
-item_kind = "rust_function"
-signature_digest = "sha256:c451b719206dec1c8569812e35a5922da97df5800215027f3bf8ae8ed0d7984a"
-reviewed_body_digest = "sha256:fb99886edd6e20628d8d4c8fdd182b393ca5d32c492e29aab583021efe2e763a"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_9269F552A78DD366475D272F03E1F9AA1FB1D74D0163F5E07FF214C1C64487B0"
 source_kind = "rust"
 path = "crates/trust-runtime/src/runtime/cycle.rs"
@@ -209405,23 +209295,6 @@ reviewed_body_digest = "sha256:1f5bff8ef6372eddc39875e01152e0fb7fb65d3033b7b188f
 owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "public"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_94F5BD0FF822DC807E9F3B13777A8AEFD252A7B1532C587F4614A594535310F7"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/ctl.rs"
-qualified_symbol = "trust_runtime::ctl::parse_config_value"
-item_kind = "rust_function"
-signature_digest = "sha256:1dbf8f794e16a8d388b28265cee43f660641b2e6ceeaf9e53325cf1db2613217"
-reviewed_body_digest = "sha256:812a476bc4e73bdcf89f8a261687743037b060080747de23eb690ec0b9bd79d5"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
 risk_signals = []
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
@@ -211205,23 +211078,6 @@ spec_ref = "SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contrac
 invariant_ids = ["RT_HARNESS_BOUNDARY_IO_001"]
 test_ids = ["TEST_RUNTIME_HARNESS_ACCESS_DIRECT_IO_001"]
 last_reviewed = "2026-07-22"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_A1DBFCDDAEC08C026ED3528DD3474316A3C6450B47DB84AE60377D82D81B24AF"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/ctl.rs"
-qualified_symbol = "trust_runtime::ctl::print_control_response"
-item_kind = "rust_function"
-signature_digest = "sha256:196e5824d1607619dfa4bcbfec71ebbad74c078cb6884f92b4de2ec1129075ce"
-reviewed_body_digest = "sha256:a984d52fbd30214574e2e54c764f49d6ce923fc256ac17edb7b04a9e60189c79"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
@@ -276010,4 +275866,182 @@ disposition = "specified"
 spec_ref = "SPEC_RUNTIME_ENGINE_001#runtime-conformance-case-runner"
 invariant_ids = ["RT_CONFORMANCE_RUNNER_INTEGRITY_001"]
 test_ids = ["TEST_RUNTIME_CONFORMANCE_RUNNER_CASE_ID_VALIDATION_MATCHES_NAMING_RULES_001", "TEST_RUNTIME_CONFORMANCE_RUNNER_CASE_SOURCES_MUST_REMAIN_INSIDE_THE_CASE_DIRECTORY_001", "TEST_RUNTIME_CONFORMANCE_RUNNER_DISCOVERY_REJECTS_CASE_DIRECTORIES_WITHOUT_MANIFESTS_001", "TEST_RUNTIME_CONFORMANCE_RUNNER_DISCOVERY_REJECTS_MANIFEST_IDENTITY_AND_MISSING_SUITE_ROOT_001", "TEST_RUNTIME_CONFORMANCE_RUNNER_DISCOVERY_REJECTS_UNKNOWN_CATEGORY_DIRECTORIES_001", "TEST_RUNTIME_CONFORMANCE_RUNNER_CONFORMANCE_COMMAND_SUPPORTS_UPDATE_VERIFY_AND_MISMATCH_TAXONOMY_001"]
+last_reviewed = "2026-07-23"
+[[mappings]]
+schema_version = 1
+code_id = "CODE_1CEB402FCC8C5C367F62ECFCB857F3D1CEFB7203927C29869A8B96ACD3090215"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/ctl.rs"
+qualified_symbol = "trust_runtime::ctl::send_control_request_value"
+item_kind = "rust_function"
+signature_digest = "sha256:2938093ecedc44158f6bda6ee91272c123f82568752fa1694cfe094261d7a10f"
+reviewed_body_digest = "sha256:55a00d5a468ef63e5350189a74f7b69588a55dd546ef7ea2715733bdb36c139e"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = ["network_io"]
+owner_ack = "RISK_ACK_1CEB402FCC8C5C367F62ECFCB857F3D1CEFB7203927C29869A8B96ACD3090215"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1-scriptable-control-client"
+invariant_ids = ["RT_CONTROL_CLI_CLIENT_001"]
+test_ids = ["TEST_RUNTIME_CONTROL_CLIENT_CONTROL_EXCHANGE_USES_ONE_JSON_LINE_AND_REJECTS_INVALID_RESPONSES_001", "TEST_RUNTIME_CONTROL_CLIENT_CONTROL_VALUE_EXCHANGE_ENFORCES_THE_ESTABLISHED_READ_TIMEOUT_001", "TEST_RUNTIME_CONTROL_CLIENT_CONTROL_VALUE_EXCHANGE_SUPPORTS_THE_UNIX_ENDPOINT_VARIANT_001", "TEST_RUNTIME_CONTROL_CLIENT_CTL_STATUS_SENDS_AUTHENTICATED_REQUEST_AND_PRINTS_SUMMARY_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_2C1A832B12A4C03107AB797C5E443CBD1CCA8FD5FFCDEEFA6B23300F224F687F"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/ctl.rs"
+qualified_symbol = "trust_runtime::ctl::send_control_request"
+item_kind = "rust_function"
+signature_digest = "sha256:a4dde9671bdb115c873d8170f3aa87fbfaaaf6506e079846b94ab3ec6f151ec8"
+reviewed_body_digest = "sha256:51ec15f8b8c8895fe3d2dd00fe95a7054407ed038c53f47a1f9564217071db12"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = ["protocol_response_or_status"]
+owner_ack = "RISK_ACK_2C1A832B12A4C03107AB797C5E443CBD1CCA8FD5FFCDEEFA6B23300F224F687F"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1-scriptable-control-client"
+invariant_ids = ["RT_CONTROL_CLI_CLIENT_001"]
+test_ids = ["TEST_RUNTIME_CONTROL_CLIENT_CTL_STATUS_SENDS_AUTHENTICATED_REQUEST_AND_PRINTS_SUMMARY_001", "TEST_RUNTIME_CONTROL_CLIENT_CTL_RETURNS_NONZERO_FOR_REJECTED_CONTROL_RESPONSE_001", "TEST_RUNTIME_CONTROL_CLIENT_CTL_RETURNS_NONZERO_WHEN_CONTROL_RESPONSE_OMITS_OK_001", "TEST_RUNTIME_CONTROL_CLIENT_CTL_STATS_RENDERS_EACH_TASK_IN_STABLE_COMPACT_FORM_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_3236DC179911EF6FB21E98257BEBD0E8AC250D23DBB3ACD89580E75103DD8A0E"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/ctl.rs"
+qualified_symbol = "trust_runtime::ctl::run_control"
+item_kind = "rust_function"
+signature_digest = "sha256:406da6a3c8fe5f6c59018f78dd104a19fc8277b0dd4defac96648ca86c0a9151"
+reviewed_body_digest = "sha256:6fb66c0c4d76dd8cdbd579554961415d4aa437ffcea71307d7c526eb30e3c95f"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1-scriptable-control-client"
+invariant_ids = ["RT_CONTROL_CLI_CLIENT_001"]
+test_ids = ["TEST_RUNTIME_CONTROL_CLIENT_CTL_STATUS_SENDS_AUTHENTICATED_REQUEST_AND_PRINTS_SUMMARY_001", "TEST_RUNTIME_CONTROL_CLIENT_CTL_RETURNS_NONZERO_FOR_REJECTED_CONTROL_RESPONSE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_334E13F9554E29FB50D45199162B809589B59C13AA94538F6A0DC52960F329D4"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/ctl.rs"
+qualified_symbol = "trust_runtime::ctl::build_request"
+item_kind = "rust_function"
+signature_digest = "sha256:b51f30ac5bead05cf700bfcae312fafe8505021d185ac5bcf8da324dfc0ddc60"
+reviewed_body_digest = "sha256:5ec0d4904254bd7c00757c65bd269e5a711724807cfe3cd7bbacb492a056b5b1"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "RISK_ACK_334E13F9554E29FB50D45199162B809589B59C13AA94538F6A0DC52960F329D4"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1-scriptable-control-client"
+invariant_ids = ["RT_CONTROL_CLI_CLIENT_001"]
+test_ids = ["TEST_RUNTIME_CONTROL_CLIENT_CONTROL_ACTIONS_MAP_TO_THE_REGISTERED_WIRE_CONTRACT_001", "TEST_RUNTIME_CONTROL_CLIENT_CTL_STATUS_SENDS_AUTHENTICATED_REQUEST_AND_PRINTS_SUMMARY_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_38E6BA57B21B11BB950E533801D5853401FA6A5AA19A20D741F07E6A1D92E088"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/ctl.rs"
+qualified_symbol = "trust_runtime::ctl::ensure_control_response_ok"
+item_kind = "rust_function"
+signature_digest = "sha256:8e3bac3e5558f9ae5beeae66d46a0e8ce26bbe431d89e40eda098c0fef2f853b"
+reviewed_body_digest = "sha256:ce2769956e3d3ecc93f472935bafa2ef98362a6f9e57c31a2ad4cc9886354c88"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1-scriptable-control-client"
+invariant_ids = ["RT_CONTROL_CLI_CLIENT_001"]
+test_ids = ["TEST_RUNTIME_CONTROL_CLIENT_CONFIG_VALUES_AND_CONTROL_RESULTS_COVER_CLOSED_SCALAR_PARTITIONS_001", "TEST_RUNTIME_CONTROL_CLIENT_CTL_RETURNS_NONZERO_FOR_REJECTED_CONTROL_RESPONSE_001", "TEST_RUNTIME_CONTROL_CLIENT_CTL_RETURNS_NONZERO_WHEN_CONTROL_RESPONSE_OMITS_OK_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_6BD601F0A080A36AC3B73E6BBF6622679CAEE46CB6E2E3D49B7C478F9D5F5802"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/ctl.rs"
+qualified_symbol = "trust_runtime::ctl::resolve_control_target"
+item_kind = "rust_function"
+signature_digest = "sha256:b4778917fc5006facd8c2036e42be913eb29b955c735411a0344963cfa6981cd"
+reviewed_body_digest = "sha256:cf27dbb39a1d2e043c847da20dae804b125972f367e8811a2684b729f07d0ad0"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = ["broad_error_suppression", "filesystem_or_environment", "state_mutation"]
+owner_ack = "RISK_ACK_6BD601F0A080A36AC3B73E6BBF6622679CAEE46CB6E2E3D49B7C478F9D5F5802"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1-scriptable-control-client"
+invariant_ids = ["RT_CONTROL_CLI_CLIENT_001"]
+test_ids = ["TEST_RUNTIME_CONTROL_CLIENT_CTL_ENDPOINT_OVERRIDE_PRESERVES_PROJECT_TOKEN_001", "TEST_RUNTIME_CONTROL_CLIENT_CTL_TARGET_RESOLUTION_ENFORCES_ENDPOINT_AND_TOKEN_PRECEDENCE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_92587B0D23710A1F105379F86D6DDC1DC4904AC9C2FEC0EE7FEB31B4CDA74DAB"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/ctl.rs"
+qualified_symbol = "trust_runtime::ctl::exchange_control_request"
+item_kind = "rust_function"
+signature_digest = "sha256:c451b719206dec1c8569812e35a5922da97df5800215027f3bf8ae8ed0d7984a"
+reviewed_body_digest = "sha256:c034b96574cc259e681e9a2f78d9d719b1a581f1d628cc791326f947efcc23ea"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1-scriptable-control-client"
+invariant_ids = ["RT_CONTROL_CLI_CLIENT_001"]
+test_ids = ["TEST_RUNTIME_CONTROL_CLIENT_CONTROL_EXCHANGE_USES_ONE_JSON_LINE_AND_REJECTS_INVALID_RESPONSES_001", "TEST_RUNTIME_CONTROL_CLIENT_CONTROL_VALUE_EXCHANGE_ENFORCES_THE_ESTABLISHED_READ_TIMEOUT_001", "TEST_RUNTIME_CONTROL_CLIENT_CONTROL_VALUE_EXCHANGE_SUPPORTS_THE_UNIX_ENDPOINT_VARIANT_001", "TEST_RUNTIME_CONTROL_CLIENT_CTL_STATUS_SENDS_AUTHENTICATED_REQUEST_AND_PRINTS_SUMMARY_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_94F5BD0FF822DC807E9F3B13777A8AEFD252A7B1532C587F4614A594535310F7"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/ctl.rs"
+qualified_symbol = "trust_runtime::ctl::parse_config_value"
+item_kind = "rust_function"
+signature_digest = "sha256:1dbf8f794e16a8d388b28265cee43f660641b2e6ceeaf9e53325cf1db2613217"
+reviewed_body_digest = "sha256:d18b8f3c07e48c6ade88584e4dda0b62866725ca0a057aca3cb8a8f1b481bbc5"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1-scriptable-control-client"
+invariant_ids = ["RT_CONTROL_CLI_CLIENT_001"]
+test_ids = ["TEST_RUNTIME_CONTROL_CLIENT_CONFIG_VALUES_AND_CONTROL_RESULTS_COVER_CLOSED_SCALAR_PARTITIONS_001", "TEST_RUNTIME_CONTROL_CLIENT_CONTROL_ACTIONS_MAP_TO_THE_REGISTERED_WIRE_CONTRACT_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_A1DBFCDDAEC08C026ED3528DD3474316A3C6450B47DB84AE60377D82D81B24AF"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/ctl.rs"
+qualified_symbol = "trust_runtime::ctl::print_control_response"
+item_kind = "rust_function"
+signature_digest = "sha256:196e5824d1607619dfa4bcbfec71ebbad74c078cb6884f92b4de2ec1129075ce"
+reviewed_body_digest = "sha256:4335da43708f068857ce4accfd912472d67c7b54562528ad558fea219e2dfaf3"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1-scriptable-control-client"
+invariant_ids = ["RT_CONTROL_CLI_CLIENT_001"]
+test_ids = ["TEST_RUNTIME_CONTROL_CLIENT_CTL_STATUS_SENDS_AUTHENTICATED_REQUEST_AND_PRINTS_SUMMARY_001", "TEST_RUNTIME_CONTROL_CLIENT_CTL_TARGET_RESOLUTION_ENFORCES_ENDPOINT_AND_TOKEN_PRECEDENCE_001", "TEST_RUNTIME_CONTROL_CLIENT_CTL_STATS_RENDERS_EACH_TASK_IN_STABLE_COMPACT_FORM_001"]
 last_reviewed = "2026-07-23"

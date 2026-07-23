@@ -53540,20 +53540,6 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_1CEB402FCC8C5C367F62ECFCB857F3D1CEFB7203927C29869A8B96ACD3090215"
-code_id = "CODE_1CEB402FCC8C5C367F62ECFCB857F3D1CEFB7203927C29869A8B96ACD3090215"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:97635f50b247bfd76ce426753a1589bf9a30e28ac55a53d44612b0a2209859db"
-risk_signals = ["network_io"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_1D4AAC35EF047685E4BF65E26C3E1E0D1E897F676E24AF351F4A863BBF662064"
 code_id = "CODE_1D4AAC35EF047685E4BF65E26C3E1E0D1E897F676E24AF351F4A863BBF662064"
 owner = "trust-runtime"
@@ -53974,20 +53960,6 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_2C1A832B12A4C03107AB797C5E443CBD1CCA8FD5FFCDEEFA6B23300F224F687F"
-code_id = "CODE_2C1A832B12A4C03107AB797C5E443CBD1CCA8FD5FFCDEEFA6B23300F224F687F"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:ccd3db76389d9e95baf7abd7b0391595120605c95863eb32217d794946cee9f9"
-risk_signals = ["protocol_response_or_status"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_2D8D744AE3CFB79F8F22F80AF774A61C209237FEB604038CBF90C9A6B2D7D08F"
 code_id = "CODE_2D8D744AE3CFB79F8F22F80AF774A61C209237FEB604038CBF90C9A6B2D7D08F"
 owner = "trust-runtime"
@@ -54161,20 +54133,6 @@ code_id = "CODE_3303129C9558D6C6523DEC356B6D11CF880F3DFDC125ED1E828859B0A2871D0D
 owner = "trust-runtime"
 area = "runtime_safety"
 body_digest = "sha256:3f499733da738d52fab3af5271b50b6b26bbe793ce28666e617d2c0a0fc8de18"
-risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_334E13F9554E29FB50D45199162B809589B59C13AA94538F6A0DC52960F329D4"
-code_id = "CODE_334E13F9554E29FB50D45199162B809589B59C13AA94538F6A0DC52960F329D4"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:cf3187aea1ba9527df18f1f986b36f02073d778bc1938d65fe37fe4a1015f05d"
 risk_signals = ["state_mutation"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
 reviewed_by = "trust-runtime"
@@ -55828,20 +55786,6 @@ owner = "trust-runtime"
 area = "runtime_safety"
 body_digest = "sha256:140626e7075c5b1b6248a01ca153d2b9b4545b56736cdd1320d1b3cf526559e9"
 risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_6BD601F0A080A36AC3B73E6BBF6622679CAEE46CB6E2E3D49B7C478F9D5F5802"
-code_id = "CODE_6BD601F0A080A36AC3B73E6BBF6622679CAEE46CB6E2E3D49B7C478F9D5F5802"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:170bb25748a19790dfb00d3fde55006c3e0c40b4878473d7a010fe7ee895f246"
-risk_signals = ["broad_error_suppression", "filesystem_or_environment", "state_mutation"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-21"
@@ -81806,3 +81750,58 @@ reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-23"
 expires_on = "2027-07-23"
 rationale = "The reviewed conformance runner intentionally parses case manifests and writes expected or mismatch artifacts; focused validation proves fail-closed identity, containment, typed-value, lifecycle, and result classification behavior."
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_1CEB402FCC8C5C367F62ECFCB857F3D1CEFB7203927C29869A8B96ACD3090215"
+code_id = "CODE_1CEB402FCC8C5C367F62ECFCB857F3D1CEFB7203927C29869A8B96ACD3090215"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:55a00d5a468ef63e5350189a74f7b69588a55dd546ef7ea2715733bdb36c139e"
+risk_signals = ["network_io"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1-scriptable-control-client"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "The reviewed CLI intentionally sends authenticated control actions to local or explicitly configured endpoints; focused process-isolated tests prove credential precedence, wire shape, failure classification, and compact rendering without exposing token material."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_2C1A832B12A4C03107AB797C5E443CBD1CCA8FD5FFCDEEFA6B23300F224F687F"
+code_id = "CODE_2C1A832B12A4C03107AB797C5E443CBD1CCA8FD5FFCDEEFA6B23300F224F687F"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:51ec15f8b8c8895fe3d2dd00fe95a7054407ed038c53f47a1f9564217071db12"
+risk_signals = ["protocol_response_or_status"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1-scriptable-control-client"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "The reviewed CLI intentionally sends authenticated control actions to local or explicitly configured endpoints; focused process-isolated tests prove credential precedence, wire shape, failure classification, and compact rendering without exposing token material."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_334E13F9554E29FB50D45199162B809589B59C13AA94538F6A0DC52960F329D4"
+code_id = "CODE_334E13F9554E29FB50D45199162B809589B59C13AA94538F6A0DC52960F329D4"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:5ec0d4904254bd7c00757c65bd269e5a711724807cfe3cd7bbacb492a056b5b1"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1-scriptable-control-client"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "The reviewed CLI intentionally sends authenticated control actions to local or explicitly configured endpoints; focused process-isolated tests prove credential precedence, wire shape, failure classification, and compact rendering without exposing token material."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_6BD601F0A080A36AC3B73E6BBF6622679CAEE46CB6E2E3D49B7C478F9D5F5802"
+code_id = "CODE_6BD601F0A080A36AC3B73E6BBF6622679CAEE46CB6E2E3D49B7C478F9D5F5802"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:cf27dbb39a1d2e043c847da20dae804b125972f367e8811a2684b729f07d0ad0"
+risk_signals = ["broad_error_suppression", "filesystem_or_environment", "state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1-scriptable-control-client"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "The reviewed CLI intentionally sends authenticated control actions to local or explicitly configured endpoints; focused process-isolated tests prove credential precedence, wire shape, failure classification, and compact rendering without exposing token material."

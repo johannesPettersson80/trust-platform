@@ -22682,3 +22682,266 @@ requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_CONFORMANCE_RUNNER_CONFORMANCE_COMMAND_SUPPORTS_UPDATE_VERIFY_AND_MISMATCH_TAXONOMY_001.json"
 last_reviewed = "2026-07-23"
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_CONTROL_CLIENT_CONFIG_VALUES_AND_CONTROL_RESULTS_COVER_CLOSED_SCALAR_PARTITIONS_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_AE3DA9F7409706B8CD74"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/ctl.rs"
+name = "config_values_and_control_results_cover_closed_scalar_partitions"
+command = "cargo test -p trust-runtime --bin trust-runtime ctl::tests::config_values_and_control_results_cover_closed_scalar_partitions -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_CONTROL_CLI_CLIENT_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1-scriptable-control-client"
+expected_result = "The focused assertion suite for config values and control results cover closed scalar partitions satisfies SPEC_RUNTIME_ENGINE_001#6-8-1-scriptable-control-client."
+expected_failure_mode = "The specified RT_CONTROL_CLI_CLIENT_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_CONTROL_CLIENT_CONFIG_VALUES_AND_CONTROL_RESULTS_COVER_CLOSED_SCALAR_PARTITIONS_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_CONTROL_CLIENT_CONTROL_ACTIONS_MAP_TO_THE_REGISTERED_WIRE_CONTRACT_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_29D75141AC02C64BB09C"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/ctl.rs"
+name = "control_actions_map_to_the_registered_wire_contract"
+command = "cargo test -p trust-runtime --bin trust-runtime ctl::tests::control_actions_map_to_the_registered_wire_contract -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_CONTROL_CLI_CLIENT_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1-scriptable-control-client"
+expected_result = "The focused assertion suite for control actions map to the registered wire contract satisfies SPEC_RUNTIME_ENGINE_001#6-8-1-scriptable-control-client."
+expected_failure_mode = "The specified RT_CONTROL_CLI_CLIENT_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_CONTROL_CLIENT_CONTROL_ACTIONS_MAP_TO_THE_REGISTERED_WIRE_CONTRACT_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_CONTROL_CLIENT_CONTROL_EXCHANGE_USES_ONE_JSON_LINE_AND_REJECTS_INVALID_RESPONSES_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_EBCEDCE530710739FADA"
+discovery_source_kind = "rust_unit_test"
+test_class = "failing_regression"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/ctl.rs"
+name = "control_exchange_uses_one_json_line_and_rejects_invalid_responses"
+command = "cargo test -p trust-runtime --bin trust-runtime ctl::tests::control_exchange_uses_one_json_line_and_rejects_invalid_responses -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_CONTROL_CLI_CLIENT_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1-scriptable-control-client"
+expected_result = "The focused assertion suite for control exchange uses one json line and rejects invalid responses satisfies SPEC_RUNTIME_ENGINE_001#6-8-1-scriptable-control-client."
+expected_failure_mode = "The specified RT_CONTROL_CLI_CLIENT_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_CONTROL_CLIENT_CONTROL_EXCHANGE_USES_ONE_JSON_LINE_AND_REJECTS_INVALID_RESPONSES_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_CONTROL_CLIENT_CONTROL_VALUE_EXCHANGE_ENFORCES_THE_ESTABLISHED_READ_TIMEOUT_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_988F6717C777ED91FADB"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/ctl.rs"
+name = "control_value_exchange_enforces_the_established_read_timeout"
+command = "cargo test -p trust-runtime --bin trust-runtime ctl::tests::control_value_exchange_enforces_the_established_read_timeout -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_CONTROL_CLI_CLIENT_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1-scriptable-control-client"
+expected_result = "The focused assertion suite for control value exchange enforces the established read timeout satisfies SPEC_RUNTIME_ENGINE_001#6-8-1-scriptable-control-client."
+expected_failure_mode = "The specified RT_CONTROL_CLI_CLIENT_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_CONTROL_CLIENT_CONTROL_VALUE_EXCHANGE_ENFORCES_THE_ESTABLISHED_READ_TIMEOUT_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_CONTROL_CLIENT_CONTROL_VALUE_EXCHANGE_SUPPORTS_THE_UNIX_ENDPOINT_VARIANT_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_6D2636977376F45D6BB6"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/ctl.rs"
+name = "control_value_exchange_supports_the_unix_endpoint_variant"
+command = "cargo test -p trust-runtime --bin trust-runtime ctl::tests::control_value_exchange_supports_the_unix_endpoint_variant -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_CONTROL_CLI_CLIENT_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1-scriptable-control-client"
+expected_result = "The focused assertion suite for control value exchange supports the unix endpoint variant satisfies SPEC_RUNTIME_ENGINE_001#6-8-1-scriptable-control-client."
+expected_failure_mode = "The specified RT_CONTROL_CLI_CLIENT_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_CONTROL_CLIENT_CONTROL_VALUE_EXCHANGE_SUPPORTS_THE_UNIX_ENDPOINT_VARIANT_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_CONTROL_CLIENT_CTL_ENDPOINT_OVERRIDE_PRESERVES_PROJECT_TOKEN_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_166D03972F1976F5E582"
+discovery_source_kind = "rust_integration_test"
+test_class = "integration"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/control_cli_command.rs"
+name = "ctl_endpoint_override_preserves_project_token"
+command = "cargo test -p trust-runtime --test control_cli_command ctl_endpoint_override_preserves_project_token -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_CONTROL_CLI_CLIENT_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1-scriptable-control-client"
+expected_result = "The focused assertion suite for ctl endpoint override preserves project token satisfies SPEC_RUNTIME_ENGINE_001#6-8-1-scriptable-control-client."
+expected_failure_mode = "The specified RT_CONTROL_CLI_CLIENT_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_CONTROL_CLIENT_CTL_ENDPOINT_OVERRIDE_PRESERVES_PROJECT_TOKEN_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_CONTROL_CLIENT_CTL_RETURNS_NONZERO_FOR_REJECTED_CONTROL_RESPONSE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_FA663B50CE268EBEFDD2"
+discovery_source_kind = "rust_integration_test"
+test_class = "integration"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/control_cli_command.rs"
+name = "ctl_returns_nonzero_for_rejected_control_response"
+command = "cargo test -p trust-runtime --test control_cli_command ctl_returns_nonzero_for_rejected_control_response -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_CONTROL_CLI_CLIENT_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1-scriptable-control-client"
+expected_result = "The focused assertion suite for ctl returns nonzero for rejected control response satisfies SPEC_RUNTIME_ENGINE_001#6-8-1-scriptable-control-client."
+expected_failure_mode = "The specified RT_CONTROL_CLI_CLIENT_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_CONTROL_CLIENT_CTL_RETURNS_NONZERO_FOR_REJECTED_CONTROL_RESPONSE_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_CONTROL_CLIENT_CTL_RETURNS_NONZERO_WHEN_CONTROL_RESPONSE_OMITS_OK_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_96DE036B124F6DB47E99"
+discovery_source_kind = "rust_integration_test"
+test_class = "integration"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/control_cli_command.rs"
+name = "ctl_returns_nonzero_when_control_response_omits_ok"
+command = "cargo test -p trust-runtime --test control_cli_command ctl_returns_nonzero_when_control_response_omits_ok -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_CONTROL_CLI_CLIENT_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1-scriptable-control-client"
+expected_result = "The focused assertion suite for ctl returns nonzero when control response omits ok satisfies SPEC_RUNTIME_ENGINE_001#6-8-1-scriptable-control-client."
+expected_failure_mode = "The specified RT_CONTROL_CLI_CLIENT_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_CONTROL_CLIENT_CTL_RETURNS_NONZERO_WHEN_CONTROL_RESPONSE_OMITS_OK_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_CONTROL_CLIENT_CTL_STATS_RENDERS_EACH_TASK_IN_STABLE_COMPACT_FORM_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_21FF87A44A9330326ABE"
+discovery_source_kind = "rust_integration_test"
+test_class = "integration"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/control_cli_command.rs"
+name = "ctl_stats_renders_each_task_in_stable_compact_form"
+command = "cargo test -p trust-runtime --test control_cli_command ctl_stats_renders_each_task_in_stable_compact_form -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_CONTROL_CLI_CLIENT_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1-scriptable-control-client"
+expected_result = "The focused assertion suite for ctl stats renders each task in stable compact form satisfies SPEC_RUNTIME_ENGINE_001#6-8-1-scriptable-control-client."
+expected_failure_mode = "The specified RT_CONTROL_CLI_CLIENT_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_CONTROL_CLIENT_CTL_STATS_RENDERS_EACH_TASK_IN_STABLE_COMPACT_FORM_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_CONTROL_CLIENT_CTL_STATUS_SENDS_AUTHENTICATED_REQUEST_AND_PRINTS_SUMMARY_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_2F9B8EC72CA4C03F7057"
+discovery_source_kind = "rust_integration_test"
+test_class = "integration"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/control_cli_command.rs"
+name = "ctl_status_sends_authenticated_request_and_prints_summary"
+command = "cargo test -p trust-runtime --test control_cli_command ctl_status_sends_authenticated_request_and_prints_summary -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_CONTROL_CLI_CLIENT_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1-scriptable-control-client"
+expected_result = "The focused assertion suite for ctl status sends authenticated request and prints summary satisfies SPEC_RUNTIME_ENGINE_001#6-8-1-scriptable-control-client."
+expected_failure_mode = "The specified RT_CONTROL_CLI_CLIENT_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_CONTROL_CLIENT_CTL_STATUS_SENDS_AUTHENTICATED_REQUEST_AND_PRINTS_SUMMARY_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_CONTROL_CLIENT_CTL_TARGET_RESOLUTION_ENFORCES_ENDPOINT_AND_TOKEN_PRECEDENCE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_FB5172C10B3851861F3D"
+discovery_source_kind = "rust_integration_test"
+test_class = "integration"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/control_cli_command.rs"
+name = "ctl_target_resolution_enforces_endpoint_and_token_precedence"
+command = "cargo test -p trust-runtime --test control_cli_command ctl_target_resolution_enforces_endpoint_and_token_precedence -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_CONTROL_CLI_CLIENT_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1-scriptable-control-client"
+expected_result = "The focused assertion suite for ctl target resolution enforces endpoint and token precedence satisfies SPEC_RUNTIME_ENGINE_001#6-8-1-scriptable-control-client."
+expected_failure_mode = "The specified RT_CONTROL_CLI_CLIENT_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_CONTROL_CLIENT_CTL_TARGET_RESOLUTION_ENFORCES_ENDPOINT_AND_TOKEN_PRECEDENCE_001.json"
+last_reviewed = "2026-07-23"

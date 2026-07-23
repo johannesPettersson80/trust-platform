@@ -199,7 +199,8 @@ Target release: `v0.24.54`
   fail instead of silently discarding source-read errors.
 - trust-runtime: `ctl` now keeps the selected project's control token when an
   explicit endpoint overrides only the endpoint, and exits non-zero for
-  rejected or malformed control responses instead of reporting script success.
+  rejected, malformed, oversized, timed-out, or mismatched-ID control responses
+  instead of reporting script success.
 - trust-runtime: the conformance runner now rejects malformed case IDs,
   unknown category directories, case directories without manifests, source
   paths that escape their case, and `compile_error` cases that compile

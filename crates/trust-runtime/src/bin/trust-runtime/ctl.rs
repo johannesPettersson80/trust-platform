@@ -1,7 +1,8 @@
 //! Control CLI helpers.
 
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, Read, Write};
 use std::path::PathBuf;
+use std::time::Duration;
 
 use anyhow::Context;
 use serde_json::{json, Value as JsonValue};
@@ -9,6 +10,10 @@ use trust_runtime::config::RuntimeConfig;
 use trust_runtime::control::ControlEndpoint;
 
 use crate::cli::ControlAction;
+
+const CONTROL_CONNECT_TIMEOUT: Duration = Duration::from_millis(500);
+const CONTROL_IO_TIMEOUT: Duration = Duration::from_millis(750);
+const MAX_CONTROL_RESPONSE_BYTES: usize = 1024 * 1024;
 
 pub(crate) struct ResolvedControlTarget {
     pub(crate) endpoint: ControlEndpoint,
@@ -95,8 +100,14 @@ pub(crate) fn send_control_request_value(
 ) -> anyhow::Result<JsonValue> {
     match endpoint {
         ControlEndpoint::Tcp(addr) => {
-            let mut stream = std::net::TcpStream::connect(addr)
+            let mut stream = std::net::TcpStream::connect_timeout(addr, CONTROL_CONNECT_TIMEOUT)
                 .with_context(|| format!("connect control endpoint tcp://{addr}"))?;
+            stream
+                .set_read_timeout(Some(CONTROL_IO_TIMEOUT))
+                .context("set control endpoint read timeout")?;
+            stream
+                .set_write_timeout(Some(CONTROL_IO_TIMEOUT))
+                .context("set control endpoint write timeout")?;
             let mut reader = BufReader::new(stream.try_clone()?);
             exchange_control_request(&mut stream, &mut reader, request)
         }
@@ -104,6 +115,12 @@ pub(crate) fn send_control_request_value(
         ControlEndpoint::Unix(path) => {
             let mut stream = std::os::unix::net::UnixStream::connect(path)
                 .with_context(|| format!("connect control endpoint unix://{}", path.display()))?;
+            stream
+                .set_read_timeout(Some(CONTROL_IO_TIMEOUT))
+                .context("set control endpoint read timeout")?;
+            stream
+                .set_write_timeout(Some(CONTROL_IO_TIMEOUT))
+                .context("set control endpoint write timeout")?;
             let mut reader = BufReader::new(stream.try_clone()?);
             exchange_control_request(&mut stream, &mut reader, request)
         }
@@ -119,11 +136,30 @@ fn exchange_control_request<S: Write, R: BufRead>(
     writeln!(stream, "{line}")?;
     stream.flush()?;
     let mut response = String::new();
-    reader.read_line(&mut response)?;
-    if response.trim().is_empty() {
+    let bytes = reader
+        .take((MAX_CONTROL_RESPONSE_BYTES + 1) as u64)
+        .read_line(&mut response)?;
+    if bytes == 0 || response.trim().is_empty() {
         anyhow::bail!("empty control response");
     }
-    serde_json::from_str::<JsonValue>(response.trim_end()).context("parse control response")
+    if bytes > MAX_CONTROL_RESPONSE_BYTES {
+        anyhow::bail!(
+            "control response exceeded {MAX_CONTROL_RESPONSE_BYTES} bytes without a complete line"
+        );
+    }
+    if !response.ends_with('\n') {
+        anyhow::bail!("control response missing newline terminator");
+    }
+    let response = serde_json::from_str::<JsonValue>(response.trim_end())
+        .context("parse control response")?;
+    let request_id = request
+        .get("id")
+        .and_then(JsonValue::as_u64)
+        .context("control request missing numeric 'id'")?;
+    if response.get("id").and_then(JsonValue::as_u64) != Some(request_id) {
+        anyhow::bail!("control response id is missing or does not match request id {request_id}");
+    }
+    Ok(response)
 }
 
 fn print_control_response(action: &ControlAction, response: &str) {
@@ -484,5 +520,143 @@ mod tests {
         let error = exchange_control_request(&mut output, &mut malformed, &request)
             .expect_err("malformed response must fail");
         assert!(error.to_string().contains("parse control response"));
+
+        let mut output = Vec::new();
+        let mut unterminated = std::io::Cursor::new(b"{\"id\":1,\"ok\":true}");
+        let error = exchange_control_request(&mut output, &mut unterminated, &request)
+            .expect_err("unterminated response must fail");
+        assert!(error.to_string().contains("newline terminator"), "{error:#}");
+
+        for response in [
+            b"{\"ok\":true}\n".as_slice(),
+            b"{\"id\":2,\"ok\":true}\n".as_slice(),
+        ] {
+            let mut output = Vec::new();
+            let mut response = std::io::Cursor::new(response);
+            let error = exchange_control_request(&mut output, &mut response, &request)
+                .expect_err("missing or mismatched response ID must fail");
+            assert!(error.to_string().contains("response id"), "{error:#}");
+        }
+
+        let mut output = Vec::new();
+        let oversized = vec![b'x'; 1024 * 1024 + 1];
+        let mut response = std::io::Cursor::new(oversized);
+        let error = exchange_control_request(&mut output, &mut response, &request)
+            .expect_err("oversized response must fail");
+        assert!(error.to_string().contains("exceeded"), "{error:#}");
+    }
+
+    #[test]
+    fn config_values_and_control_results_cover_closed_scalar_partitions() {
+        let cases = [
+            (" null ", JsonValue::Null),
+            ("TRUE", JsonValue::Bool(true)),
+            (" false ", JsonValue::Bool(false)),
+            ("-17", json!(-17)),
+            ("1.5", json!("1.5")),
+            (" value ", json!("value")),
+        ];
+        for (raw, expected) in cases {
+            assert_eq!(parse_config_value(raw), expected, "{raw}");
+        }
+
+        assert!(ensure_control_response_ok(&json!({"ok": true})).is_ok());
+        let rejected = ensure_control_response_ok(&json!({
+            "ok": false,
+            "error": "denied",
+            "error_code": "insufficient_role"
+        }))
+        .expect_err("rejected response must fail");
+        assert_eq!(rejected.to_string(), "denied (insufficient_role)");
+        assert_eq!(
+            ensure_control_response_ok(&json!({"ok": false}))
+                .expect_err("default rejection must fail")
+                .to_string(),
+            "control request failed"
+        );
+        assert!(ensure_control_response_ok(&json!({"ok": "true"}))
+            .expect_err("non-boolean ok must fail")
+            .to_string()
+            .contains("missing boolean 'ok'"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn control_value_exchange_supports_the_unix_endpoint_variant() {
+        use std::os::unix::net::UnixListener;
+        use std::time::{SystemTime, UNIX_EPOCH};
+
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!(
+            "trust-runtime-ctl-unix-{}-{unique}",
+            std::process::id()
+        ));
+        std::fs::create_dir(&root).expect("create Unix control test directory");
+        let socket = root.join("control.sock");
+        let listener = UnixListener::bind(&socket).expect("bind Unix control socket");
+        let server = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("accept Unix control request");
+            let mut request = String::new();
+            BufReader::new(stream.try_clone().expect("clone Unix control stream"))
+                .read_line(&mut request)
+                .expect("read Unix control request");
+            assert_eq!(
+                serde_json::from_str::<JsonValue>(request.trim_end()).expect("request JSON"),
+                json!({"id": 1, "type": "health", "auth": null})
+            );
+            writeln!(stream, "{}", json!({"id": 1, "ok": true, "result": {"ok": true}}))
+                .expect("write Unix control response");
+        });
+
+        let response = send_control_request_value(
+            &ControlEndpoint::Unix(socket.clone()),
+            &json!({"id": 1, "type": "health", "auth": null}),
+        )
+        .expect("Unix control exchange");
+        server.join().expect("Unix control server");
+        assert_eq!(
+            response,
+            json!({"id": 1, "ok": true, "result": {"ok": true}})
+        );
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn control_value_exchange_enforces_the_established_read_timeout() {
+        use std::net::TcpListener;
+        use std::sync::mpsc;
+        use std::time::Instant;
+
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind timeout control listener");
+        let endpoint = ControlEndpoint::Tcp(listener.local_addr().expect("timeout listener address"));
+        let (release_tx, release_rx) = mpsc::channel();
+        let server = std::thread::spawn(move || {
+            let (stream, _) = listener.accept().expect("accept timeout control request");
+            let mut request = String::new();
+            BufReader::new(stream.try_clone().expect("clone timeout control stream"))
+                .read_line(&mut request)
+                .expect("read timeout control request");
+            release_rx
+                .recv_timeout(Duration::from_secs(3))
+                .expect("client must release the held response connection");
+        });
+
+        let started = Instant::now();
+        let error = send_control_request_value(
+            &endpoint,
+            &json!({"id": 1, "type": "status", "auth": null}),
+        )
+        .expect_err("missing response must hit the read timeout");
+        let elapsed = started.elapsed();
+        release_tx.send(()).expect("release timeout server");
+        server.join().expect("timeout control server");
+
+        assert!(
+            elapsed >= Duration::from_millis(500) && elapsed < Duration::from_secs(2),
+            "control read timeout elapsed {elapsed:?}: {error:#}"
+        );
     }
 }

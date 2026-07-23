@@ -1203,10 +1203,28 @@ Each CLI action maps to one control request with numeric `id = 1`, its
 registered control operation name in `type`, the resolved token in `auth`, and
 only the parameters declared by that action. The client accepts exactly one
 JSON response line. An empty or malformed response is a transport/protocol
-failure. A response with `ok = false`, or without a Boolean `ok`, is a command
-failure and must produce a non-zero process exit rather than being printed as
-a successful scripted result. Human-oriented status, health, and task-summary
-rendering happens only after `ok = true`.
+failure. The response must end with a newline and contain the same non-negative
+integer `id` as its request; a missing, noninteger, or mismatched response ID is
+a protocol failure. A response with `ok = false`, or without a Boolean `ok`, is
+a command failure and must produce a non-zero process exit rather than being
+printed as a successful scripted result. A TCP connection attempt is bounded to
+500 milliseconds;
+after a TCP or Unix connection is established, reads and writes are bounded to
+750 milliseconds, and a response line may not exceed 1 MiB.
+
+`config.set` values trim surrounding whitespace and decode case-insensitive
+`null`, `true`, and `false`, followed by an in-range signed 64-bit decimal
+integer; every other value remains the trimmed string. Human-oriented rendering
+happens only after `ok = true`. Status renders
+`state=<state> fault=<fault> rt_profile=<profile> rt_active=<bool>`, defaulting
+absent fault/realtime fields to `none`, `disabled`, and `false`. Health renders
+`ok=<bool>`. An empty task list renders `tasks=0`; otherwise each task renders
+one line containing its name, min/average/max/last milliseconds to three
+decimal places, and overrun count.
+
+The endpoint exchange, response bound, newline, and response-correlation rules
+are shared by `ctl` and ADS server-control requests; each command retains its
+own request construction and success rendering.
 
 ##### 6.8.1a Offline communication authoring client
 

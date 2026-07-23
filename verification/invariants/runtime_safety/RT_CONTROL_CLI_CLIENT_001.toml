@@ -1,0 +1,98 @@
+schema_version = 1
+id = "RT_CONTROL_CLI_CLIENT_001"
+title = "Control CLI request and response handling is fail-closed"
+area = "runtime_safety"
+risk = "false_status"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-23"
+claim = "The control client resolves endpoint and token authority in documented precedence, emits one canonical JSON request, rejects transport or protocol failure, including request-ID or resource-bound failure, and renders human summaries only for successful responses."
+proof_level = "T1"
+contract_kind = "protocol_trace"
+source_refs = ["crates/trust-runtime/src/bin/trust-runtime/ctl.rs"]
+tests = [
+  "TEST_RUNTIME_CONTROL_CLIENT_CONFIG_VALUES_AND_CONTROL_RESULTS_COVER_CLOSED_SCALAR_PARTITIONS_001",
+  "TEST_RUNTIME_CONTROL_CLIENT_CONTROL_ACTIONS_MAP_TO_THE_REGISTERED_WIRE_CONTRACT_001",
+  "TEST_RUNTIME_CONTROL_CLIENT_CONTROL_EXCHANGE_USES_ONE_JSON_LINE_AND_REJECTS_INVALID_RESPONSES_001",
+  "TEST_RUNTIME_CONTROL_CLIENT_CONTROL_VALUE_EXCHANGE_ENFORCES_THE_ESTABLISHED_READ_TIMEOUT_001",
+  "TEST_RUNTIME_CONTROL_CLIENT_CONTROL_VALUE_EXCHANGE_SUPPORTS_THE_UNIX_ENDPOINT_VARIANT_001",
+  "TEST_RUNTIME_CONTROL_CLIENT_CTL_ENDPOINT_OVERRIDE_PRESERVES_PROJECT_TOKEN_001",
+  "TEST_RUNTIME_CONTROL_CLIENT_CTL_RETURNS_NONZERO_FOR_REJECTED_CONTROL_RESPONSE_001",
+  "TEST_RUNTIME_CONTROL_CLIENT_CTL_RETURNS_NONZERO_WHEN_CONTROL_RESPONSE_OMITS_OK_001",
+  "TEST_RUNTIME_CONTROL_CLIENT_CTL_STATS_RENDERS_EACH_TASK_IN_STABLE_COMPACT_FORM_001",
+  "TEST_RUNTIME_CONTROL_CLIENT_CTL_STATUS_SENDS_AUTHENTICATED_REQUEST_AND_PRINTS_SUMMARY_001",
+  "TEST_RUNTIME_CONTROL_CLIENT_CTL_TARGET_RESOLUTION_ENFORCES_ENDPOINT_AND_TOKEN_PRECEDENCE_001"
+]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate", "windows_tcp_transport", "connect_and_write_timeout_fault_injection"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#6-8-1-scriptable-control-client"
+
+[[behavior]]
+partition = { equals = "VALID_EXPLICIT_OR_PROJECT_CONTROL_TARGET" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1-scriptable-control-client"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Endpoint and credential authority resolve independently and the selected action produces its canonical request."
+
+[[behavior]]
+partition = { equals = "MISSING_OR_MALFORMED_TARGET_OR_RESPONSE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1-scriptable-control-client"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "status_degraded" }
+rationale = "A missing target, empty, malformed, oversized, timed-out, or mismatched-ID response, rejected response, or missing Boolean ok field fails the command."
+
+[[behavior]]
+partition = { equals = "TOKEN_AND_ENDPOINT_PRECEDENCE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1-scriptable-control-client"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Explicit token overrides environment and project tokens; the environment overrides the project; and explicit endpoint and token avoid loading an irrelevant project."
+
+[[behavior]]
+partition = { equals = "CONFIG_SCALAR_AND_COMPACT_OUTPUT_BOUNDARIES" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1-scriptable-control-client"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Closed scalar coercions and successful status, health, and task summaries retain their reviewed wire and text shapes."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "Unit, TCP CLI integration, and Unix-socket tests cover every registered action plus authenticated status and health requests."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "covered"
+rationale = "Focused tests reject missing targets, empty, malformed, oversized, or mismatched-ID JSON, rejected responses, and absent or non-Boolean ok fields."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "covered"
+rationale = "A process-isolated matrix covers explicit, environment, and project token precedence plus endpoint/project load ordering."
+
+[[coverage.cells]]
+dimension = "boundary_high"
+state = "covered"
+rationale = "Scalar parsing and stable health/status/task summary formats cover the reviewed output boundaries."
+
+[[coverage.cells]]
+dimension = "platform_or_filesystem_variation"
+state = "gap_open"
+rationale = "The focused remote proof covers TCP and Unix sockets on Linux; Windows TCP and final platform gates remain reserved for later."
