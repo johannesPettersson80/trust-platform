@@ -44,6 +44,29 @@ fn deployment_labels_are_portable_single_components() {
 }
 
 #[test]
+fn deployed_sidecar_paths_require_normalized_relative_components() {
+    validate_bundle_relative_path(Path::new("config/ads.toml"), "sidecar")
+        .expect("normalized nested path is valid");
+
+    for invalid in [
+        "",
+        "/absolute.toml",
+        "../escaped.toml",
+        "config/../escaped.toml",
+        "./ads.toml",
+        "config/./ads.toml",
+        "config//ads.toml",
+        "config\\ads.toml",
+        "C:ads.toml",
+    ] {
+        assert!(
+            validate_bundle_relative_path(Path::new(invalid), "sidecar").is_err(),
+            "non-normalized sidecar path accepted: {invalid:?}"
+        );
+    }
+}
+
+#[test]
 fn bundle_targets_include_current_and_immediate_previous() {
     let current = PathBuf::from("/deploy/bundles/current");
     let previous = PathBuf::from("/deploy/bundles/previous");
@@ -82,7 +105,9 @@ fn read_link_target_resolves_relative_to_the_link_directory() {
     std::os::unix::fs::symlink("bundles/version-1", &link).expect("create relative link");
 
     assert_eq!(
-        read_link_target(&link).expect("read deployment link"),
+        read_link_target(&link)
+            .expect("read deployment pointer")
+            .expect("deployment link exists"),
         bundle
     );
     let _ = fs::remove_dir_all(root);

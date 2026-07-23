@@ -1925,6 +1925,18 @@ or overwritten.
 An existing pointer is eligible for retention or rollback only when it resolves
 to a direct child directory of that deployment root's `bundles/`; a pointer to
 another filesystem location is rejected rather than adopted.
+Both deployment pointer slots are inspected before a new bundle is installed.
+If either slot is occupied by an ordinary file or directory, deployment fails
+without installing the candidate, changing either pointer, or publishing its
+change summary.
+
+Enabled ADS and OPC UA client configuration is self-contained in the installed
+bundle. Each configured sidecar path must be a normalized relative path
+contained beneath the source bundle, and the file is copied to the same
+relative path in the installed bundle. Absolute paths, parent traversal,
+platform prefixes, and symbolic links in any copied bundle path are rejected;
+deployment never follows a symbolic link while constructing the installed
+bundle.
 
 After a successful deployment, `current` identifies the newly validated bundle
 and `previous` identifies the bundle that was current immediately before the
@@ -1933,16 +1945,18 @@ removes older directories only from the deployment root's own `bundles/`
 directory. It must not delete the new rollback target. `rollback` swaps the two
 valid pointers without copying or rebuilding either bundle.
 
-Before deployment pointers change, the command writes a deterministic change
-summary that identifies both the bundle being deployed and the previous bundle,
-when one exists. The `runtime.toml` and `io.toml` status is based on the complete
-file content, so a change outside the selected operator-friendly detail bullets
-must still be reported as an update rather than as `unchanged`. Safe-state
-comparison uses the structured I/O address and value, not a potentially lossy
-display form. Source comparison recursively covers `.st` and `.pou` files
-case-insensitively beneath `src/`, with stable relative-path ordering. A source
-directory traversal or file-read failure aborts summary construction and the
-deployment; it is not converted into an empty source set.
+Before deployment pointers change, the command constructs a deterministic
+change summary that identifies both the bundle being deployed and the previous
+bundle, when one exists. It publishes that summary only for a deployment whose
+pointer transition succeeds. The `runtime.toml` and `io.toml` status is based
+on the complete file content, so a change outside the selected
+operator-friendly detail bullets must still be reported as an update rather
+than as `unchanged`. Safe-state comparison uses the structured I/O address and
+value, not a potentially lossy display form. Source comparison recursively
+covers `.st` and `.pou` files case-insensitively beneath `src/`, with stable
+relative-path ordering. A source directory traversal or file-read failure
+aborts summary construction and the deployment; it is not converted into an
+empty source set.
 
 `deployments/<label>.txt` and `deployments/last.txt` contain the last successful
 deploy command's change summary. They are not deployment pointers and rollback

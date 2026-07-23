@@ -53316,20 +53316,6 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_152C9E0B3658C1147AF00D32C0B7A02A34AE2BCEB80FF0DC72A85656A8C51DAA"
-code_id = "CODE_152C9E0B3658C1147AF00D32C0B7A02A34AE2BCEB80FF0DC72A85656A8C51DAA"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:e3da86e7b7f948687e868c6718c08aa3be1ce27a45b4365820f1064c4ca80f8c"
-risk_signals = ["broad_error_suppression", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_16491AD816A67C8509E495994B5E294D3AA3949E1E30CAB192D5670BCA7D9C35"
 code_id = "CODE_16491AD816A67C8509E495994B5E294D3AA3949E1E30CAB192D5670BCA7D9C35"
 owner = "trust-runtime"
@@ -53495,20 +53481,6 @@ reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-22"
 expires_on = "2026-10-22"
 rationale = "Acknowledges exact scanner-derived filesystem, authorization, time, fault, and state-mutation risks for guided setup and wizard behavior; the reviewed mappings bind those risks to explicit project, mode-routing, and browser-security invariants without suppressing them."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_1CB120F946B3EF9E1646EDBFADA218D431C5C355B76E3F98175A8D43DA71EED4"
-code_id = "CODE_1CB120F946B3EF9E1646EDBFADA218D431C5C355B76E3F98175A8D43DA71EED4"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:8eadfa9066ffe6da87872e6f14204c8a61b7e6993558c6c42206bc956d1cd22a"
-risk_signals = ["broad_error_suppression", "filesystem_or_environment", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
 
 [[acknowledgements]]
 schema_version = 1
@@ -53980,20 +53952,6 @@ owner = "trust-runtime"
 area = "runtime_safety"
 body_digest = "sha256:f36d2281664526d4b20529e26d9be9817090942bca564227a311714831536162"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_2E15F403B02A43CA7CE6DFA1BCEFA689ECFF43DABE40C1A20FD2DAE9B792E59F"
-code_id = "CODE_2E15F403B02A43CA7CE6DFA1BCEFA689ECFF43DABE40C1A20FD2DAE9B792E59F"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:8c93bcdca77dd058f833e5725c0dd2d47405c0468783a722948a8443a7b4ca26"
-risk_signals = ["fault_mapping"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-21"
@@ -54512,20 +54470,6 @@ owner = "trust-runtime"
 area = "runtime_safety"
 body_digest = "sha256:7bfcc5fd96bd1f757926e75dcba23ea8285073105820685c12d608bcc8b817b6"
 risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_3D4C19481409D9CB4A38D64A41BFE1C655F94157D1ED5FB481E77F915F2931DD"
-code_id = "CODE_3D4C19481409D9CB4A38D64A41BFE1C655F94157D1ED5FB481E77F915F2931DD"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:b7bdb970f7ee7935f40c21f458e31e8806889addca4b49500dbe7d7d05fc978b"
-risk_signals = ["broad_error_suppression", "state_mutation"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-21"
@@ -55360,20 +55304,6 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_5B64B38A94CAE768E2B16E11C3B0310C9B5AA50CC55F321C2B84C2DFBF554F16"
-code_id = "CODE_5B64B38A94CAE768E2B16E11C3B0310C9B5AA50CC55F321C2B84C2DFBF554F16"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:901f9999e4fcda4015f524caf49aa7c84cbf42baab11e0a827ba979e828e8bb3"
-risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_5BEED31A0413F3392A8CA7E02AF67F7D0194E837316C8F6B0A17EF1EBDFD93E8"
 code_id = "CODE_5BEED31A0413F3392A8CA7E02AF67F7D0194E837316C8F6B0A17EF1EBDFD93E8"
 owner = "trust-runtime"
@@ -55794,20 +55724,6 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_6C3B037D5DA1ED0D05C9865FF5C22BB5C0C5C23B1D32759F02B27D7421FDCF41"
-code_id = "CODE_6C3B037D5DA1ED0D05C9865FF5C22BB5C0C5C23B1D32759F02B27D7421FDCF41"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:24a5bfc13aaa32e51436456e9d47e10e33829df53ac3aec34f506f19c84a1f17"
-risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_6C9646F68C25D361C1DF06EE2ABBA7C46F298E3C99C03D31B7ECB41C98EF5EE2"
 code_id = "CODE_6C9646F68C25D361C1DF06EE2ABBA7C46F298E3C99C03D31B7ECB41C98EF5EE2"
 owner = "trust-runtime"
@@ -55926,34 +55842,6 @@ owner = "trust-runtime"
 area = "runtime_safety"
 body_digest = "sha256:cfb88182dbb48e1d57e6398ea8099d131266650455bd34b93e467071182579ca"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_74001CF804CC6A12EEA8B05D791E685F3AA0F4E7843C589DA980AF72E8A88739"
-code_id = "CODE_74001CF804CC6A12EEA8B05D791E685F3AA0F4E7843C589DA980AF72E8A88739"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:3f736106936d4bb87acd295bc5ac42f7ebb2c01587fbcf71973b49ecc4605c59"
-risk_signals = ["broad_error_suppression", "host_time"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_7488C53C99E67311F68A97965ED140C840321CCEEA65623FE42CEEEB50E658A3"
-code_id = "CODE_7488C53C99E67311F68A97965ED140C840321CCEEA65623FE42CEEEB50E658A3"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:977f041c9b3fa74b8e78db0b9b1de84138829db6edbbac66ce8d10ce6bf0bf05"
-risk_signals = ["persistence_retain_reload_restart", "state_mutation"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-21"
@@ -56382,20 +56270,6 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_849A55FF5CDD94B99BF20FFE223F26C00BD988D8987FC8010F608D0ECA5A0586"
-code_id = "CODE_849A55FF5CDD94B99BF20FFE223F26C00BD988D8987FC8010F608D0ECA5A0586"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:1afc506941f9b7ea00abf579f2f9fe876ef622312ec611f22d3f273f67ae6eef"
-risk_signals = ["broad_error_suppression"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_84C6EEF6B2BC0D343A5713C5FF2601390C2DE3776A9D206FDDF2D064AE0EEF39"
 code_id = "CODE_84C6EEF6B2BC0D343A5713C5FF2601390C2DE3776A9D206FDDF2D064AE0EEF39"
 owner = "trust-runtime"
@@ -56472,20 +56346,6 @@ owner = "trust-runtime"
 area = "runtime_safety"
 body_digest = "sha256:a39afe9e5c06c52430f15d1067ed267314759c0ca9582101401d972651335fca"
 risk_signals = ["filesystem_or_environment"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_87B226DD45BAF86E9FBF472DEEDE6CAA96FC5BA95CF91CA9571291E232FD3B0F"
-code_id = "CODE_87B226DD45BAF86E9FBF472DEEDE6CAA96FC5BA95CF91CA9571291E232FD3B0F"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:7d50b2c234776ca0aa731d4e32659a1df3fd3ffbf30076c906631a156753e51e"
-risk_signals = ["state_mutation"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-21"
@@ -57320,20 +57180,6 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_9F082D573BB5546A118E955353FD8B64056BB4300035CE8763F7876FD5F2692A"
-code_id = "CODE_9F082D573BB5546A118E955353FD8B64056BB4300035CE8763F7876FD5F2692A"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:79cdd5baaa0b1b17cbd38a2138a87e5ce38236bfc82c23d823ba8b6c45f73ec9"
-risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_9F0CCF09D2C0F7105D56970EA49647969529DE548A2D2E6DBB84D9AA81A38673"
 code_id = "CODE_9F0CCF09D2C0F7105D56970EA49647969529DE548A2D2E6DBB84D9AA81A38673"
 owner = "trust-runtime"
@@ -57642,20 +57488,6 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_A48C81891DB9FC017BAD0757A302C36F41D1EBC486C199567A672951B68B8C52"
-code_id = "CODE_A48C81891DB9FC017BAD0757A302C36F41D1EBC486C199567A672951B68B8C52"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:47ff3e5ee6d682823225c9cf2de382a8bd43fbd9f8ab0417ed7899e5347c5d50"
-risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_A6509DA35CF1F55FD0FC82BD6F0A3A520A9D0D4EA1D5DA96BCFED70E75E9F180"
 code_id = "CODE_A6509DA35CF1F55FD0FC82BD6F0A3A520A9D0D4EA1D5DA96BCFED70E75E9F180"
 owner = "trust-runtime"
@@ -57886,20 +57718,6 @@ owner = "trust-runtime"
 area = "runtime_safety"
 body_digest = "sha256:9a8e9f43f6ec139866ba01a75afb7b1d4af7cbb096612f5b72446205191c46ac"
 risk_signals = ["fault_mapping", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_AF1A2C101BE12F8E39DDA825480476B982C628CBEAF5608C932549F2D861FB53"
-code_id = "CODE_AF1A2C101BE12F8E39DDA825480476B982C628CBEAF5608C932549F2D861FB53"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:3718918f4e2a076ce01b2d19c30c5e75ab2ca80a1bedbb3b17b96d32f820e1b3"
-risk_signals = ["state_mutation"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-21"
@@ -59000,20 +58818,6 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_D1216A4DC04DC83162A5CB65560AF8BE39D06ADBCB2987D5A833CD230657866C"
-code_id = "CODE_D1216A4DC04DC83162A5CB65560AF8BE39D06ADBCB2987D5A833CD230657866C"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:54f782e469b7992f0385b0bd4de31b9b882dc6686cf2af3d09ef3d773b321f9c"
-risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_D134D2A090B9715D2A2B7BDBCFBF614CCEC55B5D974FE246B9D3BF69FFC05AC0"
 code_id = "CODE_D134D2A090B9715D2A2B7BDBCFBF614CCEC55B5D974FE246B9D3BF69FFC05AC0"
 owner = "trust-runtime"
@@ -59364,20 +59168,6 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_D9DF2515953C4E6CD38382E6C3690DBB0564DD04B6E3B67763277CCA2C69A032"
-code_id = "CODE_D9DF2515953C4E6CD38382E6C3690DBB0564DD04B6E3B67763277CCA2C69A032"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:cc9e5738edbc0d4344d303e46fb0bd10a302a8f7c877c1214fdee41912bfa21c"
-risk_signals = ["filesystem_or_environment", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_D9FDB87E1F8869FBCFE1FA0C645C13A075005E405E3995E9CD13949E6677C801"
 code_id = "CODE_D9FDB87E1F8869FBCFE1FA0C645C13A075005E405E3995E9CD13949E6677C801"
 owner = "trust-runtime"
@@ -59398,20 +59188,6 @@ owner = "trust-runtime"
 area = "runtime_safety"
 body_digest = "sha256:352d99b32163e89a2825d575b312b62133ffd449d59dce98e321e8cbd78ac7f3"
 risk_signals = ["fault_mapping", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_DA6325BCB9573ADA61A29BB21BB8878A6F9002F1E028F9C962C4B0DADBAF7C3D"
-code_id = "CODE_DA6325BCB9573ADA61A29BB21BB8878A6F9002F1E028F9C962C4B0DADBAF7C3D"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:0a838b0bde716633d522fbea232a574f4d987ac403a34107740c75431a4de8f3"
-risk_signals = ["state_mutation"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-21"
@@ -60112,20 +59888,6 @@ owner = "trust-runtime"
 area = "runtime_safety"
 body_digest = "sha256:00936698f34f80cc4e871c7bc4df73cfff44538c62418466cbb44b3037e95008"
 risk_signals = ["protocol_response_or_status", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_EFC2DA6E9199C5B2D34B9226BD53C0D5A9E5B53111053972DECE51FC3BABC362"
-code_id = "CODE_EFC2DA6E9199C5B2D34B9226BD53C0D5A9E5B53111053972DECE51FC3BABC362"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:627bfa725389be01452f5d0f854e77b70c7120bca411b3cff317befc920abbb0"
-risk_signals = ["state_mutation"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-21"
@@ -81805,3 +81567,240 @@ reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-23"
 expires_on = "2027-07-23"
 rationale = "The reviewed CLI intentionally sends authenticated control actions to local or explicitly configured endpoints; focused process-isolated tests prove credential precedence, wire shape, failure classification, and compact rendering without exposing token material."
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_1CB120F946B3EF9E1646EDBFADA218D431C5C355B76E3F98175A8D43DA71EED4"
+code_id = "CODE_1CB120F946B3EF9E1646EDBFADA218D431C5C355B76E3F98175A8D43DA71EED4"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:5ea2c86520396173667860f6df94c5ff8a37f3c9936de03a5c359d6ff818f468"
+risk_signals = ["filesystem_or_environment", "state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "Deployment intentionally changes versioned bundle and pointer state. Focused unit and process-isolated integration tests prove validation, containment, copy closure, summary truth, pointer transitions, rollback, and pruning without relying on live hardware or external services."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_2E15F403B02A43CA7CE6DFA1BCEFA689ECFF43DABE40C1A20FD2DAE9B792E59F"
+code_id = "CODE_2E15F403B02A43CA7CE6DFA1BCEFA689ECFF43DABE40C1A20FD2DAE9B792E59F"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:8c93bcdca77dd058f833e5725c0dd2d47405c0468783a722948a8443a7b4ca26"
+risk_signals = ["fault_mapping"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "Deployment intentionally changes versioned bundle and pointer state. Focused unit and process-isolated integration tests prove validation, containment, copy closure, summary truth, pointer transitions, rollback, and pruning without relying on live hardware or external services."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_3D4C19481409D9CB4A38D64A41BFE1C655F94157D1ED5FB481E77F915F2931DD"
+code_id = "CODE_3D4C19481409D9CB4A38D64A41BFE1C655F94157D1ED5FB481E77F915F2931DD"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:73a1c62763c7e0dfa66ac1d0ea88edb025a47d3470ff3b945dde773be5d31f09"
+risk_signals = ["broad_error_suppression", "state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "Deployment intentionally changes versioned bundle and pointer state. Focused unit and process-isolated integration tests prove validation, containment, copy closure, summary truth, pointer transitions, rollback, and pruning without relying on live hardware or external services."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_5B64B38A94CAE768E2B16E11C3B0310C9B5AA50CC55F321C2B84C2DFBF554F16"
+code_id = "CODE_5B64B38A94CAE768E2B16E11C3B0310C9B5AA50CC55F321C2B84C2DFBF554F16"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:901f9999e4fcda4015f524caf49aa7c84cbf42baab11e0a827ba979e828e8bb3"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "Deployment intentionally changes versioned bundle and pointer state. Focused unit and process-isolated integration tests prove validation, containment, copy closure, summary truth, pointer transitions, rollback, and pruning without relying on live hardware or external services."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_6C3B037D5DA1ED0D05C9865FF5C22BB5C0C5C23B1D32759F02B27D7421FDCF41"
+code_id = "CODE_6C3B037D5DA1ED0D05C9865FF5C22BB5C0C5C23B1D32759F02B27D7421FDCF41"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:007655358691bb7809b16f35609350c5ad8ca62bfa3c2d0c3c0c6da811b1e9c6"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "Deployment intentionally changes versioned bundle and pointer state. Focused unit and process-isolated integration tests prove validation, containment, copy closure, summary truth, pointer transitions, rollback, and pruning without relying on live hardware or external services."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_74001CF804CC6A12EEA8B05D791E685F3AA0F4E7843C589DA980AF72E8A88739"
+code_id = "CODE_74001CF804CC6A12EEA8B05D791E685F3AA0F4E7843C589DA980AF72E8A88739"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:769aab6658e4a300d6db59cd5fcb38ca6d0b2c3935af03c3dc922806dc349cbc"
+risk_signals = ["broad_error_suppression", "host_time"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "Deployment intentionally changes versioned bundle and pointer state. Focused unit and process-isolated integration tests prove validation, containment, copy closure, summary truth, pointer transitions, rollback, and pruning without relying on live hardware or external services."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_7488C53C99E67311F68A97965ED140C840321CCEEA65623FE42CEEEB50E658A3"
+code_id = "CODE_7488C53C99E67311F68A97965ED140C840321CCEEA65623FE42CEEEB50E658A3"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:ebfd2da0aa81bec9912c01f70696cf6106cd271b695eecb1b2a7204425f3246d"
+risk_signals = ["persistence_retain_reload_restart", "state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "Deployment intentionally changes versioned bundle and pointer state. Focused unit and process-isolated integration tests prove validation, containment, copy closure, summary truth, pointer transitions, rollback, and pruning without relying on live hardware or external services."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_849A55FF5CDD94B99BF20FFE223F26C00BD988D8987FC8010F608D0ECA5A0586"
+code_id = "CODE_849A55FF5CDD94B99BF20FFE223F26C00BD988D8987FC8010F608D0ECA5A0586"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:3e8632a6587b05d1658b55a46040d2ab32225c799ee37f32e1a26559c0d0c42b"
+risk_signals = ["broad_error_suppression"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "Deployment intentionally changes versioned bundle and pointer state. Focused unit and process-isolated integration tests prove validation, containment, copy closure, summary truth, pointer transitions, rollback, and pruning without relying on live hardware or external services."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_87B226DD45BAF86E9FBF472DEEDE6CAA96FC5BA95CF91CA9571291E232FD3B0F"
+code_id = "CODE_87B226DD45BAF86E9FBF472DEEDE6CAA96FC5BA95CF91CA9571291E232FD3B0F"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:3fe574ca80df571fa6bfb0ee34de95500aac6e5a77de53982d8ad8d851b8cec4"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "Deployment intentionally changes versioned bundle and pointer state. Focused unit and process-isolated integration tests prove validation, containment, copy closure, summary truth, pointer transitions, rollback, and pruning without relying on live hardware or external services."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_9F082D573BB5546A118E955353FD8B64056BB4300035CE8763F7876FD5F2692A"
+code_id = "CODE_9F082D573BB5546A118E955353FD8B64056BB4300035CE8763F7876FD5F2692A"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:0f89a3b9ec1bc01e6244b70b300712e957ef8f35a407b42cd638182033f38d7a"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "Deployment intentionally changes versioned bundle and pointer state. Focused unit and process-isolated integration tests prove validation, containment, copy closure, summary truth, pointer transitions, rollback, and pruning without relying on live hardware or external services."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_A48C81891DB9FC017BAD0757A302C36F41D1EBC486C199567A672951B68B8C52"
+code_id = "CODE_A48C81891DB9FC017BAD0757A302C36F41D1EBC486C199567A672951B68B8C52"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:e84a3f2198d5d82ff0feecd9ff61dec1489197c76bece46ffdc9e3ecf1014172"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "Deployment intentionally changes versioned bundle and pointer state. Focused unit and process-isolated integration tests prove validation, containment, copy closure, summary truth, pointer transitions, rollback, and pruning without relying on live hardware or external services."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_AF1A2C101BE12F8E39DDA825480476B982C628CBEAF5608C932549F2D861FB53"
+code_id = "CODE_AF1A2C101BE12F8E39DDA825480476B982C628CBEAF5608C932549F2D861FB53"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:da770afd1e8aafbc73f75471f7d65da8991936993c76a5db163160930d017a5b"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "Deployment intentionally changes versioned bundle and pointer state. Focused unit and process-isolated integration tests prove validation, containment, copy closure, summary truth, pointer transitions, rollback, and pruning without relying on live hardware or external services."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_CD4FB2BC730C7C99E868922AC3634E2133ABC6FECE96C6E21B2C31CD139435E4"
+code_id = "CODE_CD4FB2BC730C7C99E868922AC3634E2133ABC6FECE96C6E21B2C31CD139435E4"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:d98144ea5adbc07f57a636c2eba4207f1c48a905ee22fe6694b92d4cf998800c"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "Deployment intentionally changes versioned bundle and pointer state. Focused unit and process-isolated integration tests prove validation, containment, copy closure, summary truth, pointer transitions, rollback, and pruning without relying on live hardware or external services."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_D1216A4DC04DC83162A5CB65560AF8BE39D06ADBCB2987D5A833CD230657866C"
+code_id = "CODE_D1216A4DC04DC83162A5CB65560AF8BE39D06ADBCB2987D5A833CD230657866C"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:1f3a9d7a48d6be6940a7b1f0bf1ba26bb37a996bc3b9d928398be4b3b4a38516"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "Deployment intentionally changes versioned bundle and pointer state. Focused unit and process-isolated integration tests prove validation, containment, copy closure, summary truth, pointer transitions, rollback, and pruning without relying on live hardware or external services."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_D9DF2515953C4E6CD38382E6C3690DBB0564DD04B6E3B67763277CCA2C69A032"
+code_id = "CODE_D9DF2515953C4E6CD38382E6C3690DBB0564DD04B6E3B67763277CCA2C69A032"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:7421a603994915093e3a1f4d050f690ec8173c8796f701cdff3ac47eea9aaa91"
+risk_signals = ["filesystem_or_environment", "state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "Deployment intentionally changes versioned bundle and pointer state. Focused unit and process-isolated integration tests prove validation, containment, copy closure, summary truth, pointer transitions, rollback, and pruning without relying on live hardware or external services."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_DA6325BCB9573ADA61A29BB21BB8878A6F9002F1E028F9C962C4B0DADBAF7C3D"
+code_id = "CODE_DA6325BCB9573ADA61A29BB21BB8878A6F9002F1E028F9C962C4B0DADBAF7C3D"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:ada35487434fe9ec5cf1be1d9d9df8e317bf25bcedfca324b45b5fb7af58f106"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "Deployment intentionally changes versioned bundle and pointer state. Focused unit and process-isolated integration tests prove validation, containment, copy closure, summary truth, pointer transitions, rollback, and pruning without relying on live hardware or external services."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_DD3F7A453B8DE80431DED656024FD86EF67AF32E71A43B8422819D36A1C93257"
+code_id = "CODE_DD3F7A453B8DE80431DED656024FD86EF67AF32E71A43B8422819D36A1C93257"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:e8563a94bd73b59d54afc2c92100cbe40088c05e7158c7650360b965abd18261"
+risk_signals = ["broad_error_suppression", "state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "Deployment intentionally changes versioned bundle and pointer state. Focused unit and process-isolated integration tests prove validation, containment, copy closure, summary truth, pointer transitions, rollback, and pruning without relying on live hardware or external services."

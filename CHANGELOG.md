@@ -10,6 +10,9 @@ Target release: `v0.24.54`
 
 ### Fixed
 
+- trust-runtime: versioned deployment now rejects invalid pointer slots before
+  installation, copies enabled ADS and OPC UA client sidecars into the
+  installed bundle, and rejects symbolic links in the copied bundle closure.
 - trust-runtime: standalone `ide serve` now rejects a non-directory project
   path before constructing control state or attempting to bind the web server.
 - trust-runtime: generated runtime templates no longer serialize an empty mesh

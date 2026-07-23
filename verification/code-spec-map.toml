@@ -193140,23 +193140,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_003CA2D926A8619AA8E7EA06CFEA3CEA591C48222CB0201688D414533185D1AE"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/deploy/summary_models.rs"
-qualified_symbol = "trust_runtime::deploy::SourceDiff::is_empty"
-item_kind = "rust_method"
-signature_digest = "sha256:2a58cb751f039b643161275a86c30461fecd7aa8a99c532ac426c40193fbf42d"
-reviewed_body_digest = "sha256:e7203022c7e6b5b416556f798e79a3ce4f5037ff0fd540739b27c6aa8730ce34"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_00C691C258F8CFACF6E005A4C4171F9BCBACB3B5B8B61D767CC5416BA28D807F"
 source_kind = "rust"
 path = "crates/trust-runtime/src/host/mesh/models.rs"
@@ -195404,25 +195387,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_152C9E0B3658C1147AF00D32C0B7A02A34AE2BCEB80FF0DC72A85656A8C51DAA"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/deploy/diffs.rs"
-qualified_symbol = "trust_runtime::deploy::diff_sources"
-item_kind = "rust_function"
-signature_digest = "sha256:a4b5015cf2a829dfaecffdd694346f52dca146f3706355c5f37ec6f607de6ad2"
-reviewed_body_digest = "sha256:e3da86e7b7f948687e868c6718c08aa3be1ce27a45b4365820f1064c4ca80f8c"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = ["broad_error_suppression", "state_mutation"]
-owner_ack = "RISK_ACK_152C9E0B3658C1147AF00D32C0B7A02A34AE2BCEB80FF0DC72A85656A8C51DAA"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_15A0F0C6DDDFF5E9F9F359AA0FE315EF72802CE49D46FE408815CFCDE032C165"
 source_kind = "rust"
 path = "crates/trust-runtime-core/src/watchdog.rs"
@@ -196170,25 +196134,6 @@ spec_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-initialization"
 invariant_ids = ["RT_SETUP_BROWSER_SECURITY_001"]
 test_ids = ["TEST_RUNTIME_SETUP_ACCESS_OPEN_001", "TEST_RUNTIME_SETUP_ACCESS_TOKEN_001", "TEST_RUNTIME_SETUP_ACCESS_EXPIRY_001", "TEST_RUNTIME_SETUP_QUERY_PARSING_001", "TEST_RUNTIME_SETUP_TTL_CHECKED_001", "TEST_RUNTIME_SETUP_TTL_OVERFLOW_001", "TEST_RUNTIME_SETUP_RNG_FAILURE_001", "TEST_RUNTIME_SETUP_TOKEN_BYTES_001", "TEST_RUNTIME_SETUP_REMOTE_DRY_RUN_001"]
 last_reviewed = "2026-07-22"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_1CB120F946B3EF9E1646EDBFADA218D431C5C355B76E3F98175A8D43DA71EED4"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/deploy/commands.rs"
-qualified_symbol = "trust_runtime::deploy::run_deploy"
-item_kind = "rust_function"
-signature_digest = "sha256:0c3382ef082016c5b873cf0cddf47e2998a32f8fc1dd2eebd66fa3c626d94044"
-reviewed_body_digest = "sha256:8eadfa9066ffe6da87872e6f14204c8a61b7e6993558c6c42206bc956d1cd22a"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "public"
-risk_signals = ["broad_error_suppression", "filesystem_or_environment", "state_mutation"]
-owner_ack = "RISK_ACK_1CB120F946B3EF9E1646EDBFADA218D431C5C355B76E3F98175A8D43DA71EED4"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
@@ -197922,23 +197867,6 @@ last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_2C744A24483395BC035F4236DCC541A25266ACFBD650EDE33DD97D8055201DC2"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/deploy/helpers.rs"
-qualified_symbol = "trust_runtime::deploy::path_state"
-item_kind = "rust_function"
-signature_digest = "sha256:0453492f4b5dbf4ca5e027eb02c93c9d745a2395ebe5ac8667878a62e252238e"
-reviewed_body_digest = "sha256:84b5aab65d4f86a76166c40ae2b24aa01f8ef4a6c1b711464811aed03bff9f6a"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_2CE748417BAA4F1D9D474F9525DFB494C49280725A6641B73164CB021128FC7D"
 source_kind = "rust"
 path = "crates/trust-runtime/src/retain/manager.rs"
@@ -198074,25 +198002,6 @@ area = "runtime_safety"
 visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_2DD5F458F17E6A67F56B3ADE729590BE873975E9EFD96967B820058FCDF23B79"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_2E15F403B02A43CA7CE6DFA1BCEFA689ECFF43DABE40C1A20FD2DAE9B792E59F"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/deploy/bundle_io.rs"
-qualified_symbol = "trust_runtime::deploy::validate_bundle"
-item_kind = "rust_function"
-signature_digest = "sha256:4098abb87e6ee6b0baa86403aad8e36c47cad067f8d0092b918db80abef24e38"
-reviewed_body_digest = "sha256:8c93bcdca77dd058f833e5725c0dd2d47405c0468783a722948a8443a7b4ca26"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = ["fault_mapping"]
-owner_ack = "RISK_ACK_2E15F403B02A43CA7CE6DFA1BCEFA689ECFF43DABE40C1A20FD2DAE9B792E59F"
 owner_ack_expires_on = "2026-10-21"
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
@@ -199819,25 +199728,6 @@ area = "runtime_safety"
 visibility = "private"
 risk_signals = ["fault_mapping"]
 owner_ack = "RISK_ACK_3D40EF8DCB95DCF398A88273671FAB8A36150B5D291A2A47F1FF3218A0F46CFB"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_3D4C19481409D9CB4A38D64A41BFE1C655F94157D1ED5FB481E77F915F2931DD"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/deploy/bundle_io.rs"
-qualified_symbol = "trust_runtime::deploy::prune_bundles"
-item_kind = "rust_function"
-signature_digest = "sha256:5ade099242cd403ba732ef55e541f370e84ead9b19f33009e3f29a138b83c7c6"
-reviewed_body_digest = "sha256:b7bdb970f7ee7935f40c21f458e31e8806889addca4b49500dbe7d7d05fc978b"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = ["broad_error_suppression", "state_mutation"]
-owner_ack = "RISK_ACK_3D4C19481409D9CB4A38D64A41BFE1C655F94157D1ED5FB481E77F915F2931DD"
 owner_ack_expires_on = "2026-10-21"
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
@@ -202893,25 +202783,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_5B64B38A94CAE768E2B16E11C3B0310C9B5AA50CC55F321C2B84C2DFBF554F16"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/deploy/helpers.rs"
-qualified_symbol = "trust_runtime::deploy::diff_field"
-item_kind = "rust_function"
-signature_digest = "sha256:0e71af7da2fb136c56fb3afb21f23a302c624439cca9aec07ee6be0fc9d18bf5"
-reviewed_body_digest = "sha256:901f9999e4fcda4015f524caf49aa7c84cbf42baab11e0a827ba979e828e8bb3"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = ["state_mutation"]
-owner_ack = "RISK_ACK_5B64B38A94CAE768E2B16E11C3B0310C9B5AA50CC55F321C2B84C2DFBF554F16"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_5BEED31A0413F3392A8CA7E02AF67F7D0194E837316C8F6B0A17EF1EBDFD93E8"
 source_kind = "rust"
 path = "crates/trust-runtime/src/openot_authoring/instrumentation.rs"
@@ -203395,23 +203266,6 @@ visibility = "public"
 risk_signals = ["fault_mapping"]
 owner_ack = "RISK_ACK_5FB6F78738CAE258C5EE3B74774B13EDD593D0A68FBC17886AF6BF02A9C79488"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_5FDEEF6286CDEF1EF39C092C62B2661E23106532D734C5697948CD68090D62D1"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/deploy/bundle_io.rs"
-qualified_symbol = "trust_runtime::deploy::copy_bundle"
-item_kind = "rust_function"
-signature_digest = "sha256:5e8f1a6781d796a38e6b4dccbcaf27adf4c2c4e2d8127418ec92520915716d54"
-reviewed_body_digest = "sha256:659ad879b5f0790b221cf345945908cf04d2e6ac30b3144902ec534591326bae"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = []
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
 last_reviewed = "2026-07-21"
@@ -204771,25 +204625,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_6C3B037D5DA1ED0D05C9865FF5C22BB5C0C5C23B1D32759F02B27D7421FDCF41"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/deploy/diffs.rs"
-qualified_symbol = "trust_runtime::deploy::diff_io"
-item_kind = "rust_function"
-signature_digest = "sha256:9b3d3626dff93fec79c489eb38bbf72d9b47a211d9547f639e12a1a9dda56952"
-reviewed_body_digest = "sha256:24a5bfc13aaa32e51436456e9d47e10e33829df53ac3aec34f506f19c84a1f17"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = ["state_mutation"]
-owner_ack = "RISK_ACK_6C3B037D5DA1ED0D05C9865FF5C22BB5C0C5C23B1D32759F02B27D7421FDCF41"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_6C7D714BB33989EAD0A951C895EA3C26D89E2DBCD6A57D4FFB3AE30A91235BE0"
 source_kind = "rust"
 path = "crates/trust-runtime/src/host/registry/models.rs"
@@ -205492,25 +205327,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_74001CF804CC6A12EEA8B05D791E685F3AA0F4E7843C589DA980AF72E8A88739"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/deploy/bundle_io.rs"
-qualified_symbol = "trust_runtime::deploy::default_bundle_label"
-item_kind = "rust_function"
-signature_digest = "sha256:6670aaf980644c9f595fc644ff04de22dd4843939b3321bbb1564411a03e615e"
-reviewed_body_digest = "sha256:3f736106936d4bb87acd295bc5ac42f7ebb2c01587fbcf71973b49ecc4605c59"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = ["broad_error_suppression", "host_time"]
-owner_ack = "RISK_ACK_74001CF804CC6A12EEA8B05D791E685F3AA0F4E7843C589DA980AF72E8A88739"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_74885A0E5A565C3B85739C06647503F160E17EC96EAEE1F37DC67728083A3C89"
 source_kind = "rust"
 path = "crates/trust-runtime/src/runtime/ads_subsystem.rs"
@@ -205522,25 +205338,6 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_7488C53C99E67311F68A97965ED140C840321CCEEA65623FE42CEEEB50E658A3"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/deploy/diffs.rs"
-qualified_symbol = "trust_runtime::deploy::diff_runtime"
-item_kind = "rust_function"
-signature_digest = "sha256:356cf97edeb17f7bf7b1ada31d0ac6046be2090074c57657150cef6541da74a9"
-reviewed_body_digest = "sha256:977f041c9b3fa74b8e78db0b9b1de84138829db6edbbac66ce8d10ce6bf0bf05"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = ["persistence_retain_reload_restart", "state_mutation"]
-owner_ack = "RISK_ACK_7488C53C99E67311F68A97965ED140C840321CCEEA65623FE42CEEEB50E658A3"
-owner_ack_expires_on = "2026-10-21"
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
 last_reviewed = "2026-07-21"
@@ -205855,23 +205652,6 @@ qualified_symbol = "trust_runtime::registry::ensure_registry_layout"
 item_kind = "rust_function"
 signature_digest = "sha256:bf1fba50980961a29d1fa1b1ddcc5b2aa7c35da2807bec6f74cb129755338c20"
 reviewed_body_digest = "sha256:5c40cec39a19a5fa44e4c6c646b8f5a7bd69cef5c0db3c3a82049884e00ed169"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_76D5012A889FDF11D23CC76E66820302E60DE5EE71D1D173E7B3BE403510FCFB"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/deploy/helpers.rs"
-qualified_symbol = "trust_runtime::deploy::token_state"
-item_kind = "rust_function"
-signature_digest = "sha256:c69b3a45eb387fe4667779f6b063ad4801c24a8ce7767006cca53f4d2696ddfe"
-reviewed_body_digest = "sha256:f00b2378de0b8f9c712032b1fec914a5a90b9898c740a65214ca6002e1744e8a"
 owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
@@ -206924,23 +206704,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_81FEC5DB5AF3D350F14F112A68FCA90C124C3EC342C2A89BEC9731E8D9E23A5E"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/deploy/summary_models.rs"
-qualified_symbol = "trust_runtime::deploy::BundleChangeSummary::new"
-item_kind = "rust_method"
-signature_digest = "sha256:d750a1f411f37c4d90c16f4f00195b942f13ef10a8b46c0bb185b99937fb4f25"
-reviewed_body_digest = "sha256:8b699d8281f683fb93df42b266140d772d2ef01847889d969ca4c126f2c8ac78"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_820AC296997F2D46D4A3F1D5A2861388B5BE859893D798DA6F914B3B6087F764"
 source_kind = "rust"
 path = "crates/trust-runtime/src/openot_authoring/model.rs"
@@ -207263,25 +207026,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_849A55FF5CDD94B99BF20FFE223F26C00BD988D8987FC8010F608D0ECA5A0586"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/deploy/bundle_io.rs"
-qualified_symbol = "trust_runtime::deploy::read_link_target"
-item_kind = "rust_function"
-signature_digest = "sha256:9ff74f073ee744e6ddd0346e0a5af14278d95bc9adb17ee83f2d4eed9c2f2046"
-reviewed_body_digest = "sha256:1afc506941f9b7ea00abf579f2f9fe876ef622312ec611f22d3f273f67ae6eef"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = ["broad_error_suppression"]
-owner_ack = "RISK_ACK_849A55FF5CDD94B99BF20FFE223F26C00BD988D8987FC8010F608D0ECA5A0586"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_84C6EEF6B2BC0D343A5713C5FF2601390C2DE3776A9D206FDDF2D064AE0EEF39"
 source_kind = "rust"
 path = "crates/trust-runtime/src/host/ui/mod.rs"
@@ -207477,23 +207221,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_86FA971A3E6E6D20B3EB0D5D7D05F7F960106D5F500942FC4470FEFD7B7E867F"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/deploy/commands.rs"
-qualified_symbol = "trust_runtime::deploy::DeployResult"
-item_kind = "rust_public_type"
-signature_digest = "sha256:3f6061ea7829789d43e7b170b51ec0d2b99d65f24f1c53bb3b9f93fc11023b42"
-reviewed_body_digest = "sha256:d0b8095de923f425e0bc0d91eaab18e3d59be86bae18602bd56a328a996a5754"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "public"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_87586596DF409E652AFC7C46254E78B30A716098AFF4D7131AD269D8ABD841AC"
 source_kind = "rust"
 path = "crates/trust-runtime/src/bin/trust-runtime/run/runtime/bundle_apply.rs"
@@ -207581,25 +207308,6 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_87B226DD45BAF86E9FBF472DEEDE6CAA96FC5BA95CF91CA9571291E232FD3B0F"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/deploy/diffs.rs"
-qualified_symbol = "trust_runtime::deploy::diff_retain"
-item_kind = "rust_function"
-signature_digest = "sha256:0e6a1cb53044b069fd84f20c2d6228fe1129c04f03047b5da8baf84527331530"
-reviewed_body_digest = "sha256:7d50b2c234776ca0aa731d4e32659a1df3fd3ffbf30076c906631a156753e51e"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = ["state_mutation"]
-owner_ack = "RISK_ACK_87B226DD45BAF86E9FBF472DEEDE6CAA96FC5BA95CF91CA9571291E232FD3B0F"
-owner_ack_expires_on = "2026-10-21"
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
 last_reviewed = "2026-07-21"
@@ -209575,23 +209283,6 @@ last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_96E0B391940706B4F9CE2577C7100580E3022E065E2732AC3FA280E1F698B15F"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/deploy/diffs.rs"
-qualified_symbol = "trust_runtime::deploy::write_summary"
-item_kind = "rust_function"
-signature_digest = "sha256:c5730e358776d3ce5cba8ded49700b662f9c84b2ac295536caa0136e89980b38"
-reviewed_body_digest = "sha256:87a036c1389febe65bee59a2ff4e2b0625b1d6b6f326e279780e4bec813d755b"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_9705DB49D36F168E35F51C3C2B2FF86602CCD3DA032D252B9EBE3C019162C3A0"
 source_kind = "rust"
 path = "crates/trust-runtime/src/runtime/core/accessors.rs"
@@ -210577,25 +210268,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_9F082D573BB5546A118E955353FD8B64056BB4300035CE8763F7876FD5F2692A"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/deploy/helpers.rs"
-qualified_symbol = "trust_runtime::deploy::safe_state_changed"
-item_kind = "rust_function"
-signature_digest = "sha256:f4eddadafda19f2343ddd94812261f733880751cd6d0954ed6f7d4e7e6274d81"
-reviewed_body_digest = "sha256:79cdd5baaa0b1b17cbd38a2138a87e5ce38236bfc82c23d823ba8b6c45f73ec9"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = ["state_mutation"]
-owner_ack = "RISK_ACK_9F082D573BB5546A118E955353FD8B64056BB4300035CE8763F7876FD5F2692A"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_9F0CCF09D2C0F7105D56970EA49647969529DE548A2D2E6DBB84D9AA81A38673"
 source_kind = "rust"
 path = "crates/trust-runtime/src/host/historian/sampling.rs"
@@ -211464,25 +211136,6 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_A48C81891DB9FC017BAD0757A302C36F41D1EBC486C199567A672951B68B8C52"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/deploy/summary_models.rs"
-qualified_symbol = "trust_runtime::deploy::BundleChangeSummary::render"
-item_kind = "rust_method"
-signature_digest = "sha256:368a00fe8ce0955d08bcefaa0707825806aad89b8879cc3d6a5dfbea0fabc803"
-reviewed_body_digest = "sha256:47ff3e5ee6d682823225c9cf2de382a8bd43fbd9f8ab0417ed7899e5347c5d50"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = ["state_mutation"]
-owner_ack = "RISK_ACK_A48C81891DB9FC017BAD0757A302C36F41D1EBC486C199567A672951B68B8C52"
-owner_ack_expires_on = "2026-10-21"
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
 last_reviewed = "2026-07-21"
@@ -212555,25 +212208,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_AF1A2C101BE12F8E39DDA825480476B982C628CBEAF5608C932549F2D861FB53"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/deploy/bundle_io.rs"
-qualified_symbol = "trust_runtime::deploy::update_symlink"
-item_kind = "rust_function"
-signature_digest = "sha256:2198f8f18e1b4e0b6990bdba28775c4e4ebe156e1f4c2e39e1a4223d4c7e81c2"
-reviewed_body_digest = "sha256:3718918f4e2a076ce01b2d19c30c5e75ab2ca80a1bedbb3b17b96d32f820e1b3"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = ["state_mutation"]
-owner_ack = "RISK_ACK_AF1A2C101BE12F8E39DDA825480476B982C628CBEAF5608C932549F2D861FB53"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_AFBB91017CD751FF1480526C0D665F8D1FBF1172854EBB9DA58833D8ABCAA0EF"
 source_kind = "rust"
 path = "crates/trust-runtime/src/openot_authoring/validation.rs"
@@ -212824,23 +212458,6 @@ visibility = "private"
 risk_signals = ["filesystem_or_environment"]
 owner_ack = "RISK_ACK_B1BD75865720A9CFE4B3B707ABF6AE2B8B09A095040CF095CAD723C8C119496A"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_B1C4A8F8C2AE1C57FAC8126B4E56306AA290C44913399C7427900222D5B7AA11"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/deploy/bundle_io.rs"
-qualified_symbol = "trust_runtime::deploy::copy_dir"
-item_kind = "rust_function"
-signature_digest = "sha256:627081e480e822a96fbe68553234c5145b89db6d7c25aea911035903216e0d5b"
-reviewed_body_digest = "sha256:0a2b93e70208fad2dafc314b64f83e4876a43eb7aa3556c3efcbcf9818f828a3"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = []
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
 last_reviewed = "2026-07-21"
@@ -216331,25 +215948,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_D1216A4DC04DC83162A5CB65560AF8BE39D06ADBCB2987D5A833CD230657866C"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/deploy/bundle_io.rs"
-qualified_symbol = "trust_runtime::deploy::bundle_targets"
-item_kind = "rust_function"
-signature_digest = "sha256:470bb2284ca8ba7a7d89d22df2735b33ea76f382c2b28c59fcb1e16031e0755d"
-reviewed_body_digest = "sha256:54f782e469b7992f0385b0bd4de31b9b882dc6686cf2af3d09ef3d773b321f9c"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = ["state_mutation"]
-owner_ack = "RISK_ACK_D1216A4DC04DC83162A5CB65560AF8BE39D06ADBCB2987D5A833CD230657866C"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_D134D2A090B9715D2A2B7BDBCFBF614CCEC55B5D974FE246B9D3BF69FFC05AC0"
 source_kind = "rust"
 path = "crates/trust-runtime/src/bin/trust-runtime/wizard.rs"
@@ -217268,25 +216866,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_D9DF2515953C4E6CD38382E6C3690DBB0564DD04B6E3B67763277CCA2C69A032"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/deploy/commands.rs"
-qualified_symbol = "trust_runtime::deploy::run_rollback"
-item_kind = "rust_function"
-signature_digest = "sha256:a087d93fc7be76d0ce7e8e42e24d33886d26087bc3de49e00d519a05142f9737"
-reviewed_body_digest = "sha256:cc9e5738edbc0d4344d303e46fb0bd10a302a8f7c877c1214fdee41912bfa21c"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "public"
-risk_signals = ["filesystem_or_environment", "state_mutation"]
-owner_ack = "RISK_ACK_D9DF2515953C4E6CD38382E6C3690DBB0564DD04B6E3B67763277CCA2C69A032"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_D9EF2DCEEFD0F8192C20953FA53D21F7A6A13056F5DE82A510AD95CC9B5462FA"
 source_kind = "rust"
 path = "crates/trust-runtime/src/io/interface.rs"
@@ -217387,25 +216966,6 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_DA6325BCB9573ADA61A29BB21BB8878A6F9002F1E028F9C962C4B0DADBAF7C3D"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/deploy/diffs.rs"
-qualified_symbol = "trust_runtime::deploy::diff_watchdog"
-item_kind = "rust_function"
-signature_digest = "sha256:2172b5fcdff4af5e2cdfdf6dd07577c41a4605673d33a8e208b848270a2befd1"
-reviewed_body_digest = "sha256:0a838b0bde716633d522fbea232a574f4d987ac403a34107740c75431a4de8f3"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = ["state_mutation"]
-owner_ack = "RISK_ACK_DA6325BCB9573ADA61A29BB21BB8878A6F9002F1E028F9C962C4B0DADBAF7C3D"
-owner_ack_expires_on = "2026-10-21"
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
 last_reviewed = "2026-07-21"
@@ -218544,23 +218104,6 @@ reviewed_body_digest = "sha256:7ec622c5c6618ce7fbe145d6143975dde862975f96ae310a0
 owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "public"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_E383CE0DE88D2746E2D984BB8BD9C53E687A3EF9D5573D04FB4ADD3761D12DE7"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/deploy/summary_models.rs"
-qualified_symbol = "trust_runtime::deploy::BundleChangeSummary::print"
-item_kind = "rust_method"
-signature_digest = "sha256:0ad86490f925c277881b045f54e6fbc8b3c9319e00e65f39855a6240a998194b"
-reviewed_body_digest = "sha256:da21fbd53f8ec6dba96674cd49c1a48a5ece3d48c041f8b5611b4da47bd6c842"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
 risk_signals = []
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
@@ -220036,25 +219579,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_EFC2DA6E9199C5B2D34B9226BD53C0D5A9E5B53111053972DECE51FC3BABC362"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/deploy/helpers.rs"
-qualified_symbol = "trust_runtime::deploy::collect_sources"
-item_kind = "rust_function"
-signature_digest = "sha256:d9ae13bd6c8652d6199698654e71f2f69d9b061809b28468c5f30a56bb17dfdb"
-reviewed_body_digest = "sha256:627bfa725389be01452f5d0f854e77b70c7120bca411b3cff317befc920abbb0"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = ["state_mutation"]
-owner_ack = "RISK_ACK_EFC2DA6E9199C5B2D34B9226BD53C0D5A9E5B53111053972DECE51FC3BABC362"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_EFDE9686178B7270E50D53CFB80ECFD4D802D52FBDB524499A69785D22F9E3DB"
 source_kind = "rust"
 path = "crates/trust-runtime/src/host/instance.rs"
@@ -220637,23 +220161,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_F3B6CF668C69404541F8D02515407EA4C24CC0EB00C00B9C927727B00CE929AB"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/deploy/bundle_io.rs"
-qualified_symbol = "trust_runtime::deploy::copy_file"
-item_kind = "rust_function"
-signature_digest = "sha256:445cbc8699abfb569022cf410345e5f9076136a6bc70ed48c571a0d83b8f735f"
-reviewed_body_digest = "sha256:a2d420dddd213a5a91849caac44ffbde614542d4107f5f2f3b706262d221513c"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_F469295033AA9B036B0273BE612D04F048B8845A300327195998D551C7B924C3"
 source_kind = "rust"
 path = "crates/trust-runtime/src/bin/trust-runtime/check.rs"
@@ -221079,23 +220586,6 @@ reviewed_body_digest = "sha256:a13750c4cf12b9dc7c153d283da093a5603f5156c83b27046
 owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "public"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_F825B18D78A874656FB81E7960BE395F56C2525CE42D93740D38A5C39F5ED05B"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/deploy/helpers.rs"
-qualified_symbol = "trust_runtime::deploy::format_address"
-item_kind = "rust_function"
-signature_digest = "sha256:44da56fc6786b0b740a02b758786ea39a4b8785ae436fcd3f18683c8b4094338"
-reviewed_body_digest = "sha256:095cdbb63ce2e478fd6c1c0d120ab4701e80e020a08e3ed2e75d3649409e85e3"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
 risk_signals = []
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
@@ -276044,4 +275534,645 @@ disposition = "specified"
 spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1-scriptable-control-client"
 invariant_ids = ["RT_CONTROL_CLI_CLIENT_001"]
 test_ids = ["TEST_RUNTIME_CONTROL_CLIENT_CTL_RETURNS_NONZERO_FOR_MALFORMED_SUCCESS_RESULTS_001", "TEST_RUNTIME_CONTROL_CLIENT_CTL_STATUS_SENDS_AUTHENTICATED_REQUEST_AND_PRINTS_SUMMARY_001", "TEST_RUNTIME_CONTROL_CLIENT_CTL_TARGET_RESOLUTION_ENFORCES_ENDPOINT_AND_TOKEN_PRECEDENCE_001", "TEST_RUNTIME_CONTROL_CLIENT_CTL_STATS_RENDERS_EACH_TASK_IN_STABLE_COMPACT_FORM_001"]
+last_reviewed = "2026-07-23"
+[[mappings]]
+schema_version = 1
+code_id = "CODE_003CA2D926A8619AA8E7EA06CFEA3CEA591C48222CB0201688D414533185D1AE"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/deploy/summary_models.rs"
+qualified_symbol = "trust_runtime::deploy::SourceDiff::is_empty"
+item_kind = "rust_method"
+signature_digest = "sha256:2a58cb751f039b643161275a86c30461fecd7aa8a99c532ac426c40193fbf42d"
+reviewed_body_digest = "sha256:e7203022c7e6b5b416556f798e79a3ce4f5037ff0fd540739b27c6aa8730ce34"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+invariant_ids = ["RT_VERSIONED_DEPLOY_STATE_001"]
+test_ids = ["TEST_RUNTIME_VERSIONED_DEPLOY_BUNDLE_TARGETS_INCLUDE_CURRENT_AND_IMMEDIATE_PREVIOUS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEFAULT_BUNDLE_LABELS_ARE_UNIQUE_FOR_CONSECUTIVE_DEPLOYMENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYED_SIDECAR_PATHS_REQUIRE_NORMALIZED_RELATIVE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_LABELS_ARE_PORTABLE_SINGLE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_PRUNE_BUNDLES_KEEPS_ONLY_SELECTED_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_READ_LINK_TARGET_RESOLVES_RELATIVE_TO_THE_LINK_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SAFE_STATE_COMPARISON_USES_STRUCTURAL_ADDRESSES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_COLLECTION_HANDLES_GLOB_METACHARACTERS_IN_PROJECT_PATHS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_DIFF_PROPAGATES_INVALID_SOURCE_DIRECTORY_ERRORS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_DOES_NOT_OVERWRITE_AN_ORDINARY_FILE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_REPLACES_A_DANGLING_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_COPIES_ENABLED_PROTOCOL_SIDECARS_INTO_SELF_CONTAINED_BUNDLE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_RECOVERS_FROM_A_DANGLING_CURRENT_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_A_CURRENT_POINTER_OUTSIDE_ITS_BUNDLE_STORE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_DANGLING_OPTIONAL_BUNDLE_SYMLINKS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_BYTECODE_BEFORE_CHANGING_POINTERS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_PREVIOUS_SLOT_WITHOUT_PARTIAL_STATE_CHANGE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_LABELS_THAT_ESCAPE_THE_BUNDLES_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKED_SIDECAR_PARENT_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKS_IN_THE_COPIED_BUNDLE_CLOSURE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITH_RELATIVE_ROOT_KEEPS_CURRENT_AND_IMMEDIATE_PREVIOUS_FOR_ROLLBACK_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITHOUT_A_CURRENT_BUNDLE_CLEARS_A_STALE_PREVIOUS_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_SUMMARY_REPORTS_CURRENT_BUNDLE_AND_ANY_RUNTIME_FILE_CHANGE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_07EB4FA7DA689EA673CD173C3E246071042B25B5E53F65D5C2763AF08BEE2327"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/deploy/helpers.rs"
+qualified_symbol = "trust_runtime::deploy::file_content_changed"
+item_kind = "rust_function"
+signature_digest = "sha256:83bdf11fbe07b938eb03618c680ef016025b89c35736a1809dd5fa4a25f3ccfc"
+reviewed_body_digest = "sha256:f5cb0465d9f84c6813a0c11ab2170d1b275a2b10cb191937289139fa2381d1e4"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+invariant_ids = ["RT_VERSIONED_DEPLOY_STATE_001"]
+test_ids = ["TEST_RUNTIME_VERSIONED_DEPLOY_BUNDLE_TARGETS_INCLUDE_CURRENT_AND_IMMEDIATE_PREVIOUS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEFAULT_BUNDLE_LABELS_ARE_UNIQUE_FOR_CONSECUTIVE_DEPLOYMENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYED_SIDECAR_PATHS_REQUIRE_NORMALIZED_RELATIVE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_LABELS_ARE_PORTABLE_SINGLE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_PRUNE_BUNDLES_KEEPS_ONLY_SELECTED_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_READ_LINK_TARGET_RESOLVES_RELATIVE_TO_THE_LINK_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SAFE_STATE_COMPARISON_USES_STRUCTURAL_ADDRESSES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_COLLECTION_HANDLES_GLOB_METACHARACTERS_IN_PROJECT_PATHS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_DIFF_PROPAGATES_INVALID_SOURCE_DIRECTORY_ERRORS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_DOES_NOT_OVERWRITE_AN_ORDINARY_FILE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_REPLACES_A_DANGLING_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_COPIES_ENABLED_PROTOCOL_SIDECARS_INTO_SELF_CONTAINED_BUNDLE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_RECOVERS_FROM_A_DANGLING_CURRENT_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_A_CURRENT_POINTER_OUTSIDE_ITS_BUNDLE_STORE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_DANGLING_OPTIONAL_BUNDLE_SYMLINKS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_BYTECODE_BEFORE_CHANGING_POINTERS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_PREVIOUS_SLOT_WITHOUT_PARTIAL_STATE_CHANGE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_LABELS_THAT_ESCAPE_THE_BUNDLES_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKED_SIDECAR_PARENT_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKS_IN_THE_COPIED_BUNDLE_CLOSURE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITH_RELATIVE_ROOT_KEEPS_CURRENT_AND_IMMEDIATE_PREVIOUS_FOR_ROLLBACK_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITHOUT_A_CURRENT_BUNDLE_CLEARS_A_STALE_PREVIOUS_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_SUMMARY_REPORTS_CURRENT_BUNDLE_AND_ANY_RUNTIME_FILE_CHANGE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_1CB120F946B3EF9E1646EDBFADA218D431C5C355B76E3F98175A8D43DA71EED4"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/deploy/commands.rs"
+qualified_symbol = "trust_runtime::deploy::run_deploy"
+item_kind = "rust_function"
+signature_digest = "sha256:0c3382ef082016c5b873cf0cddf47e2998a32f8fc1dd2eebd66fa3c626d94044"
+reviewed_body_digest = "sha256:5ea2c86520396173667860f6df94c5ff8a37f3c9936de03a5c359d6ff818f468"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "public"
+risk_signals = ["filesystem_or_environment", "state_mutation"]
+owner_ack = "RISK_ACK_1CB120F946B3EF9E1646EDBFADA218D431C5C355B76E3F98175A8D43DA71EED4"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+invariant_ids = ["RT_VERSIONED_DEPLOY_STATE_001"]
+test_ids = ["TEST_RUNTIME_VERSIONED_DEPLOY_BUNDLE_TARGETS_INCLUDE_CURRENT_AND_IMMEDIATE_PREVIOUS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEFAULT_BUNDLE_LABELS_ARE_UNIQUE_FOR_CONSECUTIVE_DEPLOYMENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYED_SIDECAR_PATHS_REQUIRE_NORMALIZED_RELATIVE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_LABELS_ARE_PORTABLE_SINGLE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_PRUNE_BUNDLES_KEEPS_ONLY_SELECTED_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_READ_LINK_TARGET_RESOLVES_RELATIVE_TO_THE_LINK_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SAFE_STATE_COMPARISON_USES_STRUCTURAL_ADDRESSES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_COLLECTION_HANDLES_GLOB_METACHARACTERS_IN_PROJECT_PATHS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_DIFF_PROPAGATES_INVALID_SOURCE_DIRECTORY_ERRORS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_DOES_NOT_OVERWRITE_AN_ORDINARY_FILE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_REPLACES_A_DANGLING_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_COPIES_ENABLED_PROTOCOL_SIDECARS_INTO_SELF_CONTAINED_BUNDLE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_RECOVERS_FROM_A_DANGLING_CURRENT_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_A_CURRENT_POINTER_OUTSIDE_ITS_BUNDLE_STORE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_DANGLING_OPTIONAL_BUNDLE_SYMLINKS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_BYTECODE_BEFORE_CHANGING_POINTERS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_PREVIOUS_SLOT_WITHOUT_PARTIAL_STATE_CHANGE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_LABELS_THAT_ESCAPE_THE_BUNDLES_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKED_SIDECAR_PARENT_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKS_IN_THE_COPIED_BUNDLE_CLOSURE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITH_RELATIVE_ROOT_KEEPS_CURRENT_AND_IMMEDIATE_PREVIOUS_FOR_ROLLBACK_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITHOUT_A_CURRENT_BUNDLE_CLEARS_A_STALE_PREVIOUS_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_SUMMARY_REPORTS_CURRENT_BUNDLE_AND_ANY_RUNTIME_FILE_CHANGE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_2C744A24483395BC035F4236DCC541A25266ACFBD650EDE33DD97D8055201DC2"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/deploy/helpers.rs"
+qualified_symbol = "trust_runtime::deploy::path_state"
+item_kind = "rust_function"
+signature_digest = "sha256:0453492f4b5dbf4ca5e027eb02c93c9d745a2395ebe5ac8667878a62e252238e"
+reviewed_body_digest = "sha256:84b5aab65d4f86a76166c40ae2b24aa01f8ef4a6c1b711464811aed03bff9f6a"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+invariant_ids = ["RT_VERSIONED_DEPLOY_STATE_001"]
+test_ids = ["TEST_RUNTIME_VERSIONED_DEPLOY_BUNDLE_TARGETS_INCLUDE_CURRENT_AND_IMMEDIATE_PREVIOUS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEFAULT_BUNDLE_LABELS_ARE_UNIQUE_FOR_CONSECUTIVE_DEPLOYMENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYED_SIDECAR_PATHS_REQUIRE_NORMALIZED_RELATIVE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_LABELS_ARE_PORTABLE_SINGLE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_PRUNE_BUNDLES_KEEPS_ONLY_SELECTED_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_READ_LINK_TARGET_RESOLVES_RELATIVE_TO_THE_LINK_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SAFE_STATE_COMPARISON_USES_STRUCTURAL_ADDRESSES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_COLLECTION_HANDLES_GLOB_METACHARACTERS_IN_PROJECT_PATHS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_DIFF_PROPAGATES_INVALID_SOURCE_DIRECTORY_ERRORS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_DOES_NOT_OVERWRITE_AN_ORDINARY_FILE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_REPLACES_A_DANGLING_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_COPIES_ENABLED_PROTOCOL_SIDECARS_INTO_SELF_CONTAINED_BUNDLE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_RECOVERS_FROM_A_DANGLING_CURRENT_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_A_CURRENT_POINTER_OUTSIDE_ITS_BUNDLE_STORE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_DANGLING_OPTIONAL_BUNDLE_SYMLINKS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_BYTECODE_BEFORE_CHANGING_POINTERS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_PREVIOUS_SLOT_WITHOUT_PARTIAL_STATE_CHANGE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_LABELS_THAT_ESCAPE_THE_BUNDLES_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKED_SIDECAR_PARENT_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKS_IN_THE_COPIED_BUNDLE_CLOSURE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITH_RELATIVE_ROOT_KEEPS_CURRENT_AND_IMMEDIATE_PREVIOUS_FOR_ROLLBACK_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITHOUT_A_CURRENT_BUNDLE_CLEARS_A_STALE_PREVIOUS_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_SUMMARY_REPORTS_CURRENT_BUNDLE_AND_ANY_RUNTIME_FILE_CHANGE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_2E15F403B02A43CA7CE6DFA1BCEFA689ECFF43DABE40C1A20FD2DAE9B792E59F"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/deploy/bundle_io.rs"
+qualified_symbol = "trust_runtime::deploy::validate_bundle"
+item_kind = "rust_function"
+signature_digest = "sha256:4098abb87e6ee6b0baa86403aad8e36c47cad067f8d0092b918db80abef24e38"
+reviewed_body_digest = "sha256:8c93bcdca77dd058f833e5725c0dd2d47405c0468783a722948a8443a7b4ca26"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = ["fault_mapping"]
+owner_ack = "RISK_ACK_2E15F403B02A43CA7CE6DFA1BCEFA689ECFF43DABE40C1A20FD2DAE9B792E59F"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+invariant_ids = ["RT_VERSIONED_DEPLOY_STATE_001"]
+test_ids = ["TEST_RUNTIME_VERSIONED_DEPLOY_BUNDLE_TARGETS_INCLUDE_CURRENT_AND_IMMEDIATE_PREVIOUS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEFAULT_BUNDLE_LABELS_ARE_UNIQUE_FOR_CONSECUTIVE_DEPLOYMENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYED_SIDECAR_PATHS_REQUIRE_NORMALIZED_RELATIVE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_LABELS_ARE_PORTABLE_SINGLE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_PRUNE_BUNDLES_KEEPS_ONLY_SELECTED_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_READ_LINK_TARGET_RESOLVES_RELATIVE_TO_THE_LINK_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SAFE_STATE_COMPARISON_USES_STRUCTURAL_ADDRESSES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_COLLECTION_HANDLES_GLOB_METACHARACTERS_IN_PROJECT_PATHS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_DIFF_PROPAGATES_INVALID_SOURCE_DIRECTORY_ERRORS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_DOES_NOT_OVERWRITE_AN_ORDINARY_FILE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_REPLACES_A_DANGLING_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_COPIES_ENABLED_PROTOCOL_SIDECARS_INTO_SELF_CONTAINED_BUNDLE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_RECOVERS_FROM_A_DANGLING_CURRENT_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_A_CURRENT_POINTER_OUTSIDE_ITS_BUNDLE_STORE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_DANGLING_OPTIONAL_BUNDLE_SYMLINKS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_BYTECODE_BEFORE_CHANGING_POINTERS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_PREVIOUS_SLOT_WITHOUT_PARTIAL_STATE_CHANGE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_LABELS_THAT_ESCAPE_THE_BUNDLES_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKED_SIDECAR_PARENT_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKS_IN_THE_COPIED_BUNDLE_CLOSURE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITH_RELATIVE_ROOT_KEEPS_CURRENT_AND_IMMEDIATE_PREVIOUS_FOR_ROLLBACK_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITHOUT_A_CURRENT_BUNDLE_CLEARS_A_STALE_PREVIOUS_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_SUMMARY_REPORTS_CURRENT_BUNDLE_AND_ANY_RUNTIME_FILE_CHANGE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_3D4C19481409D9CB4A38D64A41BFE1C655F94157D1ED5FB481E77F915F2931DD"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/deploy/bundle_io.rs"
+qualified_symbol = "trust_runtime::deploy::prune_bundles"
+item_kind = "rust_function"
+signature_digest = "sha256:5ade099242cd403ba732ef55e541f370e84ead9b19f33009e3f29a138b83c7c6"
+reviewed_body_digest = "sha256:73a1c62763c7e0dfa66ac1d0ea88edb025a47d3470ff3b945dde773be5d31f09"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = ["broad_error_suppression", "state_mutation"]
+owner_ack = "RISK_ACK_3D4C19481409D9CB4A38D64A41BFE1C655F94157D1ED5FB481E77F915F2931DD"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+invariant_ids = ["RT_VERSIONED_DEPLOY_STATE_001"]
+test_ids = ["TEST_RUNTIME_VERSIONED_DEPLOY_BUNDLE_TARGETS_INCLUDE_CURRENT_AND_IMMEDIATE_PREVIOUS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEFAULT_BUNDLE_LABELS_ARE_UNIQUE_FOR_CONSECUTIVE_DEPLOYMENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYED_SIDECAR_PATHS_REQUIRE_NORMALIZED_RELATIVE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_LABELS_ARE_PORTABLE_SINGLE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_PRUNE_BUNDLES_KEEPS_ONLY_SELECTED_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_READ_LINK_TARGET_RESOLVES_RELATIVE_TO_THE_LINK_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SAFE_STATE_COMPARISON_USES_STRUCTURAL_ADDRESSES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_COLLECTION_HANDLES_GLOB_METACHARACTERS_IN_PROJECT_PATHS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_DIFF_PROPAGATES_INVALID_SOURCE_DIRECTORY_ERRORS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_DOES_NOT_OVERWRITE_AN_ORDINARY_FILE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_REPLACES_A_DANGLING_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_COPIES_ENABLED_PROTOCOL_SIDECARS_INTO_SELF_CONTAINED_BUNDLE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_RECOVERS_FROM_A_DANGLING_CURRENT_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_A_CURRENT_POINTER_OUTSIDE_ITS_BUNDLE_STORE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_DANGLING_OPTIONAL_BUNDLE_SYMLINKS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_BYTECODE_BEFORE_CHANGING_POINTERS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_PREVIOUS_SLOT_WITHOUT_PARTIAL_STATE_CHANGE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_LABELS_THAT_ESCAPE_THE_BUNDLES_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKED_SIDECAR_PARENT_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKS_IN_THE_COPIED_BUNDLE_CLOSURE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITH_RELATIVE_ROOT_KEEPS_CURRENT_AND_IMMEDIATE_PREVIOUS_FOR_ROLLBACK_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITHOUT_A_CURRENT_BUNDLE_CLEARS_A_STALE_PREVIOUS_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_SUMMARY_REPORTS_CURRENT_BUNDLE_AND_ANY_RUNTIME_FILE_CHANGE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_4873662B46C39AAC4DB9615595D5F098EC83871A897C91A85D0DB1AB89E09EA9"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/deploy/bundle_io.rs"
+qualified_symbol = "trust_runtime::deploy::resolve_existing_bundle_link"
+item_kind = "rust_function"
+signature_digest = "sha256:890d00cf5f48eb940d9f3a339f77da50264c2efeaf89938e0a2c9606c5ba5903"
+reviewed_body_digest = "sha256:d82c549b4ae19b3f0837ddd92c79adece61a3cd419e3f298cb0bab9693526bcf"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+invariant_ids = ["RT_VERSIONED_DEPLOY_STATE_001"]
+test_ids = ["TEST_RUNTIME_VERSIONED_DEPLOY_BUNDLE_TARGETS_INCLUDE_CURRENT_AND_IMMEDIATE_PREVIOUS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEFAULT_BUNDLE_LABELS_ARE_UNIQUE_FOR_CONSECUTIVE_DEPLOYMENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYED_SIDECAR_PATHS_REQUIRE_NORMALIZED_RELATIVE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_LABELS_ARE_PORTABLE_SINGLE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_PRUNE_BUNDLES_KEEPS_ONLY_SELECTED_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_READ_LINK_TARGET_RESOLVES_RELATIVE_TO_THE_LINK_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SAFE_STATE_COMPARISON_USES_STRUCTURAL_ADDRESSES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_COLLECTION_HANDLES_GLOB_METACHARACTERS_IN_PROJECT_PATHS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_DIFF_PROPAGATES_INVALID_SOURCE_DIRECTORY_ERRORS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_DOES_NOT_OVERWRITE_AN_ORDINARY_FILE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_REPLACES_A_DANGLING_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_COPIES_ENABLED_PROTOCOL_SIDECARS_INTO_SELF_CONTAINED_BUNDLE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_RECOVERS_FROM_A_DANGLING_CURRENT_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_A_CURRENT_POINTER_OUTSIDE_ITS_BUNDLE_STORE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_DANGLING_OPTIONAL_BUNDLE_SYMLINKS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_BYTECODE_BEFORE_CHANGING_POINTERS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_PREVIOUS_SLOT_WITHOUT_PARTIAL_STATE_CHANGE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_LABELS_THAT_ESCAPE_THE_BUNDLES_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKED_SIDECAR_PARENT_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKS_IN_THE_COPIED_BUNDLE_CLOSURE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITH_RELATIVE_ROOT_KEEPS_CURRENT_AND_IMMEDIATE_PREVIOUS_FOR_ROLLBACK_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITHOUT_A_CURRENT_BUNDLE_CLEARS_A_STALE_PREVIOUS_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_SUMMARY_REPORTS_CURRENT_BUNDLE_AND_ANY_RUNTIME_FILE_CHANGE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_5B64B38A94CAE768E2B16E11C3B0310C9B5AA50CC55F321C2B84C2DFBF554F16"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/deploy/helpers.rs"
+qualified_symbol = "trust_runtime::deploy::diff_field"
+item_kind = "rust_function"
+signature_digest = "sha256:0e71af7da2fb136c56fb3afb21f23a302c624439cca9aec07ee6be0fc9d18bf5"
+reviewed_body_digest = "sha256:901f9999e4fcda4015f524caf49aa7c84cbf42baab11e0a827ba979e828e8bb3"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "RISK_ACK_5B64B38A94CAE768E2B16E11C3B0310C9B5AA50CC55F321C2B84C2DFBF554F16"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+invariant_ids = ["RT_VERSIONED_DEPLOY_STATE_001"]
+test_ids = ["TEST_RUNTIME_VERSIONED_DEPLOY_BUNDLE_TARGETS_INCLUDE_CURRENT_AND_IMMEDIATE_PREVIOUS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEFAULT_BUNDLE_LABELS_ARE_UNIQUE_FOR_CONSECUTIVE_DEPLOYMENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYED_SIDECAR_PATHS_REQUIRE_NORMALIZED_RELATIVE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_LABELS_ARE_PORTABLE_SINGLE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_PRUNE_BUNDLES_KEEPS_ONLY_SELECTED_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_READ_LINK_TARGET_RESOLVES_RELATIVE_TO_THE_LINK_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SAFE_STATE_COMPARISON_USES_STRUCTURAL_ADDRESSES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_COLLECTION_HANDLES_GLOB_METACHARACTERS_IN_PROJECT_PATHS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_DIFF_PROPAGATES_INVALID_SOURCE_DIRECTORY_ERRORS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_DOES_NOT_OVERWRITE_AN_ORDINARY_FILE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_REPLACES_A_DANGLING_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_COPIES_ENABLED_PROTOCOL_SIDECARS_INTO_SELF_CONTAINED_BUNDLE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_RECOVERS_FROM_A_DANGLING_CURRENT_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_A_CURRENT_POINTER_OUTSIDE_ITS_BUNDLE_STORE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_DANGLING_OPTIONAL_BUNDLE_SYMLINKS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_BYTECODE_BEFORE_CHANGING_POINTERS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_PREVIOUS_SLOT_WITHOUT_PARTIAL_STATE_CHANGE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_LABELS_THAT_ESCAPE_THE_BUNDLES_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKED_SIDECAR_PARENT_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKS_IN_THE_COPIED_BUNDLE_CLOSURE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITH_RELATIVE_ROOT_KEEPS_CURRENT_AND_IMMEDIATE_PREVIOUS_FOR_ROLLBACK_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITHOUT_A_CURRENT_BUNDLE_CLEARS_A_STALE_PREVIOUS_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_SUMMARY_REPORTS_CURRENT_BUNDLE_AND_ANY_RUNTIME_FILE_CHANGE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_5FDEEF6286CDEF1EF39C092C62B2661E23106532D734C5697948CD68090D62D1"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/deploy/bundle_io.rs"
+qualified_symbol = "trust_runtime::deploy::copy_bundle"
+item_kind = "rust_function"
+signature_digest = "sha256:5e8f1a6781d796a38e6b4dccbcaf27adf4c2c4e2d8127418ec92520915716d54"
+reviewed_body_digest = "sha256:6408b7c06b936f3d1b91bf90890075686f3905f46395fc6548e2c5cdffc9aa3f"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+invariant_ids = ["RT_VERSIONED_DEPLOY_STATE_001"]
+test_ids = ["TEST_RUNTIME_VERSIONED_DEPLOY_BUNDLE_TARGETS_INCLUDE_CURRENT_AND_IMMEDIATE_PREVIOUS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEFAULT_BUNDLE_LABELS_ARE_UNIQUE_FOR_CONSECUTIVE_DEPLOYMENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYED_SIDECAR_PATHS_REQUIRE_NORMALIZED_RELATIVE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_LABELS_ARE_PORTABLE_SINGLE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_PRUNE_BUNDLES_KEEPS_ONLY_SELECTED_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_READ_LINK_TARGET_RESOLVES_RELATIVE_TO_THE_LINK_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SAFE_STATE_COMPARISON_USES_STRUCTURAL_ADDRESSES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_COLLECTION_HANDLES_GLOB_METACHARACTERS_IN_PROJECT_PATHS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_DIFF_PROPAGATES_INVALID_SOURCE_DIRECTORY_ERRORS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_DOES_NOT_OVERWRITE_AN_ORDINARY_FILE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_REPLACES_A_DANGLING_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_COPIES_ENABLED_PROTOCOL_SIDECARS_INTO_SELF_CONTAINED_BUNDLE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_RECOVERS_FROM_A_DANGLING_CURRENT_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_A_CURRENT_POINTER_OUTSIDE_ITS_BUNDLE_STORE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_DANGLING_OPTIONAL_BUNDLE_SYMLINKS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_BYTECODE_BEFORE_CHANGING_POINTERS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_PREVIOUS_SLOT_WITHOUT_PARTIAL_STATE_CHANGE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_LABELS_THAT_ESCAPE_THE_BUNDLES_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKED_SIDECAR_PARENT_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKS_IN_THE_COPIED_BUNDLE_CLOSURE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITH_RELATIVE_ROOT_KEEPS_CURRENT_AND_IMMEDIATE_PREVIOUS_FOR_ROLLBACK_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITHOUT_A_CURRENT_BUNDLE_CLEARS_A_STALE_PREVIOUS_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_SUMMARY_REPORTS_CURRENT_BUNDLE_AND_ANY_RUNTIME_FILE_CHANGE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_6C3B037D5DA1ED0D05C9865FF5C22BB5C0C5C23B1D32759F02B27D7421FDCF41"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/deploy/diffs.rs"
+qualified_symbol = "trust_runtime::deploy::diff_io"
+item_kind = "rust_function"
+signature_digest = "sha256:9b3d3626dff93fec79c489eb38bbf72d9b47a211d9547f639e12a1a9dda56952"
+reviewed_body_digest = "sha256:007655358691bb7809b16f35609350c5ad8ca62bfa3c2d0c3c0c6da811b1e9c6"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "RISK_ACK_6C3B037D5DA1ED0D05C9865FF5C22BB5C0C5C23B1D32759F02B27D7421FDCF41"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+invariant_ids = ["RT_VERSIONED_DEPLOY_STATE_001"]
+test_ids = ["TEST_RUNTIME_VERSIONED_DEPLOY_BUNDLE_TARGETS_INCLUDE_CURRENT_AND_IMMEDIATE_PREVIOUS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEFAULT_BUNDLE_LABELS_ARE_UNIQUE_FOR_CONSECUTIVE_DEPLOYMENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYED_SIDECAR_PATHS_REQUIRE_NORMALIZED_RELATIVE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_LABELS_ARE_PORTABLE_SINGLE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_PRUNE_BUNDLES_KEEPS_ONLY_SELECTED_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_READ_LINK_TARGET_RESOLVES_RELATIVE_TO_THE_LINK_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SAFE_STATE_COMPARISON_USES_STRUCTURAL_ADDRESSES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_COLLECTION_HANDLES_GLOB_METACHARACTERS_IN_PROJECT_PATHS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_DIFF_PROPAGATES_INVALID_SOURCE_DIRECTORY_ERRORS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_DOES_NOT_OVERWRITE_AN_ORDINARY_FILE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_REPLACES_A_DANGLING_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_COPIES_ENABLED_PROTOCOL_SIDECARS_INTO_SELF_CONTAINED_BUNDLE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_RECOVERS_FROM_A_DANGLING_CURRENT_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_A_CURRENT_POINTER_OUTSIDE_ITS_BUNDLE_STORE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_DANGLING_OPTIONAL_BUNDLE_SYMLINKS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_BYTECODE_BEFORE_CHANGING_POINTERS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_PREVIOUS_SLOT_WITHOUT_PARTIAL_STATE_CHANGE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_LABELS_THAT_ESCAPE_THE_BUNDLES_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKED_SIDECAR_PARENT_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKS_IN_THE_COPIED_BUNDLE_CLOSURE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITH_RELATIVE_ROOT_KEEPS_CURRENT_AND_IMMEDIATE_PREVIOUS_FOR_ROLLBACK_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITHOUT_A_CURRENT_BUNDLE_CLEARS_A_STALE_PREVIOUS_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_SUMMARY_REPORTS_CURRENT_BUNDLE_AND_ANY_RUNTIME_FILE_CHANGE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_74001CF804CC6A12EEA8B05D791E685F3AA0F4E7843C589DA980AF72E8A88739"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/deploy/bundle_io.rs"
+qualified_symbol = "trust_runtime::deploy::default_bundle_label"
+item_kind = "rust_function"
+signature_digest = "sha256:6670aaf980644c9f595fc644ff04de22dd4843939b3321bbb1564411a03e615e"
+reviewed_body_digest = "sha256:769aab6658e4a300d6db59cd5fcb38ca6d0b2c3935af03c3dc922806dc349cbc"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = ["broad_error_suppression", "host_time"]
+owner_ack = "RISK_ACK_74001CF804CC6A12EEA8B05D791E685F3AA0F4E7843C589DA980AF72E8A88739"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+invariant_ids = ["RT_VERSIONED_DEPLOY_STATE_001"]
+test_ids = ["TEST_RUNTIME_VERSIONED_DEPLOY_BUNDLE_TARGETS_INCLUDE_CURRENT_AND_IMMEDIATE_PREVIOUS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEFAULT_BUNDLE_LABELS_ARE_UNIQUE_FOR_CONSECUTIVE_DEPLOYMENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYED_SIDECAR_PATHS_REQUIRE_NORMALIZED_RELATIVE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_LABELS_ARE_PORTABLE_SINGLE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_PRUNE_BUNDLES_KEEPS_ONLY_SELECTED_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_READ_LINK_TARGET_RESOLVES_RELATIVE_TO_THE_LINK_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SAFE_STATE_COMPARISON_USES_STRUCTURAL_ADDRESSES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_COLLECTION_HANDLES_GLOB_METACHARACTERS_IN_PROJECT_PATHS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_DIFF_PROPAGATES_INVALID_SOURCE_DIRECTORY_ERRORS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_DOES_NOT_OVERWRITE_AN_ORDINARY_FILE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_REPLACES_A_DANGLING_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_COPIES_ENABLED_PROTOCOL_SIDECARS_INTO_SELF_CONTAINED_BUNDLE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_RECOVERS_FROM_A_DANGLING_CURRENT_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_A_CURRENT_POINTER_OUTSIDE_ITS_BUNDLE_STORE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_DANGLING_OPTIONAL_BUNDLE_SYMLINKS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_BYTECODE_BEFORE_CHANGING_POINTERS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_PREVIOUS_SLOT_WITHOUT_PARTIAL_STATE_CHANGE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_LABELS_THAT_ESCAPE_THE_BUNDLES_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKED_SIDECAR_PARENT_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKS_IN_THE_COPIED_BUNDLE_CLOSURE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITH_RELATIVE_ROOT_KEEPS_CURRENT_AND_IMMEDIATE_PREVIOUS_FOR_ROLLBACK_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITHOUT_A_CURRENT_BUNDLE_CLEARS_A_STALE_PREVIOUS_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_SUMMARY_REPORTS_CURRENT_BUNDLE_AND_ANY_RUNTIME_FILE_CHANGE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_7488C53C99E67311F68A97965ED140C840321CCEEA65623FE42CEEEB50E658A3"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/deploy/diffs.rs"
+qualified_symbol = "trust_runtime::deploy::diff_runtime"
+item_kind = "rust_function"
+signature_digest = "sha256:356cf97edeb17f7bf7b1ada31d0ac6046be2090074c57657150cef6541da74a9"
+reviewed_body_digest = "sha256:ebfd2da0aa81bec9912c01f70696cf6106cd271b695eecb1b2a7204425f3246d"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = ["persistence_retain_reload_restart", "state_mutation"]
+owner_ack = "RISK_ACK_7488C53C99E67311F68A97965ED140C840321CCEEA65623FE42CEEEB50E658A3"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+invariant_ids = ["RT_VERSIONED_DEPLOY_STATE_001"]
+test_ids = ["TEST_RUNTIME_VERSIONED_DEPLOY_BUNDLE_TARGETS_INCLUDE_CURRENT_AND_IMMEDIATE_PREVIOUS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEFAULT_BUNDLE_LABELS_ARE_UNIQUE_FOR_CONSECUTIVE_DEPLOYMENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYED_SIDECAR_PATHS_REQUIRE_NORMALIZED_RELATIVE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_LABELS_ARE_PORTABLE_SINGLE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_PRUNE_BUNDLES_KEEPS_ONLY_SELECTED_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_READ_LINK_TARGET_RESOLVES_RELATIVE_TO_THE_LINK_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SAFE_STATE_COMPARISON_USES_STRUCTURAL_ADDRESSES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_COLLECTION_HANDLES_GLOB_METACHARACTERS_IN_PROJECT_PATHS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_DIFF_PROPAGATES_INVALID_SOURCE_DIRECTORY_ERRORS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_DOES_NOT_OVERWRITE_AN_ORDINARY_FILE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_REPLACES_A_DANGLING_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_COPIES_ENABLED_PROTOCOL_SIDECARS_INTO_SELF_CONTAINED_BUNDLE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_RECOVERS_FROM_A_DANGLING_CURRENT_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_A_CURRENT_POINTER_OUTSIDE_ITS_BUNDLE_STORE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_DANGLING_OPTIONAL_BUNDLE_SYMLINKS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_BYTECODE_BEFORE_CHANGING_POINTERS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_PREVIOUS_SLOT_WITHOUT_PARTIAL_STATE_CHANGE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_LABELS_THAT_ESCAPE_THE_BUNDLES_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKED_SIDECAR_PARENT_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKS_IN_THE_COPIED_BUNDLE_CLOSURE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITH_RELATIVE_ROOT_KEEPS_CURRENT_AND_IMMEDIATE_PREVIOUS_FOR_ROLLBACK_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITHOUT_A_CURRENT_BUNDLE_CLEARS_A_STALE_PREVIOUS_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_SUMMARY_REPORTS_CURRENT_BUNDLE_AND_ANY_RUNTIME_FILE_CHANGE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_76D5012A889FDF11D23CC76E66820302E60DE5EE71D1D173E7B3BE403510FCFB"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/deploy/helpers.rs"
+qualified_symbol = "trust_runtime::deploy::token_state"
+item_kind = "rust_function"
+signature_digest = "sha256:c69b3a45eb387fe4667779f6b063ad4801c24a8ce7767006cca53f4d2696ddfe"
+reviewed_body_digest = "sha256:f00b2378de0b8f9c712032b1fec914a5a90b9898c740a65214ca6002e1744e8a"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+invariant_ids = ["RT_VERSIONED_DEPLOY_STATE_001"]
+test_ids = ["TEST_RUNTIME_VERSIONED_DEPLOY_BUNDLE_TARGETS_INCLUDE_CURRENT_AND_IMMEDIATE_PREVIOUS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEFAULT_BUNDLE_LABELS_ARE_UNIQUE_FOR_CONSECUTIVE_DEPLOYMENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYED_SIDECAR_PATHS_REQUIRE_NORMALIZED_RELATIVE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_LABELS_ARE_PORTABLE_SINGLE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_PRUNE_BUNDLES_KEEPS_ONLY_SELECTED_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_READ_LINK_TARGET_RESOLVES_RELATIVE_TO_THE_LINK_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SAFE_STATE_COMPARISON_USES_STRUCTURAL_ADDRESSES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_COLLECTION_HANDLES_GLOB_METACHARACTERS_IN_PROJECT_PATHS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_DIFF_PROPAGATES_INVALID_SOURCE_DIRECTORY_ERRORS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_DOES_NOT_OVERWRITE_AN_ORDINARY_FILE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_REPLACES_A_DANGLING_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_COPIES_ENABLED_PROTOCOL_SIDECARS_INTO_SELF_CONTAINED_BUNDLE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_RECOVERS_FROM_A_DANGLING_CURRENT_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_A_CURRENT_POINTER_OUTSIDE_ITS_BUNDLE_STORE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_DANGLING_OPTIONAL_BUNDLE_SYMLINKS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_BYTECODE_BEFORE_CHANGING_POINTERS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_PREVIOUS_SLOT_WITHOUT_PARTIAL_STATE_CHANGE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_LABELS_THAT_ESCAPE_THE_BUNDLES_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKED_SIDECAR_PARENT_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKS_IN_THE_COPIED_BUNDLE_CLOSURE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITH_RELATIVE_ROOT_KEEPS_CURRENT_AND_IMMEDIATE_PREVIOUS_FOR_ROLLBACK_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITHOUT_A_CURRENT_BUNDLE_CLEARS_A_STALE_PREVIOUS_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_SUMMARY_REPORTS_CURRENT_BUNDLE_AND_ANY_RUNTIME_FILE_CHANGE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_849A55FF5CDD94B99BF20FFE223F26C00BD988D8987FC8010F608D0ECA5A0586"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/deploy/bundle_io.rs"
+qualified_symbol = "trust_runtime::deploy::read_link_target"
+item_kind = "rust_function"
+signature_digest = "sha256:9ff74f073ee744e6ddd0346e0a5af14278d95bc9adb17ee83f2d4eed9c2f2046"
+reviewed_body_digest = "sha256:3e8632a6587b05d1658b55a46040d2ab32225c799ee37f32e1a26559c0d0c42b"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = ["broad_error_suppression"]
+owner_ack = "RISK_ACK_849A55FF5CDD94B99BF20FFE223F26C00BD988D8987FC8010F608D0ECA5A0586"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+invariant_ids = ["RT_VERSIONED_DEPLOY_STATE_001"]
+test_ids = ["TEST_RUNTIME_VERSIONED_DEPLOY_BUNDLE_TARGETS_INCLUDE_CURRENT_AND_IMMEDIATE_PREVIOUS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEFAULT_BUNDLE_LABELS_ARE_UNIQUE_FOR_CONSECUTIVE_DEPLOYMENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYED_SIDECAR_PATHS_REQUIRE_NORMALIZED_RELATIVE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_LABELS_ARE_PORTABLE_SINGLE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_PRUNE_BUNDLES_KEEPS_ONLY_SELECTED_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_READ_LINK_TARGET_RESOLVES_RELATIVE_TO_THE_LINK_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SAFE_STATE_COMPARISON_USES_STRUCTURAL_ADDRESSES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_COLLECTION_HANDLES_GLOB_METACHARACTERS_IN_PROJECT_PATHS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_DIFF_PROPAGATES_INVALID_SOURCE_DIRECTORY_ERRORS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_DOES_NOT_OVERWRITE_AN_ORDINARY_FILE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_REPLACES_A_DANGLING_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_COPIES_ENABLED_PROTOCOL_SIDECARS_INTO_SELF_CONTAINED_BUNDLE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_RECOVERS_FROM_A_DANGLING_CURRENT_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_A_CURRENT_POINTER_OUTSIDE_ITS_BUNDLE_STORE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_DANGLING_OPTIONAL_BUNDLE_SYMLINKS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_BYTECODE_BEFORE_CHANGING_POINTERS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_PREVIOUS_SLOT_WITHOUT_PARTIAL_STATE_CHANGE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_LABELS_THAT_ESCAPE_THE_BUNDLES_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKED_SIDECAR_PARENT_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKS_IN_THE_COPIED_BUNDLE_CLOSURE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITH_RELATIVE_ROOT_KEEPS_CURRENT_AND_IMMEDIATE_PREVIOUS_FOR_ROLLBACK_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITHOUT_A_CURRENT_BUNDLE_CLEARS_A_STALE_PREVIOUS_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_SUMMARY_REPORTS_CURRENT_BUNDLE_AND_ANY_RUNTIME_FILE_CHANGE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_86FA971A3E6E6D20B3EB0D5D7D05F7F960106D5F500942FC4470FEFD7B7E867F"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/deploy/commands.rs"
+qualified_symbol = "trust_runtime::deploy::DeployResult"
+item_kind = "rust_public_type"
+signature_digest = "sha256:3f6061ea7829789d43e7b170b51ec0d2b99d65f24f1c53bb3b9f93fc11023b42"
+reviewed_body_digest = "sha256:d0b8095de923f425e0bc0d91eaab18e3d59be86bae18602bd56a328a996a5754"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+invariant_ids = ["RT_VERSIONED_DEPLOY_STATE_001"]
+test_ids = ["TEST_RUNTIME_VERSIONED_DEPLOY_BUNDLE_TARGETS_INCLUDE_CURRENT_AND_IMMEDIATE_PREVIOUS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEFAULT_BUNDLE_LABELS_ARE_UNIQUE_FOR_CONSECUTIVE_DEPLOYMENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYED_SIDECAR_PATHS_REQUIRE_NORMALIZED_RELATIVE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_LABELS_ARE_PORTABLE_SINGLE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_PRUNE_BUNDLES_KEEPS_ONLY_SELECTED_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_READ_LINK_TARGET_RESOLVES_RELATIVE_TO_THE_LINK_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SAFE_STATE_COMPARISON_USES_STRUCTURAL_ADDRESSES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_COLLECTION_HANDLES_GLOB_METACHARACTERS_IN_PROJECT_PATHS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_DIFF_PROPAGATES_INVALID_SOURCE_DIRECTORY_ERRORS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_DOES_NOT_OVERWRITE_AN_ORDINARY_FILE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_REPLACES_A_DANGLING_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_COPIES_ENABLED_PROTOCOL_SIDECARS_INTO_SELF_CONTAINED_BUNDLE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_RECOVERS_FROM_A_DANGLING_CURRENT_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_A_CURRENT_POINTER_OUTSIDE_ITS_BUNDLE_STORE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_DANGLING_OPTIONAL_BUNDLE_SYMLINKS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_BYTECODE_BEFORE_CHANGING_POINTERS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_PREVIOUS_SLOT_WITHOUT_PARTIAL_STATE_CHANGE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_LABELS_THAT_ESCAPE_THE_BUNDLES_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKED_SIDECAR_PARENT_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKS_IN_THE_COPIED_BUNDLE_CLOSURE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITH_RELATIVE_ROOT_KEEPS_CURRENT_AND_IMMEDIATE_PREVIOUS_FOR_ROLLBACK_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITHOUT_A_CURRENT_BUNDLE_CLEARS_A_STALE_PREVIOUS_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_SUMMARY_REPORTS_CURRENT_BUNDLE_AND_ANY_RUNTIME_FILE_CHANGE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_87B226DD45BAF86E9FBF472DEEDE6CAA96FC5BA95CF91CA9571291E232FD3B0F"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/deploy/diffs.rs"
+qualified_symbol = "trust_runtime::deploy::diff_retain"
+item_kind = "rust_function"
+signature_digest = "sha256:0e6a1cb53044b069fd84f20c2d6228fe1129c04f03047b5da8baf84527331530"
+reviewed_body_digest = "sha256:3fe574ca80df571fa6bfb0ee34de95500aac6e5a77de53982d8ad8d851b8cec4"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "RISK_ACK_87B226DD45BAF86E9FBF472DEEDE6CAA96FC5BA95CF91CA9571291E232FD3B0F"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+invariant_ids = ["RT_VERSIONED_DEPLOY_STATE_001"]
+test_ids = ["TEST_RUNTIME_VERSIONED_DEPLOY_BUNDLE_TARGETS_INCLUDE_CURRENT_AND_IMMEDIATE_PREVIOUS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEFAULT_BUNDLE_LABELS_ARE_UNIQUE_FOR_CONSECUTIVE_DEPLOYMENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYED_SIDECAR_PATHS_REQUIRE_NORMALIZED_RELATIVE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_LABELS_ARE_PORTABLE_SINGLE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_PRUNE_BUNDLES_KEEPS_ONLY_SELECTED_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_READ_LINK_TARGET_RESOLVES_RELATIVE_TO_THE_LINK_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SAFE_STATE_COMPARISON_USES_STRUCTURAL_ADDRESSES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_COLLECTION_HANDLES_GLOB_METACHARACTERS_IN_PROJECT_PATHS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_DIFF_PROPAGATES_INVALID_SOURCE_DIRECTORY_ERRORS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_DOES_NOT_OVERWRITE_AN_ORDINARY_FILE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_REPLACES_A_DANGLING_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_COPIES_ENABLED_PROTOCOL_SIDECARS_INTO_SELF_CONTAINED_BUNDLE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_RECOVERS_FROM_A_DANGLING_CURRENT_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_A_CURRENT_POINTER_OUTSIDE_ITS_BUNDLE_STORE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_DANGLING_OPTIONAL_BUNDLE_SYMLINKS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_BYTECODE_BEFORE_CHANGING_POINTERS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_PREVIOUS_SLOT_WITHOUT_PARTIAL_STATE_CHANGE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_LABELS_THAT_ESCAPE_THE_BUNDLES_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKED_SIDECAR_PARENT_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKS_IN_THE_COPIED_BUNDLE_CLOSURE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITH_RELATIVE_ROOT_KEEPS_CURRENT_AND_IMMEDIATE_PREVIOUS_FOR_ROLLBACK_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITHOUT_A_CURRENT_BUNDLE_CLEARS_A_STALE_PREVIOUS_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_SUMMARY_REPORTS_CURRENT_BUNDLE_AND_ANY_RUNTIME_FILE_CHANGE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_96E0B391940706B4F9CE2577C7100580E3022E065E2732AC3FA280E1F698B15F"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/deploy/diffs.rs"
+qualified_symbol = "trust_runtime::deploy::write_summary"
+item_kind = "rust_function"
+signature_digest = "sha256:c5730e358776d3ce5cba8ded49700b662f9c84b2ac295536caa0136e89980b38"
+reviewed_body_digest = "sha256:d05704d598b2a689b02c6e8b7193af65fc33c9dbcac304ae25832f699d3ddb67"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+invariant_ids = ["RT_VERSIONED_DEPLOY_STATE_001"]
+test_ids = ["TEST_RUNTIME_VERSIONED_DEPLOY_BUNDLE_TARGETS_INCLUDE_CURRENT_AND_IMMEDIATE_PREVIOUS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEFAULT_BUNDLE_LABELS_ARE_UNIQUE_FOR_CONSECUTIVE_DEPLOYMENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYED_SIDECAR_PATHS_REQUIRE_NORMALIZED_RELATIVE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_LABELS_ARE_PORTABLE_SINGLE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_PRUNE_BUNDLES_KEEPS_ONLY_SELECTED_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_READ_LINK_TARGET_RESOLVES_RELATIVE_TO_THE_LINK_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SAFE_STATE_COMPARISON_USES_STRUCTURAL_ADDRESSES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_COLLECTION_HANDLES_GLOB_METACHARACTERS_IN_PROJECT_PATHS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_DIFF_PROPAGATES_INVALID_SOURCE_DIRECTORY_ERRORS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_DOES_NOT_OVERWRITE_AN_ORDINARY_FILE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_REPLACES_A_DANGLING_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_COPIES_ENABLED_PROTOCOL_SIDECARS_INTO_SELF_CONTAINED_BUNDLE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_RECOVERS_FROM_A_DANGLING_CURRENT_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_A_CURRENT_POINTER_OUTSIDE_ITS_BUNDLE_STORE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_DANGLING_OPTIONAL_BUNDLE_SYMLINKS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_BYTECODE_BEFORE_CHANGING_POINTERS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_PREVIOUS_SLOT_WITHOUT_PARTIAL_STATE_CHANGE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_LABELS_THAT_ESCAPE_THE_BUNDLES_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKED_SIDECAR_PARENT_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKS_IN_THE_COPIED_BUNDLE_CLOSURE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITH_RELATIVE_ROOT_KEEPS_CURRENT_AND_IMMEDIATE_PREVIOUS_FOR_ROLLBACK_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITHOUT_A_CURRENT_BUNDLE_CLEARS_A_STALE_PREVIOUS_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_SUMMARY_REPORTS_CURRENT_BUNDLE_AND_ANY_RUNTIME_FILE_CHANGE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_9F082D573BB5546A118E955353FD8B64056BB4300035CE8763F7876FD5F2692A"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/deploy/helpers.rs"
+qualified_symbol = "trust_runtime::deploy::safe_state_changed"
+item_kind = "rust_function"
+signature_digest = "sha256:f4eddadafda19f2343ddd94812261f733880751cd6d0954ed6f7d4e7e6274d81"
+reviewed_body_digest = "sha256:0f89a3b9ec1bc01e6244b70b300712e957ef8f35a407b42cd638182033f38d7a"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "RISK_ACK_9F082D573BB5546A118E955353FD8B64056BB4300035CE8763F7876FD5F2692A"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+invariant_ids = ["RT_VERSIONED_DEPLOY_STATE_001"]
+test_ids = ["TEST_RUNTIME_VERSIONED_DEPLOY_BUNDLE_TARGETS_INCLUDE_CURRENT_AND_IMMEDIATE_PREVIOUS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEFAULT_BUNDLE_LABELS_ARE_UNIQUE_FOR_CONSECUTIVE_DEPLOYMENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYED_SIDECAR_PATHS_REQUIRE_NORMALIZED_RELATIVE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_LABELS_ARE_PORTABLE_SINGLE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_PRUNE_BUNDLES_KEEPS_ONLY_SELECTED_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_READ_LINK_TARGET_RESOLVES_RELATIVE_TO_THE_LINK_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SAFE_STATE_COMPARISON_USES_STRUCTURAL_ADDRESSES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_COLLECTION_HANDLES_GLOB_METACHARACTERS_IN_PROJECT_PATHS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_DIFF_PROPAGATES_INVALID_SOURCE_DIRECTORY_ERRORS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_DOES_NOT_OVERWRITE_AN_ORDINARY_FILE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_REPLACES_A_DANGLING_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_COPIES_ENABLED_PROTOCOL_SIDECARS_INTO_SELF_CONTAINED_BUNDLE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_RECOVERS_FROM_A_DANGLING_CURRENT_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_A_CURRENT_POINTER_OUTSIDE_ITS_BUNDLE_STORE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_DANGLING_OPTIONAL_BUNDLE_SYMLINKS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_BYTECODE_BEFORE_CHANGING_POINTERS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_PREVIOUS_SLOT_WITHOUT_PARTIAL_STATE_CHANGE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_LABELS_THAT_ESCAPE_THE_BUNDLES_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKED_SIDECAR_PARENT_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKS_IN_THE_COPIED_BUNDLE_CLOSURE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITH_RELATIVE_ROOT_KEEPS_CURRENT_AND_IMMEDIATE_PREVIOUS_FOR_ROLLBACK_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITHOUT_A_CURRENT_BUNDLE_CLEARS_A_STALE_PREVIOUS_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_SUMMARY_REPORTS_CURRENT_BUNDLE_AND_ANY_RUNTIME_FILE_CHANGE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_A2298380DB839F7D517E4EBAC3522C07291EB9EF1CD6227C8E788DE892C31FE6"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/deploy/helpers.rs"
+qualified_symbol = "trust_runtime::deploy::optional_file_content_changed"
+item_kind = "rust_function"
+signature_digest = "sha256:5b89746c6240197d423fa390444d9da919e5a8d3460a7a0f462df595b6bfbe90"
+reviewed_body_digest = "sha256:6526308328ffefe9d30290da60870d7638822dcd3126a114a9c86632d3051fd4"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+invariant_ids = ["RT_VERSIONED_DEPLOY_STATE_001"]
+test_ids = ["TEST_RUNTIME_VERSIONED_DEPLOY_BUNDLE_TARGETS_INCLUDE_CURRENT_AND_IMMEDIATE_PREVIOUS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEFAULT_BUNDLE_LABELS_ARE_UNIQUE_FOR_CONSECUTIVE_DEPLOYMENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYED_SIDECAR_PATHS_REQUIRE_NORMALIZED_RELATIVE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_LABELS_ARE_PORTABLE_SINGLE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_PRUNE_BUNDLES_KEEPS_ONLY_SELECTED_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_READ_LINK_TARGET_RESOLVES_RELATIVE_TO_THE_LINK_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SAFE_STATE_COMPARISON_USES_STRUCTURAL_ADDRESSES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_COLLECTION_HANDLES_GLOB_METACHARACTERS_IN_PROJECT_PATHS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_DIFF_PROPAGATES_INVALID_SOURCE_DIRECTORY_ERRORS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_DOES_NOT_OVERWRITE_AN_ORDINARY_FILE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_REPLACES_A_DANGLING_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_COPIES_ENABLED_PROTOCOL_SIDECARS_INTO_SELF_CONTAINED_BUNDLE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_RECOVERS_FROM_A_DANGLING_CURRENT_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_A_CURRENT_POINTER_OUTSIDE_ITS_BUNDLE_STORE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_DANGLING_OPTIONAL_BUNDLE_SYMLINKS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_BYTECODE_BEFORE_CHANGING_POINTERS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_PREVIOUS_SLOT_WITHOUT_PARTIAL_STATE_CHANGE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_LABELS_THAT_ESCAPE_THE_BUNDLES_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKED_SIDECAR_PARENT_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKS_IN_THE_COPIED_BUNDLE_CLOSURE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITH_RELATIVE_ROOT_KEEPS_CURRENT_AND_IMMEDIATE_PREVIOUS_FOR_ROLLBACK_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITHOUT_A_CURRENT_BUNDLE_CLEARS_A_STALE_PREVIOUS_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_SUMMARY_REPORTS_CURRENT_BUNDLE_AND_ANY_RUNTIME_FILE_CHANGE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_A48C81891DB9FC017BAD0757A302C36F41D1EBC486C199567A672951B68B8C52"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/deploy/summary_models.rs"
+qualified_symbol = "trust_runtime::deploy::BundleChangeSummary::render"
+item_kind = "rust_method"
+signature_digest = "sha256:368a00fe8ce0955d08bcefaa0707825806aad89b8879cc3d6a5dfbea0fabc803"
+reviewed_body_digest = "sha256:e84a3f2198d5d82ff0feecd9ff61dec1489197c76bece46ffdc9e3ecf1014172"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "RISK_ACK_A48C81891DB9FC017BAD0757A302C36F41D1EBC486C199567A672951B68B8C52"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+invariant_ids = ["RT_VERSIONED_DEPLOY_STATE_001"]
+test_ids = ["TEST_RUNTIME_VERSIONED_DEPLOY_BUNDLE_TARGETS_INCLUDE_CURRENT_AND_IMMEDIATE_PREVIOUS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEFAULT_BUNDLE_LABELS_ARE_UNIQUE_FOR_CONSECUTIVE_DEPLOYMENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYED_SIDECAR_PATHS_REQUIRE_NORMALIZED_RELATIVE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_LABELS_ARE_PORTABLE_SINGLE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_PRUNE_BUNDLES_KEEPS_ONLY_SELECTED_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_READ_LINK_TARGET_RESOLVES_RELATIVE_TO_THE_LINK_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SAFE_STATE_COMPARISON_USES_STRUCTURAL_ADDRESSES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_COLLECTION_HANDLES_GLOB_METACHARACTERS_IN_PROJECT_PATHS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_DIFF_PROPAGATES_INVALID_SOURCE_DIRECTORY_ERRORS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_DOES_NOT_OVERWRITE_AN_ORDINARY_FILE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_REPLACES_A_DANGLING_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_COPIES_ENABLED_PROTOCOL_SIDECARS_INTO_SELF_CONTAINED_BUNDLE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_RECOVERS_FROM_A_DANGLING_CURRENT_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_A_CURRENT_POINTER_OUTSIDE_ITS_BUNDLE_STORE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_DANGLING_OPTIONAL_BUNDLE_SYMLINKS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_BYTECODE_BEFORE_CHANGING_POINTERS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_PREVIOUS_SLOT_WITHOUT_PARTIAL_STATE_CHANGE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_LABELS_THAT_ESCAPE_THE_BUNDLES_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKED_SIDECAR_PARENT_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKS_IN_THE_COPIED_BUNDLE_CLOSURE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITH_RELATIVE_ROOT_KEEPS_CURRENT_AND_IMMEDIATE_PREVIOUS_FOR_ROLLBACK_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITHOUT_A_CURRENT_BUNDLE_CLEARS_A_STALE_PREVIOUS_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_SUMMARY_REPORTS_CURRENT_BUNDLE_AND_ANY_RUNTIME_FILE_CHANGE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_AF1A2C101BE12F8E39DDA825480476B982C628CBEAF5608C932549F2D861FB53"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/deploy/bundle_io.rs"
+qualified_symbol = "trust_runtime::deploy::update_symlink"
+item_kind = "rust_function"
+signature_digest = "sha256:2198f8f18e1b4e0b6990bdba28775c4e4ebe156e1f4c2e39e1a4223d4c7e81c2"
+reviewed_body_digest = "sha256:da770afd1e8aafbc73f75471f7d65da8991936993c76a5db163160930d017a5b"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "RISK_ACK_AF1A2C101BE12F8E39DDA825480476B982C628CBEAF5608C932549F2D861FB53"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+invariant_ids = ["RT_VERSIONED_DEPLOY_STATE_001"]
+test_ids = ["TEST_RUNTIME_VERSIONED_DEPLOY_BUNDLE_TARGETS_INCLUDE_CURRENT_AND_IMMEDIATE_PREVIOUS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEFAULT_BUNDLE_LABELS_ARE_UNIQUE_FOR_CONSECUTIVE_DEPLOYMENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYED_SIDECAR_PATHS_REQUIRE_NORMALIZED_RELATIVE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_LABELS_ARE_PORTABLE_SINGLE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_PRUNE_BUNDLES_KEEPS_ONLY_SELECTED_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_READ_LINK_TARGET_RESOLVES_RELATIVE_TO_THE_LINK_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SAFE_STATE_COMPARISON_USES_STRUCTURAL_ADDRESSES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_COLLECTION_HANDLES_GLOB_METACHARACTERS_IN_PROJECT_PATHS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_DIFF_PROPAGATES_INVALID_SOURCE_DIRECTORY_ERRORS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_DOES_NOT_OVERWRITE_AN_ORDINARY_FILE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_REPLACES_A_DANGLING_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_COPIES_ENABLED_PROTOCOL_SIDECARS_INTO_SELF_CONTAINED_BUNDLE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_RECOVERS_FROM_A_DANGLING_CURRENT_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_A_CURRENT_POINTER_OUTSIDE_ITS_BUNDLE_STORE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_DANGLING_OPTIONAL_BUNDLE_SYMLINKS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_BYTECODE_BEFORE_CHANGING_POINTERS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_PREVIOUS_SLOT_WITHOUT_PARTIAL_STATE_CHANGE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_LABELS_THAT_ESCAPE_THE_BUNDLES_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKED_SIDECAR_PARENT_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKS_IN_THE_COPIED_BUNDLE_CLOSURE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITH_RELATIVE_ROOT_KEEPS_CURRENT_AND_IMMEDIATE_PREVIOUS_FOR_ROLLBACK_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITHOUT_A_CURRENT_BUNDLE_CLEARS_A_STALE_PREVIOUS_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_SUMMARY_REPORTS_CURRENT_BUNDLE_AND_ANY_RUNTIME_FILE_CHANGE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_B1C4A8F8C2AE1C57FAC8126B4E56306AA290C44913399C7427900222D5B7AA11"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/deploy/bundle_io.rs"
+qualified_symbol = "trust_runtime::deploy::copy_dir"
+item_kind = "rust_function"
+signature_digest = "sha256:627081e480e822a96fbe68553234c5145b89db6d7c25aea911035903216e0d5b"
+reviewed_body_digest = "sha256:93c42f9d10a152243a0293b86ad939a9b60cb78103c6236eeaf78608488aaadc"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+invariant_ids = ["RT_VERSIONED_DEPLOY_STATE_001"]
+test_ids = ["TEST_RUNTIME_VERSIONED_DEPLOY_BUNDLE_TARGETS_INCLUDE_CURRENT_AND_IMMEDIATE_PREVIOUS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEFAULT_BUNDLE_LABELS_ARE_UNIQUE_FOR_CONSECUTIVE_DEPLOYMENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYED_SIDECAR_PATHS_REQUIRE_NORMALIZED_RELATIVE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_LABELS_ARE_PORTABLE_SINGLE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_PRUNE_BUNDLES_KEEPS_ONLY_SELECTED_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_READ_LINK_TARGET_RESOLVES_RELATIVE_TO_THE_LINK_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SAFE_STATE_COMPARISON_USES_STRUCTURAL_ADDRESSES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_COLLECTION_HANDLES_GLOB_METACHARACTERS_IN_PROJECT_PATHS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_DIFF_PROPAGATES_INVALID_SOURCE_DIRECTORY_ERRORS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_DOES_NOT_OVERWRITE_AN_ORDINARY_FILE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_REPLACES_A_DANGLING_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_COPIES_ENABLED_PROTOCOL_SIDECARS_INTO_SELF_CONTAINED_BUNDLE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_RECOVERS_FROM_A_DANGLING_CURRENT_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_A_CURRENT_POINTER_OUTSIDE_ITS_BUNDLE_STORE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_DANGLING_OPTIONAL_BUNDLE_SYMLINKS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_BYTECODE_BEFORE_CHANGING_POINTERS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_PREVIOUS_SLOT_WITHOUT_PARTIAL_STATE_CHANGE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_LABELS_THAT_ESCAPE_THE_BUNDLES_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKED_SIDECAR_PARENT_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKS_IN_THE_COPIED_BUNDLE_CLOSURE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITH_RELATIVE_ROOT_KEEPS_CURRENT_AND_IMMEDIATE_PREVIOUS_FOR_ROLLBACK_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITHOUT_A_CURRENT_BUNDLE_CLEARS_A_STALE_PREVIOUS_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_SUMMARY_REPORTS_CURRENT_BUNDLE_AND_ANY_RUNTIME_FILE_CHANGE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_C886784FA5C745324390CC1437EC5C9393E5D6EFEED7DBC2B8B3072A7B006670"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/deploy/bundle_io.rs"
+qualified_symbol = "trust_runtime::deploy::validate_bundle_label"
+item_kind = "rust_function"
+signature_digest = "sha256:58cc8f0b1b24c479aae67630bc4f4f9809eb3f67dabaad63a588221ea34db7da"
+reviewed_body_digest = "sha256:7a31430dd8ddaa6cc3c313475ceaa7464ce5b2e92d8319d748970f20ee576b00"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+invariant_ids = ["RT_VERSIONED_DEPLOY_STATE_001"]
+test_ids = ["TEST_RUNTIME_VERSIONED_DEPLOY_BUNDLE_TARGETS_INCLUDE_CURRENT_AND_IMMEDIATE_PREVIOUS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEFAULT_BUNDLE_LABELS_ARE_UNIQUE_FOR_CONSECUTIVE_DEPLOYMENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYED_SIDECAR_PATHS_REQUIRE_NORMALIZED_RELATIVE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_LABELS_ARE_PORTABLE_SINGLE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_PRUNE_BUNDLES_KEEPS_ONLY_SELECTED_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_READ_LINK_TARGET_RESOLVES_RELATIVE_TO_THE_LINK_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SAFE_STATE_COMPARISON_USES_STRUCTURAL_ADDRESSES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_COLLECTION_HANDLES_GLOB_METACHARACTERS_IN_PROJECT_PATHS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_DIFF_PROPAGATES_INVALID_SOURCE_DIRECTORY_ERRORS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_DOES_NOT_OVERWRITE_AN_ORDINARY_FILE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_REPLACES_A_DANGLING_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_COPIES_ENABLED_PROTOCOL_SIDECARS_INTO_SELF_CONTAINED_BUNDLE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_RECOVERS_FROM_A_DANGLING_CURRENT_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_A_CURRENT_POINTER_OUTSIDE_ITS_BUNDLE_STORE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_DANGLING_OPTIONAL_BUNDLE_SYMLINKS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_BYTECODE_BEFORE_CHANGING_POINTERS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_PREVIOUS_SLOT_WITHOUT_PARTIAL_STATE_CHANGE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_LABELS_THAT_ESCAPE_THE_BUNDLES_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKED_SIDECAR_PARENT_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKS_IN_THE_COPIED_BUNDLE_CLOSURE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITH_RELATIVE_ROOT_KEEPS_CURRENT_AND_IMMEDIATE_PREVIOUS_FOR_ROLLBACK_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITHOUT_A_CURRENT_BUNDLE_CLEARS_A_STALE_PREVIOUS_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_SUMMARY_REPORTS_CURRENT_BUNDLE_AND_ANY_RUNTIME_FILE_CHANGE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_CD4FB2BC730C7C99E868922AC3634E2133ABC6FECE96C6E21B2C31CD139435E4"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/deploy/helpers.rs"
+qualified_symbol = "trust_runtime::deploy::collect_sources_from_directory"
+item_kind = "rust_function"
+signature_digest = "sha256:f73b18b40b6ec3025d1bd7724ba5b5134a0a62cc1103a02805656a3971dcdc4c"
+reviewed_body_digest = "sha256:d98144ea5adbc07f57a636c2eba4207f1c48a905ee22fe6694b92d4cf998800c"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "RISK_ACK_CD4FB2BC730C7C99E868922AC3634E2133ABC6FECE96C6E21B2C31CD139435E4"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+invariant_ids = ["RT_VERSIONED_DEPLOY_STATE_001"]
+test_ids = ["TEST_RUNTIME_VERSIONED_DEPLOY_BUNDLE_TARGETS_INCLUDE_CURRENT_AND_IMMEDIATE_PREVIOUS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEFAULT_BUNDLE_LABELS_ARE_UNIQUE_FOR_CONSECUTIVE_DEPLOYMENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYED_SIDECAR_PATHS_REQUIRE_NORMALIZED_RELATIVE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_LABELS_ARE_PORTABLE_SINGLE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_PRUNE_BUNDLES_KEEPS_ONLY_SELECTED_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_READ_LINK_TARGET_RESOLVES_RELATIVE_TO_THE_LINK_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SAFE_STATE_COMPARISON_USES_STRUCTURAL_ADDRESSES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_COLLECTION_HANDLES_GLOB_METACHARACTERS_IN_PROJECT_PATHS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_DIFF_PROPAGATES_INVALID_SOURCE_DIRECTORY_ERRORS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_DOES_NOT_OVERWRITE_AN_ORDINARY_FILE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_REPLACES_A_DANGLING_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_COPIES_ENABLED_PROTOCOL_SIDECARS_INTO_SELF_CONTAINED_BUNDLE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_RECOVERS_FROM_A_DANGLING_CURRENT_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_A_CURRENT_POINTER_OUTSIDE_ITS_BUNDLE_STORE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_DANGLING_OPTIONAL_BUNDLE_SYMLINKS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_BYTECODE_BEFORE_CHANGING_POINTERS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_PREVIOUS_SLOT_WITHOUT_PARTIAL_STATE_CHANGE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_LABELS_THAT_ESCAPE_THE_BUNDLES_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKED_SIDECAR_PARENT_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKS_IN_THE_COPIED_BUNDLE_CLOSURE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITH_RELATIVE_ROOT_KEEPS_CURRENT_AND_IMMEDIATE_PREVIOUS_FOR_ROLLBACK_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITHOUT_A_CURRENT_BUNDLE_CLEARS_A_STALE_PREVIOUS_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_SUMMARY_REPORTS_CURRENT_BUNDLE_AND_ANY_RUNTIME_FILE_CHANGE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_D1216A4DC04DC83162A5CB65560AF8BE39D06ADBCB2987D5A833CD230657866C"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/deploy/bundle_io.rs"
+qualified_symbol = "trust_runtime::deploy::bundle_targets"
+item_kind = "rust_function"
+signature_digest = "sha256:470bb2284ca8ba7a7d89d22df2735b33ea76f382c2b28c59fcb1e16031e0755d"
+reviewed_body_digest = "sha256:1f3a9d7a48d6be6940a7b1f0bf1ba26bb37a996bc3b9d928398be4b3b4a38516"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "RISK_ACK_D1216A4DC04DC83162A5CB65560AF8BE39D06ADBCB2987D5A833CD230657866C"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+invariant_ids = ["RT_VERSIONED_DEPLOY_STATE_001"]
+test_ids = ["TEST_RUNTIME_VERSIONED_DEPLOY_BUNDLE_TARGETS_INCLUDE_CURRENT_AND_IMMEDIATE_PREVIOUS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEFAULT_BUNDLE_LABELS_ARE_UNIQUE_FOR_CONSECUTIVE_DEPLOYMENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYED_SIDECAR_PATHS_REQUIRE_NORMALIZED_RELATIVE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_LABELS_ARE_PORTABLE_SINGLE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_PRUNE_BUNDLES_KEEPS_ONLY_SELECTED_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_READ_LINK_TARGET_RESOLVES_RELATIVE_TO_THE_LINK_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SAFE_STATE_COMPARISON_USES_STRUCTURAL_ADDRESSES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_COLLECTION_HANDLES_GLOB_METACHARACTERS_IN_PROJECT_PATHS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_DIFF_PROPAGATES_INVALID_SOURCE_DIRECTORY_ERRORS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_DOES_NOT_OVERWRITE_AN_ORDINARY_FILE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_REPLACES_A_DANGLING_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_COPIES_ENABLED_PROTOCOL_SIDECARS_INTO_SELF_CONTAINED_BUNDLE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_RECOVERS_FROM_A_DANGLING_CURRENT_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_A_CURRENT_POINTER_OUTSIDE_ITS_BUNDLE_STORE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_DANGLING_OPTIONAL_BUNDLE_SYMLINKS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_BYTECODE_BEFORE_CHANGING_POINTERS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_PREVIOUS_SLOT_WITHOUT_PARTIAL_STATE_CHANGE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_LABELS_THAT_ESCAPE_THE_BUNDLES_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKED_SIDECAR_PARENT_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKS_IN_THE_COPIED_BUNDLE_CLOSURE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITH_RELATIVE_ROOT_KEEPS_CURRENT_AND_IMMEDIATE_PREVIOUS_FOR_ROLLBACK_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITHOUT_A_CURRENT_BUNDLE_CLEARS_A_STALE_PREVIOUS_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_SUMMARY_REPORTS_CURRENT_BUNDLE_AND_ANY_RUNTIME_FILE_CHANGE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_D9DF2515953C4E6CD38382E6C3690DBB0564DD04B6E3B67763277CCA2C69A032"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/deploy/commands.rs"
+qualified_symbol = "trust_runtime::deploy::run_rollback"
+item_kind = "rust_function"
+signature_digest = "sha256:a087d93fc7be76d0ce7e8e42e24d33886d26087bc3de49e00d519a05142f9737"
+reviewed_body_digest = "sha256:7421a603994915093e3a1f4d050f690ec8173c8796f701cdff3ac47eea9aaa91"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "public"
+risk_signals = ["filesystem_or_environment", "state_mutation"]
+owner_ack = "RISK_ACK_D9DF2515953C4E6CD38382E6C3690DBB0564DD04B6E3B67763277CCA2C69A032"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+invariant_ids = ["RT_VERSIONED_DEPLOY_STATE_001"]
+test_ids = ["TEST_RUNTIME_VERSIONED_DEPLOY_BUNDLE_TARGETS_INCLUDE_CURRENT_AND_IMMEDIATE_PREVIOUS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEFAULT_BUNDLE_LABELS_ARE_UNIQUE_FOR_CONSECUTIVE_DEPLOYMENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYED_SIDECAR_PATHS_REQUIRE_NORMALIZED_RELATIVE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_LABELS_ARE_PORTABLE_SINGLE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_PRUNE_BUNDLES_KEEPS_ONLY_SELECTED_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_READ_LINK_TARGET_RESOLVES_RELATIVE_TO_THE_LINK_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SAFE_STATE_COMPARISON_USES_STRUCTURAL_ADDRESSES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_COLLECTION_HANDLES_GLOB_METACHARACTERS_IN_PROJECT_PATHS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_DIFF_PROPAGATES_INVALID_SOURCE_DIRECTORY_ERRORS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_DOES_NOT_OVERWRITE_AN_ORDINARY_FILE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_REPLACES_A_DANGLING_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_COPIES_ENABLED_PROTOCOL_SIDECARS_INTO_SELF_CONTAINED_BUNDLE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_RECOVERS_FROM_A_DANGLING_CURRENT_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_A_CURRENT_POINTER_OUTSIDE_ITS_BUNDLE_STORE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_DANGLING_OPTIONAL_BUNDLE_SYMLINKS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_BYTECODE_BEFORE_CHANGING_POINTERS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_PREVIOUS_SLOT_WITHOUT_PARTIAL_STATE_CHANGE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_LABELS_THAT_ESCAPE_THE_BUNDLES_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKED_SIDECAR_PARENT_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKS_IN_THE_COPIED_BUNDLE_CLOSURE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITH_RELATIVE_ROOT_KEEPS_CURRENT_AND_IMMEDIATE_PREVIOUS_FOR_ROLLBACK_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITHOUT_A_CURRENT_BUNDLE_CLEARS_A_STALE_PREVIOUS_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_SUMMARY_REPORTS_CURRENT_BUNDLE_AND_ANY_RUNTIME_FILE_CHANGE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_DA6325BCB9573ADA61A29BB21BB8878A6F9002F1E028F9C962C4B0DADBAF7C3D"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/deploy/diffs.rs"
+qualified_symbol = "trust_runtime::deploy::diff_watchdog"
+item_kind = "rust_function"
+signature_digest = "sha256:2172b5fcdff4af5e2cdfdf6dd07577c41a4605673d33a8e208b848270a2befd1"
+reviewed_body_digest = "sha256:ada35487434fe9ec5cf1be1d9d9df8e317bf25bcedfca324b45b5fb7af58f106"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "RISK_ACK_DA6325BCB9573ADA61A29BB21BB8878A6F9002F1E028F9C962C4B0DADBAF7C3D"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+invariant_ids = ["RT_VERSIONED_DEPLOY_STATE_001"]
+test_ids = ["TEST_RUNTIME_VERSIONED_DEPLOY_BUNDLE_TARGETS_INCLUDE_CURRENT_AND_IMMEDIATE_PREVIOUS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEFAULT_BUNDLE_LABELS_ARE_UNIQUE_FOR_CONSECUTIVE_DEPLOYMENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYED_SIDECAR_PATHS_REQUIRE_NORMALIZED_RELATIVE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_LABELS_ARE_PORTABLE_SINGLE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_PRUNE_BUNDLES_KEEPS_ONLY_SELECTED_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_READ_LINK_TARGET_RESOLVES_RELATIVE_TO_THE_LINK_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SAFE_STATE_COMPARISON_USES_STRUCTURAL_ADDRESSES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_COLLECTION_HANDLES_GLOB_METACHARACTERS_IN_PROJECT_PATHS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_DIFF_PROPAGATES_INVALID_SOURCE_DIRECTORY_ERRORS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_DOES_NOT_OVERWRITE_AN_ORDINARY_FILE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_REPLACES_A_DANGLING_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_COPIES_ENABLED_PROTOCOL_SIDECARS_INTO_SELF_CONTAINED_BUNDLE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_RECOVERS_FROM_A_DANGLING_CURRENT_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_A_CURRENT_POINTER_OUTSIDE_ITS_BUNDLE_STORE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_DANGLING_OPTIONAL_BUNDLE_SYMLINKS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_BYTECODE_BEFORE_CHANGING_POINTERS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_PREVIOUS_SLOT_WITHOUT_PARTIAL_STATE_CHANGE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_LABELS_THAT_ESCAPE_THE_BUNDLES_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKED_SIDECAR_PARENT_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKS_IN_THE_COPIED_BUNDLE_CLOSURE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITH_RELATIVE_ROOT_KEEPS_CURRENT_AND_IMMEDIATE_PREVIOUS_FOR_ROLLBACK_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITHOUT_A_CURRENT_BUNDLE_CLEARS_A_STALE_PREVIOUS_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_SUMMARY_REPORTS_CURRENT_BUNDLE_AND_ANY_RUNTIME_FILE_CHANGE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_DD3F7A453B8DE80431DED656024FD86EF67AF32E71A43B8422819D36A1C93257"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/deploy/diffs.rs"
+qualified_symbol = "trust_runtime::deploy::diff_sources"
+item_kind = "rust_function"
+signature_digest = "sha256:76c54b15e81eca1e0ad01df5e14c1a4a9beb656204ac56c8631e70318c7b3e77"
+reviewed_body_digest = "sha256:e8563a94bd73b59d54afc2c92100cbe40088c05e7158c7650360b965abd18261"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = ["broad_error_suppression", "state_mutation"]
+owner_ack = "RISK_ACK_DD3F7A453B8DE80431DED656024FD86EF67AF32E71A43B8422819D36A1C93257"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+invariant_ids = ["RT_VERSIONED_DEPLOY_STATE_001"]
+test_ids = ["TEST_RUNTIME_VERSIONED_DEPLOY_BUNDLE_TARGETS_INCLUDE_CURRENT_AND_IMMEDIATE_PREVIOUS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEFAULT_BUNDLE_LABELS_ARE_UNIQUE_FOR_CONSECUTIVE_DEPLOYMENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYED_SIDECAR_PATHS_REQUIRE_NORMALIZED_RELATIVE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_LABELS_ARE_PORTABLE_SINGLE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_PRUNE_BUNDLES_KEEPS_ONLY_SELECTED_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_READ_LINK_TARGET_RESOLVES_RELATIVE_TO_THE_LINK_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SAFE_STATE_COMPARISON_USES_STRUCTURAL_ADDRESSES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_COLLECTION_HANDLES_GLOB_METACHARACTERS_IN_PROJECT_PATHS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_DIFF_PROPAGATES_INVALID_SOURCE_DIRECTORY_ERRORS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_DOES_NOT_OVERWRITE_AN_ORDINARY_FILE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_REPLACES_A_DANGLING_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_COPIES_ENABLED_PROTOCOL_SIDECARS_INTO_SELF_CONTAINED_BUNDLE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_RECOVERS_FROM_A_DANGLING_CURRENT_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_A_CURRENT_POINTER_OUTSIDE_ITS_BUNDLE_STORE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_DANGLING_OPTIONAL_BUNDLE_SYMLINKS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_BYTECODE_BEFORE_CHANGING_POINTERS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_PREVIOUS_SLOT_WITHOUT_PARTIAL_STATE_CHANGE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_LABELS_THAT_ESCAPE_THE_BUNDLES_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKED_SIDECAR_PARENT_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKS_IN_THE_COPIED_BUNDLE_CLOSURE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITH_RELATIVE_ROOT_KEEPS_CURRENT_AND_IMMEDIATE_PREVIOUS_FOR_ROLLBACK_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITHOUT_A_CURRENT_BUNDLE_CLEARS_A_STALE_PREVIOUS_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_SUMMARY_REPORTS_CURRENT_BUNDLE_AND_ANY_RUNTIME_FILE_CHANGE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_E383CE0DE88D2746E2D984BB8BD9C53E687A3EF9D5573D04FB4ADD3761D12DE7"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/deploy/summary_models.rs"
+qualified_symbol = "trust_runtime::deploy::BundleChangeSummary::print"
+item_kind = "rust_method"
+signature_digest = "sha256:0ad86490f925c277881b045f54e6fbc8b3c9319e00e65f39855a6240a998194b"
+reviewed_body_digest = "sha256:75c1b8462634afa9f1b826b3ea3053ee8be3be63eba5153597d5ea39854e6d60"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+invariant_ids = ["RT_VERSIONED_DEPLOY_STATE_001"]
+test_ids = ["TEST_RUNTIME_VERSIONED_DEPLOY_BUNDLE_TARGETS_INCLUDE_CURRENT_AND_IMMEDIATE_PREVIOUS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEFAULT_BUNDLE_LABELS_ARE_UNIQUE_FOR_CONSECUTIVE_DEPLOYMENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYED_SIDECAR_PATHS_REQUIRE_NORMALIZED_RELATIVE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_LABELS_ARE_PORTABLE_SINGLE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_PRUNE_BUNDLES_KEEPS_ONLY_SELECTED_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_READ_LINK_TARGET_RESOLVES_RELATIVE_TO_THE_LINK_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SAFE_STATE_COMPARISON_USES_STRUCTURAL_ADDRESSES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_COLLECTION_HANDLES_GLOB_METACHARACTERS_IN_PROJECT_PATHS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_DIFF_PROPAGATES_INVALID_SOURCE_DIRECTORY_ERRORS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_DOES_NOT_OVERWRITE_AN_ORDINARY_FILE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_REPLACES_A_DANGLING_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_COPIES_ENABLED_PROTOCOL_SIDECARS_INTO_SELF_CONTAINED_BUNDLE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_RECOVERS_FROM_A_DANGLING_CURRENT_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_A_CURRENT_POINTER_OUTSIDE_ITS_BUNDLE_STORE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_DANGLING_OPTIONAL_BUNDLE_SYMLINKS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_BYTECODE_BEFORE_CHANGING_POINTERS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_PREVIOUS_SLOT_WITHOUT_PARTIAL_STATE_CHANGE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_LABELS_THAT_ESCAPE_THE_BUNDLES_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKED_SIDECAR_PARENT_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKS_IN_THE_COPIED_BUNDLE_CLOSURE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITH_RELATIVE_ROOT_KEEPS_CURRENT_AND_IMMEDIATE_PREVIOUS_FOR_ROLLBACK_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITHOUT_A_CURRENT_BUNDLE_CLEARS_A_STALE_PREVIOUS_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_SUMMARY_REPORTS_CURRENT_BUNDLE_AND_ANY_RUNTIME_FILE_CHANGE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_EFC2DA6E9199C5B2D34B9226BD53C0D5A9E5B53111053972DECE51FC3BABC362"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/deploy/helpers.rs"
+qualified_symbol = "trust_runtime::deploy::collect_sources"
+item_kind = "rust_function"
+signature_digest = "sha256:d9ae13bd6c8652d6199698654e71f2f69d9b061809b28468c5f30a56bb17dfdb"
+reviewed_body_digest = "sha256:364e08b6d12f4dc4a6b05dab31e2ed3d74fa066ebfa6e7e3b692661347d3e8d9"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+invariant_ids = ["RT_VERSIONED_DEPLOY_STATE_001"]
+test_ids = ["TEST_RUNTIME_VERSIONED_DEPLOY_BUNDLE_TARGETS_INCLUDE_CURRENT_AND_IMMEDIATE_PREVIOUS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEFAULT_BUNDLE_LABELS_ARE_UNIQUE_FOR_CONSECUTIVE_DEPLOYMENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYED_SIDECAR_PATHS_REQUIRE_NORMALIZED_RELATIVE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_LABELS_ARE_PORTABLE_SINGLE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_PRUNE_BUNDLES_KEEPS_ONLY_SELECTED_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_READ_LINK_TARGET_RESOLVES_RELATIVE_TO_THE_LINK_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SAFE_STATE_COMPARISON_USES_STRUCTURAL_ADDRESSES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_COLLECTION_HANDLES_GLOB_METACHARACTERS_IN_PROJECT_PATHS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_DIFF_PROPAGATES_INVALID_SOURCE_DIRECTORY_ERRORS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_DOES_NOT_OVERWRITE_AN_ORDINARY_FILE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_REPLACES_A_DANGLING_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_COPIES_ENABLED_PROTOCOL_SIDECARS_INTO_SELF_CONTAINED_BUNDLE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_RECOVERS_FROM_A_DANGLING_CURRENT_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_A_CURRENT_POINTER_OUTSIDE_ITS_BUNDLE_STORE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_DANGLING_OPTIONAL_BUNDLE_SYMLINKS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_BYTECODE_BEFORE_CHANGING_POINTERS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_PREVIOUS_SLOT_WITHOUT_PARTIAL_STATE_CHANGE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_LABELS_THAT_ESCAPE_THE_BUNDLES_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKED_SIDECAR_PARENT_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKS_IN_THE_COPIED_BUNDLE_CLOSURE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITH_RELATIVE_ROOT_KEEPS_CURRENT_AND_IMMEDIATE_PREVIOUS_FOR_ROLLBACK_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITHOUT_A_CURRENT_BUNDLE_CLEARS_A_STALE_PREVIOUS_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_SUMMARY_REPORTS_CURRENT_BUNDLE_AND_ANY_RUNTIME_FILE_CHANGE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_F10E2133E1A28F5AA39191FCE467CE70EC60BA88049CA499F99723C96B69BFC3"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/deploy/summary_models.rs"
+qualified_symbol = "trust_runtime::deploy::BundleChangeSummary::new"
+item_kind = "rust_method"
+signature_digest = "sha256:6ceb691e9e055cac4008ec8c861f30b49bd33800795cbf6d05f0593b19d29c14"
+reviewed_body_digest = "sha256:9703a4731bab1bdd941bb694e5c6ad88e07a86d46484e4da0694de3a967f7df7"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+invariant_ids = ["RT_VERSIONED_DEPLOY_STATE_001"]
+test_ids = ["TEST_RUNTIME_VERSIONED_DEPLOY_BUNDLE_TARGETS_INCLUDE_CURRENT_AND_IMMEDIATE_PREVIOUS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEFAULT_BUNDLE_LABELS_ARE_UNIQUE_FOR_CONSECUTIVE_DEPLOYMENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYED_SIDECAR_PATHS_REQUIRE_NORMALIZED_RELATIVE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_LABELS_ARE_PORTABLE_SINGLE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_PRUNE_BUNDLES_KEEPS_ONLY_SELECTED_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_READ_LINK_TARGET_RESOLVES_RELATIVE_TO_THE_LINK_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SAFE_STATE_COMPARISON_USES_STRUCTURAL_ADDRESSES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_COLLECTION_HANDLES_GLOB_METACHARACTERS_IN_PROJECT_PATHS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_DIFF_PROPAGATES_INVALID_SOURCE_DIRECTORY_ERRORS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_DOES_NOT_OVERWRITE_AN_ORDINARY_FILE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_REPLACES_A_DANGLING_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_COPIES_ENABLED_PROTOCOL_SIDECARS_INTO_SELF_CONTAINED_BUNDLE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_RECOVERS_FROM_A_DANGLING_CURRENT_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_A_CURRENT_POINTER_OUTSIDE_ITS_BUNDLE_STORE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_DANGLING_OPTIONAL_BUNDLE_SYMLINKS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_BYTECODE_BEFORE_CHANGING_POINTERS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_PREVIOUS_SLOT_WITHOUT_PARTIAL_STATE_CHANGE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_LABELS_THAT_ESCAPE_THE_BUNDLES_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKED_SIDECAR_PARENT_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKS_IN_THE_COPIED_BUNDLE_CLOSURE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITH_RELATIVE_ROOT_KEEPS_CURRENT_AND_IMMEDIATE_PREVIOUS_FOR_ROLLBACK_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITHOUT_A_CURRENT_BUNDLE_CLEARS_A_STALE_PREVIOUS_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_SUMMARY_REPORTS_CURRENT_BUNDLE_AND_ANY_RUNTIME_FILE_CHANGE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_F3B6CF668C69404541F8D02515407EA4C24CC0EB00C00B9C927727B00CE929AB"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/deploy/bundle_io.rs"
+qualified_symbol = "trust_runtime::deploy::copy_file"
+item_kind = "rust_function"
+signature_digest = "sha256:445cbc8699abfb569022cf410345e5f9076136a6bc70ed48c571a0d83b8f735f"
+reviewed_body_digest = "sha256:702a768502215992abaf0fa12e7b0ef2d7dc97b6f0beaee7d5e5b83ff95c2ea4"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+invariant_ids = ["RT_VERSIONED_DEPLOY_STATE_001"]
+test_ids = ["TEST_RUNTIME_VERSIONED_DEPLOY_BUNDLE_TARGETS_INCLUDE_CURRENT_AND_IMMEDIATE_PREVIOUS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEFAULT_BUNDLE_LABELS_ARE_UNIQUE_FOR_CONSECUTIVE_DEPLOYMENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYED_SIDECAR_PATHS_REQUIRE_NORMALIZED_RELATIVE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_LABELS_ARE_PORTABLE_SINGLE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_PRUNE_BUNDLES_KEEPS_ONLY_SELECTED_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_READ_LINK_TARGET_RESOLVES_RELATIVE_TO_THE_LINK_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SAFE_STATE_COMPARISON_USES_STRUCTURAL_ADDRESSES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_COLLECTION_HANDLES_GLOB_METACHARACTERS_IN_PROJECT_PATHS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_DIFF_PROPAGATES_INVALID_SOURCE_DIRECTORY_ERRORS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_DOES_NOT_OVERWRITE_AN_ORDINARY_FILE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_REPLACES_A_DANGLING_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_COPIES_ENABLED_PROTOCOL_SIDECARS_INTO_SELF_CONTAINED_BUNDLE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_RECOVERS_FROM_A_DANGLING_CURRENT_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_A_CURRENT_POINTER_OUTSIDE_ITS_BUNDLE_STORE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_DANGLING_OPTIONAL_BUNDLE_SYMLINKS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_BYTECODE_BEFORE_CHANGING_POINTERS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_PREVIOUS_SLOT_WITHOUT_PARTIAL_STATE_CHANGE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_LABELS_THAT_ESCAPE_THE_BUNDLES_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKED_SIDECAR_PARENT_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKS_IN_THE_COPIED_BUNDLE_CLOSURE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITH_RELATIVE_ROOT_KEEPS_CURRENT_AND_IMMEDIATE_PREVIOUS_FOR_ROLLBACK_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITHOUT_A_CURRENT_BUNDLE_CLEARS_A_STALE_PREVIOUS_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_SUMMARY_REPORTS_CURRENT_BUNDLE_AND_ANY_RUNTIME_FILE_CHANGE_001"]
 last_reviewed = "2026-07-23"
