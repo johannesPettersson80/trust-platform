@@ -18900,3 +18900,362 @@ requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_CONFIGURATION_REJECTS_ARRAY_METADATA_WHOSE_BYTE_LENGTH_OVERFLOWS_001.json"
 last_reviewed = "2026-07-23"
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_SERVER_DOCTOR_TRUTH_STATUS_USES_LIVE_RUNTIME_SYMBOL_COUNT_NOT_SUPPLIED_SNAPSHOT_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_64F10791B42FBEFB6104"
+discovery_source_kind = "rust_unit_test"
+test_class = "unit"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/server/doctor/tests.rs"
+name = "status_uses_live_runtime_symbol_count_not_supplied_snapshot"
+command = "cargo test -p trust-runtime --lib ads::server::doctor::tests::status_uses_live_runtime_symbol_count_not_supplied_snapshot -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+expected_result = "Server Doctor status reports the live runtime symbol count instead of a supplied snapshot count."
+expected_failure_mode = "Caller-supplied symbols manufacture live server health."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_DOCTOR_TRUTH_STATUS_USES_LIVE_RUNTIME_SYMBOL_COUNT_NOT_SUPPLIED_SNAPSHOT_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_SERVER_DOCTOR_TRUTH_DOCTOR_REJECTS_SUPPLIED_SYMBOLS_WHEN_LIVE_RUNTIME_TABLE_IS_EMPTY_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_A41AF98C15D337D669A2"
+discovery_source_kind = "rust_unit_test"
+test_class = "unit"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/server/doctor/tests.rs"
+name = "doctor_rejects_supplied_symbols_when_live_runtime_table_is_empty"
+command = "cargo test -p trust-runtime --lib ads::server::doctor::tests::doctor_rejects_supplied_symbols_when_live_runtime_table_is_empty -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+expected_result = "An empty live server table blocks symbol exposure and loopback proof even when the caller snapshot is populated."
+expected_failure_mode = "A populated caller snapshot promotes an empty live server table."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_DOCTOR_TRUTH_DOCTOR_REJECTS_SUPPLIED_SYMBOLS_WHEN_LIVE_RUNTIME_TABLE_IS_EMPTY_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_SERVER_DOCTOR_TRUTH_LOOPBACK_CONNECTION_FAILURE_FAILS_EVERY_SELF_TEST_STEP_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_FF14FD1B659E938DBC90"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/server/doctor/tests.rs"
+name = "loopback_connection_failure_fails_every_self_test_step"
+command = "cargo test -p trust-runtime --lib ads::server::doctor::tests::loopback_connection_failure_fails_every_self_test_step -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+expected_result = "A loopback connection failure fails all five self-test steps in stable order with the connection error retained."
+expected_failure_mode = "A failed loopback connection leaves any self-test step passing, skipped, missing, or detached from the failure detail."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_DOCTOR_TRUTH_LOOPBACK_CONNECTION_FAILURE_FAILS_EVERY_SELF_TEST_STEP_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_SERVER_DOCTOR_TRUTH_BLANK_EXTERNAL_CLIENT_EVIDENCE_IS_NOT_VERIFIED_OR_PASSED_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_9C63732238B212DED9C9"
+discovery_source_kind = "rust_unit_test"
+test_class = "unit"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/server/doctor/tests.rs"
+name = "blank_external_client_evidence_is_not_verified_or_passed"
+command = "cargo test -p trust-runtime --lib ads::server::doctor::tests::blank_external_client_evidence_is_not_verified_or_passed -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+expected_result = "Whitespace-only external client kind or name cannot pass a step or set verified evidence."
+expected_failure_mode = "Blank external evidence is treated as independent proof."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_DOCTOR_TRUTH_BLANK_EXTERNAL_CLIENT_EVIDENCE_IS_NOT_VERIFIED_OR_PASSED_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_SERVER_DOCTOR_TRUTH_ZERO_SYMBOL_HANDLE_IS_REJECTED_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_1394719121F13C2341B0"
+discovery_source_kind = "rust_unit_test"
+test_class = "unit"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/server/doctor/tests.rs"
+name = "zero_symbol_handle_is_rejected"
+command = "cargo test -p trust-runtime --lib ads::server::doctor::tests::zero_symbol_handle_is_rejected -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+expected_result = "A successful ADS result carrying symbol handle zero is rejected."
+expected_failure_mode = "Handle zero is accepted as a usable symbol handle."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_DOCTOR_TRUTH_ZERO_SYMBOL_HANDLE_IS_REJECTED_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_SERVER_DOCTOR_TRUTH_ZERO_NOTIFICATION_HANDLE_IS_REJECTED_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_066A0C7B13D965E05AE3"
+discovery_source_kind = "rust_unit_test"
+test_class = "unit"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/server/doctor/tests.rs"
+name = "zero_notification_handle_is_rejected"
+command = "cargo test -p trust-runtime --lib ads::server::doctor::tests::zero_notification_handle_is_rejected -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+expected_result = "A successful ADS result carrying notification handle zero is rejected."
+expected_failure_mode = "Handle zero is accepted as a usable notification handle."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_DOCTOR_TRUTH_ZERO_NOTIFICATION_HANDLE_IS_REJECTED_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_SERVER_DOCTOR_TRUTH_NOTIFICATION_REQUIRES_COMPLETE_REQUESTED_PAYLOAD_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_66515F2A1565B1C783A2"
+discovery_source_kind = "rust_unit_test"
+test_class = "unit"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/server/doctor/tests.rs"
+name = "notification_requires_complete_requested_payload"
+command = "cargo test -p trust-runtime --lib ads::server::doctor::tests::notification_requires_complete_requested_payload -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+expected_result = "A matching notification proves delivery only with the complete requested payload."
+expected_failure_mode = "A truncated matching prefix passes notification proof."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_DOCTOR_TRUTH_NOTIFICATION_REQUIRES_COMPLETE_REQUESTED_PAYLOAD_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_SERVER_DOCTOR_TRUTH_NOTIFICATION_REJECTS_MALFORMED_DECLARED_TAIL_AFTER_VALID_MATCH_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_02625E2A106863070BB7"
+discovery_source_kind = "rust_unit_test"
+test_class = "unit"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/server/doctor/tests.rs"
+name = "notification_rejects_malformed_declared_tail_after_valid_match"
+command = "cargo test -p trust-runtime --lib ads::server::doctor::tests::notification_rejects_malformed_declared_tail_after_valid_match -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+expected_result = "A truncated later declared sample after a valid match invalidates the entire notification stream."
+expected_failure_mode = "Parsing returns success before validating the declared tail."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_DOCTOR_TRUTH_NOTIFICATION_REJECTS_MALFORMED_DECLARED_TAIL_AFTER_VALID_MATCH_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_SERVER_DOCTOR_TRUTH_NOTIFICATION_REJECTS_BYTES_OUTSIDE_DECLARED_STREAM_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_DBB240B49C9DB6B62411"
+discovery_source_kind = "rust_unit_test"
+test_class = "unit"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/server/doctor/tests.rs"
+name = "notification_rejects_bytes_outside_declared_stream"
+command = "cargo test -p trust-runtime --lib ads::server::doctor::tests::notification_rejects_bytes_outside_declared_stream -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+expected_result = "Bytes outside the declared notification stream are rejected."
+expected_failure_mode = "Undeclared trailing bytes are silently ignored."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_DOCTOR_TRUTH_NOTIFICATION_REJECTS_BYTES_OUTSIDE_DECLARED_STREAM_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_SERVER_DOCTOR_TRUTH_NOTIFICATION_REJECTS_DUPLICATE_MATCHING_HANDLE_SAMPLES_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_90FF5DEF2E09F6FF29F6"
+discovery_source_kind = "rust_unit_test"
+test_class = "unit"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/server/doctor/tests.rs"
+name = "notification_rejects_duplicate_matching_handle_samples"
+command = "cargo test -p trust-runtime --lib ads::server::doctor::tests::notification_rejects_duplicate_matching_handle_samples -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+expected_result = "A notification stream must contain exactly one matching-handle sample."
+expected_failure_mode = "Duplicate matching samples manufacture unambiguous delivery proof."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_DOCTOR_TRUTH_NOTIFICATION_REJECTS_DUPLICATE_MATCHING_HANDLE_SAMPLES_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_SERVER_DOCTOR_TRUTH_LOOPBACK_RESPONSE_REQUIRES_DIRECTION_AND_COMPLETE_REQUEST_IDENTITY_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_BC19BA8A0C01DC5AE250"
+discovery_source_kind = "rust_unit_test"
+test_class = "unit"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/server/doctor/tests.rs"
+name = "loopback_response_requires_direction_and_complete_request_identity"
+command = "cargo test -p trust-runtime --lib ads::server::doctor::tests::loopback_response_requires_direction_and_complete_request_identity -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+expected_result = "Loopback responses require response direction plus exact reversed endpoint, command, and invoke identity."
+expected_failure_mode = "An uncorrelated or request-direction frame payload is trusted."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_DOCTOR_TRUTH_LOOPBACK_RESPONSE_REQUIRES_DIRECTION_AND_COMPLETE_REQUEST_IDENTITY_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_SERVER_DOCTOR_TRUTH_LOOPBACK_RESPONSE_ACCEPTS_EXACT_CORRELATED_RESPONSE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_9BCDBBB2A9FD26FE5919"
+discovery_source_kind = "rust_unit_test"
+test_class = "unit"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/server/doctor/tests.rs"
+name = "loopback_response_accepts_exact_correlated_response"
+command = "cargo test -p trust-runtime --lib ads::server::doctor::tests::loopback_response_accepts_exact_correlated_response -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+expected_result = "An exact response-direction frame with reversed endpoints and matching command and invoke ID is accepted."
+expected_failure_mode = "A correctly correlated response is rejected."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_DOCTOR_TRUTH_LOOPBACK_RESPONSE_ACCEPTS_EXACT_CORRELATED_RESPONSE_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_SELF_TEST_DOES_NOT_GRANT_PRODUCTION_READY_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_C006ED96FD30C958CE27"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/server/tests.rs"
+name = "server_doctor_self_test_does_not_grant_production_ready"
+command = "cargo test -p trust-runtime --lib ads::server::tests::server_doctor_self_test_does_not_grant_production_ready -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+expected_result = "Loopback self-test proof alone does not grant production readiness."
+expected_failure_mode = "Internal self-proof is treated as independent production evidence."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_SELF_TEST_DOES_NOT_GRANT_PRODUCTION_READY_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_REQUIRES_TWINCAT_EXTERNAL_CLIENT_FOR_PRODUCTION_READY_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_459303D3A3FACBC7F32D"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/server/tests.rs"
+name = "server_doctor_requires_twincat_external_client_for_production_ready"
+command = "cargo test -p trust-runtime --lib ads::server::tests::server_doctor_requires_twincat_external_client_for_production_ready -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+expected_result = "Production readiness requires valid TwinCAT external-client evidence against live served symbols."
+expected_failure_mode = "Missing, pyads-only, or non-live evidence grants production readiness."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_REQUIRES_TWINCAT_EXTERNAL_CLIENT_FOR_PRODUCTION_READY_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_BLOCKS_EMPTY_EXPOSE_AND_EMPTY_CLIENTS_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_C29404A5CFE967581298"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/server/tests.rs"
+name = "server_doctor_blocks_empty_expose_and_empty_clients"
+command = "cargo test -p trust-runtime --lib ads::server::tests::server_doctor_blocks_empty_expose_and_empty_clients -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+expected_result = "Empty symbol exposure and empty client authority block Doctor progress."
+expected_failure_mode = "Doctor passes with nothing safely exposed or no allowed clients."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_BLOCKS_EMPTY_EXPOSE_AND_EMPTY_CLIENTS_001.json"
+last_reviewed = "2026-07-23"

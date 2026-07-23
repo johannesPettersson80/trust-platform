@@ -1,0 +1,102 @@
+schema_version = 1
+id = "RT_ADS_SERVER_DOCTOR_TRUTH_001"
+title = "ADS server Doctor reports only live and correlated proof"
+area = "protocols"
+risk = "false_status"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-23"
+claim = "Every passing ADS server Doctor step and verified evidence field comes from the running server live symbol state or complete nonblank endpoint-correlated proof; zero handles, truncated or ambiguous notifications, request-direction frames, and endpoint, command, or invoke mismatches fail closed without manufactured health, verification, or success."
+proof_level = "T1"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-runtime/src/host/ads/server/doctor.rs", "crates/trust-runtime/src/host/ads/server/doctor/loopback_client.rs", "crates/trust-runtime/src/host/ads/server/lifecycle.rs"]
+tests = [
+  "TEST_ADS_SERVER_DOCTOR_TRUTH_STATUS_USES_LIVE_RUNTIME_SYMBOL_COUNT_NOT_SUPPLIED_SNAPSHOT_001",
+  "TEST_ADS_SERVER_DOCTOR_TRUTH_DOCTOR_REJECTS_SUPPLIED_SYMBOLS_WHEN_LIVE_RUNTIME_TABLE_IS_EMPTY_001",
+  "TEST_ADS_SERVER_DOCTOR_TRUTH_LOOPBACK_CONNECTION_FAILURE_FAILS_EVERY_SELF_TEST_STEP_001",
+  "TEST_ADS_SERVER_DOCTOR_TRUTH_BLANK_EXTERNAL_CLIENT_EVIDENCE_IS_NOT_VERIFIED_OR_PASSED_001",
+  "TEST_ADS_SERVER_DOCTOR_TRUTH_ZERO_SYMBOL_HANDLE_IS_REJECTED_001",
+  "TEST_ADS_SERVER_DOCTOR_TRUTH_ZERO_NOTIFICATION_HANDLE_IS_REJECTED_001",
+  "TEST_ADS_SERVER_DOCTOR_TRUTH_NOTIFICATION_REQUIRES_COMPLETE_REQUESTED_PAYLOAD_001",
+  "TEST_ADS_SERVER_DOCTOR_TRUTH_NOTIFICATION_REJECTS_MALFORMED_DECLARED_TAIL_AFTER_VALID_MATCH_001",
+  "TEST_ADS_SERVER_DOCTOR_TRUTH_NOTIFICATION_REJECTS_BYTES_OUTSIDE_DECLARED_STREAM_001",
+  "TEST_ADS_SERVER_DOCTOR_TRUTH_NOTIFICATION_REJECTS_DUPLICATE_MATCHING_HANDLE_SAMPLES_001",
+  "TEST_ADS_SERVER_DOCTOR_TRUTH_LOOPBACK_RESPONSE_REQUIRES_DIRECTION_AND_COMPLETE_REQUEST_IDENTITY_001",
+  "TEST_ADS_SERVER_DOCTOR_TRUTH_LOOPBACK_RESPONSE_ACCEPTS_EXACT_CORRELATED_RESPONSE_001",
+  "TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_SELF_TEST_DOES_NOT_GRANT_PRODUCTION_READY_001",
+  "TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_REQUIRES_TWINCAT_EXTERNAL_CLIENT_FOR_PRODUCTION_READY_001",
+  "TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_BLOCKS_EMPTY_EXPOSE_AND_EMPTY_CLIENTS_001"
+]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate", "external_ads_client", "twincat_lab"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+
+[[behavior]]
+partition = { equals = "LIVE_STATE_AND_EXACT_CORRELATED_PROOF" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Live served symbols and complete exactly correlated proof may advance the corresponding Doctor step without changing production readiness rules."
+
+[[behavior]]
+partition = { equals = "EMPTY_LIVE_STATE_OR_BLANK_EXTERNAL_EVIDENCE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "Caller snapshots and blank external fields cannot manufacture live symbols, passing steps, or verified evidence."
+
+[[behavior]]
+partition = { equals = "ZERO_TRUNCATED_AMBIGUOUS_OR_TRAILING_NOTIFICATION_DATA" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "Handles must be nonzero and the entire declared notification stream must contain exactly one complete requested sample with no malformed or undeclared remainder."
+
+[[behavior]]
+partition = { equals = "UNCORRELATED_OR_REQUEST_DIRECTION_RESPONSE" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "A loopback payload is trusted only after exact response direction, endpoint, command, and invoke correlation."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "Focused positive locks accept exact live-state and response correlation."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "covered"
+rationale = "Focused locks reject caller-supplied false live state and blank external evidence."
+
+[[coverage.cells]]
+dimension = "boundary_high"
+state = "covered"
+rationale = "Focused regressions cover zero handles and complete declared notification-stream exhaustion."
+
+[[coverage.cells]]
+dimension = "auth_or_permission"
+state = "covered"
+rationale = "Focused framing locks reject request direction and every mismatched endpoint, command, or invoke field."
+
+[[coverage.cells]]
+dimension = "hardware_or_network_fault"
+state = "gap_open"
+rationale = "Real external ADS client and TwinCAT production evidence remain final environment proof."

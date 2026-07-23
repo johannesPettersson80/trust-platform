@@ -10,6 +10,10 @@ Target release: `v0.24.54`
 
 ### Fixed
 
+- trust-runtime: the ADS server Doctor now derives health from the live server
+  symbol table, rejects blank external proof and zero handles, requires complete
+  notification samples, and rejects response-direction or endpoint identity
+  mismatches before trusting loopback payloads.
 - trust-runtime: ADS client configuration parsing now rejects duplicate
   connection names, noncanonical target AMS Net IDs, and blank or noncanonical
   explicit local AMS Net IDs before constructing activation routes.

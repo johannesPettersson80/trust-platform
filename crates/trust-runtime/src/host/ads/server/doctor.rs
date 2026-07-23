@@ -1,17 +1,16 @@
 //! ADS server doctor and production evidence.
 
-use std::io::{Read, Write};
-use std::net::{SocketAddr, TcpStream, UdpSocket};
+mod loopback_client;
+#[cfg(test)]
+mod tests;
+
+use std::net::{SocketAddr, UdpSocket};
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use trust_ads_core::{AmsNetId, SymbolDescriptor, SymbolFlag};
-use trust_ads_server::{
-    ams_net_id_text_to_bytes, AdsErrorCode, AmsHeader, AmsParseError, AmsState, AmsTcpFrame,
-    CommandId, ADSIGRP_SUMUP_READ, ADSIGRP_SYM_HNDBYNAME, ADSTRANS_SERVERCYCLE, AMS_HEADER_LEN,
-    AMS_TCP_HEADER_LEN,
-};
+use trust_ads_server::{ams_net_id_text_to_bytes, AmsParseError, AmsTcpFrame};
 
 use crate::ads::diagnostics::{
     build_server_production_evidence, AdsConnectionStatus, AdsConnectionStatusState,
@@ -22,9 +21,10 @@ use crate::ads::diagnostics::{
 use crate::ads::onboarding::classify_local_address;
 use crate::debug::DebugSnapshot;
 
-use super::{
-    build_runtime_symbol_snapshot, AdsServerRuntime, AdsServerRuntimeConfig, AdsServerSourcePin,
-};
+use super::{AdsServerRuntime, AdsServerRuntimeConfig, AdsServerSourcePin};
+#[cfg(test)]
+use loopback_client::expect_add_notification;
+use loopback_client::LoopbackAdsClient;
 
 const SELF_TEST_SOURCE_NET_ID: &str = "127.0.0.1.1.2";
 const DENIED_SOURCE_NET_ID: &str = "127.0.0.1.1.200";
@@ -49,7 +49,10 @@ pub struct AdsServerDoctorInput<'a> {
     pub resource_name: &'a str,
     /// Runtime ADS server config.
     pub config: &'a AdsServerRuntimeConfig,
-    /// Latest runtime snapshot used for symbol publication evidence.
+    /// Latest caller-observed runtime snapshot.
+    ///
+    /// This observation cannot establish live symbol-service or production
+    /// evidence; the Doctor reads those only from the running ADS server.
     pub snapshot: &'a DebugSnapshot,
     /// Running ADS server subsystem, when available.
     pub runtime: Option<&'a AdsServerRuntime>,
@@ -69,9 +72,9 @@ pub struct AdsServerDoctorInput<'a> {
 #[must_use]
 pub fn run_ads_server_doctor(input: AdsServerDoctorInput<'_>) -> DoctorReport {
     let local = local_identity(input.resource_name, input.config);
-    let symbol_snapshot = build_runtime_symbol_snapshot(input.config, input.snapshot);
+    let symbol_snapshot = input.runtime.map(AdsServerRuntime::symbol_snapshot);
     let status =
-        build_ads_server_status_report(input.config, symbol_snapshot.as_ref().ok(), input.runtime);
+        build_ads_server_status_report(input.config, symbol_snapshot.as_deref(), input.runtime);
     let mut steps = Vec::new();
 
     if !input.config.enabled {
@@ -84,7 +87,7 @@ pub fn run_ads_server_doctor(input: AdsServerDoctorInput<'_>) -> DoctorReport {
             )
             .with_next_action(NextAction::new(NextActionKind::ConfigureExpose)),
         );
-        return finalize_report(input, local, steps, symbol_snapshot.ok(), status, false);
+        return finalize_report(input, local, steps, symbol_snapshot, status, false);
     }
 
     steps.push(bind_exposure_step(input.config));
@@ -94,8 +97,8 @@ pub fn run_ads_server_doctor(input: AdsServerDoctorInput<'_>) -> DoctorReport {
         .runtime
         .is_some_and(|runtime| udp_identify_step(runtime, input.config, &mut steps));
 
-    match &symbol_snapshot {
-        Ok(snapshot) if !snapshot.symbols.is_empty() => steps.push(
+    match symbol_snapshot.as_deref() {
+        Some(snapshot) if !snapshot.symbols.is_empty() => steps.push(
             DoctorStep::new(
                 DoctorStepId::SymbolsExposed,
                 "Symbols exposed",
@@ -104,37 +107,37 @@ pub fn run_ads_server_doctor(input: AdsServerDoctorInput<'_>) -> DoctorReport {
             )
             .with_evidence("symbol_count", json!(snapshot.symbols.len())),
         ),
-        Ok(_) => steps.push(
+        Some(_) => steps.push(
             DoctorStep::failed(
                 DoctorStepId::SymbolsExposed,
                 "Symbols exposed",
-                "No runtime variables match runtime.ads_server.expose.",
+                "The live ADS server symbol table is empty.",
                 failure(NextActionKind::ConfigureExpose),
             )
             .with_evidence("symbol_count", json!(0)),
         ),
-        Err(error) => steps.push(DoctorStep::failed(
+        None => steps.push(DoctorStep::failed(
             DoctorStepId::SymbolsExposed,
             "Symbols exposed",
-            format!("Failed to build ADS symbol snapshot: {error}"),
-            failure(NextActionKind::ConfigureExpose),
+            "ADS server runtime is not running; no live symbol table is available.",
+            failure(NextActionKind::RerunDoctor),
         )),
     }
 
     steps.push(clients_allowed_step(input.config));
 
-    if let Ok(snapshot) = &symbol_snapshot {
+    if let Some(snapshot) = symbol_snapshot.as_deref() {
         steps.push(symbol_serve_step(snapshot.symbols.first()));
     } else {
         steps.push(DoctorStep::skipped(
             DoctorStepId::SymbolServe,
             "Symbol service",
             DoctorSkipReason::BlockedByPreviousStep,
-            "Symbol service check is blocked because symbol snapshot generation failed.",
+            "Symbol service check is blocked because no live ADS server symbol table is available.",
         ));
     }
 
-    if let (Some(runtime), Ok(snapshot)) = (input.runtime, &symbol_snapshot) {
+    if let (Some(runtime), Some(snapshot)) = (input.runtime, symbol_snapshot.as_deref()) {
         steps.extend(run_loopback_self_test(
             runtime,
             input.config,
@@ -158,21 +161,14 @@ pub fn run_ads_server_doctor(input: AdsServerDoctorInput<'_>) -> DoctorReport {
     steps.push(parser_limits_step(input.config.max_frame_bytes));
     steps.push(external_client_step(input.external_client.as_ref()));
 
-    finalize_report(
-        input,
-        local,
-        steps,
-        symbol_snapshot.ok(),
-        status,
-        discoverable,
-    )
+    finalize_report(input, local, steps, symbol_snapshot, status, discoverable)
 }
 
 fn finalize_report(
     input: AdsServerDoctorInput<'_>,
     local: LocalIdentity,
     steps: Vec<DoctorStep>,
-    symbol_snapshot: Option<trust_ads_core::SymbolSnapshot>,
+    symbol_snapshot: Option<std::sync::Arc<trust_ads_core::SymbolSnapshot>>,
     status: AdsStatusReport,
     discoverable: bool,
 ) -> DoctorReport {
@@ -186,7 +182,8 @@ fn finalize_report(
     report.writes_enabled = input.config.writes_enabled;
 
     if let Some(snapshot) = symbol_snapshot {
-        if let Ok(evidence) = build_server_evidence(input, &local, &snapshot, &status, discoverable)
+        if let Ok(evidence) =
+            build_server_evidence(input, &local, snapshot.as_ref(), &status, discoverable)
         {
             report = report.with_evidence(evidence);
         }
@@ -228,6 +225,10 @@ fn build_server_evidence(
     status: &AdsStatusReport,
     discoverable: bool,
 ) -> Result<ProductionEvidence, crate::ads::diagnostics::ProductionEvidenceError> {
+    let external_client = input
+        .external_client
+        .as_ref()
+        .filter(|evidence| external_client_evidence_is_valid(evidence));
     let allowed_clients = allowed_clients_evidence(input.config);
     let config_text = input
         .deployed_config_text
@@ -245,19 +246,10 @@ fn build_server_evidence(
         symbol_snapshot: snapshot,
         deployed_ads_server_config: Some(config_text.as_str()),
         runtime_ads_status: Some(status),
-        external_client_verified: input.external_client.is_some(),
-        external_client_kind: input
-            .external_client
-            .as_ref()
-            .map(|evidence| evidence.kind.as_str()),
-        external_client_name: input
-            .external_client
-            .as_ref()
-            .map(|evidence| evidence.name.as_str()),
-        external_client_timestamp_ms: input
-            .external_client
-            .as_ref()
-            .map(|evidence| evidence.timestamp_ms),
+        external_client_verified: external_client.is_some(),
+        external_client_kind: external_client.map(|evidence| evidence.kind.as_str()),
+        external_client_name: external_client.map(|evidence| evidence.name.as_str()),
+        external_client_timestamp_ms: external_client.map(|evidence| evidence.timestamp_ms),
         discoverable,
         stale_after_ms: SERVER_DOCTOR_STALE_AFTER_MS,
         expires_at_ms,
@@ -731,7 +723,7 @@ fn parser_limits_step(max_frame_bytes: usize) -> DoctorStep {
 
 fn external_client_step(evidence: Option<&AdsServerExternalClientEvidence>) -> DoctorStep {
     match evidence {
-        Some(evidence) => DoctorStep::new(
+        Some(evidence) if external_client_evidence_is_valid(evidence) => DoctorStep::new(
             DoctorStepId::ExternalClientVerified,
             "External client verified",
             DoctorStepStatus::Pass,
@@ -743,6 +735,12 @@ fn external_client_step(evidence: Option<&AdsServerExternalClientEvidence>) -> D
         .with_evidence("kind", evidence.kind.clone())
         .with_evidence("name", evidence.name.clone())
         .with_evidence("timestamp_ms", json!(evidence.timestamp_ms)),
+        Some(_) => DoctorStep::failed(
+            DoctorStepId::ExternalClientVerified,
+            "External client verified",
+            "External client proof kind and name must both contain non-whitespace text.",
+            failure(NextActionKind::WaitForClient),
+        ),
         None => DoctorStep::skipped(
             DoctorStepId::ExternalClientVerified,
             "External client verified",
@@ -753,6 +751,10 @@ fn external_client_step(evidence: Option<&AdsServerExternalClientEvidence>) -> D
     }
 }
 
+fn external_client_evidence_is_valid(evidence: &AdsServerExternalClientEvidence) -> bool {
+    !evidence.kind.trim().is_empty() && !evidence.name.trim().is_empty()
+}
+
 /// Builds the ADS server status report used by control/web surfaces.
 #[must_use]
 pub fn build_ads_server_status_report(
@@ -760,7 +762,10 @@ pub fn build_ads_server_status_report(
     snapshot: Option<&trust_ads_core::SymbolSnapshot>,
     runtime: Option<&AdsServerRuntime>,
 ) -> AdsStatusReport {
-    let point_count = snapshot.map_or(0, |snapshot| snapshot.symbols.len());
+    let point_count = runtime.map_or_else(
+        || snapshot.map_or(0, |snapshot| snapshot.symbols.len()),
+        AdsServerRuntime::symbol_count,
+    );
     let state = if !config.enabled {
         AdsStatusOverall::Disabled
     } else if runtime.is_some() && point_count > 0 && !config.clients.is_empty() {
@@ -886,333 +891,4 @@ fn title(id: DoctorStepId) -> &'static str {
         DoctorStepId::SelfWriteGuarded => "Self write guard",
         _ => "ADS server doctor step",
     }
-}
-
-struct LoopbackAdsClient {
-    stream: TcpStream,
-    target_net_id: [u8; 6],
-    target_port: u16,
-    source_net_id: [u8; 6],
-    source_port: u16,
-    max_frame_bytes: usize,
-    next_invoke: u32,
-}
-
-impl LoopbackAdsClient {
-    fn connect(
-        addr: SocketAddr,
-        config: &AdsServerRuntimeConfig,
-        source_net_id: &str,
-        source_port: u16,
-    ) -> Result<Self, String> {
-        let target = config
-            .ams_net_id
-            .as_ref()
-            .ok_or_else(|| "runtime.ads_server.ams_net_id is missing".to_string())?;
-        let target_net_id = ams_net_id_text_to_bytes(target.0.as_str())
-            .map_err(|error| format!("parse target AMS Net ID: {error}"))?;
-        let source_net_id = ams_net_id_text_to_bytes(source_net_id)
-            .map_err(|error| format!("parse self-test source AMS Net ID: {error}"))?;
-        let stream = TcpStream::connect_timeout(&addr, DOCTOR_IO_TIMEOUT)
-            .map_err(|error| format!("connect {addr}: {error}"))?;
-        stream
-            .set_read_timeout(Some(DOCTOR_IO_TIMEOUT))
-            .map_err(|error| format!("set read timeout: {error}"))?;
-        stream
-            .set_write_timeout(Some(DOCTOR_IO_TIMEOUT))
-            .map_err(|error| format!("set write timeout: {error}"))?;
-        Ok(Self {
-            stream,
-            target_net_id,
-            target_port: config.ads_port,
-            source_net_id,
-            source_port,
-            max_frame_bytes: config.max_frame_bytes,
-            next_invoke: 1,
-        })
-    }
-
-    fn read_state(&mut self) -> Result<(), String> {
-        let response = self.request(CommandId::ReadState, Vec::new())?;
-        expect_payload_result(&response.payload, AdsErrorCode::NoError)?;
-        if response.payload.len() != 8 {
-            return Err(format!(
-                "ReadState response had {} bytes, expected 8.",
-                response.payload.len()
-            ));
-        }
-        Ok(())
-    }
-
-    fn handle_by_name(&mut self, symbol: &str) -> Result<u32, String> {
-        let mut write_data = symbol.as_bytes().to_vec();
-        write_data.push(0);
-        let mut payload = Vec::new();
-        payload.extend_from_slice(&ADSIGRP_SYM_HNDBYNAME.to_le_bytes());
-        payload.extend_from_slice(&0_u32.to_le_bytes());
-        payload.extend_from_slice(&4_u32.to_le_bytes());
-        payload.extend_from_slice(&(write_data.len() as u32).to_le_bytes());
-        payload.extend(write_data);
-        let response = self.request(CommandId::ReadWrite, payload)?;
-        let data = expect_read_payload(&response.payload, 4)?;
-        Ok(u32::from_le_bytes(data.try_into().map_err(|_| {
-            "handle response was not four bytes".to_string()
-        })?))
-    }
-
-    fn direct_read(&mut self, symbol: &SymbolDescriptor) -> Result<Vec<u8>, String> {
-        let mut payload = Vec::new();
-        payload.extend_from_slice(&symbol.index_group.to_le_bytes());
-        payload.extend_from_slice(&symbol.index_offset.to_le_bytes());
-        payload.extend_from_slice(&symbol.byte_size.to_le_bytes());
-        let response = self.request(CommandId::Read, payload)?;
-        expect_read_payload(&response.payload, symbol.byte_size as usize)
-    }
-
-    fn direct_read_expect_denied(&mut self, symbol: &SymbolDescriptor) -> Result<(), String> {
-        let mut payload = Vec::new();
-        payload.extend_from_slice(&symbol.index_group.to_le_bytes());
-        payload.extend_from_slice(&symbol.index_offset.to_le_bytes());
-        payload.extend_from_slice(&symbol.byte_size.to_le_bytes());
-        let response = self.request(CommandId::Read, payload)?;
-        expect_payload_result(&response.payload, AdsErrorCode::AccessDenied)
-    }
-
-    fn sumup_read(&mut self, symbol: &SymbolDescriptor) -> Result<(), String> {
-        let mut item = Vec::new();
-        item.extend_from_slice(&symbol.index_group.to_le_bytes());
-        item.extend_from_slice(&symbol.index_offset.to_le_bytes());
-        item.extend_from_slice(&symbol.byte_size.to_le_bytes());
-        let mut payload = Vec::new();
-        payload.extend_from_slice(&ADSIGRP_SUMUP_READ.to_le_bytes());
-        payload.extend_from_slice(&1_u32.to_le_bytes());
-        payload.extend_from_slice(&(4 + symbol.byte_size).to_le_bytes());
-        payload.extend_from_slice(&(item.len() as u32).to_le_bytes());
-        payload.extend(item);
-        let response = self.request(CommandId::ReadWrite, payload)?;
-        let data = expect_read_payload(&response.payload, 4 + symbol.byte_size as usize)?;
-        expect_payload_result(&data[..4], AdsErrorCode::NoError)?;
-        if data.len() != 4 + symbol.byte_size as usize {
-            return Err("sum-up read returned an unexpected byte count".to_string());
-        }
-        Ok(())
-    }
-
-    fn notification(&mut self, symbol: &SymbolDescriptor) -> Result<(), String> {
-        let mut payload = Vec::new();
-        payload.extend_from_slice(&symbol.index_group.to_le_bytes());
-        payload.extend_from_slice(&symbol.index_offset.to_le_bytes());
-        payload.extend_from_slice(&symbol.byte_size.to_le_bytes());
-        payload.extend_from_slice(&ADSTRANS_SERVERCYCLE.to_le_bytes());
-        payload.extend_from_slice(&50_u32.to_le_bytes());
-        payload.extend_from_slice(&50_u32.to_le_bytes());
-        payload.extend_from_slice(&[0_u8; 16]);
-        let response = self.request(CommandId::AddDeviceNotification, payload)?;
-        let handle = expect_add_notification(&response.payload)?;
-        let notification = self.read_frame()?;
-        if notification.header.command_id != CommandId::DeviceNotification {
-            return Err(format!(
-                "expected DeviceNotification, got {:?}",
-                notification.header.command_id
-            ));
-        }
-        if !device_notification_has_handle(&notification.payload, handle) {
-            return Err("DeviceNotification did not contain the registered handle".to_string());
-        }
-        Ok(())
-    }
-
-    fn write(&mut self, symbol: &SymbolDescriptor, bytes: &[u8]) -> Result<(), String> {
-        let mut payload = Vec::new();
-        payload.extend_from_slice(&symbol.index_group.to_le_bytes());
-        payload.extend_from_slice(&symbol.index_offset.to_le_bytes());
-        payload.extend_from_slice(&(bytes.len() as u32).to_le_bytes());
-        payload.extend_from_slice(bytes);
-        let response = self.request(CommandId::Write, payload)?;
-        expect_payload_result(&response.payload, AdsErrorCode::NoError)
-    }
-
-    fn write_expect_denied(
-        &mut self,
-        symbol: &SymbolDescriptor,
-        bytes: &[u8],
-    ) -> Result<(), String> {
-        let mut payload = Vec::new();
-        payload.extend_from_slice(&symbol.index_group.to_le_bytes());
-        payload.extend_from_slice(&symbol.index_offset.to_le_bytes());
-        payload.extend_from_slice(&(bytes.len() as u32).to_le_bytes());
-        payload.extend_from_slice(bytes);
-        let response = self.request(CommandId::Write, payload)?;
-        let result = read_u32(&response.payload, 0)?;
-        if result == AdsErrorCode::InvalidAccess.value()
-            || result == AdsErrorCode::AccessDenied.value()
-        {
-            Ok(())
-        } else {
-            Err(format!(
-                "write guard returned 0x{result:04X}, expected access denial"
-            ))
-        }
-    }
-
-    fn request(&mut self, command_id: CommandId, payload: Vec<u8>) -> Result<AmsTcpFrame, String> {
-        let frame = self.request_frame(command_id, payload)?;
-        let invoke_id = frame.header.invoke_id;
-        self.stream
-            .write_all(&frame.to_bytes().map_err(|error| error.to_string())?)
-            .map_err(|error| format!("write ADS request: {error}"))?;
-
-        for _ in 0..8 {
-            let response = self.read_frame()?;
-            if response.header.command_id == CommandId::DeviceNotification {
-                continue;
-            }
-            if response.header.command_id != command_id {
-                return Err(format!(
-                    "response command mismatch: got {:?}, expected {:?}",
-                    response.header.command_id, command_id
-                ));
-            }
-            if response.header.invoke_id != invoke_id {
-                return Err(format!(
-                    "response invoke id mismatch: got {}, expected {}",
-                    response.header.invoke_id, invoke_id
-                ));
-            }
-            if response.header.error_code != 0 {
-                return Err(format!(
-                    "AMS header error 0x{:04X}",
-                    response.header.error_code
-                ));
-            }
-            return Ok(response);
-        }
-        Err(format!(
-            "timed out waiting for {:?} response after notification frames",
-            command_id
-        ))
-    }
-
-    fn request_frame(
-        &mut self,
-        command_id: CommandId,
-        payload: Vec<u8>,
-    ) -> Result<AmsTcpFrame, String> {
-        let data_length = u32::try_from(payload.len())
-            .map_err(|_| "ADS request payload length does not fit u32".to_string())?;
-        let frame = AmsTcpFrame {
-            header: AmsHeader {
-                target_net_id: self.target_net_id,
-                target_port: self.target_port,
-                source_net_id: self.source_net_id,
-                source_port: self.source_port,
-                command_id,
-                state: AmsState::Request,
-                data_length,
-                error_code: 0,
-                invoke_id: self.next_invoke,
-            },
-            payload,
-        };
-        self.next_invoke = self.next_invoke.wrapping_add(1).max(1);
-        Ok(frame)
-    }
-
-    fn read_frame(&mut self) -> Result<AmsTcpFrame, String> {
-        let mut prefix = [0_u8; AMS_TCP_HEADER_LEN];
-        self.stream
-            .read_exact(&mut prefix)
-            .map_err(|error| format!("read AMS/TCP prefix: {error}"))?;
-        let ams_len = u32::from_le_bytes([prefix[2], prefix[3], prefix[4], prefix[5]]) as usize;
-        if ams_len < AMS_HEADER_LEN || ams_len > self.max_frame_bytes {
-            return Err(format!("invalid AMS/TCP length {ams_len}"));
-        }
-        let mut bytes = Vec::from(prefix);
-        bytes.resize(AMS_TCP_HEADER_LEN + ams_len, 0);
-        self.stream
-            .read_exact(&mut bytes[AMS_TCP_HEADER_LEN..])
-            .map_err(|error| format!("read AMS/TCP payload: {error}"))?;
-        AmsTcpFrame::parse(&bytes, self.max_frame_bytes).map_err(|error| error.to_string())
-    }
-}
-
-fn expect_payload_result(payload: &[u8], expected: AdsErrorCode) -> Result<(), String> {
-    let result = read_u32(payload, 0)?;
-    if result == expected.value() {
-        Ok(())
-    } else {
-        Err(format!(
-            "ADS result 0x{result:04X}, expected 0x{:04X}",
-            expected.value()
-        ))
-    }
-}
-
-fn expect_read_payload(payload: &[u8], expected_len: usize) -> Result<Vec<u8>, String> {
-    expect_payload_result(payload, AdsErrorCode::NoError)?;
-    let len = read_u32(payload, 4)? as usize;
-    if len != expected_len {
-        return Err(format!("ADS read length {len}, expected {expected_len}"));
-    }
-    let data = payload
-        .get(8..8 + len)
-        .ok_or_else(|| "ADS read response was truncated".to_string())?;
-    Ok(data.to_vec())
-}
-
-fn expect_add_notification(payload: &[u8]) -> Result<u32, String> {
-    expect_payload_result(payload, AdsErrorCode::NoError)?;
-    read_u32(payload, 4)
-}
-
-fn device_notification_has_handle(payload: &[u8], expected_handle: u32) -> bool {
-    let Ok(stream_len) = read_u32(payload, 0) else {
-        return false;
-    };
-    if stream_len as usize + 4 > payload.len() {
-        return false;
-    }
-    let Ok(stamp_count) = read_u32(payload, 4) else {
-        return false;
-    };
-    let mut offset = 8_usize;
-    for _ in 0..stamp_count {
-        if payload.get(offset..offset + 12).is_none() {
-            return false;
-        }
-        offset += 8;
-        let Ok(sample_count) = read_u32(payload, offset) else {
-            return false;
-        };
-        offset += 4;
-        for _ in 0..sample_count {
-            let Ok(handle) = read_u32(payload, offset) else {
-                return false;
-            };
-            let Ok(sample_len) = read_u32(payload, offset + 4) else {
-                return false;
-            };
-            offset += 8;
-            if handle == expected_handle {
-                return true;
-            }
-            let Some(next) = offset.checked_add(sample_len as usize) else {
-                return false;
-            };
-            if next > payload.len() {
-                return false;
-            }
-            offset = next;
-        }
-    }
-    false
-}
-
-fn read_u32(bytes: &[u8], offset: usize) -> Result<u32, String> {
-    let slice = bytes
-        .get(offset..offset + 4)
-        .ok_or_else(|| format!("expected u32 at byte {offset}"))?;
-    Ok(u32::from_le_bytes(slice.try_into().map_err(|_| {
-        format!("expected four bytes at byte {offset}")
-    })?))
 }

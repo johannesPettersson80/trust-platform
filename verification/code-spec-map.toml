@@ -173192,25 +173192,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_0EF9D8E55CFB749FB09BB570B137637CF8A60EB871E81D551E1999690EA633C4"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
-qualified_symbol = "trust_runtime::ads::server::doctor::read_u32"
-item_kind = "rust_function"
-signature_digest = "sha256:16e68e0c30727abf6bd91f0bfa1f6fa7ae6a882c4313eb505a5007354a515ee7"
-reviewed_body_digest = "sha256:d671fa3afaa9316c7e0423417b1490b2a9beabe1595b43d2fab489292edfb4df"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = ["fault_mapping"]
-owner_ack = "RISK_ACK_0EF9D8E55CFB749FB09BB570B137637CF8A60EB871E81D551E1999690EA633C4"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_0F08718CA1F0C5826B73A786D93058D8DFE6C536E4630C4FE5DA06E4FC611354"
 source_kind = "rust"
 path = "crates/trust-runtime/src/host/ads/server/publisher.rs"
@@ -173672,23 +173653,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_128089F4740A7400BBC1508FD08B3777E5AAE93F2327A8ABD818D96C7ED98135"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
-qualified_symbol = "trust_runtime::ads::server::doctor::clients_allowed_step"
-item_kind = "rust_function"
-signature_digest = "sha256:c6320673339156f2b083af4cd335a4fef48c9c9df322387b137820f669381044"
-reviewed_body_digest = "sha256:af96f70d132094a6517df21f41ce2f386ac8917a902179e1801fdaa3ccea087d"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_129F3A7A26F7D560354CF8A458D1419B7AB592ED22B808675145C2DC185BE4C9"
 source_kind = "rust"
 path = "crates/trust-runtime/src/io/modbus.rs"
@@ -173788,23 +173752,6 @@ reviewed_body_digest = "sha256:7bf23ce0501a0e2c981972f4779afc26e8f5021a8f1bec033
 owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_139D060FD38A80A54BB33FAA4988BD302B700D637610ABEB1E527FBE80790D94"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
-qualified_symbol = "trust_runtime::ads::server::doctor::LoopbackAdsClient::read_state"
-item_kind = "rust_method"
-signature_digest = "sha256:1c87336ad483c7a7137aa768617954557da39bcd298c112034b946d624438a26"
-reviewed_body_digest = "sha256:80d5c30ede22189e42e959a09477523a9b33f2e1824224b7ff2cefc07aec99e6"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
 risk_signals = []
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
@@ -174316,23 +174263,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_1839C02746C22F354013C253657DE4448B3CF55637D744758F3D8A9E197C9C1B"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
-qualified_symbol = "trust_runtime::ads::server::doctor::expect_payload_result"
-item_kind = "rust_function"
-signature_digest = "sha256:051bf8e14d4de24b731722472e6e1a9075a85d9590bc64a5d36295895b7eb0b3"
-reviewed_body_digest = "sha256:e7412e64d4060b2af032405aa92ebe878625faf864336e0e763eba000879c16d"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_1870478EA998D684F0D7B17946AE842E6C386EC8967164A41F8DA8C8B4C4F923"
 source_kind = "rust"
 path = "crates/trust-runtime/src/host/ads/onboarding/doctor.rs"
@@ -174435,25 +174365,6 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_1A096A6003262FCA6D07C6E08EFCB8CDED78A98A9B21DBD86A547A2DAB04DE73"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
-qualified_symbol = "trust_runtime::ads::server::doctor::udp_identify_step"
-item_kind = "rust_function"
-signature_digest = "sha256:c5130c1b53774d4f7a5fc885a2d6b7c34f3722a46d1ae08a28e8df4b93fe7785"
-reviewed_body_digest = "sha256:a5c6a108ca4a8428151ada76c4a81388341b8a187a6d7f5cc1d07ce733255698"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = ["state_mutation"]
-owner_ack = "RISK_ACK_1A096A6003262FCA6D07C6E08EFCB8CDED78A98A9B21DBD86A547A2DAB04DE73"
-owner_ack_expires_on = "2026-10-21"
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
 last_reviewed = "2026-07-21"
@@ -175427,23 +175338,6 @@ last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_2227B5B200972CE15DED1E55DD41BF947370D06D19888CE553A5CE8451566A85"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
-qualified_symbol = "trust_runtime::ads::server::doctor::local_identity"
-item_kind = "rust_function"
-signature_digest = "sha256:6d7d9e3b90bbf3d37ac17b2cf1040cad4c4f5e2f68792a438a5284b57dcfe3be"
-reviewed_body_digest = "sha256:6806516def3e76044d24cd3612ae754b4b7b039dddf06fe32d2475f58dfd4477"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_2251211FC2E1C05120DC99F3BA0D2E729C5A59141677A31E00583EC377F8911C"
 source_kind = "rust"
 path = "crates/trust-runtime/src/host/opcua/client_cache.rs"
@@ -175586,40 +175480,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_2395B14173DF1D77919A643690AC08F8A91A4034A650AC760B5825C6043806EF"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
-qualified_symbol = "trust_runtime::ads::server::doctor::external_client_step"
-item_kind = "rust_function"
-signature_digest = "sha256:d43fa10c096ea46dbd3d43df318bf21503e3c12b03132a9cf526b63028a9d608"
-reviewed_body_digest = "sha256:76e4917ce07336d8da19d221cb1cc5699a3b563a2056138ec282dd669685bada"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_23B89C78F2255615EAC6C11929FBB5446CC38F3C43024670A5018588F8E300D9"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
-qualified_symbol = "trust_runtime::ads::server::doctor::self_write_guarded_step"
-item_kind = "rust_function"
-signature_digest = "sha256:8016d102694fb1d3133ac942dad6fcb43ec254dcfa66b047e30035d551d6d15e"
-reviewed_body_digest = "sha256:5156036608a9c39ae65b4b07a11627e40fef7f108c33efa815289902a1376a90"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_23D8942F888C3791BA7DF36813D6E4C0BB1A0EFED5AF8F567B6F4233DF57EC48"
 source_kind = "rust"
 path = "crates/trust-runtime/src/host/opcua/wire.rs"
@@ -175703,25 +175563,6 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_254928FB9CF1B2F6102A3DFC07355E70B1F7E51274F94F6B941B79DA80256CB2"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
-qualified_symbol = "trust_runtime::ads::server::doctor::LoopbackAdsClient::read_frame"
-item_kind = "rust_method"
-signature_digest = "sha256:f7ec8d1acd98ffcc7a731d4cf8fb48adfd28f991e342c7ca8e9c618aa56545d5"
-reviewed_body_digest = "sha256:859499b361103af267944ab3bf17045143c5442d04b2c58f6078678453c97b80"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = ["fault_mapping"]
-owner_ack = "RISK_ACK_254928FB9CF1B2F6102A3DFC07355E70B1F7E51274F94F6B941B79DA80256CB2"
-owner_ack_expires_on = "2026-10-21"
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
 last_reviewed = "2026-07-21"
@@ -175897,23 +175738,6 @@ reviewed_body_digest = "sha256:5010b7dd1c79d9d4fa011c76702f8416f07e970c21ff6d7ba
 owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_266E41E8C795002D132C4BA4C1121D83105B43DC2D528E9FCB5EDCA0DA4EC3E4"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
-qualified_symbol = "trust_runtime::ads::server::doctor::LoopbackAdsClient::sumup_read"
-item_kind = "rust_method"
-signature_digest = "sha256:07c1932c5441e5c4ad00d08d029d9a7ded54d1809eb393ebd2e54d6d92fe7054"
-reviewed_body_digest = "sha256:546f2ebdba311ccc13ba72083e260ab35d6b58120d91f107980317a786a05929"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
 risk_signals = []
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
@@ -177090,25 +176914,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_32FC7357A8C11C061CBA63C194D13AA662F6664622D7170851D851A0EF9EBAF0"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
-qualified_symbol = "trust_runtime::ads::server::doctor::LoopbackAdsClient::request_frame"
-item_kind = "rust_method"
-signature_digest = "sha256:5f624b94b0d1cec5b30fea6a47637a36aab0134a04401fcc090f48aee3075ed0"
-reviewed_body_digest = "sha256:e542bd5fc18e006bc8af95e508e74a02b69e7153dc197fe903128e244dbb5329"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = ["fault_mapping", "state_mutation"]
-owner_ack = "RISK_ACK_32FC7357A8C11C061CBA63C194D13AA662F6664622D7170851D851A0EF9EBAF0"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_33206F95673CF588003CC73549EAC81E9E320DB3BCD91E7DA4F3ECD943E90614"
 source_kind = "rust"
 path = "crates/trust-runtime/src/host/ads/backend_ads_rs.rs"
@@ -177226,23 +177031,6 @@ qualified_symbol = "trust_runtime::io::ethercat::expected_image_sizes"
 item_kind = "rust_function"
 signature_digest = "sha256:8b71bab93414fe821cea2d127db885acfa41f0331358083629ff8c749aad9ac6"
 reviewed_body_digest = "sha256:a1c47f8f23778b08024fdd8fa1d8840f4bff8511f7af89a96010f6b3b03d88ef"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_34C313B9EB8D97157F8202729319FD8ED067AAE0AA6799FE9A9D0814DA549B67"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
-qualified_symbol = "trust_runtime::ads::server::doctor::summary_for_report"
-item_kind = "rust_function"
-signature_digest = "sha256:9a678255aadc45dcb47b6ff4aeffb6e5cb1c48b6596507a4a2e3e5886837880a"
-reviewed_body_digest = "sha256:dbfaa541c65859b9a9663e60256e46184e841ca204f6a7b70596d77296fcf644"
 owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
@@ -178464,23 +178252,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_3EB730FEE0C7D214223D305196929F968CB34A8492A82E70D206E19564727564"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
-qualified_symbol = "trust_runtime::ads::server::doctor::blocked_self_test_steps"
-item_kind = "rust_function"
-signature_digest = "sha256:f40be256d4d16927be2a9111a02073a7dc02c41cb143a94e23f98f06888bbd5d"
-reviewed_body_digest = "sha256:4e9f98d37b43f2dc177e93b5fb040b6f643d4a5d8970cf067169cf43d32db06b"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_3EC5AB700770119612E6C66E69021B9F6815854167B44CBF0C0E39EB7BB04DC3"
 source_kind = "rust"
 path = "crates/trust-ads-server/src/commands.rs"
@@ -179265,23 +179036,6 @@ last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_4666D18B7B23769DF924232127A18D447C021469B9D295CAAD2F24DEE1C6C367"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
-qualified_symbol = "trust_runtime::ads::server::doctor::expect_add_notification"
-item_kind = "rust_function"
-signature_digest = "sha256:d3eab50287ad6b273f6eba49cbbf57645b14dbee39bae5de5e91e18b58d77b33"
-reviewed_body_digest = "sha256:5c601315eadf2f33a349f5e3771742aff25b89cf1b973aac4f984102712d0a76"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_46A78106E70DB1A6454BACB537206CB06C7F186082137B2B186F3D6F5455609F"
 source_kind = "rust"
 path = "crates/trust-runtime/src/host/ads/validate.rs"
@@ -179315,23 +179069,6 @@ spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-r
 invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
 test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
 last_reviewed = "2026-07-22"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_474C4A457A2B1A2427CF9C6C609ACA6EC226F693487207B5E06069A4824B4211"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
-qualified_symbol = "trust_runtime::ads::server::doctor::allowed_clients_evidence"
-item_kind = "rust_function"
-signature_digest = "sha256:219b64e7757d9f5d4e144e78ca2c6fd710eb4e342b14aecc65f597b545823405"
-reviewed_body_digest = "sha256:8a5b133574960800f2b957e398984adbcf2913a72ea0286a92aa7a22afd0e145"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
@@ -180143,23 +179880,6 @@ reviewed_body_digest = "sha256:edd0ada0ab2266c482ac30c01550b0fd2b450bce6a6d40eb2
 owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_4E633314D8F5338FE17602B357B7F5164E0FE2E8A2C8F92240E4853382C3D055"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
-qualified_symbol = "trust_runtime::ads::server::doctor::AdsServerDoctorInput"
-item_kind = "rust_public_type"
-signature_digest = "sha256:3c08916ffadb4cd4369f93711ed72d61b393afb9793d8c4f201a3525426ac67d"
-reviewed_body_digest = "sha256:30f621097397c1b16eccc82f85a568349ce7b1333b7bb528278bff1c1fdc8cf5"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "public"
 risk_signals = []
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
@@ -181491,23 +181211,6 @@ last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_5A9C802DEF6591F910414E06A3651F4C17C6D1BF688ED3BAC679C68CDCB36893"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
-qualified_symbol = "trust_runtime::ads::server::doctor::allowlist_enforced_step"
-item_kind = "rust_function"
-signature_digest = "sha256:3b45153500b129a4bb2e412e3c8b144ce30d7924f184299984814527fca0f92c"
-reviewed_body_digest = "sha256:1996cf50a951a0fc35c24121942097b32a8da602dde722ea1e781d6e3ed8bcfd"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_5B31DCBD9B2E53CEA7764824AA02CAA178628BCE299F638C106B44783718DA96"
 source_kind = "rust"
 path = "crates/trust-runtime/src/host/ads/server/symbols.rs"
@@ -181751,23 +181454,6 @@ reviewed_body_digest = "sha256:85ab804f3ba3745a3b04f26bc893186f5771d5541b44ed221
 owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_5DAF22BB3F74D1B5A7CAB7E3163401E48486900A47397C174B2AE603F422A70E"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
-qualified_symbol = "trust_runtime::ads::server::doctor::listener_bound_step"
-item_kind = "rust_function"
-signature_digest = "sha256:62c61a562f7be9a5815e075ebf76b7e66427124a043feec3bce03c8b86f74116"
-reviewed_body_digest = "sha256:c63ddd4f5fdc3233ff3b31c698d84eefedbd826bea86bdb795d7318d70b16e65"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
 risk_signals = []
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
@@ -182681,23 +182367,6 @@ last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_66243732D03207BA9DAA66D04BE0C345AB8EF06E1E4A44806A6C3293F334D313"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
-qualified_symbol = "trust_runtime::ads::server::doctor::LoopbackAdsClient::direct_read_expect_denied"
-item_kind = "rust_method"
-signature_digest = "sha256:a57f095f9d4865c9d9272ebf911a3d81d8a1875abb9b14035ebf52e1311f3b0a"
-reviewed_body_digest = "sha256:921bbae7a10a7b2f976066eb8ada88a70ed190180a2057df8e36755d4edcb30b"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_663C92FDBD732B4EF2E832F29ADB85082982C61C42AA99273787007AEF8FD43D"
 source_kind = "rust"
 path = "crates/trust-runtime/src/host/ads/onboarding/doctor.rs"
@@ -182798,25 +182467,6 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_6755BBB1DB66BA0B0D07FE74E9A2F80BFDCCD9F890732BE0A4E0E5FC35FFD1A9"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
-qualified_symbol = "trust_runtime::ads::server::doctor::LoopbackAdsClient::connect"
-item_kind = "rust_method"
-signature_digest = "sha256:98ba2ccd3c9321cfe9bacd39200bad2be4de68e1927c1ad1f4fcdecfbaa106b2"
-reviewed_body_digest = "sha256:f59c7a00c70ce1c2b416b8250c2953826f5377144f86bc6763498a4c0d786c6e"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = ["fault_mapping", "network_io"]
-owner_ack = "RISK_ACK_6755BBB1DB66BA0B0D07FE74E9A2F80BFDCCD9F890732BE0A4E0E5FC35FFD1A9"
-owner_ack_expires_on = "2026-10-21"
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
 last_reviewed = "2026-07-21"
@@ -184171,23 +183821,6 @@ last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_75B20C12401F188891F22E80D90714E35934BE57274C1BB7FAFEE3E3674156B9"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
-qualified_symbol = "trust_runtime::ads::server::doctor::bind_exposure_step"
-item_kind = "rust_function"
-signature_digest = "sha256:78c3f7c14588fc295a988f30a09f74ba1b0c9206a6ffa9b59391cb198c5d3f46"
-reviewed_body_digest = "sha256:1d8b90713fde61ee16e698bb5beb8134950e4e34e0f96b6199d11171cab2253f"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_762F365E60D1C24892ED356E19E8C34FFDFBB1D1CBE53E7481A323C6F36CBC8F"
 source_kind = "rust"
 path = "crates/trust-runtime/src/io/ethercat/models.rs"
@@ -184285,23 +183918,6 @@ reviewed_body_digest = "sha256:42ef66ce78e6272d20c5cc090a5a37f3e788d23b6011c013e
 owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_76BA02208589CEEA39E4A3190E856F697AF4B2D88230E3874638AC51D2AA44E8"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
-qualified_symbol = "trust_runtime::ads::server::doctor::identify_request"
-item_kind = "rust_function"
-signature_digest = "sha256:a0d72a75ca138c86d6d418886507d29349e6fbc8c65954882c81b9cdf959fce6"
-reviewed_body_digest = "sha256:16aa248d92fc694ccbbd9ac42854ce8ed57461cc288f1ded25beff28ec612113"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
 risk_signals = []
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
@@ -184465,25 +184081,6 @@ area = "protocols"
 visibility = "public"
 risk_signals = ["protocol_response_or_status"]
 owner_ack = "RISK_ACK_782451A90872B5817E65C78E9272F094D4B5308B62539BD36CE28B7F8AAA259A"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_7841418EF33A9B9885D6CA6EAF5F2086CB990959E816F51AF0448036E6C0E1B7"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
-qualified_symbol = "trust_runtime::ads::server::doctor::query_identify"
-item_kind = "rust_function"
-signature_digest = "sha256:6df72c6ee9989c5dee7a125f112090e11182dc110dcd43dd95d7aa5c7633e2af"
-reviewed_body_digest = "sha256:3e6b582682f21dc86cebfb2faad3ac271ade659176125e8da576d7057f4b65ee"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = ["fault_mapping", "network_io"]
-owner_ack = "RISK_ACK_7841418EF33A9B9885D6CA6EAF5F2086CB990959E816F51AF0448036E6C0E1B7"
 owner_ack_expires_on = "2026-10-21"
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
@@ -184845,23 +184442,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_7B558222AA46B79CE8A18624B336B311226E00260DD403EB417A3DAA110D319E"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
-qualified_symbol = "trust_runtime::ads::server::doctor::self_test_connect_failed"
-item_kind = "rust_function"
-signature_digest = "sha256:65c200ce474e567be827cb53645e6bbf48e0d8cbd53823d8da60c1e6afc539f8"
-reviewed_body_digest = "sha256:a8e8cf3422961efcb394e822db4e802b71e897fb09a54df0648679b43071091a"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_7BB0A42D9E1C2B07710238DCCD46D90B603EC8A5B30BC15837F35C5F5285D985"
 source_kind = "rust"
 path = "crates/trust-runtime/src/connectors/mapping.rs"
@@ -184924,23 +184504,6 @@ qualified_symbol = "trust_ads_server::system_symbols::task_struct_type"
 item_kind = "rust_function"
 signature_digest = "sha256:9962e8e9a5311a7ce0656eadd9c5dcabe8181d986108d3897a57731e07bfb8ca"
 reviewed_body_digest = "sha256:aebcdad7c4e9b21f6f58342dd06b4563c3dc0523015c44c45c76e4aaa852610a"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_7C519E711A87C19193D4F982ED78AFD10A5B63CC4AAAE8068E5EDDB9498DEA46"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
-qualified_symbol = "trust_runtime::ads::server::doctor::title"
-item_kind = "rust_function"
-signature_digest = "sha256:b4d4baaae5b19460c92536e6505c59092eb157e6dd1f77919299e84e3c5d1713"
-reviewed_body_digest = "sha256:4d6a602a5b125ad9e1ae7fa27e6cac9483a6672a8b396f6e71fbbaac3cf5cb3c"
 owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
@@ -185071,23 +184634,6 @@ spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-doctor-orchestration-and-active-device-s
 invariant_ids = ["RT_ADS_ONBOARDING_DOCTOR_ORCHESTRATION_001"]
 test_ids = ["TEST_ADS_ONBOARDING_DOCTOR_ACTIVE_DEVICE_BATCH_READ_REQUIRES_A_TIMESTAMPED_GOOD_POINT_001", "TEST_ADS_ONBOARDING_DOCTOR_ACTIVE_DEVICE_READ_ONLY_USES_LIVE_STATUS_AND_NEVER_OPENS_WIRE_CONNECTION_001", "TEST_ADS_ONBOARDING_DOCTOR_ACTIVE_DEVICE_SHORTCUT_REQUIRES_THE_EXACT_REQUESTED_ENDPOINT_001", "TEST_ADS_ONBOARDING_DOCTOR_DOCTOR_HAPPY_PATH_RUNS_REQUIRED_STEPS_AND_SKIPS_WRITE_PROBE_BY_DEFAULT_001", "TEST_ADS_ONBOARDING_DOCTOR_DOCTOR_JOB_REPORTS_PROGRESS_AND_CANCELLATION_001", "TEST_ADS_ONBOARDING_DOCTOR_DOCTOR_MAPS_NAMED_FAILURES_TO_THE_FAILED_STEP_AND_BLOCKS_DEPENDENTS_001", "TEST_ADS_ONBOARDING_DOCTOR_DOCTOR_REJECTS_BLANK_OR_ABSENT_SELECTED_SYMBOL_AT_UPLOAD_BOUNDARY_001", "TEST_ADS_ONBOARDING_DOCTOR_DOCTOR_REJECTS_INVALID_MANUAL_ENDPOINT_BEFORE_WIRE_ACTIVITY_001", "TEST_ADS_ONBOARDING_DOCTOR_DOCTOR_RUNS_GUARDED_WRITE_PROBE_ONLY_WHEN_EXPLICIT_001", "TEST_ADS_ONBOARDING_DOCTOR_DOCTOR_WITH_MANUAL_TARGET_IDENTITY_DOES_NOT_REQUIRE_UDP_IDENTIFY_001", "TEST_ADS_ONBOARDING_DOCTOR_FULL_DOCTOR_AGAINST_ACTIVE_DEVICE_REQUIRES_EXPLICIT_PAUSE_001", "TEST_ADS_ONBOARDING_DOCTOR_MOCK_FAILURE_SCENARIOS_COVER_NAMED_FIELD_FAILURES_001", "TEST_ADS_ONBOARDING_DOCTOR_PRODUCTION_READY_REQUIRES_PASS_EVIDENCE_AND_LIVE_DEPLOYED_STATUS_001", "TEST_ADS_ONBOARDING_DOCTOR_REQUIRED_DOCTOR_STEPS_AND_TIMEOUTS_MATCH_SPEC_001", "TEST_ADS_ONBOARDING_DOCTOR_WIRE_ERROR_CLASSIFICATION_KEEPS_REMEDIATION_MACHINE_READABLE_001"]
 last_reviewed = "2026-07-22"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_7CFD5AEFB34E2B7E20C313458A4092FF06AEDA6047F79D89A1C2F3E268D3477D"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
-qualified_symbol = "trust_runtime::ads::server::doctor::LoopbackAdsClient::direct_read"
-item_kind = "rust_method"
-signature_digest = "sha256:562fb3488b787bcfd8549ff7cb0d9b8dd9d3c8d30a0d067f29276fb5ad554b9c"
-reviewed_body_digest = "sha256:1959565d3ced630f337648cbc1950a715fe6220e9c902392429024a17527b518"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
@@ -185303,25 +184849,6 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_7F26437078C8C902D4F58F1530C0B5157FC94E740CC753CD434D2D1AC72E2D9C"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
-qualified_symbol = "trust_runtime::ads::server::doctor::LoopbackAdsClient::handle_by_name"
-item_kind = "rust_method"
-signature_digest = "sha256:b88cbeabf340b9aa408f83327d96e7b6224dca77fe75bdc473a450dced27c547"
-reviewed_body_digest = "sha256:4eef3245dea4964b81020851bf23b5a5471c95a60ba1ea1fa1d5865ced43fabd"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = ["fault_mapping", "state_mutation"]
-owner_ack = "RISK_ACK_7F26437078C8C902D4F58F1530C0B5157FC94E740CC753CD434D2D1AC72E2D9C"
-owner_ack_expires_on = "2026-10-21"
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
 last_reviewed = "2026-07-21"
@@ -186322,23 +185849,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_8A10FACBD99B1CD85F6FFFC98569682325BC3773C11929433175F2A69D72ADCB"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
-qualified_symbol = "trust_runtime::ads::server::doctor::expect_read_payload"
-item_kind = "rust_function"
-signature_digest = "sha256:378869fbb150f57034712ba5ae8785e6657a811fc2aa1205b05ece507f3b5701"
-reviewed_body_digest = "sha256:30ec3982904a74639d9acdc19445af33851ea1b27e314ac3a01b11a3ab1b9495"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_8A3EABA1A7EF678717F2F82241C19661A4CA2DE653BA8B3AA90B2500B398B993"
 source_kind = "rust"
 path = "crates/trust-ads-server/src/traits.rs"
@@ -186781,23 +186291,6 @@ reviewed_body_digest = "sha256:437024599003f6a6a6fae98700688d2b0d0a236c3b4adfdbb
 owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_8F662D953105D4E81C26DB29FDEF4F24571A03A9619964EE448F143A54B20822"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
-qualified_symbol = "trust_runtime::ads::server::doctor::symbol_serve_step"
-item_kind = "rust_function"
-signature_digest = "sha256:706370e0fe7a9556c1c0fc289144a1091ffa0d503b3a2704490ddd11335b28af"
-reviewed_body_digest = "sha256:ccd11b36a532797f921a168d75ab7d43db0cd4b666c7c9cef1b0cd40e8a17f8e"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
 risk_signals = []
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
@@ -188341,23 +187834,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_9B5AA03B4C7FF7DF72C439DC129D9524C3067879A609C39F60CEDCEB3DC3D2F1"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
-qualified_symbol = "trust_runtime::ads::server::doctor::parser_limits_step"
-item_kind = "rust_function"
-signature_digest = "sha256:45c3e8d28f9e55940ee9d06001d16e1bf7b41b19e5739880e3b89acbbb150682"
-reviewed_body_digest = "sha256:cac0c590fd7ab8c420cdc5f1e7feaa3c110239991d13ebd68a917e81b37bf1c3"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_9B96538272B9B467286680B5452D7386C69A4DDA1517155E834C7AD8F521CB99"
 source_kind = "rust"
 path = "crates/trust-runtime/src/host/ads/transport.rs"
@@ -188369,25 +187845,6 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_9C1EE7FA4CA2979DDE92AE0E3197772C9326DFCE1C0018C500C0C5F8615FF931"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
-qualified_symbol = "trust_runtime::ads::server::doctor::config_evidence_text"
-item_kind = "rust_function"
-signature_digest = "sha256:38bc5d5cb558dcbb3b9d267c165e4095b430af6a56e70c173b1e42fd4751a64d"
-reviewed_body_digest = "sha256:7929c3b2d3262dea68e7f93214e1f7e9aafd95719b8d7d260bdd9a7603bd0927"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = ["state_mutation"]
-owner_ack = "RISK_ACK_9C1EE7FA4CA2979DDE92AE0E3197772C9326DFCE1C0018C500C0C5F8615FF931"
-owner_ack_expires_on = "2026-10-21"
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
 last_reviewed = "2026-07-21"
@@ -188575,23 +188032,6 @@ spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
 invariant_ids = ["RT_ADS_CLIENT_TRANSPORT_DATA_001"]
 test_ids = ["TEST_ADS_CLIENT_TRANSPORT_PERSISTENT_ADS_SYMBOL_SETS_RETAIN_GUARDRAIL_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_READONLY_ADS_SYMBOL_DOES_NOT_GET_WRITE_FLAG_001", "TEST_ADS_CLIENT_TRANSPORT_SUBSCRIBE_REJECTS_POLL_MODE_BEFORE_CONNECTION_001", "TEST_ADS_CLIENT_TRANSPORT_UNSUPPORTED_COMPOUND_SYMBOL_IS_NOT_A_BINDABLE_DESCRIPTOR_001"]
 last_reviewed = "2026-07-22"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_9E071D7836B8A2C1E0102CEC6098A07F12DEDF8C4B2B253DB847C1CE8A41062F"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
-qualified_symbol = "trust_runtime::ads::server::doctor::failure"
-item_kind = "rust_function"
-signature_digest = "sha256:d7c1e6ef114dca554cadd2f90e59ea10b7523375a7b2f96d0102237cb1250f0e"
-reviewed_body_digest = "sha256:e474890fe34581cf497a72e15df12b1b2f28e6b1ce82cff5885c269f203faa2d"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
@@ -189425,25 +188865,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_A6B77705EC1809A9B74C54161D4CC060C15B8350A27C95161B28C7CE2F23503B"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
-qualified_symbol = "trust_runtime::ads::server::doctor::run_ads_server_doctor"
-item_kind = "rust_function"
-signature_digest = "sha256:c1fe82bf50f828a36718112ab6b8e2c41fdf078a503c79935219f574a1bbf51d"
-reviewed_body_digest = "sha256:b61f15f84f43e08a4b28458ecec5c24e52efed3ca0f2d6311b08fd434b218e1f"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "public"
-risk_signals = ["broad_error_suppression", "protocol_response_or_status", "state_mutation"]
-owner_ack = "RISK_ACK_A6B77705EC1809A9B74C54161D4CC060C15B8350A27C95161B28C7CE2F23503B"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_A6CFF1EE320238BEDD55884A8C7B03AAFCE79BD9C11B63123EA763BED212D2CC"
 source_kind = "rust"
 path = "crates/trust-runtime/src/io/modbus.rs"
@@ -189583,23 +189004,6 @@ spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-diagnostic-report-and-production-readine
 invariant_ids = ["RT_ADS_DIAGNOSTIC_REPORT_TRUTH_001"]
 test_ids = ["TEST_ADS_DIAGNOSTIC_COMMITTED_GOLDEN_FIXTURES_MATCH_RUST_SCHEMA_001", "TEST_ADS_DIAGNOSTIC_CREDENTIAL_CHANNEL_CLASSIFICATION_ENFORCES_SECRET_BOUNDARY_001", "TEST_ADS_DIAGNOSTIC_DIAGNOSTIC_MAPS_AND_ACTION_BUILDERS_SERIALIZE_DETERMINISTICALLY_001", "TEST_ADS_DIAGNOSTIC_DIAGNOSTIC_WIRE_ENUMS_KEEP_THE_VERSION_TWO_CONTRACT_NAMES_001", "TEST_ADS_DIAGNOSTIC_DOCTOR_OVERALL_FAILS_CLOSED_FOR_EMPTY_STEPS_001", "TEST_ADS_DIAGNOSTIC_DOCTOR_OVERALL_KEEPS_NONBLOCKING_FAILURE_PARTIAL_001", "TEST_ADS_DIAGNOSTIC_ERROR_CLASSIFIER_MAPS_COMMON_FAILURES_TO_REMEDIATION_AND_ACTIONS_001", "TEST_ADS_DIAGNOSTIC_EVIDENCE_HASH_INPUTS_ARE_STABLE_AND_COMPLETE_001", "TEST_ADS_DIAGNOSTIC_NEXT_ACTION_KINDS_MATCH_CONTRACT_NAMES_001", "TEST_ADS_DIAGNOSTIC_PRODUCTION_EVIDENCE_BUILDER_HASHES_DECLARED_INPUTS_001", "TEST_ADS_DIAGNOSTIC_PRODUCTION_EVIDENCE_HASHES_SNAPSHOT_SETS_INDEPENDENT_OF_CONNECTION_ORDER_001", "TEST_ADS_DIAGNOSTIC_PRODUCTION_READINESS_HONORS_AGE_STATUS_HASH_AND_CLOCK_WARNING_001", "TEST_ADS_DIAGNOSTIC_PRODUCTION_READINESS_IS_NOT_READY_WITHOUT_EVIDENCE_001", "TEST_ADS_DIAGNOSTIC_PRODUCTION_READINESS_NEEDS_RECHECK_ON_MISMATCH_FAULT_OR_EXPIRY_001", "TEST_ADS_DIAGNOSTIC_PRODUCTION_READINESS_REQUIRES_MATCHING_DEPLOYED_STATUS_001", "TEST_ADS_DIAGNOSTIC_PRODUCTION_READY_REQUIRES_PASS_AND_EVIDENCE_001", "TEST_ADS_DIAGNOSTIC_REPORTS_CONTAIN_NO_SECRET_FIELDS_BY_CONSTRUCTION_001", "TEST_ADS_DIAGNOSTIC_SCHEMA_RESERVES_SERVER_ROLE_WITHOUT_SERVER_MODULES_001", "TEST_ADS_DIAGNOSTIC_SERIALIZES_DOCUMENTED_MISSING_ROUTE_SHAPE_DETERMINISTICALLY_001", "TEST_ADS_DIAGNOSTIC_SERVER_EVIDENCE_REPORTS_ALLOWED_CLIENT_SERIALIZATION_FAILURE_001", "TEST_ADS_DIAGNOSTIC_SERVER_PRODUCTION_READY_REJECTS_INCOMPLETE_OR_CLIENT_ROLE_EVIDENCE_001", "TEST_ADS_DIAGNOSTIC_SERVER_PRODUCTION_READY_REQUIRES_INDEPENDENT_CLIENT_EVIDENCE_001", "TEST_ADS_DIAGNOSTIC_SERVER_STEP_IDS_MATCH_CONTRACT_NAMES_001", "TEST_ADS_DIAGNOSTIC_SKIP_REASONS_MATCH_CONTRACT_NAMES_001", "TEST_ADS_DIAGNOSTIC_V1_CLIENT_EVIDENCE_JSON_STILL_DESERIALIZES_WITH_SERVER_DEFAULTS_001"]
 last_reviewed = "2026-07-22"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_A76FBBDF6FF5DF5A26D31237867787641548CEDE69D25BC2EA28CF05234A3565"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
-qualified_symbol = "trust_runtime::ads::server::doctor::LoopbackAdsClient::write_expect_denied"
-item_kind = "rust_method"
-signature_digest = "sha256:8b55b6ef13d3d1c7f2a4a0d90c636aff1c21503a1b71473aaf0e83b01a2533e0"
-reviewed_body_digest = "sha256:8d55ed44c87d42c297097c23065b4b8926351f57485eac14c8c049249923e16c"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
@@ -190108,23 +189512,6 @@ spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-command-dispatch-and-resource-saf
 invariant_ids = ["RT_ADS_SERVER_COMMAND_DISPATCH_001"]
 test_ids = ["TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ACCEPTS_BECKHOFF_DOTNET_V7_COMPACT_REQUEST_001", "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ACCEPTS_ONLINE_CHANGE_COUNT_HANDLE_AS_SYMBOL_VERSION_001", "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ACCEPTS_SMALLER_WATCH_AND_REJECTS_TOO_LARGE_WATCH_001", "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ACCEPTS_SUPPORTED_MODES_AND_DELETE_RELEASES_HANDLE_001", "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ACCEPTS_SYMBOL_VALUE_HANDLE_FOR_PYADS_001", "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ACCEPTS_SYMBOL_VERSION_WATCH_001", "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ACCEPTS_TASK_COUNT_HANDLE_AS_STATIC_SYSTEM_BYTES_001", "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ENFORCES_PER_CLIENT_LIMIT_001", "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_REQUIRES_RECEIVER_WITHOUT_ALLOCATING_HANDLE_001", "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_WRAPS_WITHOUT_REPLACING_LIVE_HANDLE_001", "TEST_ADS_SERVER_COMMAND_DELETE_NOTIFICATION_REJECTS_UNKNOWN_HANDLE_WITHOUT_MUTATION_001", "TEST_ADS_SERVER_COMMAND_DEVICE_DATA_TIME_BASE_READ_MATCHES_TWINCAT_PROBE_001", "TEST_ADS_SERVER_COMMAND_DEVICE_NOTIFICATION_PAYLOAD_MATCHES_WIRE_MATRIX_001", "TEST_ADS_SERVER_COMMAND_DIRECT_READ_HONORS_SMALLER_REQUESTED_LENGTH_001", "TEST_ADS_SERVER_COMMAND_DIRECT_READ_RETURNS_VALUE_BYTES_001", "TEST_ADS_SERVER_COMMAND_DIRECT_VALUE_READ_PADS_TO_REQUESTED_LENGTH_001", "TEST_ADS_SERVER_COMMAND_DIRECT_WRITE_ENFORCES_WRITE_BYTE_LIMIT_001", "TEST_ADS_SERVER_COMMAND_HANDLE_BY_NAME_ACCEPTS_SYMBOL_NAME_WITHOUT_NUL_TERMINATOR_001", "TEST_ADS_SERVER_COMMAND_HANDLE_BY_NAME_ENFORCES_HANDLE_LIMIT_001", "TEST_ADS_SERVER_COMMAND_HANDLE_BY_NAME_THEN_READ_BY_HANDLE_001", "TEST_ADS_SERVER_COMMAND_HANDLE_BY_NAME_WRAPS_WITHOUT_ALIASING_LIVE_HANDLES_001", "TEST_ADS_SERVER_COMMAND_INVALIDATED_NOTIFICATION_SAMPLE_HAS_ZERO_SIZE_DATA_001", "TEST_ADS_SERVER_COMMAND_MALFORMED_COMMAND_PAYLOADS_FAIL_WITHOUT_STATE_MUTATION_001", "TEST_ADS_SERVER_COMMAND_ONLINE_CHANGE_COUNT_HANDLE_BY_NAME_READS_SYMBOL_VERSION_001", "TEST_ADS_SERVER_COMMAND_ONLINE_CHANGE_COUNT_INFO_BY_NAME_EX_RETURNS_HIDDEN_SYSTEM_SYMBOL_001", "TEST_ADS_SERVER_COMMAND_POLICY_REJECTION_PRECEDES_WRITE_AND_RECORDS_AUDIT_001", "TEST_ADS_SERVER_COMMAND_RAW_TASK_INFO_BASE_ADDRESS_READS_FULL_TASK_INFO_BLOCK_001", "TEST_ADS_SERVER_COMMAND_RAW_TASK_INFO_BASE_ADDRESS_READS_OBJ_ID_PREFIX_FOR_SHORT_READ_001", "TEST_ADS_SERVER_COMMAND_READ_DEVICE_INFO_RESPONSE_IS_WIRE_SHAPED_001", "TEST_ADS_SERVER_COMMAND_READ_STATE_RESPONSE_IS_WIRE_SHAPED_AND_REJECTS_PAYLOAD_001", "TEST_ADS_SERVER_COMMAND_RELEASE_HANDLE_ACCEPTS_PAYLOAD_HANDLE_FORM_001", "TEST_ADS_SERVER_COMMAND_RELEASE_HANDLE_ACCEPTS_TWINCAT_INDEX_OFFSET_FORM_001", "TEST_ADS_SERVER_COMMAND_SUMUP_READWRITE_REJECTS_TRUNCATED_LATER_ITEM_BEFORE_ANY_WRITE_001", "TEST_ADS_SERVER_COMMAND_SUMUP_READWRITE_RETURNS_METADATA_THEN_CONCATENATED_DATA_001", "TEST_ADS_SERVER_COMMAND_SUMUP_READ_ENFORCES_ITEM_LIMIT_001", "TEST_ADS_SERVER_COMMAND_SUMUP_READ_EX_RETURNS_RESULT_LENGTHS_FOR_ADS_RS_READ_MULTI_001", "TEST_ADS_SERVER_COMMAND_SUMUP_READ_KEEPS_GOOD_ITEMS_WHEN_ONE_FAILS_001", "TEST_ADS_SERVER_COMMAND_SUMUP_WRITE_REJECTS_TRUNCATED_LATER_ITEM_BEFORE_ANY_WRITE_001", "TEST_ADS_SERVER_COMMAND_SUMUP_WRITE_RETURNS_PER_ITEM_RESULTS_001", "TEST_ADS_SERVER_COMMAND_SYMBOL_INFO_BY_NAME_EX_ACCEPTS_SYMBOL_NAME_WITHOUT_NUL_TERMINATOR_001", "TEST_ADS_SERVER_COMMAND_SYMBOL_INFO_BY_NAME_EX_RETURNS_ADS_SYMBOL_ENTRY_FOR_PYADS_CACHE_001", "TEST_ADS_SERVER_COMMAND_SYMBOL_INFO_BY_NAME_RETURNS_COMPACT_INDEX_AND_SIZE_TUPLE_FOR_ADS_RS_001", "TEST_ADS_SERVER_COMMAND_SYMBOL_VALUE_BY_NAME_PADS_VALUE_TO_REQUESTED_LENGTH_001", "TEST_ADS_SERVER_COMMAND_SYMBOL_VALUE_BY_NAME_RETURNS_TASK_COUNT_WITHOUT_NUL_TERMINATOR_001", "TEST_ADS_SERVER_COMMAND_SYMBOL_VERSION_READ_RETURNS_U32_VERSION_001", "TEST_ADS_SERVER_COMMAND_TASK_INFO_ADS_PORT_FIELD_REPORTS_RUNTIME_PORT_001", "TEST_ADS_SERVER_COMMAND_TASK_INFO_BLOCK_BY_NAME_RETURNS_FULL_STRUCT_BYTES_001", "TEST_ADS_SERVER_COMMAND_UNKNOWN_ADDRESS_DISTINGUISHES_GROUP_FROM_OFFSET_001", "TEST_ADS_SERVER_COMMAND_UNSUPPORTED_CONTROL_AND_INCOMING_NOTIFICATION_ARE_SIDE_EFFECT_FREE_001", "TEST_ADS_SERVER_COMMAND_UPLOAD_INFO2_PADS_TO_REQUESTED_LENGTH_FOR_ADS_RS_001", "TEST_ADS_SERVER_COMMAND_UPLOAD_INFO2_REPORTS_SYMBOL_AND_DATATYPE_TABLE_SIZES_001", "TEST_ADS_SERVER_COMMAND_WRITE_ENQUEUES_AND_AUDITS_WRITABLE_SYMBOL_001", "TEST_ADS_SERVER_COMMAND_WRITE_REJECTS_READONLY_SYMBOL_WITHOUT_RUNTIME_MUTATION_001"]
 last_reviewed = "2026-07-22"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_AD72326203D631EDB6DEF02945705F44535FAB9DD5075F4BC314DE3FCACCB6A9"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
-qualified_symbol = "trust_runtime::ads::server::doctor::run_loopback_self_test"
-item_kind = "rust_function"
-signature_digest = "sha256:b7979f137c43421157fcb58d5404003dffef66a47f43475ef51e220b9c9f2d8c"
-reviewed_body_digest = "sha256:87471e25520d1430b7b49c4d2e97fecc393ed0bfbc929b70184c1719feac658e"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
@@ -193609,25 +192996,6 @@ last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_CCDA4EFD912AE2AC4521EA16B9C54026271A44A45A803AD78D93B76AA582CB89"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
-qualified_symbol = "trust_runtime::ads::server::doctor::LoopbackAdsClient::request"
-item_kind = "rust_method"
-signature_digest = "sha256:9738f8f41337dce729ad2dcc6e91d6b2e97dedcf2ae17b9a86930bf5a4113b5a"
-reviewed_body_digest = "sha256:38317be5436d767f2b0ccab1bd9ae25640f601e3f1f9a4e964cec73000aa9608"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = ["fault_mapping", "filesystem_or_environment"]
-owner_ack = "RISK_ACK_CCDA4EFD912AE2AC4521EA16B9C54026271A44A45A803AD78D93B76AA582CB89"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_CD3CD5DA09B62A3224B2BD05FAD188B81D44B9F8B303673FA1D99144789D7DDF"
 source_kind = "rust"
 path = "crates/trust-runtime/src/host/ads/client/cache.rs"
@@ -194301,23 +193669,6 @@ last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_D4BC40E521D46EE7A896E01350F3CA3BB5C63A0E39BCB80C12FB207D84BAE7DB"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
-qualified_symbol = "trust_runtime::ads::server::doctor::build_server_evidence"
-item_kind = "rust_function"
-signature_digest = "sha256:1c65fa9c871448f54fea058c49ca72b99321b9b6cb176051fc69250bf8887ca8"
-reviewed_body_digest = "sha256:03103b08677039d435f6699d79c0175260dc468119b52a2695cc9306ac8a50fc"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_D5124028537BEB7DDE47D44691AA2D7B87388D3CDD6B4CE2D71AFBE5F31422AD"
 source_kind = "rust"
 path = "crates/trust-runtime/src/host/ads/server/symbols.rs"
@@ -194329,25 +193680,6 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_D531AF15D9244E9BA49CC9C0FBF6B59344FAEA921D61015AD866677BAAA81076"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
-qualified_symbol = "trust_runtime::ads::server::doctor::finalize_report"
-item_kind = "rust_function"
-signature_digest = "sha256:a7bf05506575170a857421f8466c1ef3054bb5fe95afb120cb8fd63649f91e37"
-reviewed_body_digest = "sha256:b175e164e5ed1246fba134f595950c6821f2198f2a07ebc610b27c5ca567daa1"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = ["authorization", "state_mutation"]
-owner_ack = "RISK_ACK_D531AF15D9244E9BA49CC9C0FBF6B59344FAEA921D61015AD866677BAAA81076"
-owner_ack_expires_on = "2026-10-21"
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
 last_reviewed = "2026-07-21"
@@ -194643,25 +193975,6 @@ area = "protocols"
 visibility = "private"
 risk_signals = ["fault_mapping"]
 owner_ack = "RISK_ACK_D83BE639EA29C44EAAF0C488F356271F38F794698B062402C04D0CB581574FC7"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_D855295D704E6475313473A139704DC436D3429F3DD837949B944D8574849565"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
-qualified_symbol = "trust_runtime::ads::server::doctor::device_notification_has_handle"
-item_kind = "rust_function"
-signature_digest = "sha256:617502e86b085d701745e8bd0d994e66b01484e66084bb674f20e61af4cc33c9"
-reviewed_body_digest = "sha256:ecc3111a05d97c753ef5ed3b14ab08a30d90e1249b2daa53171b4f73131c3a3d"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = ["state_mutation"]
-owner_ack = "RISK_ACK_D855295D704E6475313473A139704DC436D3429F3DD837949B944D8574849565"
 owner_ack_expires_on = "2026-10-21"
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
@@ -196377,23 +195690,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_E96BB5079BCEBAEDF25C2F12D8F24776E3BBA775F808DE8D4F7E9583CFF92960"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
-qualified_symbol = "trust_runtime::ads::server::doctor::build_ads_server_status_report"
-item_kind = "rust_function"
-signature_digest = "sha256:062b95adca3ebea6eb581b62058756fa62814c4c816f09cb43803505f5960511"
-reviewed_body_digest = "sha256:419d9101d5cc12be924ed0053d84589553f50878fd1963b4469bfadee138200a"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "public"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_E974B76F5F4D959E1BA4B20EFC44B9729623F07115727FBACAFF74598E186C50"
 source_kind = "rust"
 path = "crates/trust-runtime/src/host/ads/onboarding/errors.rs"
@@ -197111,23 +196407,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_F040CC73E57D6DB0860CFC5443B404B4FFBB6E1FBA2B997CBAB4696494AD4C50"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
-qualified_symbol = "trust_runtime::ads::server::doctor::LoopbackAdsClient::write"
-item_kind = "rust_method"
-signature_digest = "sha256:4c2e439697fc43a89f830b6401bc50a7bc12cbb6b182a200ba76db74b3d38fe0"
-reviewed_body_digest = "sha256:5188436afd406650935c5e5c2be87bc579cced683c1731736ab08979fe7c6100"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_F09394AE2DA580FCCBC3C1509EF4D22421F4ECA83E384053B68A54D501B4E88F"
 source_kind = "rust"
 path = "crates/trust-runtime/src/io/registry.rs"
@@ -197191,23 +196470,6 @@ reviewed_body_digest = "sha256:8a936ab8481b17cf513823b5736c1400ef1d3ded75f7d309f
 owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_F192A963C980951946769B29A2536696B320FFA580E99D845DE4F9D6214A3D1E"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/server/lifecycle.rs"
-qualified_symbol = "trust_runtime::ads::server::lifecycle::AdsServerRuntime::symbol_count"
-item_kind = "rust_method"
-signature_digest = "sha256:75e320f4b2113c7d01d50d52fdae7e1813b8e2d07cdfcb89a6e3f77cf93e109a"
-reviewed_body_digest = "sha256:8c3244380ce6b0fa2dbba4d2c4f9d82932706d08f279759dda649a6c0fb7ca05"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "public"
 risk_signals = []
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
@@ -197375,23 +196637,6 @@ spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-command-dispatch-and-resource-saf
 invariant_ids = ["RT_ADS_SERVER_COMMAND_DISPATCH_001"]
 test_ids = ["TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ACCEPTS_BECKHOFF_DOTNET_V7_COMPACT_REQUEST_001", "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ACCEPTS_ONLINE_CHANGE_COUNT_HANDLE_AS_SYMBOL_VERSION_001", "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ACCEPTS_SMALLER_WATCH_AND_REJECTS_TOO_LARGE_WATCH_001", "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ACCEPTS_SUPPORTED_MODES_AND_DELETE_RELEASES_HANDLE_001", "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ACCEPTS_SYMBOL_VALUE_HANDLE_FOR_PYADS_001", "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ACCEPTS_SYMBOL_VERSION_WATCH_001", "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ACCEPTS_TASK_COUNT_HANDLE_AS_STATIC_SYSTEM_BYTES_001", "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ENFORCES_PER_CLIENT_LIMIT_001", "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_REQUIRES_RECEIVER_WITHOUT_ALLOCATING_HANDLE_001", "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_WRAPS_WITHOUT_REPLACING_LIVE_HANDLE_001", "TEST_ADS_SERVER_COMMAND_DELETE_NOTIFICATION_REJECTS_UNKNOWN_HANDLE_WITHOUT_MUTATION_001", "TEST_ADS_SERVER_COMMAND_DEVICE_DATA_TIME_BASE_READ_MATCHES_TWINCAT_PROBE_001", "TEST_ADS_SERVER_COMMAND_DEVICE_NOTIFICATION_PAYLOAD_MATCHES_WIRE_MATRIX_001", "TEST_ADS_SERVER_COMMAND_DIRECT_READ_HONORS_SMALLER_REQUESTED_LENGTH_001", "TEST_ADS_SERVER_COMMAND_DIRECT_READ_RETURNS_VALUE_BYTES_001", "TEST_ADS_SERVER_COMMAND_DIRECT_VALUE_READ_PADS_TO_REQUESTED_LENGTH_001", "TEST_ADS_SERVER_COMMAND_DIRECT_WRITE_ENFORCES_WRITE_BYTE_LIMIT_001", "TEST_ADS_SERVER_COMMAND_HANDLE_BY_NAME_ACCEPTS_SYMBOL_NAME_WITHOUT_NUL_TERMINATOR_001", "TEST_ADS_SERVER_COMMAND_HANDLE_BY_NAME_ENFORCES_HANDLE_LIMIT_001", "TEST_ADS_SERVER_COMMAND_HANDLE_BY_NAME_THEN_READ_BY_HANDLE_001", "TEST_ADS_SERVER_COMMAND_HANDLE_BY_NAME_WRAPS_WITHOUT_ALIASING_LIVE_HANDLES_001", "TEST_ADS_SERVER_COMMAND_INVALIDATED_NOTIFICATION_SAMPLE_HAS_ZERO_SIZE_DATA_001", "TEST_ADS_SERVER_COMMAND_MALFORMED_COMMAND_PAYLOADS_FAIL_WITHOUT_STATE_MUTATION_001", "TEST_ADS_SERVER_COMMAND_ONLINE_CHANGE_COUNT_HANDLE_BY_NAME_READS_SYMBOL_VERSION_001", "TEST_ADS_SERVER_COMMAND_ONLINE_CHANGE_COUNT_INFO_BY_NAME_EX_RETURNS_HIDDEN_SYSTEM_SYMBOL_001", "TEST_ADS_SERVER_COMMAND_POLICY_REJECTION_PRECEDES_WRITE_AND_RECORDS_AUDIT_001", "TEST_ADS_SERVER_COMMAND_RAW_TASK_INFO_BASE_ADDRESS_READS_FULL_TASK_INFO_BLOCK_001", "TEST_ADS_SERVER_COMMAND_RAW_TASK_INFO_BASE_ADDRESS_READS_OBJ_ID_PREFIX_FOR_SHORT_READ_001", "TEST_ADS_SERVER_COMMAND_READ_DEVICE_INFO_RESPONSE_IS_WIRE_SHAPED_001", "TEST_ADS_SERVER_COMMAND_READ_STATE_RESPONSE_IS_WIRE_SHAPED_AND_REJECTS_PAYLOAD_001", "TEST_ADS_SERVER_COMMAND_RELEASE_HANDLE_ACCEPTS_PAYLOAD_HANDLE_FORM_001", "TEST_ADS_SERVER_COMMAND_RELEASE_HANDLE_ACCEPTS_TWINCAT_INDEX_OFFSET_FORM_001", "TEST_ADS_SERVER_COMMAND_SUMUP_READWRITE_REJECTS_TRUNCATED_LATER_ITEM_BEFORE_ANY_WRITE_001", "TEST_ADS_SERVER_COMMAND_SUMUP_READWRITE_RETURNS_METADATA_THEN_CONCATENATED_DATA_001", "TEST_ADS_SERVER_COMMAND_SUMUP_READ_ENFORCES_ITEM_LIMIT_001", "TEST_ADS_SERVER_COMMAND_SUMUP_READ_EX_RETURNS_RESULT_LENGTHS_FOR_ADS_RS_READ_MULTI_001", "TEST_ADS_SERVER_COMMAND_SUMUP_READ_KEEPS_GOOD_ITEMS_WHEN_ONE_FAILS_001", "TEST_ADS_SERVER_COMMAND_SUMUP_WRITE_REJECTS_TRUNCATED_LATER_ITEM_BEFORE_ANY_WRITE_001", "TEST_ADS_SERVER_COMMAND_SUMUP_WRITE_RETURNS_PER_ITEM_RESULTS_001", "TEST_ADS_SERVER_COMMAND_SYMBOL_INFO_BY_NAME_EX_ACCEPTS_SYMBOL_NAME_WITHOUT_NUL_TERMINATOR_001", "TEST_ADS_SERVER_COMMAND_SYMBOL_INFO_BY_NAME_EX_RETURNS_ADS_SYMBOL_ENTRY_FOR_PYADS_CACHE_001", "TEST_ADS_SERVER_COMMAND_SYMBOL_INFO_BY_NAME_RETURNS_COMPACT_INDEX_AND_SIZE_TUPLE_FOR_ADS_RS_001", "TEST_ADS_SERVER_COMMAND_SYMBOL_VALUE_BY_NAME_PADS_VALUE_TO_REQUESTED_LENGTH_001", "TEST_ADS_SERVER_COMMAND_SYMBOL_VALUE_BY_NAME_RETURNS_TASK_COUNT_WITHOUT_NUL_TERMINATOR_001", "TEST_ADS_SERVER_COMMAND_SYMBOL_VERSION_READ_RETURNS_U32_VERSION_001", "TEST_ADS_SERVER_COMMAND_TASK_INFO_ADS_PORT_FIELD_REPORTS_RUNTIME_PORT_001", "TEST_ADS_SERVER_COMMAND_TASK_INFO_BLOCK_BY_NAME_RETURNS_FULL_STRUCT_BYTES_001", "TEST_ADS_SERVER_COMMAND_UNKNOWN_ADDRESS_DISTINGUISHES_GROUP_FROM_OFFSET_001", "TEST_ADS_SERVER_COMMAND_UNSUPPORTED_CONTROL_AND_INCOMING_NOTIFICATION_ARE_SIDE_EFFECT_FREE_001", "TEST_ADS_SERVER_COMMAND_UPLOAD_INFO2_PADS_TO_REQUESTED_LENGTH_FOR_ADS_RS_001", "TEST_ADS_SERVER_COMMAND_UPLOAD_INFO2_REPORTS_SYMBOL_AND_DATATYPE_TABLE_SIZES_001", "TEST_ADS_SERVER_COMMAND_WRITE_ENQUEUES_AND_AUDITS_WRITABLE_SYMBOL_001", "TEST_ADS_SERVER_COMMAND_WRITE_REJECTS_READONLY_SYMBOL_WITHOUT_RUNTIME_MUTATION_001"]
 last_reviewed = "2026-07-22"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_F3EB1B024505570D9055B6D27939A3C05D164EE2850572253C8DCF27147BAC46"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
-qualified_symbol = "trust_runtime::ads::server::doctor::LoopbackAdsClient::notification"
-item_kind = "rust_method"
-signature_digest = "sha256:dd8cf9a12402035a77deb5724485f15e2f6ca8b712819f4d7da1f63e053e6c8c"
-reviewed_body_digest = "sha256:ba199f30fc3f88187c85cc6db9e5d762577906bd4feed49eb290d30dab828d4c"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
@@ -198023,23 +197268,6 @@ spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-command-dispatch-and-resource-saf
 invariant_ids = ["RT_ADS_SERVER_COMMAND_DISPATCH_001"]
 test_ids = ["TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ACCEPTS_BECKHOFF_DOTNET_V7_COMPACT_REQUEST_001", "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ACCEPTS_ONLINE_CHANGE_COUNT_HANDLE_AS_SYMBOL_VERSION_001", "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ACCEPTS_SMALLER_WATCH_AND_REJECTS_TOO_LARGE_WATCH_001", "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ACCEPTS_SUPPORTED_MODES_AND_DELETE_RELEASES_HANDLE_001", "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ACCEPTS_SYMBOL_VALUE_HANDLE_FOR_PYADS_001", "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ACCEPTS_SYMBOL_VERSION_WATCH_001", "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ACCEPTS_TASK_COUNT_HANDLE_AS_STATIC_SYSTEM_BYTES_001", "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ENFORCES_PER_CLIENT_LIMIT_001", "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_REQUIRES_RECEIVER_WITHOUT_ALLOCATING_HANDLE_001", "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_WRAPS_WITHOUT_REPLACING_LIVE_HANDLE_001", "TEST_ADS_SERVER_COMMAND_DELETE_NOTIFICATION_REJECTS_UNKNOWN_HANDLE_WITHOUT_MUTATION_001", "TEST_ADS_SERVER_COMMAND_DEVICE_DATA_TIME_BASE_READ_MATCHES_TWINCAT_PROBE_001", "TEST_ADS_SERVER_COMMAND_DEVICE_NOTIFICATION_PAYLOAD_MATCHES_WIRE_MATRIX_001", "TEST_ADS_SERVER_COMMAND_DIRECT_READ_HONORS_SMALLER_REQUESTED_LENGTH_001", "TEST_ADS_SERVER_COMMAND_DIRECT_READ_RETURNS_VALUE_BYTES_001", "TEST_ADS_SERVER_COMMAND_DIRECT_VALUE_READ_PADS_TO_REQUESTED_LENGTH_001", "TEST_ADS_SERVER_COMMAND_DIRECT_WRITE_ENFORCES_WRITE_BYTE_LIMIT_001", "TEST_ADS_SERVER_COMMAND_HANDLE_BY_NAME_ACCEPTS_SYMBOL_NAME_WITHOUT_NUL_TERMINATOR_001", "TEST_ADS_SERVER_COMMAND_HANDLE_BY_NAME_ENFORCES_HANDLE_LIMIT_001", "TEST_ADS_SERVER_COMMAND_HANDLE_BY_NAME_THEN_READ_BY_HANDLE_001", "TEST_ADS_SERVER_COMMAND_HANDLE_BY_NAME_WRAPS_WITHOUT_ALIASING_LIVE_HANDLES_001", "TEST_ADS_SERVER_COMMAND_INVALIDATED_NOTIFICATION_SAMPLE_HAS_ZERO_SIZE_DATA_001", "TEST_ADS_SERVER_COMMAND_MALFORMED_COMMAND_PAYLOADS_FAIL_WITHOUT_STATE_MUTATION_001", "TEST_ADS_SERVER_COMMAND_ONLINE_CHANGE_COUNT_HANDLE_BY_NAME_READS_SYMBOL_VERSION_001", "TEST_ADS_SERVER_COMMAND_ONLINE_CHANGE_COUNT_INFO_BY_NAME_EX_RETURNS_HIDDEN_SYSTEM_SYMBOL_001", "TEST_ADS_SERVER_COMMAND_POLICY_REJECTION_PRECEDES_WRITE_AND_RECORDS_AUDIT_001", "TEST_ADS_SERVER_COMMAND_RAW_TASK_INFO_BASE_ADDRESS_READS_FULL_TASK_INFO_BLOCK_001", "TEST_ADS_SERVER_COMMAND_RAW_TASK_INFO_BASE_ADDRESS_READS_OBJ_ID_PREFIX_FOR_SHORT_READ_001", "TEST_ADS_SERVER_COMMAND_READ_DEVICE_INFO_RESPONSE_IS_WIRE_SHAPED_001", "TEST_ADS_SERVER_COMMAND_READ_STATE_RESPONSE_IS_WIRE_SHAPED_AND_REJECTS_PAYLOAD_001", "TEST_ADS_SERVER_COMMAND_RELEASE_HANDLE_ACCEPTS_PAYLOAD_HANDLE_FORM_001", "TEST_ADS_SERVER_COMMAND_RELEASE_HANDLE_ACCEPTS_TWINCAT_INDEX_OFFSET_FORM_001", "TEST_ADS_SERVER_COMMAND_SUMUP_READWRITE_REJECTS_TRUNCATED_LATER_ITEM_BEFORE_ANY_WRITE_001", "TEST_ADS_SERVER_COMMAND_SUMUP_READWRITE_RETURNS_METADATA_THEN_CONCATENATED_DATA_001", "TEST_ADS_SERVER_COMMAND_SUMUP_READ_ENFORCES_ITEM_LIMIT_001", "TEST_ADS_SERVER_COMMAND_SUMUP_READ_EX_RETURNS_RESULT_LENGTHS_FOR_ADS_RS_READ_MULTI_001", "TEST_ADS_SERVER_COMMAND_SUMUP_READ_KEEPS_GOOD_ITEMS_WHEN_ONE_FAILS_001", "TEST_ADS_SERVER_COMMAND_SUMUP_WRITE_REJECTS_TRUNCATED_LATER_ITEM_BEFORE_ANY_WRITE_001", "TEST_ADS_SERVER_COMMAND_SUMUP_WRITE_RETURNS_PER_ITEM_RESULTS_001", "TEST_ADS_SERVER_COMMAND_SYMBOL_INFO_BY_NAME_EX_ACCEPTS_SYMBOL_NAME_WITHOUT_NUL_TERMINATOR_001", "TEST_ADS_SERVER_COMMAND_SYMBOL_INFO_BY_NAME_EX_RETURNS_ADS_SYMBOL_ENTRY_FOR_PYADS_CACHE_001", "TEST_ADS_SERVER_COMMAND_SYMBOL_INFO_BY_NAME_RETURNS_COMPACT_INDEX_AND_SIZE_TUPLE_FOR_ADS_RS_001", "TEST_ADS_SERVER_COMMAND_SYMBOL_VALUE_BY_NAME_PADS_VALUE_TO_REQUESTED_LENGTH_001", "TEST_ADS_SERVER_COMMAND_SYMBOL_VALUE_BY_NAME_RETURNS_TASK_COUNT_WITHOUT_NUL_TERMINATOR_001", "TEST_ADS_SERVER_COMMAND_SYMBOL_VERSION_READ_RETURNS_U32_VERSION_001", "TEST_ADS_SERVER_COMMAND_TASK_INFO_ADS_PORT_FIELD_REPORTS_RUNTIME_PORT_001", "TEST_ADS_SERVER_COMMAND_TASK_INFO_BLOCK_BY_NAME_RETURNS_FULL_STRUCT_BYTES_001", "TEST_ADS_SERVER_COMMAND_UNKNOWN_ADDRESS_DISTINGUISHES_GROUP_FROM_OFFSET_001", "TEST_ADS_SERVER_COMMAND_UNSUPPORTED_CONTROL_AND_INCOMING_NOTIFICATION_ARE_SIDE_EFFECT_FREE_001", "TEST_ADS_SERVER_COMMAND_UPLOAD_INFO2_PADS_TO_REQUESTED_LENGTH_FOR_ADS_RS_001", "TEST_ADS_SERVER_COMMAND_UPLOAD_INFO2_REPORTS_SYMBOL_AND_DATATYPE_TABLE_SIZES_001", "TEST_ADS_SERVER_COMMAND_WRITE_ENQUEUES_AND_AUDITS_WRITABLE_SYMBOL_001", "TEST_ADS_SERVER_COMMAND_WRITE_REJECTS_READONLY_SYMBOL_WITHOUT_RUNTIME_MUTATION_001"]
 last_reviewed = "2026-07-22"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_F92100AB6ED156714B0F709A48AAD69BC284FACF27AD5ABF2CE27AC96580196C"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
-qualified_symbol = "trust_runtime::ads::server::doctor::AdsServerExternalClientEvidence"
-item_kind = "rust_public_type"
-signature_digest = "sha256:cdea80feb380472d5d386bc1f2ca9492fcf9f8466af51ac1a2955950a4b5b5ab"
-reviewed_body_digest = "sha256:8f5cc5febefec61045049f7b74e53efd6bd24c8f182faa653a8be737809675f9"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "public"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
@@ -274440,4 +273668,939 @@ disposition = "specified"
 spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
 invariant_ids = ["RT_ADS_CLIENT_CONFIGURATION_001"]
 test_ids = ["TEST_ADS_CLIENT_CONFIGURATION_PARSES_ADS_TOML_AND_APPLIES_SECURITY_AND_POINT_DEFAULTS_001", "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_NOTIFICATION_MODE_WITHOUT_NOTIFY_MODE_001", "TEST_ADS_CLIENT_CONFIGURATION_LOCKS_POINT_ENUM_AND_TYPE_VALIDATION_001"]
+last_reviewed = "2026-07-23"
+[[mappings]]
+schema_version = 1
+code_id = "CODE_128089F4740A7400BBC1508FD08B3777E5AAE93F2327A8ABD818D96C7ED98135"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
+qualified_symbol = "trust_runtime::ads::server::doctor::clients_allowed_step"
+item_kind = "rust_function"
+signature_digest = "sha256:c6320673339156f2b083af4cd335a4fef48c9c9df322387b137820f669381044"
+reviewed_body_digest = "sha256:af96f70d132094a6517df21f41ce2f386ac8917a902179e1801fdaa3ccea087d"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+invariant_ids = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+test_ids = ["TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_REQUIRES_TWINCAT_EXTERNAL_CLIENT_FOR_PRODUCTION_READY_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_1A096A6003262FCA6D07C6E08EFCB8CDED78A98A9B21DBD86A547A2DAB04DE73"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
+qualified_symbol = "trust_runtime::ads::server::doctor::udp_identify_step"
+item_kind = "rust_function"
+signature_digest = "sha256:c5130c1b53774d4f7a5fc885a2d6b7c34f3722a46d1ae08a28e8df4b93fe7785"
+reviewed_body_digest = "sha256:a5c6a108ca4a8428151ada76c4a81388341b8a187a6d7f5cc1d07ce733255698"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "RISK_ACK_1A096A6003262FCA6D07C6E08EFCB8CDED78A98A9B21DBD86A547A2DAB04DE73"
+owner_ack_expires_on = "2026-10-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+invariant_ids = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+test_ids = ["TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_REQUIRES_TWINCAT_EXTERNAL_CLIENT_FOR_PRODUCTION_READY_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_1FB38644151C81BAD5CC8149B3B26108779AE16A867C58C6A78B1832FAE5C182"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/server/doctor/loopback_client.rs"
+qualified_symbol = "trust_runtime::ads::server::doctor::loopback_client::LoopbackAdsClient::write"
+item_kind = "rust_method"
+signature_digest = "sha256:f02bf14c5ca5b9ddc9b486e837a944adbae8d076a540e05842289edc358851bb"
+reviewed_body_digest = "sha256:bf0f61e820e32550b943087b03a48d73355261a7f401202f20899f3a90ec1e6e"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+invariant_ids = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+test_ids = ["TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_REQUIRES_TWINCAT_EXTERNAL_CLIENT_FOR_PRODUCTION_READY_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_2227B5B200972CE15DED1E55DD41BF947370D06D19888CE553A5CE8451566A85"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
+qualified_symbol = "trust_runtime::ads::server::doctor::local_identity"
+item_kind = "rust_function"
+signature_digest = "sha256:6d7d9e3b90bbf3d37ac17b2cf1040cad4c4f5e2f68792a438a5284b57dcfe3be"
+reviewed_body_digest = "sha256:6806516def3e76044d24cd3612ae754b4b7b039dddf06fe32d2475f58dfd4477"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+invariant_ids = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+test_ids = ["TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_REQUIRES_TWINCAT_EXTERNAL_CLIENT_FOR_PRODUCTION_READY_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_2395B14173DF1D77919A643690AC08F8A91A4034A650AC760B5825C6043806EF"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
+qualified_symbol = "trust_runtime::ads::server::doctor::external_client_step"
+item_kind = "rust_function"
+signature_digest = "sha256:d43fa10c096ea46dbd3d43df318bf21503e3c12b03132a9cf526b63028a9d608"
+reviewed_body_digest = "sha256:f57e34bd740eb7acd5bd8e6dd76f09ecd6504d72f1e49113eaddea8ea6b31642"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+invariant_ids = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+test_ids = ["TEST_ADS_SERVER_DOCTOR_TRUTH_BLANK_EXTERNAL_CLIENT_EVIDENCE_IS_NOT_VERIFIED_OR_PASSED_001", "TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_REQUIRES_TWINCAT_EXTERNAL_CLIENT_FOR_PRODUCTION_READY_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_23B89C78F2255615EAC6C11929FBB5446CC38F3C43024670A5018588F8E300D9"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
+qualified_symbol = "trust_runtime::ads::server::doctor::self_write_guarded_step"
+item_kind = "rust_function"
+signature_digest = "sha256:8016d102694fb1d3133ac942dad6fcb43ec254dcfa66b047e30035d551d6d15e"
+reviewed_body_digest = "sha256:5156036608a9c39ae65b4b07a11627e40fef7f108c33efa815289902a1376a90"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+invariant_ids = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+test_ids = ["TEST_ADS_SERVER_DOCTOR_TRUTH_BLANK_EXTERNAL_CLIENT_EVIDENCE_IS_NOT_VERIFIED_OR_PASSED_001", "TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_REQUIRES_TWINCAT_EXTERNAL_CLIENT_FOR_PRODUCTION_READY_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_2DD0FD7169F0FEAFBC255B56AC994B48123A17E41A10A742DBABF172E1B9B3C4"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/server/doctor/loopback_client.rs"
+qualified_symbol = "trust_runtime::ads::server::doctor::loopback_client::LoopbackAdsClient::read_frame"
+item_kind = "rust_method"
+signature_digest = "sha256:f7ec8d1acd98ffcc7a731d4cf8fb48adfd28f991e342c7ca8e9c618aa56545d5"
+reviewed_body_digest = "sha256:859499b361103af267944ab3bf17045143c5442d04b2c58f6078678453c97b80"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = ["fault_mapping"]
+owner_ack = "RISK_ACK_2DD0FD7169F0FEAFBC255B56AC994B48123A17E41A10A742DBABF172E1B9B3C4"
+owner_ack_expires_on = "2026-10-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+invariant_ids = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+test_ids = ["TEST_ADS_SERVER_DOCTOR_TRUTH_LOOPBACK_RESPONSE_REQUIRES_DIRECTION_AND_COMPLETE_REQUEST_IDENTITY_001", "TEST_ADS_SERVER_DOCTOR_TRUTH_LOOPBACK_RESPONSE_ACCEPTS_EXACT_CORRELATED_RESPONSE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_3115AAED0A5A27DDA6B52B02EC2644221D5F9B661027582DFE8EC702F65B7B4D"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/server/doctor/loopback_client.rs"
+qualified_symbol = "trust_runtime::ads::server::doctor::loopback_client::LoopbackAdsClient::direct_read"
+item_kind = "rust_method"
+signature_digest = "sha256:7897773385546539df100854c2d21caf470812abd75c8a58ba12612ce1d7b9dd"
+reviewed_body_digest = "sha256:0288ebacc1973bd3b2236f978a5f2f7fdafe8af4010dcb22b04e9a9e29481bba"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+invariant_ids = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+test_ids = ["TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_REQUIRES_TWINCAT_EXTERNAL_CLIENT_FOR_PRODUCTION_READY_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_34C313B9EB8D97157F8202729319FD8ED067AAE0AA6799FE9A9D0814DA549B67"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
+qualified_symbol = "trust_runtime::ads::server::doctor::summary_for_report"
+item_kind = "rust_function"
+signature_digest = "sha256:9a678255aadc45dcb47b6ff4aeffb6e5cb1c48b6596507a4a2e3e5886837880a"
+reviewed_body_digest = "sha256:dbfaa541c65859b9a9663e60256e46184e841ca204f6a7b70596d77296fcf644"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+invariant_ids = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+test_ids = ["TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_REQUIRES_TWINCAT_EXTERNAL_CLIENT_FOR_PRODUCTION_READY_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_36921A6D02A73332249123A1EFFD04687631589AE0367C2554CD2AB63C0768E9"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/server/lifecycle.rs"
+qualified_symbol = "trust_runtime::ads::server::lifecycle::AdsServerRuntime::symbol_snapshot"
+item_kind = "rust_method"
+signature_digest = "sha256:ca43bbb47e96d333523c2da3e1803a7428a54843bf8413e72d1549d81e0843e0"
+reviewed_body_digest = "sha256:16a0e128a65db0fbd0c06285313801e180c8c4dbc167eb2aab7d752185cfdcc4"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+invariant_ids = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+test_ids = ["TEST_ADS_SERVER_DOCTOR_TRUTH_DOCTOR_REJECTS_SUPPLIED_SYMBOLS_WHEN_LIVE_RUNTIME_TABLE_IS_EMPTY_001", "TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_REQUIRES_TWINCAT_EXTERNAL_CLIENT_FOR_PRODUCTION_READY_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_37FCA87BA35446777AED47388642EB40D62232233A60EB1B19A53FEB54EF2EB8"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/server/doctor/loopback_client.rs"
+qualified_symbol = "trust_runtime::ads::server::doctor::loopback_client::LoopbackAdsClient::validate_response_header"
+item_kind = "rust_method"
+signature_digest = "sha256:8d84eec23bca5696f0cfb18cd3bca291290fe14e977c987c8702806d20146424"
+reviewed_body_digest = "sha256:b36c64c9a93df063ed2507336585f3041180d9b274f094a732ab71eeb62a2a70"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+invariant_ids = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+test_ids = ["TEST_ADS_SERVER_DOCTOR_TRUTH_LOOPBACK_RESPONSE_REQUIRES_DIRECTION_AND_COMPLETE_REQUEST_IDENTITY_001", "TEST_ADS_SERVER_DOCTOR_TRUTH_LOOPBACK_RESPONSE_ACCEPTS_EXACT_CORRELATED_RESPONSE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_3EB730FEE0C7D214223D305196929F968CB34A8492A82E70D206E19564727564"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
+qualified_symbol = "trust_runtime::ads::server::doctor::blocked_self_test_steps"
+item_kind = "rust_function"
+signature_digest = "sha256:f40be256d4d16927be2a9111a02073a7dc02c41cb143a94e23f98f06888bbd5d"
+reviewed_body_digest = "sha256:4e9f98d37b43f2dc177e93b5fb040b6f643d4a5d8970cf067169cf43d32db06b"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+invariant_ids = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+test_ids = ["TEST_ADS_SERVER_DOCTOR_TRUTH_DOCTOR_REJECTS_SUPPLIED_SYMBOLS_WHEN_LIVE_RUNTIME_TABLE_IS_EMPTY_001", "TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_BLOCKS_EMPTY_EXPOSE_AND_EMPTY_CLIENTS_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_43CFB3175209FA43181BB08E771B816557F860AA87EF8E9A8A8D8644F72C8637"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/server/doctor/loopback_client.rs"
+qualified_symbol = "trust_runtime::ads::server::doctor::loopback_client::LoopbackAdsClient::validate_inbound_endpoint"
+item_kind = "rust_method"
+signature_digest = "sha256:7e108826f06d883cfd33d5b4f40ff3a6e14b2dce1edefae7d9c667542d69f8f0"
+reviewed_body_digest = "sha256:123cf49ece8fb2035fdfcd4e52390bf80656fd0f9a6e78bec320e5afbf6373b8"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+invariant_ids = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+test_ids = ["TEST_ADS_SERVER_DOCTOR_TRUTH_LOOPBACK_RESPONSE_REQUIRES_DIRECTION_AND_COMPLETE_REQUEST_IDENTITY_001", "TEST_ADS_SERVER_DOCTOR_TRUTH_LOOPBACK_RESPONSE_ACCEPTS_EXACT_CORRELATED_RESPONSE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_46CFA65B1712F973A66F2AD23AA77BBCBAAD3EAFED91F52E0614621CE93DDB9C"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/server/doctor/loopback_client.rs"
+qualified_symbol = "trust_runtime::ads::server::doctor::loopback_client::expect_payload_result"
+item_kind = "rust_function"
+signature_digest = "sha256:051bf8e14d4de24b731722472e6e1a9075a85d9590bc64a5d36295895b7eb0b3"
+reviewed_body_digest = "sha256:e7412e64d4060b2af032405aa92ebe878625faf864336e0e763eba000879c16d"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+invariant_ids = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+test_ids = ["TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_REQUIRES_TWINCAT_EXTERNAL_CLIENT_FOR_PRODUCTION_READY_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_474C4A457A2B1A2427CF9C6C609ACA6EC226F693487207B5E06069A4824B4211"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
+qualified_symbol = "trust_runtime::ads::server::doctor::allowed_clients_evidence"
+item_kind = "rust_function"
+signature_digest = "sha256:219b64e7757d9f5d4e144e78ca2c6fd710eb4e342b14aecc65f597b545823405"
+reviewed_body_digest = "sha256:8a5b133574960800f2b957e398984adbcf2913a72ea0286a92aa7a22afd0e145"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+invariant_ids = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+test_ids = ["TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_REQUIRES_TWINCAT_EXTERNAL_CLIENT_FOR_PRODUCTION_READY_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_4BF44F51EC18612A3054CA192152AD920C3B2E53ED4F2B664B1D2BC15322EDD5"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/server/doctor/loopback_client.rs"
+qualified_symbol = "trust_runtime::ads::server::doctor::loopback_client::LoopbackAdsClient::sumup_read"
+item_kind = "rust_method"
+signature_digest = "sha256:15426cdb819c531926f11ec9ab339ca9fd532248178a11f1dc568fdc3639845e"
+reviewed_body_digest = "sha256:477697aec45681306db7ecec88927ecdd89ac3d856718bffd979fbaeb8feecb3"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+invariant_ids = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+test_ids = ["TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_REQUIRES_TWINCAT_EXTERNAL_CLIENT_FOR_PRODUCTION_READY_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_4E633314D8F5338FE17602B357B7F5164E0FE2E8A2C8F92240E4853382C3D055"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
+qualified_symbol = "trust_runtime::ads::server::doctor::AdsServerDoctorInput"
+item_kind = "rust_public_type"
+signature_digest = "sha256:3c08916ffadb4cd4369f93711ed72d61b393afb9793d8c4f201a3525426ac67d"
+reviewed_body_digest = "sha256:6279cfeca62f27409e4496f9123d6c474fb2be2f5ab3a8943b1ae1717889c541"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+invariant_ids = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+test_ids = ["TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_REQUIRES_TWINCAT_EXTERNAL_CLIENT_FOR_PRODUCTION_READY_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_5A09FD27EC8501C719EF1A7EF3CD568108E3937A3407827F29878D8FAB59D5B4"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/server/doctor/loopback_client.rs"
+qualified_symbol = "trust_runtime::ads::server::doctor::loopback_client::LoopbackAdsClient::direct_read_expect_denied"
+item_kind = "rust_method"
+signature_digest = "sha256:5510d1c6e8e06b0a39d7ca93fcd141dd6e05350b33ae70c7837d7f9ab72a444c"
+reviewed_body_digest = "sha256:96f2e3e0e880c161268f35ea882cec30f8078d0e69408d3a35efacce404f168d"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+invariant_ids = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+test_ids = ["TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_REQUIRES_TWINCAT_EXTERNAL_CLIENT_FOR_PRODUCTION_READY_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_5A220C2F5E8EC9C7CF22CA7012961B3C440116E6EBBA9A938A264D119F609907"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/server/doctor/loopback_client.rs"
+qualified_symbol = "trust_runtime::ads::server::doctor::loopback_client::expect_read_payload"
+item_kind = "rust_function"
+signature_digest = "sha256:378869fbb150f57034712ba5ae8785e6657a811fc2aa1205b05ece507f3b5701"
+reviewed_body_digest = "sha256:30ec3982904a74639d9acdc19445af33851ea1b27e314ac3a01b11a3ab1b9495"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+invariant_ids = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+test_ids = ["TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_REQUIRES_TWINCAT_EXTERNAL_CLIENT_FOR_PRODUCTION_READY_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_5A9C802DEF6591F910414E06A3651F4C17C6D1BF688ED3BAC679C68CDCB36893"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
+qualified_symbol = "trust_runtime::ads::server::doctor::allowlist_enforced_step"
+item_kind = "rust_function"
+signature_digest = "sha256:3b45153500b129a4bb2e412e3c8b144ce30d7924f184299984814527fca0f92c"
+reviewed_body_digest = "sha256:1996cf50a951a0fc35c24121942097b32a8da602dde722ea1e781d6e3ed8bcfd"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+invariant_ids = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+test_ids = ["TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_REQUIRES_TWINCAT_EXTERNAL_CLIENT_FOR_PRODUCTION_READY_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_5DAF22BB3F74D1B5A7CAB7E3163401E48486900A47397C174B2AE603F422A70E"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
+qualified_symbol = "trust_runtime::ads::server::doctor::listener_bound_step"
+item_kind = "rust_function"
+signature_digest = "sha256:62c61a562f7be9a5815e075ebf76b7e66427124a043feec3bce03c8b86f74116"
+reviewed_body_digest = "sha256:c63ddd4f5fdc3233ff3b31c698d84eefedbd826bea86bdb795d7318d70b16e65"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+invariant_ids = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+test_ids = ["TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_REQUIRES_TWINCAT_EXTERNAL_CLIENT_FOR_PRODUCTION_READY_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_6104501D66304C00A6230491445E7401EBDB18A57F0CED7B08681AFB4B95A3A1"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/server/doctor/loopback_client.rs"
+qualified_symbol = "trust_runtime::ads::server::doctor::loopback_client::LoopbackAdsClient::request"
+item_kind = "rust_method"
+signature_digest = "sha256:a432b27eaf229ee16ad3313b25a82600d0fe83990d1e971173b528778869c242"
+reviewed_body_digest = "sha256:0ff6f16bfe24226ffbe421b7987f418ccba5fc609376aa469cfd03b42e05c3bf"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = ["fault_mapping", "filesystem_or_environment", "protocol_response_or_status"]
+owner_ack = "RISK_ACK_6104501D66304C00A6230491445E7401EBDB18A57F0CED7B08681AFB4B95A3A1"
+owner_ack_expires_on = "2026-10-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+invariant_ids = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+test_ids = ["TEST_ADS_SERVER_DOCTOR_TRUTH_LOOPBACK_RESPONSE_REQUIRES_DIRECTION_AND_COMPLETE_REQUEST_IDENTITY_001", "TEST_ADS_SERVER_DOCTOR_TRUTH_LOOPBACK_RESPONSE_ACCEPTS_EXACT_CORRELATED_RESPONSE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_6EEB5DE96C0D1B31B3F67DD0C625DF15D50E86FB6B251B5B1D00F9ED405EF0B3"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
+qualified_symbol = "trust_runtime::ads::server::doctor::finalize_report"
+item_kind = "rust_function"
+signature_digest = "sha256:ba3ad74eb4da35213bc37e53578eb45ecad9cae897a294ea72c51b664f1f10a7"
+reviewed_body_digest = "sha256:52e24580e535e4883bb57f9bd3cc1574082b33452d36d56cc3ff9de992432b79"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = ["authorization", "state_mutation"]
+owner_ack = "RISK_ACK_6EEB5DE96C0D1B31B3F67DD0C625DF15D50E86FB6B251B5B1D00F9ED405EF0B3"
+owner_ack_expires_on = "2026-10-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+invariant_ids = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+test_ids = ["TEST_ADS_SERVER_DOCTOR_TRUTH_BLANK_EXTERNAL_CLIENT_EVIDENCE_IS_NOT_VERIFIED_OR_PASSED_001", "TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_SELF_TEST_DOES_NOT_GRANT_PRODUCTION_READY_001", "TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_REQUIRES_TWINCAT_EXTERNAL_CLIENT_FOR_PRODUCTION_READY_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_75B20C12401F188891F22E80D90714E35934BE57274C1BB7FAFEE3E3674156B9"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
+qualified_symbol = "trust_runtime::ads::server::doctor::bind_exposure_step"
+item_kind = "rust_function"
+signature_digest = "sha256:78c3f7c14588fc295a988f30a09f74ba1b0c9206a6ffa9b59391cb198c5d3f46"
+reviewed_body_digest = "sha256:1d8b90713fde61ee16e698bb5beb8134950e4e34e0f96b6199d11171cab2253f"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+invariant_ids = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+test_ids = ["TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_REQUIRES_TWINCAT_EXTERNAL_CLIENT_FOR_PRODUCTION_READY_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_76BA02208589CEEA39E4A3190E856F697AF4B2D88230E3874638AC51D2AA44E8"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
+qualified_symbol = "trust_runtime::ads::server::doctor::identify_request"
+item_kind = "rust_function"
+signature_digest = "sha256:a0d72a75ca138c86d6d418886507d29349e6fbc8c65954882c81b9cdf959fce6"
+reviewed_body_digest = "sha256:16aa248d92fc694ccbbd9ac42854ce8ed57461cc288f1ded25beff28ec612113"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+invariant_ids = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+test_ids = ["TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_REQUIRES_TWINCAT_EXTERNAL_CLIENT_FOR_PRODUCTION_READY_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_7841418EF33A9B9885D6CA6EAF5F2086CB990959E816F51AF0448036E6C0E1B7"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
+qualified_symbol = "trust_runtime::ads::server::doctor::query_identify"
+item_kind = "rust_function"
+signature_digest = "sha256:6df72c6ee9989c5dee7a125f112090e11182dc110dcd43dd95d7aa5c7633e2af"
+reviewed_body_digest = "sha256:3e6b582682f21dc86cebfb2faad3ac271ade659176125e8da576d7057f4b65ee"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = ["fault_mapping", "network_io"]
+owner_ack = "RISK_ACK_7841418EF33A9B9885D6CA6EAF5F2086CB990959E816F51AF0448036E6C0E1B7"
+owner_ack_expires_on = "2026-10-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+invariant_ids = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+test_ids = ["TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_REQUIRES_TWINCAT_EXTERNAL_CLIENT_FOR_PRODUCTION_READY_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_7B558222AA46B79CE8A18624B336B311226E00260DD403EB417A3DAA110D319E"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
+qualified_symbol = "trust_runtime::ads::server::doctor::self_test_connect_failed"
+item_kind = "rust_function"
+signature_digest = "sha256:65c200ce474e567be827cb53645e6bbf48e0d8cbd53823d8da60c1e6afc539f8"
+reviewed_body_digest = "sha256:a8e8cf3422961efcb394e822db4e802b71e897fb09a54df0648679b43071091a"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+invariant_ids = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+test_ids = ["TEST_ADS_SERVER_DOCTOR_TRUTH_LOOPBACK_CONNECTION_FAILURE_FAILS_EVERY_SELF_TEST_STEP_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_7C519E711A87C19193D4F982ED78AFD10A5B63CC4AAAE8068E5EDDB9498DEA46"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
+qualified_symbol = "trust_runtime::ads::server::doctor::title"
+item_kind = "rust_function"
+signature_digest = "sha256:b4d4baaae5b19460c92536e6505c59092eb157e6dd1f77919299e84e3c5d1713"
+reviewed_body_digest = "sha256:4d6a602a5b125ad9e1ae7fa27e6cac9483a6672a8b396f6e71fbbaac3cf5cb3c"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+invariant_ids = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+test_ids = ["TEST_ADS_SERVER_DOCTOR_TRUTH_DOCTOR_REJECTS_SUPPLIED_SYMBOLS_WHEN_LIVE_RUNTIME_TABLE_IS_EMPTY_001", "TEST_ADS_SERVER_DOCTOR_TRUTH_LOOPBACK_CONNECTION_FAILURE_FAILS_EVERY_SELF_TEST_STEP_001", "TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_BLOCKS_EMPTY_EXPOSE_AND_EMPTY_CLIENTS_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_835A930336B210582106BF366D3195ABBC7ADBC5C4E84FF6447B52AE827302A6"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
+qualified_symbol = "trust_runtime::ads::server::doctor::external_client_evidence_is_valid"
+item_kind = "rust_function"
+signature_digest = "sha256:26e449240e1e0f59f1e11b40a030199b49b694af3cee7611855412b9ebf51150"
+reviewed_body_digest = "sha256:6a73cb7597a6bf13b4ea698aa8b42802b4426fb6b3080e1a027517787f5f0e29"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+invariant_ids = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+test_ids = ["TEST_ADS_SERVER_DOCTOR_TRUTH_BLANK_EXTERNAL_CLIENT_EVIDENCE_IS_NOT_VERIFIED_OR_PASSED_001", "TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_REQUIRES_TWINCAT_EXTERNAL_CLIENT_FOR_PRODUCTION_READY_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_84761DA7EC52B5AAF598C0B13E8581594A8161006BFD9D803B077D4D31A2C5C5"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/server/doctor/loopback_client.rs"
+qualified_symbol = "trust_runtime::ads::server::doctor::loopback_client::read_u32"
+item_kind = "rust_function"
+signature_digest = "sha256:16e68e0c30727abf6bd91f0bfa1f6fa7ae6a882c4313eb505a5007354a515ee7"
+reviewed_body_digest = "sha256:d671fa3afaa9316c7e0423417b1490b2a9beabe1595b43d2fab489292edfb4df"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = ["fault_mapping"]
+owner_ack = "RISK_ACK_84761DA7EC52B5AAF598C0B13E8581594A8161006BFD9D803B077D4D31A2C5C5"
+owner_ack_expires_on = "2026-10-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+invariant_ids = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+test_ids = ["TEST_ADS_SERVER_DOCTOR_TRUTH_NOTIFICATION_REJECTS_MALFORMED_DECLARED_TAIL_AFTER_VALID_MATCH_001", "TEST_ADS_SERVER_DOCTOR_TRUTH_NOTIFICATION_REJECTS_BYTES_OUTSIDE_DECLARED_STREAM_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_866280F703C7ECB4C4C04A3B13507BF76DB167BC6AF938CBCE9B586747F98E26"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/server/doctor/loopback_client.rs"
+qualified_symbol = "trust_runtime::ads::server::doctor::loopback_client::LoopbackAdsClient::connect"
+item_kind = "rust_method"
+signature_digest = "sha256:c1cc165a9a421b83157f0bd7c8859b30fa500fa86a35730c5e900dd112a8b2d0"
+reviewed_body_digest = "sha256:1520865f854440a1ffd8734c2ce9f335dbf457386d3b9ef04b8a0f5af151a111"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = ["fault_mapping", "network_io"]
+owner_ack = "RISK_ACK_866280F703C7ECB4C4C04A3B13507BF76DB167BC6AF938CBCE9B586747F98E26"
+owner_ack_expires_on = "2026-10-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+invariant_ids = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+test_ids = ["TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_REQUIRES_TWINCAT_EXTERNAL_CLIENT_FOR_PRODUCTION_READY_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_8F662D953105D4E81C26DB29FDEF4F24571A03A9619964EE448F143A54B20822"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
+qualified_symbol = "trust_runtime::ads::server::doctor::symbol_serve_step"
+item_kind = "rust_function"
+signature_digest = "sha256:706370e0fe7a9556c1c0fc289144a1091ffa0d503b3a2704490ddd11335b28af"
+reviewed_body_digest = "sha256:ccd11b36a532797f921a168d75ab7d43db0cd4b666c7c9cef1b0cd40e8a17f8e"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+invariant_ids = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+test_ids = ["TEST_ADS_SERVER_DOCTOR_TRUTH_DOCTOR_REJECTS_SUPPLIED_SYMBOLS_WHEN_LIVE_RUNTIME_TABLE_IS_EMPTY_001", "TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_BLOCKS_EMPTY_EXPOSE_AND_EMPTY_CLIENTS_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_9B5AA03B4C7FF7DF72C439DC129D9524C3067879A609C39F60CEDCEB3DC3D2F1"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
+qualified_symbol = "trust_runtime::ads::server::doctor::parser_limits_step"
+item_kind = "rust_function"
+signature_digest = "sha256:45c3e8d28f9e55940ee9d06001d16e1bf7b41b19e5739880e3b89acbbb150682"
+reviewed_body_digest = "sha256:cac0c590fd7ab8c420cdc5f1e7feaa3c110239991d13ebd68a917e81b37bf1c3"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+invariant_ids = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+test_ids = ["TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_REQUIRES_TWINCAT_EXTERNAL_CLIENT_FOR_PRODUCTION_READY_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_9C1EE7FA4CA2979DDE92AE0E3197772C9326DFCE1C0018C500C0C5F8615FF931"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
+qualified_symbol = "trust_runtime::ads::server::doctor::config_evidence_text"
+item_kind = "rust_function"
+signature_digest = "sha256:38bc5d5cb558dcbb3b9d267c165e4095b430af6a56e70c173b1e42fd4751a64d"
+reviewed_body_digest = "sha256:7929c3b2d3262dea68e7f93214e1f7e9aafd95719b8d7d260bdd9a7603bd0927"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "RISK_ACK_9C1EE7FA4CA2979DDE92AE0E3197772C9326DFCE1C0018C500C0C5F8615FF931"
+owner_ack_expires_on = "2026-10-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+invariant_ids = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+test_ids = ["TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_REQUIRES_TWINCAT_EXTERNAL_CLIENT_FOR_PRODUCTION_READY_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_9E071D7836B8A2C1E0102CEC6098A07F12DEDF8C4B2B253DB847C1CE8A41062F"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
+qualified_symbol = "trust_runtime::ads::server::doctor::failure"
+item_kind = "rust_function"
+signature_digest = "sha256:d7c1e6ef114dca554cadd2f90e59ea10b7523375a7b2f96d0102237cb1250f0e"
+reviewed_body_digest = "sha256:e474890fe34581cf497a72e15df12b1b2f28e6b1ce82cff5885c269f203faa2d"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+invariant_ids = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+test_ids = ["TEST_ADS_SERVER_DOCTOR_TRUTH_BLANK_EXTERNAL_CLIENT_EVIDENCE_IS_NOT_VERIFIED_OR_PASSED_001", "TEST_ADS_SERVER_DOCTOR_TRUTH_LOOPBACK_CONNECTION_FAILURE_FAILS_EVERY_SELF_TEST_STEP_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_A6B77705EC1809A9B74C54161D4CC060C15B8350A27C95161B28C7CE2F23503B"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
+qualified_symbol = "trust_runtime::ads::server::doctor::run_ads_server_doctor"
+item_kind = "rust_function"
+signature_digest = "sha256:c1fe82bf50f828a36718112ab6b8e2c41fdf078a503c79935219f574a1bbf51d"
+reviewed_body_digest = "sha256:16440b4cbfc770447678a20d37cea6be1e968055da77a63fe9041ce9583ba750"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "public"
+risk_signals = ["protocol_response_or_status", "state_mutation"]
+owner_ack = "RISK_ACK_A6B77705EC1809A9B74C54161D4CC060C15B8350A27C95161B28C7CE2F23503B"
+owner_ack_expires_on = "2026-10-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+invariant_ids = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+test_ids = ["TEST_ADS_SERVER_DOCTOR_TRUTH_DOCTOR_REJECTS_SUPPLIED_SYMBOLS_WHEN_LIVE_RUNTIME_TABLE_IS_EMPTY_001", "TEST_ADS_SERVER_DOCTOR_TRUTH_BLANK_EXTERNAL_CLIENT_EVIDENCE_IS_NOT_VERIFIED_OR_PASSED_001", "TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_SELF_TEST_DOES_NOT_GRANT_PRODUCTION_READY_001", "TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_REQUIRES_TWINCAT_EXTERNAL_CLIENT_FOR_PRODUCTION_READY_001", "TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_BLOCKS_EMPTY_EXPOSE_AND_EMPTY_CLIENTS_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_AD72326203D631EDB6DEF02945705F44535FAB9DD5075F4BC314DE3FCACCB6A9"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
+qualified_symbol = "trust_runtime::ads::server::doctor::run_loopback_self_test"
+item_kind = "rust_function"
+signature_digest = "sha256:b7979f137c43421157fcb58d5404003dffef66a47f43475ef51e220b9c9f2d8c"
+reviewed_body_digest = "sha256:87471e25520d1430b7b49c4d2e97fecc393ed0bfbc929b70184c1719feac658e"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+invariant_ids = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+test_ids = ["TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_REQUIRES_TWINCAT_EXTERNAL_CLIENT_FOR_PRODUCTION_READY_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_B0FF031866EEB31B52761E4737717DB0EC5BC909FEAF950AA19F9425AED6586C"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/server/doctor/loopback_client.rs"
+qualified_symbol = "trust_runtime::ads::server::doctor::loopback_client::LoopbackAdsClient::notification"
+item_kind = "rust_method"
+signature_digest = "sha256:48696dada7c41e1138af902a4a02566118f1805428382ff79b72c36f91041302"
+reviewed_body_digest = "sha256:c22ce4a233f38642e407be8ab76e56a8c639559978b2208cc2d0068f983424c9"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+invariant_ids = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+test_ids = ["TEST_ADS_SERVER_DOCTOR_TRUTH_NOTIFICATION_REQUIRES_COMPLETE_REQUESTED_PAYLOAD_001", "TEST_ADS_SERVER_DOCTOR_TRUTH_NOTIFICATION_REJECTS_MALFORMED_DECLARED_TAIL_AFTER_VALID_MATCH_001", "TEST_ADS_SERVER_DOCTOR_TRUTH_NOTIFICATION_REJECTS_BYTES_OUTSIDE_DECLARED_STREAM_001", "TEST_ADS_SERVER_DOCTOR_TRUTH_NOTIFICATION_REJECTS_DUPLICATE_MATCHING_HANDLE_SAMPLES_001", "TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_REQUIRES_TWINCAT_EXTERNAL_CLIENT_FOR_PRODUCTION_READY_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_B34DB8DF07F672A793A26C4925F0A31748E0301777EDFE4D6F9E98AEA707B46C"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/server/doctor/loopback_client.rs"
+qualified_symbol = "trust_runtime::ads::server::doctor::loopback_client::LoopbackAdsClient::handle_by_name"
+item_kind = "rust_method"
+signature_digest = "sha256:0d261dca17b4124c37feebf0e947061fb43b51b532e0e67df7eb54d0890c07ae"
+reviewed_body_digest = "sha256:14c4a9a89fe896de803d1c898525d6ac96726bee93403fe7729462f8ce201b59"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = ["fault_mapping", "state_mutation"]
+owner_ack = "RISK_ACK_B34DB8DF07F672A793A26C4925F0A31748E0301777EDFE4D6F9E98AEA707B46C"
+owner_ack_expires_on = "2026-10-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+invariant_ids = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+test_ids = ["TEST_ADS_SERVER_DOCTOR_TRUTH_ZERO_SYMBOL_HANDLE_IS_REJECTED_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_B3E8D9B03767B7C6034BFFDA1B2DDB125A26E117F1E3484E230074537F689841"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/server/doctor/loopback_client.rs"
+qualified_symbol = "trust_runtime::ads::server::doctor::loopback_client::LoopbackAdsClient::read_state"
+item_kind = "rust_method"
+signature_digest = "sha256:91b0599220dd0c80cf6862abfd6486239d132c75e5f662b5c138026758bff637"
+reviewed_body_digest = "sha256:449ad7c233e862b77e47bfece03d13a4d42a4b28a6f1a0cff389c7b42ca7d4f8"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+invariant_ids = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+test_ids = ["TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_REQUIRES_TWINCAT_EXTERNAL_CLIENT_FOR_PRODUCTION_READY_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_CD2F7DB82502EF3B9FB70BCECE1E82CAD54E0DCD53E224CB4FDC59DF7C16D058"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/server/doctor/loopback_client.rs"
+qualified_symbol = "trust_runtime::ads::server::doctor::loopback_client::expect_add_notification"
+item_kind = "rust_function"
+signature_digest = "sha256:d4d3d298163fa9dd6af484bd6830b42c6602d754d59055587c0a4fc3ea01f92d"
+reviewed_body_digest = "sha256:a2eeb8acfb37bf92dc3f84225e5d62307cb186681eeeaa41306902af35e8edca"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+invariant_ids = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+test_ids = ["TEST_ADS_SERVER_DOCTOR_TRUTH_ZERO_NOTIFICATION_HANDLE_IS_REJECTED_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_D4BC40E521D46EE7A896E01350F3CA3BB5C63A0E39BCB80C12FB207D84BAE7DB"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
+qualified_symbol = "trust_runtime::ads::server::doctor::build_server_evidence"
+item_kind = "rust_function"
+signature_digest = "sha256:1c65fa9c871448f54fea058c49ca72b99321b9b6cb176051fc69250bf8887ca8"
+reviewed_body_digest = "sha256:d7bdcee4742617278e02b487c83b692f453035c6f9bf70333f4fdcb69c4a3940"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+invariant_ids = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+test_ids = ["TEST_ADS_SERVER_DOCTOR_TRUTH_BLANK_EXTERNAL_CLIENT_EVIDENCE_IS_NOT_VERIFIED_OR_PASSED_001", "TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_REQUIRES_TWINCAT_EXTERNAL_CLIENT_FOR_PRODUCTION_READY_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_D4EDA23A20A6CCF96B18DBAFE82F37BAFB35B88BB9B567728F93FBB7E1051541"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/server/doctor/loopback_client.rs"
+qualified_symbol = "trust_runtime::ads::server::doctor::loopback_client::device_notification_has_complete_sample"
+item_kind = "rust_function"
+signature_digest = "sha256:5f2235b1cb5c4fb088eceb6a2af7f63f920f78cbb6c26fbb1cb2b5ffa365a0f7"
+reviewed_body_digest = "sha256:f1bf2531f285922a188a6303890487a606a26cd92c36e50970d4c8f6d9490988"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "RISK_ACK_D4EDA23A20A6CCF96B18DBAFE82F37BAFB35B88BB9B567728F93FBB7E1051541"
+owner_ack_expires_on = "2026-10-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+invariant_ids = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+test_ids = ["TEST_ADS_SERVER_DOCTOR_TRUTH_NOTIFICATION_REQUIRES_COMPLETE_REQUESTED_PAYLOAD_001", "TEST_ADS_SERVER_DOCTOR_TRUTH_NOTIFICATION_REJECTS_MALFORMED_DECLARED_TAIL_AFTER_VALID_MATCH_001", "TEST_ADS_SERVER_DOCTOR_TRUTH_NOTIFICATION_REJECTS_BYTES_OUTSIDE_DECLARED_STREAM_001", "TEST_ADS_SERVER_DOCTOR_TRUTH_NOTIFICATION_REJECTS_DUPLICATE_MATCHING_HANDLE_SAMPLES_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_E4D14A56F1B4B388A3566A5C6EE8D4960C94422687840AAD59351A4D6F782F94"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/server/doctor/loopback_client.rs"
+qualified_symbol = "trust_runtime::ads::server::doctor::loopback_client::LoopbackAdsClient::request_frame"
+item_kind = "rust_method"
+signature_digest = "sha256:5f624b94b0d1cec5b30fea6a47637a36aab0134a04401fcc090f48aee3075ed0"
+reviewed_body_digest = "sha256:e542bd5fc18e006bc8af95e508e74a02b69e7153dc197fe903128e244dbb5329"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = ["fault_mapping", "state_mutation"]
+owner_ack = "RISK_ACK_E4D14A56F1B4B388A3566A5C6EE8D4960C94422687840AAD59351A4D6F782F94"
+owner_ack_expires_on = "2026-10-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+invariant_ids = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+test_ids = ["TEST_ADS_SERVER_DOCTOR_TRUTH_LOOPBACK_RESPONSE_REQUIRES_DIRECTION_AND_COMPLETE_REQUEST_IDENTITY_001", "TEST_ADS_SERVER_DOCTOR_TRUTH_LOOPBACK_RESPONSE_ACCEPTS_EXACT_CORRELATED_RESPONSE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_E96BB5079BCEBAEDF25C2F12D8F24776E3BBA775F808DE8D4F7E9583CFF92960"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
+qualified_symbol = "trust_runtime::ads::server::doctor::build_ads_server_status_report"
+item_kind = "rust_function"
+signature_digest = "sha256:062b95adca3ebea6eb581b62058756fa62814c4c816f09cb43803505f5960511"
+reviewed_body_digest = "sha256:6b60a6b40aef5aba9a3718e9c45b25e55850e1041d379be0a10f42f47c48da8d"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+invariant_ids = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+test_ids = ["TEST_ADS_SERVER_DOCTOR_TRUTH_STATUS_USES_LIVE_RUNTIME_SYMBOL_COUNT_NOT_SUPPLIED_SNAPSHOT_001", "TEST_ADS_SERVER_DOCTOR_TRUTH_DOCTOR_REJECTS_SUPPLIED_SYMBOLS_WHEN_LIVE_RUNTIME_TABLE_IS_EMPTY_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_EA01AA2C395EF8F6053D045EC486954AA7F6EEAD9F0399914EF345EDC13F504D"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/server/doctor/loopback_client.rs"
+qualified_symbol = "trust_runtime::ads::server::doctor::loopback_client::LoopbackAdsClient::write_expect_denied"
+item_kind = "rust_method"
+signature_digest = "sha256:34b7028228f33d6399b49d01d0b8654cea79746b58687ac41b07220413310f69"
+reviewed_body_digest = "sha256:e19282b7c8bcf1af5f32095ccc71d34599d067020bd63f7c987fe23921ae0977"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+invariant_ids = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+test_ids = ["TEST_ADS_SERVER_DOCTOR_TRUTH_BLANK_EXTERNAL_CLIENT_EVIDENCE_IS_NOT_VERIFIED_OR_PASSED_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_F192A963C980951946769B29A2536696B320FFA580E99D845DE4F9D6214A3D1E"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/server/lifecycle.rs"
+qualified_symbol = "trust_runtime::ads::server::lifecycle::AdsServerRuntime::symbol_count"
+item_kind = "rust_method"
+signature_digest = "sha256:75e320f4b2113c7d01d50d52fdae7e1813b8e2d07cdfcb89a6e3f77cf93e109a"
+reviewed_body_digest = "sha256:8c3244380ce6b0fa2dbba4d2c4f9d82932706d08f279759dda649a6c0fb7ca05"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+invariant_ids = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+test_ids = ["TEST_ADS_SERVER_DOCTOR_TRUTH_STATUS_USES_LIVE_RUNTIME_SYMBOL_COUNT_NOT_SUPPLIED_SNAPSHOT_001", "TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_REQUIRES_TWINCAT_EXTERNAL_CLIENT_FOR_PRODUCTION_READY_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_F92100AB6ED156714B0F709A48AAD69BC284FACF27AD5ABF2CE27AC96580196C"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/server/doctor.rs"
+qualified_symbol = "trust_runtime::ads::server::doctor::AdsServerExternalClientEvidence"
+item_kind = "rust_public_type"
+signature_digest = "sha256:cdea80feb380472d5d386bc1f2ca9492fcf9f8466af51ac1a2955950a4b5b5ab"
+reviewed_body_digest = "sha256:8f5cc5febefec61045049f7b74e53efd6bd24c8f182faa653a8be737809675f9"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-doctor-orchestration-and-loopback-proof"
+invariant_ids = ["RT_ADS_SERVER_DOCTOR_TRUTH_001"]
+test_ids = ["TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_REQUIRES_TWINCAT_EXTERNAL_CLIENT_FOR_PRODUCTION_READY_001"]
 last_reviewed = "2026-07-23"

@@ -1187,6 +1187,35 @@ qualities, notifications, and symbol-version equality preserve the remote
 meaning exactly, while inconsistent or undecodable data fails closed without a
 fabricated descriptor, success, or value.
 
+###### ADS server Doctor orchestration and loopback proof
+
+ADS server Doctor orchestration and loopback proof are truST runtime product
+contracts outside IEC 61131-3. The Doctor reports only live,
+endpoint-correlated proof. A supplied status snapshot cannot make symbol
+service healthy when the running ADS server's live symbol table is empty; the
+reported point count and readiness state must reflect the live table used to
+serve clients.
+
+Independent external-client evidence is verified only when its client kind and
+name both contain non-whitespace text and its timestamp is present. Missing or
+blank proof content must not produce a passing external-client step or set the
+production-evidence `external_client_verified` flag. Existing production
+readiness rules remain unchanged: loopback and pyads evidence are diagnostic,
+while production readiness still requires verified TwinCAT evidence.
+
+The loopback client rejects zero symbol and notification handles. A matching
+notification handle proves delivery only when the sample contains the complete
+payload requested for that symbol; a truncated matching prefix cannot pass.
+Every solicited loopback reply must be an ADS response frame whose source and
+target AMS Net IDs and ports are the exact reverse of the request and whose
+command and invoke ID match the request before its payload is trusted.
+
+Invariant `RT_ADS_SERVER_DOCTOR_TRUTH_001`: every passing server Doctor step
+and every verified evidence field is derived from the running server's live
+state or from complete, nonblank, endpoint-correlated external/loopback proof;
+missing, zero, truncated, request-direction, or endpoint-mismatched input fails
+closed without manufacturing health, verification, or success.
+
 ###### ADS Doctor orchestration and active-device safety
 
 The client ADS Doctor emits exactly the ordered required-step set owned by the
