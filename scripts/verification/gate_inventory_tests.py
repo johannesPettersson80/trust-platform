@@ -27,17 +27,18 @@ class GateInventoryTests(unittest.TestCase):
         failures = validate_gate_inventory(ROOT, records)
 
         self.assertEqual(failures, [])
-        self.assertEqual(len(records), 63)
         live = [record for record in records.values() if "discovery_id" in record]
         templates = [record for record in records.values() if record["source_kind"] == "workflow_template"]
-        self.assertEqual(len(live), 60)
+        gate_scripts = scan_gate_scripts(ROOT)
+        workflow_jobs = scan_workflow_jobs(ROOT)
+        self.assertEqual(len(live), len(gate_scripts.facts) + len(workflow_jobs.facts))
         self.assertEqual(
             sum(record["source_kind"] == "gate_script" for record in live),
-            30,
+            len(gate_scripts.facts),
         )
         self.assertEqual(
             sum(record["source_kind"] == "github_workflow_job" for record in live),
-            30,
+            len(workflow_jobs.facts),
         )
         self.assertEqual(len(templates), 1)
         recipes = [record for record in records.values() if record["source_kind"] == "just_recipe"]
@@ -48,6 +49,10 @@ class GateInventoryTests(unittest.TestCase):
         self.assertEqual(
             [record["name"] for record in catalog_commands],
             ["TEST_BYTECODE_VALIDATOR_MUTATION_SHARD_001"],
+        )
+        self.assertEqual(
+            len(records),
+            len(live) + len(templates) + len(recipes) + len(catalog_commands),
         )
         self.assertEqual(
             {record["discovery_id"] for record in live},
