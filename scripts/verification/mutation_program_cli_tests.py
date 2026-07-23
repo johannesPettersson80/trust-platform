@@ -19,6 +19,70 @@ from .mutation_program_refresh import refresh_mutation_shard
 
 
 class MutationProgramCliTests(unittest.TestCase):
+    def test_stale_generated_fields_are_refreshed_atomically_and_idempotently(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "crates/trust-runtime/src/runtime/restart.rs"
+            source.parent.mkdir(parents=True)
+            source.write_text("fn retain_on_warm() -> bool { true }\n")
+            manifest = root / "verification/mutation-program.toml"
+            manifest.parent.mkdir()
+            manifest.write_text(_refresh_fixture())
+            candidate = {
+                "name": "restart.rs:1:31: replace retain_on_warm -> bool with false",
+                "function": {"function_name": "retain_on_warm"},
+                "genre": "FnValue",
+                "replacement": "false",
+            }
+
+            with mock.patch(
+                "scripts.verification.mutation_program_refresh.os.fsync"
+            ) as fsync:
+                result = refresh_mutation_shard(
+                    root,
+                    "MUTATION_SHARD_RETAIN_RESTART_001",
+                    discover=lambda *_args: [candidate],
+                )
+
+            self.assertEqual(1 if os.name == "nt" else 2, fsync.call_count)
+            self.assertTrue(result.changed)
+            mutation = tomllib.loads(manifest.read_text())["shards"][0]["mutations"][0]
+            self.assertEqual(
+                "sha256:" + hashlib.sha256(source.read_bytes()).hexdigest(),
+                mutation["source_digest"],
+            )
+            self.assertEqual(candidate["name"], mutation["selector_name"])
+            self.assertIn('title = "Retain and restart"', manifest.read_text())
+            self.assertFalse(
+                refresh_mutation_shard(
+                    root,
+                    "MUTATION_SHARD_RETAIN_RESTART_001",
+                    discover=lambda *_args: [candidate],
+                ).changed
+            )
+
+    def test_unsafe_source_path_is_rejected_without_mutating_manifest(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest = root / "verification/mutation-program.toml"
+            manifest.parent.mkdir(parents=True)
+            manifest.write_text(_refresh_fixture(source_file="../escape.rs"))
+            original = manifest.read_bytes()
+
+            with self.assertRaisesRegex(MutationContractError, "unsafe"):
+                refresh_mutation_shard(
+                    root,
+                    "MUTATION_SHARD_RETAIN_RESTART_001",
+                    discover=lambda *_args: self.fail(
+                        "unsafe source paths must fail before discovery"
+                    ),
+                )
+
+            self.assertEqual(original, manifest.read_bytes())
+            self.assertEqual([], list(manifest.parent.glob("*.tmp")))
+
     def test_documented_entrypoints_load_from_repository_root(self) -> None:
         for script in (
             "scripts/refresh_focused_mutation_shard.py",
@@ -168,7 +232,11 @@ class MutationProgramCliTests(unittest.TestCase):
             write.assert_called_once_with(artifact_path, payload)
 
 
-def _refresh_fixture(*, two_mutations: bool = False) -> str:
+def _refresh_fixture(
+    *,
+    two_mutations: bool = False,
+    source_file: str = "crates/trust-runtime/src/runtime/restart.rs",
+) -> str:
     second = """
         [[shards.mutations]]
         id = "MUTANT_RETAIN_ON_WARM_FALSE_SECOND"
@@ -192,7 +260,7 @@ def _refresh_fixture(*, two_mutations: bool = False) -> str:
 
         [[shards.mutations]]
         id = "MUTANT_RETAIN_ON_WARM_FALSE"
-        source_file = "crates/trust-runtime/src/runtime/restart.rs"
+        source_file = "{source_file}"
         source_digest = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         function = "retain_on_warm"
         genre = "FnValue"

@@ -91,7 +91,14 @@ def generate_report(
     if len(tests_by_id) != len(tests):
         raise ValueError("test catalog IDs must be present and unique")
     contract_failures.extend(
-        validate_catalog_malformed_bindings(tests=tests_by_id, taxonomy=taxonomy)
+        validate_catalog_malformed_bindings(
+            tests={
+                test_id: record
+                for test_id, record in tests_by_id.items()
+                if record.get("area") == taxonomy.get("area")
+            },
+            taxonomy=taxonomy,
+        )
     )
     contract_failures.extend(
         validate_catalog_staleness(root=root, tests=tests_by_id, facts=scan.inferred_facts)

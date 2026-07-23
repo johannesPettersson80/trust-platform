@@ -1,0 +1,14 @@
+schema_version = 1
+id = "MALFORMED_INPUT_VERIFICATION_MUTATION_MANIFEST_REFRESH_V1"
+title = "Mutation manifest refresh malformed-input taxonomy"
+area = "verification"
+surface_id = "mutation_manifest_refresh"
+review_doc = "verification/malformed-input-taxonomies/mutation_manifest_refresh.md"
+last_reviewed = "2026-07-23"
+
+[[classes]]
+id = "verification_mutation_manifest_refresh_unsafe_source_path"
+title = "Unsafe mutation source path"
+disposition = "required"
+oracle_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001"
+rationale = "The verification metadata contract requires workspace-confined canonical inputs and fail-closed refresh without partial manifest mutation."

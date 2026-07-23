@@ -12,8 +12,10 @@ from dataclasses import replace
 from pathlib import Path
 
 from scripts.verification.malformed_input_contract import (
+    load_catalog_malformed_input_taxonomies,
     load_malformed_input_taxonomy,
     validate_catalog_malformed_bindings,
+    validate_catalog_malformed_bindings_for_taxonomies,
     validate_malformed_input_contract,
     validate_taxonomy_schema_contract,
 )
@@ -46,6 +48,12 @@ class MalformedInputCoverageTests(unittest.TestCase):
         self.assertEqual(taxonomy["area"], "bytecode_vm")
         self.assertEqual(taxonomy["surface_id"], "bytecode_container_instruction_stream")
         self.assertIn("bad_magic", {item["id"] for item in taxonomy["classes"]})
+        taxonomies = load_catalog_malformed_input_taxonomies(ROOT)
+        self.assertEqual(["bytecode_vm", "verification"], [item["area"] for item in taxonomies])
+        self.assertEqual(
+            [],
+            validate_malformed_input_contract(ROOT, taxonomies[1], additional=True),
+        )
 
     def test_negative_tests_require_reviewed_classes_and_artifacts_forbid_them(self) -> None:
         taxonomy = fixture_taxonomy()
@@ -65,6 +73,33 @@ class MalformedInputCoverageTests(unittest.TestCase):
 
         self.assertTrue(any("negative_malformed_input requires malformed_input_class_ids" in item for item in failures))
         self.assertTrue(any("case_table_artifact forbids malformed_input_class_ids" in item for item in failures))
+
+        verification_taxonomy = {
+            "area": "verification",
+            "classes": [
+                {
+                    "id": "verification_mutation_refresh_unsafe_source_path",
+                    "disposition": "required",
+                    "oracle_ref": "SPEC_VERIFICATION_PROGRAM_CONTRACT_001",
+                }
+            ],
+        }
+        verification_negative = {
+            **fixture_test(),
+            "id": "TEST_VERIFICATION_NEGATIVE",
+            "area": "verification",
+            "oracle_ref": "SPEC_VERIFICATION_PROGRAM_CONTRACT_001",
+            "malformed_input_class_ids": [
+                "verification_mutation_refresh_unsafe_source_path"
+            ],
+        }
+        self.assertEqual(
+            [],
+            validate_catalog_malformed_bindings_for_taxonomies(
+                tests={verification_negative["id"]: verification_negative},
+                taxonomies=[taxonomy, verification_taxonomy],
+            ),
+        )
 
     def test_unrelated_generated_classes_and_duplicate_bindings_are_rejected(self) -> None:
         taxonomy = fixture_taxonomy()

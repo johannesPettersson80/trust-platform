@@ -981,6 +981,14 @@ oracle; `spec_gap` classes name an open/actionable same-area gap; blocked,
 deferred, and not-applicable dispositions carry their required rationale or
 reviewed reference.
 
+Additional reviewed, area-specific taxonomies live under
+`verification/malformed-input-taxonomies/*.toml` and use the closed
+`malformed-input-taxonomy-additional.schema.json` contract. Their class IDs are
+globally unique, their oracle or gap authority must belong to the same area,
+and each taxonomy has an exact Markdown mirror. Catalog validation joins the
+bytecode pilot and every additional taxonomy; the Phase 2 malformed-input
+coverage report remains intentionally scoped to the original bytecode pilot.
+
 Only `generated_test` rows with test class `negative_malformed_input` or `fuzz`
 may set `malformed_input_class_ids`. Negative rows require a nonempty reviewed
 binding; artifact rows and unrelated classes forbid it. The report never

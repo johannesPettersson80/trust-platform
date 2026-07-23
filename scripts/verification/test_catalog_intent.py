@@ -8,8 +8,8 @@ from pathlib import Path
 from typing import Any
 
 from .malformed_input_contract import (
-    load_malformed_input_taxonomy,
-    validate_catalog_malformed_bindings,
+    load_catalog_malformed_input_taxonomies,
+    validate_catalog_malformed_bindings_for_taxonomies,
     validate_malformed_input_contract,
 )
 
@@ -94,15 +94,22 @@ def validate_catalog_intent(
             _validate_mutation_subject(record_id, record, failures)
 
     try:
-        malformed_taxonomy = load_malformed_input_taxonomy(ROOT)
+        malformed_taxonomies = load_catalog_malformed_input_taxonomies(ROOT)
     except Exception as exc:
         failures.append(f"malformed-input taxonomy cannot be read: {exc}")
     else:
-        failures.extend(validate_malformed_input_contract(ROOT, malformed_taxonomy))
+        for index, taxonomy in enumerate(malformed_taxonomies):
+            failures.extend(
+                validate_malformed_input_contract(
+                    ROOT,
+                    taxonomy,
+                    additional=index > 0,
+                )
+            )
         failures.extend(
-            validate_catalog_malformed_bindings(
+            validate_catalog_malformed_bindings_for_taxonomies(
                 tests=tests,
-                taxonomy=malformed_taxonomy,
+                taxonomies=malformed_taxonomies,
             )
         )
 
