@@ -420,6 +420,16 @@ in-process IEC arithmetic, `IS_VALID`, subnormal, or signed-zero semantics.
   boundary. In particular, a Modbus exception remains an `IoAddress` error and
   is not replaced by a generic unavailable-snapshot transport error.
 
+###### Modbus declared-width floating-point finiteness
+
+For an `f32`/`REAL` point, finiteness is checked again after scaling or inverse
+scaling is narrowed from the internal `f64` calculation to the declared
+`f32` width. A finite `f64` result that becomes non-finite at `f32` width is
+rejected before process-image mutation or Modbus wire encoding; it must not
+become an infinite `REAL` value or register payload. This is a truST Modbus
+product and safety contract outside IEC 61131-3, not an IEC decision or
+deviation.
+
 2. **MQTT (baseline profile)**
 - Topic bridge between broker payloads and process image bytes.
 - `topic_in` payload bytes are copied into `%I` at cycle start.
@@ -449,11 +459,12 @@ in-process IEC arithmetic, `IS_VALID`, subnormal, or signed-zero semantics.
 - The same default `fault` policy remains authoritative when a prior input
   snapshot exists but the requested refresh misses its scan deadline, when an
   output handoff misses its scan deadline, and when completed typed-output
-  preflight fails. Those failures set faulted health and return an error rather
-  than collapsing to degraded success. A faulted stale-input read leaves the
-  caller's input buffer unchanged. `warn` and `ignore` retain their documented
-  degraded-success behavior. The focused stale-snapshot copy lock covers
-  `warn`; an explicit `ignore` stale-copy matrix remains open.
+  preflight fails, including Sparkplug NDATA preparation. Those failures set
+  faulted health and return an error rather than collapsing to degraded
+  success. A faulted stale-input read leaves the caller's input buffer
+  unchanged. `warn` and `ignore` retain their documented degraded-success
+  behavior. The focused stale-snapshot copy lock covers `warn`; an explicit
+  `ignore` stale-copy matrix remains open.
   An output deadline does not itself cancel the already queued asynchronous
   output; later publication does not retroactively make the timed-out call
   successful.

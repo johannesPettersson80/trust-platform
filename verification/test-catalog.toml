@@ -21607,6 +21607,30 @@ last_reviewed = "2026-07-23"
 
 [[tests]]
 schema_version = 2
+id = "TEST_MQTT_DEFAULT_FAULT_LATEST_VALUE_MQTT_POLICY_PRESERVES_SPARKPLUG_OUTPUT_PREFLIGHT_FAILURE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_527407FEFDE8AF0BE17D"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/io/mqtt/tests.rs"
+name = "mqtt_policy_preserves_sparkplug_output_preflight_failure"
+command = "cargo test -p trust-runtime --lib io::mqtt::tests::mqtt_policy_preserves_sparkplug_output_preflight_failure -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MQTT_DEFAULT_FAULT_LATEST_VALUE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#mqtt-default-fault-and-latest-value-integrity"
+expected_result = "The focused assertion suite for mqtt policy preserves sparkplug output preflight failure satisfies SPEC_RUNTIME_ENGINE_001#mqtt-default-fault-and-latest-value-integrity."
+expected_failure_mode = "The specified RT_MQTT_DEFAULT_FAULT_LATEST_VALUE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_MQTT_DEFAULT_FAULT_LATEST_VALUE_MQTT_POLICY_PRESERVES_SPARKPLUG_OUTPUT_PREFLIGHT_FAILURE_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
 id = "TEST_MQTT_DEFAULT_FAULT_LATEST_VALUE_MQTT_RAW_READ_USES_NEWEST_PAYLOAD_FROM_DRAINED_BATCH_001"
 subject_kind = "generated_test"
 discovery_id = "DISC_D69495A86153D3531B6D"
@@ -21699,4 +21723,99 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_MQTT_DEFAULT_FAULT_LATEST_VALUE_MQTT_POLICY_PRESERVES_TYPED_OUTPUT_PREFLIGHT_FAILURE_001.json"
+last_reviewed = "2026-07-23"
+[[tests]]
+schema_version = 2
+id = "TEST_MODBUS_DECLARED_F32_FINITE_MAPPED_F32_PROCESS_IMAGE_ENCODING_REJECTS_NARROWING_OVERFLOW_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_1CB48AECC527F05A7439"
+discovery_source_kind = "rust_unit_test"
+test_class = "failing_regression"
+area = "protocols"
+path = "crates/trust-runtime/src/io/modbus/point_map.rs"
+name = "mapped_f32_process_image_encoding_rejects_narrowing_overflow"
+command = "cargo test -p trust-runtime --lib io::modbus::point_map::tests::mapped_f32_process_image_encoding_rejects_narrowing_overflow -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MODBUS_DECLARED_F32_FINITE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#modbus-declared-width-floating-point-finiteness"
+expected_result = "The focused assertion suite for mapped f32 process image encoding rejects narrowing overflow satisfies SPEC_RUNTIME_ENGINE_001#modbus-declared-width-floating-point-finiteness."
+expected_failure_mode = "The specified RT_MODBUS_DECLARED_F32_FINITE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_MODBUS_DECLARED_F32_FINITE_MAPPED_F32_PROCESS_IMAGE_ENCODING_REJECTS_NARROWING_OVERFLOW_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_MODBUS_DECLARED_F32_FINITE_MAPPED_F32_WIRE_ENCODING_REJECTS_NARROWING_OVERFLOW_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_8FCEB5672760D0A4F323"
+discovery_source_kind = "rust_unit_test"
+test_class = "failing_regression"
+area = "protocols"
+path = "crates/trust-runtime/src/io/modbus/point_map.rs"
+name = "mapped_f32_wire_encoding_rejects_narrowing_overflow"
+command = "cargo test -p trust-runtime --lib io::modbus::point_map::tests::mapped_f32_wire_encoding_rejects_narrowing_overflow -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MODBUS_DECLARED_F32_FINITE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#modbus-declared-width-floating-point-finiteness"
+expected_result = "The focused assertion suite for mapped f32 wire encoding rejects narrowing overflow satisfies SPEC_RUNTIME_ENGINE_001#modbus-declared-width-floating-point-finiteness."
+expected_failure_mode = "The specified RT_MODBUS_DECLARED_F32_FINITE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_MODBUS_DECLARED_F32_FINITE_MAPPED_F32_WIRE_ENCODING_REJECTS_NARROWING_OVERFLOW_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_MODBUS_DECLARED_F32_FINITE_MODBUS_SCALED_F32_READ_REJECTS_DECLARED_WIDTH_OVERFLOW_WITHOUT_MUTATION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_161DA7E6F22D5D5C82D2"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/tests/modbus_driver.rs"
+name = "modbus_scaled_f32_read_rejects_declared_width_overflow_without_mutation"
+command = "cargo test -p trust-runtime --test modbus_driver modbus_scaled_f32_read_rejects_declared_width_overflow_without_mutation -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MODBUS_DECLARED_F32_FINITE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#modbus-declared-width-floating-point-finiteness"
+expected_result = "The focused assertion suite for modbus scaled f32 read rejects declared width overflow without mutation satisfies SPEC_RUNTIME_ENGINE_001#modbus-declared-width-floating-point-finiteness."
+expected_failure_mode = "The specified RT_MODBUS_DECLARED_F32_FINITE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_MODBUS_DECLARED_F32_FINITE_MODBUS_SCALED_F32_READ_REJECTS_DECLARED_WIDTH_OVERFLOW_WITHOUT_MUTATION_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_MODBUS_DECLARED_F32_FINITE_MODBUS_INVERSE_SCALED_F32_WRITE_REJECTS_DECLARED_WIDTH_OVERFLOW_BEFORE_SEND_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_8D9187DA8A6124C23590"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/tests/modbus_driver.rs"
+name = "modbus_inverse_scaled_f32_write_rejects_declared_width_overflow_before_send"
+command = "cargo test -p trust-runtime --test modbus_driver modbus_inverse_scaled_f32_write_rejects_declared_width_overflow_before_send -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MODBUS_DECLARED_F32_FINITE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#modbus-declared-width-floating-point-finiteness"
+expected_result = "The focused assertion suite for modbus inverse scaled f32 write rejects declared width overflow before send satisfies SPEC_RUNTIME_ENGINE_001#modbus-declared-width-floating-point-finiteness."
+expected_failure_mode = "The specified RT_MODBUS_DECLARED_F32_FINITE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_MODBUS_DECLARED_F32_FINITE_MODBUS_INVERSE_SCALED_F32_WRITE_REJECTS_DECLARED_WIDTH_OVERFLOW_BEFORE_SEND_001.json"
 last_reviewed = "2026-07-23"

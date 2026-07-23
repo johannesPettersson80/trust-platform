@@ -337,7 +337,10 @@ pub(super) fn encode_modbus_numeric(
         ModbusPointType::I32 => (checked_round(value, i32::MIN as f64, i32::MAX as f64)? as i32)
             .to_be_bytes()
             .to_vec(),
-        ModbusPointType::F32 => (value as f32).to_bits().to_be_bytes().to_vec(),
+        ModbusPointType::F32 => narrow_finite_f32(value, "modbus mapped F32 wire value")?
+            .to_bits()
+            .to_be_bytes()
+            .to_vec(),
     };
     apply_modbus_order(&mut bytes, byte_order, word_order)?;
     Ok(bytes)
@@ -510,7 +513,13 @@ fn encode_process_image_numeric(
             as i32)
             .to_le_bytes()
             .to_vec()),
-        ModbusPointType::F32 => Ok((value as f32).to_bits().to_le_bytes().to_vec()),
+        ModbusPointType::F32 => Ok(narrow_finite_f32(
+            value,
+            "modbus mapped F32 process-image value",
+        )?
+        .to_bits()
+        .to_le_bytes()
+        .to_vec()),
     }
 }
 
@@ -530,6 +539,17 @@ fn finite_f32_value(value: f32, label: &str) -> Result<f64, RuntimeError> {
     } else {
         Err(RuntimeError::IoDriver(
             format!("{label} must be finite").into(),
+        ))
+    }
+}
+
+fn narrow_finite_f32(value: f64, label: &str) -> Result<f32, RuntimeError> {
+    let narrowed = value as f32;
+    if narrowed.is_finite() {
+        Ok(narrowed)
+    } else {
+        Err(RuntimeError::IoDriver(
+            format!("{label} must remain finite after narrowing").into(),
         ))
     }
 }
@@ -583,5 +603,30 @@ mod tests {
             err.to_string().contains("finite"),
             "expected finite-value diagnostic, got {err}"
         );
+    }
+
+    #[test]
+    fn mapped_f32_process_image_encoding_rejects_narrowing_overflow() {
+        for value in [f64::MAX, -f64::MAX] {
+            let mut image = [0xA5; 4];
+            let error = write_image_numeric(&mut image, 0, ModbusPointType::F32, value)
+                .expect_err("finite f64 that narrows to infinity must fail");
+            assert!(error.to_string().contains("finite"));
+            assert_eq!(image, [0xA5; 4], "failed encoding mutated the image");
+        }
+    }
+
+    #[test]
+    fn mapped_f32_wire_encoding_rejects_narrowing_overflow() {
+        for value in [f64::MAX, -f64::MAX] {
+            let error = encode_modbus_numeric(
+                ModbusPointType::F32,
+                value,
+                ModbusByteOrder::Big,
+                ModbusWordOrder::Big,
+            )
+            .expect_err("finite f64 that narrows to infinity must not reach the wire");
+            assert!(error.to_string().contains("finite"));
+        }
     }
 }

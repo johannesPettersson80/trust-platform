@@ -6,7 +6,7 @@ risk = "false_status"
 status = "mapped"
 owner = "trust-runtime"
 last_reviewed = "2026-07-23"
-claim = "MQTT policy projection returns freshness/output errors under the default fault policy while warn and ignore remain degraded success; focused driver tests lock newest raw payload selection and completed preflight propagation."
+claim = "MQTT policy projection returns freshness/output errors under the default fault policy while warn and ignore remain degraded success; focused driver tests lock newest raw payload selection and ordinary plus Sparkplug typed-output preflight propagation."
 proof_level = "T1"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src/io/mqtt/driver.rs", "crates/trust-runtime/src/io/mqtt/worker.rs"]
@@ -21,6 +21,7 @@ tests = [
   "TEST_MQTT_DEFAULT_FAULT_LATEST_VALUE_ON_ERROR_IGNORE_PUBLISH_FAILURE_DEGRADES_WITHOUT_RUNTIME_ERROR_001",
   "TEST_MQTT_DEFAULT_FAULT_LATEST_VALUE_FAIL_CLOSED_DISCONNECTED_READ_RETURNS_FRESHNESS_ERROR_001",
   "TEST_MQTT_DEFAULT_FAULT_LATEST_VALUE_FAIL_CLOSED_PUBLISH_FAILURE_RETURNS_OUTPUT_ERROR_001",
+  "TEST_MQTT_DEFAULT_FAULT_LATEST_VALUE_MQTT_POLICY_PRESERVES_SPARKPLUG_OUTPUT_PREFLIGHT_FAILURE_001",
   "TEST_MQTT_DEFAULT_FAULT_LATEST_VALUE_MQTT_RAW_READ_USES_NEWEST_PAYLOAD_FROM_DRAINED_BATCH_001",
   "TEST_MQTT_DEFAULT_FAULT_LATEST_VALUE_MQTT_DEFAULT_FAULT_REJECTS_STALE_SNAPSHOT_WHEN_REFRESH_TIMES_OUT_001",
   "TEST_MQTT_DEFAULT_FAULT_LATEST_VALUE_MQTT_DEFAULT_FAULT_REJECTS_OUTPUT_HANDOFF_TIMEOUT_001",
@@ -58,13 +59,22 @@ delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", pr
 rationale = "A stale input remains an error with faulted health and no caller-buffer mutation."
 
 [[behavior]]
-partition = { equals = "DEFAULT_FAULT_TYPED_OUTPUT_PREFLIGHT_FAILURE" }
+partition = { equals = "DEFAULT_FAULT_ORDINARY_TYPED_OUTPUT_PREFLIGHT_FAILURE" }
 case_family = "wrong_type_or_shape"
 oracle_ref = "SPEC_RUNTIME_ENGINE_001#mqtt-default-fault-and-latest-value-integrity"
 outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "fault_visible" }
-rationale = "Completed typed-output preflight failure remains observable without publication."
+rationale = "Completed ordinary typed-output preflight failure remains observable without publication."
+
+[[behavior]]
+partition = { equals = "DEFAULT_FAULT_SPARKPLUG_NDATA_PREFLIGHT_FAILURE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#mqtt-default-fault-and-latest-value-integrity"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "fault_visible" }
+rationale = "Completed Sparkplug NDATA preparation failure remains observable and publishes no NDATA."
 
 [[behavior]]
 partition = { equals = "DEFAULT_FAULT_OUTPUT_HANDOFF_DEADLINE" }
@@ -94,13 +104,22 @@ delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchange
 rationale = "Warn and ignore return degraded success while the asynchronous output remains queued."
 
 [[behavior]]
-partition = { equals = "WARN_OR_IGNORE_TYPED_OUTPUT_PREFLIGHT_FAILURE" }
+partition = { equals = "WARN_OR_IGNORE_ORDINARY_TYPED_OUTPUT_PREFLIGHT_FAILURE" }
 case_family = "wrong_type_or_shape"
 oracle_ref = "SPEC_RUNTIME_ENGINE_001#mqtt-default-fault-and-latest-value-integrity"
 outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "status_degraded" }
-rationale = "Warn and ignore return degraded success without publishing a failed typed output."
+rationale = "Warn and ignore return degraded success without publishing a failed ordinary typed output."
+
+[[behavior]]
+partition = { equals = "WARN_OR_IGNORE_SPARKPLUG_NDATA_PREFLIGHT_FAILURE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#mqtt-default-fault-and-latest-value-integrity"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "status_degraded" }
+rationale = "Warn and ignore return degraded success after failed Sparkplug preparation without publishing NDATA."
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"

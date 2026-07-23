@@ -1,0 +1,49 @@
+schema_version = 1
+id = "RT_MODBUS_DECLARED_F32_FINITE_001"
+title = "Modbus declared F32 values remain finite after narrowing"
+area = "protocols"
+risk = "silent_corruption"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-23"
+claim = "Modbus F32 point mapping rejects finite f64 values that become non-finite when narrowed to the declared f32 width."
+proof_level = "T1"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-runtime/src/io/modbus/point_map.rs"]
+tests = [
+  "TEST_MODBUS_DECLARED_F32_FINITE_MAPPED_F32_PROCESS_IMAGE_ENCODING_REJECTS_NARROWING_OVERFLOW_001",
+  "TEST_MODBUS_DECLARED_F32_FINITE_MAPPED_F32_WIRE_ENCODING_REJECTS_NARROWING_OVERFLOW_001",
+  "TEST_MODBUS_DECLARED_F32_FINITE_MODBUS_SCALED_F32_READ_REJECTS_DECLARED_WIDTH_OVERFLOW_WITHOUT_MUTATION_001",
+  "TEST_MODBUS_DECLARED_F32_FINITE_MODBUS_INVERSE_SCALED_F32_WRITE_REJECTS_DECLARED_WIDTH_OVERFLOW_BEFORE_SEND_001"
+]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate", "integer_rounding_policy", "mixed_branch_encoder_facts", "multi_point_output_atomicity_and_partial_publication", "external_modbus_target"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#modbus-declared-width-floating-point-finiteness"
+
+[[behavior]]
+partition = { equals = "FINITE_F64_NARROWS_TO_NONFINITE_F32" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#modbus-declared-width-floating-point-finiteness"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "One declared-F32 preparation rejects non-finite narrowing before its process-image mutation or wire encoding."
+
+[[coverage.cells]]
+dimension = "boundary_high"
+state = "covered"
+rationale = "f64::MAX exercises both declared-F32 encoders."
+
+[[coverage.cells]]
+dimension = "hardware_or_network_fault"
+state = "gap_open"
+rationale = "External Modbus target proof remains open."

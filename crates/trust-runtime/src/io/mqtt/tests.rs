@@ -1266,6 +1266,70 @@ payload_format = "binary_le"
 }
 
 #[test]
+fn mqtt_policy_preserves_sparkplug_output_preflight_failure() {
+    for (policy, should_error) in [("fault", true), ("warn", false), ("ignore", false)] {
+        let state = Arc::new(Mutex::new(MockState {
+            connected: true,
+            ..MockState::default()
+        }));
+        let factory = Arc::new(MockFactory {
+            state: Arc::clone(&state),
+            attempts: Arc::new(AtomicUsize::new(0)),
+            fail_first: false,
+            always_fail: false,
+        });
+        let mut driver = MqttIoDriver::from_params_with_factory(
+            &params(
+                format!(
+                    r#"
+broker = "127.0.0.1:1883"
+client_id = "sparkplug-preflight-{policy}"
+on_error = "{policy}"
+
+[sparkplug]
+enabled = true
+group_id = "trust"
+edge_node_id = "runtime-a"
+
+[[output_points]]
+topic = "legacy/out/speed"
+metric_name = "drive/speed"
+image_offset = 4
+data_type = "u16"
+payload_format = "json"
+"#
+                )
+                .as_str(),
+            ),
+            factory,
+        )
+        .expect("construct Sparkplug MQTT driver");
+
+        let result = driver.write_outputs(&[1]);
+        assert_eq!(result.is_err(), should_error, "{policy}");
+        let health = driver.health();
+        let detail = match (&health, policy) {
+            (IoDriverHealth::Faulted { error }, "fault")
+            | (IoDriverHealth::Degraded { error }, "warn" | "ignore") => error,
+            _ => panic!("unexpected {policy} health: {health:?}"),
+        };
+        assert!(
+            detail.contains("image range 4..6 exceeds process image size 1"),
+            "unexpected {policy} Sparkplug preflight detail: {detail}"
+        );
+        assert!(
+            state
+                .lock()
+                .unwrap_or_else(|error| error.into_inner())
+                .published
+                .iter()
+                .all(|(topic, _)| !topic.contains("/NDATA/")),
+            "failed {policy} Sparkplug preflight must not publish NDATA"
+        );
+    }
+}
+
+#[test]
 fn mqtt_driver_drop_is_bounded_while_session_is_connecting() {
     let state = Arc::new(Mutex::new(MockState {
         connected: false,
