@@ -82,6 +82,33 @@ class CoverageTraceResolverTests(unittest.TestCase):
                 self.assertEqual(expected[1], target.get("name"))
                 self.assertEqual(expected[2], tuple(target.get("cargo_args", ())))
 
+    def test_binary_only_package_unit_test_uses_its_single_binary_target(self) -> None:
+        fact = _fact(
+            "DISC_BIN_ONLY",
+            path="crates/example/src/commands.rs",
+            source_kind="rust_unit_test",
+        )
+        fact["package_has_library"] = False
+        fact["package_binary_names"] = ["example"]
+
+        target = mechanical_rust_target(fact)
+
+        self.assertEqual("bin", target["kind"])
+        self.assertEqual("example", target["name"])
+        self.assertEqual(("--bin", "example"), target["cargo_args"])
+
+    def test_binary_only_package_with_multiple_targets_fails_closed(self) -> None:
+        fact = _fact(
+            "DISC_BIN_AMBIGUOUS",
+            path="crates/example/src/shared.rs",
+            source_kind="rust_unit_test",
+        )
+        fact["package_has_library"] = False
+        fact["package_binary_names"] = ["one", "two"]
+
+        with self.assertRaisesRegex(ValueError, "no unique binary target"):
+            mechanical_rust_target(fact)
+
     def test_unique_package_and_terminal_name_resolves_exact_identity(self) -> None:
         resolved, unsupported = resolve_rust_tests(
             facts=[_fact("DISC_ONE")],

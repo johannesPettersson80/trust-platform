@@ -32,6 +32,61 @@ from .test_catalog_scanner import scan_repository
 
 
 MAX_TESTS_PER_COVERAGE_COMMAND = 64
+LIBRARY_TARGET_KINDS = {
+    "lib",
+    "rlib",
+    "dylib",
+    "cdylib",
+    "staticlib",
+    "proc-macro",
+}
+
+
+def rust_package_target_inventory(
+    document: Mapping[str, Any],
+) -> dict[str, dict[str, Any]]:
+    """Extract exact test-capable library and binary targets by package."""
+
+    packages = document.get("packages")
+    if not isinstance(packages, Sequence) or isinstance(packages, (str, bytes)):
+        raise ValueError("cargo metadata lacks packages array")
+    inventory: dict[str, dict[str, Any]] = {}
+    for package in packages:
+        if not isinstance(package, Mapping):
+            raise ValueError("cargo metadata package must be an object")
+        name = _required_string(package, "name", "cargo metadata package")
+        if name in inventory:
+            raise ValueError(f"cargo metadata duplicates package name {name}")
+        targets = package.get("targets")
+        if not isinstance(targets, Sequence) or isinstance(
+            targets, (str, bytes)
+        ):
+            raise ValueError(f"cargo metadata package {name} lacks targets")
+        has_library = False
+        binary_names: set[str] = set()
+        for target in targets:
+            if not isinstance(target, Mapping):
+                raise ValueError(f"cargo metadata package {name} target is invalid")
+            kinds = target.get("kind")
+            if not isinstance(kinds, Sequence) or isinstance(
+                kinds, (str, bytes)
+            ) or any(not isinstance(kind, str) for kind in kinds):
+                raise ValueError(
+                    f"cargo metadata package {name} target kinds are invalid"
+                )
+            if target.get("test") is False:
+                continue
+            if any(kind in LIBRARY_TARGET_KINDS for kind in kinds):
+                has_library = True
+            if "bin" in kinds:
+                binary_names.add(
+                    _required_string(target, "name", f"cargo target in {name}")
+                )
+        inventory[name] = {
+            "package_has_library": has_library,
+            "package_binary_names": sorted(binary_names),
+        }
+    return dict(sorted(inventory.items()))
 
 
 def targeted_nextest_list_shards(
@@ -298,6 +353,26 @@ def run_focused_rust_trace(
     resolved: list[dict[str, Any]] = []
     unsupported: list[dict[str, Any]] = []
     if rust_facts:
+        metadata_result = _run(
+            ["cargo", "metadata", "--no-deps", "--format-version", "1"],
+            root=root,
+            environment=environment,
+        )
+        try:
+            cargo_metadata = json.loads(metadata_result.stdout)
+        except json.JSONDecodeError as error:
+            raise ValueError("cargo metadata emitted invalid JSON") from error
+        if not isinstance(cargo_metadata, Mapping):
+            raise ValueError("cargo metadata root must be an object")
+        package_targets = rust_package_target_inventory(cargo_metadata)
+        for fact in rust_facts:
+            package = str(fact["package"])
+            target_inventory = package_targets.get(package)
+            if target_inventory is None:
+                raise ValueError(
+                    f"cargo metadata lacks scanner package {package}"
+                )
+            fact.update(target_inventory)
         for shard in targeted_nextest_list_shards(rust_facts):
             listed = _run(
                 list(shard["command"]),

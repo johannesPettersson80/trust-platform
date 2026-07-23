@@ -14,6 +14,7 @@ from scripts.verification.coverage_trace_cli import (
     nextest_filter_expression,
     requested_tests_document,
     reusable_completed_attempt_ids,
+    rust_package_target_inventory,
     select_ground_truth_pilot_ids,
     targeted_nextest_list_shards,
     trace_environment,
@@ -21,6 +22,59 @@ from scripts.verification.coverage_trace_cli import (
 
 
 class CoverageTraceCliTests(unittest.TestCase):
+    def test_cargo_metadata_marks_binary_only_test_ownership(self) -> None:
+        inventory = rust_package_target_inventory(
+            {
+                "packages": [
+                    {
+                        "name": "trust-dev",
+                        "targets": [
+                            {
+                                "name": "trust-dev",
+                                "kind": ["bin"],
+                                "test": True,
+                            },
+                            {
+                                "name": "cli_smoke",
+                                "kind": ["test"],
+                                "test": True,
+                            },
+                        ],
+                    },
+                    {
+                        "name": "with-lib",
+                        "targets": [
+                            {
+                                "name": "with_lib",
+                                "kind": ["lib"],
+                                "test": True,
+                            },
+                            {
+                                "name": "tool",
+                                "kind": ["bin"],
+                                "test": True,
+                            },
+                        ],
+                    },
+                ]
+            }
+        )
+
+        self.assertEqual(
+            {
+                "package_has_library": False,
+                "package_binary_names": ["trust-dev"],
+            },
+            inventory["trust-dev"],
+        )
+        self.assertEqual(
+            {
+                "package_has_library": True,
+                "package_binary_names": ["tool"],
+            },
+            inventory["with-lib"],
+        )
+
     def test_nextest_listing_is_also_sharded_before_any_build_occurs(self) -> None:
         shards = targeted_nextest_list_shards(
             [

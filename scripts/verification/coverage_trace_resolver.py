@@ -88,6 +88,33 @@ def mechanical_rust_target(fact: Mapping[str, Any]) -> dict[str, Any]:
             "name": package,
             "cargo_args": ("--bin", package),
         }
+    package_has_library = fact.get("package_has_library")
+    package_binary_names = fact.get("package_binary_names")
+    if package_has_library is not None:
+        if not isinstance(package_has_library, bool):
+            raise ValueError(
+                f"Rust scanner fact has invalid package_has_library for {package}"
+            )
+        if not isinstance(package_binary_names, Sequence) or isinstance(
+            package_binary_names, (str, bytes)
+        ) or any(
+            not isinstance(name, str) or not name
+            for name in package_binary_names
+        ):
+            raise ValueError(
+                f"Rust scanner fact has invalid package_binary_names for {package}"
+            )
+        binary_names = sorted(set(package_binary_names))
+        if not package_has_library:
+            if len(binary_names) != 1:
+                raise ValueError(
+                    f"Rust binary-only package {package} has no unique binary target"
+                )
+            return {
+                "kind": "bin",
+                "name": binary_names[0],
+                "cargo_args": ("--bin", binary_names[0]),
+            }
     return {"kind": "lib", "name": None, "cargo_args": ("--lib",)}
 
 
