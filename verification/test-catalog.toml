@@ -19332,653 +19332,6 @@ last_reviewed = "2026-07-13"
 
 [[tests]]
 schema_version = 2
-id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_MOCK_TRANSPORT_REPORTS_MISSING_READ_VALUE_AS_POINT_QUALITY_ERROR_001"
-subject_kind = "generated_test"
-discovery_id = "DISC_084D2365ADC0D06BF8F2"
-discovery_source_kind = "rust_unit_test"
-test_class = "behavior_lock"
-area = "protocols"
-path = "crates/trust-runtime/src/host/ads/tests.rs"
-name = "mock_transport_reports_missing_read_value_as_point_quality_error"
-command = "cargo test -p trust-runtime --lib ads::tests::mock_transport_reports_missing_read_value_as_point_quality_error -- --exact --nocapture --test-threads=1"
-owner = "trust-runtime"
-status = "mapped"
-invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
-oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-expected_result = "A connected mock read with no configured value returns explicit non-good point quality without manufacturing a value."
-expected_failure_mode = "A missing mock value is reported Good or produces a fabricated value."
-suite_tiers = ["pr"]
-requires_hardware = false
-requires_network = false
-duration_class = "fast"
-evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_MOCK_TRANSPORT_REPORTS_MISSING_READ_VALUE_AS_POINT_QUALITY_ERROR_001.json"
-last_reviewed = "2026-07-23"
-
-[[tests]]
-schema_version = 2
-id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_DECLARED_BINDING_RESOLUTION_REJECTS_MISSING_GLOBAL_001"
-subject_kind = "generated_test"
-discovery_id = "DISC_AF5192BD3500E5B08263"
-discovery_source_kind = "rust_unit_test"
-test_class = "behavior_lock"
-area = "protocols"
-path = "crates/trust-runtime/src/host/ads/tests.rs"
-name = "declared_binding_resolution_rejects_missing_global"
-command = "cargo test -p trust-runtime --lib ads::tests::declared_binding_resolution_rejects_missing_global -- --exact --nocapture --test-threads=1"
-owner = "trust-runtime"
-status = "mapped"
-invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
-oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-expected_result = "Binding resolution rejects a configured ADS point whose declared runtime global is absent."
-expected_failure_mode = "A missing declared global reaches bridge construction."
-suite_tiers = ["pr"]
-requires_hardware = false
-requires_network = false
-duration_class = "fast"
-evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_DECLARED_BINDING_RESOLUTION_REJECTS_MISSING_GLOBAL_001.json"
-last_reviewed = "2026-07-23"
-
-[[tests]]
-schema_version = 2
-id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_DECLARED_BINDING_RESOLUTION_REJECTS_TYPE_MISMATCH_001"
-subject_kind = "generated_test"
-discovery_id = "DISC_780808E07663D754A287"
-discovery_source_kind = "rust_unit_test"
-test_class = "behavior_lock"
-area = "protocols"
-path = "crates/trust-runtime/src/host/ads/tests.rs"
-name = "declared_binding_resolution_rejects_type_mismatch"
-command = "cargo test -p trust-runtime --lib ads::tests::declared_binding_resolution_rejects_type_mismatch -- --exact --nocapture --test-threads=1"
-owner = "trust-runtime"
-status = "mapped"
-invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
-oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-expected_result = "Binding resolution rejects an ADS descriptor that does not match the declared runtime global type."
-expected_failure_mode = "A mismatched descriptor is bound to runtime storage."
-suite_tiers = ["pr"]
-requires_hardware = false
-requires_network = false
-duration_class = "fast"
-evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_DECLARED_BINDING_RESOLUTION_REJECTS_TYPE_MISMATCH_001.json"
-last_reviewed = "2026-07-23"
-
-[[tests]]
-schema_version = 2
-id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_RETAIN_READ_REQUIRES_OPT_IN_AND_ALLOWED_BINDING_STARTS_STALE_001"
-subject_kind = "generated_test"
-discovery_id = "DISC_86724EABFC2DF40EA2D0"
-discovery_source_kind = "rust_unit_test"
-test_class = "behavior_lock"
-area = "protocols"
-path = "crates/trust-runtime/src/host/ads/tests.rs"
-name = "retain_read_requires_opt_in_and_allowed_binding_starts_stale"
-command = "cargo test -p trust-runtime --lib ads::tests::retain_read_requires_opt_in_and_allowed_binding_starts_stale -- --exact --nocapture --test-threads=1"
-owner = "trust-runtime"
-status = "mapped"
-invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
-oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-expected_result = "Retained read bindings require explicit opt-in and an allowed binding begins with stale quality."
-expected_failure_mode = "A retained read silently bypasses opt-in or begins with authoritative Good quality."
-suite_tiers = ["pr"]
-requires_hardware = false
-requires_network = false
-duration_class = "fast"
-evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_RETAIN_READ_REQUIRES_OPT_IN_AND_ALLOWED_BINDING_STARTS_STALE_001.json"
-last_reviewed = "2026-07-23"
-
-[[tests]]
-schema_version = 2
-id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_BRIDGE_APPLIES_READS_AT_INPUT_PHASE_AND_PUBLISHES_WRITES_AT_OUTPUT_PHASE_001"
-subject_kind = "generated_test"
-discovery_id = "DISC_605167FDAF897C8B15AE"
-discovery_source_kind = "rust_unit_test"
-test_class = "behavior_lock"
-area = "protocols"
-path = "crates/trust-runtime/src/host/ads/tests.rs"
-name = "bridge_applies_reads_at_input_phase_and_publishes_writes_at_output_phase"
-command = "cargo test -p trust-runtime --lib ads::tests::bridge_applies_reads_at_input_phase_and_publishes_writes_at_output_phase -- --exact --nocapture --test-threads=1"
-owner = "trust-runtime"
-status = "mapped"
-invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
-oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-expected_result = "ADS reads reach PLC storage only at input phase and changed outputs enter the worker queue only at output phase."
-expected_failure_mode = "The background worker mutates PLC storage mid-scan or output capture performs wire I/O."
-suite_tiers = ["pr"]
-requires_hardware = false
-requires_network = false
-duration_class = "fast"
-evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_BRIDGE_APPLIES_READS_AT_INPUT_PHASE_AND_PUBLISHES_WRITES_AT_OUTPUT_PHASE_001.json"
-last_reviewed = "2026-07-23"
-
-[[tests]]
-schema_version = 2
-id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_READ_WRITE_BINDING_SEEDS_WRITE_BASELINE_FROM_FIRST_GOOD_READ_001"
-subject_kind = "generated_test"
-discovery_id = "DISC_6AE69D4EE6B0066A3B7E"
-discovery_source_kind = "rust_unit_test"
-test_class = "behavior_lock"
-area = "protocols"
-path = "crates/trust-runtime/src/host/ads/tests.rs"
-name = "read_write_binding_seeds_write_baseline_from_first_good_read"
-command = "cargo test -p trust-runtime --lib ads::tests::read_write_binding_seeds_write_baseline_from_first_good_read -- --exact --nocapture --test-threads=1"
-owner = "trust-runtime"
-status = "mapped"
-invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
-oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-expected_result = "A first Good read seeds the read/write baseline so unchanged data is not written back and later changes are queued."
-expected_failure_mode = "The first accepted read is echoed as an output or a later changed value is not queued."
-suite_tiers = ["pr"]
-requires_hardware = false
-requires_network = false
-duration_class = "fast"
-evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_READ_WRITE_BINDING_SEEDS_WRITE_BASELINE_FROM_FIRST_GOOD_READ_001.json"
-last_reviewed = "2026-07-23"
-
-[[tests]]
-schema_version = 2
-id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_SPAWNED_WORKER_UPDATES_CACHE_AND_SCAN_APPLIES_SNAPSHOT_ONLY_001"
-subject_kind = "generated_test"
-discovery_id = "DISC_97C0CDB92AAF33864139"
-discovery_source_kind = "rust_unit_test"
-test_class = "behavior_lock"
-area = "protocols"
-path = "crates/trust-runtime/src/host/ads/tests.rs"
-name = "spawned_worker_updates_cache_and_scan_applies_snapshot_only"
-command = "cargo test -p trust-runtime --lib ads::tests::spawned_worker_updates_cache_and_scan_applies_snapshot_only -- --exact --nocapture --test-threads=1"
-owner = "trust-runtime"
-status = "mapped"
-invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
-oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-expected_result = "The spawned worker updates only shared cache and the scan input phase applies its snapshot to PLC storage."
-expected_failure_mode = "The worker mutates PLC storage outside the scan boundary or the scan cannot apply the cached value."
-suite_tiers = ["pr"]
-requires_hardware = false
-requires_network = false
-duration_class = "fast"
-evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_SPAWNED_WORKER_UPDATES_CACHE_AND_SCAN_APPLIES_SNAPSHOT_ONLY_001.json"
-last_reviewed = "2026-07-23"
-
-[[tests]]
-schema_version = 2
-id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_NOTIFY_BINDING_SUBSCRIBES_SKIPS_POLL_AND_APPLIES_AT_SCAN_BOUNDARY_001"
-subject_kind = "generated_test"
-discovery_id = "DISC_35EBC88B808176035E2E"
-discovery_source_kind = "rust_unit_test"
-test_class = "behavior_lock"
-area = "protocols"
-path = "crates/trust-runtime/src/host/ads/tests.rs"
-name = "notify_binding_subscribes_skips_poll_and_applies_at_scan_boundary"
-command = "cargo test -p trust-runtime --lib ads::tests::notify_binding_subscribes_skips_poll_and_applies_at_scan_boundary -- --exact --nocapture --test-threads=1"
-owner = "trust-runtime"
-status = "mapped"
-invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
-oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-expected_result = "A notify binding subscribes without poll reads and applies a valid notification only at the next scan boundary."
-expected_failure_mode = "A notify point is polled, mutates storage mid-scan, or cannot apply its correlated notification."
-suite_tiers = ["pr"]
-requires_hardware = false
-requires_network = false
-duration_class = "fast"
-evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_NOTIFY_BINDING_SUBSCRIBES_SKIPS_POLL_AND_APPLIES_AT_SCAN_BOUNDARY_001.json"
-last_reviewed = "2026-07-23"
-
-[[tests]]
-schema_version = 2
-id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_SPAWNED_WORKER_DRAINS_OUTPUT_QUEUE_OFF_SCAN_THREAD_001"
-subject_kind = "generated_test"
-discovery_id = "DISC_24642D3BA618D6761478"
-discovery_source_kind = "rust_unit_test"
-test_class = "behavior_lock"
-area = "protocols"
-path = "crates/trust-runtime/src/host/ads/tests.rs"
-name = "spawned_worker_drains_output_queue_off_scan_thread"
-command = "cargo test -p trust-runtime --lib ads::tests::spawned_worker_drains_output_queue_off_scan_thread -- --exact --nocapture --test-threads=1"
-owner = "trust-runtime"
-status = "mapped"
-invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
-oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-expected_result = "The spawned worker drains queued output writes outside the scan thread and acknowledges successful completion."
-expected_failure_mode = "Output capture performs wire work or a successful worker write remains falsely pending."
-suite_tiers = ["pr"]
-requires_hardware = false
-requires_network = false
-duration_class = "fast"
-evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_SPAWNED_WORKER_DRAINS_OUTPUT_QUEUE_OFF_SCAN_THREAD_001.json"
-last_reviewed = "2026-07-23"
-
-[[tests]]
-schema_version = 2
-id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_NOTIFY_BINDING_RESUBSCRIBES_AFTER_SYMBOL_VERSION_CHANGE_001"
-subject_kind = "generated_test"
-discovery_id = "DISC_9EE335C6641FD8CE1DCC"
-discovery_source_kind = "rust_unit_test"
-test_class = "behavior_lock"
-area = "protocols"
-path = "crates/trust-runtime/src/host/ads/tests.rs"
-name = "notify_binding_resubscribes_after_symbol_version_change"
-command = "cargo test -p trust-runtime --lib ads::tests::notify_binding_resubscribes_after_symbol_version_change -- --exact --nocapture --test-threads=1"
-owner = "trust-runtime"
-status = "mapped"
-invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
-oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-expected_result = "An unequal symbol token refreshes handles and replaces the notify subscription after the configured check interval."
-expected_failure_mode = "A changed symbol token leaves the old active subscription in authority."
-suite_tiers = ["pr"]
-requires_hardware = false
-requires_network = false
-duration_class = "fast"
-evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_NOTIFY_BINDING_RESUBSCRIBES_AFTER_SYMBOL_VERSION_CHANGE_001.json"
-last_reviewed = "2026-07-23"
-
-[[tests]]
-schema_version = 2
-id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_NOTIFY_BINDING_REFRESH_DISCONNECTS_BEFORE_RESUBSCRIBE_001"
-subject_kind = "generated_test"
-discovery_id = "DISC_E3B9811811AF5F882E6F"
-discovery_source_kind = "rust_unit_test"
-test_class = "behavior_lock"
-area = "protocols"
-path = "crates/trust-runtime/src/host/ads/tests.rs"
-name = "notify_binding_refresh_disconnects_before_resubscribe"
-command = "cargo test -p trust-runtime --lib ads::tests::notify_binding_refresh_disconnects_before_resubscribe -- --exact --nocapture --test-threads=1"
-owner = "trust-runtime"
-status = "mapped"
-invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
-oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-expected_result = "Symbol refresh disconnects the old transport session before establishing replacement subscriptions."
-expected_failure_mode = "Replacement subscriptions are layered over stale session correlation."
-suite_tiers = ["pr"]
-requires_hardware = false
-requires_network = false
-duration_class = "fast"
-evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_NOTIFY_BINDING_REFRESH_DISCONNECTS_BEFORE_RESUBSCRIBE_001.json"
-last_reviewed = "2026-07-23"
-
-[[tests]]
-schema_version = 2
-id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_READ_BINDINGS_DO_NOT_PUBLISH_OUTPUTS_001"
-subject_kind = "generated_test"
-discovery_id = "DISC_CEA3094F832276A38452"
-discovery_source_kind = "rust_unit_test"
-test_class = "behavior_lock"
-area = "protocols"
-path = "crates/trust-runtime/src/host/ads/tests.rs"
-name = "read_bindings_do_not_publish_outputs"
-command = "cargo test -p trust-runtime --lib ads::tests::read_bindings_do_not_publish_outputs -- --exact --nocapture --test-threads=1"
-owner = "trust-runtime"
-status = "mapped"
-invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
-oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-expected_result = "Read-only bindings never enqueue output writes."
-expected_failure_mode = "A read-only point enters the ADS output queue."
-suite_tiers = ["pr"]
-requires_hardware = false
-requires_network = false
-duration_class = "fast"
-evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_READ_BINDINGS_DO_NOT_PUBLISH_OUTPUTS_001.json"
-last_reviewed = "2026-07-23"
-
-[[tests]]
-schema_version = 2
-id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_SYMBOL_VERSION_CHANGE_REVALIDATES_AND_RESOLVES_NEW_HANDLES_001"
-subject_kind = "generated_test"
-discovery_id = "DISC_FB4CC4B0804482F7B41B"
-discovery_source_kind = "rust_unit_test"
-test_class = "behavior_lock"
-area = "protocols"
-path = "crates/trust-runtime/src/host/ads/tests.rs"
-name = "symbol_version_change_revalidates_and_resolves_new_handles"
-command = "cargo test -p trust-runtime --lib ads::tests::symbol_version_change_revalidates_and_resolves_new_handles -- --exact --nocapture --test-threads=1"
-owner = "trust-runtime"
-status = "mapped"
-invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
-oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-expected_result = "A changed symbol token revalidates the remote table and resolves replacement handles before further use."
-expected_failure_mode = "Old handles remain authoritative after a symbol-token change."
-suite_tiers = ["pr"]
-requires_hardware = false
-requires_network = false
-duration_class = "fast"
-evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_SYMBOL_VERSION_CHANGE_REVALIDATES_AND_RESOLVES_NEW_HANDLES_001.json"
-last_reviewed = "2026-07-23"
-
-[[tests]]
-schema_version = 2
-id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_SYMBOL_VERSION_TYPE_MISMATCH_FAULTS_BRIDGE_001"
-subject_kind = "generated_test"
-discovery_id = "DISC_C0F9AA0E78C1B00B3907"
-discovery_source_kind = "rust_unit_test"
-test_class = "behavior_lock"
-area = "protocols"
-path = "crates/trust-runtime/src/host/ads/tests.rs"
-name = "symbol_version_type_mismatch_faults_bridge"
-command = "cargo test -p trust-runtime --lib ads::tests::symbol_version_type_mismatch_faults_bridge -- --exact --nocapture --test-threads=1"
-owner = "trust-runtime"
-status = "mapped"
-invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
-oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-expected_result = "A refreshed symbol table with an incompatible descriptor faults the bridge without publishing invalid candidate state."
-expected_failure_mode = "A type-mismatched refreshed symbol becomes active."
-suite_tiers = ["pr"]
-requires_hardware = false
-requires_network = false
-duration_class = "fast"
-evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_SYMBOL_VERSION_TYPE_MISMATCH_FAULTS_BRIDGE_001.json"
-last_reviewed = "2026-07-23"
-
-[[tests]]
-schema_version = 2
-id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_RECONNECT_MARKS_POINTS_STALE_UNTIL_BACKOFF_ALLOWS_CONNECT_001"
-subject_kind = "generated_test"
-discovery_id = "DISC_0964F1D88F24D71AD970"
-discovery_source_kind = "rust_unit_test"
-test_class = "behavior_lock"
-area = "protocols"
-path = "crates/trust-runtime/src/host/ads/tests.rs"
-name = "reconnect_marks_points_stale_until_backoff_allows_connect"
-command = "cargo test -p trust-runtime --lib ads::tests::reconnect_marks_points_stale_until_backoff_allows_connect -- --exact --nocapture --test-threads=1"
-owner = "trust-runtime"
-status = "mapped"
-invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
-oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-expected_result = "Transport failure marks point authority stale and reconnect waits until the configured backoff expires."
-expected_failure_mode = "A failed session remains Good or reconnect ignores its backoff boundary."
-suite_tiers = ["pr"]
-requires_hardware = false
-requires_network = false
-duration_class = "fast"
-evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_RECONNECT_MARKS_POINTS_STALE_UNTIL_BACKOFF_ALLOWS_CONNECT_001.json"
-last_reviewed = "2026-07-23"
-
-[[tests]]
-schema_version = 2
-id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_HANDLE_RESOLUTION_REQUIRES_EXACT_RESPONSE_BIJECTION_AND_CLEANUP_001"
-subject_kind = "generated_test"
-discovery_id = "DISC_7AC9CF9059D7F71C3D51"
-discovery_source_kind = "rust_unit_test"
-test_class = "failing_regression"
-area = "protocols"
-path = "crates/trust-runtime/src/host/ads/client/worker/tests.rs"
-name = "handle_resolution_requires_exact_response_bijection_and_cleanup"
-command = "cargo test -p trust-runtime --lib ads::client::worker::tests::handle_resolution_requires_exact_response_bijection_and_cleanup -- --exact --nocapture --test-threads=1"
-owner = "trust-runtime"
-status = "mapped"
-invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
-oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-expected_result = "Missing, extra, duplicate, wrong-address, or wrong-descriptor handle responses reject before candidate publication and leave no local session correlation."
-expected_failure_mode = "A malformed handle response partially or fully becomes active worker state."
-suite_tiers = ["pr"]
-requires_hardware = false
-requires_network = false
-duration_class = "fast"
-evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_HANDLE_RESOLUTION_REQUIRES_EXACT_RESPONSE_BIJECTION_AND_CLEANUP_001.json"
-last_reviewed = "2026-07-23"
-
-[[tests]]
-schema_version = 2
-id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_POLL_RESULTS_REQUIRE_EXACT_ORDER_AND_CARDINALITY_BEFORE_CACHE_COMMIT_001"
-subject_kind = "generated_test"
-discovery_id = "DISC_E10731D3AB72AB95102B"
-discovery_source_kind = "rust_unit_test"
-test_class = "failing_regression"
-area = "protocols"
-path = "crates/trust-runtime/src/host/ads/client/worker/tests.rs"
-name = "poll_results_require_exact_order_and_cardinality_before_cache_commit"
-command = "cargo test -p trust-runtime --lib ads::client::worker::tests::poll_results_require_exact_order_and_cardinality_before_cache_commit -- --exact --nocapture --test-threads=1"
-owner = "trust-runtime"
-status = "mapped"
-invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
-oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-expected_result = "Poll results validate complete cardinality and ordered point identity before any response prefix mutates the cache."
-expected_failure_mode = "A short, extra, swapped, duplicate, or unknown poll result partially commits data."
-suite_tiers = ["pr"]
-requires_hardware = false
-requires_network = false
-duration_class = "fast"
-evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_POLL_RESULTS_REQUIRE_EXACT_ORDER_AND_CARDINALITY_BEFORE_CACHE_COMMIT_001.json"
-last_reviewed = "2026-07-23"
-
-[[tests]]
-schema_version = 2
-id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_SUBSCRIPTION_AND_NOTIFICATION_RESULTS_REQUIRE_ACTIVE_CORRELATION_001"
-subject_kind = "generated_test"
-discovery_id = "DISC_33CE3DBD94FB70041613"
-discovery_source_kind = "rust_unit_test"
-test_class = "failing_regression"
-area = "protocols"
-path = "crates/trust-runtime/src/host/ads/client/worker/tests.rs"
-name = "subscription_and_notification_results_require_active_correlation"
-command = "cargo test -p trust-runtime --lib ads::client::worker::tests::subscription_and_notification_results_require_active_correlation -- --exact --nocapture --test-threads=1"
-owner = "trust-runtime"
-status = "mapped"
-invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
-oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-expected_result = "Subscription candidates require exact point identity and unique active IDs, and each notification mutates only its exact active point/ID pair."
-expected_failure_mode = "A mismatched or duplicate subscription publishes partially, or an uncorrelated notification mutates cache state."
-suite_tiers = ["pr"]
-requires_hardware = false
-requires_network = false
-duration_class = "fast"
-evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_SUBSCRIPTION_AND_NOTIFICATION_RESULTS_REQUIRE_ACTIVE_CORRELATION_001.json"
-last_reviewed = "2026-07-23"
-
-[[tests]]
-schema_version = 2
-id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_SYMBOL_VERSION_CHANGE_INVALIDATES_OLD_STATE_AND_REQUIRES_STABLE_CANDIDATE_001"
-subject_kind = "generated_test"
-discovery_id = "DISC_B6969B09AE0BB653C3A9"
-discovery_source_kind = "rust_unit_test"
-test_class = "failing_regression"
-area = "protocols"
-path = "crates/trust-runtime/src/host/ads/client/worker/tests.rs"
-name = "symbol_version_change_invalidates_old_state_and_requires_stable_candidate"
-command = "cargo test -p trust-runtime --lib ads::client::worker::tests::symbol_version_change_invalidates_old_state_and_requires_stable_candidate -- --exact --nocapture --test-threads=1"
-owner = "trust-runtime"
-status = "mapped"
-invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
-oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-expected_result = "A changed symbol token revokes old Good authority immediately and publishes replacement correlation only when the token remains equal across candidate construction."
-expected_failure_mode = "Old correlation remains usable during refresh or an unstable symbol candidate is published."
-suite_tiers = ["pr"]
-requires_hardware = false
-requires_network = false
-duration_class = "fast"
-evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_SYMBOL_VERSION_CHANGE_INVALIDATES_OLD_STATE_AND_REQUIRES_STABLE_CANDIDATE_001.json"
-last_reviewed = "2026-07-23"
-
-[[tests]]
-schema_version = 2
-id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_SYMBOL_VERSION_COMPARISON_IS_EQUALITY_ONLY_ACROSS_WRAP_001"
-subject_kind = "generated_test"
-discovery_id = "DISC_4A05A8A8F394B7FB48A8"
-discovery_source_kind = "rust_unit_test"
-test_class = "behavior_lock"
-area = "protocols"
-path = "crates/trust-runtime/src/host/ads/client/worker/tests.rs"
-name = "symbol_version_comparison_is_equality_only_across_wrap"
-command = "cargo test -p trust-runtime --lib ads::client::worker::tests::symbol_version_comparison_is_equality_only_across_wrap -- --exact --nocapture --test-threads=1"
-owner = "trust-runtime"
-status = "mapped"
-invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
-oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-expected_result = "Any unequal opaque symbol token, including a numeric decrease or wrap, triggers refresh while equality does not."
-expected_failure_mode = "The worker infers ordering or monotonicity from the token's numeric representation."
-suite_tiers = ["pr"]
-requires_hardware = false
-requires_network = false
-duration_class = "fast"
-evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_SYMBOL_VERSION_COMPARISON_IS_EQUALITY_ONLY_ACROSS_WRAP_001.json"
-last_reviewed = "2026-07-23"
-
-[[tests]]
-schema_version = 2
-id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_RECONNECT_INVALIDATES_LOCAL_CORRELATION_AND_MARKS_CACHED_INPUTS_STALE_001"
-subject_kind = "generated_test"
-discovery_id = "DISC_4961D7B507E1808D922A"
-discovery_source_kind = "rust_unit_test"
-test_class = "failing_regression"
-area = "protocols"
-path = "crates/trust-runtime/src/host/ads/client/worker/tests.rs"
-name = "reconnect_invalidates_local_correlation_and_marks_cached_inputs_stale"
-command = "cargo test -p trust-runtime --lib ads::client::worker::tests::reconnect_invalidates_local_correlation_and_marks_cached_inputs_stale -- --exact --nocapture --test-threads=1"
-owner = "trust-runtime"
-status = "mapped"
-invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
-oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-expected_result = "Reconnect and post-connect validation failure attempt disconnect, clear worker correlation/scheduling state, and revoke Good input authority."
-expected_failure_mode = "Handles, subscriptions, tokens, or Good input authority survive an invalid session."
-suite_tiers = ["pr"]
-requires_hardware = false
-requires_network = false
-duration_class = "fast"
-evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_RECONNECT_INVALIDATES_LOCAL_CORRELATION_AND_MARKS_CACHED_INPUTS_STALE_001.json"
-last_reviewed = "2026-07-23"
-
-[[tests]]
-schema_version = 2
-id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_OUTPUT_QUEUE_REPORTS_LATEST_VALUE_AS_WRITE_PENDING_UNTIL_ACK_001"
-subject_kind = "generated_test"
-discovery_id = "DISC_C252478624CA410FBD45"
-discovery_source_kind = "rust_unit_test"
-test_class = "failing_regression"
-area = "protocols"
-path = "crates/trust-runtime/src/host/ads/client/worker/tests.rs"
-name = "output_queue_reports_latest_value_as_write_pending_until_ack"
-command = "cargo test -p trust-runtime --lib ads::client::worker::tests::output_queue_reports_latest_value_as_write_pending_until_ack -- --exact --nocapture --test-threads=1"
-owner = "trust-runtime"
-status = "mapped"
-invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
-oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-expected_result = "Finite output capture atomically stores the latest intent and exposes ADS write pending until a current-generation success acknowledges it."
-expected_failure_mode = "A queued output reports ordinary Good/Stale status or is acknowledged without a correlated current-generation success."
-suite_tiers = ["pr"]
-requires_hardware = false
-requires_network = false
-duration_class = "fast"
-evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_OUTPUT_QUEUE_REPORTS_LATEST_VALUE_AS_WRITE_PENDING_UNTIL_ACK_001.json"
-last_reviewed = "2026-07-23"
-
-[[tests]]
-schema_version = 2
-id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_OUTPUT_QUEUE_REJECTS_NON_FINITE_VALUES_BEFORE_ENQUEUE_001"
-subject_kind = "generated_test"
-discovery_id = "DISC_50D4376F701A39D90746"
-discovery_source_kind = "rust_unit_test"
-test_class = "failing_regression"
-area = "protocols"
-path = "crates/trust-runtime/src/host/ads/client/worker/tests.rs"
-name = "output_queue_rejects_non_finite_values_before_enqueue"
-command = "cargo test -p trust-runtime --lib ads::client::worker::tests::output_queue_rejects_non_finite_values_before_enqueue -- --exact --nocapture --test-threads=1"
-owner = "trust-runtime"
-status = "mapped"
-invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
-oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-expected_result = "Scalar and array REAL/LREAL NaN or infinity cancel local pending intent, advance generation, report Error, and never enter the write queue or wire."
-expected_failure_mode = "A non-finite output is queued/sent, leaves an older pending intent active, or prevents later finite recovery from requeueing."
-suite_tiers = ["pr"]
-requires_hardware = false
-requires_network = false
-duration_class = "fast"
-evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_OUTPUT_QUEUE_REJECTS_NON_FINITE_VALUES_BEFORE_ENQUEUE_001.json"
-last_reviewed = "2026-07-23"
-
-[[tests]]
-schema_version = 2
-id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_WRITE_RESPONSE_CARDINALITY_AND_FAILURE_QUALITY_FAIL_CLOSED_001"
-subject_kind = "generated_test"
-discovery_id = "DISC_4580CFEE8DA3D3FD8775"
-discovery_source_kind = "rust_unit_test"
-test_class = "failing_regression"
-area = "protocols"
-path = "crates/trust-runtime/src/host/ads/client/worker/tests/write_generation.rs"
-name = "write_response_cardinality_and_failure_quality_fail_closed"
-command = "cargo test -p trust-runtime --lib ads::client::worker::tests::write_generation::write_response_cardinality_and_failure_quality_fail_closed -- --exact --nocapture --test-threads=1"
-owner = "trust-runtime"
-status = "mapped"
-invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
-oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-expected_result = "Malformed write cardinality performs no per-result partial commit and cannot overwrite a newer different-output rejection, while an exact failed position exposes explicit ADS write failed quality without false acknowledgement."
-expected_failure_mode = "A malformed response partially acknowledges writes, overwrites newer output authority, or makes a failed position appear successful/generic."
-suite_tiers = ["pr"]
-requires_hardware = false
-requires_network = false
-duration_class = "fast"
-evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_WRITE_RESPONSE_CARDINALITY_AND_FAILURE_QUALITY_FAIL_CLOSED_001.json"
-last_reviewed = "2026-07-23"
-
-[[tests]]
-schema_version = 2
-id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_WRITE_ACK_DOES_NOT_DROP_NEWER_QUEUED_VALUE_001"
-subject_kind = "generated_test"
-discovery_id = "DISC_584EE1C920C19C7B37BB"
-discovery_source_kind = "rust_unit_test"
-test_class = "failing_regression"
-area = "protocols"
-path = "crates/trust-runtime/src/host/ads/client/worker/tests/write_generation.rs"
-name = "write_ack_does_not_drop_newer_queued_value"
-command = "cargo test -p trust-runtime --lib ads::client::worker::tests::write_generation::write_ack_does_not_drop_newer_queued_value -- --exact --nocapture --test-threads=1"
-owner = "trust-runtime"
-status = "mapped"
-invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
-oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-expected_result = "Completion or transport failure for an older in-flight generation cannot remove or misreport a newer same-point or different-output generation."
-expected_failure_mode = "An older acknowledgement or transport projection erases or misreports newer local intent."
-suite_tiers = ["pr"]
-requires_hardware = false
-requires_network = false
-duration_class = "fast"
-evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_WRITE_ACK_DOES_NOT_DROP_NEWER_QUEUED_VALUE_001.json"
-last_reviewed = "2026-07-23"
-
-[[tests]]
-schema_version = 2
-id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_WORKER_SHUTDOWN_AND_DROP_INTERRUPT_IDLE_WAIT_001"
-subject_kind = "generated_test"
-discovery_id = "DISC_5C224056A1FEFFAB48E4"
-discovery_source_kind = "rust_unit_test"
-test_class = "failing_regression"
-area = "protocols"
-path = "crates/trust-runtime/src/host/ads/client/worker/tests.rs"
-name = "worker_shutdown_and_drop_interrupt_idle_wait"
-command = "cargo test -p trust-runtime --lib ads::client::worker::tests::worker_shutdown_and_drop_interrupt_idle_wait -- --exact --nocapture --test-threads=1"
-owner = "trust-runtime"
-status = "mapped"
-invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
-oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-expected_result = "Shutdown and Drop wake an idle worker promptly instead of waiting for the configured tick interval."
-expected_failure_mode = "An idle worker blocks shutdown/drop for the full polling interval."
-suite_tiers = ["pr"]
-requires_hardware = false
-requires_network = false
-duration_class = "fast"
-evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_WORKER_SHUTDOWN_AND_DROP_INTERRUPT_IDLE_WAIT_001.json"
-last_reviewed = "2026-07-23"
-
-[[tests]]
-schema_version = 2
-id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_BINDING_AND_REMOTE_DESCRIPTOR_VALIDATION_PARTITION_TABLE_001"
-subject_kind = "generated_test"
-discovery_id = "DISC_484AA35F94F1D69AF19D"
-discovery_source_kind = "rust_unit_test"
-test_class = "behavior_lock"
-area = "protocols"
-path = "crates/trust-runtime/src/host/ads/client/worker/tests.rs"
-name = "binding_and_remote_descriptor_validation_partition_table"
-command = "cargo test -p trust-runtime --lib ads::client::worker::tests::binding_and_remote_descriptor_validation_partition_table -- --exact --nocapture --test-threads=1"
-owner = "trust-runtime"
-status = "mapped"
-invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
-oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-expected_result = "Binding identity, declared type, remote descriptor, access, retain opt-in, array/string shape, and index byte-size partitions fail closed independently."
-expected_failure_mode = "Success in one binding/descriptor partition bypasses a different invalid partition."
-suite_tiers = ["pr"]
-requires_hardware = false
-requires_network = false
-duration_class = "fast"
-evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_BINDING_AND_REMOTE_DESCRIPTOR_VALIDATION_PARTITION_TABLE_001.json"
-last_reviewed = "2026-07-23"
-[[tests]]
-schema_version = 2
 id = "TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_BARE_RUNTIME_NAME_GLOBS_MATCH_NAMESPACED_SYMBOLS_001"
 subject_kind = "generated_test"
 discovery_id = "DISC_139D2C4AB208EA0A8935"
@@ -21077,4 +20430,651 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_WIRE_WRITE_STATUS_CARDINALITY_MUST_MATCH_REQUEST_001.json"
+last_reviewed = "2026-07-23"
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_MOCK_TRANSPORT_REPORTS_MISSING_READ_VALUE_AS_POINT_QUALITY_ERROR_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_084D2365ADC0D06BF8F2"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/tests.rs"
+name = "mock_transport_reports_missing_read_value_as_point_quality_error"
+command = "cargo test -p trust-runtime --lib ads::tests::mock_transport_reports_missing_read_value_as_point_quality_error -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+expected_result = "A connected mock read with no configured value returns explicit non-good point quality without manufacturing a value."
+expected_failure_mode = "A missing mock value is reported Good or produces a fabricated value."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_MOCK_TRANSPORT_REPORTS_MISSING_READ_VALUE_AS_POINT_QUALITY_ERROR_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_DECLARED_BINDING_RESOLUTION_REJECTS_MISSING_GLOBAL_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_AF5192BD3500E5B08263"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/tests.rs"
+name = "declared_binding_resolution_rejects_missing_global"
+command = "cargo test -p trust-runtime --lib ads::tests::declared_binding_resolution_rejects_missing_global -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+expected_result = "Binding resolution rejects a configured ADS point whose declared runtime global is absent."
+expected_failure_mode = "A missing declared global reaches bridge construction."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_DECLARED_BINDING_RESOLUTION_REJECTS_MISSING_GLOBAL_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_DECLARED_BINDING_RESOLUTION_REJECTS_TYPE_MISMATCH_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_780808E07663D754A287"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/tests.rs"
+name = "declared_binding_resolution_rejects_type_mismatch"
+command = "cargo test -p trust-runtime --lib ads::tests::declared_binding_resolution_rejects_type_mismatch -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+expected_result = "Binding resolution rejects an ADS descriptor that does not match the declared runtime global type."
+expected_failure_mode = "A mismatched descriptor is bound to runtime storage."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_DECLARED_BINDING_RESOLUTION_REJECTS_TYPE_MISMATCH_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_RETAIN_READ_REQUIRES_OPT_IN_AND_ALLOWED_BINDING_STARTS_STALE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_86724EABFC2DF40EA2D0"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/tests.rs"
+name = "retain_read_requires_opt_in_and_allowed_binding_starts_stale"
+command = "cargo test -p trust-runtime --lib ads::tests::retain_read_requires_opt_in_and_allowed_binding_starts_stale -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+expected_result = "Retained read bindings require explicit opt-in and an allowed binding begins with stale quality."
+expected_failure_mode = "A retained read silently bypasses opt-in or begins with authoritative Good quality."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_RETAIN_READ_REQUIRES_OPT_IN_AND_ALLOWED_BINDING_STARTS_STALE_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_BRIDGE_APPLIES_READS_AT_INPUT_PHASE_AND_PUBLISHES_WRITES_AT_OUTPUT_PHASE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_605167FDAF897C8B15AE"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/tests.rs"
+name = "bridge_applies_reads_at_input_phase_and_publishes_writes_at_output_phase"
+command = "cargo test -p trust-runtime --lib ads::tests::bridge_applies_reads_at_input_phase_and_publishes_writes_at_output_phase -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+expected_result = "ADS reads reach PLC storage only at input phase and changed outputs enter the worker queue only at output phase."
+expected_failure_mode = "The background worker mutates PLC storage mid-scan or output capture performs wire I/O."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_BRIDGE_APPLIES_READS_AT_INPUT_PHASE_AND_PUBLISHES_WRITES_AT_OUTPUT_PHASE_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_READ_WRITE_BINDING_SEEDS_WRITE_BASELINE_FROM_FIRST_GOOD_READ_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_6AE69D4EE6B0066A3B7E"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/tests.rs"
+name = "read_write_binding_seeds_write_baseline_from_first_good_read"
+command = "cargo test -p trust-runtime --lib ads::tests::read_write_binding_seeds_write_baseline_from_first_good_read -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+expected_result = "A first Good read seeds the read/write baseline so unchanged data is not written back and later changes are queued."
+expected_failure_mode = "The first accepted read is echoed as an output or a later changed value is not queued."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_READ_WRITE_BINDING_SEEDS_WRITE_BASELINE_FROM_FIRST_GOOD_READ_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_SPAWNED_WORKER_UPDATES_CACHE_AND_SCAN_APPLIES_SNAPSHOT_ONLY_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_97C0CDB92AAF33864139"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/tests.rs"
+name = "spawned_worker_updates_cache_and_scan_applies_snapshot_only"
+command = "cargo test -p trust-runtime --lib ads::tests::spawned_worker_updates_cache_and_scan_applies_snapshot_only -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+expected_result = "The spawned worker updates only shared cache and the scan input phase applies its snapshot to PLC storage."
+expected_failure_mode = "The worker mutates PLC storage outside the scan boundary or the scan cannot apply the cached value."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_SPAWNED_WORKER_UPDATES_CACHE_AND_SCAN_APPLIES_SNAPSHOT_ONLY_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_NOTIFY_BINDING_SUBSCRIBES_SKIPS_POLL_AND_APPLIES_AT_SCAN_BOUNDARY_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_35EBC88B808176035E2E"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/tests.rs"
+name = "notify_binding_subscribes_skips_poll_and_applies_at_scan_boundary"
+command = "cargo test -p trust-runtime --lib ads::tests::notify_binding_subscribes_skips_poll_and_applies_at_scan_boundary -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+expected_result = "A notify binding subscribes without poll reads and applies a valid notification only at the next scan boundary."
+expected_failure_mode = "A notify point is polled, mutates storage mid-scan, or cannot apply its correlated notification."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_NOTIFY_BINDING_SUBSCRIBES_SKIPS_POLL_AND_APPLIES_AT_SCAN_BOUNDARY_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_SPAWNED_WORKER_DRAINS_OUTPUT_QUEUE_OFF_SCAN_THREAD_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_24642D3BA618D6761478"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/tests.rs"
+name = "spawned_worker_drains_output_queue_off_scan_thread"
+command = "cargo test -p trust-runtime --lib ads::tests::spawned_worker_drains_output_queue_off_scan_thread -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+expected_result = "The spawned worker drains queued output writes outside the scan thread and acknowledges successful completion."
+expected_failure_mode = "Output capture performs wire work or a successful worker write remains falsely pending."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_SPAWNED_WORKER_DRAINS_OUTPUT_QUEUE_OFF_SCAN_THREAD_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_NOTIFY_BINDING_RESUBSCRIBES_AFTER_SYMBOL_VERSION_CHANGE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_9EE335C6641FD8CE1DCC"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/tests.rs"
+name = "notify_binding_resubscribes_after_symbol_version_change"
+command = "cargo test -p trust-runtime --lib ads::tests::notify_binding_resubscribes_after_symbol_version_change -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+expected_result = "An unequal symbol token refreshes handles and replaces the notify subscription after the configured check interval."
+expected_failure_mode = "A changed symbol token leaves the old active subscription in authority."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_NOTIFY_BINDING_RESUBSCRIBES_AFTER_SYMBOL_VERSION_CHANGE_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_NOTIFY_BINDING_REFRESH_DISCONNECTS_BEFORE_RESUBSCRIBE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_E3B9811811AF5F882E6F"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/tests.rs"
+name = "notify_binding_refresh_disconnects_before_resubscribe"
+command = "cargo test -p trust-runtime --lib ads::tests::notify_binding_refresh_disconnects_before_resubscribe -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+expected_result = "Symbol refresh disconnects the old transport session before establishing replacement subscriptions."
+expected_failure_mode = "Replacement subscriptions are layered over stale session correlation."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_NOTIFY_BINDING_REFRESH_DISCONNECTS_BEFORE_RESUBSCRIBE_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_READ_BINDINGS_DO_NOT_PUBLISH_OUTPUTS_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_CEA3094F832276A38452"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/tests.rs"
+name = "read_bindings_do_not_publish_outputs"
+command = "cargo test -p trust-runtime --lib ads::tests::read_bindings_do_not_publish_outputs -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+expected_result = "Read-only bindings never enqueue output writes."
+expected_failure_mode = "A read-only point enters the ADS output queue."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_READ_BINDINGS_DO_NOT_PUBLISH_OUTPUTS_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_SYMBOL_VERSION_CHANGE_REVALIDATES_AND_RESOLVES_NEW_HANDLES_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_FB4CC4B0804482F7B41B"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/tests.rs"
+name = "symbol_version_change_revalidates_and_resolves_new_handles"
+command = "cargo test -p trust-runtime --lib ads::tests::symbol_version_change_revalidates_and_resolves_new_handles -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+expected_result = "A changed symbol token revalidates the remote table and resolves replacement handles before further use."
+expected_failure_mode = "Old handles remain authoritative after a symbol-token change."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_SYMBOL_VERSION_CHANGE_REVALIDATES_AND_RESOLVES_NEW_HANDLES_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_SYMBOL_VERSION_TYPE_MISMATCH_FAULTS_BRIDGE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_C0F9AA0E78C1B00B3907"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/tests.rs"
+name = "symbol_version_type_mismatch_faults_bridge"
+command = "cargo test -p trust-runtime --lib ads::tests::symbol_version_type_mismatch_faults_bridge -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+expected_result = "A refreshed symbol table with an incompatible descriptor faults the bridge without publishing invalid candidate state."
+expected_failure_mode = "A type-mismatched refreshed symbol becomes active."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_SYMBOL_VERSION_TYPE_MISMATCH_FAULTS_BRIDGE_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_RECONNECT_MARKS_POINTS_STALE_UNTIL_BACKOFF_ALLOWS_CONNECT_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_0964F1D88F24D71AD970"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/tests.rs"
+name = "reconnect_marks_points_stale_until_backoff_allows_connect"
+command = "cargo test -p trust-runtime --lib ads::tests::reconnect_marks_points_stale_until_backoff_allows_connect -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+expected_result = "Transport failure marks point authority stale and reconnect waits until the configured backoff expires."
+expected_failure_mode = "A failed session remains Good or reconnect ignores its backoff boundary."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_RECONNECT_MARKS_POINTS_STALE_UNTIL_BACKOFF_ALLOWS_CONNECT_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_HANDLE_RESOLUTION_REQUIRES_EXACT_RESPONSE_BIJECTION_AND_CLEANUP_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_7AC9CF9059D7F71C3D51"
+discovery_source_kind = "rust_unit_test"
+test_class = "failing_regression"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/client/worker/tests.rs"
+name = "handle_resolution_requires_exact_response_bijection_and_cleanup"
+command = "cargo test -p trust-runtime --lib ads::client::worker::tests::handle_resolution_requires_exact_response_bijection_and_cleanup -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+expected_result = "Missing, extra, duplicate, wrong-address, or wrong-descriptor handle responses reject before candidate publication and leave no local session correlation."
+expected_failure_mode = "A malformed handle response partially or fully becomes active worker state."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_HANDLE_RESOLUTION_REQUIRES_EXACT_RESPONSE_BIJECTION_AND_CLEANUP_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_POLL_RESULTS_REQUIRE_EXACT_ORDER_AND_CARDINALITY_BEFORE_CACHE_COMMIT_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_E10731D3AB72AB95102B"
+discovery_source_kind = "rust_unit_test"
+test_class = "failing_regression"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/client/worker/tests.rs"
+name = "poll_results_require_exact_order_and_cardinality_before_cache_commit"
+command = "cargo test -p trust-runtime --lib ads::client::worker::tests::poll_results_require_exact_order_and_cardinality_before_cache_commit -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+expected_result = "Poll results validate complete cardinality and ordered point identity before any response prefix mutates the cache."
+expected_failure_mode = "A short, extra, swapped, duplicate, or unknown poll result partially commits data."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_POLL_RESULTS_REQUIRE_EXACT_ORDER_AND_CARDINALITY_BEFORE_CACHE_COMMIT_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_SUBSCRIPTION_AND_NOTIFICATION_RESULTS_REQUIRE_ACTIVE_CORRELATION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_33CE3DBD94FB70041613"
+discovery_source_kind = "rust_unit_test"
+test_class = "failing_regression"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/client/worker/tests.rs"
+name = "subscription_and_notification_results_require_active_correlation"
+command = "cargo test -p trust-runtime --lib ads::client::worker::tests::subscription_and_notification_results_require_active_correlation -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+expected_result = "Subscription candidates require exact point identity and unique active IDs, and each notification mutates only its exact active point/ID pair."
+expected_failure_mode = "A mismatched or duplicate subscription publishes partially, or an uncorrelated notification mutates cache state."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_SUBSCRIPTION_AND_NOTIFICATION_RESULTS_REQUIRE_ACTIVE_CORRELATION_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_SYMBOL_VERSION_CHANGE_INVALIDATES_OLD_STATE_AND_REQUIRES_STABLE_CANDIDATE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_B6969B09AE0BB653C3A9"
+discovery_source_kind = "rust_unit_test"
+test_class = "failing_regression"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/client/worker/tests.rs"
+name = "symbol_version_change_invalidates_old_state_and_requires_stable_candidate"
+command = "cargo test -p trust-runtime --lib ads::client::worker::tests::symbol_version_change_invalidates_old_state_and_requires_stable_candidate -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+expected_result = "A changed symbol token revokes old Good authority immediately and publishes replacement correlation only when the token remains equal across candidate construction."
+expected_failure_mode = "Old correlation remains usable during refresh or an unstable symbol candidate is published."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_SYMBOL_VERSION_CHANGE_INVALIDATES_OLD_STATE_AND_REQUIRES_STABLE_CANDIDATE_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_SYMBOL_VERSION_COMPARISON_IS_EQUALITY_ONLY_ACROSS_WRAP_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_4A05A8A8F394B7FB48A8"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/client/worker/tests.rs"
+name = "symbol_version_comparison_is_equality_only_across_wrap"
+command = "cargo test -p trust-runtime --lib ads::client::worker::tests::symbol_version_comparison_is_equality_only_across_wrap -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+expected_result = "Any unequal opaque symbol token, including a numeric decrease or wrap, triggers refresh while equality does not."
+expected_failure_mode = "The worker infers ordering or monotonicity from the token's numeric representation."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_SYMBOL_VERSION_COMPARISON_IS_EQUALITY_ONLY_ACROSS_WRAP_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_RECONNECT_INVALIDATES_LOCAL_CORRELATION_AND_MARKS_CACHED_INPUTS_STALE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_4961D7B507E1808D922A"
+discovery_source_kind = "rust_unit_test"
+test_class = "failing_regression"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/client/worker/tests.rs"
+name = "reconnect_invalidates_local_correlation_and_marks_cached_inputs_stale"
+command = "cargo test -p trust-runtime --lib ads::client::worker::tests::reconnect_invalidates_local_correlation_and_marks_cached_inputs_stale -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+expected_result = "Reconnect and post-connect validation failure attempt disconnect, clear worker correlation/scheduling state, and revoke Good input authority."
+expected_failure_mode = "Handles, subscriptions, tokens, or Good input authority survive an invalid session."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_RECONNECT_INVALIDATES_LOCAL_CORRELATION_AND_MARKS_CACHED_INPUTS_STALE_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_OUTPUT_QUEUE_REPORTS_LATEST_VALUE_AS_WRITE_PENDING_UNTIL_ACK_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_C252478624CA410FBD45"
+discovery_source_kind = "rust_unit_test"
+test_class = "failing_regression"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/client/worker/tests.rs"
+name = "output_queue_reports_latest_value_as_write_pending_until_ack"
+command = "cargo test -p trust-runtime --lib ads::client::worker::tests::output_queue_reports_latest_value_as_write_pending_until_ack -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+expected_result = "Finite output capture atomically stores the latest intent and exposes ADS write pending until a current-generation success acknowledges it."
+expected_failure_mode = "A queued output reports ordinary Good/Stale status or is acknowledged without a correlated current-generation success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_OUTPUT_QUEUE_REPORTS_LATEST_VALUE_AS_WRITE_PENDING_UNTIL_ACK_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_OUTPUT_QUEUE_REJECTS_NON_FINITE_VALUES_BEFORE_ENQUEUE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_50D4376F701A39D90746"
+discovery_source_kind = "rust_unit_test"
+test_class = "failing_regression"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/client/worker/tests.rs"
+name = "output_queue_rejects_non_finite_values_before_enqueue"
+command = "cargo test -p trust-runtime --lib ads::client::worker::tests::output_queue_rejects_non_finite_values_before_enqueue -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+expected_result = "Scalar and array REAL/LREAL NaN or infinity cancel local pending intent, advance generation, report Error, and never enter the write queue or wire."
+expected_failure_mode = "A non-finite output is queued/sent, leaves an older pending intent active, or prevents later finite recovery from requeueing."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_OUTPUT_QUEUE_REJECTS_NON_FINITE_VALUES_BEFORE_ENQUEUE_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_WRITE_RESPONSE_CARDINALITY_AND_FAILURE_QUALITY_FAIL_CLOSED_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_4580CFEE8DA3D3FD8775"
+discovery_source_kind = "rust_unit_test"
+test_class = "failing_regression"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/client/worker/tests/write_generation.rs"
+name = "write_response_cardinality_and_failure_quality_fail_closed"
+command = "cargo test -p trust-runtime --lib ads::client::worker::tests::write_generation::write_response_cardinality_and_failure_quality_fail_closed -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+expected_result = "Malformed write cardinality performs no per-result partial commit and cannot overwrite a newer different-output rejection, while an exact failed position terminally removes only its current generation and exposes explicit ADS write failed quality."
+expected_failure_mode = "A malformed response partially acknowledges writes, overwrites newer output authority, or makes a failed position appear successful/generic."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_WRITE_RESPONSE_CARDINALITY_AND_FAILURE_QUALITY_FAIL_CLOSED_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_WRITE_ACK_DOES_NOT_DROP_NEWER_QUEUED_VALUE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_584EE1C920C19C7B37BB"
+discovery_source_kind = "rust_unit_test"
+test_class = "failing_regression"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/client/worker/tests/write_generation.rs"
+name = "write_ack_does_not_drop_newer_queued_value"
+command = "cargo test -p trust-runtime --lib ads::client::worker::tests::write_generation::write_ack_does_not_drop_newer_queued_value -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+expected_result = "Completion or transport failure for an older in-flight generation cannot remove or misreport a newer same-point or different-output generation."
+expected_failure_mode = "An older acknowledgement or transport projection erases or misreports newer local intent."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_WRITE_ACK_DOES_NOT_DROP_NEWER_QUEUED_VALUE_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_WORKER_SHUTDOWN_AND_DROP_INTERRUPT_IDLE_WAIT_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_5C224056A1FEFFAB48E4"
+discovery_source_kind = "rust_unit_test"
+test_class = "failing_regression"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/client/worker/tests.rs"
+name = "worker_shutdown_and_drop_interrupt_idle_wait"
+command = "cargo test -p trust-runtime --lib ads::client::worker::tests::worker_shutdown_and_drop_interrupt_idle_wait -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+expected_result = "Shutdown and Drop wake an idle worker promptly instead of waiting for the configured tick interval."
+expected_failure_mode = "An idle worker blocks shutdown/drop for the full polling interval."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_WORKER_SHUTDOWN_AND_DROP_INTERRUPT_IDLE_WAIT_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_BINDING_AND_REMOTE_DESCRIPTOR_VALIDATION_PARTITION_TABLE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_484AA35F94F1D69AF19D"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/client/worker/tests.rs"
+name = "binding_and_remote_descriptor_validation_partition_table"
+command = "cargo test -p trust-runtime --lib ads::client::worker::tests::binding_and_remote_descriptor_validation_partition_table -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+expected_result = "Binding identity, declared type, remote descriptor, access, retain opt-in, array/string shape, and index byte-size partitions fail closed independently."
+expected_failure_mode = "Success in one binding/descriptor partition bypasses a different invalid partition."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_BINDING_AND_REMOTE_DESCRIPTOR_VALIDATION_PARTITION_TABLE_001.json"
 last_reviewed = "2026-07-23"

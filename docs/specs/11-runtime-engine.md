@@ -1398,10 +1398,10 @@ quality. The worker validates write-response cardinality before any per-result
 acknowledgement or quality commit. A malformed response therefore performs no
 partial per-result commit and leaves every transmitted generation pending. A
 correlated success atomically acknowledges that generation and reports good
-quality; a correlated failure reports explicit `ADS write failed: ...` quality
-without falsely acknowledging success. Whether a correlated failed generation
-is retried or terminally dropped remains a separate unresolved policy and is
-not selected here. Transport-error and malformed-cardinality connection
+quality; a correlated failure terminally removes that exact generation and
+reports explicit `ADS write failed: ...` quality without falsely acknowledging
+success. A later changed finite output creates a new generation normally.
+Transport-error and malformed-cardinality connection
 projections compare the current complete write-generation state with the
 complete snapshot captured atomically with the pending-write batch before
 request construction. They must not overwrite a finite pending quality or

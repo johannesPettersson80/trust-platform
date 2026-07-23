@@ -66,6 +66,11 @@ fn write_response_cardinality_and_failure_quality_fail_closed() {
         Some("ADS write failed: access denied"),
         "failed write must expose the ADS write boundary"
     );
+    assert_eq!(
+        snapshot.pending_writes.get("failed"),
+        None,
+        "a correlated failed generation must be terminal"
+    );
 
     let mut storage = crate::memory::VariableStorage::new();
     storage.set_global("in_flight", Value::Real(4.0));

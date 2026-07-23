@@ -169,6 +169,7 @@ impl AdsSharedCache {
         if !pending_generation_matches(&guard, point_name, generation) {
             return false;
         }
+        guard.pending_writes.remove(point_name);
         guard.qualities.insert(point_name.to_string(), quality);
         true
     }

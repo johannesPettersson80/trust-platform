@@ -9,7 +9,7 @@ last_reviewed = "2026-07-23"
 claim = "The ADS client publishes and mutates worker/cache state only from complete endpoint-correlated responses and stable symbol authority, represents output intent and completion with generation-safe local truth, rejects non-finite egress before queue or wire activity, and can stop an idle worker without waiting for the configured polling interval."
 proof_level = "T1"
 contract_kind = "state_machine"
-source_refs = ["crates/trust-runtime/src/host/ads/client.rs", "crates/trust-runtime/src/host/ads/client/worker.rs", "crates/trust-runtime/src/host/ads/client/cache.rs", "crates/trust-runtime/src/host/ads/transport.rs", "crates/trust-runtime/src/host/ads/mock.rs", "crates/trust-runtime/src/host/ads/descriptors.rs"]
+source_refs = ["crates/trust-runtime/src/host/ads/client.rs", "crates/trust-runtime/src/host/ads/client/worker.rs", "crates/trust-runtime/src/host/ads/client/cache.rs"]
 tests = [
   "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_MOCK_TRANSPORT_REPORTS_MISSING_READ_VALUE_AS_POINT_QUALITY_ERROR_001",
   "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_DECLARED_BINDING_RESOLUTION_REJECTS_MISSING_GLOBAL_001",
@@ -42,7 +42,7 @@ tests = [
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate", "zero_by_name_handle_policy", "zero_subscription_id_policy", "duplicate_valid_notification_policy", "terminal_write_retry_or_drop_policy", "pending_write_replay_across_reconnect_policy", "in_flight_transport_call_cancellation", "external_ads_target", "twincat_lab"]
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate", "zero_by_name_handle_policy", "zero_subscription_id_policy", "duplicate_valid_notification_policy", "pending_write_replay_across_reconnect_policy", "in_flight_transport_call_cancellation", "external_ads_target", "twincat_lab"]
 
 [spec]
 status = "specified"

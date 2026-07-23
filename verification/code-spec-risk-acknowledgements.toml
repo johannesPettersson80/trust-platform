@@ -80614,81 +80614,11 @@ rationale = "Binds ADS client worker, cache, transport-model, mock, and descript
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_0858AB2917992A29F6C9AD9E43116B381D78F47216329AAEE6F435EEB4A36D5E"
-code_id = "CODE_0858AB2917992A29F6C9AD9E43116B381D78F47216329AAEE6F435EEB4A36D5E"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:f6a6b795d005757dccdf7e992990dff2913843d3f443f3129023658ddb89139b"
-risk_signals = ["state_mutation"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2026-10-23"
-rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_0CEAB113FEBF807551DEECDCD7D4F11D873DB037645806F4806463386A9D066E"
-code_id = "CODE_0CEAB113FEBF807551DEECDCD7D4F11D873DB037645806F4806463386A9D066E"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:7e0da1ec1df8e130ce53194c21642f44138f604986361a6e6aaa0518139ce1af"
-risk_signals = ["state_mutation"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2026-10-23"
-rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_1618AA0C005CA86D1ABC0D552DEC12D53AA769F80D20AD184B1D8C2E0CB94FF0"
-code_id = "CODE_1618AA0C005CA86D1ABC0D552DEC12D53AA769F80D20AD184B1D8C2E0CB94FF0"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:c735811dfcebfd767a94c7af2403b88c788421bda3db8d1aee83a70f7012448a"
-risk_signals = ["state_mutation"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2026-10-23"
-rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_1746BCD555E7EB1B0EF7C6ED8411760AD91BFB0283545F4A445869FE43A12ADB"
-code_id = "CODE_1746BCD555E7EB1B0EF7C6ED8411760AD91BFB0283545F4A445869FE43A12ADB"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:144df18df843aea472c7118af472721b13023bf3a6cd75775f6de66aaae6592d"
-risk_signals = ["state_mutation"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2026-10-23"
-rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_1C076EF8A513396C4E901E3A6D3B32CE124D37446FE8AB555CE26AF97A5C53BA"
 code_id = "CODE_1C076EF8A513396C4E901E3A6D3B32CE124D37446FE8AB555CE26AF97A5C53BA"
 owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:171680b4da8b1dc18f7390be6cc5e547d770daa7fada3e435a52a5f00dc768b9"
-risk_signals = ["state_mutation"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2026-10-23"
-rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_207098E26CD4961621D0287E3F8E321A7837628A1F30EB8475C8BA64D1F14725"
-code_id = "CODE_207098E26CD4961621D0287E3F8E321A7837628A1F30EB8475C8BA64D1F14725"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:3cd55080b7804273b77ad0f559f8a798e79384bf9006fe8e8ed42f59aab9e2b6"
 risk_signals = ["state_mutation"]
 review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
 reviewed_by = "trust-runtime"
@@ -80712,81 +80642,11 @@ rationale = "Binds ADS client worker, cache, transport-model, mock, and descript
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_28BA5992848BD4765027C86AB740164D57DAB0AA57D09610631A6030F09EE2E1"
-code_id = "CODE_28BA5992848BD4765027C86AB740164D57DAB0AA57D09610631A6030F09EE2E1"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:59f6422fcf6483063066e9ca81416b070adf23a57f2ee277423728cfdbd64e17"
-risk_signals = ["state_mutation"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2026-10-23"
-rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_2E8F18E15481455BA3DDBB6FC9A2B4CC7D1946CB64453333DDD097D5577EEAC0"
 code_id = "CODE_2E8F18E15481455BA3DDBB6FC9A2B4CC7D1946CB64453333DDD097D5577EEAC0"
 owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:7e16ad55f6dc7586a768c17e5a432bda6d8e3360872b8e4872b1fe003c89623c"
-risk_signals = ["state_mutation"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2026-10-23"
-rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_3D6462D47CFFF7B1000B05D27F899B1F5EDEF8A162D2F8731D2FF6EE4FB9E6C3"
-code_id = "CODE_3D6462D47CFFF7B1000B05D27F899B1F5EDEF8A162D2F8731D2FF6EE4FB9E6C3"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:ec7a1adbc4ec5e97f24eda030795d185c9a9c8c3320924cf5284956343eac706"
-risk_signals = ["broad_error_suppression", "host_time"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2026-10-23"
-rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_4FEFB0E1E629FF5DC97DD9439CCF5D2D91DBAF540AB2F9F776DBACD1A2937709"
-code_id = "CODE_4FEFB0E1E629FF5DC97DD9439CCF5D2D91DBAF540AB2F9F776DBACD1A2937709"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:0b38bc2974fc184256767a6edfb80e487c911bd3793eef1759abf0e557da1e0b"
-risk_signals = ["state_mutation"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2026-10-23"
-rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_536362610C50BFEF39E9396D6DA8E239CC7D8E72FBBD9556717F37201C62A816"
-code_id = "CODE_536362610C50BFEF39E9396D6DA8E239CC7D8E72FBBD9556717F37201C62A816"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:99746b088c9f2835ee384d81f4c0d916f5481e51f4a3957388e07586e61c0703"
-risk_signals = ["fault_mapping"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2026-10-23"
-rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_55F48662EF18127C035FE0C14A30A9F778521EC043F9A2CFC10C811DFD4ABF89"
-code_id = "CODE_55F48662EF18127C035FE0C14A30A9F778521EC043F9A2CFC10C811DFD4ABF89"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:80862550ee4a3cafbe96d6003ec9b5d245c6ecc4dad9771177623c44e8790162"
 risk_signals = ["state_mutation"]
 review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
 reviewed_by = "trust-runtime"
@@ -80810,53 +80670,11 @@ rationale = "Binds ADS client worker, cache, transport-model, mock, and descript
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_7046E3285C3BF408CC87DB84C5B16E4ABDCAF73269763223E414F12ED628245F"
-code_id = "CODE_7046E3285C3BF408CC87DB84C5B16E4ABDCAF73269763223E414F12ED628245F"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:275db01f4e5c292724de9e91053b632784cfdc6a0b9628ca1a2c81c1989121eb"
-risk_signals = ["state_mutation"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2026-10-23"
-rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_7C1FC12DA7F6903E7F6131C1C268F8FB824A7F8B30322FA1E406DFB940FA1638"
-code_id = "CODE_7C1FC12DA7F6903E7F6131C1C268F8FB824A7F8B30322FA1E406DFB940FA1638"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:524264bece56f4a60bf69aab928ff96e0dde8b3707de7b00dc5de12cfd014593"
-risk_signals = ["fault_mapping", "state_mutation"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2026-10-23"
-rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_7EB5D6BF951E1A8C128A32C10234A4C1F5D684C333D41D40E15780168DF5CB88"
 code_id = "CODE_7EB5D6BF951E1A8C128A32C10234A4C1F5D684C333D41D40E15780168DF5CB88"
 owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:711eb2270996817c4c1f573f40f5659233ded9f949fef4547fe5fa70d6af58eb"
-risk_signals = ["state_mutation"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2026-10-23"
-rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_7F086B00F8A732D6C87BDEA9B64D181A8D0B93515F18159A63D12405F46AF432"
-code_id = "CODE_7F086B00F8A732D6C87BDEA9B64D181A8D0B93515F18159A63D12405F46AF432"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:07e1b961c2c9a0ba8de42d65a3eb9bfbefa0dbd01d13c751a02aaebb52c5bb83"
 risk_signals = ["state_mutation"]
 review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
 reviewed_by = "trust-runtime"
@@ -80894,96 +80712,12 @@ rationale = "Binds ADS client worker, cache, transport-model, mock, and descript
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_935C8BDF91E16380E922723FDDBDCF29C25381F1C77848DA013F2B403CE984DD"
-code_id = "CODE_935C8BDF91E16380E922723FDDBDCF29C25381F1C77848DA013F2B403CE984DD"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:8de1b1a78772615c706679bc43cc6f1b6b1ece4c11007ae6d9f1a26ac7fa490c"
-risk_signals = ["state_mutation"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2026-10-23"
-rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_A1CB14A8D05AFFC99108C992FAD6BBFEE7E256999E320BBAC7BD3CA914E0008E"
-code_id = "CODE_A1CB14A8D05AFFC99108C992FAD6BBFEE7E256999E320BBAC7BD3CA914E0008E"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:99f3f8d38002bdc830f27ed8659086ea35222a9116a1d200ca8e3fa45a203872"
-risk_signals = ["state_mutation"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2026-10-23"
-rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_A7097151A25FA7D5A515D151431BE3A889969614D276E405B3EC6B3972660140"
-code_id = "CODE_A7097151A25FA7D5A515D151431BE3A889969614D276E405B3EC6B3972660140"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:019f5cf3f6772b73f9d881dfd8a461d663afce78e366616a34bfdac653675305"
-risk_signals = ["state_mutation"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2026-10-23"
-rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_AB424615997D7C47C2B32BAAFBBF134608F56CD7155CD1801229BA4BB183B09B"
-code_id = "CODE_AB424615997D7C47C2B32BAAFBBF134608F56CD7155CD1801229BA4BB183B09B"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:5f26d6da7e805a25dfe17b5888d052b30024967bead242f27e4b38f5bd16d6c3"
-risk_signals = ["state_mutation"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2026-10-23"
-rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_ABDC3232357E8532D39B921877573456A80E8D55F3A6728893C54237078A3955"
-code_id = "CODE_ABDC3232357E8532D39B921877573456A80E8D55F3A6728893C54237078A3955"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:d8ca29223c6d7b90822ea3581b4f5206dedba2b3c6a9d48252d38842aa3206d6"
-risk_signals = ["broad_error_suppression", "state_mutation"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2026-10-23"
-rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_ADA64F4E9E552A2063F6C22CB568ED3CA631709E79A4C4F1F0C65523EF3AE5A5"
 code_id = "CODE_ADA64F4E9E552A2063F6C22CB568ED3CA631709E79A4C4F1F0C65523EF3AE5A5"
 owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:93628c63af0a4ea94ea1c5216981d964e5aae4d548947ca6b3d999816e95eceb"
 risk_signals = ["state_mutation"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2026-10-23"
-rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_B9C577CA08FC237EC1F6E1E84B1FFC323DECD375EEB9856C8F0637385010D717"
-code_id = "CODE_B9C577CA08FC237EC1F6E1E84B1FFC323DECD375EEB9856C8F0637385010D717"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:304875145e2e9c26707d41acd9aecfb92474dc949afae302aefe7c8402c7c07d"
-risk_signals = ["protocol_response_or_status"]
 review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-23"
@@ -81006,96 +80740,12 @@ rationale = "Binds ADS client worker, cache, transport-model, mock, and descript
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_BB6818518626071115CD524BB71C94B9FEDE81C0DE91497A279E3A8051AE21EA"
-code_id = "CODE_BB6818518626071115CD524BB71C94B9FEDE81C0DE91497A279E3A8051AE21EA"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:4328ddf3f4dfca18634f4239ca61cec3ea6a3464f2191cecc3c81b71c094a1d5"
-risk_signals = ["state_mutation"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2026-10-23"
-rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_BE620D17AE0CF1E90F335A770D2C02D93C49B4870091141AA72EE3992CA30514"
-code_id = "CODE_BE620D17AE0CF1E90F335A770D2C02D93C49B4870091141AA72EE3992CA30514"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:000bcd3e4c98b75a3c6531c4ca8d3f5e81bbb4b0a05f026cd15d9bcc5a9e42ca"
-risk_signals = ["fault_mapping"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2026-10-23"
-rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_C0B6D89C76B731E7FF54C6C73645FA5DD2AC1DFEE446F11A9448AC175C51D4C4"
-code_id = "CODE_C0B6D89C76B731E7FF54C6C73645FA5DD2AC1DFEE446F11A9448AC175C51D4C4"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:73618f8d48beb47c44f99196cd2ffd6dc9a8e2a69b0875de70a9963d836ac469"
-risk_signals = ["fault_mapping", "state_mutation"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2026-10-23"
-rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_C39EE8EC7A4560869262934A691DD8C1BFFC538B7529A4AE978BFC4746463D41"
 code_id = "CODE_C39EE8EC7A4560869262934A691DD8C1BFFC538B7529A4AE978BFC4746463D41"
 owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:b50339973571468a28d921b48ee6d11e396b37c086ffddf0bc4e04be6a0c41c7"
 risk_signals = ["state_mutation"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2026-10-23"
-rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_C5EB03C28D27F9A47CDD9B6325D0007CDEC313B023C80C274C6111D29EB14E9D"
-code_id = "CODE_C5EB03C28D27F9A47CDD9B6325D0007CDEC313B023C80C274C6111D29EB14E9D"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:813d4c3820d9389f1cb5e70956b6d965296e3cb5fc37a48382c82d626cf93ed0"
-risk_signals = ["broad_error_suppression", "state_mutation"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2026-10-23"
-rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_CD3CD5DA09B62A3224B2BD05FAD188B81D44B9F8B303673FA1D99144789D7DDF"
-code_id = "CODE_CD3CD5DA09B62A3224B2BD05FAD188B81D44B9F8B303673FA1D99144789D7DDF"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:810e6248821516160e23837b8ca54e5246229ad86759322447826b9be0dc65a0"
-risk_signals = ["state_mutation"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2026-10-23"
-rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_CE80CEF15257E3D785FF1B42E9AB25A76CA3666F96421C048E42947581596D46"
-code_id = "CODE_CE80CEF15257E3D785FF1B42E9AB25A76CA3666F96421C048E42947581596D46"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:40cc12a020488ac5a193e53cbed667936795aa13ca3c3aea2f931cb5a143da0f"
-risk_signals = ["fault_mapping"]
 review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-23"
@@ -81130,103 +80780,6 @@ reviewed_on = "2026-07-23"
 expires_on = "2026-10-23"
 rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
 
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_DDF10249904B774A0C8D6ACA30CADD4BB58E65C374FE9E99B69DFB9FC2C49ED5"
-code_id = "CODE_DDF10249904B774A0C8D6ACA30CADD4BB58E65C374FE9E99B69DFB9FC2C49ED5"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:21f37aed49e2ae1ccc18038add9ed8538a00bd99cc130bb6033e390417f193bf"
-risk_signals = ["state_mutation"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2026-10-23"
-rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_E02BDE14BA1870540F12C79B701C76AF3B08929419DA7574A93A9FD1B5AAF045"
-code_id = "CODE_E02BDE14BA1870540F12C79B701C76AF3B08929419DA7574A93A9FD1B5AAF045"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:d9310a14a1a8c6ae6a83c12cef92874f96c370a7cad7dd5a3920eb1ed7694cae"
-risk_signals = ["state_mutation"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2026-10-23"
-rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_E74DE0B235BF9305DDD790CAF39D59E79F256A526D05D33861EDDB249D7CA5E6"
-code_id = "CODE_E74DE0B235BF9305DDD790CAF39D59E79F256A526D05D33861EDDB249D7CA5E6"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:90a5467e0548a602998e61458fbea2e7ec3cdf14680439a44f86f4ed0bdf6680"
-risk_signals = ["fault_mapping", "state_mutation"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2026-10-23"
-rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_EDCC0238C8E7D03253535403A83A7863D40BC702AC01352E6A402A0A1D2C861E"
-code_id = "CODE_EDCC0238C8E7D03253535403A83A7863D40BC702AC01352E6A402A0A1D2C861E"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:bf9beb8201f26062c695a4d0b740ee50e31459b2bf6539aa6968ec4b6696c4cb"
-risk_signals = ["fault_mapping"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2026-10-23"
-rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_EDEFB04864D226B99601AD07E72ECDBD60C3B389BFE406A6DEBF892A256E4D74"
-code_id = "CODE_EDEFB04864D226B99601AD07E72ECDBD60C3B389BFE406A6DEBF892A256E4D74"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:b23aeaa94d3a813cf9bd806cda371114b868458099529824aa581b5f942dc44b"
-risk_signals = ["state_mutation"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2026-10-23"
-rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_EE1A9B84D13C5989AA6026B4E83BC4EF71AB3E8CED666638E30703F6E93EF5D6"
-code_id = "CODE_EE1A9B84D13C5989AA6026B4E83BC4EF71AB3E8CED666638E30703F6E93EF5D6"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:762dfa240284f3f22e757c7838950409bb62f2ffd248933d01b5a9e47acefbdb"
-risk_signals = ["state_mutation"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2026-10-23"
-rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_F7BB22F5C066DF30854A7EC6185FF8CF9FEC54FA56B149CF83C28DE3EA403301"
-code_id = "CODE_F7BB22F5C066DF30854A7EC6185FF8CF9FEC54FA56B149CF83C28DE3EA403301"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:053d40212aea05372cabcdab1230286cde53e8d8167cd3e8d768f94bb6b1cae5"
-risk_signals = ["state_mutation"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2026-10-23"
-rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
 [[acknowledgements]]
 schema_version = 1
 id = "RISK_ACK_43FA2478A1FC0EC19A1A414FA07108D017BFCD68BABAC5956D968820ED3071F1"
@@ -81784,3 +81337,450 @@ reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-23"
 expires_on = "2027-07-23"
 rationale = "The OPC UA worker/cache boundary owns live session, freshness, PLC input, and queued-output authority; its state and fault paths require explicit review."
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_0858AB2917992A29F6C9AD9E43116B381D78F47216329AAEE6F435EEB4A36D5E"
+code_id = "CODE_0858AB2917992A29F6C9AD9E43116B381D78F47216329AAEE6F435EEB4A36D5E"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:f6a6b795d005757dccdf7e992990dff2913843d3f443f3129023658ddb89139b"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2026-10-23"
+rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_0CEAB113FEBF807551DEECDCD7D4F11D873DB037645806F4806463386A9D066E"
+code_id = "CODE_0CEAB113FEBF807551DEECDCD7D4F11D873DB037645806F4806463386A9D066E"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:7e0da1ec1df8e130ce53194c21642f44138f604986361a6e6aaa0518139ce1af"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2026-10-23"
+rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_1618AA0C005CA86D1ABC0D552DEC12D53AA769F80D20AD184B1D8C2E0CB94FF0"
+code_id = "CODE_1618AA0C005CA86D1ABC0D552DEC12D53AA769F80D20AD184B1D8C2E0CB94FF0"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:c735811dfcebfd767a94c7af2403b88c788421bda3db8d1aee83a70f7012448a"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2026-10-23"
+rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_1746BCD555E7EB1B0EF7C6ED8411760AD91BFB0283545F4A445869FE43A12ADB"
+code_id = "CODE_1746BCD555E7EB1B0EF7C6ED8411760AD91BFB0283545F4A445869FE43A12ADB"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:144df18df843aea472c7118af472721b13023bf3a6cd75775f6de66aaae6592d"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2026-10-23"
+rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_207098E26CD4961621D0287E3F8E321A7837628A1F30EB8475C8BA64D1F14725"
+code_id = "CODE_207098E26CD4961621D0287E3F8E321A7837628A1F30EB8475C8BA64D1F14725"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:3cd55080b7804273b77ad0f559f8a798e79384bf9006fe8e8ed42f59aab9e2b6"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2026-10-23"
+rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_28BA5992848BD4765027C86AB740164D57DAB0AA57D09610631A6030F09EE2E1"
+code_id = "CODE_28BA5992848BD4765027C86AB740164D57DAB0AA57D09610631A6030F09EE2E1"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:59f6422fcf6483063066e9ca81416b070adf23a57f2ee277423728cfdbd64e17"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2026-10-23"
+rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_3D6462D47CFFF7B1000B05D27F899B1F5EDEF8A162D2F8731D2FF6EE4FB9E6C3"
+code_id = "CODE_3D6462D47CFFF7B1000B05D27F899B1F5EDEF8A162D2F8731D2FF6EE4FB9E6C3"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:ec7a1adbc4ec5e97f24eda030795d185c9a9c8c3320924cf5284956343eac706"
+risk_signals = ["broad_error_suppression", "host_time"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2026-10-23"
+rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_4FEFB0E1E629FF5DC97DD9439CCF5D2D91DBAF540AB2F9F776DBACD1A2937709"
+code_id = "CODE_4FEFB0E1E629FF5DC97DD9439CCF5D2D91DBAF540AB2F9F776DBACD1A2937709"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:0b38bc2974fc184256767a6edfb80e487c911bd3793eef1759abf0e557da1e0b"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2026-10-23"
+rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_536362610C50BFEF39E9396D6DA8E239CC7D8E72FBBD9556717F37201C62A816"
+code_id = "CODE_536362610C50BFEF39E9396D6DA8E239CC7D8E72FBBD9556717F37201C62A816"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:99746b088c9f2835ee384d81f4c0d916f5481e51f4a3957388e07586e61c0703"
+risk_signals = ["fault_mapping"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2026-10-23"
+rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_55F48662EF18127C035FE0C14A30A9F778521EC043F9A2CFC10C811DFD4ABF89"
+code_id = "CODE_55F48662EF18127C035FE0C14A30A9F778521EC043F9A2CFC10C811DFD4ABF89"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:80862550ee4a3cafbe96d6003ec9b5d245c6ecc4dad9771177623c44e8790162"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2026-10-23"
+rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_7046E3285C3BF408CC87DB84C5B16E4ABDCAF73269763223E414F12ED628245F"
+code_id = "CODE_7046E3285C3BF408CC87DB84C5B16E4ABDCAF73269763223E414F12ED628245F"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:275db01f4e5c292724de9e91053b632784cfdc6a0b9628ca1a2c81c1989121eb"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2026-10-23"
+rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_7C1FC12DA7F6903E7F6131C1C268F8FB824A7F8B30322FA1E406DFB940FA1638"
+code_id = "CODE_7C1FC12DA7F6903E7F6131C1C268F8FB824A7F8B30322FA1E406DFB940FA1638"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:524264bece56f4a60bf69aab928ff96e0dde8b3707de7b00dc5de12cfd014593"
+risk_signals = ["fault_mapping", "state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2026-10-23"
+rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_7F086B00F8A732D6C87BDEA9B64D181A8D0B93515F18159A63D12405F46AF432"
+code_id = "CODE_7F086B00F8A732D6C87BDEA9B64D181A8D0B93515F18159A63D12405F46AF432"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:07e1b961c2c9a0ba8de42d65a3eb9bfbefa0dbd01d13c751a02aaebb52c5bb83"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2026-10-23"
+rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_935C8BDF91E16380E922723FDDBDCF29C25381F1C77848DA013F2B403CE984DD"
+code_id = "CODE_935C8BDF91E16380E922723FDDBDCF29C25381F1C77848DA013F2B403CE984DD"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:8de1b1a78772615c706679bc43cc6f1b6b1ece4c11007ae6d9f1a26ac7fa490c"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2026-10-23"
+rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_A1CB14A8D05AFFC99108C992FAD6BBFEE7E256999E320BBAC7BD3CA914E0008E"
+code_id = "CODE_A1CB14A8D05AFFC99108C992FAD6BBFEE7E256999E320BBAC7BD3CA914E0008E"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:99f3f8d38002bdc830f27ed8659086ea35222a9116a1d200ca8e3fa45a203872"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2026-10-23"
+rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_A7097151A25FA7D5A515D151431BE3A889969614D276E405B3EC6B3972660140"
+code_id = "CODE_A7097151A25FA7D5A515D151431BE3A889969614D276E405B3EC6B3972660140"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:019f5cf3f6772b73f9d881dfd8a461d663afce78e366616a34bfdac653675305"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2026-10-23"
+rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_AB424615997D7C47C2B32BAAFBBF134608F56CD7155CD1801229BA4BB183B09B"
+code_id = "CODE_AB424615997D7C47C2B32BAAFBBF134608F56CD7155CD1801229BA4BB183B09B"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:5f26d6da7e805a25dfe17b5888d052b30024967bead242f27e4b38f5bd16d6c3"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2026-10-23"
+rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_ABDC3232357E8532D39B921877573456A80E8D55F3A6728893C54237078A3955"
+code_id = "CODE_ABDC3232357E8532D39B921877573456A80E8D55F3A6728893C54237078A3955"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:d8ca29223c6d7b90822ea3581b4f5206dedba2b3c6a9d48252d38842aa3206d6"
+risk_signals = ["broad_error_suppression", "state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2026-10-23"
+rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_B9C577CA08FC237EC1F6E1E84B1FFC323DECD375EEB9856C8F0637385010D717"
+code_id = "CODE_B9C577CA08FC237EC1F6E1E84B1FFC323DECD375EEB9856C8F0637385010D717"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:304875145e2e9c26707d41acd9aecfb92474dc949afae302aefe7c8402c7c07d"
+risk_signals = ["protocol_response_or_status"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2026-10-23"
+rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_BB6818518626071115CD524BB71C94B9FEDE81C0DE91497A279E3A8051AE21EA"
+code_id = "CODE_BB6818518626071115CD524BB71C94B9FEDE81C0DE91497A279E3A8051AE21EA"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:4d035629291798b606239dcb6d3e1f0066eb92f67adfbd7194f2c73288ed156b"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2026-10-23"
+rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_BE620D17AE0CF1E90F335A770D2C02D93C49B4870091141AA72EE3992CA30514"
+code_id = "CODE_BE620D17AE0CF1E90F335A770D2C02D93C49B4870091141AA72EE3992CA30514"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:000bcd3e4c98b75a3c6531c4ca8d3f5e81bbb4b0a05f026cd15d9bcc5a9e42ca"
+risk_signals = ["fault_mapping"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2026-10-23"
+rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_C0B6D89C76B731E7FF54C6C73645FA5DD2AC1DFEE446F11A9448AC175C51D4C4"
+code_id = "CODE_C0B6D89C76B731E7FF54C6C73645FA5DD2AC1DFEE446F11A9448AC175C51D4C4"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:73618f8d48beb47c44f99196cd2ffd6dc9a8e2a69b0875de70a9963d836ac469"
+risk_signals = ["fault_mapping", "state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2026-10-23"
+rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_C5EB03C28D27F9A47CDD9B6325D0007CDEC313B023C80C274C6111D29EB14E9D"
+code_id = "CODE_C5EB03C28D27F9A47CDD9B6325D0007CDEC313B023C80C274C6111D29EB14E9D"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:813d4c3820d9389f1cb5e70956b6d965296e3cb5fc37a48382c82d626cf93ed0"
+risk_signals = ["broad_error_suppression", "state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2026-10-23"
+rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_CD3CD5DA09B62A3224B2BD05FAD188B81D44B9F8B303673FA1D99144789D7DDF"
+code_id = "CODE_CD3CD5DA09B62A3224B2BD05FAD188B81D44B9F8B303673FA1D99144789D7DDF"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:810e6248821516160e23837b8ca54e5246229ad86759322447826b9be0dc65a0"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2026-10-23"
+rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_CE80CEF15257E3D785FF1B42E9AB25A76CA3666F96421C048E42947581596D46"
+code_id = "CODE_CE80CEF15257E3D785FF1B42E9AB25A76CA3666F96421C048E42947581596D46"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:40cc12a020488ac5a193e53cbed667936795aa13ca3c3aea2f931cb5a143da0f"
+risk_signals = ["fault_mapping"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2026-10-23"
+rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_DDF10249904B774A0C8D6ACA30CADD4BB58E65C374FE9E99B69DFB9FC2C49ED5"
+code_id = "CODE_DDF10249904B774A0C8D6ACA30CADD4BB58E65C374FE9E99B69DFB9FC2C49ED5"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:21f37aed49e2ae1ccc18038add9ed8538a00bd99cc130bb6033e390417f193bf"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2026-10-23"
+rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_E02BDE14BA1870540F12C79B701C76AF3B08929419DA7574A93A9FD1B5AAF045"
+code_id = "CODE_E02BDE14BA1870540F12C79B701C76AF3B08929419DA7574A93A9FD1B5AAF045"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:d9310a14a1a8c6ae6a83c12cef92874f96c370a7cad7dd5a3920eb1ed7694cae"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2026-10-23"
+rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_E74DE0B235BF9305DDD790CAF39D59E79F256A526D05D33861EDDB249D7CA5E6"
+code_id = "CODE_E74DE0B235BF9305DDD790CAF39D59E79F256A526D05D33861EDDB249D7CA5E6"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:90a5467e0548a602998e61458fbea2e7ec3cdf14680439a44f86f4ed0bdf6680"
+risk_signals = ["fault_mapping", "state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2026-10-23"
+rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_EDCC0238C8E7D03253535403A83A7863D40BC702AC01352E6A402A0A1D2C861E"
+code_id = "CODE_EDCC0238C8E7D03253535403A83A7863D40BC702AC01352E6A402A0A1D2C861E"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:bf9beb8201f26062c695a4d0b740ee50e31459b2bf6539aa6968ec4b6696c4cb"
+risk_signals = ["fault_mapping"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2026-10-23"
+rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_EDEFB04864D226B99601AD07E72ECDBD60C3B389BFE406A6DEBF892A256E4D74"
+code_id = "CODE_EDEFB04864D226B99601AD07E72ECDBD60C3B389BFE406A6DEBF892A256E4D74"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:b23aeaa94d3a813cf9bd806cda371114b868458099529824aa581b5f942dc44b"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2026-10-23"
+rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_EE1A9B84D13C5989AA6026B4E83BC4EF71AB3E8CED666638E30703F6E93EF5D6"
+code_id = "CODE_EE1A9B84D13C5989AA6026B4E83BC4EF71AB3E8CED666638E30703F6E93EF5D6"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:762dfa240284f3f22e757c7838950409bb62f2ffd248933d01b5a9e47acefbdb"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2026-10-23"
+rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_F7BB22F5C066DF30854A7EC6185FF8CF9FEC54FA56B149CF83C28DE3EA403301"
+code_id = "CODE_F7BB22F5C066DF30854A7EC6185FF8CF9FEC54FA56B149CF83C28DE3EA403301"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:053d40212aea05372cabcdab1230286cde53e8d8167cd3e8d768f94bb6b1cae5"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2026-10-23"
+rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."

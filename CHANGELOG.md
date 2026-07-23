@@ -22,8 +22,9 @@ Target release: `v0.24.54`
   handle, poll, subscription, and notification responses before publishing
   authority; rebuild symbol-derived state only from stable token-bracketed
   candidates; preserve newer generation-tagged output intent across older
-  completions and error projection; reject non-finite output values before the
-  shared queue; and revoke cached input authority during prompt shutdown.
+  completions and error projection; terminally retire only the correlated
+  rejected generation; reject non-finite output values before the shared queue;
+  and revoke cached input authority during prompt shutdown.
 - trust-runtime: active ADS device lookup now requires an IP-literal route's
   host, AMS port, and supplied target AMS identity to identify the same Doctor
   target instead of accepting a partial endpoint match.
