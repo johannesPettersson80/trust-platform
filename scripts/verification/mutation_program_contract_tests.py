@@ -84,8 +84,8 @@ class MutationProgramContractTests(unittest.TestCase):
 
     def test_measured_source_shard_requires_its_bound_artifact(self) -> None:
         shards = copy.deepcopy(self.program["shards"])
-        shards[1]["execution_status"] = "measured"
-        shards[1]["result_artifact_path"] = (
+        retain_shard_id = "MUTATION_SHARD_RETAIN_RESTART_001"
+        shards[4]["result_artifact_path"] = (
             "docs/internal/testing/evidence/plc-verification-program/2026-07-16/"
             "missing-focused-mutation.json"
         )
@@ -95,6 +95,58 @@ class MutationProgramContractTests(unittest.TestCase):
         self.assertTrue(
             any("focused mutation artifact cannot be loaded" in item for item in failures),
             failures,
+        )
+
+        exempt_failures: list[str] = []
+        contract_module._validate_focused_shards(
+            ROOT,
+            shards,
+            exempt_failures,
+            artifact_exempt_shard_id=retain_shard_id,
+        )
+        self.assertFalse(
+            any(retain_shard_id in item for item in exempt_failures),
+            exempt_failures,
+        )
+
+        shards[1]["result_artifact_path"] = (
+            "docs/internal/testing/evidence/plc-verification-program/2026-07-16/"
+            "missing-unrelated-focused-mutation.json"
+        )
+        unrelated_failures: list[str] = []
+        contract_module._validate_focused_shards(
+            ROOT,
+            shards,
+            unrelated_failures,
+            artifact_exempt_shard_id=retain_shard_id,
+        )
+        self.assertTrue(
+            any("MUTATION_SHARD_RUNTIME_VALUE_CONVERSION_001" in item for item in unrelated_failures),
+            unrelated_failures,
+        )
+
+        preexecution = copy.deepcopy(self.program)
+        preexecution["survivor_resolutions"] = [
+            {
+                "shard_id": retain_shard_id,
+                "mutation_id": "MUTANT_RETAIN_ON_WARM_FALSE",
+                "owner": "trust-runtime",
+                "action": "add_test",
+                "resolution_status": "resolved",
+                "rationale": "A stale selected-shard resolution cannot survive re-execution.",
+                "resolution_ref": "crates/trust-runtime/tests/runtime_restart.rs",
+            }
+        ]
+        preexecution_failures = (
+            contract_module.validate_mutation_program_for_shard_execution(
+                ROOT,
+                preexecution,
+                retain_shard_id,
+            )
+        )
+        self.assertTrue(
+            any("match measured survivors exactly" in item for item in preexecution_failures),
+            preexecution_failures,
         )
 
     def test_each_mutant_partitions_the_reviewed_associations_exactly(self) -> None:

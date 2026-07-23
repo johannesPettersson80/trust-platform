@@ -98,6 +98,7 @@ MUTATION_FIELDS = {
     "test_command",
     "association_ids",
 }
+GENERATED_MUTATION_FIELDS = {"source_digest", "selector_name"}
 ASSOCIATION_FIELDS = {"id_kind", "id", "source_kind", "path", "name", "ignore_state"}
 SURVIVOR_RESOLUTION_FIELDS = {
     "shard_id",
@@ -113,11 +114,9 @@ SURVIVOR_RESOLUTION_FIELDS = {
 def _mutation(
     mutation_id: str,
     source_file: str,
-    source_digest: str,
     function: str,
     genre: str,
     replacement: str,
-    selector_name: str,
     build_command: list[str],
     test_command: list[str],
     association_ids: list[str],
@@ -125,11 +124,9 @@ def _mutation(
     return {
         "id": mutation_id,
         "source_file": source_file,
-        "source_digest": source_digest,
         "function": function,
         "genre": genre,
         "replacement": replacement,
-        "selector_name": selector_name,
         "build_command": build_command,
         "test_command": test_command,
         "association_ids": association_ids,
@@ -148,11 +145,9 @@ REVIEWED_SHARDS: dict[str, dict[str, Any]] = {
             _mutation(
                 "MUTANT_VALIDATE_INSTRUCTION_STREAM_BYPASS",
                 "crates/trust-runtime/src/bytecode/validate/pou_and_instr.rs",
-                "sha256:5f31346110fd936a1677a1a3a5ef8c88ad389877f782677227927e13acb520de",
                 "validate_instruction_stream",
                 "FnValue",
                 "Ok(())",
-                "pou_and_instr.rs:152:5: replace validate_instruction_stream -> Result<(), BytecodeError> with Ok(())",
                 ["cargo", "test", "-p", "trust-runtime", "--test", "bytecode_validation", "--no-run"],
                 ["cargo", "test", "-p", "trust-runtime", "--test", "bytecode_validation"],
                 [
@@ -165,11 +160,9 @@ REVIEWED_SHARDS: dict[str, dict[str, Any]] = {
             _mutation(
                 "MUTANT_VALIDATE_STACK_SHAPE_BYPASS",
                 "crates/trust-runtime/src/bytecode/validate/stack_shape.rs",
-                "sha256:f397f8ac7876602ba9d29423fa424b7ea36bed4b211476a11354b2cbc97646d8",
                 "validate_stack_shape",
                 "FnValue",
                 "Ok(())",
-                "stack_shape.rs:15:5: replace validate_stack_shape -> Result<(), BytecodeError> with Ok(())",
                 ["cargo", "test", "-p", "trust-runtime", "--test", "bytecode_vm_core", "--no-run"],
                 [
                     "cargo", "test", "-p", "trust-runtime", "--test", "bytecode_vm_core",
@@ -191,11 +184,9 @@ REVIEWED_SHARDS: dict[str, dict[str, Any]] = {
             _mutation(
                 "MUTANT_RUNTIME_CONVERT_VALUE_IDENTITY_COMPARISON",
                 "crates/trust-runtime/src/stdlib/conversions/dispatch.rs",
-                "sha256:fb2e1b934cdb72c148901935fb8fd66c395b9edcb1d4bb1fe29d31cac1a17c27",
                 "convert_value",
                 "BinaryOperator",
                 "!=",
-                "dispatch.rs:78:16: replace == with != in convert_value",
                 ["cargo", "test", "-p", "trust-runtime", "--test", "stdlib_conv", "--no-run"],
                 [
                     "cargo", "test", "-p", "trust-runtime", "--test", "stdlib_conv",
@@ -217,11 +208,9 @@ REVIEWED_SHARDS: dict[str, dict[str, Any]] = {
             _mutation(
                 "MUTANT_HIR_SUBRANGE_DIAGNOSTIC_NOOP",
                 "crates/trust-hir/src/type_check/stmt_impl_part_04.rs",
-                "sha256:e4baaa08b5483cb98da84f5737e0daa825cbb12ba7569382df7f9c69f8b45c9f",
                 "StmtChecker<'a, 'b>::check_subrange_assignment",
                 "FnValue",
                 "()",
-                "stmt_impl_part_04.rs:226:9: replace StmtChecker<'a, 'b>::check_subrange_assignment with ()",
                 ["cargo", "test", "-p", "trust-hir", "--test", "semantic_type_checking", "--no-run"],
                 [
                     "cargo", "test", "-p", "trust-hir", "--test", "semantic_type_checking",
@@ -243,11 +232,9 @@ REVIEWED_SHARDS: dict[str, dict[str, Any]] = {
             _mutation(
                 "MUTANT_PARSER_RECOVERY_EOF_COMPARISON",
                 "crates/trust-syntax/src/parser/parser.rs",
-                "sha256:a680fa3c0f6b17db3653e5274f29664e31f79cc197ac4672a28d64fe23978a2d",
                 "Parser<'t, 'src>::recover_top_level_until",
                 "BinaryOperator",
                 "!=",
-                "parser.rs:238:21: replace == with != in Parser<'t, 'src>::recover_top_level_until",
                 ["cargo", "test", "-p", "trust-syntax", "--lib", "--no-run"],
                 [
                     "cargo", "test", "-p", "trust-syntax", "--lib",
@@ -270,11 +257,9 @@ REVIEWED_SHARDS: dict[str, dict[str, Any]] = {
             _mutation(
                 "MUTANT_RETAIN_ON_WARM_FALSE",
                 "crates/trust-runtime/src/runtime/restart.rs",
-                "sha256:57c2c9eb5b30ee00aff10653037975a38a528afb84c6485366fce8cb140f5808",
                 "retain_on_warm",
                 "FnValue",
                 "false",
-                "restart.rs:686:5: replace retain_on_warm -> bool with false",
                 ["cargo", "test", "-p", "trust-runtime", "--test", "runtime_restart", "--no-run"],
                 [
                     "cargo", "test", "-p", "trust-runtime", "--test", "runtime_restart",
@@ -297,11 +282,9 @@ REVIEWED_SHARDS: dict[str, dict[str, Any]] = {
             _mutation(
                 "MUTANT_ADS_STATUS_DEGRADED_COMPARISON",
                 "crates/trust-runtime/src/connectors/mapping.rs",
-                "sha256:94cb6e7991023e43eea005e5d0048281893da29a3b157debaaaf089cb858eb60",
                 "ads_connection_status_state",
                 "BinaryOperator",
                 "!=",
-                "mapping.rs:163:64: replace == with != in ads_connection_status_state",
                 ["cargo", "build", "-p", "trust-runtime", "--bin", "trust-runtime"],
                 [
                     "{delivered_binary}", "conformance", "--suite-root", "conformance", "--filter",
@@ -351,6 +334,31 @@ def load_mutation_program(root: Path) -> dict[str, Any]:
 def validate_mutation_program_contract(root: Path, program: Any) -> list[str]:
     """Validate the closed manifest without invoking cargo-mutants."""
 
+    return _validate_mutation_program_contract(root, program)
+
+
+def validate_mutation_program_for_shard_execution(
+    root: Path,
+    program: Any,
+    shard_id: str,
+) -> list[str]:
+    """Validate pre-execution state while exempting only the artifact being replaced."""
+
+    if shard_id not in REQUIRED_SHARD_IDS[1:5]:
+        return [f"mutation shard {shard_id} is outside the reviewed source-runner set"]
+    return _validate_mutation_program_contract(
+        root,
+        program,
+        artifact_exempt_shard_id=shard_id,
+    )
+
+
+def _validate_mutation_program_contract(
+    root: Path,
+    program: Any,
+    *,
+    artifact_exempt_shard_id: str | None = None,
+) -> list[str]:
     failures: list[str] = []
     if not isinstance(program, Mapping):
         return ["mutation program root must be a table"]
@@ -387,7 +395,12 @@ def validate_mutation_program_contract(root: Path, program: Any) -> list[str]:
     for index, row in enumerate(shards):
         _validate_shard(root, row, index, invariants, failures)
     legacy_survivor_ids = _validate_legacy_shard(root, shards, failures)
-    focused_survivor_ids = _validate_focused_shards(root, shards, failures)
+    focused_survivor_ids = _validate_focused_shards(
+        root,
+        shards,
+        failures,
+        artifact_exempt_shard_id=artifact_exempt_shard_id,
+    )
     _validate_survivor_resolutions(
         root,
         program.get("survivor_resolutions"),
@@ -455,7 +468,14 @@ def _validate_shard(
         failures.append(f"mutation shard {label} is not reviewed")
         return
     for field, expected_value in expected.items():
-        if value.get(field) != expected_value:
+        if field == "mutations":
+            _validate_reviewed_mutations(
+                label,
+                value.get(field),
+                expected_value,
+                failures,
+            )
+        elif value.get(field) != expected_value:
             failures.append(f"mutation shard {label} {field} drifts from reviewed contract")
     if value.get("association_semantics") != "association_only_not_execution_claim":
         failures.append(f"mutation shard {label} must remain association-only")
@@ -514,6 +534,36 @@ def _validate_shard(
         if mutation_association_ids != association_ids:
             failures.append(
                 f"mutation shard {label} mutant association_ids must partition associated tests exactly"
+            )
+
+
+def _validate_reviewed_mutations(
+    shard_id: str,
+    actual: Any,
+    expected: Any,
+    failures: list[str],
+) -> None:
+    if not isinstance(actual, list) or not isinstance(expected, list):
+        failures.append(f"mutation shard {shard_id} mutations drift from reviewed contract")
+        return
+    if len(actual) != len(expected):
+        failures.append(f"mutation shard {shard_id} mutations drift from reviewed contract")
+        return
+    for index, (actual_row, expected_row) in enumerate(zip(actual, expected, strict=True)):
+        if not isinstance(actual_row, Mapping) or not isinstance(expected_row, Mapping):
+            failures.append(
+                f"mutation shard {shard_id} mutation[{index}] drifts from reviewed contract"
+            )
+            continue
+        actual_semantics = {
+            key: value
+            for key, value in actual_row.items()
+            if key not in GENERATED_MUTATION_FIELDS
+        }
+        if actual_semantics != expected_row:
+            mutation_id = actual_row.get("id", f"mutation[{index}]")
+            failures.append(
+                f"mutation shard {shard_id} {mutation_id} semantics drift from reviewed contract"
             )
 
 
@@ -631,6 +681,8 @@ def _validate_focused_shards(
     root: Path,
     shards: list[Any],
     failures: list[str],
+    *,
+    artifact_exempt_shard_id: str | None = None,
 ) -> set[tuple[str, str]]:
     survivors: set[tuple[str, str]] = set()
     for shard in shards[1:5]:
@@ -638,6 +690,8 @@ def _validate_focused_shards(
             continue
         shard_id = shard.get("id")
         label = shard_id if isinstance(shard_id, str) else "unknown focused shard"
+        if shard_id == artifact_exempt_shard_id:
+            continue
         artifact = _safe_tracked_file(
             root,
             shard.get("result_artifact_path"),
