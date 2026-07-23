@@ -13,6 +13,7 @@ import json
 import subprocess
 import sys
 import tomllib
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -106,7 +107,14 @@ from ..test_catalog_denominator import (
 )
 from ..test_catalog_intent import validate_catalog_intent
 from ..test_catalog_scanner import scan_repository
-from .mapping_metadata import validate_mapping_control_plane
+from .mapping_metadata import (
+    mapping_control_plane_state,
+    validate_mapping_control_plane,
+)
+from .mapping_schema_contracts import (
+    MAPPING_SCHEMA_FILES,
+    MAPPING_SCHEMA_REQUIRED_FIELDS,
+)
 from .evidence_records import validate_evidence_records
 from .integrity import (
     SPEC_GAP_RESOLUTION_STATUSES,
@@ -154,6 +162,7 @@ class Validator:
         self.test_catalog_denominator: dict[str, Any] = {}
         self.test_catalog_mapping_proposals: dict[str, Any] = {}
         self.test_catalog_mapping_decisions: dict[str, Any] = {}
+        self.test_catalog_mapping_control_plane_initialized = False
         self.fuzz_program: dict[str, Any] = {}
         self.fuzz_crash_registry: dict[str, Any] = {}
         self.mutation_program: dict[str, Any] = {}
@@ -232,7 +241,12 @@ class Validator:
 
     def load_json_schemas(self) -> None:
         schema_dir = VERIFICATION / "schemas"
-        for name in sorted(SCHEMA_FILES):
+        schema_files = SCHEMA_FILES | MAPPING_SCHEMA_FILES
+        required_fields = {
+            **SCHEMA_REQUIRED_FIELDS,
+            **MAPPING_SCHEMA_REQUIRED_FIELDS,
+        }
+        for name in sorted(schema_files):
             path = schema_dir / name
             if not path.exists():
                 self.fail(path, "schema file missing")
@@ -247,7 +261,7 @@ class Validator:
                     self.fail(path, f"schema missing {field}")
             if data.get("type") != "object":
                 self.fail(path, "schema root type must be object")
-            if data.get("required") != SCHEMA_REQUIRED_FIELDS[name]:
+            if data.get("required") != required_fields[name]:
                 self.fail(path, "schema required fields drift from validator contract")
             for failure in validate_schema_enums(name, data):
                 self.fail(path, failure)
@@ -308,12 +322,19 @@ class Validator:
             self.test_catalog_denominator = load_test_catalog_denominator(ROOT)
         except Exception as exc:
             self.fail(ROOT / TEST_CATALOG_DENOMINATOR_PATH, f"load failed: {exc}")
-        self.test_catalog_mapping_proposals = self.load_toml(
-            VERIFICATION / "test-catalog-proposals.toml"
-        )
-        self.test_catalog_mapping_decisions = self.load_toml(
-            VERIFICATION / "test-catalog-mapping-decisions.toml"
-        )
+        (
+            self.test_catalog_mapping_control_plane_initialized,
+            mapping_presence_failures,
+        ) = mapping_control_plane_state(ROOT)
+        for path, message in mapping_presence_failures:
+            self.fail(ROOT / path, message)
+        if self.test_catalog_mapping_control_plane_initialized:
+            self.test_catalog_mapping_proposals = self.load_toml(
+                VERIFICATION / "test-catalog-proposals.toml"
+            )
+            self.test_catalog_mapping_decisions = self.load_toml(
+                VERIFICATION / "test-catalog-mapping-decisions.toml"
+            )
         try:
             self.fuzz_program = load_fuzz_program(ROOT)
         except Exception as exc:
@@ -446,40 +467,41 @@ class Validator:
             self.test_catalog_denominator, schema=denominator_schema
         ):
             self.fail(ROOT / TEST_CATALOG_DENOMINATOR_PATH, failure)
-        try:
-            mapping_scan = scan_repository(ROOT)
-        except Exception as exc:
-            self.fail(
-                VERIFICATION / "test-catalog-proposals.toml",
-                f"live mapping scan failed: {exc}",
-            )
-        else:
-            mapping_facts = {
-                fact.stable_id: {
-                    "discovery_id": fact.stable_id,
-                    "discovery_source_kind": fact.source_kind,
-                    "path": fact.path,
-                    "name": fact.name,
-                    "ignore_state": fact.ignore_state,
+        if self.test_catalog_mapping_control_plane_initialized:
+            try:
+                mapping_scan = scan_repository(ROOT)
+            except Exception as exc:
+                self.fail(
+                    VERIFICATION / "test-catalog-proposals.toml",
+                    f"live mapping scan failed: {exc}",
+                )
+            else:
+                mapping_facts = {
+                    fact.stable_id: {
+                        "discovery_id": fact.stable_id,
+                        "discovery_source_kind": fact.source_kind,
+                        "path": fact.path,
+                        "name": fact.name,
+                        "ignore_state": fact.ignore_state,
+                    }
+                    for fact in mapping_scan.inferred_facts
                 }
-                for fact in mapping_scan.inferred_facts
-            }
-            denominator_reviews = {
-                str(review["discovery_id"]): review
-                for review in self.test_catalog_denominator.get("reviews", [])
-                if isinstance(review, Mapping)
-                and isinstance(review.get("discovery_id"), str)
-            }
-            for failure in validate_mapping_control_plane(
-                root=ROOT,
-                proposal_document=self.test_catalog_mapping_proposals,
-                decision_document=self.test_catalog_mapping_decisions,
-                facts=mapping_facts,
-                tests=self.tests,
-                denominator_reviews=denominator_reviews,
-                invariants=self.invariants,
-            ):
-                self.fail(VERIFICATION / "test-catalog-proposals.toml", failure)
+                denominator_reviews = {
+                    str(review["discovery_id"]): review
+                    for review in self.test_catalog_denominator.get("reviews", [])
+                    if isinstance(review, Mapping)
+                    and isinstance(review.get("discovery_id"), str)
+                }
+                for failure in validate_mapping_control_plane(
+                    root=ROOT,
+                    proposal_document=self.test_catalog_mapping_proposals,
+                    decision_document=self.test_catalog_mapping_decisions,
+                    facts=mapping_facts,
+                    tests=self.tests,
+                    denominator_reviews=denominator_reviews,
+                    invariants=self.invariants,
+                ):
+                    self.fail(VERIFICATION / "test-catalog-proposals.toml", failure)
         for failure in validate_fuzz_program_contract(ROOT, self.fuzz_program):
             self.fail(ROOT / FUZZ_PROGRAM_PATH, failure)
         for failure in validate_crash_registry(

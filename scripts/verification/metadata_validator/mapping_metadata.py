@@ -17,6 +17,8 @@ PROPOSAL_SCHEMA_PATH = Path("verification/schemas/test-catalog-proposals.schema.
 DECISION_SCHEMA_PATH = Path(
     "verification/schemas/test-catalog-mapping-decisions.schema.json"
 )
+PROPOSAL_PATH = Path("verification/test-catalog-proposals.toml")
+DECISION_PATH = Path("verification/test-catalog-mapping-decisions.toml")
 CATALOG_PROVENANCE_FIELDS = frozenset(
     {
         "mapping_proposal_id",
@@ -24,6 +26,25 @@ CATALOG_PROVENANCE_FIELDS = frozenset(
         "mapping_decision_id",
     }
 )
+
+
+def mapping_control_plane_state(
+    root: Path,
+) -> tuple[bool, list[tuple[Path, str]]]:
+    """Allow an uninitialized pair, but reject every one-sided control plane."""
+
+    proposal_exists = (root / PROPOSAL_PATH).is_file()
+    decision_exists = (root / DECISION_PATH).is_file()
+    if proposal_exists == decision_exists:
+        return proposal_exists, []
+    missing = DECISION_PATH if proposal_exists else PROPOSAL_PATH
+    present = PROPOSAL_PATH if proposal_exists else DECISION_PATH
+    return False, [
+        (
+            missing,
+            f"mapping control plane is incomplete: {present} exists without {missing}",
+        )
+    ]
 
 
 def validate_mapping_control_plane(

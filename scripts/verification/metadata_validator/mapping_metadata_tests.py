@@ -3,12 +3,21 @@
 from __future__ import annotations
 
 import hashlib
+import tempfile
 import unittest
 from pathlib import Path
 
 from scripts.verification.metadata_validator.mapping_metadata import (
+    DECISION_PATH,
+    PROPOSAL_PATH,
+    mapping_control_plane_state,
     validate_mapping_control_plane,
 )
+from scripts.verification.metadata_validator.mapping_schema_contracts import (
+    MAPPING_SCHEMA_FILES,
+    MAPPING_SCHEMA_REQUIRED_FIELDS,
+)
+from scripts.verification.metadata_validator.constants import SCHEMA_FILES
 from scripts.verification.mapping_review import build_mapping_decision
 
 
@@ -139,6 +148,35 @@ def _invariants() -> dict[str, dict[str, object]]:
 
 
 class MappingMetadataTests(unittest.TestCase):
+    def test_mapping_schema_registry_is_separate_from_case_generator_constants(
+        self,
+    ) -> None:
+        self.assertEqual(
+            MAPPING_SCHEMA_FILES,
+            frozenset(MAPPING_SCHEMA_REQUIRED_FIELDS),
+        )
+        self.assertTrue(MAPPING_SCHEMA_FILES.isdisjoint(SCHEMA_FILES))
+
+    def test_uninitialized_control_plane_requires_neither_file(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self.assertEqual((False, []), mapping_control_plane_state(root))
+
+    def test_initialized_control_plane_requires_both_files(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / PROPOSAL_PATH).parent.mkdir(parents=True)
+            (root / PROPOSAL_PATH).touch()
+
+            initialized, failures = mapping_control_plane_state(root)
+
+            self.assertFalse(initialized)
+            self.assertEqual(DECISION_PATH, failures[0][0])
+            self.assertIn("exists without", failures[0][1])
+
+            (root / DECISION_PATH).touch()
+            self.assertEqual((True, []), mapping_control_plane_state(root))
+
     def validate(
         self,
         *,
