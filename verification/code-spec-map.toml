@@ -172332,23 +172332,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_05B03AE8F71FC0AF8ED2EFB4AF0DBA19FC7B5CB38F94E239450342F965121892"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/contracts.rs"
-qualified_symbol = "trust_runtime::ads::contracts::parse_access"
-item_kind = "rust_function"
-signature_digest = "sha256:851ac4cc6520bfc6d7dd9c9796328d94a99433ac67d6614ecee52e7721b39738"
-reviewed_body_digest = "sha256:20c516ac40045932d03515aea6184fdce38ab0db57b2bf2ece658caf7765ac91"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_061182CB87827D7C4E5F8F8FEDC721031E9F131DEBF76C01728239427D8C70F4"
 source_kind = "rust"
 path = "crates/trust-ads-server/fuzz/fuzz_targets/command_dispatch.rs"
@@ -172379,25 +172362,6 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_06C3A8E7562B7B8AA6733C1F1578E4973875B7D094A1E584298684CED643F06E"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/contracts.rs"
-qualified_symbol = "trust_runtime::ads::contracts::parse_address"
-item_kind = "rust_function"
-signature_digest = "sha256:3c12a708450bcf0c25ec784f1616612f2aed55248f822c57361610093ca25b94"
-reviewed_body_digest = "sha256:e6fc06b93bd415864383e24e3af6a7994b770c2d3e989c4aeccfa4209966181b"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = ["broad_error_suppression"]
-owner_ack = "RISK_ACK_06C3A8E7562B7B8AA6733C1F1578E4973875B7D094A1E584298684CED643F06E"
-owner_ack_expires_on = "2026-10-21"
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
 last_reviewed = "2026-07-21"
@@ -172507,25 +172471,6 @@ spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-command-dispatch-and-resource-saf
 invariant_ids = ["RT_ADS_SERVER_COMMAND_DISPATCH_001"]
 test_ids = ["TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ACCEPTS_BECKHOFF_DOTNET_V7_COMPACT_REQUEST_001", "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ACCEPTS_ONLINE_CHANGE_COUNT_HANDLE_AS_SYMBOL_VERSION_001", "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ACCEPTS_SMALLER_WATCH_AND_REJECTS_TOO_LARGE_WATCH_001", "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ACCEPTS_SUPPORTED_MODES_AND_DELETE_RELEASES_HANDLE_001", "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ACCEPTS_SYMBOL_VALUE_HANDLE_FOR_PYADS_001", "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ACCEPTS_SYMBOL_VERSION_WATCH_001", "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ACCEPTS_TASK_COUNT_HANDLE_AS_STATIC_SYSTEM_BYTES_001", "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ENFORCES_PER_CLIENT_LIMIT_001", "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_REQUIRES_RECEIVER_WITHOUT_ALLOCATING_HANDLE_001", "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_WRAPS_WITHOUT_REPLACING_LIVE_HANDLE_001", "TEST_ADS_SERVER_COMMAND_DELETE_NOTIFICATION_REJECTS_UNKNOWN_HANDLE_WITHOUT_MUTATION_001", "TEST_ADS_SERVER_COMMAND_DEVICE_DATA_TIME_BASE_READ_MATCHES_TWINCAT_PROBE_001", "TEST_ADS_SERVER_COMMAND_DEVICE_NOTIFICATION_PAYLOAD_MATCHES_WIRE_MATRIX_001", "TEST_ADS_SERVER_COMMAND_DIRECT_READ_HONORS_SMALLER_REQUESTED_LENGTH_001", "TEST_ADS_SERVER_COMMAND_DIRECT_READ_RETURNS_VALUE_BYTES_001", "TEST_ADS_SERVER_COMMAND_DIRECT_VALUE_READ_PADS_TO_REQUESTED_LENGTH_001", "TEST_ADS_SERVER_COMMAND_DIRECT_WRITE_ENFORCES_WRITE_BYTE_LIMIT_001", "TEST_ADS_SERVER_COMMAND_HANDLE_BY_NAME_ACCEPTS_SYMBOL_NAME_WITHOUT_NUL_TERMINATOR_001", "TEST_ADS_SERVER_COMMAND_HANDLE_BY_NAME_ENFORCES_HANDLE_LIMIT_001", "TEST_ADS_SERVER_COMMAND_HANDLE_BY_NAME_THEN_READ_BY_HANDLE_001", "TEST_ADS_SERVER_COMMAND_HANDLE_BY_NAME_WRAPS_WITHOUT_ALIASING_LIVE_HANDLES_001", "TEST_ADS_SERVER_COMMAND_INVALIDATED_NOTIFICATION_SAMPLE_HAS_ZERO_SIZE_DATA_001", "TEST_ADS_SERVER_COMMAND_MALFORMED_COMMAND_PAYLOADS_FAIL_WITHOUT_STATE_MUTATION_001", "TEST_ADS_SERVER_COMMAND_ONLINE_CHANGE_COUNT_HANDLE_BY_NAME_READS_SYMBOL_VERSION_001", "TEST_ADS_SERVER_COMMAND_ONLINE_CHANGE_COUNT_INFO_BY_NAME_EX_RETURNS_HIDDEN_SYSTEM_SYMBOL_001", "TEST_ADS_SERVER_COMMAND_POLICY_REJECTION_PRECEDES_WRITE_AND_RECORDS_AUDIT_001", "TEST_ADS_SERVER_COMMAND_RAW_TASK_INFO_BASE_ADDRESS_READS_FULL_TASK_INFO_BLOCK_001", "TEST_ADS_SERVER_COMMAND_RAW_TASK_INFO_BASE_ADDRESS_READS_OBJ_ID_PREFIX_FOR_SHORT_READ_001", "TEST_ADS_SERVER_COMMAND_READ_DEVICE_INFO_RESPONSE_IS_WIRE_SHAPED_001", "TEST_ADS_SERVER_COMMAND_READ_STATE_RESPONSE_IS_WIRE_SHAPED_AND_REJECTS_PAYLOAD_001", "TEST_ADS_SERVER_COMMAND_RELEASE_HANDLE_ACCEPTS_PAYLOAD_HANDLE_FORM_001", "TEST_ADS_SERVER_COMMAND_RELEASE_HANDLE_ACCEPTS_TWINCAT_INDEX_OFFSET_FORM_001", "TEST_ADS_SERVER_COMMAND_SUMUP_READWRITE_REJECTS_TRUNCATED_LATER_ITEM_BEFORE_ANY_WRITE_001", "TEST_ADS_SERVER_COMMAND_SUMUP_READWRITE_RETURNS_METADATA_THEN_CONCATENATED_DATA_001", "TEST_ADS_SERVER_COMMAND_SUMUP_READ_ENFORCES_ITEM_LIMIT_001", "TEST_ADS_SERVER_COMMAND_SUMUP_READ_EX_RETURNS_RESULT_LENGTHS_FOR_ADS_RS_READ_MULTI_001", "TEST_ADS_SERVER_COMMAND_SUMUP_READ_KEEPS_GOOD_ITEMS_WHEN_ONE_FAILS_001", "TEST_ADS_SERVER_COMMAND_SUMUP_WRITE_REJECTS_TRUNCATED_LATER_ITEM_BEFORE_ANY_WRITE_001", "TEST_ADS_SERVER_COMMAND_SUMUP_WRITE_RETURNS_PER_ITEM_RESULTS_001", "TEST_ADS_SERVER_COMMAND_SYMBOL_INFO_BY_NAME_EX_ACCEPTS_SYMBOL_NAME_WITHOUT_NUL_TERMINATOR_001", "TEST_ADS_SERVER_COMMAND_SYMBOL_INFO_BY_NAME_EX_RETURNS_ADS_SYMBOL_ENTRY_FOR_PYADS_CACHE_001", "TEST_ADS_SERVER_COMMAND_SYMBOL_INFO_BY_NAME_RETURNS_COMPACT_INDEX_AND_SIZE_TUPLE_FOR_ADS_RS_001", "TEST_ADS_SERVER_COMMAND_SYMBOL_VALUE_BY_NAME_PADS_VALUE_TO_REQUESTED_LENGTH_001", "TEST_ADS_SERVER_COMMAND_SYMBOL_VALUE_BY_NAME_RETURNS_TASK_COUNT_WITHOUT_NUL_TERMINATOR_001", "TEST_ADS_SERVER_COMMAND_SYMBOL_VERSION_READ_RETURNS_U32_VERSION_001", "TEST_ADS_SERVER_COMMAND_TASK_INFO_ADS_PORT_FIELD_REPORTS_RUNTIME_PORT_001", "TEST_ADS_SERVER_COMMAND_TASK_INFO_BLOCK_BY_NAME_RETURNS_FULL_STRUCT_BYTES_001", "TEST_ADS_SERVER_COMMAND_UNKNOWN_ADDRESS_DISTINGUISHES_GROUP_FROM_OFFSET_001", "TEST_ADS_SERVER_COMMAND_UNSUPPORTED_CONTROL_AND_INCOMING_NOTIFICATION_ARE_SIDE_EFFECT_FREE_001", "TEST_ADS_SERVER_COMMAND_UPLOAD_INFO2_PADS_TO_REQUESTED_LENGTH_FOR_ADS_RS_001", "TEST_ADS_SERVER_COMMAND_UPLOAD_INFO2_REPORTS_SYMBOL_AND_DATATYPE_TABLE_SIZES_001", "TEST_ADS_SERVER_COMMAND_WRITE_ENQUEUES_AND_AUDITS_WRITABLE_SYMBOL_001", "TEST_ADS_SERVER_COMMAND_WRITE_REJECTS_READONLY_SYMBOL_WITHOUT_RUNTIME_MUTATION_001"]
 last_reviewed = "2026-07-22"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_08EF36C732D2D19862C729AC92B06AACF12DF5F16BB56A12CA06638C20D0EB7B"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/contracts.rs"
-qualified_symbol = "trust_runtime::ads::contracts::parse_ads_toml"
-item_kind = "rust_function"
-signature_digest = "sha256:fa320d8f44082b3430eb5338eaedc589bdd6e64a81a23006aa497fa3e8f015d4"
-reviewed_body_digest = "sha256:9cdc6623bfbf7b5c14545c9be64aa5025dd5152790d28cb0f219ba8841f3e9d7"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "public"
-risk_signals = ["fault_mapping"]
-owner_ack = "RISK_ACK_08EF36C732D2D19862C729AC92B06AACF12DF5F16BB56A12CA06638C20D0EB7B"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
@@ -176321,23 +176266,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_2A5B0F12A2653867A754F6E726E1656A706498D1DECE21417A3B99D6C99D09F3"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/contracts.rs"
-qualified_symbol = "trust_runtime::ads::contracts::parse_transport"
-item_kind = "rust_function"
-signature_digest = "sha256:1da36f0864e520d1e72e262631ec216756d146ebc24567fd44631811021f5e62"
-reviewed_body_digest = "sha256:c69efd62cbbfa2156e5fb7398c898c7cd1c8fa8dedd29ce772ac4b7e77b072eb"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_2A5CE0AC6D5E42E5480DF5CD4BF8D5EDD59FC8FCA6E79DAFD6255428C34217FF"
 source_kind = "rust"
 path = "crates/trust-runtime/src/host/ads/onboarding/wire.rs"
@@ -176850,25 +176778,6 @@ last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_2ED1762E6F264A10D6AF15C78C31D05140CEE3177CCB162A852BEA0F7D55842E"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/contracts.rs"
-qualified_symbol = "trust_runtime::ads::contracts::parse_iec_type"
-item_kind = "rust_function"
-signature_digest = "sha256:b448d39a2eaca135e47e8b05e0525d0c8dea62e6db9abf5586bc99c37a085130"
-reviewed_body_digest = "sha256:b7d6f60ba926491eff276d8a88a9b9f78ad23c0e9ccc97a33e50b12f3343891c"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = ["fault_mapping"]
-owner_ack = "RISK_ACK_2ED1762E6F264A10D6AF15C78C31D05140CEE3177CCB162A852BEA0F7D55842E"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_2EDC5CBD9C797CA3436CB3812891F875795BD3DE5CA9F1ABFAC5BB942E204819"
 source_kind = "rust"
 path = "crates/trust-runtime/src/host/opcua/client_cache.rs"
@@ -177072,23 +176981,6 @@ reviewed_body_digest = "sha256:8829060acd0e8e6f54799fb0fe123b41c8e6899e75c88b976
 owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_318F62034ED2EB76D5CECEEACD28D00EA135A96408021ECBF21DB6326D198B02"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/contracts.rs"
-qualified_symbol = "trust_runtime::ads::contracts::invalid"
-item_kind = "rust_function"
-signature_digest = "sha256:c402a38964a7438a18527f4d028297379a9b80bc1fefe81ab1129e49974e5b94"
-reviewed_body_digest = "sha256:d12d0a9c614af4c8aeca5e130c80a2ad2c53b24a6f6199aaa6dfa7aaea98533c"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
 risk_signals = []
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
@@ -177846,23 +177738,6 @@ visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_38D736834DF0993048A9755536EA8295890F47D25475A6CACE2700ACBBC9579E"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_38D9A17AA3550FECDD89E2B4AE7EA093CEB99A40E87884E3272C6E47B00880F0"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/contracts.rs"
-qualified_symbol = "trust_runtime::ads::contracts::AdsClientConfig"
-item_kind = "rust_public_type"
-signature_digest = "sha256:093296c61ea563bd3335da8100a0ad4e4969f8fdb69756595f0bd8f81d355b98"
-reviewed_body_digest = "sha256:b54593e72290b7e7cfe733dc05b4283f8d7c011383cce804d8fd6e8a0e372d82"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "public"
-risk_signals = []
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
 last_reviewed = "2026-07-21"
@@ -180395,23 +180270,6 @@ spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-r
 invariant_ids = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
 test_ids = ["TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001", "TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001", "TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001", "TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001"]
 last_reviewed = "2026-07-22"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_4F71B10473B96F6BCF84EF7E86E068D3318297A68A4EECEFE76695BA20695CF6"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/contracts.rs"
-qualified_symbol = "trust_runtime::ads::contracts::ConnectionSection::into_config"
-item_kind = "rust_method"
-signature_digest = "sha256:ccf1bc5f17d1b731db3c5c097cb611d1feff060220b1bebac5731ffaad2ccc98"
-reviewed_body_digest = "sha256:db8bda6be2d9a2651243a184b89ec2c3790c657edffaa6ec8ff90ff7cfb36e49"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
@@ -183132,23 +182990,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_68AAB7888A805B7009763E009939FBB1A7C0D0327204A7235666F439FFC6B1BC"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/contracts.rs"
-qualified_symbol = "trust_runtime::ads::contracts::parse_data_type"
-item_kind = "rust_function"
-signature_digest = "sha256:7e866cfe958c0f5fcb5ffa7940861aedb3314464cb66237128336f462a6b28d7"
-reviewed_body_digest = "sha256:4487ff1b96797cc638c20fa9eb892001b1bbc2d3dabd5f52d51405905b558eec"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_68AEB9F7E9B482C7B856ED90B78D350250B2FB74E9F1D636578F4F0B42A6F683"
 source_kind = "rust"
 path = "crates/trust-ads-server/src/identify.rs"
@@ -183377,23 +183218,6 @@ reviewed_body_digest = "sha256:6ae5ecc6f52fed8e97056c64831496b7b0cd71265323571af
 owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_6ACCCE83543185A83D3F00969BCC3A55DE06628DBE3DF56A8E3D81AFC327EC1B"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/contracts.rs"
-qualified_symbol = "trust_runtime::ads::contracts::AdsConnectionConfig"
-item_kind = "rust_public_type"
-signature_digest = "sha256:1819b1034ffa0b9b15a7b7ce4bc480163305ec63af8c34ee2d596197e6ad22af"
-reviewed_body_digest = "sha256:89362fc06ae6ed1c36b8a625fb1dc652e7776bf11b63c34a18164c4952040eb3"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "public"
 risk_signals = []
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
@@ -184843,23 +184667,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_79DC5350B56F5CF7B94A0E4C7A6C1AC32C6F364C5FBBEA5FFCBD924E4110705E"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/contracts.rs"
-qualified_symbol = "trust_runtime::ads::contracts::AdsPointConfig"
-item_kind = "rust_public_type"
-signature_digest = "sha256:e2f1e59208685fff5df20f4af161e168bc70db3c0be3fdba1c7a85e30b19c762"
-reviewed_body_digest = "sha256:0800250d68d92a1fe7bdfdfc70f11649d71262b88031735a2420cd3e1ef653db"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "public"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_79E1AB29CDCF428873F033533E89892BA7F7E595C8592DE1019407BA154DD629"
 source_kind = "rust"
 path = "crates/trust-runtime/src/host/opcua/client_worker.rs"
@@ -185104,23 +184911,6 @@ visibility = "public"
 risk_signals = ["fault_mapping", "state_mutation"]
 owner_ack = "RISK_ACK_7C1FC12DA7F6903E7F6131C1C268F8FB824A7F8B30322FA1E406DFB940FA1638"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_7C208C1E164DDF297D320AD6E42447561D3C36A7B403F55D0EA802E137347E8A"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/contracts.rs"
-qualified_symbol = "trust_runtime::ads::contracts::parse_notification_mode"
-item_kind = "rust_function"
-signature_digest = "sha256:f3980ebf787e7ac3eaa46182146c78fa49f7787795797b3f017e7c76a1d4a9ab"
-reviewed_body_digest = "sha256:21658fa28ea8490ed10b2e646b38488fbb1d3c12ac58caccc3276e5bec3fa564"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
 last_reviewed = "2026-07-21"
@@ -186909,23 +186699,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_8D5BCDB44E46FA31AA627EF6DEFEB101ABCCC93D177B504CF28212DFFD5546C7"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/contracts.rs"
-qualified_symbol = "trust_runtime::ads::contracts::validate_ads_config_local_identity"
-item_kind = "rust_function"
-signature_digest = "sha256:3c3567f5cb77574f0cc8b01c1e89cb39ca91bdec3df9af293d25b8249b495f56"
-reviewed_body_digest = "sha256:bcad0cd68c94e2240fd9d652546222cb3586408dd8b41b37b173c233ec005e52"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "public"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_8D61E021413A3EA941E17088C6E5C520FA608AEC515E2B853486A8741800C18F"
 source_kind = "rust"
 path = "crates/trust-runtime/src/connectors/report.rs"
@@ -186956,25 +186729,6 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_8E853948C679968017B2C6C4C6112378CC05BD6B47954341B4F6DFC829E7258A"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/contracts.rs"
-qualified_symbol = "trust_runtime::ads::contracts::PointSection::into_config"
-item_kind = "rust_method"
-signature_digest = "sha256:5087c32038f8e66afc074cc758e9ef87a807a0850d27f2b0358c8c3bdbe48b72"
-reviewed_body_digest = "sha256:a8a767432182157fc560925044b3b66039812b6d77c1017246a3642373ce31bb"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = ["broad_error_suppression", "state_mutation"]
-owner_ack = "RISK_ACK_8E853948C679968017B2C6C4C6112378CC05BD6B47954341B4F6DFC829E7258A"
-owner_ack_expires_on = "2026-10-21"
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
 last_reviewed = "2026-07-21"
@@ -189488,23 +189242,6 @@ spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-diagnostic-report-and-production-readine
 invariant_ids = ["RT_ADS_DIAGNOSTIC_REPORT_TRUTH_001"]
 test_ids = ["TEST_ADS_DIAGNOSTIC_COMMITTED_GOLDEN_FIXTURES_MATCH_RUST_SCHEMA_001", "TEST_ADS_DIAGNOSTIC_CREDENTIAL_CHANNEL_CLASSIFICATION_ENFORCES_SECRET_BOUNDARY_001", "TEST_ADS_DIAGNOSTIC_DIAGNOSTIC_MAPS_AND_ACTION_BUILDERS_SERIALIZE_DETERMINISTICALLY_001", "TEST_ADS_DIAGNOSTIC_DIAGNOSTIC_WIRE_ENUMS_KEEP_THE_VERSION_TWO_CONTRACT_NAMES_001", "TEST_ADS_DIAGNOSTIC_DOCTOR_OVERALL_FAILS_CLOSED_FOR_EMPTY_STEPS_001", "TEST_ADS_DIAGNOSTIC_DOCTOR_OVERALL_KEEPS_NONBLOCKING_FAILURE_PARTIAL_001", "TEST_ADS_DIAGNOSTIC_ERROR_CLASSIFIER_MAPS_COMMON_FAILURES_TO_REMEDIATION_AND_ACTIONS_001", "TEST_ADS_DIAGNOSTIC_EVIDENCE_HASH_INPUTS_ARE_STABLE_AND_COMPLETE_001", "TEST_ADS_DIAGNOSTIC_NEXT_ACTION_KINDS_MATCH_CONTRACT_NAMES_001", "TEST_ADS_DIAGNOSTIC_PRODUCTION_EVIDENCE_BUILDER_HASHES_DECLARED_INPUTS_001", "TEST_ADS_DIAGNOSTIC_PRODUCTION_EVIDENCE_HASHES_SNAPSHOT_SETS_INDEPENDENT_OF_CONNECTION_ORDER_001", "TEST_ADS_DIAGNOSTIC_PRODUCTION_READINESS_HONORS_AGE_STATUS_HASH_AND_CLOCK_WARNING_001", "TEST_ADS_DIAGNOSTIC_PRODUCTION_READINESS_IS_NOT_READY_WITHOUT_EVIDENCE_001", "TEST_ADS_DIAGNOSTIC_PRODUCTION_READINESS_NEEDS_RECHECK_ON_MISMATCH_FAULT_OR_EXPIRY_001", "TEST_ADS_DIAGNOSTIC_PRODUCTION_READINESS_REQUIRES_MATCHING_DEPLOYED_STATUS_001", "TEST_ADS_DIAGNOSTIC_PRODUCTION_READY_REQUIRES_PASS_AND_EVIDENCE_001", "TEST_ADS_DIAGNOSTIC_REPORTS_CONTAIN_NO_SECRET_FIELDS_BY_CONSTRUCTION_001", "TEST_ADS_DIAGNOSTIC_SCHEMA_RESERVES_SERVER_ROLE_WITHOUT_SERVER_MODULES_001", "TEST_ADS_DIAGNOSTIC_SERIALIZES_DOCUMENTED_MISSING_ROUTE_SHAPE_DETERMINISTICALLY_001", "TEST_ADS_DIAGNOSTIC_SERVER_EVIDENCE_REPORTS_ALLOWED_CLIENT_SERIALIZATION_FAILURE_001", "TEST_ADS_DIAGNOSTIC_SERVER_PRODUCTION_READY_REJECTS_INCOMPLETE_OR_CLIENT_ROLE_EVIDENCE_001", "TEST_ADS_DIAGNOSTIC_SERVER_PRODUCTION_READY_REQUIRES_INDEPENDENT_CLIENT_EVIDENCE_001", "TEST_ADS_DIAGNOSTIC_SERVER_STEP_IDS_MATCH_CONTRACT_NAMES_001", "TEST_ADS_DIAGNOSTIC_SKIP_REASONS_MATCH_CONTRACT_NAMES_001", "TEST_ADS_DIAGNOSTIC_V1_CLIENT_EVIDENCE_JSON_STILL_DESERIALIZES_WITH_SERVER_DEFAULTS_001"]
 last_reviewed = "2026-07-22"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_A44204CD74F781BFE7EE60F135B4AA536517BA94A45FCB53FBBAE91C98D86A2A"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/contracts.rs"
-qualified_symbol = "trust_runtime::ads::contracts::ads_security_warnings"
-item_kind = "rust_function"
-signature_digest = "sha256:f46e82dd64e2439a63120e983ca21024e9a7d38328146e1d716eb63221bb4a0e"
-reviewed_body_digest = "sha256:ec72fc5176269fbe59c90b8d84c6d0fb342d33fa211cc2bbc927221467e676cf"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
@@ -192158,23 +191895,6 @@ spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-route-artifact-and-credential
 invariant_ids = ["RT_ADS_ONBOARDING_ROUTE_SECURITY_001"]
 test_ids = ["TEST_ADS_ONBOARDING_ROUTE_AUTOMATIC_ROUTE_ADD_REJECTS_BLANK_CREDENTIALS_BEFORE_WIRE_001", "TEST_ADS_ONBOARDING_ROUTE_ROUTE_ADD_POLICY_ALLOWS_TRUSTED_CHANNEL_TO_CALL_WIRE_001", "TEST_ADS_ONBOARDING_ROUTE_ROUTE_ADD_POLICY_REJECTS_NAT_IDENTITY_BEFORE_WIRE_CALL_001", "TEST_ADS_ONBOARDING_ROUTE_ROUTE_ADD_POLICY_REJECTS_UNTRUSTED_CHANNEL_BEFORE_WIRE_CALL_001", "TEST_ADS_ONBOARDING_ROUTE_ROUTE_ARTIFACTS_PRESERVE_UNRELATED_ROUTES_AND_REPORT_ENCODING_CHANGES_001", "TEST_ADS_ONBOARDING_ROUTE_ROUTE_PLAN_DISABLES_AUTOMATIC_ROUTE_FOR_UNTRUSTED_OR_NAT_IDENTITY_001", "TEST_ADS_ONBOARDING_ROUTE_ROUTE_PLAN_USES_RUNTIME_HOST_IDENTITY_AND_GENERATES_ALL_FALLBACKS_001", "TEST_ADS_ONBOARDING_ROUTE_ROUTE_POWERSHELL_ENCODES_XML_AGAINST_HERE_STRING_BREAKOUT_001", "TEST_ADS_ONBOARDING_ROUTE_SERVER_ROUTE_ARTIFACTS_DO_NOT_INCLUDE_CLIENT_MODE_1861_WARNING_001"]
 last_reviewed = "2026-07-22"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_BEC8D26F79AB484E705AB056093418693DE9EBF3FBC25CB0951EB56826695FDC"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/contracts.rs"
-qualified_symbol = "trust_runtime::ads::contracts::non_empty"
-item_kind = "rust_function"
-signature_digest = "sha256:f3b6267668096e4ce9ebfcb5d5087eb183f7c53eeeb0fdad3b0190def6387aad"
-reviewed_body_digest = "sha256:6fa24427ce7111d0a9d20538e622e2f2f5df9c6d1584f503e41c52b7f9b48c24"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
@@ -195362,23 +195082,6 @@ last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_DDE54EBDCEA1FD07B5FFCFDB91B74F2461290AA36988395EA7AE99472768EAAD"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/contracts.rs"
-qualified_symbol = "trust_runtime::ads::contracts::AdsToml::into_config"
-item_kind = "rust_method"
-signature_digest = "sha256:392cf7f26b8e9849ca65990f977a66dcdc4152549071777d08e43eefa5eb3b5a"
-reviewed_body_digest = "sha256:c193e9c9a73aefa85a582dc75a8cc4be963f3137568e578d3ca0e27cd3074c80"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_DDF10249904B774A0C8D6ACA30CADD4BB58E65C374FE9E99B69DFB9FC2C49ED5"
 source_kind = "rust"
 path = "crates/trust-runtime/src/host/ads/client.rs"
@@ -197442,23 +197145,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_F0A54B8ACC5F4F8B0B71FFE12BA3F212E7427141EBC88DF8E01E61650132AAAE"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/contracts.rs"
-qualified_symbol = "trust_runtime::ads::contracts::AdsConnectionConfig::security_warnings"
-item_kind = "rust_method"
-signature_digest = "sha256:8980ba4814dcbc308b7219cd8550fc499802e25b38af4533a911a03ad03275d9"
-reviewed_body_digest = "sha256:a98c49128d64123e4000bdcb3707ccf3759e5e28e786b4c79d779b9b969923c7"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "public"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_F1148ABA9D34F88A789F46955DC40AEB218F5D1135598A18A7E3B054171C9CDF"
 source_kind = "rust"
 path = "crates/trust-runtime/src/host/ads/generate.rs"
@@ -198436,23 +198122,6 @@ qualified_symbol = "trust_runtime::io::registry::create_modbus_tcp"
 item_kind = "rust_function"
 signature_digest = "sha256:adee7dcce46e96b242bb54c0e90eec8b9b0c4165e39e4a9b638e47c05630d63b"
 reviewed_body_digest = "sha256:3218b22c23528bd4baff3fa4621b5aa8217cc08cc20b10854b9d44989bd90568"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_FA2C48A45A242BF481AA290C3B8F0CE9EC0B216A48DEAEAC917B56DC8F8DD21F"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/ads/contracts.rs"
-qualified_symbol = "trust_runtime::ads::contracts::parse_mode"
-item_kind = "rust_function"
-signature_digest = "sha256:ca5db622e767592bde966f10a44d21f830dd48bdd4a1cc74b973b1251ae3c8db"
-reviewed_body_digest = "sha256:475f0c84af35d94bbc171e2812869df9c23124972227987ca714c486dab8f66e"
 owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
@@ -274360,3 +274029,415 @@ spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
 invariant_ids = ["RT_ADS_CLIENT_TRANSPORT_LIFECYCLE_001"]
 test_ids = ["TEST_ADS_CLIENT_TRANSPORT_CONNECT_ACCEPTS_CANONICAL_AUTHORITY_AND_REACHES_CONNECTOR_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_AUTO_ADD_ROUTE_BEFORE_NETWORK_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_LOCAL_IDENTITY_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_TARGET_OR_ZERO_PORT_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001", "TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_SECURE_TRANSPORT_BEFORE_NETWORK_001"]
 last_reviewed = "2026-07-22"
+[[mappings]]
+schema_version = 1
+code_id = "CODE_05B03AE8F71FC0AF8ED2EFB4AF0DBA19FC7B5CB38F94E239450342F965121892"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/contracts.rs"
+qualified_symbol = "trust_runtime::ads::contracts::parse_access"
+item_kind = "rust_function"
+signature_digest = "sha256:851ac4cc6520bfc6d7dd9c9796328d94a99433ac67d6614ecee52e7721b39738"
+reviewed_body_digest = "sha256:20c516ac40045932d03515aea6184fdce38ab0db57b2bf2ece658caf7765ac91"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+invariant_ids = ["RT_ADS_CLIENT_CONFIGURATION_001"]
+test_ids = ["TEST_ADS_CLIENT_CONFIGURATION_PARSES_ADS_TOML_AND_APPLIES_SECURITY_AND_POINT_DEFAULTS_001", "TEST_ADS_CLIENT_CONFIGURATION_LOCKS_POINT_ENUM_AND_TYPE_VALIDATION_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_06C3A8E7562B7B8AA6733C1F1578E4973875B7D094A1E584298684CED643F06E"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/contracts.rs"
+qualified_symbol = "trust_runtime::ads::contracts::parse_address"
+item_kind = "rust_function"
+signature_digest = "sha256:3c12a708450bcf0c25ec784f1616612f2aed55248f822c57361610093ca25b94"
+reviewed_body_digest = "sha256:e6fc06b93bd415864383e24e3af6a7994b770c2d3e989c4aeccfa4209966181b"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = ["broad_error_suppression"]
+owner_ack = "RISK_ACK_06C3A8E7562B7B8AA6733C1F1578E4973875B7D094A1E584298684CED643F06E"
+owner_ack_expires_on = "2026-10-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+invariant_ids = ["RT_ADS_CLIENT_CONFIGURATION_001"]
+test_ids = ["TEST_ADS_CLIENT_CONFIGURATION_PARSES_ADS_TOML_AND_APPLIES_SECURITY_AND_POINT_DEFAULTS_001", "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_MIXED_SYMBOL_AND_INDEX_ADDRESSING_001", "TEST_ADS_CLIENT_CONFIGURATION_LOCKS_EXACT_POINT_ADDRESS_SHAPE_VALIDATION_001", "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_INDEX_ADDRESS_SIZE_THAT_DISAGREES_WITH_DECLARED_TYPE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_08EF36C732D2D19862C729AC92B06AACF12DF5F16BB56A12CA06638C20D0EB7B"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/contracts.rs"
+qualified_symbol = "trust_runtime::ads::contracts::parse_ads_toml"
+item_kind = "rust_function"
+signature_digest = "sha256:fa320d8f44082b3430eb5338eaedc589bdd6e64a81a23006aa497fa3e8f015d4"
+reviewed_body_digest = "sha256:9cdc6623bfbf7b5c14545c9be64aa5025dd5152790d28cb0f219ba8841f3e9d7"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "public"
+risk_signals = ["fault_mapping"]
+owner_ack = "RISK_ACK_08EF36C732D2D19862C729AC92B06AACF12DF5F16BB56A12CA06638C20D0EB7B"
+owner_ack_expires_on = "2026-10-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+invariant_ids = ["RT_ADS_CLIENT_CONFIGURATION_001"]
+test_ids = ["TEST_ADS_CLIENT_CONFIGURATION_REJECTS_DUPLICATE_CONNECTION_NAMES_WITH_DISTINCT_POINT_BINDINGS_001", "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_NONCANONICAL_TARGET_AMS_NET_IDS_DURING_CONFIGURATION_PARSE_001", "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_BLANK_OR_NONCANONICAL_EXPLICIT_LOCAL_AMS_NET_IDS_DURING_CONFIGURATION_PARSE_001", "TEST_ADS_CLIENT_CONFIGURATION_LOCKS_CONNECTION_AND_DECLARED_GLOBAL_SHAPE_VALIDATION_001", "TEST_ADS_CLIENT_CONFIGURATION_LOCKS_EXACT_POINT_ADDRESS_SHAPE_VALIDATION_001", "TEST_ADS_CLIENT_CONFIGURATION_LOCKS_POINT_ENUM_AND_TYPE_VALIDATION_001", "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_ZERO_STRING_CAPACITY_001", "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_STRING_CAPACITY_ON_NON_STRING_TYPE_001", "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_INDEX_ADDRESS_SIZE_THAT_DISAGREES_WITH_DECLARED_TYPE_001", "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_ARRAY_METADATA_WHOSE_BYTE_LENGTH_OVERFLOWS_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_2A5B0F12A2653867A754F6E726E1656A706498D1DECE21417A3B99D6C99D09F3"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/contracts.rs"
+qualified_symbol = "trust_runtime::ads::contracts::parse_transport"
+item_kind = "rust_function"
+signature_digest = "sha256:1da36f0864e520d1e72e262631ec216756d146ebc24567fd44631811021f5e62"
+reviewed_body_digest = "sha256:c69efd62cbbfa2156e5fb7398c898c7cd1c8fa8dedd29ce772ac4b7e77b072eb"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+invariant_ids = ["RT_ADS_CLIENT_CONFIGURATION_001"]
+test_ids = ["TEST_ADS_CLIENT_CONFIGURATION_PARSES_ADS_TOML_AND_APPLIES_SECURITY_AND_POINT_DEFAULTS_001", "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_PLAIN_TRANSPORT_WITHOUT_EXPLICIT_ACK_001", "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_INSECURE_ACK_WITHOUT_PLAIN_TRANSPORT_001", "TEST_ADS_CLIENT_CONFIGURATION_LOCKS_CONNECTION_AND_DECLARED_GLOBAL_SHAPE_VALIDATION_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_2ED1762E6F264A10D6AF15C78C31D05140CEE3177CCB162A852BEA0F7D55842E"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/contracts.rs"
+qualified_symbol = "trust_runtime::ads::contracts::parse_iec_type"
+item_kind = "rust_function"
+signature_digest = "sha256:b448d39a2eaca135e47e8b05e0525d0c8dea62e6db9abf5586bc99c37a085130"
+reviewed_body_digest = "sha256:b7d6f60ba926491eff276d8a88a9b9f78ad23c0e9ccc97a33e50b12f3343891c"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = ["fault_mapping"]
+owner_ack = "RISK_ACK_2ED1762E6F264A10D6AF15C78C31D05140CEE3177CCB162A852BEA0F7D55842E"
+owner_ack_expires_on = "2026-10-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+invariant_ids = ["RT_ADS_CLIENT_CONFIGURATION_001"]
+test_ids = ["TEST_ADS_CLIENT_CONFIGURATION_PARSES_ADS_TOML_AND_APPLIES_SECURITY_AND_POINT_DEFAULTS_001", "TEST_ADS_CLIENT_CONFIGURATION_LOCKS_POINT_ENUM_AND_TYPE_VALIDATION_001", "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_ZERO_STRING_CAPACITY_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_318F62034ED2EB76D5CECEEACD28D00EA135A96408021ECBF21DB6326D198B02"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/contracts.rs"
+qualified_symbol = "trust_runtime::ads::contracts::invalid"
+item_kind = "rust_function"
+signature_digest = "sha256:c402a38964a7438a18527f4d028297379a9b80bc1fefe81ab1129e49974e5b94"
+reviewed_body_digest = "sha256:d12d0a9c614af4c8aeca5e130c80a2ad2c53b24a6f6199aaa6dfa7aaea98533c"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+invariant_ids = ["RT_ADS_CLIENT_CONFIGURATION_001"]
+test_ids = ["TEST_ADS_CLIENT_CONFIGURATION_REJECTS_DUPLICATE_CONNECTION_NAMES_WITH_DISTINCT_POINT_BINDINGS_001", "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_NONCANONICAL_TARGET_AMS_NET_IDS_DURING_CONFIGURATION_PARSE_001", "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_BLANK_OR_NONCANONICAL_EXPLICIT_LOCAL_AMS_NET_IDS_DURING_CONFIGURATION_PARSE_001", "TEST_ADS_CLIENT_CONFIGURATION_LOCKS_CONNECTION_AND_DECLARED_GLOBAL_SHAPE_VALIDATION_001", "TEST_ADS_CLIENT_CONFIGURATION_LOCKS_EXACT_POINT_ADDRESS_SHAPE_VALIDATION_001", "TEST_ADS_CLIENT_CONFIGURATION_LOCKS_POINT_ENUM_AND_TYPE_VALIDATION_001", "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_ZERO_STRING_CAPACITY_001", "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_STRING_CAPACITY_ON_NON_STRING_TYPE_001", "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_INDEX_ADDRESS_SIZE_THAT_DISAGREES_WITH_DECLARED_TYPE_001", "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_ARRAY_METADATA_WHOSE_BYTE_LENGTH_OVERFLOWS_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_38D9A17AA3550FECDD89E2B4AE7EA093CEB99A40E87884E3272C6E47B00880F0"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/contracts.rs"
+qualified_symbol = "trust_runtime::ads::contracts::AdsClientConfig"
+item_kind = "rust_public_type"
+signature_digest = "sha256:093296c61ea563bd3335da8100a0ad4e4969f8fdb69756595f0bd8f81d355b98"
+reviewed_body_digest = "sha256:b54593e72290b7e7cfe733dc05b4283f8d7c011383cce804d8fd6e8a0e372d82"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+invariant_ids = ["RT_ADS_CLIENT_CONFIGURATION_001"]
+test_ids = ["TEST_ADS_CLIENT_CONFIGURATION_PARSES_ADS_TOML_AND_APPLIES_SECURITY_AND_POINT_DEFAULTS_001", "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_DUPLICATE_CONNECTION_NAMES_WITH_DISTINCT_POINT_BINDINGS_001", "TEST_ADS_CLIENT_CONFIGURATION_LOCKS_CONNECTION_AND_DECLARED_GLOBAL_SHAPE_VALIDATION_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_53FA39CBCB5DFA342F18331C8E03DB8B2A33739A902E934911DACF8983E20ED6"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/contracts.rs"
+qualified_symbol = "trust_runtime::ads::contracts::declared_byte_len"
+item_kind = "rust_function"
+signature_digest = "sha256:b1092691127df2a463030821155458ab443d89c8f6f9ebe7678363776eeb528f"
+reviewed_body_digest = "sha256:83fb0b3c7fd785baa0b8901308a151efc0db17a2e2dd6936fdf17201a5392960"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = ["fault_mapping"]
+owner_ack = "RISK_ACK_53FA39CBCB5DFA342F18331C8E03DB8B2A33739A902E934911DACF8983E20ED6"
+owner_ack_expires_on = "2026-10-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+invariant_ids = ["RT_ADS_CLIENT_CONFIGURATION_001"]
+test_ids = ["TEST_ADS_CLIENT_CONFIGURATION_REJECTS_INDEX_ADDRESS_SIZE_THAT_DISAGREES_WITH_DECLARED_TYPE_001", "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_ARRAY_METADATA_WHOSE_BYTE_LENGTH_OVERFLOWS_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_68AAB7888A805B7009763E009939FBB1A7C0D0327204A7235666F439FFC6B1BC"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/contracts.rs"
+qualified_symbol = "trust_runtime::ads::contracts::parse_data_type"
+item_kind = "rust_function"
+signature_digest = "sha256:7e866cfe958c0f5fcb5ffa7940861aedb3314464cb66237128336f462a6b28d7"
+reviewed_body_digest = "sha256:bd2fb794e044335eb309bb020193d5c93ba8ef5b322f122515e5b61b2e812213"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+invariant_ids = ["RT_ADS_CLIENT_CONFIGURATION_001"]
+test_ids = ["TEST_ADS_CLIENT_CONFIGURATION_PARSES_ADS_TOML_AND_APPLIES_SECURITY_AND_POINT_DEFAULTS_001", "TEST_ADS_CLIENT_CONFIGURATION_LOCKS_POINT_ENUM_AND_TYPE_VALIDATION_001", "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_ZERO_STRING_CAPACITY_001", "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_STRING_CAPACITY_ON_NON_STRING_TYPE_001", "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_INDEX_ADDRESS_SIZE_THAT_DISAGREES_WITH_DECLARED_TYPE_001", "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_ARRAY_METADATA_WHOSE_BYTE_LENGTH_OVERFLOWS_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_6ACCCE83543185A83D3F00969BCC3A55DE06628DBE3DF56A8E3D81AFC327EC1B"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/contracts.rs"
+qualified_symbol = "trust_runtime::ads::contracts::AdsConnectionConfig"
+item_kind = "rust_public_type"
+signature_digest = "sha256:1819b1034ffa0b9b15a7b7ce4bc480163305ec63af8c34ee2d596197e6ad22af"
+reviewed_body_digest = "sha256:89362fc06ae6ed1c36b8a625fb1dc652e7776bf11b63c34a18164c4952040eb3"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+invariant_ids = ["RT_ADS_CLIENT_CONFIGURATION_001"]
+test_ids = ["TEST_ADS_CLIENT_CONFIGURATION_PARSES_ADS_TOML_AND_APPLIES_SECURITY_AND_POINT_DEFAULTS_001", "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_NONCANONICAL_TARGET_AMS_NET_IDS_DURING_CONFIGURATION_PARSE_001", "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_BLANK_OR_NONCANONICAL_EXPLICIT_LOCAL_AMS_NET_IDS_DURING_CONFIGURATION_PARSE_001", "TEST_ADS_CLIENT_CONFIGURATION_PRODUCTION_LOCAL_IDENTITY_VALIDATION_REQUIRES_PINNED_LOCAL_NET_ID_001", "TEST_ADS_CLIENT_CONFIGURATION_PRODUCTION_LOCAL_IDENTITY_VALIDATION_REJECTS_MISMATCHED_LOCAL_NET_ID_001", "TEST_ADS_CLIENT_CONFIGURATION_PRODUCTION_LOCAL_IDENTITY_VALIDATION_ACCEPTS_MATCHING_LOCAL_NET_ID_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_79DC5350B56F5CF7B94A0E4C7A6C1AC32C6F364C5FBBEA5FFCBD924E4110705E"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/contracts.rs"
+qualified_symbol = "trust_runtime::ads::contracts::AdsPointConfig"
+item_kind = "rust_public_type"
+signature_digest = "sha256:e2f1e59208685fff5df20f4af161e168bc70db3c0be3fdba1c7a85e30b19c762"
+reviewed_body_digest = "sha256:0800250d68d92a1fe7bdfdfc70f11649d71262b88031735a2420cd3e1ef653db"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+invariant_ids = ["RT_ADS_CLIENT_CONFIGURATION_001"]
+test_ids = ["TEST_ADS_CLIENT_CONFIGURATION_PARSES_ADS_TOML_AND_APPLIES_SECURITY_AND_POINT_DEFAULTS_001", "TEST_ADS_CLIENT_CONFIGURATION_LOCKS_EXACT_POINT_ADDRESS_SHAPE_VALIDATION_001", "TEST_ADS_CLIENT_CONFIGURATION_LOCKS_POINT_ENUM_AND_TYPE_VALIDATION_001", "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_INDEX_ADDRESS_SIZE_THAT_DISAGREES_WITH_DECLARED_TYPE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_7C208C1E164DDF297D320AD6E42447561D3C36A7B403F55D0EA802E137347E8A"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/contracts.rs"
+qualified_symbol = "trust_runtime::ads::contracts::parse_notification_mode"
+item_kind = "rust_function"
+signature_digest = "sha256:f3980ebf787e7ac3eaa46182146c78fa49f7787795797b3f017e7c76a1d4a9ab"
+reviewed_body_digest = "sha256:21658fa28ea8490ed10b2e646b38488fbb1d3c12ac58caccc3276e5bec3fa564"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+invariant_ids = ["RT_ADS_CLIENT_CONFIGURATION_001"]
+test_ids = ["TEST_ADS_CLIENT_CONFIGURATION_PARSES_ADS_TOML_AND_APPLIES_SECURITY_AND_POINT_DEFAULTS_001", "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_NOTIFICATION_MODE_WITHOUT_NOTIFY_MODE_001", "TEST_ADS_CLIENT_CONFIGURATION_LOCKS_POINT_ENUM_AND_TYPE_VALIDATION_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_8D5BCDB44E46FA31AA627EF6DEFEB101ABCCC93D177B504CF28212DFFD5546C7"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/contracts.rs"
+qualified_symbol = "trust_runtime::ads::contracts::validate_ads_config_local_identity"
+item_kind = "rust_function"
+signature_digest = "sha256:3c3567f5cb77574f0cc8b01c1e89cb39ca91bdec3df9af293d25b8249b495f56"
+reviewed_body_digest = "sha256:bcad0cd68c94e2240fd9d652546222cb3586408dd8b41b37b173c233ec005e52"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+invariant_ids = ["RT_ADS_CLIENT_CONFIGURATION_001"]
+test_ids = ["TEST_ADS_CLIENT_CONFIGURATION_PRODUCTION_LOCAL_IDENTITY_VALIDATION_REQUIRES_PINNED_LOCAL_NET_ID_001", "TEST_ADS_CLIENT_CONFIGURATION_PRODUCTION_LOCAL_IDENTITY_VALIDATION_REJECTS_MISMATCHED_LOCAL_NET_ID_001", "TEST_ADS_CLIENT_CONFIGURATION_PRODUCTION_LOCAL_IDENTITY_VALIDATION_ACCEPTS_MATCHING_LOCAL_NET_ID_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_8E853948C679968017B2C6C4C6112378CC05BD6B47954341B4F6DFC829E7258A"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/contracts.rs"
+qualified_symbol = "trust_runtime::ads::contracts::PointSection::into_config"
+item_kind = "rust_method"
+signature_digest = "sha256:5087c32038f8e66afc074cc758e9ef87a807a0850d27f2b0358c8c3bdbe48b72"
+reviewed_body_digest = "sha256:3ac53775c4727d9f8552fbcd1c06f3b1557050840a8c0f03db60445dc26f2434"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = ["broad_error_suppression", "state_mutation"]
+owner_ack = "RISK_ACK_8E853948C679968017B2C6C4C6112378CC05BD6B47954341B4F6DFC829E7258A"
+owner_ack_expires_on = "2026-10-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+invariant_ids = ["RT_ADS_CLIENT_CONFIGURATION_001"]
+test_ids = ["TEST_ADS_CLIENT_CONFIGURATION_PARSES_ADS_TOML_AND_APPLIES_SECURITY_AND_POINT_DEFAULTS_001", "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_DUPLICATE_DECLARED_VARIABLE_BINDING_001", "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_NOTIFICATION_MODE_WITHOUT_NOTIFY_MODE_001", "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_MIXED_SYMBOL_AND_INDEX_ADDRESSING_001", "TEST_ADS_CLIENT_CONFIGURATION_LOCKS_EXACT_POINT_ADDRESS_SHAPE_VALIDATION_001", "TEST_ADS_CLIENT_CONFIGURATION_LOCKS_POINT_ENUM_AND_TYPE_VALIDATION_001", "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_ZERO_STRING_CAPACITY_001", "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_STRING_CAPACITY_ON_NON_STRING_TYPE_001", "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_INDEX_ADDRESS_SIZE_THAT_DISAGREES_WITH_DECLARED_TYPE_001", "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_ARRAY_METADATA_WHOSE_BYTE_LENGTH_OVERFLOWS_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_941738C4C1D88E0692472A61432C877E1C0B451E38BA4A22C933770883762902"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/contracts.rs"
+qualified_symbol = "trust_runtime::ads::contracts::ConnectionSection::into_config"
+item_kind = "rust_method"
+signature_digest = "sha256:0ce06c78c4244755021996ed7dff2259f4c16d5d47d303f92c98826387879d97"
+reviewed_body_digest = "sha256:fb75e20d7a46e379d5d64b9d65fdb1cceda608725079eb70c3a9c32fc813fd14"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "RISK_ACK_941738C4C1D88E0692472A61432C877E1C0B451E38BA4A22C933770883762902"
+owner_ack_expires_on = "2026-10-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+invariant_ids = ["RT_ADS_CLIENT_CONFIGURATION_001"]
+test_ids = ["TEST_ADS_CLIENT_CONFIGURATION_PARSES_ADS_TOML_AND_APPLIES_SECURITY_AND_POINT_DEFAULTS_001", "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_DUPLICATE_CONNECTION_NAMES_WITH_DISTINCT_POINT_BINDINGS_001", "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_NONCANONICAL_TARGET_AMS_NET_IDS_DURING_CONFIGURATION_PARSE_001", "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_BLANK_OR_NONCANONICAL_EXPLICIT_LOCAL_AMS_NET_IDS_DURING_CONFIGURATION_PARSE_001", "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_PLAIN_TRANSPORT_WITHOUT_EXPLICIT_ACK_001", "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_INSECURE_ACK_WITHOUT_PLAIN_TRANSPORT_001", "TEST_ADS_CLIENT_CONFIGURATION_LOCKS_CONNECTION_AND_DECLARED_GLOBAL_SHAPE_VALIDATION_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_A44204CD74F781BFE7EE60F135B4AA536517BA94A45FCB53FBBAE91C98D86A2A"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/contracts.rs"
+qualified_symbol = "trust_runtime::ads::contracts::ads_security_warnings"
+item_kind = "rust_function"
+signature_digest = "sha256:f46e82dd64e2439a63120e983ca21024e9a7d38328146e1d716eb63221bb4a0e"
+reviewed_body_digest = "sha256:ec72fc5176269fbe59c90b8d84c6d0fb342d33fa211cc2bbc927221467e676cf"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+invariant_ids = ["RT_ADS_CLIENT_CONFIGURATION_001"]
+test_ids = ["TEST_ADS_CLIENT_CONFIGURATION_PLAIN_TRANSPORT_ACK_SURFACES_SECURITY_WARNING_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_BEC8D26F79AB484E705AB056093418693DE9EBF3FBC25CB0951EB56826695FDC"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/contracts.rs"
+qualified_symbol = "trust_runtime::ads::contracts::non_empty"
+item_kind = "rust_function"
+signature_digest = "sha256:f3b6267668096e4ce9ebfcb5d5087eb183f7c53eeeb0fdad3b0190def6387aad"
+reviewed_body_digest = "sha256:6fa24427ce7111d0a9d20538e622e2f2f5df9c6d1584f503e41c52b7f9b48c24"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+invariant_ids = ["RT_ADS_CLIENT_CONFIGURATION_001"]
+test_ids = ["TEST_ADS_CLIENT_CONFIGURATION_LOCKS_CONNECTION_AND_DECLARED_GLOBAL_SHAPE_VALIDATION_001", "TEST_ADS_CLIENT_CONFIGURATION_LOCKS_EXACT_POINT_ADDRESS_SHAPE_VALIDATION_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_DDE54EBDCEA1FD07B5FFCFDB91B74F2461290AA36988395EA7AE99472768EAAD"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/contracts.rs"
+qualified_symbol = "trust_runtime::ads::contracts::AdsToml::into_config"
+item_kind = "rust_method"
+signature_digest = "sha256:392cf7f26b8e9849ca65990f977a66dcdc4152549071777d08e43eefa5eb3b5a"
+reviewed_body_digest = "sha256:f61d588abec8c0b76ab6eecef74845859d98e2aa574d1360dbec969b09d6ea05"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+invariant_ids = ["RT_ADS_CLIENT_CONFIGURATION_001"]
+test_ids = ["TEST_ADS_CLIENT_CONFIGURATION_PARSES_ADS_TOML_AND_APPLIES_SECURITY_AND_POINT_DEFAULTS_001", "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_DUPLICATE_CONNECTION_NAMES_WITH_DISTINCT_POINT_BINDINGS_001", "TEST_ADS_CLIENT_CONFIGURATION_LOCKS_CONNECTION_AND_DECLARED_GLOBAL_SHAPE_VALIDATION_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_F0A54B8ACC5F4F8B0B71FFE12BA3F212E7427141EBC88DF8E01E61650132AAAE"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/contracts.rs"
+qualified_symbol = "trust_runtime::ads::contracts::AdsConnectionConfig::security_warnings"
+item_kind = "rust_method"
+signature_digest = "sha256:8980ba4814dcbc308b7219cd8550fc499802e25b38af4533a911a03ad03275d9"
+reviewed_body_digest = "sha256:a98c49128d64123e4000bdcb3707ccf3759e5e28e786b4c79d779b9b969923c7"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+invariant_ids = ["RT_ADS_CLIENT_CONFIGURATION_001"]
+test_ids = ["TEST_ADS_CLIENT_CONFIGURATION_PLAIN_TRANSPORT_ACK_SURFACES_SECURITY_WARNING_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_F18151B4D6C4F00A812B66DE5B1EF1BC095F2279BF08E051710B43D56132A9ED"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/contracts.rs"
+qualified_symbol = "trust_runtime::ads::contracts::validate_index_address_size"
+item_kind = "rust_function"
+signature_digest = "sha256:c349910c73c222d672040f72460d232a09715564d55ad3769e7ac98252ef2351"
+reviewed_body_digest = "sha256:93822956d8005bfdef1cc8ba9456d70048cb0376f9c5e53190e9063632db1661"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = ["fault_mapping"]
+owner_ack = "RISK_ACK_F18151B4D6C4F00A812B66DE5B1EF1BC095F2279BF08E051710B43D56132A9ED"
+owner_ack_expires_on = "2026-10-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+invariant_ids = ["RT_ADS_CLIENT_CONFIGURATION_001"]
+test_ids = ["TEST_ADS_CLIENT_CONFIGURATION_REJECTS_INDEX_ADDRESS_SIZE_THAT_DISAGREES_WITH_DECLARED_TYPE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_FA2C48A45A242BF481AA290C3B8F0CE9EC0B216A48DEAEAC917B56DC8F8DD21F"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/ads/contracts.rs"
+qualified_symbol = "trust_runtime::ads::contracts::parse_mode"
+item_kind = "rust_function"
+signature_digest = "sha256:ca5db622e767592bde966f10a44d21f830dd48bdd4a1cc74b973b1251ae3c8db"
+reviewed_body_digest = "sha256:475f0c84af35d94bbc171e2812869df9c23124972227987ca714c486dab8f66e"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+invariant_ids = ["RT_ADS_CLIENT_CONFIGURATION_001"]
+test_ids = ["TEST_ADS_CLIENT_CONFIGURATION_PARSES_ADS_TOML_AND_APPLIES_SECURITY_AND_POINT_DEFAULTS_001", "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_NOTIFICATION_MODE_WITHOUT_NOTIFY_MODE_001", "TEST_ADS_CLIENT_CONFIGURATION_LOCKS_POINT_ENUM_AND_TYPE_VALIDATION_001"]
+last_reviewed = "2026-07-23"

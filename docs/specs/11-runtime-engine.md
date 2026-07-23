@@ -1105,6 +1105,33 @@ Automatic route addition continues to use the already validated runtime-host
 AMS identity and one-shot credentials; the transport never enables implicit
 route creation.
 
+###### ADS client configuration and activation
+
+ADS client configuration and activation is a truST product contract outside
+IEC 61131-3. Configuration parsing must fail closed before worker creation or
+any ADS wire activity unless all connection names are unique; every connection
+name and host is nonblank; every target AMS Net ID and explicit local AMS Net
+ID contains exactly six canonical decimal octets; every target AMS port is
+non-zero; and every connection declares at least one point. Plain transport
+requires explicit insecure-transport acknowledgement, and that acknowledgement
+is invalid for any non-plain transport.
+
+Across the complete configuration, every declared global variable binding is
+unique. Each point supplies exactly one complete address form: either one
+nonblank symbol or the complete index-group, index-offset, and non-zero size
+tuple. Notification options are valid only for notify-mode points, and every
+point's IEC type, STRING capacity, array dimensions, address size, access, and
+update-mode metadata must be internally valid. Production-readiness activation
+additionally requires every configured local AMS Net ID to equal the selected
+runtime-host identity; a missing or mismatched local identity is not
+production-ready.
+
+Secure transport remains an unresolved product decision: the configuration
+schema currently recognizes a reserved `secure` value while the implemented
+ADS transport rejects secure activation. This specification does not select a
+new parser or transport behavior for that contradiction, and the contradiction
+is not test authority until a separate product decision resolves it.
+
 ###### ADS client transport boundary
 
 The ADS client transport is a truST product contract outside IEC 61131-3. It

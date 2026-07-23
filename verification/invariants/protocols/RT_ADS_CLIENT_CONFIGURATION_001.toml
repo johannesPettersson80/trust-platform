@@ -1,0 +1,107 @@
+schema_version = 1
+id = "RT_ADS_CLIENT_CONFIGURATION_001"
+title = "ADS client configuration and activation inputs fail closed"
+area = "protocols"
+risk = "safety_critical"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-23"
+claim = "ADS client configuration accepts only unique, canonical, internally consistent connection and point declarations, preserves explicit plain-transport acknowledgement and runtime identity readiness, and rejects malformed or overflowing type/address metadata before worker creation or wire activity."
+proof_level = "T1"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-runtime/src/host/ads/contracts.rs"]
+tests = [
+  "TEST_ADS_CLIENT_CONFIGURATION_PARSES_ADS_TOML_AND_APPLIES_SECURITY_AND_POINT_DEFAULTS_001",
+  "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_PLAIN_TRANSPORT_WITHOUT_EXPLICIT_ACK_001",
+  "TEST_ADS_CLIENT_CONFIGURATION_PLAIN_TRANSPORT_ACK_SURFACES_SECURITY_WARNING_001",
+  "TEST_ADS_CLIENT_CONFIGURATION_PRODUCTION_LOCAL_IDENTITY_VALIDATION_REQUIRES_PINNED_LOCAL_NET_ID_001",
+  "TEST_ADS_CLIENT_CONFIGURATION_PRODUCTION_LOCAL_IDENTITY_VALIDATION_REJECTS_MISMATCHED_LOCAL_NET_ID_001",
+  "TEST_ADS_CLIENT_CONFIGURATION_PRODUCTION_LOCAL_IDENTITY_VALIDATION_ACCEPTS_MATCHING_LOCAL_NET_ID_001",
+  "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_INSECURE_ACK_WITHOUT_PLAIN_TRANSPORT_001",
+  "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_DUPLICATE_DECLARED_VARIABLE_BINDING_001",
+  "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_NOTIFICATION_MODE_WITHOUT_NOTIFY_MODE_001",
+  "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_MIXED_SYMBOL_AND_INDEX_ADDRESSING_001",
+  "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_DUPLICATE_CONNECTION_NAMES_WITH_DISTINCT_POINT_BINDINGS_001",
+  "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_NONCANONICAL_TARGET_AMS_NET_IDS_DURING_CONFIGURATION_PARSE_001",
+  "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_BLANK_OR_NONCANONICAL_EXPLICIT_LOCAL_AMS_NET_IDS_DURING_CONFIGURATION_PARSE_001",
+  "TEST_ADS_CLIENT_CONFIGURATION_LOCKS_CONNECTION_AND_DECLARED_GLOBAL_SHAPE_VALIDATION_001",
+  "TEST_ADS_CLIENT_CONFIGURATION_LOCKS_EXACT_POINT_ADDRESS_SHAPE_VALIDATION_001",
+  "TEST_ADS_CLIENT_CONFIGURATION_LOCKS_POINT_ENUM_AND_TYPE_VALIDATION_001",
+  "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_ZERO_STRING_CAPACITY_001",
+  "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_STRING_CAPACITY_ON_NON_STRING_TYPE_001",
+  "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_INDEX_ADDRESS_SIZE_THAT_DISAGREES_WITH_DECLARED_TYPE_001",
+  "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_ARRAY_METADATA_WHOSE_BYTE_LENGTH_OVERFLOWS_001"
+]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate", "activation_worker_boundary", "external_ads_target", "twincat_lab"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+
+[[behavior]]
+partition = { equals = "CANONICAL_COMPLETE_CONFIGURATION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "A complete canonical configuration is normalized into one deterministic runtime contract without wire activity."
+
+[[behavior]]
+partition = { equals = "INVALID_CONNECTION_OR_IDENTITY_SHAPE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "Empty, duplicate, noncanonical, or incomplete connection authority is rejected before route or worker construction."
+
+[[behavior]]
+partition = { equals = "INVALID_POINT_ADDRESS_OR_TYPE_METADATA" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "Incomplete, mismatched, zero-capacity, or overflowing point metadata is rejected before allocation or activation."
+
+[[behavior]]
+partition = { equals = "INVALID_SECURITY_OR_RUNTIME_IDENTITY" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "Plain transport requires explicit acknowledgement, and production readiness requires the pinned local identity to match the runtime host."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "The canonical configuration lock covers defaults, explicit address forms, types, access, and notification metadata."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "covered"
+rationale = "Focused tables cover empty, duplicate, noncanonical, incomplete, unsupported, and mismatched configuration shapes."
+
+[[coverage.cells]]
+dimension = "boundary_high"
+state = "covered"
+rationale = "Expected-red regressions cover zero capacity, fixed-width size disagreement, and checked array byte-length overflow."
+
+[[coverage.cells]]
+dimension = "auth_or_permission"
+state = "covered"
+rationale = "Plain-transport acknowledgement and pinned local-runtime identity rules have positive and negative locks."
+
+[[coverage.cells]]
+dimension = "persistence_or_recovery"
+state = "gap_open"
+rationale = "Activation, worker lifecycle, reconnect, and live-status recovery belong to the next ADS client runtime batch."

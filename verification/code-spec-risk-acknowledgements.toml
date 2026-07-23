@@ -48248,39 +48248,11 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_06C3A8E7562B7B8AA6733C1F1578E4973875B7D094A1E584298684CED643F06E"
-code_id = "CODE_06C3A8E7562B7B8AA6733C1F1578E4973875B7D094A1E584298684CED643F06E"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:e6fc06b93bd415864383e24e3af6a7994b770c2d3e989c4aeccfa4209966181b"
-risk_signals = ["broad_error_suppression"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_0844B34098B684A0ED89D1DBBF517D9E04E4E50E8C72BC9B93F0C8FA1B3120B7"
 code_id = "CODE_0844B34098B684A0ED89D1DBBF517D9E04E4E50E8C72BC9B93F0C8FA1B3120B7"
 owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:8b87b2f8b00f16592ad59a454463a111f539bcb1aef3e674a1ec587a1347b3b6"
-risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_08EF36C732D2D19862C729AC92B06AACF12DF5F16BB56A12CA06638C20D0EB7B"
-code_id = "CODE_08EF36C732D2D19862C729AC92B06AACF12DF5F16BB56A12CA06638C20D0EB7B"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:9cdc6623bfbf7b5c14545c9be64aa5025dd5152790d28cb0f219ba8841f3e9d7"
 risk_signals = ["fault_mapping"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
 reviewed_by = "trust-runtime"
@@ -49136,20 +49108,6 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:7e16ad55f6dc7586a768c17e5a432bda6d8e3360872b8e4872b1fe003c89623c"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_2ED1762E6F264A10D6AF15C78C31D05140CEE3177CCB162A852BEA0F7D55842E"
-code_id = "CODE_2ED1762E6F264A10D6AF15C78C31D05140CEE3177CCB162A852BEA0F7D55842E"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:b7d6f60ba926491eff276d8a88a9b9f78ad23c0e9ccc97a33e50b12f3343891c"
-risk_signals = ["fault_mapping"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-21"
@@ -51068,20 +51026,6 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:feba3817eff1e737207a91dfe02bab5584ccd71e77a22ba71f61bf6dfcd619a1"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_8E853948C679968017B2C6C4C6112378CC05BD6B47954341B4F6DFC829E7258A"
-code_id = "CODE_8E853948C679968017B2C6C4C6112378CC05BD6B47954341B4F6DFC829E7258A"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:a8a767432182157fc560925044b3b66039812b6d77c1017246a3642373ce31bb"
-risk_signals = ["broad_error_suppression", "state_mutation"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-21"
@@ -81539,3 +81483,100 @@ reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-22"
 expires_on = "2026-10-22"
 rationale = "Moves shared AMS identity helpers without changing the accepted onboarding identity and Doctor ownership contracts."
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_06C3A8E7562B7B8AA6733C1F1578E4973875B7D094A1E584298684CED643F06E"
+code_id = "CODE_06C3A8E7562B7B8AA6733C1F1578E4973875B7D094A1E584298684CED643F06E"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:e6fc06b93bd415864383e24e3af6a7994b770c2d3e989c4aeccfa4209966181b"
+risk_signals = ["broad_error_suppression"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2026-10-23"
+rationale = "Binds live ADS client configuration parsing and validation facts to the fail-closed product configuration contract and its focused parser tests."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_08EF36C732D2D19862C729AC92B06AACF12DF5F16BB56A12CA06638C20D0EB7B"
+code_id = "CODE_08EF36C732D2D19862C729AC92B06AACF12DF5F16BB56A12CA06638C20D0EB7B"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:9cdc6623bfbf7b5c14545c9be64aa5025dd5152790d28cb0f219ba8841f3e9d7"
+risk_signals = ["fault_mapping"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2026-10-23"
+rationale = "Binds live ADS client configuration parsing and validation facts to the fail-closed product configuration contract and its focused parser tests."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_2ED1762E6F264A10D6AF15C78C31D05140CEE3177CCB162A852BEA0F7D55842E"
+code_id = "CODE_2ED1762E6F264A10D6AF15C78C31D05140CEE3177CCB162A852BEA0F7D55842E"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:b7d6f60ba926491eff276d8a88a9b9f78ad23c0e9ccc97a33e50b12f3343891c"
+risk_signals = ["fault_mapping"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2026-10-23"
+rationale = "Binds live ADS client configuration parsing and validation facts to the fail-closed product configuration contract and its focused parser tests."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_53FA39CBCB5DFA342F18331C8E03DB8B2A33739A902E934911DACF8983E20ED6"
+code_id = "CODE_53FA39CBCB5DFA342F18331C8E03DB8B2A33739A902E934911DACF8983E20ED6"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:83fb0b3c7fd785baa0b8901308a151efc0db17a2e2dd6936fdf17201a5392960"
+risk_signals = ["fault_mapping"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2026-10-23"
+rationale = "Binds live ADS client configuration parsing and validation facts to the fail-closed product configuration contract and its focused parser tests."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_8E853948C679968017B2C6C4C6112378CC05BD6B47954341B4F6DFC829E7258A"
+code_id = "CODE_8E853948C679968017B2C6C4C6112378CC05BD6B47954341B4F6DFC829E7258A"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:3ac53775c4727d9f8552fbcd1c06f3b1557050840a8c0f03db60445dc26f2434"
+risk_signals = ["broad_error_suppression", "state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2026-10-23"
+rationale = "Binds live ADS client configuration parsing and validation facts to the fail-closed product configuration contract and its focused parser tests."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_941738C4C1D88E0692472A61432C877E1C0B451E38BA4A22C933770883762902"
+code_id = "CODE_941738C4C1D88E0692472A61432C877E1C0B451E38BA4A22C933770883762902"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:fb75e20d7a46e379d5d64b9d65fdb1cceda608725079eb70c3a9c32fc813fd14"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2026-10-23"
+rationale = "Binds live ADS client configuration parsing and validation facts to the fail-closed product configuration contract and its focused parser tests."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_F18151B4D6C4F00A812B66DE5B1EF1BC095F2279BF08E051710B43D56132A9ED"
+code_id = "CODE_F18151B4D6C4F00A812B66DE5B1EF1BC095F2279BF08E051710B43D56132A9ED"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:93822956d8005bfdef1cc8ba9456d70048cb0376f9c5e53190e9063632db1661"
+risk_signals = ["fault_mapping"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2026-10-23"
+rationale = "Binds live ADS client configuration parsing and validation facts to the fail-closed product configuration contract and its focused parser tests."

@@ -18421,3 +18421,482 @@ requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_TRANSPORT_UNSUPPORTED_COMPOUND_SYMBOL_IS_NOT_A_BINDABLE_DESCRIPTOR_001.json"
 last_reviewed = "2026-07-22"
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_CLIENT_CONFIGURATION_PARSES_ADS_TOML_AND_APPLIES_SECURITY_AND_POINT_DEFAULTS_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_CC631BC07E3E1C0DBC54"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/tests.rs"
+name = "parses_ads_toml_and_applies_security_and_point_defaults"
+command = "cargo test -p trust-runtime --lib --no-default-features ads::tests::parses_ads_toml_and_applies_security_and_point_defaults -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CLIENT_CONFIGURATION_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+expected_result = "A canonical ADS configuration parses deterministic connection, security, address, access, update, and notification defaults."
+expected_failure_mode = "A valid canonical configuration is rejected or any parsed default/field differs from the product contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_CONFIGURATION_PARSES_ADS_TOML_AND_APPLIES_SECURITY_AND_POINT_DEFAULTS_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_PLAIN_TRANSPORT_WITHOUT_EXPLICIT_ACK_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_D957A8465E9D2F11BDB0"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/tests.rs"
+name = "rejects_plain_transport_without_explicit_ack"
+command = "cargo test -p trust-runtime --lib --no-default-features ads::tests::rejects_plain_transport_without_explicit_ack -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CLIENT_CONFIGURATION_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+expected_result = "Plain ADS transport without explicit insecure acknowledgement is rejected."
+expected_failure_mode = "Unacknowledged cleartext ADS configuration is accepted."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_CONFIGURATION_REJECTS_PLAIN_TRANSPORT_WITHOUT_EXPLICIT_ACK_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_CLIENT_CONFIGURATION_PLAIN_TRANSPORT_ACK_SURFACES_SECURITY_WARNING_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_8B6476CD755F8CCA7D4D"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/tests.rs"
+name = "plain_transport_ack_surfaces_security_warning"
+command = "cargo test -p trust-runtime --lib --no-default-features ads::tests::plain_transport_ack_surfaces_security_warning -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CLIENT_CONFIGURATION_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+expected_result = "Acknowledged plain ADS transport retains a cleartext security warning."
+expected_failure_mode = "Plain transport is accepted without surfacing its security warning."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_CONFIGURATION_PLAIN_TRANSPORT_ACK_SURFACES_SECURITY_WARNING_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_CLIENT_CONFIGURATION_PRODUCTION_LOCAL_IDENTITY_VALIDATION_REQUIRES_PINNED_LOCAL_NET_ID_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_AB23FA48326AC3D9C37F"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/tests.rs"
+name = "production_local_identity_validation_requires_pinned_local_net_id"
+command = "cargo test -p trust-runtime --lib --no-default-features ads::tests::production_local_identity_validation_requires_pinned_local_net_id -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CLIENT_CONFIGURATION_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+expected_result = "Production readiness rejects a connection without a pinned local AMS identity."
+expected_failure_mode = "An unpinned local identity is treated as production ready."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_CONFIGURATION_PRODUCTION_LOCAL_IDENTITY_VALIDATION_REQUIRES_PINNED_LOCAL_NET_ID_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_CLIENT_CONFIGURATION_PRODUCTION_LOCAL_IDENTITY_VALIDATION_REJECTS_MISMATCHED_LOCAL_NET_ID_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_08BB8962E4D418E212B4"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/tests.rs"
+name = "production_local_identity_validation_rejects_mismatched_local_net_id"
+command = "cargo test -p trust-runtime --lib --no-default-features ads::tests::production_local_identity_validation_rejects_mismatched_local_net_id -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CLIENT_CONFIGURATION_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+expected_result = "Production readiness rejects a pinned local AMS identity that differs from the runtime host."
+expected_failure_mode = "A mismatched local identity is treated as production ready."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_CONFIGURATION_PRODUCTION_LOCAL_IDENTITY_VALIDATION_REJECTS_MISMATCHED_LOCAL_NET_ID_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_CLIENT_CONFIGURATION_PRODUCTION_LOCAL_IDENTITY_VALIDATION_ACCEPTS_MATCHING_LOCAL_NET_ID_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_B4166FA49B34F5DE4D3D"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/tests.rs"
+name = "production_local_identity_validation_accepts_matching_local_net_id"
+command = "cargo test -p trust-runtime --lib --no-default-features ads::tests::production_local_identity_validation_accepts_matching_local_net_id -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CLIENT_CONFIGURATION_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+expected_result = "Production readiness accepts the exact canonical runtime-host AMS identity."
+expected_failure_mode = "A matching pinned local identity is rejected."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_CONFIGURATION_PRODUCTION_LOCAL_IDENTITY_VALIDATION_ACCEPTS_MATCHING_LOCAL_NET_ID_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_INSECURE_ACK_WITHOUT_PLAIN_TRANSPORT_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_633E318B8B17D641CDB5"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/tests.rs"
+name = "rejects_insecure_ack_without_plain_transport"
+command = "cargo test -p trust-runtime --lib --no-default-features ads::tests::rejects_insecure_ack_without_plain_transport -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CLIENT_CONFIGURATION_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+expected_result = "The insecure-transport acknowledgement is rejected when transport is not plain."
+expected_failure_mode = "A contradictory acknowledgement/transport configuration is accepted."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_CONFIGURATION_REJECTS_INSECURE_ACK_WITHOUT_PLAIN_TRANSPORT_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_DUPLICATE_DECLARED_VARIABLE_BINDING_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_84E095B38F4B67BE9863"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/tests.rs"
+name = "rejects_duplicate_declared_variable_binding"
+command = "cargo test -p trust-runtime --lib --no-default-features ads::tests::rejects_duplicate_declared_variable_binding -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CLIENT_CONFIGURATION_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+expected_result = "A declared runtime global may be bound by at most one ADS point across the configuration."
+expected_failure_mode = "Duplicate runtime-global bindings are accepted."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_CONFIGURATION_REJECTS_DUPLICATE_DECLARED_VARIABLE_BINDING_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_NOTIFICATION_MODE_WITHOUT_NOTIFY_MODE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_7B8A3EF626FDEACB6679"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/tests.rs"
+name = "rejects_notification_mode_without_notify_mode"
+command = "cargo test -p trust-runtime --lib --no-default-features ads::tests::rejects_notification_mode_without_notify_mode -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CLIENT_CONFIGURATION_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+expected_result = "Notification options are rejected unless the point uses notify update mode."
+expected_failure_mode = "Notification metadata is accepted for a non-notify point."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_CONFIGURATION_REJECTS_NOTIFICATION_MODE_WITHOUT_NOTIFY_MODE_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_MIXED_SYMBOL_AND_INDEX_ADDRESSING_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_C36170A07EEA2E1E98C3"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/tests.rs"
+name = "rejects_mixed_symbol_and_index_addressing"
+command = "cargo test -p trust-runtime --lib --no-default-features ads::tests::rejects_mixed_symbol_and_index_addressing -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CLIENT_CONFIGURATION_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+expected_result = "Each ADS point uses exactly one complete symbol or index address form."
+expected_failure_mode = "Mixed symbol/index addressing is accepted."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_CONFIGURATION_REJECTS_MIXED_SYMBOL_AND_INDEX_ADDRESSING_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_DUPLICATE_CONNECTION_NAMES_WITH_DISTINCT_POINT_BINDINGS_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_BC0DE50F9E054CA7FACF"
+discovery_source_kind = "rust_unit_test"
+test_class = "unit"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/contracts/tests.rs"
+name = "rejects_duplicate_connection_names_with_distinct_point_bindings"
+command = "cargo test -p trust-runtime --lib --no-default-features ads::contracts::tests::rejects_duplicate_connection_names_with_distinct_point_bindings -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CLIENT_CONFIGURATION_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+expected_result = "Duplicate connection names are rejected even when their point bindings differ."
+expected_failure_mode = "Two live routes can be created under one connection identity."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_CONFIGURATION_REJECTS_DUPLICATE_CONNECTION_NAMES_WITH_DISTINCT_POINT_BINDINGS_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_NONCANONICAL_TARGET_AMS_NET_IDS_DURING_CONFIGURATION_PARSE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_21F8C242CE4F664E5C86"
+discovery_source_kind = "rust_unit_test"
+test_class = "unit"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/contracts/tests.rs"
+name = "rejects_noncanonical_target_ams_net_ids_during_configuration_parse"
+command = "cargo test -p trust-runtime --lib --no-default-features ads::contracts::tests::rejects_noncanonical_target_ams_net_ids_during_configuration_parse -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CLIENT_CONFIGURATION_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+expected_result = "Malformed, overflowing, or noncanonical target AMS identities fail during configuration parsing."
+expected_failure_mode = "A noncanonical target identity reaches route construction."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_CONFIGURATION_REJECTS_NONCANONICAL_TARGET_AMS_NET_IDS_DURING_CONFIGURATION_PARSE_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_BLANK_OR_NONCANONICAL_EXPLICIT_LOCAL_AMS_NET_IDS_DURING_CONFIGURATION_PARSE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_256039989C50876D5264"
+discovery_source_kind = "rust_unit_test"
+test_class = "unit"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/contracts/tests.rs"
+name = "rejects_blank_or_noncanonical_explicit_local_ams_net_ids_during_configuration_parse"
+command = "cargo test -p trust-runtime --lib --no-default-features ads::contracts::tests::rejects_blank_or_noncanonical_explicit_local_ams_net_ids_during_configuration_parse -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CLIENT_CONFIGURATION_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+expected_result = "Blank, malformed, overflowing, or noncanonical explicit local AMS identities fail during parsing."
+expected_failure_mode = "An invalid explicit local identity reaches route construction."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_CONFIGURATION_REJECTS_BLANK_OR_NONCANONICAL_EXPLICIT_LOCAL_AMS_NET_IDS_DURING_CONFIGURATION_PARSE_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_CLIENT_CONFIGURATION_LOCKS_CONNECTION_AND_DECLARED_GLOBAL_SHAPE_VALIDATION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_5FBD96D9BCDEDDF74B3E"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/contracts/tests.rs"
+name = "locks_connection_and_declared_global_shape_validation"
+command = "cargo test -p trust-runtime --lib --no-default-features ads::contracts::tests::locks_connection_and_declared_global_shape_validation -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CLIENT_CONFIGURATION_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+expected_result = "Empty, blank, zero-port, point-less, and unknown-transport connection/global shapes fail closed."
+expected_failure_mode = "An incomplete connection/global shape is accepted."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_CONFIGURATION_LOCKS_CONNECTION_AND_DECLARED_GLOBAL_SHAPE_VALIDATION_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_CLIENT_CONFIGURATION_LOCKS_EXACT_POINT_ADDRESS_SHAPE_VALIDATION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_F5673ADE84D10F60BB03"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/contracts/tests.rs"
+name = "locks_exact_point_address_shape_validation"
+command = "cargo test -p trust-runtime --lib --no-default-features ads::contracts::tests::locks_exact_point_address_shape_validation -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CLIENT_CONFIGURATION_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+expected_result = "Blank, missing, partial, or zero-sized ADS point addresses fail closed."
+expected_failure_mode = "An incomplete point address is accepted."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_CONFIGURATION_LOCKS_EXACT_POINT_ADDRESS_SHAPE_VALIDATION_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_CLIENT_CONFIGURATION_LOCKS_POINT_ENUM_AND_TYPE_VALIDATION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_6DB935A99B6C0F6943D2"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/contracts/tests.rs"
+name = "locks_point_enum_and_type_validation"
+command = "cargo test -p trust-runtime --lib --no-default-features ads::contracts::tests::locks_point_enum_and_type_validation -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CLIENT_CONFIGURATION_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+expected_result = "Unknown point modes/access/types and malformed STRING or descending-array metadata fail closed."
+expected_failure_mode = "Unsupported point enumeration or type metadata is accepted."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_CONFIGURATION_LOCKS_POINT_ENUM_AND_TYPE_VALIDATION_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_ZERO_STRING_CAPACITY_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_ED25FE75D4BF4A17F3EF"
+discovery_source_kind = "rust_unit_test"
+test_class = "unit"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/contracts/tests.rs"
+name = "rejects_zero_string_capacity"
+command = "cargo test -p trust-runtime --lib --no-default-features ads::contracts::tests::rejects_zero_string_capacity -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CLIENT_CONFIGURATION_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+expected_result = "Inline and explicit zero STRING capacities are rejected."
+expected_failure_mode = "A zero-capacity STRING descriptor is accepted."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_CONFIGURATION_REJECTS_ZERO_STRING_CAPACITY_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_STRING_CAPACITY_ON_NON_STRING_TYPE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_4E31CBD66E62EF0D060C"
+discovery_source_kind = "rust_unit_test"
+test_class = "unit"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/contracts/tests.rs"
+name = "rejects_string_capacity_on_non_string_type"
+command = "cargo test -p trust-runtime --lib --no-default-features ads::contracts::tests::rejects_string_capacity_on_non_string_type -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CLIENT_CONFIGURATION_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+expected_result = "STRING capacity metadata is rejected for non-STRING IEC types."
+expected_failure_mode = "A non-STRING type silently accepts irrelevant capacity metadata."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_CONFIGURATION_REJECTS_STRING_CAPACITY_ON_NON_STRING_TYPE_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_INDEX_ADDRESS_SIZE_THAT_DISAGREES_WITH_DECLARED_TYPE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_880E6F15CF72F6494D86"
+discovery_source_kind = "rust_unit_test"
+test_class = "unit"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/contracts/tests.rs"
+name = "rejects_index_address_size_that_disagrees_with_declared_type"
+command = "cargo test -p trust-runtime --lib --no-default-features ads::contracts::tests::rejects_index_address_size_that_disagrees_with_declared_type -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CLIENT_CONFIGURATION_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+expected_result = "Fixed-width scalar and array index-address byte sizes must equal their declared type shape."
+expected_failure_mode = "A mismatched index byte size is accepted and can misdecode storage."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_CONFIGURATION_REJECTS_INDEX_ADDRESS_SIZE_THAT_DISAGREES_WITH_DECLARED_TYPE_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_CLIENT_CONFIGURATION_REJECTS_ARRAY_METADATA_WHOSE_BYTE_LENGTH_OVERFLOWS_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_77E87B7C0F37E9870E9A"
+discovery_source_kind = "rust_unit_test"
+test_class = "unit"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/contracts/tests.rs"
+name = "rejects_array_metadata_whose_byte_length_overflows"
+command = "cargo test -p trust-runtime --lib --no-default-features ads::contracts::tests::rejects_array_metadata_whose_byte_length_overflows -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CLIENT_CONFIGURATION_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-configuration-and-activation"
+expected_result = "Array cardinality and byte length are checked and rejected on overflow before allocation or activation."
+expected_failure_mode = "Overflowing array metadata is accepted or wraps its byte length."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_CONFIGURATION_REJECTS_ARRAY_METADATA_WHOSE_BYTE_LENGTH_OVERFLOWS_001.json"
+last_reviewed = "2026-07-23"

@@ -770,6 +770,9 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   assertion reachability, mutation sensitivity, external ADS/TwinCAT proof,
   the remaining ADS subdomains, and the final broad remote gates remain open.
   <!-- generated:ads-client-transport:end -->
+  <!-- generated:ads-client-configuration:start -->
+  ADS client configuration coherent-batch progress (2026-07-23): the runtime product specification now owns unique connection names, canonical target and explicit-local AMS identities, complete connection and point shape, exact point address/type size agreement, bounded STRING and array metadata, security acknowledgement, and local runtime identity readiness. Focused expected-red regressions exposed and fixed duplicate connection names, noncanonical identities, zero STRING capacity, stray STRING capacity, mismatched index byte sizes, and overflowing array byte length; table-driven behavior locks cover the remaining parser partitions, and the accepted ADS behavior-lock suite remains green. Deterministic scanner-driven automation binds 21 live code facts and 20 focused tests to `RT_ADS_CLIENT_CONFIGURATION_001`; repository totals become 1,040 specified facts, 14,261 remaining `spec_gap` facts, 780 catalog-mapped tests, and 3,441 remaining `reviewed_nonmapping` tests. Secure ADS transport remains an unresolved product decision and has no test authority. This is a truST ADS product contract outside IEC 61131-3, not an IEC decision or deviation. Assertion reachability, mutation sensitivity, activation/runtime lifecycle behavior, external ADS/TwinCAT proof, remaining ADS subdomains, and final broad gates remain open.
+  <!-- generated:ads-client-configuration:end -->
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device

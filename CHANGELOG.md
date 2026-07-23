@@ -10,6 +10,12 @@ Target release: `v0.24.54`
 
 ### Fixed
 
+- trust-runtime: ADS client configuration parsing now rejects duplicate
+  connection names, noncanonical target AMS Net IDs, and blank or noncanonical
+  explicit local AMS Net IDs before constructing activation routes.
+- trust-runtime: ADS client configuration parsing now rejects zero or
+  non-STRING capacities, overflowing array byte lengths, and index-address
+  sizes that disagree with the declared scalar or array type.
 - trust-runtime: ADS client connections now reject noncanonical target or local
   AMS Net IDs and target AMS port zero before invoking the connector or opening
   TCP, while preserving cached symbol-handle and subscription state when
