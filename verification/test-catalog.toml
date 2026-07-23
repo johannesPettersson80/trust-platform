@@ -21078,3 +21078,290 @@ requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_BINDING_AND_REMOTE_DESCRIPTOR_VALIDATION_PARTITION_TABLE_001.json"
 last_reviewed = "2026-07-23"
+[[tests]]
+schema_version = 2
+id = "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_PARSES_SECURITY_POLICY_AND_MODE_ALIASES_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_EF47F02553AABA1EAA0E"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/opcua/tests.rs"
+name = "parses_security_policy_and_mode_aliases"
+command = "cargo test -p trust-runtime --lib opcua::tests::parses_security_policy_and_mode_aliases -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+expected_result = "The focused assertion suite for parses security policy and mode aliases satisfies SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity."
+expected_failure_mode = "The specified RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_PARSES_SECURITY_POLICY_AND_MODE_ALIASES_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_CONFIG_REJECTS_AMBIGUOUS_IDENTITY_AUTH_AND_ACCESS_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_1B2A0E231FAC32C63820"
+discovery_source_kind = "rust_unit_test"
+test_class = "failing_regression"
+area = "protocols"
+path = "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+name = "client_config_rejects_ambiguous_identity_auth_and_access"
+command = "cargo test -p trust-runtime --lib opcua::tests::client_contracts::client_config_rejects_ambiguous_identity_auth_and_access -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+expected_result = "The focused assertion suite for client config rejects ambiguous identity auth and access satisfies SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity."
+expected_failure_mode = "The specified RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_CONFIG_REJECTS_AMBIGUOUS_IDENTITY_AUTH_AND_ACCESS_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_CONFIG_SCALAR_TYPE_AND_ACCESS_ALIASES_ARE_STABLE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_C0C40B26E0A0C082CB39"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+name = "client_config_scalar_type_and_access_aliases_are_stable"
+command = "cargo test -p trust-runtime --lib opcua::tests::client_contracts::client_config_scalar_type_and_access_aliases_are_stable -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+expected_result = "The focused assertion suite for client config scalar type and access aliases are stable satisfies SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity."
+expected_failure_mode = "The specified RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_CONFIG_SCALAR_TYPE_AND_ACCESS_ALIASES_ARE_STABLE_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_ACCEPTS_VS_CODE_GLOBAL_VAR_NAMES_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_A4A87F179D0CC41E298C"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/tests/opcua_client_runtime.rs"
+name = "opcua_client_accepts_vs_code_global_var_names"
+command = "cargo test -p trust-runtime --test opcua_client_runtime opcua_client_accepts_vs_code_global_var_names -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+expected_result = "The focused assertion suite for opcua client accepts vs code global var names satisfies SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity."
+expected_failure_mode = "The specified RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_ACCEPTS_VS_CODE_GLOBAL_VAR_NAMES_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_TRUST_STORE_CAN_BE_LISTED_AND_CLEARED_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_112536618DD96F545DC5"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/opcua/tests.rs"
+name = "opcua_client_trust_store_can_be_listed_and_cleared"
+command = "cargo test -p trust-runtime --lib opcua::tests::opcua_client_trust_store_can_be_listed_and_cleared -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+expected_result = "The focused assertion suite for opcua client trust store can be listed and cleared satisfies SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity."
+expected_failure_mode = "The specified RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_TRUST_STORE_CAN_BE_LISTED_AND_CLEARED_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_EXPLICIT_TRUST_PROMOTES_REJECTED_CERTIFICATES_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_CC23E54B30499BB0CB0A"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/opcua/tests.rs"
+name = "opcua_client_explicit_trust_promotes_rejected_certificates"
+command = "cargo test -p trust-runtime --lib opcua::tests::opcua_client_explicit_trust_promotes_rejected_certificates -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+expected_result = "The focused assertion suite for opcua client explicit trust promotes rejected certificates satisfies SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity."
+expected_failure_mode = "The specified RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_EXPLICIT_TRUST_PROMOTES_REJECTED_CERTIFICATES_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_REJECTED_SECURITY_POLICY_DURING_LOGIN_PROMPTS_FOR_AUTH_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_6645454C7C95B5F6EA9F"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/opcua/tests.rs"
+name = "opcua_client_rejected_security_policy_during_login_prompts_for_auth"
+command = "cargo test -p trust-runtime --lib opcua::tests::opcua_client_rejected_security_policy_during_login_prompts_for_auth -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+expected_result = "The focused assertion suite for opcua client rejected security policy during login prompts for auth satisfies SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity."
+expected_failure_mode = "The specified RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_REJECTED_SECURITY_POLICY_DURING_LOGIN_PROMPTS_FOR_AUTH_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_OPERATIONS_DO_NOT_FOLLOW_SYMBOLIC_LINKS_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_1C548923547EDCE58C71"
+discovery_source_kind = "rust_unit_test"
+test_class = "failing_regression"
+area = "protocols"
+path = "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+name = "client_pki_operations_do_not_follow_symbolic_links"
+command = "cargo test -p trust-runtime --lib opcua::tests::client_contracts::client_pki_operations_do_not_follow_symbolic_links -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+expected_result = "The focused assertion suite for client pki operations do not follow symbolic links satisfies SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity."
+expected_failure_mode = "The specified RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_OPERATIONS_DO_NOT_FOLLOW_SYMBOLIC_LINKS_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_ROOT_LINKS_ARE_NOT_TRAVERSED_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_F74C14B624882A0A39C1"
+discovery_source_kind = "rust_unit_test"
+test_class = "failing_regression"
+area = "protocols"
+path = "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+name = "client_pki_root_links_are_not_traversed"
+command = "cargo test -p trust-runtime --lib opcua::tests::client_contracts::client_pki_root_links_are_not_traversed -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+expected_result = "The focused assertion suite for client pki root links are not traversed satisfies SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity."
+expected_failure_mode = "The specified RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_ROOT_LINKS_ARE_NOT_TRAVERSED_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_PROMOTION_TARGET_LINK_IS_REJECTED_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_27C6F8C492004FEC4778"
+discovery_source_kind = "rust_unit_test"
+test_class = "failing_regression"
+area = "protocols"
+path = "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+name = "client_pki_promotion_target_link_is_rejected"
+command = "cargo test -p trust-runtime --lib opcua::tests::client_contracts::client_pki_promotion_target_link_is_rejected -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+expected_result = "The focused assertion suite for client pki promotion target link is rejected satisfies SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity."
+expected_failure_mode = "The specified RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_PROMOTION_TARGET_LINK_IS_REJECTED_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_ONE_SHOT_SERVICE_VECTORS_REQUIRE_EXACT_CARDINALITY_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_E61CF90D81EF3A4069DD"
+discovery_source_kind = "rust_unit_test"
+test_class = "failing_regression"
+area = "protocols"
+path = "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+name = "one_shot_service_vectors_require_exact_cardinality"
+command = "cargo test -p trust-runtime --lib opcua::tests::client_contracts::one_shot_service_vectors_require_exact_cardinality -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+expected_result = "The focused assertion suite for one shot service vectors require exact cardinality satisfies SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity."
+expected_failure_mode = "The specified RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_ONE_SHOT_SERVICE_VECTORS_REQUIRE_EXACT_CARDINALITY_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_ERROR_CLASSIFICATION_IS_STABLE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_17BFE6722783268B1294"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+name = "client_error_classification_is_stable"
+command = "cargo test -p trust-runtime --lib opcua::tests::client_contracts::client_error_classification_is_stable -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+expected_result = "The focused assertion suite for client error classification is stable satisfies SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity."
+expected_failure_mode = "The specified RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_ERROR_CLASSIFICATION_IS_STABLE_001.json"
+last_reviewed = "2026-07-23"

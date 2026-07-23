@@ -1,0 +1,122 @@
+schema_version = 1
+id = "RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001"
+title = "OPC UA client configuration and trust operations fail closed"
+area = "protocols"
+risk = "security"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-23"
+claim = "OPC UA client configuration rejects ambiguous identity, auth, and access; PKI operations ignore or reject symbolic links observed during inspection; the one-shot cardinality guard rejects short and extra service vectors; and recovery codes remain stable without exposing credentials."
+proof_level = "T1"
+contract_kind = "state_machine"
+source_refs = ["crates/trust-runtime/src/host/opcua/contracts.rs", "crates/trust-runtime/src/host/opcua/client.rs"]
+tests = [
+  "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_PARSES_SECURITY_POLICY_AND_MODE_ALIASES_001",
+  "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_CONFIG_REJECTS_AMBIGUOUS_IDENTITY_AUTH_AND_ACCESS_001",
+  "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_CONFIG_SCALAR_TYPE_AND_ACCESS_ALIASES_ARE_STABLE_001",
+  "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_ACCEPTS_VS_CODE_GLOBAL_VAR_NAMES_001",
+  "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_TRUST_STORE_CAN_BE_LISTED_AND_CLEARED_001",
+  "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_EXPLICIT_TRUST_PROMOTES_REJECTED_CERTIFICATES_001",
+  "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_REJECTED_SECURITY_POLICY_DURING_LOGIN_PROMPTS_FOR_AUTH_001",
+  "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_OPERATIONS_DO_NOT_FOLLOW_SYMBOLIC_LINKS_001",
+  "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_ROOT_LINKS_ARE_NOT_TRAVERSED_001",
+  "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_PROMOTION_TARGET_LINK_IS_REJECTED_001",
+  "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_ONE_SHOT_SERVICE_VECTORS_REQUIRE_EXACT_CARDINALITY_001",
+  "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_ERROR_CLASSIFICATION_IS_STABLE_001"
+]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["assertion_reachability", "one_shot_cardinality_call_site_reachability", "mutation_sensitivity", "broad_remote_gate", "node_id_grammar_without_wire_feature", "certificate_destination_name_collision_policy", "concurrent_filesystem_mutation", "multi_certificate_promotion_atomicity", "exhaustive_client_parser_partition_matrix", "pki_extension_recursion_and_order_matrix", "error_classifier_precedence_and_token_matrix", "live_discovery_and_browse_server", "external_opcua_target"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+
+[[behavior]]
+partition = { equals = "VALID_UNAMBIGUOUS_CLIENT_CONFIGURATION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A unique, complete, supported connection and point configuration may activate."
+
+[[behavior]]
+partition = { equals = "DUPLICATE_OR_AMBIGUOUS_CONFIG_AUTH_OR_ACCESS" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Duplicate identity, empty endpoint authority, misplaced credentials, and conflicting access aliases fail before worker creation."
+
+[[behavior]]
+partition = { equals = "PKI_SYMBOLIC_LINK_SOURCE_ROOT_OR_ENTRY_AT_INSPECTION" }
+case_family = "platform_or_filesystem_variation"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Listing and clearing ignore linked trusted sources; promotion ignores a linked rejected source root or entry observed during inspection."
+
+[[behavior]]
+partition = { equals = "SINGLE_CERTIFICATE_PKI_SYMBOLIC_LINK_PROMOTION_TARGET_AT_INSPECTION" }
+case_family = "platform_or_filesystem_variation"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "A one-certificate promotion rejects a symbolic-link trusted root or destination observed before copy and preserves that rejected source; multi-certificate atomicity remains open."
+
+[[behavior]]
+partition = { equals = "SHORT_OR_EXTRA_SERVICE_RESULT_VECTOR" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "The shared one-shot cardinality guard rejects result mismatches before returning partial success; dynamic call-site reachability remains open."
+
+[[behavior]]
+partition = { equals = "CLASSIFIED_CLIENT_FAILURE" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Certificate, browse, auth, unsupported-profile, and transport failures produce stable recovery codes."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "A valid client binding and accepted security-policy spellings remain locked."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "covered"
+rationale = "Focused tables cover the repaired ambiguous configuration, empty authority, and service-vector cardinality cases."
+
+[[coverage.cells]]
+dimension = "platform_or_filesystem_variation"
+state = "covered"
+rationale = "Unix probes cover nested, root, and promotion-target symbolic links present at inspection time."
+
+[[coverage.cells]]
+dimension = "auth_or_permission"
+state = "covered"
+rationale = "Focused classification and password-sentinel cases cover representative auth and certificate failures without secret disclosure."
+
+[[coverage.cells]]
+dimension = "extra_or_unknown"
+state = "gap_open"
+rationale = "The complete parser partition and unknown-field matrix remains open."
+
+[[coverage.cells]]
+dimension = "hardware_or_network_fault"
+state = "gap_open"
+rationale = "Hermetic configuration and PKI proof does not replace external OPC UA discovery and browse."

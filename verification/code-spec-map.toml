@@ -171921,23 +171921,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_004C5D1D9C0C0D1E9E828E5C33F0F4F4F54FEB90115E2FEE3FB6E6756CD2BBE6"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/opcua/client.rs"
-qualified_symbol = "trust_runtime::opcua::list_trusted_opcua_client_server_certificates"
-item_kind = "rust_function"
-signature_digest = "sha256:770a63aff808222561e5fe4e6fb39c9ac331d98cf460843fde9f28180c8246ac"
-reviewed_body_digest = "sha256:c787322f16fb5bfc91aacb42797f97bf713e3fa189207b5356659dc40f81b582"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "public"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_01D4363EA652E70FD611BB3D95B17F72DF245BB67CEBF89F55CAE8452BCDB294"
 source_kind = "rust"
 path = "crates/trust-runtime/src/host/ads/onboarding/import.rs"
@@ -172108,23 +172091,6 @@ qualified_symbol = "<trust_runtime::io::gpio::SysfsBackend as GpioBackend>::writ
 item_kind = "rust_method"
 signature_digest = "sha256:cd7441cfb8ce861a6b21a646794c234c5ab87be2b4d6f4dad61659086d9c81f7"
 reviewed_body_digest = "sha256:d2fcdd27a5d47a443e2b55b5115899ec306b400d3fa092035ed9ff99e801d081"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_048C43BCFEDFAF9BB1B456E8AF9E16230C0D8BEC237C108961ACCFDDE76E8E1D"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/opcua/contracts.rs"
-qualified_symbol = "trust_runtime::opcua::parse_opcua_client_data_type"
-item_kind = "rust_function"
-signature_digest = "sha256:35d200f7893ca801ce12c7f609f90cfab7fb1344e21ae5e460af504b6dd79488"
-reviewed_body_digest = "sha256:35b516fca2c0855bdf02c50825a5e9d3193bc6899413d61286efabac27cb345c"
 owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
@@ -172689,23 +172655,6 @@ reviewed_body_digest = "sha256:b863f4d568f9cbb1d50ba1c3f4eae6efcd99530435ae408da
 owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_0CECF8B8C52F376E450C1773DE4CC098ABB950877A80ADBB91DD7F9C4EEB5318"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/opcua/contracts.rs"
-qualified_symbol = "trust_runtime::opcua::OpcUaSecurityPolicy::parse"
-item_kind = "rust_method"
-signature_digest = "sha256:febf2543e3bd4dfdb98eeef8791d70dcbf0a8f2c993419a2da77bbf9989996bb"
-reviewed_body_digest = "sha256:a89e3e7209f86d3d4162fd4443284919897dc74bc34ed9d9cd2ffa4199bb7dc2"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "public"
 risk_signals = []
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
@@ -174224,23 +174173,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_1C955C3DD418C3BC1A56F5DAE6709D829D90B4E90E69B49A8B7827A4CAEF2F40"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/opcua/contracts.rs"
-qualified_symbol = "trust_runtime::opcua::validate_client_security_profile"
-item_kind = "rust_function"
-signature_digest = "sha256:2c499c41589bb95d1659cf163c4a766a861b92474b429fc563e5456a43627e33"
-reviewed_body_digest = "sha256:9ce7fe843e535ee47d0893ed2ec91d7f62d284c0d8467cfa524de09b3b72b128"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_1CAD1FF1A1574850A1183382D0D6013F786C07267CE76F1D97AF3960D4500A47"
 source_kind = "rust"
 path = "crates/trust-runtime/src/io/ethercat/driver.rs"
@@ -175623,23 +175555,6 @@ last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_2BC232D0BF186A895080FA0DB6BD973D6C954BDA1EB10BA651CC930FF685A8E7"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/opcua/contracts.rs"
-qualified_symbol = "trust_runtime::opcua::OpcUaMessageSecurityMode::parse"
-item_kind = "rust_method"
-signature_digest = "sha256:febf2543e3bd4dfdb98eeef8791d70dcbf0a8f2c993419a2da77bbf9989996bb"
-reviewed_body_digest = "sha256:9f69167b594f7e0bdd75b6c75b47e029cdd0798857f66c10bae7fe93f1c87efa"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "public"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_2C0EF302FDBC4466646FB0F1A3162D19E18F6FAD1E1E4F6AAC22E0095404336C"
 source_kind = "rust"
 path = "crates/trust-runtime/src/host/ads/onboarding/import.rs"
@@ -176792,23 +176707,6 @@ spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-doctor-orchestration-and-active-device-s
 invariant_ids = ["RT_ADS_ONBOARDING_DOCTOR_ORCHESTRATION_001"]
 test_ids = ["TEST_ADS_ONBOARDING_DOCTOR_ACTIVE_DEVICE_BATCH_READ_REQUIRES_A_TIMESTAMPED_GOOD_POINT_001", "TEST_ADS_ONBOARDING_DOCTOR_ACTIVE_DEVICE_READ_ONLY_USES_LIVE_STATUS_AND_NEVER_OPENS_WIRE_CONNECTION_001", "TEST_ADS_ONBOARDING_DOCTOR_ACTIVE_DEVICE_SHORTCUT_REQUIRES_THE_EXACT_REQUESTED_ENDPOINT_001", "TEST_ADS_ONBOARDING_DOCTOR_DOCTOR_HAPPY_PATH_RUNS_REQUIRED_STEPS_AND_SKIPS_WRITE_PROBE_BY_DEFAULT_001", "TEST_ADS_ONBOARDING_DOCTOR_DOCTOR_JOB_REPORTS_PROGRESS_AND_CANCELLATION_001", "TEST_ADS_ONBOARDING_DOCTOR_DOCTOR_MAPS_NAMED_FAILURES_TO_THE_FAILED_STEP_AND_BLOCKS_DEPENDENTS_001", "TEST_ADS_ONBOARDING_DOCTOR_DOCTOR_REJECTS_BLANK_OR_ABSENT_SELECTED_SYMBOL_AT_UPLOAD_BOUNDARY_001", "TEST_ADS_ONBOARDING_DOCTOR_DOCTOR_REJECTS_INVALID_MANUAL_ENDPOINT_BEFORE_WIRE_ACTIVITY_001", "TEST_ADS_ONBOARDING_DOCTOR_DOCTOR_RUNS_GUARDED_WRITE_PROBE_ONLY_WHEN_EXPLICIT_001", "TEST_ADS_ONBOARDING_DOCTOR_DOCTOR_WITH_MANUAL_TARGET_IDENTITY_DOES_NOT_REQUIRE_UDP_IDENTIFY_001", "TEST_ADS_ONBOARDING_DOCTOR_FULL_DOCTOR_AGAINST_ACTIVE_DEVICE_REQUIRES_EXPLICIT_PAUSE_001", "TEST_ADS_ONBOARDING_DOCTOR_MOCK_FAILURE_SCENARIOS_COVER_NAMED_FIELD_FAILURES_001", "TEST_ADS_ONBOARDING_DOCTOR_PRODUCTION_READY_REQUIRES_PASS_EVIDENCE_AND_LIVE_DEPLOYED_STATUS_001", "TEST_ADS_ONBOARDING_DOCTOR_REQUIRED_DOCTOR_STEPS_AND_TIMEOUTS_MATCH_SPEC_001", "TEST_ADS_ONBOARDING_DOCTOR_WIRE_ERROR_CLASSIFICATION_KEEPS_REMEDIATION_MACHINE_READABLE_001"]
 last_reviewed = "2026-07-22"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_3B913CF75F35061B0E122A0AF6EDBE43993B5BEAB565AAF030A28D25F3C425B0"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/opcua/contracts.rs"
-qualified_symbol = "trust_runtime::opcua::parse_client_auth"
-item_kind = "rust_function"
-signature_digest = "sha256:08b9d8a23cd35179ee2365e87d5cffe1af834ec9070011703ff0745c098a182d"
-reviewed_body_digest = "sha256:2947f393bfa04ad82981ced394536f52eed705dad6703c4295b2094f81e8067c"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
@@ -179897,40 +179795,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_5F9C51EE5D1C8FFD511C86441826EF0EAB34349282A3FD6534191A90972969F5"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/opcua/contracts.rs"
-qualified_symbol = "trust_runtime::opcua::parse_opcua_client_access"
-item_kind = "rust_function"
-signature_digest = "sha256:d34d53cfda184f71ab5c28f2ab431a180ef7a2720f23b3f383df8e400bf97c1b"
-reviewed_body_digest = "sha256:7bfdb4c6a7c16f80b9fc0a8f8169fd39b0e5109b0caa426076703ddbc7777881"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_600D76CE936D4C9CA75B54497892C45BA8CB41E9BE0BCD3D3A1BC42C4B3CB3AA"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/opcua/client.rs"
-qualified_symbol = "trust_runtime::opcua::classify_opcua_client_browse_error"
-item_kind = "rust_function"
-signature_digest = "sha256:dba7979141e84a57eb4b4718b0fb73a54d307253fe4242352ee89c3c97649e0c"
-reviewed_body_digest = "sha256:0f82fa122390162eee140984845dfdf9d678121fb07a3d2d68237d19942daf9a"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "public"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_604444209F205886DDB47829E6DEC776271B20D659A3CB8CC4CF39A25ACC6CD5"
 source_kind = "rust"
 path = "crates/trust-runtime/src/io/coercion.rs"
@@ -181065,25 +180929,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_6D35D7994B609FFFBFBB85A85259CFC675CAAF92F97F01D4204911E3583374F5"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/opcua/client.rs"
-qualified_symbol = "trust_runtime::opcua::promote_rejected_opcua_client_server_certificates"
-item_kind = "rust_function"
-signature_digest = "sha256:00ff87deffe1af4ec5bfae34f3002bb668c831b765f284e559316063d94a989c"
-reviewed_body_digest = "sha256:d4d8df54731cd0f9130d34a720df686250947471dfa7c9efd5757599b87c81da"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = ["fault_mapping", "filesystem_or_environment", "state_mutation"]
-owner_ack = "RISK_ACK_6D35D7994B609FFFBFBB85A85259CFC675CAAF92F97F01D4204911E3583374F5"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_6D70783F31F6F5A3759A44B80C8E581E5447BF0CEFEAB8D87A26334F25D81EB1"
 source_kind = "rust"
 path = "crates/trust-ads-server/src/commands.rs"
@@ -181392,23 +181237,6 @@ reviewed_body_digest = "sha256:be22070ee56e8e8d3abdcff96dee35170775be9172d9caa59
 owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_70DAA4BE008494302FA58124BEB7A2EFB920E165DF339091FBAFEF2D8AD31F6B"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/opcua/contracts.rs"
-qualified_symbol = "trust_runtime::opcua::invalid_opcua_client"
-item_kind = "rust_function"
-signature_digest = "sha256:6913678147f9a0ab9094947d92d037fd34070d448121b767f604e6cc7658c947"
-reviewed_body_digest = "sha256:3c0557cdfc5623770eb115c96eb869ea5a5e42d2f2b13f14c8e3642b88103e27"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
 risk_signals = []
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
@@ -181946,23 +181774,6 @@ qualified_symbol = "trust_runtime::connectors::contract::ConnectorStatusReport"
 item_kind = "rust_public_type"
 signature_digest = "sha256:af9b40ee20e3a135f1e3df4eb409b1c3ad7d45fe16034e5c4c966e06f1c70f06"
 reviewed_body_digest = "sha256:d7c9063212ea02448c4ecab34d63dd14a63e1ca3d1a28a6a7578e550eb6556ad"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "public"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_77688741FDCF5323FD1CBAC3574F86DF5C93345127925BE96C8078C71892BD07"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/opcua/client.rs"
-qualified_symbol = "trust_runtime::opcua::classify_opcua_client_error"
-item_kind = "rust_function"
-signature_digest = "sha256:8321829acfa17ba017d2c9e4f0c215ea517e7da251b0f6ee9915004dfb148130"
-reviewed_body_digest = "sha256:20832348c8fe4e82caa8091bd3763c44b7767b9378599df4c4c425e7531a6175"
 owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
@@ -182982,25 +182793,6 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_833C4B2F5BE364DBF9FDBF37D1C34F21F074EE58E0752188AF75B6CBD9FA1DD5"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/opcua/client.rs"
-qualified_symbol = "trust_runtime::opcua::collect_certificate_files"
-item_kind = "rust_function"
-signature_digest = "sha256:0f9734c988801ac411a436d15632b77406459035aed25b7b27fb006e1d850007"
-reviewed_body_digest = "sha256:3de42529719c30c42e14effe41aef651db39b212d2528af7d21bef7f8f7b8e82"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = ["broad_error_suppression", "fault_mapping", "filesystem_or_environment", "state_mutation"]
-owner_ack = "RISK_ACK_833C4B2F5BE364DBF9FDBF37D1C34F21F074EE58E0752188AF75B6CBD9FA1DD5"
-owner_ack_expires_on = "2026-10-21"
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
 last_reviewed = "2026-07-21"
@@ -185717,25 +185509,6 @@ last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_A45E693DDE483BA02F8AA3ABF06D8B424E0CDB1CC0B4810115FA32E7154C0B62"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/opcua/contracts.rs"
-qualified_symbol = "trust_runtime::opcua::parse_opcua_client_toml"
-item_kind = "rust_function"
-signature_digest = "sha256:1fce6c76c4030944fc3d66535eafc1e6cbdb66f0eea060886f34888f35639a99"
-reviewed_body_digest = "sha256:88594ae764acae68e6b72c14028532ce6cb1e0469fb3b4b6c72150d120df9eca"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "public"
-risk_signals = ["fault_mapping"]
-owner_ack = "RISK_ACK_A45E693DDE483BA02F8AA3ABF06D8B424E0CDB1CC0B4810115FA32E7154C0B62"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_A4820054EA20B0EEEFAA5E3B064D8488282A056CE2BB729DEAB59CA85E16686A"
 source_kind = "rust"
 path = "crates/trust-runtime/src/host/ads/onboarding/discover.rs"
@@ -186476,23 +186249,6 @@ spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-command-dispatch-and-resource-saf
 invariant_ids = ["RT_ADS_SERVER_COMMAND_DISPATCH_001"]
 test_ids = ["TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ACCEPTS_BECKHOFF_DOTNET_V7_COMPACT_REQUEST_001", "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ACCEPTS_ONLINE_CHANGE_COUNT_HANDLE_AS_SYMBOL_VERSION_001", "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ACCEPTS_SMALLER_WATCH_AND_REJECTS_TOO_LARGE_WATCH_001", "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ACCEPTS_SUPPORTED_MODES_AND_DELETE_RELEASES_HANDLE_001", "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ACCEPTS_SYMBOL_VALUE_HANDLE_FOR_PYADS_001", "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ACCEPTS_SYMBOL_VERSION_WATCH_001", "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ACCEPTS_TASK_COUNT_HANDLE_AS_STATIC_SYSTEM_BYTES_001", "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_ENFORCES_PER_CLIENT_LIMIT_001", "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_REQUIRES_RECEIVER_WITHOUT_ALLOCATING_HANDLE_001", "TEST_ADS_SERVER_COMMAND_ADD_NOTIFICATION_WRAPS_WITHOUT_REPLACING_LIVE_HANDLE_001", "TEST_ADS_SERVER_COMMAND_DELETE_NOTIFICATION_REJECTS_UNKNOWN_HANDLE_WITHOUT_MUTATION_001", "TEST_ADS_SERVER_COMMAND_DEVICE_DATA_TIME_BASE_READ_MATCHES_TWINCAT_PROBE_001", "TEST_ADS_SERVER_COMMAND_DEVICE_NOTIFICATION_PAYLOAD_MATCHES_WIRE_MATRIX_001", "TEST_ADS_SERVER_COMMAND_DIRECT_READ_HONORS_SMALLER_REQUESTED_LENGTH_001", "TEST_ADS_SERVER_COMMAND_DIRECT_READ_RETURNS_VALUE_BYTES_001", "TEST_ADS_SERVER_COMMAND_DIRECT_VALUE_READ_PADS_TO_REQUESTED_LENGTH_001", "TEST_ADS_SERVER_COMMAND_DIRECT_WRITE_ENFORCES_WRITE_BYTE_LIMIT_001", "TEST_ADS_SERVER_COMMAND_HANDLE_BY_NAME_ACCEPTS_SYMBOL_NAME_WITHOUT_NUL_TERMINATOR_001", "TEST_ADS_SERVER_COMMAND_HANDLE_BY_NAME_ENFORCES_HANDLE_LIMIT_001", "TEST_ADS_SERVER_COMMAND_HANDLE_BY_NAME_THEN_READ_BY_HANDLE_001", "TEST_ADS_SERVER_COMMAND_HANDLE_BY_NAME_WRAPS_WITHOUT_ALIASING_LIVE_HANDLES_001", "TEST_ADS_SERVER_COMMAND_INVALIDATED_NOTIFICATION_SAMPLE_HAS_ZERO_SIZE_DATA_001", "TEST_ADS_SERVER_COMMAND_MALFORMED_COMMAND_PAYLOADS_FAIL_WITHOUT_STATE_MUTATION_001", "TEST_ADS_SERVER_COMMAND_ONLINE_CHANGE_COUNT_HANDLE_BY_NAME_READS_SYMBOL_VERSION_001", "TEST_ADS_SERVER_COMMAND_ONLINE_CHANGE_COUNT_INFO_BY_NAME_EX_RETURNS_HIDDEN_SYSTEM_SYMBOL_001", "TEST_ADS_SERVER_COMMAND_POLICY_REJECTION_PRECEDES_WRITE_AND_RECORDS_AUDIT_001", "TEST_ADS_SERVER_COMMAND_RAW_TASK_INFO_BASE_ADDRESS_READS_FULL_TASK_INFO_BLOCK_001", "TEST_ADS_SERVER_COMMAND_RAW_TASK_INFO_BASE_ADDRESS_READS_OBJ_ID_PREFIX_FOR_SHORT_READ_001", "TEST_ADS_SERVER_COMMAND_READ_DEVICE_INFO_RESPONSE_IS_WIRE_SHAPED_001", "TEST_ADS_SERVER_COMMAND_READ_STATE_RESPONSE_IS_WIRE_SHAPED_AND_REJECTS_PAYLOAD_001", "TEST_ADS_SERVER_COMMAND_RELEASE_HANDLE_ACCEPTS_PAYLOAD_HANDLE_FORM_001", "TEST_ADS_SERVER_COMMAND_RELEASE_HANDLE_ACCEPTS_TWINCAT_INDEX_OFFSET_FORM_001", "TEST_ADS_SERVER_COMMAND_SUMUP_READWRITE_REJECTS_TRUNCATED_LATER_ITEM_BEFORE_ANY_WRITE_001", "TEST_ADS_SERVER_COMMAND_SUMUP_READWRITE_RETURNS_METADATA_THEN_CONCATENATED_DATA_001", "TEST_ADS_SERVER_COMMAND_SUMUP_READ_ENFORCES_ITEM_LIMIT_001", "TEST_ADS_SERVER_COMMAND_SUMUP_READ_EX_RETURNS_RESULT_LENGTHS_FOR_ADS_RS_READ_MULTI_001", "TEST_ADS_SERVER_COMMAND_SUMUP_READ_KEEPS_GOOD_ITEMS_WHEN_ONE_FAILS_001", "TEST_ADS_SERVER_COMMAND_SUMUP_WRITE_REJECTS_TRUNCATED_LATER_ITEM_BEFORE_ANY_WRITE_001", "TEST_ADS_SERVER_COMMAND_SUMUP_WRITE_RETURNS_PER_ITEM_RESULTS_001", "TEST_ADS_SERVER_COMMAND_SYMBOL_INFO_BY_NAME_EX_ACCEPTS_SYMBOL_NAME_WITHOUT_NUL_TERMINATOR_001", "TEST_ADS_SERVER_COMMAND_SYMBOL_INFO_BY_NAME_EX_RETURNS_ADS_SYMBOL_ENTRY_FOR_PYADS_CACHE_001", "TEST_ADS_SERVER_COMMAND_SYMBOL_INFO_BY_NAME_RETURNS_COMPACT_INDEX_AND_SIZE_TUPLE_FOR_ADS_RS_001", "TEST_ADS_SERVER_COMMAND_SYMBOL_VALUE_BY_NAME_PADS_VALUE_TO_REQUESTED_LENGTH_001", "TEST_ADS_SERVER_COMMAND_SYMBOL_VALUE_BY_NAME_RETURNS_TASK_COUNT_WITHOUT_NUL_TERMINATOR_001", "TEST_ADS_SERVER_COMMAND_SYMBOL_VERSION_READ_RETURNS_U32_VERSION_001", "TEST_ADS_SERVER_COMMAND_TASK_INFO_ADS_PORT_FIELD_REPORTS_RUNTIME_PORT_001", "TEST_ADS_SERVER_COMMAND_TASK_INFO_BLOCK_BY_NAME_RETURNS_FULL_STRUCT_BYTES_001", "TEST_ADS_SERVER_COMMAND_UNKNOWN_ADDRESS_DISTINGUISHES_GROUP_FROM_OFFSET_001", "TEST_ADS_SERVER_COMMAND_UNSUPPORTED_CONTROL_AND_INCOMING_NOTIFICATION_ARE_SIDE_EFFECT_FREE_001", "TEST_ADS_SERVER_COMMAND_UPLOAD_INFO2_PADS_TO_REQUESTED_LENGTH_FOR_ADS_RS_001", "TEST_ADS_SERVER_COMMAND_UPLOAD_INFO2_REPORTS_SYMBOL_AND_DATATYPE_TABLE_SIZES_001", "TEST_ADS_SERVER_COMMAND_WRITE_ENQUEUES_AND_AUDITS_WRITABLE_SYMBOL_001", "TEST_ADS_SERVER_COMMAND_WRITE_REJECTS_READONLY_SYMBOL_WITHOUT_RUNTIME_MUTATION_001"]
 last_reviewed = "2026-07-22"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_AE8F3D0C32959E670675BA9CFED1F438F29A1E67838176287B811E4E40FE1FB2"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/opcua/contracts.rs"
-qualified_symbol = "trust_runtime::opcua::OpcUaClientToml::into_config"
-item_kind = "rust_method"
-signature_digest = "sha256:83be42e899aebf85d39c83736d3c8e3bea87e000ec1d0691ff12858ca3665054"
-reviewed_body_digest = "sha256:84b0dc357575d4a17129c4845ec641c068125a0db64682bcbaac10234ea28c60"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
@@ -187698,25 +187454,6 @@ last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_BCD8CF0D8DA9E594D7BA1951D505C1A3CF3A119DD45C3AE047E1C1D3549566A2"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/opcua/client.rs"
-qualified_symbol = "trust_runtime::opcua::clear_trusted_opcua_client_server_certificates"
-item_kind = "rust_function"
-signature_digest = "sha256:62d69e15f4ee0f7f0cab6c982c60b2839b4dcd652d92c0a21a6179721cf66f4f"
-reviewed_body_digest = "sha256:8a7291050a7fbaec05e5a6c31dc92f349fc49eb4271bfac70918c7e14d581242"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "public"
-risk_signals = ["fault_mapping", "filesystem_or_environment", "state_mutation"]
-owner_ack = "RISK_ACK_BCD8CF0D8DA9E594D7BA1951D505C1A3CF3A119DD45C3AE047E1C1D3549566A2"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_BCECDC8C0022A9F4DD43A7D8E30D0DFF7A209D144CB5FCD4656E16A82137B276"
 source_kind = "rust"
 path = "crates/trust-runtime/src/host/opcua/contracts.rs"
@@ -188414,23 +188151,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_C469212E9CCC4AD88DD1AA76D3964728D669C842765C0CFCCF89FBA25DD49C9A"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/opcua/contracts.rs"
-qualified_symbol = "trust_runtime::opcua::non_empty_opcua_client"
-item_kind = "rust_function"
-signature_digest = "sha256:99077e579eb4321018cf4d2a65a2a2e752b6f40b810a5442f8b0c9b0f4d717e4"
-reviewed_body_digest = "sha256:2c30c63b5f2e0d8c26e4e0cd71e3104f077620070b9422207586596044fae827"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_C46AD1B7F6254876234D9C359CCD841C22CFFD5880E5F3F6EC3BB74CDB4A456B"
 source_kind = "rust"
 path = "crates/trust-runtime/src/io/mqtt/sparkplug.rs"
@@ -188649,25 +188369,6 @@ owner = "trust-runtime"
 area = "protocols"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_C6625B1BD8D8DF8E96BEA2936FC3A6261163A7A5ED1E1F250707D408AC7E9C7C"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/opcua/contracts.rs"
-qualified_symbol = "trust_runtime::opcua::OpcUaClientPointSection::into_config"
-item_kind = "rust_method"
-signature_digest = "sha256:9a6a0d9c90d39b4983ab107238466658094e2f73e90ef4e044a4aade87206da5"
-reviewed_body_digest = "sha256:7d8e5f71ee225e8c27a94c551f3ce81f3cca5d9b1f4d52de3d38deea534fd181"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = ["state_mutation"]
-owner_ack = "RISK_ACK_C6625B1BD8D8DF8E96BEA2936FC3A6261163A7A5ED1E1F250707D408AC7E9C7C"
-owner_ack_expires_on = "2026-10-21"
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
 last_reviewed = "2026-07-21"
@@ -190136,23 +189837,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_DB0A83730A828D229C39E54DE636F441B55BA52B9164F3A6179572EE3CDE471F"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/opcua/client.rs"
-qualified_symbol = "trust_runtime::opcua::classify_opcua_client_error_message"
-item_kind = "rust_function"
-signature_digest = "sha256:09b943ad598bdba73ffe0c6354fef0a4fc1913316ad176269bedd24e3db75bc2"
-reviewed_body_digest = "sha256:f8a48ba22a66a20cfd63c101c14709750b79b25b0213167021d014e7f57b4c7f"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_DB340808873DD21B7C4F394E8EECCAF673F7FF485328689E8BE81D0253DCB8E1"
 source_kind = "rust"
 path = "crates/trust-runtime/src/io/modbus.rs"
@@ -191086,23 +190770,6 @@ qualified_symbol = "trust_runtime::io::registry::normalize_name"
 item_kind = "rust_function"
 signature_digest = "sha256:d5215da5e5d1100d5a109cb63d2ab1a6f5688284cc7d8ffbfdb9b1590dd35c88"
 reviewed_body_digest = "sha256:f7ec0290842be80df5f8c4590f1e71f87b5cce10878782b873f1067081b87cfe"
-owner = "trust-runtime"
-area = "protocols"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_E66EDB86CA10CEF2D98C97E3AB721476F382A1CF88BE35F9B053637393CAA8D8"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/opcua/contracts.rs"
-qualified_symbol = "trust_runtime::opcua::OpcUaClientConnectionSection::into_config"
-item_kind = "rust_method"
-signature_digest = "sha256:148e1d00c76966f77de50f5379f31f68faac46be30d3fc7ac22b14b97ae9ddac"
-reviewed_body_digest = "sha256:574e70b86bff57a5c63e1c915a942212f9db79058fcb2dc9ddea4887c80c24dd"
 owner = "trust-runtime"
 area = "protocols"
 visibility = "private"
@@ -275759,4 +275426,456 @@ disposition = "specified"
 spec_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
 invariant_ids = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
 test_ids = ["TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_DECLARED_BINDING_RESOLUTION_REJECTS_MISSING_GLOBAL_001", "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_DECLARED_BINDING_RESOLUTION_REJECTS_TYPE_MISMATCH_001", "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_RETAIN_READ_REQUIRES_OPT_IN_AND_ALLOWED_BINDING_STARTS_STALE_001", "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_BRIDGE_APPLIES_READS_AT_INPUT_PHASE_AND_PUBLISHES_WRITES_AT_OUTPUT_PHASE_001", "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_READ_WRITE_BINDING_SEEDS_WRITE_BASELINE_FROM_FIRST_GOOD_READ_001", "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_READ_BINDINGS_DO_NOT_PUBLISH_OUTPUTS_001", "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_OUTPUT_QUEUE_REPORTS_LATEST_VALUE_AS_WRITE_PENDING_UNTIL_ACK_001", "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_OUTPUT_QUEUE_REJECTS_NON_FINITE_VALUES_BEFORE_ENQUEUE_001", "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_BINDING_AND_REMOTE_DESCRIPTOR_VALIDATION_PARTITION_TABLE_001"]
+last_reviewed = "2026-07-23"
+[[mappings]]
+schema_version = 1
+code_id = "CODE_004C5D1D9C0C0D1E9E828E5C33F0F4F4F54FEB90115E2FEE3FB6E6756CD2BBE6"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/opcua/client.rs"
+qualified_symbol = "trust_runtime::opcua::list_trusted_opcua_client_server_certificates"
+item_kind = "rust_function"
+signature_digest = "sha256:770a63aff808222561e5fe4e6fb39c9ac331d98cf460843fde9f28180c8246ac"
+reviewed_body_digest = "sha256:d90936ad9b798709e8df0cb73d47a21b2d1ce2cb51c92f5b86c0e63339759380"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+invariant_ids = ["RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001"]
+test_ids = ["TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_TRUST_STORE_CAN_BE_LISTED_AND_CLEARED_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_EXPLICIT_TRUST_PROMOTES_REJECTED_CERTIFICATES_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_REJECTED_SECURITY_POLICY_DURING_LOGIN_PROMPTS_FOR_AUTH_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_OPERATIONS_DO_NOT_FOLLOW_SYMBOLIC_LINKS_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_ROOT_LINKS_ARE_NOT_TRAVERSED_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_PROMOTION_TARGET_LINK_IS_REJECTED_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_ONE_SHOT_SERVICE_VECTORS_REQUIRE_EXACT_CARDINALITY_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_ERROR_CLASSIFICATION_IS_STABLE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_00BC695AE6E25A606CBE4D7B828F0866FB0F9B5008AC3FF1E3173FD20C6AD422"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/opcua/contracts.rs"
+qualified_symbol = "trust_runtime::opcua::valid_opc_tcp_endpoint"
+item_kind = "rust_function"
+signature_digest = "sha256:7154561a291490611c76076d5493197f1e6145e822483a05526e184ffb12fb92"
+reviewed_body_digest = "sha256:ada7f910819c88c4258f30759d3877dd327fb9d89ce38bb387bb9e266e898707"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+invariant_ids = ["RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001"]
+test_ids = ["TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_PARSES_SECURITY_POLICY_AND_MODE_ALIASES_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_CONFIG_REJECTS_AMBIGUOUS_IDENTITY_AUTH_AND_ACCESS_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_CONFIG_SCALAR_TYPE_AND_ACCESS_ALIASES_ARE_STABLE_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_ACCEPTS_VS_CODE_GLOBAL_VAR_NAMES_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_048C43BCFEDFAF9BB1B456E8AF9E16230C0D8BEC237C108961ACCFDDE76E8E1D"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/opcua/contracts.rs"
+qualified_symbol = "trust_runtime::opcua::parse_opcua_client_data_type"
+item_kind = "rust_function"
+signature_digest = "sha256:35d200f7893ca801ce12c7f609f90cfab7fb1344e21ae5e460af504b6dd79488"
+reviewed_body_digest = "sha256:35b516fca2c0855bdf02c50825a5e9d3193bc6899413d61286efabac27cb345c"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+invariant_ids = ["RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001"]
+test_ids = ["TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_PARSES_SECURITY_POLICY_AND_MODE_ALIASES_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_CONFIG_REJECTS_AMBIGUOUS_IDENTITY_AUTH_AND_ACCESS_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_CONFIG_SCALAR_TYPE_AND_ACCESS_ALIASES_ARE_STABLE_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_ACCEPTS_VS_CODE_GLOBAL_VAR_NAMES_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_0CECF8B8C52F376E450C1773DE4CC098ABB950877A80ADBB91DD7F9C4EEB5318"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/opcua/contracts.rs"
+qualified_symbol = "trust_runtime::opcua::OpcUaSecurityPolicy::parse"
+item_kind = "rust_method"
+signature_digest = "sha256:febf2543e3bd4dfdb98eeef8791d70dcbf0a8f2c993419a2da77bbf9989996bb"
+reviewed_body_digest = "sha256:a89e3e7209f86d3d4162fd4443284919897dc74bc34ed9d9cd2ffa4199bb7dc2"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+invariant_ids = ["RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001"]
+test_ids = ["TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_PARSES_SECURITY_POLICY_AND_MODE_ALIASES_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_CONFIG_REJECTS_AMBIGUOUS_IDENTITY_AUTH_AND_ACCESS_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_CONFIG_SCALAR_TYPE_AND_ACCESS_ALIASES_ARE_STABLE_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_ACCEPTS_VS_CODE_GLOBAL_VAR_NAMES_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_1C955C3DD418C3BC1A56F5DAE6709D829D90B4E90E69B49A8B7827A4CAEF2F40"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/opcua/contracts.rs"
+qualified_symbol = "trust_runtime::opcua::validate_client_security_profile"
+item_kind = "rust_function"
+signature_digest = "sha256:2c499c41589bb95d1659cf163c4a766a861b92474b429fc563e5456a43627e33"
+reviewed_body_digest = "sha256:9ce7fe843e535ee47d0893ed2ec91d7f62d284c0d8467cfa524de09b3b72b128"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+invariant_ids = ["RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001"]
+test_ids = ["TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_PARSES_SECURITY_POLICY_AND_MODE_ALIASES_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_CONFIG_REJECTS_AMBIGUOUS_IDENTITY_AUTH_AND_ACCESS_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_CONFIG_SCALAR_TYPE_AND_ACCESS_ALIASES_ARE_STABLE_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_ACCEPTS_VS_CODE_GLOBAL_VAR_NAMES_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_2BC232D0BF186A895080FA0DB6BD973D6C954BDA1EB10BA651CC930FF685A8E7"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/opcua/contracts.rs"
+qualified_symbol = "trust_runtime::opcua::OpcUaMessageSecurityMode::parse"
+item_kind = "rust_method"
+signature_digest = "sha256:febf2543e3bd4dfdb98eeef8791d70dcbf0a8f2c993419a2da77bbf9989996bb"
+reviewed_body_digest = "sha256:9f69167b594f7e0bdd75b6c75b47e029cdd0798857f66c10bae7fe93f1c87efa"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+invariant_ids = ["RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001"]
+test_ids = ["TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_PARSES_SECURITY_POLICY_AND_MODE_ALIASES_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_CONFIG_REJECTS_AMBIGUOUS_IDENTITY_AUTH_AND_ACCESS_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_CONFIG_SCALAR_TYPE_AND_ACCESS_ALIASES_ARE_STABLE_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_ACCEPTS_VS_CODE_GLOBAL_VAR_NAMES_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_2E570660EC0F0D6A56D0DC2C739157C4C79858E23EF05D8FBD0DA3405B2F3DEA"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/opcua/contracts.rs"
+qualified_symbol = "trust_runtime::opcua::OpcUaClientConnectionSection::into_config"
+item_kind = "rust_method"
+signature_digest = "sha256:0756f51b531b58313ce5fd8aadb7e699ce23a46358a19542dd8bb2eb3c1d35b5"
+reviewed_body_digest = "sha256:48b59076c558c444446e4d091e3f8c28427b96f172d688770ff528c422a6953c"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "RISK_ACK_2E570660EC0F0D6A56D0DC2C739157C4C79858E23EF05D8FBD0DA3405B2F3DEA"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+invariant_ids = ["RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001"]
+test_ids = ["TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_PARSES_SECURITY_POLICY_AND_MODE_ALIASES_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_CONFIG_REJECTS_AMBIGUOUS_IDENTITY_AUTH_AND_ACCESS_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_CONFIG_SCALAR_TYPE_AND_ACCESS_ALIASES_ARE_STABLE_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_ACCEPTS_VS_CODE_GLOBAL_VAR_NAMES_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_3B913CF75F35061B0E122A0AF6EDBE43993B5BEAB565AAF030A28D25F3C425B0"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/opcua/contracts.rs"
+qualified_symbol = "trust_runtime::opcua::parse_client_auth"
+item_kind = "rust_function"
+signature_digest = "sha256:08b9d8a23cd35179ee2365e87d5cffe1af834ec9070011703ff0745c098a182d"
+reviewed_body_digest = "sha256:90dfb40986fe22785a89e3f81ae41c66f04c919f147d1871f9847b18cfdbb130"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+invariant_ids = ["RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001"]
+test_ids = ["TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_PARSES_SECURITY_POLICY_AND_MODE_ALIASES_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_CONFIG_REJECTS_AMBIGUOUS_IDENTITY_AUTH_AND_ACCESS_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_CONFIG_SCALAR_TYPE_AND_ACCESS_ALIASES_ARE_STABLE_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_ACCEPTS_VS_CODE_GLOBAL_VAR_NAMES_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_5F9C51EE5D1C8FFD511C86441826EF0EAB34349282A3FD6534191A90972969F5"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/opcua/contracts.rs"
+qualified_symbol = "trust_runtime::opcua::parse_opcua_client_access"
+item_kind = "rust_function"
+signature_digest = "sha256:d34d53cfda184f71ab5c28f2ab431a180ef7a2720f23b3f383df8e400bf97c1b"
+reviewed_body_digest = "sha256:4c680674ef2d2b34bea573518bf4e7dedcf94bc449f88f74512f06b9442c59b2"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+invariant_ids = ["RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001"]
+test_ids = ["TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_PARSES_SECURITY_POLICY_AND_MODE_ALIASES_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_CONFIG_REJECTS_AMBIGUOUS_IDENTITY_AUTH_AND_ACCESS_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_CONFIG_SCALAR_TYPE_AND_ACCESS_ALIASES_ARE_STABLE_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_ACCEPTS_VS_CODE_GLOBAL_VAR_NAMES_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_600D76CE936D4C9CA75B54497892C45BA8CB41E9BE0BCD3D3A1BC42C4B3CB3AA"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/opcua/client.rs"
+qualified_symbol = "trust_runtime::opcua::classify_opcua_client_browse_error"
+item_kind = "rust_function"
+signature_digest = "sha256:dba7979141e84a57eb4b4718b0fb73a54d307253fe4242352ee89c3c97649e0c"
+reviewed_body_digest = "sha256:0f82fa122390162eee140984845dfdf9d678121fb07a3d2d68237d19942daf9a"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+invariant_ids = ["RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001"]
+test_ids = ["TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_TRUST_STORE_CAN_BE_LISTED_AND_CLEARED_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_EXPLICIT_TRUST_PROMOTES_REJECTED_CERTIFICATES_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_REJECTED_SECURITY_POLICY_DURING_LOGIN_PROMPTS_FOR_AUTH_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_OPERATIONS_DO_NOT_FOLLOW_SYMBOLIC_LINKS_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_ROOT_LINKS_ARE_NOT_TRAVERSED_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_PROMOTION_TARGET_LINK_IS_REJECTED_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_ONE_SHOT_SERVICE_VECTORS_REQUIRE_EXACT_CARDINALITY_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_ERROR_CLASSIFICATION_IS_STABLE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_6D35D7994B609FFFBFBB85A85259CFC675CAAF92F97F01D4204911E3583374F5"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/opcua/client.rs"
+qualified_symbol = "trust_runtime::opcua::promote_rejected_opcua_client_server_certificates"
+item_kind = "rust_function"
+signature_digest = "sha256:00ff87deffe1af4ec5bfae34f3002bb668c831b765f284e559316063d94a989c"
+reviewed_body_digest = "sha256:d78404f2ed88ba67283c584c48aa568187916a7d36d7d658f68ff55e52e29a5a"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = ["fault_mapping", "filesystem_or_environment", "state_mutation"]
+owner_ack = "RISK_ACK_6D35D7994B609FFFBFBB85A85259CFC675CAAF92F97F01D4204911E3583374F5"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+invariant_ids = ["RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001"]
+test_ids = ["TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_TRUST_STORE_CAN_BE_LISTED_AND_CLEARED_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_EXPLICIT_TRUST_PROMOTES_REJECTED_CERTIFICATES_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_REJECTED_SECURITY_POLICY_DURING_LOGIN_PROMPTS_FOR_AUTH_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_OPERATIONS_DO_NOT_FOLLOW_SYMBOLIC_LINKS_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_ROOT_LINKS_ARE_NOT_TRAVERSED_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_PROMOTION_TARGET_LINK_IS_REJECTED_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_ONE_SHOT_SERVICE_VECTORS_REQUIRE_EXACT_CARDINALITY_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_ERROR_CLASSIFICATION_IS_STABLE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_70DAA4BE008494302FA58124BEB7A2EFB920E165DF339091FBAFEF2D8AD31F6B"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/opcua/contracts.rs"
+qualified_symbol = "trust_runtime::opcua::invalid_opcua_client"
+item_kind = "rust_function"
+signature_digest = "sha256:6913678147f9a0ab9094947d92d037fd34070d448121b767f604e6cc7658c947"
+reviewed_body_digest = "sha256:3c0557cdfc5623770eb115c96eb869ea5a5e42d2f2b13f14c8e3642b88103e27"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+invariant_ids = ["RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001"]
+test_ids = ["TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_PARSES_SECURITY_POLICY_AND_MODE_ALIASES_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_CONFIG_REJECTS_AMBIGUOUS_IDENTITY_AUTH_AND_ACCESS_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_CONFIG_SCALAR_TYPE_AND_ACCESS_ALIASES_ARE_STABLE_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_ACCEPTS_VS_CODE_GLOBAL_VAR_NAMES_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_77688741FDCF5323FD1CBAC3574F86DF5C93345127925BE96C8078C71892BD07"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/opcua/client.rs"
+qualified_symbol = "trust_runtime::opcua::classify_opcua_client_error"
+item_kind = "rust_function"
+signature_digest = "sha256:8321829acfa17ba017d2c9e4f0c215ea517e7da251b0f6ee9915004dfb148130"
+reviewed_body_digest = "sha256:20832348c8fe4e82caa8091bd3763c44b7767b9378599df4c4c425e7531a6175"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+invariant_ids = ["RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001"]
+test_ids = ["TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_TRUST_STORE_CAN_BE_LISTED_AND_CLEARED_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_EXPLICIT_TRUST_PROMOTES_REJECTED_CERTIFICATES_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_REJECTED_SECURITY_POLICY_DURING_LOGIN_PROMPTS_FOR_AUTH_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_OPERATIONS_DO_NOT_FOLLOW_SYMBOLIC_LINKS_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_ROOT_LINKS_ARE_NOT_TRAVERSED_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_PROMOTION_TARGET_LINK_IS_REJECTED_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_ONE_SHOT_SERVICE_VECTORS_REQUIRE_EXACT_CARDINALITY_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_ERROR_CLASSIFICATION_IS_STABLE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_833C4B2F5BE364DBF9FDBF37D1C34F21F074EE58E0752188AF75B6CBD9FA1DD5"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/opcua/client.rs"
+qualified_symbol = "trust_runtime::opcua::collect_certificate_files"
+item_kind = "rust_function"
+signature_digest = "sha256:0f9734c988801ac411a436d15632b77406459035aed25b7b27fb006e1d850007"
+reviewed_body_digest = "sha256:23d6604a0758e4f1a9d1dcfb670a88c98d7205b23ec39467e182f8e41f2248dc"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = ["broad_error_suppression", "fault_mapping", "filesystem_or_environment", "state_mutation"]
+owner_ack = "RISK_ACK_833C4B2F5BE364DBF9FDBF37D1C34F21F074EE58E0752188AF75B6CBD9FA1DD5"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+invariant_ids = ["RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001"]
+test_ids = ["TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_TRUST_STORE_CAN_BE_LISTED_AND_CLEARED_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_EXPLICIT_TRUST_PROMOTES_REJECTED_CERTIFICATES_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_REJECTED_SECURITY_POLICY_DURING_LOGIN_PROMPTS_FOR_AUTH_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_OPERATIONS_DO_NOT_FOLLOW_SYMBOLIC_LINKS_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_ROOT_LINKS_ARE_NOT_TRAVERSED_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_PROMOTION_TARGET_LINK_IS_REJECTED_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_ONE_SHOT_SERVICE_VECTORS_REQUIRE_EXACT_CARDINALITY_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_ERROR_CLASSIFICATION_IS_STABLE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_A45E693DDE483BA02F8AA3ABF06D8B424E0CDB1CC0B4810115FA32E7154C0B62"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/opcua/contracts.rs"
+qualified_symbol = "trust_runtime::opcua::parse_opcua_client_toml"
+item_kind = "rust_function"
+signature_digest = "sha256:1fce6c76c4030944fc3d66535eafc1e6cbdb66f0eea060886f34888f35639a99"
+reviewed_body_digest = "sha256:88594ae764acae68e6b72c14028532ce6cb1e0469fb3b4b6c72150d120df9eca"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "public"
+risk_signals = ["fault_mapping"]
+owner_ack = "RISK_ACK_A45E693DDE483BA02F8AA3ABF06D8B424E0CDB1CC0B4810115FA32E7154C0B62"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+invariant_ids = ["RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001"]
+test_ids = ["TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_PARSES_SECURITY_POLICY_AND_MODE_ALIASES_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_CONFIG_REJECTS_AMBIGUOUS_IDENTITY_AUTH_AND_ACCESS_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_CONFIG_SCALAR_TYPE_AND_ACCESS_ALIASES_ARE_STABLE_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_ACCEPTS_VS_CODE_GLOBAL_VAR_NAMES_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_AE8F3D0C32959E670675BA9CFED1F438F29A1E67838176287B811E4E40FE1FB2"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/opcua/contracts.rs"
+qualified_symbol = "trust_runtime::opcua::OpcUaClientToml::into_config"
+item_kind = "rust_method"
+signature_digest = "sha256:83be42e899aebf85d39c83736d3c8e3bea87e000ec1d0691ff12858ca3665054"
+reviewed_body_digest = "sha256:b0c59cbe8359c41f9dc7c94a0d31ea408f760fbaa98b52cf8c86a6ec919179ac"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+invariant_ids = ["RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001"]
+test_ids = ["TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_PARSES_SECURITY_POLICY_AND_MODE_ALIASES_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_CONFIG_REJECTS_AMBIGUOUS_IDENTITY_AUTH_AND_ACCESS_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_CONFIG_SCALAR_TYPE_AND_ACCESS_ALIASES_ARE_STABLE_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_ACCEPTS_VS_CODE_GLOBAL_VAR_NAMES_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_BCD8CF0D8DA9E594D7BA1951D505C1A3CF3A119DD45C3AE047E1C1D3549566A2"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/opcua/client.rs"
+qualified_symbol = "trust_runtime::opcua::clear_trusted_opcua_client_server_certificates"
+item_kind = "rust_function"
+signature_digest = "sha256:62d69e15f4ee0f7f0cab6c982c60b2839b4dcd652d92c0a21a6179721cf66f4f"
+reviewed_body_digest = "sha256:8a7291050a7fbaec05e5a6c31dc92f349fc49eb4271bfac70918c7e14d581242"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "public"
+risk_signals = ["fault_mapping", "filesystem_or_environment", "state_mutation"]
+owner_ack = "RISK_ACK_BCD8CF0D8DA9E594D7BA1951D505C1A3CF3A119DD45C3AE047E1C1D3549566A2"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+invariant_ids = ["RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001"]
+test_ids = ["TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_TRUST_STORE_CAN_BE_LISTED_AND_CLEARED_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_EXPLICIT_TRUST_PROMOTES_REJECTED_CERTIFICATES_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_REJECTED_SECURITY_POLICY_DURING_LOGIN_PROMPTS_FOR_AUTH_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_OPERATIONS_DO_NOT_FOLLOW_SYMBOLIC_LINKS_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_ROOT_LINKS_ARE_NOT_TRAVERSED_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_PROMOTION_TARGET_LINK_IS_REJECTED_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_ONE_SHOT_SERVICE_VECTORS_REQUIRE_EXACT_CARDINALITY_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_ERROR_CLASSIFICATION_IS_STABLE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_C1CB060600C83B4BD16F2314E2289C18681230C6523090EDD48C0A974714ED81"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/opcua/client.rs"
+qualified_symbol = "trust_runtime::opcua::ensure_certificate_directory"
+item_kind = "rust_function"
+signature_digest = "sha256:6ae1780e4411a8aa1b44ce45e8f56fa4f7a4a7a3b34acedbf3ad235b19ebf6f3"
+reviewed_body_digest = "sha256:5980e94ffc18b9de01150e9a03a11e3214c8d9fabe118e1bd926da15bbe0838d"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = ["fault_mapping", "filesystem_or_environment"]
+owner_ack = "RISK_ACK_C1CB060600C83B4BD16F2314E2289C18681230C6523090EDD48C0A974714ED81"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+invariant_ids = ["RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001"]
+test_ids = ["TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_TRUST_STORE_CAN_BE_LISTED_AND_CLEARED_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_EXPLICIT_TRUST_PROMOTES_REJECTED_CERTIFICATES_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_REJECTED_SECURITY_POLICY_DURING_LOGIN_PROMPTS_FOR_AUTH_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_OPERATIONS_DO_NOT_FOLLOW_SYMBOLIC_LINKS_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_ROOT_LINKS_ARE_NOT_TRAVERSED_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_PROMOTION_TARGET_LINK_IS_REJECTED_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_ONE_SHOT_SERVICE_VECTORS_REQUIRE_EXACT_CARDINALITY_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_ERROR_CLASSIFICATION_IS_STABLE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_C2F3D134041E33E4B7B8196BFB4E8482F88065F8E2D12B0F9C6B4DE919D9365C"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/opcua/client.rs"
+qualified_symbol = "trust_runtime::opcua::certificate_directory_is_safe"
+item_kind = "rust_function"
+signature_digest = "sha256:3ca1169095730d8182af5c02c643fdcf7f3b6e7ce8b28e8dcba75cd77364b52d"
+reviewed_body_digest = "sha256:5241f4e7a0bee7cfff17eb30ee779119bdef0f23e8d9019d355d8b19980f6c8e"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = ["filesystem_or_environment"]
+owner_ack = "RISK_ACK_C2F3D134041E33E4B7B8196BFB4E8482F88065F8E2D12B0F9C6B4DE919D9365C"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+invariant_ids = ["RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001"]
+test_ids = ["TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_TRUST_STORE_CAN_BE_LISTED_AND_CLEARED_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_EXPLICIT_TRUST_PROMOTES_REJECTED_CERTIFICATES_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_REJECTED_SECURITY_POLICY_DURING_LOGIN_PROMPTS_FOR_AUTH_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_OPERATIONS_DO_NOT_FOLLOW_SYMBOLIC_LINKS_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_ROOT_LINKS_ARE_NOT_TRAVERSED_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_PROMOTION_TARGET_LINK_IS_REJECTED_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_ONE_SHOT_SERVICE_VECTORS_REQUIRE_EXACT_CARDINALITY_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_ERROR_CLASSIFICATION_IS_STABLE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_C469212E9CCC4AD88DD1AA76D3964728D669C842765C0CFCCF89FBA25DD49C9A"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/opcua/contracts.rs"
+qualified_symbol = "trust_runtime::opcua::non_empty_opcua_client"
+item_kind = "rust_function"
+signature_digest = "sha256:99077e579eb4321018cf4d2a65a2a2e752b6f40b810a5442f8b0c9b0f4d717e4"
+reviewed_body_digest = "sha256:2c30c63b5f2e0d8c26e4e0cd71e3104f077620070b9422207586596044fae827"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+invariant_ids = ["RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001"]
+test_ids = ["TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_PARSES_SECURITY_POLICY_AND_MODE_ALIASES_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_CONFIG_REJECTS_AMBIGUOUS_IDENTITY_AUTH_AND_ACCESS_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_CONFIG_SCALAR_TYPE_AND_ACCESS_ALIASES_ARE_STABLE_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_ACCEPTS_VS_CODE_GLOBAL_VAR_NAMES_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_C5EF70ABA23C1E1B0524F5190D67D5C766E9B79A2614D0F20FED552C176A6E33"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/opcua/client.rs"
+qualified_symbol = "trust_runtime::opcua::validate_opcua_result_cardinality"
+item_kind = "rust_function"
+signature_digest = "sha256:e8a0480ce05db992ebc6450d9cba9952e895a00d6e4cd8b8165daefe02fdd99a"
+reviewed_body_digest = "sha256:4c16409634c0a74f53a8a72221d974c0c27a8408bc90afc7444a1d22755388f0"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+invariant_ids = ["RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001"]
+test_ids = ["TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_TRUST_STORE_CAN_BE_LISTED_AND_CLEARED_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_EXPLICIT_TRUST_PROMOTES_REJECTED_CERTIFICATES_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_REJECTED_SECURITY_POLICY_DURING_LOGIN_PROMPTS_FOR_AUTH_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_OPERATIONS_DO_NOT_FOLLOW_SYMBOLIC_LINKS_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_ROOT_LINKS_ARE_NOT_TRAVERSED_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_PROMOTION_TARGET_LINK_IS_REJECTED_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_ONE_SHOT_SERVICE_VECTORS_REQUIRE_EXACT_CARDINALITY_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_ERROR_CLASSIFICATION_IS_STABLE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_C6625B1BD8D8DF8E96BEA2936FC3A6261163A7A5ED1E1F250707D408AC7E9C7C"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/opcua/contracts.rs"
+qualified_symbol = "trust_runtime::opcua::OpcUaClientPointSection::into_config"
+item_kind = "rust_method"
+signature_digest = "sha256:9a6a0d9c90d39b4983ab107238466658094e2f73e90ef4e044a4aade87206da5"
+reviewed_body_digest = "sha256:7d8e5f71ee225e8c27a94c551f3ce81f3cca5d9b1f4d52de3d38deea534fd181"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "RISK_ACK_C6625B1BD8D8DF8E96BEA2936FC3A6261163A7A5ED1E1F250707D408AC7E9C7C"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+invariant_ids = ["RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001"]
+test_ids = ["TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_PARSES_SECURITY_POLICY_AND_MODE_ALIASES_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_CONFIG_REJECTS_AMBIGUOUS_IDENTITY_AUTH_AND_ACCESS_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_CONFIG_SCALAR_TYPE_AND_ACCESS_ALIASES_ARE_STABLE_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_ACCEPTS_VS_CODE_GLOBAL_VAR_NAMES_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_DB0A83730A828D229C39E54DE636F441B55BA52B9164F3A6179572EE3CDE471F"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/opcua/client.rs"
+qualified_symbol = "trust_runtime::opcua::classify_opcua_client_error_message"
+item_kind = "rust_function"
+signature_digest = "sha256:09b943ad598bdba73ffe0c6354fef0a4fc1913316ad176269bedd24e3db75bc2"
+reviewed_body_digest = "sha256:f8a48ba22a66a20cfd63c101c14709750b79b25b0213167021d014e7f57b4c7f"
+owner = "trust-runtime"
+area = "protocols"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+invariant_ids = ["RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001"]
+test_ids = ["TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_TRUST_STORE_CAN_BE_LISTED_AND_CLEARED_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_EXPLICIT_TRUST_PROMOTES_REJECTED_CERTIFICATES_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_REJECTED_SECURITY_POLICY_DURING_LOGIN_PROMPTS_FOR_AUTH_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_OPERATIONS_DO_NOT_FOLLOW_SYMBOLIC_LINKS_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_ROOT_LINKS_ARE_NOT_TRAVERSED_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_PROMOTION_TARGET_LINK_IS_REJECTED_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_ONE_SHOT_SERVICE_VECTORS_REQUIRE_EXACT_CARDINALITY_001", "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_ERROR_CLASSIFICATION_IS_STABLE_001"]
 last_reviewed = "2026-07-23"

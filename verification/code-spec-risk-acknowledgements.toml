@@ -49900,20 +49900,6 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_6D35D7994B609FFFBFBB85A85259CFC675CAAF92F97F01D4204911E3583374F5"
-code_id = "CODE_6D35D7994B609FFFBFBB85A85259CFC675CAAF92F97F01D4204911E3583374F5"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:d4d8df54731cd0f9130d34a720df686250947471dfa7c9efd5757599b87c81da"
-risk_signals = ["fault_mapping", "filesystem_or_environment", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_6D9A6F1AAFAFF0D62955B9DC81C0B2B3254041AEA1B474F5D24BB7D0075F6FE4"
 code_id = "CODE_6D9A6F1AAFAFF0D62955B9DC81C0B2B3254041AEA1B474F5D24BB7D0075F6FE4"
 owner = "trust-runtime"
@@ -50242,20 +50228,6 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:58362ed31a692e40f5dd89d944a07de5d403c4972591d5d0941e849502ddd49d"
 risk_signals = ["broad_error_suppression"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_833C4B2F5BE364DBF9FDBF37D1C34F21F074EE58E0752188AF75B6CBD9FA1DD5"
-code_id = "CODE_833C4B2F5BE364DBF9FDBF37D1C34F21F074EE58E0752188AF75B6CBD9FA1DD5"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:3de42529719c30c42e14effe41aef651db39b212d2528af7d21bef7f8f7b8e82"
-risk_signals = ["broad_error_suppression", "fault_mapping", "filesystem_or_environment", "state_mutation"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-21"
@@ -50950,20 +50922,6 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_A45E693DDE483BA02F8AA3ABF06D8B424E0CDB1CC0B4810115FA32E7154C0B62"
-code_id = "CODE_A45E693DDE483BA02F8AA3ABF06D8B424E0CDB1CC0B4810115FA32E7154C0B62"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:88594ae764acae68e6b72c14028532ce6cb1e0469fb3b4b6c72150d120df9eca"
-risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_A4820054EA20B0EEEFAA5E3B064D8488282A056CE2BB729DEAB59CA85E16686A"
 code_id = "CODE_A4820054EA20B0EEEFAA5E3B064D8488282A056CE2BB729DEAB59CA85E16686A"
 owner = "trust-runtime"
@@ -51412,20 +51370,6 @@ rationale = "Binds scanner-derived ADS dispatch, request, aggregate, handle, not
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_BCD8CF0D8DA9E594D7BA1951D505C1A3CF3A119DD45C3AE047E1C1D3549566A2"
-code_id = "CODE_BCD8CF0D8DA9E594D7BA1951D505C1A3CF3A119DD45C3AE047E1C1D3549566A2"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:8a7291050a7fbaec05e5a6c31dc92f349fc49eb4271bfac70918c7e14d581242"
-risk_signals = ["fault_mapping", "filesystem_or_environment", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_BF8F0BBA4E778248AE92776F4D4DFB222CBA54CF324FC97FACA56304B61EFF71"
 code_id = "CODE_BF8F0BBA4E778248AE92776F4D4DFB222CBA54CF324FC97FACA56304B61EFF71"
 owner = "trust-runtime"
@@ -51563,20 +51507,6 @@ reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-22"
 expires_on = "2026-10-22"
 rationale = "Binds live ADS client transport facts and strict canonical parsing to the client transport product contract."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_C6625B1BD8D8DF8E96BEA2936FC3A6261163A7A5ED1E1F250707D408AC7E9C7C"
-code_id = "CODE_C6625B1BD8D8DF8E96BEA2936FC3A6261163A7A5ED1E1F250707D408AC7E9C7C"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:7d8e5f71ee225e8c27a94c551f3ce81f3cca5d9b1f4d52de3d38deea534fd181"
-risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
 
 [[acknowledgements]]
 schema_version = 1
@@ -81784,3 +81714,114 @@ reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-23"
 expires_on = "2026-10-23"
 rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_2E570660EC0F0D6A56D0DC2C739157C4C79858E23EF05D8FBD0DA3405B2F3DEA"
+code_id = "CODE_2E570660EC0F0D6A56D0DC2C739157C4C79858E23EF05D8FBD0DA3405B2F3DEA"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:48b59076c558c444446e4d091e3f8c28427b96f172d688770ff528c422a6953c"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "OPC UA client parsing, certificate trust, error guidance, and service-vector cardinality are security and false-success boundaries."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_6D35D7994B609FFFBFBB85A85259CFC675CAAF92F97F01D4204911E3583374F5"
+code_id = "CODE_6D35D7994B609FFFBFBB85A85259CFC675CAAF92F97F01D4204911E3583374F5"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:d78404f2ed88ba67283c584c48aa568187916a7d36d7d658f68ff55e52e29a5a"
+risk_signals = ["fault_mapping", "filesystem_or_environment", "state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "OPC UA client parsing, certificate trust, error guidance, and service-vector cardinality are security and false-success boundaries."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_833C4B2F5BE364DBF9FDBF37D1C34F21F074EE58E0752188AF75B6CBD9FA1DD5"
+code_id = "CODE_833C4B2F5BE364DBF9FDBF37D1C34F21F074EE58E0752188AF75B6CBD9FA1DD5"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:23d6604a0758e4f1a9d1dcfb670a88c98d7205b23ec39467e182f8e41f2248dc"
+risk_signals = ["broad_error_suppression", "fault_mapping", "filesystem_or_environment", "state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "OPC UA client parsing, certificate trust, error guidance, and service-vector cardinality are security and false-success boundaries."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_A45E693DDE483BA02F8AA3ABF06D8B424E0CDB1CC0B4810115FA32E7154C0B62"
+code_id = "CODE_A45E693DDE483BA02F8AA3ABF06D8B424E0CDB1CC0B4810115FA32E7154C0B62"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:88594ae764acae68e6b72c14028532ce6cb1e0469fb3b4b6c72150d120df9eca"
+risk_signals = ["fault_mapping"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "OPC UA client parsing, certificate trust, error guidance, and service-vector cardinality are security and false-success boundaries."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_BCD8CF0D8DA9E594D7BA1951D505C1A3CF3A119DD45C3AE047E1C1D3549566A2"
+code_id = "CODE_BCD8CF0D8DA9E594D7BA1951D505C1A3CF3A119DD45C3AE047E1C1D3549566A2"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:8a7291050a7fbaec05e5a6c31dc92f349fc49eb4271bfac70918c7e14d581242"
+risk_signals = ["fault_mapping", "filesystem_or_environment", "state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "OPC UA client parsing, certificate trust, error guidance, and service-vector cardinality are security and false-success boundaries."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_C1CB060600C83B4BD16F2314E2289C18681230C6523090EDD48C0A974714ED81"
+code_id = "CODE_C1CB060600C83B4BD16F2314E2289C18681230C6523090EDD48C0A974714ED81"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:5980e94ffc18b9de01150e9a03a11e3214c8d9fabe118e1bd926da15bbe0838d"
+risk_signals = ["fault_mapping", "filesystem_or_environment"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "OPC UA client parsing, certificate trust, error guidance, and service-vector cardinality are security and false-success boundaries."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_C2F3D134041E33E4B7B8196BFB4E8482F88065F8E2D12B0F9C6B4DE919D9365C"
+code_id = "CODE_C2F3D134041E33E4B7B8196BFB4E8482F88065F8E2D12B0F9C6B4DE919D9365C"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:5241f4e7a0bee7cfff17eb30ee779119bdef0f23e8d9019d355d8b19980f6c8e"
+risk_signals = ["filesystem_or_environment"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "OPC UA client parsing, certificate trust, error guidance, and service-vector cardinality are security and false-success boundaries."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_C6625B1BD8D8DF8E96BEA2936FC3A6261163A7A5ED1E1F250707D408AC7E9C7C"
+code_id = "CODE_C6625B1BD8D8DF8E96BEA2936FC3A6261163A7A5ED1E1F250707D408AC7E9C7C"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:7d8e5f71ee225e8c27a94c551f3ce81f3cca5d9b1f4d52de3d38deea534fd181"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-configuration-trust-and-one-shot-operation-integrity"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "OPC UA client parsing, certificate trust, error guidance, and service-vector cardinality are security and false-success boundaries."

@@ -540,6 +540,72 @@ Whether pending outputs replay after reconnect and how server source
 timestamps are ordered remain unresolved product decisions. This contract does
 not provide authority for tests that select those behaviors.
 
+###### OPC UA client configuration, trust, and one-shot operation integrity
+
+This is a truST OPC UA product and security contract outside IEC 61131-3.
+Configuration, certificate stores, endpoint discovery, browsing, and OPC UA
+service-response vectors are not IEC language semantics and therefore do not
+belong in `IEC_DECISIONS.md` or `IEC_DEVIATIONS.md`.
+
+An OPC UA client configuration contains at least one connection. Connection
+names are trimmed, non-empty, and unique across the complete configuration.
+Every connection has a trimmed non-empty `opc.tcp://` endpoint with a
+non-empty authority and at least one point. Point variable names are unique
+across all connections; variable and node identifiers are trimmed and
+non-empty. Node-ID grammar remains a wire-boundary validation because the
+parser must remain available when OPC UA wire support is not compiled.
+
+The parser defaults omitted client security policy and mode to `none`/`none`.
+Policy and mode spelling is trimmed and case-insensitive, with `-` and `_`
+ignored while matching. It accepts only `none`/`none`, `basic256sha256` with
+`sign` or `sign_and_encrypt`, and `aes128sha256rsaoaep` with `sign` or
+`sign_and_encrypt`. Authentication defaults to anonymous. Anonymous
+configuration rejects the presence of either username or password, including
+blank values. Username authentication requires both trimmed non-empty fields.
+Errors must not echo password contents.
+
+Client polling is at least 10 ms. Timeout is in the closed interval from 1
+through 60,000 ms. Every point declares one supported scalar type. The accepted
+type spellings are `bool`/`boolean`, `int`/`int16`, `dint`/`int32`,
+`lint`/`int64`, `uint`/`uint16`, `udint`/`uint32`, `ulint`/`uint64`,
+`real`/`float`/`float32`, `lreal`/`double`/`float64`, and `string`,
+matched after trimming and ASCII case folding. `access` and the legacy
+`writable` alias are mutually exclusive rather than order-dependent; omission
+means read access. Access accepts `read`, `write`, and
+`read_write`/`readwrite`/`read-write`, with the same trimming and case-folding
+rule. Read and read/write points are supported, while write-only points are
+rejected because the runtime requires read evidence before reporting green
+status.
+
+Certificate listing, clearing, and explicit rejected-certificate promotion are
+closed over the configured client PKI directory. They consider only regular
+`.der`, `.pem`, or `.crt` files and return deterministic path order. A
+symbolic-link listing/source root or entry observed during inspection is
+ignored. A symbolic-link trusted promotion root or per-certificate destination
+observed before copy is rejected, and that rejected source remains in place.
+Clear removes only the listed trusted files. Explicit trust copies only listed
+rejected files into the trusted root and removes only those exact rejected
+files after each successful copy. Concurrent filesystem mutation between
+inspection and file operation, batch atomicity across multiple promoted
+certificates, and the destination policy for two different rejected paths with
+the same filename remain unresolved and are not test authority.
+
+For one-shot point reads and writes, the service response must contain exactly
+one result for every request before any result is reported as successful. A
+short or extra read vector is rejected before returning a value prefix. A
+short or extra write-status vector is rejected before reporting batch success,
+and every position in an exact-length vector must be `Good`. Result order is
+interpreted as request order because the service response carries no separate
+point identity at that boundary.
+
+Client error classification is stable and ordered. Certificate failures map
+to `cert_untrusted`; browse access, readability, and unknown-node failures map
+to `browse_denied`; identity, credential, and security-policy rejection during
+activation map to `auth_required`; absence of a matching supported endpoint
+maps to `unsupported_security_profile`; and remaining transport failures map
+to `endpoint_unreachable`. Classification changes recovery guidance only and
+must not expose credentials.
+
 5. **ADS floating-point ingress**
 - ADS `REAL`/`LREAL` values entering through client reads/notifications or ADS
   server writes are accepted only when every scalar value is finite. The same

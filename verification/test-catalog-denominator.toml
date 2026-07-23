@@ -2992,16 +2992,6 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_112536618DD96F545DC5"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/host/opcua/tests.rs"
-name = "opcua_client_trust_store_can_be_listed_and_cleared"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_112BD71350EDF83BBF60"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/bin/trust-runtime/git.rs"
@@ -16572,16 +16562,6 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_6645454C7C95B5F6EA9F"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/host/opcua/tests.rs"
-name = "opcua_client_rejected_security_policy_during_login_prompts_for_auth"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_66836DF45D5768143A94"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs"
@@ -26482,16 +26462,6 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_A4A87F179D0CC41E298C"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/opcua_client_runtime.rs"
-name = "opcua_client_accepts_vs_code_global_var_names"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_A4B53D5EAD921AF1BEA5"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/control/tests/connectors.rs"
@@ -33052,16 +33022,6 @@ catalog_test_id = "TEST_RUNTIME_SETUP_ACCESS_OPEN_001"
 last_reviewed = "2026-07-22"
 
 [[reviews]]
-discovery_id = "DISC_CC23E54B30499BB0CB0A"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/host/opcua/tests.rs"
-name = "opcua_client_explicit_trust_promotes_rejected_certificates"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_CC2F881DE0190A4E385F"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-lsp/src/handlers/tests/code_actions_and_commands_part_02.rs"
@@ -38572,16 +38532,6 @@ catalog_test_id = "TEST_RUNTIME_SCHEMA_REJECTS_OPENOT_UNFENCED_WITHOUT_PROOF_OPT
 last_reviewed = "2026-07-22"
 
 [[reviews]]
-discovery_id = "DISC_EF47F02553AABA1EAA0E"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-runtime/src/host/opcua/tests.rs"
-name = "parses_security_policy_and_mode_aliases"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_EF4F4CDF033D80C69B87"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/plcopen_motion_oop_library.rs"
@@ -42633,4 +42583,123 @@ name = "mock_transport_resolves_reads_writes_and_tracks_symbol_version"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-23"
+[[reviews]]
+discovery_id = "DISC_EF47F02553AABA1EAA0E"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/opcua/tests.rs"
+name = "parses_security_policy_and_mode_aliases"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_PARSES_SECURITY_POLICY_AND_MODE_ALIASES_001"
+last_reviewed = "2026-07-23"
+
+[[reviews]]
+discovery_id = "DISC_1B2A0E231FAC32C63820"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+name = "client_config_rejects_ambiguous_identity_auth_and_access"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_CONFIG_REJECTS_AMBIGUOUS_IDENTITY_AUTH_AND_ACCESS_001"
+last_reviewed = "2026-07-23"
+
+[[reviews]]
+discovery_id = "DISC_C0C40B26E0A0C082CB39"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+name = "client_config_scalar_type_and_access_aliases_are_stable"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_CONFIG_SCALAR_TYPE_AND_ACCESS_ALIASES_ARE_STABLE_001"
+last_reviewed = "2026-07-23"
+
+[[reviews]]
+discovery_id = "DISC_A4A87F179D0CC41E298C"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/opcua_client_runtime.rs"
+name = "opcua_client_accepts_vs_code_global_var_names"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_ACCEPTS_VS_CODE_GLOBAL_VAR_NAMES_001"
+last_reviewed = "2026-07-23"
+
+[[reviews]]
+discovery_id = "DISC_112536618DD96F545DC5"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/opcua/tests.rs"
+name = "opcua_client_trust_store_can_be_listed_and_cleared"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_TRUST_STORE_CAN_BE_LISTED_AND_CLEARED_001"
+last_reviewed = "2026-07-23"
+
+[[reviews]]
+discovery_id = "DISC_CC23E54B30499BB0CB0A"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/opcua/tests.rs"
+name = "opcua_client_explicit_trust_promotes_rejected_certificates"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_EXPLICIT_TRUST_PROMOTES_REJECTED_CERTIFICATES_001"
+last_reviewed = "2026-07-23"
+
+[[reviews]]
+discovery_id = "DISC_6645454C7C95B5F6EA9F"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/opcua/tests.rs"
+name = "opcua_client_rejected_security_policy_during_login_prompts_for_auth"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_REJECTED_SECURITY_POLICY_DURING_LOGIN_PROMPTS_FOR_AUTH_001"
+last_reviewed = "2026-07-23"
+
+[[reviews]]
+discovery_id = "DISC_1C548923547EDCE58C71"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+name = "client_pki_operations_do_not_follow_symbolic_links"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_OPERATIONS_DO_NOT_FOLLOW_SYMBOLIC_LINKS_001"
+last_reviewed = "2026-07-23"
+
+[[reviews]]
+discovery_id = "DISC_F74C14B624882A0A39C1"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+name = "client_pki_root_links_are_not_traversed"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_ROOT_LINKS_ARE_NOT_TRAVERSED_001"
+last_reviewed = "2026-07-23"
+
+[[reviews]]
+discovery_id = "DISC_27C6F8C492004FEC4778"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+name = "client_pki_promotion_target_link_is_rejected"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_PROMOTION_TARGET_LINK_IS_REJECTED_001"
+last_reviewed = "2026-07-23"
+
+[[reviews]]
+discovery_id = "DISC_E61CF90D81EF3A4069DD"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+name = "one_shot_service_vectors_require_exact_cardinality"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_ONE_SHOT_SERVICE_VECTORS_REQUIRE_EXACT_CARDINALITY_001"
+last_reviewed = "2026-07-23"
+
+[[reviews]]
+discovery_id = "DISC_17BFE6722783268B1294"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+name = "client_error_classification_is_stable"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_ERROR_CLASSIFICATION_IS_STABLE_001"
 last_reviewed = "2026-07-23"

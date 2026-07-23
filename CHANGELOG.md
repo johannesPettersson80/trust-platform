@@ -10,6 +10,11 @@ Target release: `v0.24.54`
 
 ### Fixed
 
+- trust-runtime: OPC UA client configuration now rejects duplicate connection
+  names, empty endpoint authorities, anonymous credential fields, and
+  conflicting access aliases; client PKI operations ignore or reject symbolic
+  links detected at roots, entries, and promotion targets, and one-shot
+  read/write paths now invoke an exact service-result cardinality guard.
 - trust-runtime: OPC UA client workers now reject mismatched and stale-session
   subscription events, preserve newer queued output generations across older
   completions, reject non-finite scalar outputs before transport, and wake
