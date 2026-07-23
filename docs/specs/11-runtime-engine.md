@@ -1124,13 +1124,25 @@ are neither an IEC decision nor an IEC deviation.
 
 ##### Runtime launcher input, validation, and startup contract
 
-`trust-runtime play --project <path>` is the product convenience entry point:
-it creates the default project when the selected folder is missing or lacks the
-minimum generated runtime artifacts. All non-filesystem launch arguments,
-including restart mode and simulation time scale, must be validated before that
-creation or any other project mutation. A rejected option therefore leaves a
-previously missing project path missing. `trust-runtime run` consumes an
-existing project and does not provide this creation behavior.
+`trust-runtime play --project <path>` is the product convenience entry point.
+It creates or completes the selected project when the folder is missing or
+lacks `runtime.toml` or `program.stbc`; project I/O may instead come from the
+system configuration. An existing non-directory project path is rejected
+without mutation.
+
+`trust-runtime play` without `--project` is the first-run creation exception to
+the general optional-project-resolution contract. It first performs standard
+bundle detection. A successful detection selects that project and applies the
+same completeness rule above. Only the ordinary no-project-found outcome
+creates the default project in the current directory. Current-directory access
+failures and system-I/O configuration read, parse, or validation failures are
+preserved and abort before project mutation.
+
+All non-filesystem launch arguments, including restart mode and simulation time
+scale, must be validated before project detection, creation, or any other
+project mutation. A rejected option therefore leaves a previously missing
+project path missing. `trust-runtime run` consumes an existing project and does
+not provide this creation behavior.
 
 Project-mode startup recursively compiles the `.st` and `.pou` sources beneath
 the project's selected source root, case-insensitively by extension, together

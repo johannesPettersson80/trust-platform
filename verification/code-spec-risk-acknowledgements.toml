@@ -57922,20 +57922,6 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_BCD26DEB6B67C204368BFD7038609A778311F45E5C27A85669CFB0232C796AEB"
-code_id = "CODE_BCD26DEB6B67C204368BFD7038609A778311F45E5C27A85669CFB0232C796AEB"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:d4db8da851f1c7c086601c5f7755059014a002ca143ec2c25b73ed379b96083f"
-risk_signals = ["fault_mapping", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_BDC7AA63D84080D90D6068D0D558E46D450DE63BD771AFCA05F63D594471B8A7"
 code_id = "CODE_BDC7AA63D84080D90D6068D0D558E46D450DE63BD771AFCA05F63D594471B8A7"
 owner = "trust-runtime"
@@ -81815,3 +81801,16 @@ reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-23"
 expires_on = "2027-07-23"
 rationale = "Registry publication must select the intended project deterministically. Inventing the current directory, discarding detection failures, or publishing contradictory help can target the wrong bundle."
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_BCD26DEB6B67C204368BFD7038609A778311F45E5C27A85669CFB0232C796AEB"
+code_id = "CODE_BCD26DEB6B67C204368BFD7038609A778311F45E5C27A85669CFB0232C796AEB"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:6527cdeb7ec3db3af89465dde4d61063cbf00ca2ed7962fbcccd41c080b8fff7"
+risk_signals = ["fault_mapping", "state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-startup-contract"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "Play is the first-run mutation boundary. It must validate launch options before mutation, distinguish ordinary project absence from detection failures, and delegate the exact selected project to runtime startup."

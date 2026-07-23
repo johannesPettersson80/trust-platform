@@ -213119,25 +213119,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_BCD26DEB6B67C204368BFD7038609A778311F45E5C27A85669CFB0232C796AEB"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/run/commands.rs"
-qualified_symbol = "trust_runtime::run::run_play"
-item_kind = "rust_function"
-signature_digest = "sha256:86f420e1ec2215015a9b67133a38b3b4b4bbf31ff48253c539cd243eda1275fe"
-reviewed_body_digest = "sha256:d4db8da851f1c7c086601c5f7755059014a002ca143ec2c25b73ed379b96083f"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "public"
-risk_signals = ["fault_mapping", "state_mutation"]
-owner_ack = "RISK_ACK_BCD26DEB6B67C204368BFD7038609A778311F45E5C27A85669CFB0232C796AEB"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_BD38A57FE68C4F0D6E53A4BA4FCB620FB8664910913A09E2ADB0E972711373DB"
 source_kind = "rust"
 path = "crates/trust-runtime/src/bin/trust-runtime/run/util.rs"
@@ -276373,4 +276354,24 @@ visibility = "public"
 risk_signals = []
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
+last_reviewed = "2026-07-23"
+[[mappings]]
+schema_version = 1
+code_id = "CODE_BCD26DEB6B67C204368BFD7038609A778311F45E5C27A85669CFB0232C796AEB"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/run/commands.rs"
+qualified_symbol = "trust_runtime::run::run_play"
+item_kind = "rust_function"
+signature_digest = "sha256:86f420e1ec2215015a9b67133a38b3b4b4bbf31ff48253c539cd243eda1275fe"
+reviewed_body_digest = "sha256:6527cdeb7ec3db3af89465dde4d61063cbf00ca2ed7962fbcccd41c080b8fff7"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "public"
+risk_signals = ["fault_mapping", "state_mutation"]
+owner_ack = "RISK_ACK_BCD26DEB6B67C204368BFD7038609A778311F45E5C27A85669CFB0232C796AEB"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-startup-contract"
+invariant_ids = ["RT_PLAY_LAUNCH_001"]
+test_ids = ["TEST_RUNTIME_CLI_PREVALIDATION_001"]
 last_reviewed = "2026-07-23"

@@ -7648,30 +7648,6 @@ last_reviewed = "2026-07-22"
 
 [[tests]]
 schema_version = 2
-id = "TEST_RUNTIME_CLI_PREVALIDATION_001"
-subject_kind = "generated_test"
-discovery_id = "DISC_A0C11283B6A8E17B5A74"
-discovery_source_kind = "rust_integration_test"
-test_class = "integration"
-area = "runtime_safety"
-path = "crates/trust-runtime/tests/runtime_cli_entrypoint.rs"
-name = "play_rejects_invalid_options_before_project_creation"
-command = "cargo test -p trust-runtime --test runtime_cli_entrypoint play_rejects_invalid_options_before_project_creation -- --exact"
-owner = "trust-runtime"
-status = "mapped"
-invariants = ["RT_RUNTIME_CLI_ENTRYPOINT_001"]
-oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-cli-entrypoint-diagnostics-and-dispatch-contract"
-expected_result = "Play dispatch validates restart and simulation options before creating a missing project."
-expected_failure_mode = "Invalid options reach project creation or the wrong handler before rejection."
-suite_tiers = ["pr"]
-requires_hardware = false
-requires_network = false
-duration_class = "fast"
-evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_CLI_PREVALIDATION_001.json"
-last_reviewed = "2026-07-22"
-
-[[tests]]
-schema_version = 2
 id = "TEST_RUNTIME_ADS_VALIDATE_MISSING_SYMBOL_001"
 subject_kind = "generated_test"
 discovery_id = "DISC_2FAB998C72FC7E709E79"
@@ -24619,4 +24595,27 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_REGISTRY_PROJECT_RESOLUTION_REGISTRY_PUBLISH_WITHOUT_PROJECT_PRESERVES_DETECTION_FAILURE_001.json"
+last_reviewed = "2026-07-23"
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_CLI_PREVALIDATION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_A0C11283B6A8E17B5A74"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/runtime_cli_entrypoint.rs"
+name = "play_rejects_invalid_options_before_project_creation"
+command = "cargo test -p trust-runtime --test runtime_cli_entrypoint play_rejects_invalid_options_before_project_creation -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_RUNTIME_CLI_ENTRYPOINT_001", "RT_PLAY_LAUNCH_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-startup-contract"
+expected_result = "Invalid restart and zero time scale fail before creating the selected project."
+expected_failure_mode = "A rejected launch option creates or mutates the project before failing."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_CLI_PREVALIDATION_001.json"
 last_reviewed = "2026-07-23"

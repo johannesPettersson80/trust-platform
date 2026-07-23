@@ -94,7 +94,9 @@ Developer commands with an optional `--project` use the explicit path when it
 is present. Otherwise they use standard bundle detection. If detection fails,
 the command preserves that failure and must not substitute the current
 directory as an invented project. This applies to package-registry publish and
-other optional-project workflows.
+other optional-project workflows, except when the owning specification
+explicitly defines a first-run creation flow. The runtime launcher contract
+defines that narrow exception for `trust-runtime play`.
 
 ## HMI scaffold command
 

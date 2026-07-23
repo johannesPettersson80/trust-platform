@@ -1,0 +1,120 @@
+schema_version = 1
+id = "RT_PLAY_LAUNCH_001"
+title = "Play launch resolves, creates, and delegates projects safely"
+area = "runtime_safety"
+risk = "wrong_result"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-23"
+claim = "Play validates non-filesystem options before project access, creates only missing or incomplete explicit projects, uses standard detection when project is omitted, creates cwd only for canonical not-found, preserves other detection failures before mutation, rejects non-directory paths, and delegates the selected project to runtime startup."
+proof_level = "T1"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-runtime/src/bin/trust-runtime/run/commands.rs", "crates/trust-runtime/src/host/bundle.rs"]
+tests = [
+  "TEST_RUNTIME_CLI_PREVALIDATION_001"
+]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-startup-contract"
+
+[[behavior]]
+partition = { equals = "INVALID_RESTART_OR_TIME_SCALE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-startup-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Launch options fail before detection, creation, or runtime startup."
+
+[[behavior]]
+partition = { equals = "EXPLICIT_MISSING_OR_INCOMPLETE_PROJECT" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-startup-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The selected project is created or completed and delegated."
+
+[[behavior]]
+partition = { equals = "EXPLICIT_COMPLETE_PROJECT" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-startup-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A complete project is delegated without recreation."
+
+[[behavior]]
+partition = { equals = "EXPLICIT_NON_DIRECTORY" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-startup-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "A file-shaped project is rejected without mutation."
+
+[[behavior]]
+partition = { equals = "OMITTED_DETECTED_PROJECT" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-startup-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Standard detection selects the project that runtime startup receives."
+
+[[behavior]]
+partition = { equals = "OMITTED_CANONICAL_NOT_FOUND" }
+case_family = "missing_required"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-startup-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Only ordinary absence creates cwd and then delegates it."
+
+[[behavior]]
+partition = { equals = "OMITTED_OTHER_DETECTION_FAILURE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-startup-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Configuration and current-directory failures propagate before mutation."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "No existing test proves successful project preparation and runtime delegation."
+
+[[coverage.cells]]
+dimension = "boundary_low"
+state = "gap_open"
+rationale = "Missing and incomplete project creation is unproved."
+
+[[coverage.cells]]
+dimension = "boundary_high"
+state = "gap_open"
+rationale = "Existing proof does not cover a complete project."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Non-directory paths and non-not-found detection failures are unproved."
+
+[[coverage.cells]]
+dimension = "missing_required"
+state = "gap_open"
+rationale = "Omitted-project first-run creation is unproved."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "covered"
+rationale = "Existing integration proof rejects invalid launch options before mutation."
