@@ -48612,20 +48612,6 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_1C75B9C12FB34575D060F097386768EECB3F719197106CD9B5C821604C62C725"
-code_id = "CODE_1C75B9C12FB34575D060F097386768EECB3F719197106CD9B5C821604C62C725"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:cc3f6f6de2d9398b7af5f097d8230ced44ad8bcb9c521f776710652eedf67c19"
-risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_1CAD1FF1A1574850A1183382D0D6013F786C07267CE76F1D97AF3960D4500A47"
 code_id = "CODE_1CAD1FF1A1574850A1183382D0D6013F786C07267CE76F1D97AF3960D4500A47"
 owner = "trust-runtime"
@@ -48688,20 +48674,6 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:fb9ea27113227519a860c72d0a45a240de63ee123158a6c339114e6435728f5e"
 risk_signals = ["fault_mapping", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_1FD2A8122F4CB401F44DF4843C999C1857D687FE758191A604C906A51AC39729"
-code_id = "CODE_1FD2A8122F4CB401F44DF4843C999C1857D687FE758191A604C906A51AC39729"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:6405a52c54f02af23fc6476b3be9545bfc7e6e30049fcef2c1bb8645bbbf2df1"
-risk_signals = ["state_mutation"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-21"
@@ -48912,20 +48884,6 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:39df37ba40684dd08b4c2ffb50b1da82a530ca78740f30588c7e87e8d9759448"
 risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_2C66A58F3426B8FBEF17C75A3C930FD75327E42A61654068249068AC1D922C82"
-code_id = "CODE_2C66A58F3426B8FBEF17C75A3C930FD75327E42A61654068249068AC1D922C82"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:0a5c6dd9c87c3ff9fa99fdc998b091b68b08b5cb19356e5c2dbad978bb1eb6c7"
-risk_signals = ["broad_error_suppression"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-21"
@@ -49276,20 +49234,6 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:c948e297a56b02c32d81326688d2daf8bc818d76aa3f6ac1337ebedeef0371a4"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_43FA2478A1FC0EC19A1A414FA07108D017BFCD68BABAC5956D968820ED3071F1"
-code_id = "CODE_43FA2478A1FC0EC19A1A414FA07108D017BFCD68BABAC5956D968820ED3071F1"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:e4c73d10e9232f5750bd5f532c849ddc26312471e716e57f1b951f5794c01831"
-risk_signals = ["fault_mapping", "state_mutation"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-21"
@@ -50054,20 +49998,6 @@ rationale = "Binds scanner-derived ADS report and evidence facts to the versione
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_695D0C9831932BAD649272601FEC2FE7838A99C07AD514FE3FC01C34AB6D300F"
-code_id = "CODE_695D0C9831932BAD649272601FEC2FE7838A99C07AD514FE3FC01C34AB6D300F"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:e29a0ac939443003ef52ed000c44d8e2fe60661c2b334a7789b2a62ed4956fbf"
-risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_6C628B6CAD8462EE17E1E8D038A74E75CF8D3AAB5669E1582157A1AF683FB391"
 code_id = "CODE_6C628B6CAD8462EE17E1E8D038A74E75CF8D3AAB5669E1582157A1AF683FB391"
 owner = "trust-runtime"
@@ -50754,20 +50684,6 @@ rationale = "Binds live ADS Doctor orchestration, job, endpoint-validation, and 
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_90C9BF82CB7782BD2C9D6FB41DFBC61FF87D4892F99EE3C23AEEA890D04A56F7"
-code_id = "CODE_90C9BF82CB7782BD2C9D6FB41DFBC61FF87D4892F99EE3C23AEEA890D04A56F7"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:11510f15dd5af0488ba83458f111b851157b13a8219a444ff7769128ad0f809b"
-risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_90E6EA5802168BBC546D76B2A5F903D7DCB5AE62BD80B555C67E630CEB0A05EC"
 code_id = "CODE_90E6EA5802168BBC546D76B2A5F903D7DCB5AE62BD80B555C67E630CEB0A05EC"
 owner = "trust-runtime"
@@ -51426,20 +51342,6 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_ADB69C58B5E81B39D1B680EE8B2AC786E2833CF6E1050999F6094E4FF6001D37"
-code_id = "CODE_ADB69C58B5E81B39D1B680EE8B2AC786E2833CF6E1050999F6094E4FF6001D37"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:097b5af95b7bae5d3d5cf6bfd79901bca17533f7869dd6f09c3fda618784b63c"
-risk_signals = ["broad_error_suppression", "host_time"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_AE226AFBE379EF52CC092EC7225AD8D9D0202B884AC22B9B572FE1D903DF96D8"
 code_id = "CODE_AE226AFBE379EF52CC092EC7225AD8D9D0202B884AC22B9B572FE1D903DF96D8"
 owner = "trust-runtime"
@@ -51577,20 +51479,6 @@ reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-22"
 expires_on = "2026-10-22"
 rationale = "Binds scanner-derived ADS live-wire and deterministic mock facts to endpoint identity, fail-closed value handling, and guarded-write restoration rules."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_B7852A9C2EFDD2B39EBE7523E77DDAD4E9CF51C49ABB8AD5A249C09D532F39F2"
-code_id = "CODE_B7852A9C2EFDD2B39EBE7523E77DDAD4E9CF51C49ABB8AD5A249C09D532F39F2"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:20b42d33e73983c64d941c1265d90b46ff02f499246a22b1f8f09c4cc989392c"
-risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
 
 [[acknowledgements]]
 schema_version = 1
@@ -51754,20 +51642,6 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:8a7291050a7fbaec05e5a6c31dc92f349fc49eb4271bfac70918c7e14d581242"
 risk_signals = ["fault_mapping", "filesystem_or_environment", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_BE1F4EAEB0C8A574810803E1D2B15624850FC6407CCA8CE8E4FE6AE94D38A8F7"
-code_id = "CODE_BE1F4EAEB0C8A574810803E1D2B15624850FC6407CCA8CE8E4FE6AE94D38A8F7"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:afe72af63c5aadce529f3335e4d3642677804de3359f86649c2007318908b1eb"
-risk_signals = ["fault_mapping"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-21"
@@ -52188,20 +52062,6 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:55810a67a21939966e7e3cd49c2687f5721e33a4d3233e67a756c70611e12cb2"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_D570F5AC91D51EBE2CB9F96536EF53740848BA9CEB6531A0AEA16A4A03E075D4"
-code_id = "CODE_D570F5AC91D51EBE2CB9F96536EF53740848BA9CEB6531A0AEA16A4A03E075D4"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:f5acc6a389d609d36ca5028173d61bf7f0bdc689072b823fb077d5e597df56ef"
-risk_signals = ["fault_mapping"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-21"
@@ -81703,3 +81563,141 @@ reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-23"
 expires_on = "2026-10-23"
 rationale = "Binds ADS client worker, cache, transport-model, mock, and descriptor facts to exact session correlation, fail-closed cache mutation, generation-safe write truth, and bounded worker lifecycle behavior."
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_43FA2478A1FC0EC19A1A414FA07108D017BFCD68BABAC5956D968820ED3071F1"
+code_id = "CODE_43FA2478A1FC0EC19A1A414FA07108D017BFCD68BABAC5956D968820ED3071F1"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:a4043f0c2466d86f9d5673302b881b9c9670a441c511ad8e6445e0af57a95257"
+risk_signals = ["fault_mapping", "state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-01-23"
+rationale = "ADS server publication and listener lifecycle are externally reachable runtime authority; deterministic bounds, exact namespace mapping, fail-closed value publication, and socket release were reviewed against focused product-contract tests."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_B7852A9C2EFDD2B39EBE7523E77DDAD4E9CF51C49ABB8AD5A249C09D532F39F2"
+code_id = "CODE_B7852A9C2EFDD2B39EBE7523E77DDAD4E9CF51C49ABB8AD5A249C09D532F39F2"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:20b42d33e73983c64d941c1265d90b46ff02f499246a22b1f8f09c4cc989392c"
+risk_signals = ["fault_mapping"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-01-23"
+rationale = "ADS server publication and listener lifecycle are externally reachable runtime authority; deterministic bounds, exact namespace mapping, fail-closed value publication, and socket release were reviewed against focused product-contract tests."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_BE1F4EAEB0C8A574810803E1D2B15624850FC6407CCA8CE8E4FE6AE94D38A8F7"
+code_id = "CODE_BE1F4EAEB0C8A574810803E1D2B15624850FC6407CCA8CE8E4FE6AE94D38A8F7"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:d6df580520593f62b2de30699011b47d1a440ce7c2b07f3cab5145c0f885eb9c"
+risk_signals = ["fault_mapping"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-01-23"
+rationale = "ADS server publication and listener lifecycle are externally reachable runtime authority; deterministic bounds, exact namespace mapping, fail-closed value publication, and socket release were reviewed against focused product-contract tests."
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_1C75B9C12FB34575D060F097386768EECB3F719197106CD9B5C821604C62C725"
+code_id = "CODE_1C75B9C12FB34575D060F097386768EECB3F719197106CD9B5C821604C62C725"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:767f434aef9421600d8cf5b074e960e771051c085e5e58feaa23cecb3e814f68"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-client-policy-write-back-and-audit"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-01-23"
+rationale = "ADS server client policy and write-back are externally reachable security and mutation boundaries; exact source pinning, fail-closed ordering, resource-state admission, bounded refusal evidence, and audit truth were reviewed against focused tests."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_1FD2A8122F4CB401F44DF4843C999C1857D687FE758191A604C906A51AC39729"
+code_id = "CODE_1FD2A8122F4CB401F44DF4843C999C1857D687FE758191A604C906A51AC39729"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:435256451e3ca5114a1c86b21345cee3e38d87bdf04c70d90ae82a66e25f3977"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-client-policy-write-back-and-audit"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-01-23"
+rationale = "ADS server client policy and write-back are externally reachable security and mutation boundaries; exact source pinning, fail-closed ordering, resource-state admission, bounded refusal evidence, and audit truth were reviewed against focused tests."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_2C66A58F3426B8FBEF17C75A3C930FD75327E42A61654068249068AC1D922C82"
+code_id = "CODE_2C66A58F3426B8FBEF17C75A3C930FD75327E42A61654068249068AC1D922C82"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:291d59ba5c853ae4f9346d9bee21797fc1aa49374b0f05f3d50cd792c6f246cc"
+risk_signals = ["broad_error_suppression"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-client-policy-write-back-and-audit"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-01-23"
+rationale = "ADS server client policy and write-back are externally reachable security and mutation boundaries; exact source pinning, fail-closed ordering, resource-state admission, bounded refusal evidence, and audit truth were reviewed against focused tests."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_695D0C9831932BAD649272601FEC2FE7838A99C07AD514FE3FC01C34AB6D300F"
+code_id = "CODE_695D0C9831932BAD649272601FEC2FE7838A99C07AD514FE3FC01C34AB6D300F"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:e29a0ac939443003ef52ed000c44d8e2fe60661c2b334a7789b2a62ed4956fbf"
+risk_signals = ["fault_mapping"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-client-policy-write-back-and-audit"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-01-23"
+rationale = "ADS server client policy and write-back are externally reachable security and mutation boundaries; exact source pinning, fail-closed ordering, resource-state admission, bounded refusal evidence, and audit truth were reviewed against focused tests."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_90C9BF82CB7782BD2C9D6FB41DFBC61FF87D4892F99EE3C23AEEA890D04A56F7"
+code_id = "CODE_90C9BF82CB7782BD2C9D6FB41DFBC61FF87D4892F99EE3C23AEEA890D04A56F7"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:0126a441baf5e98bcafb3ae28f9d8a795cff6baa886d817351b067acd7163e75"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-client-policy-write-back-and-audit"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-01-23"
+rationale = "ADS server client policy and write-back are externally reachable security and mutation boundaries; exact source pinning, fail-closed ordering, resource-state admission, bounded refusal evidence, and audit truth were reviewed against focused tests."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_ADB69C58B5E81B39D1B680EE8B2AC786E2833CF6E1050999F6094E4FF6001D37"
+code_id = "CODE_ADB69C58B5E81B39D1B680EE8B2AC786E2833CF6E1050999F6094E4FF6001D37"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:1f9a54fd86bb0eab02e17dae6b67e030efe14f1d963124ccc4fe5977c74a5cfd"
+risk_signals = ["broad_error_suppression", "host_time"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-client-policy-write-back-and-audit"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-01-23"
+rationale = "ADS server client policy and write-back are externally reachable security and mutation boundaries; exact source pinning, fail-closed ordering, resource-state admission, bounded refusal evidence, and audit truth were reviewed against focused tests."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_D570F5AC91D51EBE2CB9F96536EF53740848BA9CEB6531A0AEA16A4A03E075D4"
+code_id = "CODE_D570F5AC91D51EBE2CB9F96536EF53740848BA9CEB6531A0AEA16A4A03E075D4"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:f5acc6a389d609d36ca5028173d61bf7f0bdc689072b823fb077d5e597df56ef"
+risk_signals = ["fault_mapping"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-client-policy-write-back-and-audit"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-01-23"
+rationale = "ADS server client policy and write-back are externally reachable security and mutation boundaries; exact source pinning, fail-closed ordering, resource-state admission, bounded refusal evidence, and audit truth were reviewed against focused tests."

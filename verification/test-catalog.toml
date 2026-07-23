@@ -19977,3 +19977,721 @@ requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_BINDING_AND_REMOTE_DESCRIPTOR_VALIDATION_PARTITION_TABLE_001.json"
 last_reviewed = "2026-07-23"
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_BARE_RUNTIME_NAME_GLOBS_MATCH_NAMESPACED_SYMBOLS_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_139D2C4AB208EA0A8935"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/server/tests/publication_lifecycle.rs"
+name = "bare_runtime_name_globs_match_namespaced_symbols"
+command = "cargo test -p trust-runtime --lib ads::server::tests::publication_lifecycle::bare_runtime_name_globs_match_namespaced_symbols -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_PUBLICATION_LIFECYCLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle"
+expected_result = "The focused assertion suite for bare runtime name globs match namespaced symbols satisfies SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle."
+expected_failure_mode = "The specified RT_ADS_SERVER_PUBLICATION_LIFECYCLE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_BARE_RUNTIME_NAME_GLOBS_MATCH_NAMESPACED_SYMBOLS_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_DISABLED_LIFECYCLE_AVOIDS_SNAPSHOT_AND_SOCKET_WORK_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_DEF8378693DC4BF0C284"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/server/tests/publication_lifecycle.rs"
+name = "disabled_lifecycle_avoids_snapshot_and_socket_work"
+command = "cargo test -p trust-runtime --lib ads::server::tests::publication_lifecycle::disabled_lifecycle_avoids_snapshot_and_socket_work -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_PUBLICATION_LIFECYCLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle"
+expected_result = "The focused assertion suite for disabled lifecycle avoids snapshot and socket work satisfies SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle."
+expected_failure_mode = "The specified RT_ADS_SERVER_PUBLICATION_LIFECYCLE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_DISABLED_LIFECYCLE_AVOIDS_SNAPSHOT_AND_SOCKET_WORK_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_EMPTY_EXPOSE_PUBLISHES_NOTHING_AND_INVALID_GLOBS_FAIL_CLOSED_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_B04BA1AF2A9B7DB65BC4"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/server/tests/publication_lifecycle.rs"
+name = "empty_expose_publishes_nothing_and_invalid_globs_fail_closed"
+command = "cargo test -p trust-runtime --lib ads::server::tests::publication_lifecycle::empty_expose_publishes_nothing_and_invalid_globs_fail_closed -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_PUBLICATION_LIFECYCLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle"
+expected_result = "The focused assertion suite for empty expose publishes nothing and invalid globs fail closed satisfies SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle."
+expected_failure_mode = "The specified RT_ADS_SERVER_PUBLICATION_LIFECYCLE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_EMPTY_EXPOSE_PUBLISHES_NOTHING_AND_INVALID_GLOBS_FAIL_CLOSED_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_LIFECYCLE_CLIENT_COUNT_SHUTDOWN_AND_DROP_ARE_OBSERVABLE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_40F9F226C445FAAC3575"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/server/tests/publication_lifecycle.rs"
+name = "lifecycle_client_count_shutdown_and_drop_are_observable"
+command = "cargo test -p trust-runtime --lib ads::server::tests::publication_lifecycle::lifecycle_client_count_shutdown_and_drop_are_observable -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_PUBLICATION_LIFECYCLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle"
+expected_result = "The focused assertion suite for lifecycle client count shutdown and drop are observable satisfies SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle."
+expected_failure_mode = "The specified RT_ADS_SERVER_PUBLICATION_LIFECYCLE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = true
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_LIFECYCLE_CLIENT_COUNT_SHUTDOWN_AND_DROP_ARE_OBSERVABLE_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_PUBLISHER_REJECTS_FOREIGN_OR_MISSING_RUNTIME_GLOBALS_WITHOUT_BYTES_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_B650612024A45ED46321"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/server/tests/publication_lifecycle.rs"
+name = "publisher_rejects_foreign_or_missing_runtime_globals_without_bytes"
+command = "cargo test -p trust-runtime --lib ads::server::tests::publication_lifecycle::publisher_rejects_foreign_or_missing_runtime_globals_without_bytes -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_PUBLICATION_LIFECYCLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle"
+expected_result = "The focused assertion suite for publisher rejects foreign or missing runtime globals without bytes satisfies SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle."
+expected_failure_mode = "The specified RT_ADS_SERVER_PUBLICATION_LIFECYCLE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_PUBLISHER_REJECTS_FOREIGN_OR_MISSING_RUNTIME_GLOBALS_WITHOUT_BYTES_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_PUBLISHER_REJECTS_INCOMPATIBLE_VALUES_AND_SIZE_MISMATCH_WITHOUT_BYTES_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_2CA0081B3619D0EA4160"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/server/tests/publication_lifecycle.rs"
+name = "publisher_rejects_incompatible_values_and_size_mismatch_without_bytes"
+command = "cargo test -p trust-runtime --lib ads::server::tests::publication_lifecycle::publisher_rejects_incompatible_values_and_size_mismatch_without_bytes -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_PUBLICATION_LIFECYCLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle"
+expected_result = "The focused assertion suite for publisher rejects incompatible values and size mismatch without bytes satisfies SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle."
+expected_failure_mode = "The specified RT_ADS_SERVER_PUBLICATION_LIFECYCLE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_PUBLISHER_REJECTS_INCOMPATIBLE_VALUES_AND_SIZE_MISMATCH_WITHOUT_BYTES_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_SCALAR_PUBLICATION_PRESERVES_SUPPORTED_TYPES_AND_WRITE_GATE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_478A55D3CF220E071CB2"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/server/tests/publication_lifecycle.rs"
+name = "scalar_publication_preserves_supported_types_and_write_gate"
+command = "cargo test -p trust-runtime --lib ads::server::tests::publication_lifecycle::scalar_publication_preserves_supported_types_and_write_gate -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_PUBLICATION_LIFECYCLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle"
+expected_result = "The focused assertion suite for scalar publication preserves supported types and write gate satisfies SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle."
+expected_failure_mode = "The specified RT_ADS_SERVER_PUBLICATION_LIFECYCLE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_SCALAR_PUBLICATION_PRESERVES_SUPPORTED_TYPES_AND_WRITE_GATE_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_SERVER_RUNTIME_DEFAULTS_PRESERVE_BOUNDED_PRODUCT_LIMITS_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_636D86C5F17493CBDC90"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/server/tests/publication_lifecycle.rs"
+name = "server_runtime_defaults_preserve_bounded_product_limits"
+command = "cargo test -p trust-runtime --lib ads::server::tests::publication_lifecycle::server_runtime_defaults_preserve_bounded_product_limits -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_PUBLICATION_LIFECYCLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle"
+expected_result = "The focused assertion suite for server runtime defaults preserve bounded product limits satisfies SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle."
+expected_failure_mode = "The specified RT_ADS_SERVER_PUBLICATION_LIFECYCLE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_SERVER_RUNTIME_DEFAULTS_PRESERVE_BOUNDED_PRODUCT_LIMITS_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_SYMBOL_LIMIT_SORTS_CANONICAL_NAMES_BEFORE_TRUNCATION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_A9C0371BB4A2ED16B25E"
+discovery_source_kind = "rust_unit_test"
+test_class = "failing_regression"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/server/tests/publication_lifecycle.rs"
+name = "symbol_limit_sorts_canonical_names_before_truncation"
+command = "cargo test -p trust-runtime --lib ads::server::tests::publication_lifecycle::symbol_limit_sorts_canonical_names_before_truncation -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_PUBLICATION_LIFECYCLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle"
+expected_result = "The focused assertion suite for symbol limit sorts canonical names before truncation satisfies SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle."
+expected_failure_mode = "The specified RT_ADS_SERVER_PUBLICATION_LIFECYCLE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_SYMBOL_LIMIT_SORTS_CANONICAL_NAMES_BEFORE_TRUNCATION_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_SYMBOL_NAMESPACE_MAPPING_IS_EXACT_AND_REVERSIBLE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_6504652E8968B392DC88"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/server/tests/publication_lifecycle.rs"
+name = "symbol_namespace_mapping_is_exact_and_reversible"
+command = "cargo test -p trust-runtime --lib ads::server::tests::publication_lifecycle::symbol_namespace_mapping_is_exact_and_reversible -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_PUBLICATION_LIFECYCLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle"
+expected_result = "The focused assertion suite for symbol namespace mapping is exact and reversible satisfies SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle."
+expected_failure_mode = "The specified RT_ADS_SERVER_PUBLICATION_LIFECYCLE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_SYMBOL_NAMESPACE_MAPPING_IS_EXACT_AND_REVERSIBLE_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_LIFECYCLE_STARTS_NOT_READY_WITHOUT_SNAPSHOT_AND_REFRESHES_WHEN_SNAPSHOT_APPEARS_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_5F678E560F98443DDE86"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/server/tests.rs"
+name = "lifecycle_starts_not_ready_without_snapshot_and_refreshes_when_snapshot_appears"
+command = "cargo test -p trust-runtime --lib ads::server::tests::lifecycle_starts_not_ready_without_snapshot_and_refreshes_when_snapshot_appears -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_PUBLICATION_LIFECYCLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle"
+expected_result = "The focused assertion suite for lifecycle starts not ready without snapshot and refreshes when snapshot appears satisfies SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle."
+expected_failure_mode = "The specified RT_ADS_SERVER_PUBLICATION_LIFECYCLE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = true
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_LIFECYCLE_STARTS_NOT_READY_WITHOUT_SNAPSHOT_AND_REFRESHES_WHEN_SNAPSHOT_APPEARS_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_LIFECYCLE_STARTS_TCP_LISTENER_FROM_RUNTIME_INTEGRATION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_795BA5426207369E9BB8"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/server/tests.rs"
+name = "lifecycle_starts_tcp_listener_from_runtime_integration"
+command = "cargo test -p trust-runtime --lib ads::server::tests::lifecycle_starts_tcp_listener_from_runtime_integration -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_PUBLICATION_LIFECYCLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle"
+expected_result = "The focused assertion suite for lifecycle starts tcp listener from runtime integration satisfies SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle."
+expected_failure_mode = "The specified RT_ADS_SERVER_PUBLICATION_LIFECYCLE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = true
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_LIFECYCLE_STARTS_TCP_LISTENER_FROM_RUNTIME_INTEGRATION_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_PUBLISHER_REJECTS_MISSING_SNAPSHOT_WITHOUT_TOUCHING_SCAN_THREAD_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_2C13C2D2C45DD82BBC2A"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/server/tests.rs"
+name = "publisher_rejects_missing_snapshot_without_touching_scan_thread"
+command = "cargo test -p trust-runtime --lib ads::server::tests::publisher_rejects_missing_snapshot_without_touching_scan_thread -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_PUBLICATION_LIFECYCLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle"
+expected_result = "The focused assertion suite for publisher rejects missing snapshot without touching scan thread satisfies SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle."
+expected_failure_mode = "The specified RT_ADS_SERVER_PUBLICATION_LIFECYCLE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_PUBLISHER_REJECTS_MISSING_SNAPSHOT_WITHOUT_TOUCHING_SCAN_THREAD_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_RUNTIME_SYMBOLS_EXPOSE_CONFIGURED_GLOBALS_AND_WRITABLE_FLAGS_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_2B4D4E8F343185DE898D"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/server/tests.rs"
+name = "runtime_symbols_expose_configured_globals_and_writable_flags"
+command = "cargo test -p trust-runtime --lib ads::server::tests::runtime_symbols_expose_configured_globals_and_writable_flags -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_PUBLICATION_LIFECYCLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle"
+expected_result = "The focused assertion suite for runtime symbols expose configured globals and writable flags satisfies SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle."
+expected_failure_mode = "The specified RT_ADS_SERVER_PUBLICATION_LIFECYCLE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_RUNTIME_SYMBOLS_EXPOSE_CONFIGURED_GLOBALS_AND_WRITABLE_FLAGS_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_RUNTIME_SYMBOLS_SKIP_UNSUPPORTED_VALUES_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_CCD89416E66C09771A51"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/server/tests.rs"
+name = "runtime_symbols_skip_unsupported_values"
+command = "cargo test -p trust-runtime --lib ads::server::tests::runtime_symbols_skip_unsupported_values -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_PUBLICATION_LIFECYCLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle"
+expected_result = "The focused assertion suite for runtime symbols skip unsupported values satisfies SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle."
+expected_failure_mode = "The specified RT_ADS_SERVER_PUBLICATION_LIFECYCLE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_RUNTIME_SYMBOLS_SKIP_UNSUPPORTED_VALUES_001.json"
+last_reviewed = "2026-07-23"
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_SERVER_POLICY_WRITE_AUDIT_AUDIT_SINK_PRESERVES_POLICY_REJECTION_CONTEXT_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_1C48C5FBD2D59BDA147D"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/server/tests/policy_write_audit.rs"
+name = "audit_sink_preserves_policy_rejection_context"
+command = "cargo test -p trust-runtime --lib ads::server::tests::policy_write_audit::audit_sink_preserves_policy_rejection_context -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_POLICY_WRITE_AUDIT_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-client-policy-write-back-and-audit"
+expected_result = "The focused assertion suite for audit sink preserves policy rejection context satisfies SPEC_RUNTIME_ENGINE_001#ads-server-client-policy-write-back-and-audit."
+expected_failure_mode = "The specified RT_ADS_SERVER_POLICY_WRITE_AUDIT_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_POLICY_WRITE_AUDIT_AUDIT_SINK_PRESERVES_POLICY_REJECTION_CONTEXT_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_SERVER_POLICY_WRITE_AUDIT_CLIENT_SOURCE_PINS_ENFORCE_EXACT_IP_AND_IPV4_IPV6_CIDR_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_A06DB18464A070778083"
+discovery_source_kind = "rust_unit_test"
+test_class = "failing_regression"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/server/tests/policy_write_audit.rs"
+name = "client_source_pins_enforce_exact_ip_and_ipv4_ipv6_cidr"
+command = "cargo test -p trust-runtime --lib ads::server::tests::policy_write_audit::client_source_pins_enforce_exact_ip_and_ipv4_ipv6_cidr -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_POLICY_WRITE_AUDIT_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-client-policy-write-back-and-audit"
+expected_result = "The focused assertion suite for client source pins enforce exact ip and ipv4 ipv6 cidr satisfies SPEC_RUNTIME_ENGINE_001#ads-server-client-policy-write-back-and-audit."
+expected_failure_mode = "The specified RT_ADS_SERVER_POLICY_WRITE_AUDIT_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_POLICY_WRITE_AUDIT_CLIENT_SOURCE_PINS_ENFORCE_EXACT_IP_AND_IPV4_IPV6_CIDR_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_SERVER_POLICY_WRITE_AUDIT_INVALID_WRITABLE_GLOB_REJECTS_WRITE_PORT_CONSTRUCTION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_57AD3254DB3B18C5E523"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/server/tests/policy_write_audit.rs"
+name = "invalid_writable_glob_rejects_write_port_construction"
+command = "cargo test -p trust-runtime --lib ads::server::tests::policy_write_audit::invalid_writable_glob_rejects_write_port_construction -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_POLICY_WRITE_AUDIT_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-client-policy-write-back-and-audit"
+expected_result = "The focused assertion suite for invalid writable glob rejects write port construction satisfies SPEC_RUNTIME_ENGINE_001#ads-server-client-policy-write-back-and-audit."
+expected_failure_mode = "The specified RT_ADS_SERVER_POLICY_WRITE_AUDIT_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_POLICY_WRITE_AUDIT_INVALID_WRITABLE_GLOB_REJECTS_WRITE_PORT_CONSTRUCTION_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_SERVER_POLICY_WRITE_AUDIT_REFUSED_ATTEMPTS_COALESCE_AND_HISTORY_IS_BOUNDED_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_F80A0A7CBCD65D66F16E"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/server/tests/policy_write_audit.rs"
+name = "refused_attempts_coalesce_and_history_is_bounded"
+command = "cargo test -p trust-runtime --lib ads::server::tests::policy_write_audit::refused_attempts_coalesce_and_history_is_bounded -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_POLICY_WRITE_AUDIT_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-client-policy-write-back-and-audit"
+expected_result = "The focused assertion suite for refused attempts coalesce and history is bounded satisfies SPEC_RUNTIME_ENGINE_001#ads-server-client-policy-write-back-and-audit."
+expected_failure_mode = "The specified RT_ADS_SERVER_POLICY_WRITE_AUDIT_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_POLICY_WRITE_AUDIT_REFUSED_ATTEMPTS_COALESCE_AND_HISTORY_IS_BOUNDED_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_SERVER_POLICY_WRITE_AUDIT_UNPINNED_CLIENT_REQUIRES_EXPLICIT_RUNTIME_OPT_IN_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_44902E6EC16C157040BE"
+discovery_source_kind = "rust_unit_test"
+test_class = "failing_regression"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/server/tests/policy_write_audit.rs"
+name = "unpinned_client_requires_explicit_runtime_opt_in"
+command = "cargo test -p trust-runtime --lib ads::server::tests::policy_write_audit::unpinned_client_requires_explicit_runtime_opt_in -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_POLICY_WRITE_AUDIT_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-client-policy-write-back-and-audit"
+expected_result = "The focused assertion suite for unpinned client requires explicit runtime opt in satisfies SPEC_RUNTIME_ENGINE_001#ads-server-client-policy-write-back-and-audit."
+expected_failure_mode = "The specified RT_ADS_SERVER_POLICY_WRITE_AUDIT_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_POLICY_WRITE_AUDIT_UNPINNED_CLIENT_REQUIRES_EXPLICIT_RUNTIME_OPT_IN_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_SERVER_POLICY_WRITE_AUDIT_WRITE_PORT_ACCEPTS_ONLY_READY_RUNNING_OR_PAUSED_RESOURCES_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_3A1215CB5E53CA357EE4"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/server/tests/policy_write_audit.rs"
+name = "write_port_accepts_only_ready_running_or_paused_resources"
+command = "cargo test -p trust-runtime --lib ads::server::tests::policy_write_audit::write_port_accepts_only_ready_running_or_paused_resources -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_POLICY_WRITE_AUDIT_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-client-policy-write-back-and-audit"
+expected_result = "The focused assertion suite for write port accepts only ready running or paused resources satisfies SPEC_RUNTIME_ENGINE_001#ads-server-client-policy-write-back-and-audit."
+expected_failure_mode = "The specified RT_ADS_SERVER_POLICY_WRITE_AUDIT_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_POLICY_WRITE_AUDIT_WRITE_PORT_ACCEPTS_ONLY_READY_RUNNING_OR_PAUSED_RESOURCES_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_SERVER_POLICY_WRITE_AUDIT_WRITE_PORT_ERROR_PRIORITY_IS_SECURITY_FIRST_AND_MUTATION_FREE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_8E64D230D560840F9DD3"
+discovery_source_kind = "rust_unit_test"
+test_class = "failing_regression"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/server/tests/policy_write_audit.rs"
+name = "write_port_error_priority_is_security_first_and_mutation_free"
+command = "cargo test -p trust-runtime --lib ads::server::tests::policy_write_audit::write_port_error_priority_is_security_first_and_mutation_free -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_POLICY_WRITE_AUDIT_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-client-policy-write-back-and-audit"
+expected_result = "The focused assertion suite for write port error priority is security first and mutation free satisfies SPEC_RUNTIME_ENGINE_001#ads-server-client-policy-write-back-and-audit."
+expected_failure_mode = "The specified RT_ADS_SERVER_POLICY_WRITE_AUDIT_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_POLICY_WRITE_AUDIT_WRITE_PORT_ERROR_PRIORITY_IS_SECURITY_FIRST_AND_MUTATION_FREE_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_SERVER_POLICY_WRITE_AUDIT_AUDIT_SINK_RECORDS_ACCEPTED_AND_REJECTED_ADS_WRITE_DETAILS_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_E66354DC3BDE6BDD2D3C"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/server/tests.rs"
+name = "audit_sink_records_accepted_and_rejected_ads_write_details"
+command = "cargo test -p trust-runtime --lib ads::server::tests::audit_sink_records_accepted_and_rejected_ads_write_details -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_POLICY_WRITE_AUDIT_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-client-policy-write-back-and-audit"
+expected_result = "The focused assertion suite for audit sink records accepted and rejected ads write details satisfies SPEC_RUNTIME_ENGINE_001#ads-server-client-policy-write-back-and-audit."
+expected_failure_mode = "The specified RT_ADS_SERVER_POLICY_WRITE_AUDIT_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_POLICY_WRITE_AUDIT_AUDIT_SINK_RECORDS_ACCEPTED_AND_REJECTED_ADS_WRITE_DETAILS_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_SERVER_POLICY_WRITE_AUDIT_CLIENT_POLICY_RECORDS_REFUSED_ATTEMPTS_FOR_WAIT_FOR_CLIENT_FLOW_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_E2A35826BCDD97347312"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/server/tests.rs"
+name = "client_policy_records_refused_attempts_for_wait_for_client_flow"
+command = "cargo test -p trust-runtime --lib ads::server::tests::client_policy_records_refused_attempts_for_wait_for_client_flow -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_POLICY_WRITE_AUDIT_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-client-policy-write-back-and-audit"
+expected_result = "The focused assertion suite for client policy records refused attempts for wait for client flow satisfies SPEC_RUNTIME_ENGINE_001#ads-server-client-policy-write-back-and-audit."
+expected_failure_mode = "The specified RT_ADS_SERVER_POLICY_WRITE_AUDIT_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_POLICY_WRITE_AUDIT_CLIENT_POLICY_RECORDS_REFUSED_ATTEMPTS_FOR_WAIT_FOR_CLIENT_FLOW_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_SERVER_POLICY_WRITE_AUDIT_CLIENT_POLICY_REQUIRES_AMS_NET_ID_AND_SOURCE_PIN_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_727C28CE6777A7111F67"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/server/tests.rs"
+name = "client_policy_requires_ams_net_id_and_source_pin"
+command = "cargo test -p trust-runtime --lib ads::server::tests::client_policy_requires_ams_net_id_and_source_pin -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_POLICY_WRITE_AUDIT_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-client-policy-write-back-and-audit"
+expected_result = "The focused assertion suite for client policy requires ams net id and source pin satisfies SPEC_RUNTIME_ENGINE_001#ads-server-client-policy-write-back-and-audit."
+expected_failure_mode = "The specified RT_ADS_SERVER_POLICY_WRITE_AUDIT_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_POLICY_WRITE_AUDIT_CLIENT_POLICY_REQUIRES_AMS_NET_ID_AND_SOURCE_PIN_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_SERVER_POLICY_WRITE_AUDIT_TEMPORARY_SELF_TEST_POLICY_IS_REMOVED_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_5FB9C415B78619D5262A"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/server/tests.rs"
+name = "temporary_self_test_policy_is_removed"
+command = "cargo test -p trust-runtime --lib ads::server::tests::temporary_self_test_policy_is_removed -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_POLICY_WRITE_AUDIT_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-client-policy-write-back-and-audit"
+expected_result = "The focused assertion suite for temporary self test policy is removed satisfies SPEC_RUNTIME_ENGINE_001#ads-server-client-policy-write-back-and-audit."
+expected_failure_mode = "The specified RT_ADS_SERVER_POLICY_WRITE_AUDIT_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_POLICY_WRITE_AUDIT_TEMPORARY_SELF_TEST_POLICY_IS_REMOVED_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_SERVER_POLICY_WRITE_AUDIT_WRITE_PORT_ACCEPTS_GUARDED_WRITE_AND_COALESCES_SAME_TARGET_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_AD194281D3C80ADC6682"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/server/tests.rs"
+name = "write_port_accepts_guarded_write_and_coalesces_same_target"
+command = "cargo test -p trust-runtime --lib ads::server::tests::write_port_accepts_guarded_write_and_coalesces_same_target -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_POLICY_WRITE_AUDIT_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-client-policy-write-back-and-audit"
+expected_result = "The focused assertion suite for write port accepts guarded write and coalesces same target satisfies SPEC_RUNTIME_ENGINE_001#ads-server-client-policy-write-back-and-audit."
+expected_failure_mode = "The specified RT_ADS_SERVER_POLICY_WRITE_AUDIT_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_POLICY_WRITE_AUDIT_WRITE_PORT_ACCEPTS_GUARDED_WRITE_AND_COALESCES_SAME_TARGET_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_SERVER_POLICY_WRITE_AUDIT_WRITE_PORT_REJECTS_FAULTED_RUNTIME_WITHOUT_MUTATION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_1D7B395AC6E9786437ED"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/server/tests.rs"
+name = "write_port_rejects_faulted_runtime_without_mutation"
+command = "cargo test -p trust-runtime --lib ads::server::tests::write_port_rejects_faulted_runtime_without_mutation -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_POLICY_WRITE_AUDIT_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-client-policy-write-back-and-audit"
+expected_result = "The focused assertion suite for write port rejects faulted runtime without mutation satisfies SPEC_RUNTIME_ENGINE_001#ads-server-client-policy-write-back-and-audit."
+expected_failure_mode = "The specified RT_ADS_SERVER_POLICY_WRITE_AUDIT_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_POLICY_WRITE_AUDIT_WRITE_PORT_REJECTS_FAULTED_RUNTIME_WITHOUT_MUTATION_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_SERVER_POLICY_WRITE_AUDIT_WRITE_PORT_REJECTS_POLICY_FAILURE_WITHOUT_MUTATION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_2576E43F51C994EBD63F"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/server/tests.rs"
+name = "write_port_rejects_policy_failure_without_mutation"
+command = "cargo test -p trust-runtime --lib ads::server::tests::write_port_rejects_policy_failure_without_mutation -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_POLICY_WRITE_AUDIT_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-client-policy-write-back-and-audit"
+expected_result = "The focused assertion suite for write port rejects policy failure without mutation satisfies SPEC_RUNTIME_ENGINE_001#ads-server-client-policy-write-back-and-audit."
+expected_failure_mode = "The specified RT_ADS_SERVER_POLICY_WRITE_AUDIT_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_POLICY_WRITE_AUDIT_WRITE_PORT_REJECTS_POLICY_FAILURE_WITHOUT_MUTATION_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_SERVER_POLICY_WRITE_AUDIT_WRITE_PORT_REJECTS_READ_ONLY_GATE_WITHOUT_MUTATION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_85DD16C333A177DB683D"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/server/tests.rs"
+name = "write_port_rejects_read_only_gate_without_mutation"
+command = "cargo test -p trust-runtime --lib ads::server::tests::write_port_rejects_read_only_gate_without_mutation -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_POLICY_WRITE_AUDIT_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-client-policy-write-back-and-audit"
+expected_result = "The focused assertion suite for write port rejects read only gate without mutation satisfies SPEC_RUNTIME_ENGINE_001#ads-server-client-policy-write-back-and-audit."
+expected_failure_mode = "The specified RT_ADS_SERVER_POLICY_WRITE_AUDIT_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_POLICY_WRITE_AUDIT_WRITE_PORT_REJECTS_READ_ONLY_GATE_WITHOUT_MUTATION_001.json"
+last_reviewed = "2026-07-23"

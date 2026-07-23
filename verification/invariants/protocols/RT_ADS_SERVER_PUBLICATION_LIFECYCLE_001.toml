@@ -1,0 +1,121 @@
+schema_version = 1
+id = "RT_ADS_SERVER_PUBLICATION_LIFECYCLE_001"
+title = "ADS server publication and lifecycle preserve bounded deterministic authority"
+area = "protocols"
+risk = "false_status"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-23"
+claim = "The runtime ADS server publishes only the deterministic configured scalar subset, reports value failures without fabricated bytes, avoids all work when disabled, and exposes and releases its live TCP/UDP lifecycle truth."
+proof_level = "T1"
+contract_kind = "state_machine"
+source_refs = ["crates/trust-runtime/src/host/ads/server/contracts.rs", "crates/trust-runtime/src/host/ads/server/lifecycle.rs", "crates/trust-runtime/src/host/ads/server/symbols.rs", "crates/trust-runtime/src/host/ads/server/publisher.rs"]
+tests = [
+  "TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_BARE_RUNTIME_NAME_GLOBS_MATCH_NAMESPACED_SYMBOLS_001",
+  "TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_DISABLED_LIFECYCLE_AVOIDS_SNAPSHOT_AND_SOCKET_WORK_001",
+  "TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_EMPTY_EXPOSE_PUBLISHES_NOTHING_AND_INVALID_GLOBS_FAIL_CLOSED_001",
+  "TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_LIFECYCLE_CLIENT_COUNT_SHUTDOWN_AND_DROP_ARE_OBSERVABLE_001",
+  "TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_PUBLISHER_REJECTS_FOREIGN_OR_MISSING_RUNTIME_GLOBALS_WITHOUT_BYTES_001",
+  "TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_PUBLISHER_REJECTS_INCOMPATIBLE_VALUES_AND_SIZE_MISMATCH_WITHOUT_BYTES_001",
+  "TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_SCALAR_PUBLICATION_PRESERVES_SUPPORTED_TYPES_AND_WRITE_GATE_001",
+  "TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_SERVER_RUNTIME_DEFAULTS_PRESERVE_BOUNDED_PRODUCT_LIMITS_001",
+  "TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_SYMBOL_LIMIT_SORTS_CANONICAL_NAMES_BEFORE_TRUNCATION_001",
+  "TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_SYMBOL_NAMESPACE_MAPPING_IS_EXACT_AND_REVERSIBLE_001",
+  "TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_LIFECYCLE_STARTS_NOT_READY_WITHOUT_SNAPSHOT_AND_REFRESHES_WHEN_SNAPSHOT_APPEARS_001",
+  "TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_LIFECYCLE_STARTS_TCP_LISTENER_FROM_RUNTIME_INTEGRATION_001",
+  "TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_PUBLISHER_REJECTS_MISSING_SNAPSHOT_WITHOUT_TOUCHING_SCAN_THREAD_001",
+  "TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_RUNTIME_SYMBOLS_EXPOSE_CONFIGURED_GLOBALS_AND_WRITABLE_FLAGS_001",
+  "TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_RUNTIME_SYMBOLS_SKIP_UNSUPPORTED_VALUES_001"
+]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate", "string_descriptor_policy", "array_descriptor_policy", "snapshot_freshness_clock", "symbol_version_atomicity", "external_ads_target", "twincat_lab"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle"
+
+[[behavior]]
+partition = { equals = "DISABLED_DEFAULT" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { diagnostics = "none", process_image = "unchanged", retain = "unchanged", siblings = "unchanged", status = "unchanged", target = "set_to_expected" }
+rationale = "Disabled defaults acquire no runtime or network authority."
+
+[[behavior]]
+partition = { equals = "SUPPORTED_SCALAR_PUBLICATION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { diagnostics = "none", process_image = "unchanged", retain = "unchanged", siblings = "unchanged", status = "unchanged", target = "set_to_expected" }
+rationale = "Canonical sorting, exact matching, and combined write gates determine publication."
+
+[[behavior]]
+partition = { equals = "INVALID_GLOB_OR_VALUE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle"
+outcome = "reject"
+no_partial_apply = true
+delta = { diagnostics = "stable_error", process_image = "unchanged", retain = "unchanged", siblings = "unchanged", status = "fault_visible", target = "unchanged" }
+rationale = "Malformed patterns and invalid values cannot broaden publication or fabricate bytes."
+
+[[behavior]]
+partition = { equals = "ENABLED_LIVE_LISTENERS" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { diagnostics = "none", process_image = "unchanged", retain = "unchanged", siblings = "unchanged", status = "unchanged", target = "set_to_expected" }
+rationale = "The runtime reports exact live listener and client state."
+
+[[behavior]]
+partition = { equals = "SHUTDOWN_OR_DROP" }
+case_family = "concurrency_or_cancellation"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { diagnostics = "none", process_image = "unchanged", retain = "unchanged", siblings = "unchanged", status = "unchanged", target = "set_to_expected" }
+rationale = "Shutdown and Drop release both listeners."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "Default, scalar publication, namespace, publisher, listener, and release partitions are covered."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "covered"
+rationale = "Default, scalar publication, namespace, publisher, listener, and release partitions are covered."
+
+[[coverage.cells]]
+dimension = "duplicate_or_collision"
+state = "covered"
+rationale = "Default, scalar publication, namespace, publisher, listener, and release partitions are covered."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "covered"
+rationale = "Default, scalar publication, namespace, publisher, listener, and release partitions are covered."
+
+[[coverage.cells]]
+dimension = "concurrency_or_cancellation"
+state = "covered"
+rationale = "Default, scalar publication, namespace, publisher, listener, and release partitions are covered."
+
+[[coverage.cells]]
+dimension = "hardware_or_network_fault"
+state = "gap_open"
+rationale = "Refresh atomicity, descriptor policy, and external target evidence remain open."
+
+[[coverage.cells]]
+dimension = "persistence_or_recovery"
+state = "gap_open"
+rationale = "Refresh atomicity, descriptor policy, and external target evidence remain open."

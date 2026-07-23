@@ -26,6 +26,9 @@ use super::{
     AdsServerRuntimeWritePort, AdsServerSourcePin, AdsServerSymbolSource, AdsServerValuePublisher,
 };
 
+mod policy_write_audit;
+mod publication_lifecycle;
+
 fn config(writes_enabled: bool) -> AdsServerRuntimeConfig {
     AdsServerRuntimeConfig {
         enabled: true,

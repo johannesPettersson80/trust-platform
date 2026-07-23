@@ -1017,6 +1017,101 @@ Deletion invalidates only the named live registration. Unsupported
 `WriteControl` and client-sent `DeviceNotification` commands remain
 side-effect-free and return `ServiceNotSupported`.
 
+###### ADS server runtime publication and lifecycle
+
+ADS server publication is a truST runtime product contract outside IEC
+61131-3. A default server configuration is disabled and carries the public,
+bounded defaults for ADS port, symbol/client/subscription/frame/sum-up/write
+limits, string-byte limit, read/idle timeouts, and minimum notification cycle.
+Those defaults are respectively ADS port 851, 256 symbols, 8 clients, 64
+subscriptions per client, 256 total subscriptions, 65,536 frame bytes, 512
+sum-up items, 8,192 write bytes, 4,096 string bytes, 5,000 ms read timeout,
+60,000 ms idle timeout, and 50 ms minimum notification cycle. The default does
+not acknowledge insecure transport, enable writes, permit unpinned clients or
+public binds, or expose, write, or allow any configured entry.
+
+An empty `runtime.ads_server.expose` publishes no symbols. Otherwise exposure
+and writable globs match either the canonical ADS name or the bare runtime
+global name, and an invalid glob fails publication rather than broadening it.
+Publication considers the complete eligible runtime-global set, orders it by
+canonical ADS name, and only then applies `max_symbols`; storage insertion
+order must not choose the bounded subset. The v1 supported scalar descriptors
+are `BOOL`, signed and unsigned 8/16/32/64-bit integers, `REAL`, `LREAL`, and
+`BYTE`/`WORD`/`DWORD`/`LWORD`. A symbol is always readable and becomes writable
+only when both the global write gate and a writable glob authorize it.
+Runtime values for which descriptor conversion returns no supported descriptor
+are omitted without suppressing supported sibling symbols; this omission rule
+does not select the unresolved `STRING` or array descriptor policy.
+Namespace mapping is exact and reversible between `<namespace>.global.<name>`
+(or `global.<name>` without a namespace) and its runtime global; a foreign
+namespace is not stripped.
+
+Each value read obtains a runtime snapshot from the configured provider. No
+snapshot returns ADS `NotReady`; a foreign ADS name or absent runtime global
+returns `NotFound`; an unencodable value returns `InvalidData`; and a byte-size
+mismatch returns `InvalidSize`. Those failures return no fabricated value
+bytes. The clock authority and threshold for classifying an available snapshot
+as `Good` or `Stale` remain unresolved under
+`SPEC_GAP_P18_ADS_SERVER_SNAPSHOT_FRESHNESS_CLOCK_001`; existing freshness
+observations are not specification authority.
+
+A disabled lifecycle returns no server without consulting the snapshot
+provider or binding sockets. An enabled lifecycle requires a concrete bind IP
+and AMS identity, initializes its symbol source from the available runtime
+snapshot or an empty not-ready snapshot, and owns both the ADS TCP listener and
+UDP identify responder. Runtime status accessors report the live addresses,
+policy, client count, and served symbol table. Refresh retains the bound socket
+ownership, while explicit shutdown and drop stop both listeners. The atomic
+publication and version transition for a refreshed symbol table remains
+unresolved under `SPEC_GAP_P18_ADS_SERVER_SYMBOL_VERSION_ATOMICITY_001` and is
+not test authority in this contract.
+
+The capacity and descriptor policy for runtime `STRING` values remains
+unresolved under `SPEC_GAP_P18_ADS_SERVER_STRING_DESCRIPTOR_POLICY_001`; the
+public string-byte configuration bound alone does not select that behavior.
+
+###### ADS server client policy, write-back, and audit
+
+An ADS server client is authorized only when its AMS Net ID matches an
+allowlist entry and its observed source matches that entry's parsed exact IP or
+valid IPv4/IPv6 CIDR. Equivalent textual spellings of the same IP address are
+equal; invalid IP or CIDR text and address-family mismatch fail closed. An
+`Unpinned` entry remains AMS-Net-ID-only and is effective only while
+`allow_unpinned_clients` is explicitly true, including when configuration is
+constructed programmatically; when opted in, it does not require an observed
+source. Missing source identity denies pinned `Ip` and `Cidr` entries, and
+poisoned policy state denies all entries. A temporary permit authorizes only
+its exact AMS identity and parsed source IP and is removed when its guard
+drops.
+
+Denied attempts retain bounded operator evidence. Repeated attempts with the
+same AMS identity, source, and reason coalesce by increasing the count and last
+seen time; distinct attempts retain at most 32 records and evict the oldest.
+Reasons distinguish an unknown AMS identity, a missing source, and a source
+outside the configured pin, and the suggested entry preserves the observed
+identity without authorizing it.
+
+Runtime write-back checks, in order, the live client policy, the global write
+gate, combined exact-namespace and writable-glob authorization, runtime
+readiness, and ADS value decoding before it queues a global write. A foreign
+namespace or a symbol outside the writable allowlist returns `AccessDenied`
+before runtime readiness is inspected; a stopped runtime cannot change that
+security-first result to `NotReady`. `Ready`, `Running`, and `Paused` resources
+may accept an otherwise valid write. `Boot`, `Faulted`, and `Stopped`
+resources, or any resource carrying a last error, return `NotReady` only after
+the earlier authorization checks pass. Malformed ADS value bytes return
+`InvalidData`. A malformed writable glob rejects write-port construction with
+`InvalidParameter`. Every rejection is free of a queued PLC mutation. Accepted
+writes use the runtime debug queue's normal same-target coalescing behavior.
+
+The audit adapter emits one runtime control-audit record per accepted write,
+rejected write, or policy rejection when a sink is configured. It preserves
+the event timestamp, client AMS identity and observed source, symbol and value
+type when present, stable `ads.server.write` or `ads.server.policy` request
+type, stable kind, success state, and ADS error code/message. Audit identifiers
+are process-local unique records; an absent or disconnected audit receiver must
+not change ADS command behavior.
+
 ###### ADS diagnostic report and production-readiness truth
 
 ADS Doctor reports use diagnostics schema version 2 and retain the documented

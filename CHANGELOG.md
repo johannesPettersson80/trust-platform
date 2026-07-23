@@ -10,6 +10,10 @@ Target release: `v0.24.54`
 
 ### Fixed
 
+- trust-runtime: ADS server publication now selects bounded symbol sets in
+  canonical-name order, client policy compares parsed exact IP identities and
+  requires explicit opt-in for unpinned entries, and security-first write
+  rejection preserves precise ADS errors without queueing PLC mutations.
 - trust-runtime: ADS client workers now reject malformed or miscorrelated
   handle, poll, subscription, and notification responses before publishing
   authority; rebuild symbol-derived state only from stable token-bracketed

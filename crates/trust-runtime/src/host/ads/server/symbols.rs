@@ -56,10 +56,9 @@ pub fn build_runtime_symbol_snapshot(
             spec = spec.with_flag(SymbolFlag::Write);
         }
         specs.push(spec);
-        if specs.len() >= config.max_symbols {
-            break;
-        }
     }
+    specs.sort_by(|left, right| left.name.cmp(&right.name));
+    specs.truncate(config.max_symbols);
 
     build_server_symbol_snapshot(route_name(config), specs, DEFAULT_SERVER_SYMBOL_INDEX_GROUP)
         .map_err(symbol_error)
