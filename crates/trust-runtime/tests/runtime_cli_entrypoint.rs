@@ -173,3 +173,57 @@ fn ide_serve_reports_invalid_primary_runtime_before_server_start() {
 
     let _ = std::fs::remove_dir_all(project);
 }
+
+#[test]
+fn ide_serve_rejects_non_directory_project_before_server_start() {
+    let project = unique_missing_project("ide-project-file");
+    std::fs::write(&project, "not a project directory").expect("write project-shaped file");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+        .args(["ide", "serve", "--project"])
+        .arg(&project)
+        .args(["--listen", "not-an-address"])
+        .output()
+        .expect("run trust-runtime ide serve with file project");
+
+    assert!(!output.status.success());
+    let error = stderr(&output);
+    assert!(
+        error.contains("project path")
+            && error.contains("not a directory")
+            && !error.contains("start standalone IDE web server"),
+        "a non-directory project must fail before server startup; stderr was:\n{error}"
+    );
+
+    let _ = std::fs::remove_file(project);
+}
+
+#[test]
+fn deprecated_config_ui_serve_warns_before_shared_project_validation() {
+    let project = unique_missing_project("config-ui-project-file");
+    std::fs::write(&project, "not a project directory").expect("write project-shaped file");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+        .args(["config-ui", "serve", "--project"])
+        .arg(&project)
+        .args(["--listen", "not-an-address"])
+        .output()
+        .expect("run deprecated config-ui serve with file project");
+
+    assert!(!output.status.success());
+    let error = stderr(&output);
+    let warning = error
+        .find("`config-ui serve` is deprecated")
+        .expect("deprecated config-ui warning");
+    let validation = error
+        .find("project path")
+        .expect("shared project validation error");
+    assert!(
+        warning < validation
+            && error.contains("not a directory")
+            && !error.contains("start standalone IDE web server"),
+        "the deprecation warning must precede shared validation; stderr was:\n{error}"
+    );
+
+    let _ = std::fs::remove_file(project);
+}

@@ -1059,6 +1059,27 @@ command-aware fallback codes. Known configuration and permission failures may
 append one actionable tip to the original error text; the tip does not replace
 or reclassify the underlying error.
 
+For `ide serve`, the explicit project path, or the current directory when it is
+omitted, must be an existing directory. A root `runtime.toml` is the primary
+runtime; otherwise the lexicographically first immediate child containing
+`runtime.toml` is selected. A selected runtime configuration must load
+successfully before the web server binds. A workspace without any runtime
+configuration uses the standalone `config-ui` identity so source-only
+authoring remains available.
+
+The standalone IDE source registry uses the selected runtime project's normal
+recursive, deterministic `.st` and `.pou` build-source discovery, while
+presenting paths relative to the selected workspace. Its synthetic control
+state is local and nonexecuting: control authentication is disabled, debug
+execution is not enabled, and discovery and mesh are disabled. The server
+starts in standalone-IDE mode only after this state is constructed. These are
+truST host-product rules outside IEC 61131-3 and are neither an IEC decision
+nor an IEC deviation.
+
+The deprecated `config-ui serve` alias emits its deprecation warning before
+entering this same standalone-IDE validation and startup path; it does not own
+a second project-selection or server mode.
+
 ##### Runtime launcher input, validation, and startup contract
 
 `trust-runtime play --project <path>` is the product convenience entry point:

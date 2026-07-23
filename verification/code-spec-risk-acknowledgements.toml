@@ -58090,20 +58090,6 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_AF22EA3E5628784A9ECEEC1D365F4320298489B632D8CA25D8881C2B393C8406"
-code_id = "CODE_AF22EA3E5628784A9ECEEC1D365F4320298489B632D8CA25D8881C2B393C8406"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:de97e86a93305da57ad9210c9ee3580f4068f1a3c7e0c4b12a70be32c7ccd8c6"
-risk_signals = ["broad_error_suppression", "fault_mapping", "filesystem_or_environment"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_AFBB91017CD751FF1480526C0D665F8D1FBF1172854EBB9DA58833D8ABCAA0EF"
 code_id = "CODE_AFBB91017CD751FF1480526C0D665F8D1FBF1172854EBB9DA58833D8ABCAA0EF"
 owner = "trust-runtime"
@@ -58986,20 +58972,6 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_CBC2AC6D6E4F10C6FABBFA78F0D3C7D152DE9EFB3A27929598FF2FBF26CED73C"
-code_id = "CODE_CBC2AC6D6E4F10C6FABBFA78F0D3C7D152DE9EFB3A27929598FF2FBF26CED73C"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:12e5e027af852ef57e7b65116814cf14c26bf0e430e864861278ae3ae581edd3"
-risk_signals = ["filesystem_or_environment", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_CBCD2C62C22E21613F8C07FB1422E50839F4A4FF5E3851676630A3B732E065C2"
 code_id = "CODE_CBCD2C62C22E21613F8C07FB1422E50839F4A4FF5E3851676630A3B732E065C2"
 owner = "trust-runtime"
@@ -59426,20 +59398,6 @@ owner = "trust-runtime"
 area = "runtime_safety"
 body_digest = "sha256:d7c84ee687f0785903523c6b99fec98d6614632edad2ebb0d136e065b29d2322"
 risk_signals = ["fault_mapping", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_D4FCD73147CD5795CE14F876EFD5B9996820F26B56C3824C4552287D127A154C"
-code_id = "CODE_D4FCD73147CD5795CE14F876EFD5B9996820F26B56C3824C4552287D127A154C"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:2fa356ba1b6d2ad63f70a5fff663c561df1e60504f9802495d3300f14090e389"
-risk_signals = ["broad_error_suppression", "filesystem_or_environment", "state_mutation"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-21"
@@ -60663,20 +60621,6 @@ reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-22"
 expires_on = "2026-10-22"
 rationale = "Acknowledges the fault-mapping signal for this exact reviewed body digest after binding the function to the signed-integer materialization specification, invariant, direct unit matrix, and producer-authentic behavior-lock pair; it does not suppress the signal or claim the still-open reachability, mutation, or broad-gate proof."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_F73082C57CA6B684940B29D198BE5BC9AC21D47E064B01ABDCFFAD07667EE4CB"
-code_id = "CODE_F73082C57CA6B684940B29D198BE5BC9AC21D47E064B01ABDCFFAD07667EE4CB"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:32aacc18f0fa989216da764934758db21b3e64d485359dd31795448e59e161d5"
-risk_signals = ["fault_mapping", "state_mutation", "subprocess_or_thread"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
 
 [[acknowledgements]]
 schema_version = 1
@@ -81822,3 +81766,44 @@ reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-23"
 expires_on = "2027-07-23"
 rationale = "The offline communication CLI and its generated runtime template must reject malformed local inputs and must not report invalid generated projects as successful authoring results."
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_AF22EA3E5628784A9ECEEC1D365F4320298489B632D8CA25D8881C2B393C8406"
+code_id = "CODE_AF22EA3E5628784A9ECEEC1D365F4320298489B632D8CA25D8881C2B393C8406"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:a35f001f5facec81e908bd52023194674b2a0006d6dfa4712f2c4dc01a5af696"
+risk_signals = ["broad_error_suppression", "fault_mapping", "filesystem_or_environment"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#runtime-cli-entrypoint-diagnostics-and-dispatch-contract"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "Standalone IDE startup must not bind a server for an invalid project, choose the wrong runtime or source set, or expose a synthetic state as a live executing runtime."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_D4FCD73147CD5795CE14F876EFD5B9996820F26B56C3824C4552287D127A154C"
+code_id = "CODE_D4FCD73147CD5795CE14F876EFD5B9996820F26B56C3824C4552287D127A154C"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:ad36c109ce045ccc58d16237ac74e8c98c6ffcc7a01327c3d27459c71472bd05"
+risk_signals = ["broad_error_suppression"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#runtime-cli-entrypoint-diagnostics-and-dispatch-contract"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "Standalone IDE startup must not bind a server for an invalid project, choose the wrong runtime or source set, or expose a synthetic state as a live executing runtime."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_F73082C57CA6B684940B29D198BE5BC9AC21D47E064B01ABDCFFAD07667EE4CB"
+code_id = "CODE_F73082C57CA6B684940B29D198BE5BC9AC21D47E064B01ABDCFFAD07667EE4CB"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:65d933e84e84d1f0a4437bea320f260c8358f1248891311527b7a68c7b836b00"
+risk_signals = ["fault_mapping", "state_mutation", "subprocess_or_thread"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#runtime-cli-entrypoint-diagnostics-and-dispatch-contract"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "Standalone IDE startup must not bind a server for an invalid project, choose the wrong runtime or source set, or expose a synthetic state as a live executing runtime."

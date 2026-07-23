@@ -45,6 +45,12 @@ pub fn run_ide_serve(project: Option<PathBuf>, listen: String) -> anyhow::Result
     if !project_root.exists() {
         anyhow::bail!("project path '{}' does not exist", project_root.display());
     }
+    if !project_root.is_dir() {
+        anyhow::bail!(
+            "project path '{}' is not a directory",
+            project_root.display()
+        );
+    }
 
     let runtime_id = if primary_runtime_config_path(&project_root).is_some() {
         detect_primary_runtime_id(&project_root)?

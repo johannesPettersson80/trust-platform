@@ -201023,23 +201023,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_47499548FAAD7D250F52E886BDA8C33F2AD8BBC412B4B5D0B8F3F6A7449F20D1"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/config_ui.rs"
-qualified_symbol = "trust_runtime::config_ui::run_config_ui_serve"
-item_kind = "rust_function"
-signature_digest = "sha256:f75bdbe2a6c8ec74c679a73552f3c5821f99bb0a69481c79f89f93bad47faec8"
-reviewed_body_digest = "sha256:3810cce86b088784f37eda2c18a770de65a17a199bf49ba328bbe02ca6d48085"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "public"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_47E8ABC44CA29DC439C6F88D004E77DDCDA72AF257BBA29A0D75B358FC05BEEC"
 source_kind = "rust"
 path = "crates/trust-runtime-core/src/task.rs"
@@ -213161,25 +213144,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_AF22EA3E5628784A9ECEEC1D365F4320298489B632D8CA25D8881C2B393C8406"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/config_ui.rs"
-qualified_symbol = "trust_runtime::config_ui::run_ide_serve"
-item_kind = "rust_function"
-signature_digest = "sha256:3428a10fbe4bf394b35332720cca1fc493bd7cdf665ef21ebea5a9dd855d5aee"
-reviewed_body_digest = "sha256:de97e86a93305da57ad9210c9ee3580f4068f1a3c7e0c4b12a70be32c7ccd8c6"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "public"
-risk_signals = ["broad_error_suppression", "fault_mapping", "filesystem_or_environment"]
-owner_ack = "RISK_ACK_AF22EA3E5628784A9ECEEC1D365F4320298489B632D8CA25D8881C2B393C8406"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_AFBB91017CD751FF1480526C0D665F8D1FBF1172854EBB9DA58833D8ABCAA0EF"
 source_kind = "rust"
 path = "crates/trust-runtime/src/openot_authoring/validation.rs"
@@ -216319,25 +216283,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_CBC2AC6D6E4F10C6FABBFA78F0D3C7D152DE9EFB3A27929598FF2FBF26CED73C"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/config_ui.rs"
-qualified_symbol = "trust_runtime::config_ui::detect_primary_runtime_id"
-item_kind = "rust_function"
-signature_digest = "sha256:e8a0510ddd70d6e695c3e8744fe91983bbc5d8b2510d4a6d296b60b0b86f84d5"
-reviewed_body_digest = "sha256:12e5e027af852ef57e7b65116814cf14c26bf0e430e864861278ae3ae581edd3"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = ["filesystem_or_environment", "state_mutation"]
-owner_ack = "RISK_ACK_CBC2AC6D6E4F10C6FABBFA78F0D3C7D152DE9EFB3A27929598FF2FBF26CED73C"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_CBCD2C62C22E21613F8C07FB1422E50839F4A4FF5E3851676630A3B732E065C2"
 source_kind = "rust"
 path = "crates/trust-runtime/src/memory/frames.rs"
@@ -217546,25 +217491,6 @@ area = "runtime_safety"
 visibility = "public"
 risk_signals = ["fault_mapping", "state_mutation"]
 owner_ack = "RISK_ACK_D4FA4C681F5FEAB57892AAF74DB278C390D028B1C6A11E0A6E0F6C5A40661EBE"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_D4FCD73147CD5795CE14F876EFD5B9996820F26B56C3824C4552287D127A154C"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/config_ui.rs"
-qualified_symbol = "trust_runtime::config_ui::load_source_registry"
-item_kind = "rust_function"
-signature_digest = "sha256:56f9925cefe619491d5769a1fb2793a40654abe413cec8f7ae8235b64768054c"
-reviewed_body_digest = "sha256:2fa356ba1b6d2ad63f70a5fff663c561df1e60504f9802495d3300f14090e389"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = ["broad_error_suppression", "filesystem_or_environment", "state_mutation"]
-owner_ack = "RISK_ACK_D4FCD73147CD5795CE14F876EFD5B9996820F26B56C3824C4552287D127A154C"
 owner_ack_expires_on = "2026-10-21"
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
@@ -221882,25 +221808,6 @@ spec_ref = "SPEC_RUNTIME_SEMANTICS_001#6-8-signed-integer-result-materialization
 invariant_ids = ["RT_SIGNED_INTEGER_MATERIALIZATION_001"]
 test_ids = ["TEST_RUNTIME_SIGNED_INTEGER_MATERIALIZATION_001", "TEST_RUNTIME_SIGNED_INTEGER_MATERIALIZATION_TRACE_001"]
 last_reviewed = "2026-07-22"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_F73082C57CA6B684940B29D198BE5BC9AC21D47E064B01ABDCFFAD07667EE4CB"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/config_ui.rs"
-qualified_symbol = "trust_runtime::config_ui::build_config_mode_control_state"
-item_kind = "rust_function"
-signature_digest = "sha256:6350efc6870a4060f1d34d31146e828906af43b25f4670823e9d15d284111b16"
-reviewed_body_digest = "sha256:32aacc18f0fa989216da764934758db21b3e64d485359dd31795448e59e161d5"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = ["fault_mapping", "state_mutation", "subprocess_or_thread"]
-owner_ack = "RISK_ACK_F73082C57CA6B684940B29D198BE5BC9AC21D47E064B01ABDCFFAD07667EE4CB"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
@@ -275922,4 +275829,104 @@ disposition = "specified"
 spec_ref = "SPEC_RUNTIME_ENGINE_001#offline-communication-authoring-client"
 invariant_ids = ["RT_OFFLINE_COMM_AUTHORING_CLI_001"]
 test_ids = ["TEST_OFFLINE_COMM_AUTHORING_CLI_COMM_CLI_VALIDATES_PAYLOADS_AND_MANAGES_THE_SELECTED_OPCUA_TRUST_STORE_001", "TEST_OFFLINE_COMM_AUTHORING_CLI_COMM_CLI_REJECTS_MALFORMED_LOCAL_AUTHORING_INPUTS_001"]
+last_reviewed = "2026-07-23"
+[[mappings]]
+schema_version = 1
+code_id = "CODE_47499548FAAD7D250F52E886BDA8C33F2AD8BBC412B4B5D0B8F3F6A7449F20D1"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/config_ui.rs"
+qualified_symbol = "trust_runtime::config_ui::run_config_ui_serve"
+item_kind = "rust_function"
+signature_digest = "sha256:f75bdbe2a6c8ec74c679a73552f3c5821f99bb0a69481c79f89f93bad47faec8"
+reviewed_body_digest = "sha256:3810cce86b088784f37eda2c18a770de65a17a199bf49ba328bbe02ca6d48085"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#runtime-cli-entrypoint-diagnostics-and-dispatch-contract"
+invariant_ids = ["RT_STANDALONE_IDE_BOOTSTRAP_001"]
+test_ids = ["TEST_STANDALONE_IDE_BOOTSTRAP_DEPRECATED_CONFIG_UI_SERVE_WARNS_BEFORE_SHARED_PROJECT_VALIDATION_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_AF22EA3E5628784A9ECEEC1D365F4320298489B632D8CA25D8881C2B393C8406"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/config_ui.rs"
+qualified_symbol = "trust_runtime::config_ui::run_ide_serve"
+item_kind = "rust_function"
+signature_digest = "sha256:3428a10fbe4bf394b35332720cca1fc493bd7cdf665ef21ebea5a9dd855d5aee"
+reviewed_body_digest = "sha256:a35f001f5facec81e908bd52023194674b2a0006d6dfa4712f2c4dc01a5af696"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "public"
+risk_signals = ["broad_error_suppression", "fault_mapping", "filesystem_or_environment"]
+owner_ack = "RISK_ACK_AF22EA3E5628784A9ECEEC1D365F4320298489B632D8CA25D8881C2B393C8406"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#runtime-cli-entrypoint-diagnostics-and-dispatch-contract"
+invariant_ids = ["RT_STANDALONE_IDE_BOOTSTRAP_001"]
+test_ids = ["TEST_RUNTIME_CLI_IDE_DISPATCH_001", "TEST_STANDALONE_IDE_BOOTSTRAP_IDE_SERVE_REJECTS_NON_DIRECTORY_PROJECT_BEFORE_SERVER_START_001", "TEST_STANDALONE_IDE_BOOTSTRAP_DEPRECATED_CONFIG_UI_SERVE_WARNS_BEFORE_SHARED_PROJECT_VALIDATION_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_CBC2AC6D6E4F10C6FABBFA78F0D3C7D152DE9EFB3A27929598FF2FBF26CED73C"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/config_ui.rs"
+qualified_symbol = "trust_runtime::config_ui::detect_primary_runtime_id"
+item_kind = "rust_function"
+signature_digest = "sha256:e8a0510ddd70d6e695c3e8744fe91983bbc5d8b2510d4a6d296b60b0b86f84d5"
+reviewed_body_digest = "sha256:9bcd5b9d85db47078eacc65b1d20e6eafbf241fc46a52331c014766bf248559b"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#runtime-cli-entrypoint-diagnostics-and-dispatch-contract"
+invariant_ids = ["RT_STANDALONE_IDE_BOOTSTRAP_001"]
+test_ids = ["TEST_STANDALONE_IDE_BOOTSTRAP_PRIMARY_RUNTIME_DETECTION_PREFERS_THE_EXPLICIT_PROJECT_ROOT_001", "TEST_RUNTIME_CLI_IDE_DISPATCH_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_D4FCD73147CD5795CE14F876EFD5B9996820F26B56C3824C4552287D127A154C"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/config_ui.rs"
+qualified_symbol = "trust_runtime::config_ui::load_source_registry"
+item_kind = "rust_function"
+signature_digest = "sha256:56f9925cefe619491d5769a1fb2793a40654abe413cec8f7ae8235b64768054c"
+reviewed_body_digest = "sha256:ad36c109ce045ccc58d16237ac74e8c98c6ffcc7a01327c3d27459c71472bd05"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = ["broad_error_suppression"]
+owner_ack = "RISK_ACK_D4FCD73147CD5795CE14F876EFD5B9996820F26B56C3824C4552287D127A154C"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#runtime-cli-entrypoint-diagnostics-and-dispatch-contract"
+invariant_ids = ["RT_STANDALONE_IDE_BOOTSTRAP_001"]
+test_ids = ["TEST_STANDALONE_IDE_BOOTSTRAP_SOURCE_REGISTRY_USES_THE_SELECTED_WORKSPACE_RUNTIME_AND_BUILD_SOURCE_ORDER_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_F73082C57CA6B684940B29D198BE5BC9AC21D47E064B01ABDCFFAD07667EE4CB"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/config_ui.rs"
+qualified_symbol = "trust_runtime::config_ui::build_config_mode_control_state"
+item_kind = "rust_function"
+signature_digest = "sha256:6350efc6870a4060f1d34d31146e828906af43b25f4670823e9d15d284111b16"
+reviewed_body_digest = "sha256:65d933e84e84d1f0a4437bea320f260c8358f1248891311527b7a68c7b836b00"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = ["fault_mapping", "state_mutation", "subprocess_or_thread"]
+owner_ack = "RISK_ACK_F73082C57CA6B684940B29D198BE5BC9AC21D47E064B01ABDCFFAD07667EE4CB"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#runtime-cli-entrypoint-diagnostics-and-dispatch-contract"
+invariant_ids = ["RT_STANDALONE_IDE_BOOTSTRAP_001"]
+test_ids = ["TEST_STANDALONE_IDE_BOOTSTRAP_CONFIG_MODE_CONTROL_STATE_IS_LOCAL_NONEXECUTING_AND_SOURCE_BACKED_001"]
 last_reviewed = "2026-07-23"

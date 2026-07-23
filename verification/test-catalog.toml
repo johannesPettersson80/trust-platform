@@ -7672,30 +7672,6 @@ last_reviewed = "2026-07-22"
 
 [[tests]]
 schema_version = 2
-id = "TEST_RUNTIME_CLI_IDE_DISPATCH_001"
-subject_kind = "generated_test"
-discovery_id = "DISC_F41EEB20812FFDC38762"
-discovery_source_kind = "rust_integration_test"
-test_class = "integration"
-area = "runtime_safety"
-path = "crates/trust-runtime/tests/runtime_cli_entrypoint.rs"
-name = "ide_serve_reports_invalid_primary_runtime_before_server_start"
-command = "cargo test -p trust-runtime --test runtime_cli_entrypoint ide_serve_reports_invalid_primary_runtime_before_server_start -- --exact"
-owner = "trust-runtime"
-status = "mapped"
-invariants = ["RT_RUNTIME_CLI_ENTRYPOINT_001"]
-oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-cli-entrypoint-diagnostics-and-dispatch-contract"
-expected_result = "IDE serve dispatch validates the primary runtime project before attempting server startup."
-expected_failure_mode = "The wrong handler runs or server startup masks the invalid primary runtime configuration."
-suite_tiers = ["pr"]
-requires_hardware = false
-requires_network = false
-duration_class = "fast"
-evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_CLI_IDE_DISPATCH_001.json"
-last_reviewed = "2026-07-22"
-
-[[tests]]
-schema_version = 2
 id = "TEST_RUNTIME_ADS_VALIDATE_MISSING_SYMBOL_001"
 subject_kind = "generated_test"
 discovery_id = "DISC_2FAB998C72FC7E709E79"
@@ -22180,3 +22156,146 @@ duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_OFFLINE_COMM_AUTHORING_CLI_COMM_CLI_REJECTS_MALFORMED_LOCAL_AUTHORING_INPUTS_001.json"
 last_reviewed = "2026-07-23"
 malformed_input_class_ids = ["runtime_comm_params_malformed_json", "runtime_comm_snapshot_malformed_json", "runtime_comm_snapshot_unreadable", "runtime_comm_target_non_object"]
+[[tests]]
+schema_version = 2
+id = "TEST_STANDALONE_IDE_BOOTSTRAP_PRIMARY_RUNTIME_DETECTION_PREFERS_THE_EXPLICIT_PROJECT_ROOT_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_DC04E0DCB35A81D5F8AF"
+discovery_source_kind = "rust_unit_test"
+test_class = "unit"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/config_ui.rs"
+name = "primary_runtime_detection_prefers_the_explicit_project_root"
+command = "cargo test -p trust-runtime --bin trust-runtime config_ui::tests::primary_runtime_detection_prefers_the_explicit_project_root -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_STANDALONE_IDE_BOOTSTRAP_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-cli-entrypoint-diagnostics-and-dispatch-contract"
+expected_result = "A workspace root runtime.toml takes precedence over an immediate child runtime and supplies the standalone IDE resource identity."
+expected_failure_mode = "A child runtime shadows the explicit root project or the selected resource identity is not loaded from the primary runtime."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_STANDALONE_IDE_BOOTSTRAP_PRIMARY_RUNTIME_DETECTION_PREFERS_THE_EXPLICIT_PROJECT_ROOT_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_STANDALONE_IDE_BOOTSTRAP_SOURCE_REGISTRY_USES_THE_SELECTED_WORKSPACE_RUNTIME_AND_BUILD_SOURCE_ORDER_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_54EAEC3198DC550FFB5F"
+discovery_source_kind = "rust_unit_test"
+test_class = "unit"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/config_ui.rs"
+name = "source_registry_uses_the_selected_workspace_runtime_and_build_source_order"
+command = "cargo test -p trust-runtime --bin trust-runtime config_ui::tests::source_registry_uses_the_selected_workspace_runtime_and_build_source_order -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_STANDALONE_IDE_BOOTSTRAP_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-cli-entrypoint-diagnostics-and-dispatch-contract"
+expected_result = "The selected child runtime contributes recursive case-insensitive ST and POU sources in deterministic build order with workspace-relative paths and stable IDs."
+expected_failure_mode = "The source registry scans the wrong root, omits supported nested sources, uses nondeterministic order, or exposes paths outside the selected workspace."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_STANDALONE_IDE_BOOTSTRAP_SOURCE_REGISTRY_USES_THE_SELECTED_WORKSPACE_RUNTIME_AND_BUILD_SOURCE_ORDER_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_STANDALONE_IDE_BOOTSTRAP_CONFIG_MODE_CONTROL_STATE_IS_LOCAL_NONEXECUTING_AND_SOURCE_BACKED_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_7A2D118AB75A3D4305F9"
+discovery_source_kind = "rust_unit_test"
+test_class = "unit"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/config_ui.rs"
+name = "config_mode_control_state_is_local_nonexecuting_and_source_backed"
+command = "cargo test -p trust-runtime --bin trust-runtime config_ui::tests::config_mode_control_state_is_local_nonexecuting_and_source_backed -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_STANDALONE_IDE_BOOTSTRAP_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-cli-entrypoint-diagnostics-and-dispatch-contract"
+expected_result = "Standalone IDE state retains the selected project, resource, and sources while control authentication, debug execution, discovery, and mesh remain disabled."
+expected_failure_mode = "Synthetic authoring state loses project authority or falsely enables live execution, remote discovery, mesh, or authentication requirements."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_STANDALONE_IDE_BOOTSTRAP_CONFIG_MODE_CONTROL_STATE_IS_LOCAL_NONEXECUTING_AND_SOURCE_BACKED_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_CLI_IDE_DISPATCH_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_F41EEB20812FFDC38762"
+discovery_source_kind = "rust_integration_test"
+test_class = "integration"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/runtime_cli_entrypoint.rs"
+name = "ide_serve_reports_invalid_primary_runtime_before_server_start"
+command = "cargo test -p trust-runtime --test runtime_cli_entrypoint ide_serve_reports_invalid_primary_runtime_before_server_start -- --exact"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_RUNTIME_CLI_ENTRYPOINT_001", "RT_STANDALONE_IDE_BOOTSTRAP_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-cli-entrypoint-diagnostics-and-dispatch-contract"
+expected_result = "IDE serve dispatch validates the primary runtime project before attempting server startup."
+expected_failure_mode = "The wrong handler runs or server startup masks the invalid primary runtime configuration."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_CLI_IDE_DISPATCH_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_STANDALONE_IDE_BOOTSTRAP_IDE_SERVE_REJECTS_NON_DIRECTORY_PROJECT_BEFORE_SERVER_START_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_141F869083975F83C542"
+discovery_source_kind = "rust_integration_test"
+test_class = "failing_regression"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/runtime_cli_entrypoint.rs"
+name = "ide_serve_rejects_non_directory_project_before_server_start"
+command = "cargo test -p trust-runtime --test runtime_cli_entrypoint ide_serve_rejects_non_directory_project_before_server_start -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_STANDALONE_IDE_BOOTSTRAP_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-cli-entrypoint-diagnostics-and-dispatch-contract"
+expected_result = "A project path that is an ordinary file fails as not a directory before control-state construction or web-server binding."
+expected_failure_mode = "IDE serve accepts a non-directory project and proceeds until an unrelated server-bind failure."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_STANDALONE_IDE_BOOTSTRAP_IDE_SERVE_REJECTS_NON_DIRECTORY_PROJECT_BEFORE_SERVER_START_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_STANDALONE_IDE_BOOTSTRAP_DEPRECATED_CONFIG_UI_SERVE_WARNS_BEFORE_SHARED_PROJECT_VALIDATION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_DF20AF86CD5019E0159A"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/runtime_cli_entrypoint.rs"
+name = "deprecated_config_ui_serve_warns_before_shared_project_validation"
+command = "cargo test -p trust-runtime --test runtime_cli_entrypoint deprecated_config_ui_serve_warns_before_shared_project_validation -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_STANDALONE_IDE_BOOTSTRAP_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-cli-entrypoint-diagnostics-and-dispatch-contract"
+expected_result = "The deprecated config-ui alias warns first and then enters the same project validation path without attempting a second server mode."
+expected_failure_mode = "The alias omits or reorders its warning, bypasses shared validation, or starts a divergent server path."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_STANDALONE_IDE_BOOTSTRAP_DEPRECATED_CONFIG_UI_SERVE_WARNS_BEFORE_SHARED_PROJECT_VALIDATION_001.json"
+last_reviewed = "2026-07-23"

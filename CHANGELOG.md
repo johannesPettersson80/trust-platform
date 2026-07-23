@@ -10,6 +10,8 @@ Target release: `v0.24.54`
 
 ### Fixed
 
+- trust-runtime: standalone `ide serve` now rejects a non-directory project
+  path before constructing control state or attempting to bind the web server.
 - trust-runtime: generated runtime templates no longer serialize an empty mesh
   authentication token that current configuration validation rejects, restoring
   offline communication topology for newly generated projects.

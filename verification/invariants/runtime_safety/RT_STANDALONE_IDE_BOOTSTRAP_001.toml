@@ -1,0 +1,88 @@
+schema_version = 1
+id = "RT_STANDALONE_IDE_BOOTSTRAP_001"
+title = "Standalone IDE bootstrap preserves workspace authority without live-runtime claims"
+area = "runtime_safety"
+risk = "false_status"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-23"
+claim = "Standalone IDE startup accepts only a project directory, chooses the reviewed primary runtime and deterministic source set, constructs local nonexecuting authoring state, validates before binding, and keeps the deprecated config-ui alias on the same path."
+proof_level = "T1"
+contract_kind = "protocol_trace"
+source_refs = ["crates/trust-runtime/src/bin/trust-runtime/config_ui.rs"]
+tests = [
+  "TEST_STANDALONE_IDE_BOOTSTRAP_PRIMARY_RUNTIME_DETECTION_PREFERS_THE_EXPLICIT_PROJECT_ROOT_001",
+  "TEST_STANDALONE_IDE_BOOTSTRAP_SOURCE_REGISTRY_USES_THE_SELECTED_WORKSPACE_RUNTIME_AND_BUILD_SOURCE_ORDER_001",
+  "TEST_STANDALONE_IDE_BOOTSTRAP_CONFIG_MODE_CONTROL_STATE_IS_LOCAL_NONEXECUTING_AND_SOURCE_BACKED_001",
+  "TEST_RUNTIME_CLI_IDE_DISPATCH_001",
+  "TEST_STANDALONE_IDE_BOOTSTRAP_IDE_SERVE_REJECTS_NON_DIRECTORY_PROJECT_BEFORE_SERVER_START_001",
+  "TEST_STANDALONE_IDE_BOOTSTRAP_DEPRECATED_CONFIG_UI_SERVE_WARNS_BEFORE_SHARED_PROJECT_VALIDATION_001"
+]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate", "rendered_browser_ide_smoke"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#runtime-cli-entrypoint-diagnostics-and-dispatch-contract"
+
+[[behavior]]
+partition = { equals = "VALID_ROOT_OR_WORKSPACE_PROJECT" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-cli-entrypoint-diagnostics-and-dispatch-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The direct root runtime wins; otherwise the selected workspace runtime supplies identity and deterministic build sources to local authoring state."
+
+[[behavior]]
+partition = { equals = "MALFORMED_RUNTIME_OR_NON_DIRECTORY_PROJECT" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-cli-entrypoint-diagnostics-and-dispatch-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "status_degraded" }
+rationale = "Invalid project shape or primary runtime configuration fails before any server bind can mask the authoritative error."
+
+[[behavior]]
+partition = { equals = "STANDALONE_NONEXECUTING_CONTROL_STATE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-cli-entrypoint-diagnostics-and-dispatch-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The state exposes project sources without enabling debug execution, discovery, mesh, or live-runtime authority."
+
+[[behavior]]
+partition = { equals = "DEPRECATED_CONFIG_UI_ALIAS" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-cli-entrypoint-diagnostics-and-dispatch-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "The alias emits one deprecation warning before entering the identical standalone IDE preflight."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "Focused unit tests cover root and child runtime selection, recursive source discovery, deterministic ordering, and local state construction."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "covered"
+rationale = "Focused integration tests reject malformed runtime configuration and a non-directory project before binding."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "covered"
+rationale = "Focused unit and integration locks prove nonexecuting state and deprecation-warning order through shared validation."
+
+[[coverage.cells]]
+dimension = "platform_or_filesystem_variation"
+state = "gap_open"
+rationale = "No page rendering changed in this batch; final browser IDE rendering proof remains a separate acceptance lane."
