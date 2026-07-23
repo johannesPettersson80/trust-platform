@@ -1,0 +1,142 @@
+schema_version = 1
+id = "RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"
+title = "ADS client worker and cache preserve correlated session and write truth"
+area = "protocols"
+risk = "silent_corruption"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-23"
+claim = "The ADS client publishes and mutates worker/cache state only from complete endpoint-correlated responses and stable symbol authority, represents output intent and completion with generation-safe local truth, rejects non-finite egress before queue or wire activity, and can stop an idle worker without waiting for the configured polling interval."
+proof_level = "T1"
+contract_kind = "state_machine"
+source_refs = ["crates/trust-runtime/src/host/ads/client.rs", "crates/trust-runtime/src/host/ads/client/worker.rs", "crates/trust-runtime/src/host/ads/client/cache.rs", "crates/trust-runtime/src/host/ads/transport.rs", "crates/trust-runtime/src/host/ads/mock.rs", "crates/trust-runtime/src/host/ads/descriptors.rs"]
+tests = [
+  "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_MOCK_TRANSPORT_REPORTS_MISSING_READ_VALUE_AS_POINT_QUALITY_ERROR_001",
+  "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_DECLARED_BINDING_RESOLUTION_REJECTS_MISSING_GLOBAL_001",
+  "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_DECLARED_BINDING_RESOLUTION_REJECTS_TYPE_MISMATCH_001",
+  "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_RETAIN_READ_REQUIRES_OPT_IN_AND_ALLOWED_BINDING_STARTS_STALE_001",
+  "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_BRIDGE_APPLIES_READS_AT_INPUT_PHASE_AND_PUBLISHES_WRITES_AT_OUTPUT_PHASE_001",
+  "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_READ_WRITE_BINDING_SEEDS_WRITE_BASELINE_FROM_FIRST_GOOD_READ_001",
+  "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_SPAWNED_WORKER_UPDATES_CACHE_AND_SCAN_APPLIES_SNAPSHOT_ONLY_001",
+  "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_NOTIFY_BINDING_SUBSCRIBES_SKIPS_POLL_AND_APPLIES_AT_SCAN_BOUNDARY_001",
+  "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_SPAWNED_WORKER_DRAINS_OUTPUT_QUEUE_OFF_SCAN_THREAD_001",
+  "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_NOTIFY_BINDING_RESUBSCRIBES_AFTER_SYMBOL_VERSION_CHANGE_001",
+  "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_NOTIFY_BINDING_REFRESH_DISCONNECTS_BEFORE_RESUBSCRIBE_001",
+  "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_READ_BINDINGS_DO_NOT_PUBLISH_OUTPUTS_001",
+  "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_SYMBOL_VERSION_CHANGE_REVALIDATES_AND_RESOLVES_NEW_HANDLES_001",
+  "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_SYMBOL_VERSION_TYPE_MISMATCH_FAULTS_BRIDGE_001",
+  "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_RECONNECT_MARKS_POINTS_STALE_UNTIL_BACKOFF_ALLOWS_CONNECT_001",
+  "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_HANDLE_RESOLUTION_REQUIRES_EXACT_RESPONSE_BIJECTION_AND_CLEANUP_001",
+  "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_POLL_RESULTS_REQUIRE_EXACT_ORDER_AND_CARDINALITY_BEFORE_CACHE_COMMIT_001",
+  "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_SUBSCRIPTION_AND_NOTIFICATION_RESULTS_REQUIRE_ACTIVE_CORRELATION_001",
+  "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_SYMBOL_VERSION_CHANGE_INVALIDATES_OLD_STATE_AND_REQUIRES_STABLE_CANDIDATE_001",
+  "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_SYMBOL_VERSION_COMPARISON_IS_EQUALITY_ONLY_ACROSS_WRAP_001",
+  "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_RECONNECT_INVALIDATES_LOCAL_CORRELATION_AND_MARKS_CACHED_INPUTS_STALE_001",
+  "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_OUTPUT_QUEUE_REPORTS_LATEST_VALUE_AS_WRITE_PENDING_UNTIL_ACK_001",
+  "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_OUTPUT_QUEUE_REJECTS_NON_FINITE_VALUES_BEFORE_ENQUEUE_001",
+  "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_WRITE_RESPONSE_CARDINALITY_AND_FAILURE_QUALITY_FAIL_CLOSED_001",
+  "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_WRITE_ACK_DOES_NOT_DROP_NEWER_QUEUED_VALUE_001",
+  "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_WORKER_SHUTDOWN_AND_DROP_INTERRUPT_IDLE_WAIT_001",
+  "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_BINDING_AND_REMOTE_DESCRIPTOR_VALIDATION_PARTITION_TABLE_001"
+]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate", "zero_by_name_handle_policy", "zero_subscription_id_policy", "duplicate_valid_notification_policy", "terminal_write_retry_or_drop_policy", "pending_write_replay_across_reconnect_policy", "in_flight_transport_call_cancellation", "external_ads_target", "twincat_lab"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+
+[[behavior]]
+partition = { equals = "COMPLETE_CORRELATED_STABLE_SESSION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Complete handle, poll, subscription, notification, and write responses with a stable equality token may update only their correlated points."
+
+[[behavior]]
+partition = { equals = "MISSING_EXTRA_DUPLICATE_OR_MISMATCHED_RESPONSE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "fault_visible" }
+rationale = "Structurally malformed handle, poll, subscription, notification, or write responses cannot partially publish candidate state or fabricate success."
+
+[[behavior]]
+partition = { equals = "UNEQUAL_OR_UNSTABLE_SYMBOL_TOKEN_OR_RECONNECT" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "status_degraded" }
+rationale = "Any unequal token revokes old Good authority, and new session state publishes only after complete validation with the same token before and after construction."
+
+[[behavior]]
+partition = { equals = "NEWER_LOCAL_WRITE_GENERATION_DURING_OLDER_COMPLETION" }
+case_family = "concurrency_or_cancellation"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }
+rationale = "An older in-flight result cannot erase or overwrite a newer pending value, cancellation, or non-finite error generation."
+
+[[behavior]]
+partition = { equals = "NONFINITE_REAL_OR_LREAL_EGRESS" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "fault_visible" }
+rationale = "Scalar or array NaN and infinity cancel local unconfirmed intent and fail before shared queue or ADS wire activity."
+
+[[behavior]]
+partition = { equals = "STOP_REQUEST_DURING_IDLE_WAIT" }
+case_family = "concurrency_or_cancellation"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Stop wakes the worker's idle wait without claiming cancellation of a transport operation already in flight."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "Existing bridge, read/write, notification, descriptor, and worker locks cover complete correlated operation."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "covered"
+rationale = "Focused adversarial responses and egress values cover malformed cardinality, identity, descriptor, quality, and finite-value boundaries."
+
+[[coverage.cells]]
+dimension = "duplicate_or_collision"
+state = "covered"
+rationale = "Focused handle and subscription cases reject duplicate response identities before state publication."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "covered"
+rationale = "Symbol equality, refresh, reconnect, stable candidate publication, and interruptible idle shutdown are directly exercised."
+
+[[coverage.cells]]
+dimension = "concurrency_or_cancellation"
+state = "covered"
+rationale = "Generation-tagged completion proof prevents an older write result from erasing a newer intent or error."
+
+[[coverage.cells]]
+dimension = "hardware_or_network_fault"
+state = "gap_open"
+rationale = "Hermetic transport proof does not replace external ADS target and TwinCAT lab evidence."
+
+[[coverage.cells]]
+dimension = "persistence_or_recovery"
+state = "gap_open"
+rationale = "Terminal write retry/drop and pending-intent replay across reconnect remain unresolved product decisions."

@@ -45,8 +45,8 @@ package "trust-runtime::host::ads" as hostAds #LightCyan {
     component "generate.rs\nsnapshot + config -> generated ST" as generate
     component "validate.rs\noffline drift/type validation" as validate
     component "client.rs\nresolve declared global -> ValueRef + TypeId" as bridge
-    component "client/worker.rs\nbackground transport owner" as worker
-    component "client/cache.rs\nshared Value + Quality cache\nand write queue" as cache
+    component "client/worker.rs\ncorrelated transport owner\nstable candidate publication" as worker
+    component "client/cache.rs\nshared Value + Quality cache\ngeneration-tagged write queue" as cache
     component "transport.rs\nAdsTransport trait\n(domain types only)" as transport
     component "identity.rs\ncanonical AMS Net ID owner\ncanonicalize + strict parse" as adsIdentity
     component "backend_ads_rs.rs\nads crate backend\n(feature = ads-wire)" as backend
@@ -119,7 +119,7 @@ bridge --> cache : scan-facing bridge
 bundleLoad --> bridge : resolve bindings\nat startup
 adsSubsystem --> bridge : owns bridges
 adsSubsystem --> worker : owns worker threads
-worker --> cache : updates reads/notifications\nand drains writes
+worker --> cache : exact correlated reads/notifications\n+ generation-conditional write results
 worker --> transport : owns network calls
 backend ..|> transport
 mock ..|> transport
@@ -133,6 +133,14 @@ cache --> storage : apply read + _quality values\nat input phase
 storage --> cache : capture changed write values\nat output phase
 globals --> surfaces : first-class generated variables
 globals --> opcua : export values + _quality
+
+note right of cache
+    Cache authority invariant:
+    handle/subscription candidates publish
+    only after exact correlation and stable
+    symbol-token proof. Older write results
+    cannot erase newer pending/error state.
+end note
 
 note right of scan
     Scan-boundary invariant:

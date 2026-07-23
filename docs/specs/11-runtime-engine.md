@@ -489,8 +489,15 @@ in-process IEC arithmetic, `IS_VALID`, subnormal, or signed-zero semantics.
   previous PLC target unchanged; it does not require the ADS session itself to
   disconnect. A rejected server write returns invalid-data status and queues no
   write.
-- The runtime does not clamp, normalize, or substitute a default value. ADS
-  egress, subnormal values, and signed zero are outside this rule.
+- ADS client egress applies the same finite-value requirement before a value
+  enters the shared write queue or reaches the wire. A rejected scalar or array
+  output remains unchanged in PLC storage, cancels any older local pending
+  intent for that point, advances its local write generation, reports explicit
+  error quality, and clears the queued-value baseline so a later finite value
+  can be queued normally. An ADS operation already in flight cannot be
+  cancelled, but its completion cannot overwrite the newer rejection state.
+- The runtime does not clamp, normalize, or substitute a default value.
+  Subnormal values and signed zero are outside this rule.
 
 Protocol roadmap priority after OPC UA baseline:
 - First: MQTT
@@ -1177,6 +1184,83 @@ whose bytes do not decode as the resolved type fail closed with no manufactured
 value. The ADS symbol-version byte is an opaque equality token: a changed token
 invalidates symbol-derived state, but ordering, monotonicity, and wraparound
 must never be inferred from its numeric representation.
+
+The connection worker constructs handle and subscription correlation as an
+unpublished candidate. Handle resolution must return exactly one response for
+every requested point, and every response must preserve that point's configured
+address and complete type descriptor. Response order is not authority, and the
+numeric handle value is opaque: the same numeric value used by different points
+is not rejected merely because of its representation, while this contract does
+not select a zero-handle policy for by-name resolution. Missing, extra,
+duplicate-point, wrong-address, or wrong-descriptor responses reject the
+candidate. Notify subscriptions likewise return the exact requested point, and
+every active subscription ID is unique within the connection; this contract
+does not select a zero-ID policy. The worker publishes the complete
+handle/subscription maps only after all candidate operations succeed.
+
+A poll batch must have the same cardinality as its requested handle batch and
+must preserve point identity at every position before any per-result cache
+mutation. A structural mismatch rejects the complete poll response; a later
+uniform connection fault projection may update all qualities, but no prefix of
+the malformed response becomes accepted data. Each notification sample is
+validated independently against both the configured notify point and that
+point's currently active subscription ID before that sample mutates the cache.
+Unknown points, inactive IDs, and cross-point correlations fail closed. Repeated
+valid samples for one active point remain valid and are applied in delivery
+order; a later invalid sample does not roll back the raw values stored by
+earlier correctly correlated samples, but its connection-level validation
+failure may revoke their `Good` authority. A structurally valid, correctly
+correlated point-level non-good or non-finite result remains a per-point quality
+result and does not invalidate other points in the batch.
+
+Symbol-derived candidates are valid only when the opaque symbol-version token
+is equal before and after upload, handle resolution, and subscription setup.
+When the active token changes, the worker immediately makes its old handles,
+subscriptions, token, and candidate state unavailable and revokes `Good`
+authority from cached inputs before attempting refresh. Raw cached values may
+remain available for diagnostics, but `apply_inputs` cannot apply them without
+current `Good` quality. Revoking readable authority changes only currently
+`Good` quality and cannot overwrite a read/write point's newer `ADS write
+pending` or explicit non-finite output error. Numeric ordering and monotonicity
+are never inferred, including across wraparound. A reconnect request or a
+validation failure after a successful transport connect performs best-effort
+disconnect, clears local
+handles, subscriptions, symbol token, and symbol-check scheduling, and marks
+affected input authority stale for transport recovery or error for validation
+failure. Replacement state becomes visible atomically only after the complete
+candidate passes correlation and token-stability validation. This contract does
+not select whether pending outputs are replayed, preserved, or dropped across
+reconnect.
+
+Local output intents are generation-tagged. Capturing a finite changed output
+atomically replaces the point's queued value with the latest value and reports
+`ADS write pending`. A write completion may acknowledge or update quality only
+when it still names the generation that was transmitted; completion for an
+older value cannot remove a newer queued value or overwrite its pending/error
+quality. The worker validates write-response cardinality before any per-result
+acknowledgement or quality commit. A malformed response therefore performs no
+partial per-result commit and leaves every transmitted generation pending. A
+correlated success atomically acknowledges that generation and reports good
+quality; a correlated failure reports explicit `ADS write failed: ...` quality
+without falsely acknowledging success. Whether a correlated failed generation
+is retried or terminally dropped remains a separate unresolved policy and is
+not selected here. Transport-error and malformed-cardinality connection
+projections compare the current complete write-generation state with the
+complete snapshot captured atomically with the pending-write batch before
+request construction. They must not overwrite a finite pending quality or
+non-finite rejection created while the transport call is in flight, including a
+change to an output point that was not in the transmitted request; other
+input/read authority still becomes stale or error with the connection.
+
+Worker shutdown and drop must wake an idle interval wait promptly, request
+best-effort disconnect, publish `Disconnected`, revoke any remaining `Good`
+input authority, and join the worker thread. Raw input values may remain for
+diagnostics, and read/write points retain newer non-good pending or explicit
+output-error quality. This local wakeup guarantee does not claim cancellation
+of a transport call already in flight. Binding identity, declared runtime type,
+remote descriptor, access, retain opt-in, and index byte-size validation remain
+separate fail-closed partitions; success in one partition cannot substitute for
+another.
 
 The lifecycle/security invariant is that every connection attempt validates
 all wire authority first and performs no implicit route mutation; after
