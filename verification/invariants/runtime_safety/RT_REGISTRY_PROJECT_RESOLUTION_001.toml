@@ -1,0 +1,96 @@
+schema_version = 1
+id = "RT_REGISTRY_PROJECT_RESOLUTION_001"
+title = "Registry publish resolves optional projects deterministically"
+area = "runtime_safety"
+risk = "wrong_result"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-23"
+claim = "Registry publish treats an explicit project as authoritative, otherwise delegates to standard bundle detection and preserves detection failures; its public help describes that same selection contract."
+proof_level = "T1"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-runtime/src/bin/trust-runtime/registry.rs", "crates/trust-runtime/src/bin/trust-runtime/cli/registry.rs"]
+tests = [
+  "TEST_RUNTIME_REGISTRY_PROJECT_RESOLUTION_REGISTRY_PUBLISH_DOWNLOAD_VERIFY_ROUND_TRIP_001",
+  "TEST_RUNTIME_REGISTRY_PROJECT_RESOLUTION_REGISTRY_PUBLISH_HELP_DESCRIBES_STANDARD_BUNDLE_DETECTION_001",
+  "TEST_RUNTIME_REGISTRY_PROJECT_RESOLUTION_REGISTRY_PUBLISH_WITHOUT_EXPLICIT_PROJECT_USES_DETECTED_BUNDLE_001",
+  "TEST_RUNTIME_REGISTRY_PROJECT_RESOLUTION_REGISTRY_PUBLISH_WITHOUT_PROJECT_PRESERVES_DETECTION_FAILURE_001"
+]
+gates = ["pr"]
+evidence_refs = ["EVID_RUNTIME_REGISTRY_PROJECT_RESOLUTION_20260723"]
+spec_gap_refs = []
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_DEVELOPER_WORKFLOWS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_DEVELOPER_WORKFLOWS_001#optional-project-resolution"
+
+[[behavior]]
+partition = { equals = "EXPLICIT_PROJECT" }
+case_family = "happy_path"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#optional-project-resolution"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The supplied project path is authoritative."
+
+[[behavior]]
+partition = { equals = "OMITTED_DETECTABLE_PROJECT" }
+case_family = "missing_required"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#optional-project-resolution"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Standard detection selects and publishes the discoverable bundle."
+
+[[behavior]]
+partition = { equals = "OMITTED_UNDETECTABLE_PROJECT" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#optional-project-resolution"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Detection failure remains visible and cwd is not invented."
+
+[[behavior]]
+partition = { equals = "PUBLISH_HELP" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#optional-project-resolution"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Published help reports the same project-selection order as runtime behavior."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "Existing round-trip proof publishes an explicit project."
+
+[[coverage.cells]]
+dimension = "boundary_low"
+state = "covered"
+rationale = "The explicit-path branch covers the first project-selection branch."
+
+[[coverage.cells]]
+dimension = "boundary_high"
+state = "covered"
+rationale = "The preserved detection failure covers the terminal selection branch."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "covered"
+rationale = "Existing regression proof preserves an unsuccessful detection error."
+
+[[coverage.cells]]
+dimension = "missing_required"
+state = "covered"
+rationale = "Focused proof publishes a bundle found by standard detection."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "covered"
+rationale = "Focused proof locks the public help to the runtime selection order."

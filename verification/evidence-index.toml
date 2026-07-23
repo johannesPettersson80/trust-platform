@@ -9117,3 +9117,22 @@ generated_report_version = "p18-batch-automation-v1"
 linked_invariants = ["RT_NUMERIC_PROMPT_001"]
 linked_tests = ["TEST_RUNTIME_NUMERIC_PROMPT_NUMERIC_PROMPT_PARSER_ACCEPTS_THE_COMPLETE_U64_RANGE_001", "TEST_RUNTIME_NUMERIC_PROMPT_NUMERIC_PROMPT_PARSER_REJECTS_NEGATIVE_NON_NUMERIC_AND_OVERFLOW_VALUES_001", "TEST_RUNTIME_NUMERIC_PROMPT_NUMERIC_PROMPT_WRAPPER_PRESERVES_ZERO_ORDINARY_DEFAULT_AND_ERRORS_001"]
 last_reviewed = "2026-07-23"
+[[evidence]]
+schema_version = 1
+id = "EVID_RUNTIME_REGISTRY_PROJECT_RESOLUTION_20260723"
+title = "Phase 18 registry project-resolution focused remote proof"
+area = "runtime_safety"
+owner = "trust-runtime"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-07-23-p18-registry-project-resolution.md"
+command = "cargo test -p trust-runtime --test registry_command registry_publish_ -- --nocapture --test-threads=1"
+commit = "dirty:2afac0a31d21"
+platform = "remote-linux-x86_64"
+date = "2026-07-23"
+suite_id = "pr"
+producer = "codex"
+generated_report_version = "p18-batch-automation-v1"
+linked_invariants = ["RT_REGISTRY_PROJECT_RESOLUTION_001"]
+linked_tests = ["TEST_RUNTIME_REGISTRY_PROJECT_RESOLUTION_REGISTRY_PUBLISH_DOWNLOAD_VERIFY_ROUND_TRIP_001", "TEST_RUNTIME_REGISTRY_PROJECT_RESOLUTION_REGISTRY_PUBLISH_HELP_DESCRIBES_STANDARD_BUNDLE_DETECTION_001", "TEST_RUNTIME_REGISTRY_PROJECT_RESOLUTION_REGISTRY_PUBLISH_WITHOUT_EXPLICIT_PROJECT_USES_DETECTED_BUNDLE_001", "TEST_RUNTIME_REGISTRY_PROJECT_RESOLUTION_REGISTRY_PUBLISH_WITHOUT_PROJECT_PRESERVES_DETECTION_FAILURE_001"]
+last_reviewed = "2026-07-23"

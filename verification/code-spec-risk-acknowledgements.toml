@@ -54898,20 +54898,6 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_50DF96624DD39EDC5CFAD742B3BA296FFC34B3813F7D3224635EE25811451B93"
-code_id = "CODE_50DF96624DD39EDC5CFAD742B3BA296FFC34B3813F7D3224635EE25811451B93"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:a75d541b1b7be107adf777cbd27a51be2005f074876b01b987ed97b030bb9d16"
-risk_signals = ["filesystem_or_environment"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_50E7AD5C83C3D132C6321CEED82E7A1898A58C94B958F05C92516FC2676ADCEB"
 code_id = "CODE_50E7AD5C83C3D132C6321CEED82E7A1898A58C94B958F05C92516FC2676ADCEB"
 owner = "trust-runtime"
@@ -81816,3 +81802,16 @@ reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-23"
 expires_on = "2027-07-23"
 rationale = "Numeric setup and wizard prompts feed cycle, port, token-lifetime, and GPIO configuration. Parsing must preserve the full unsigned value and must not coerce malformed input into a valid configuration."
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_50DF96624DD39EDC5CFAD742B3BA296FFC34B3813F7D3224635EE25811451B93"
+code_id = "CODE_50DF96624DD39EDC5CFAD742B3BA296FFC34B3813F7D3224635EE25811451B93"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:344d8f5f1c27486ff5ab2b47ba8a5f52b5f9f00de7341be4657b6b967753ba4a"
+risk_signals = ["fault_mapping"]
+review_ref = "SPEC_DEVELOPER_WORKFLOWS_001#optional-project-resolution"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "Registry publication must select the intended project deterministically. Inventing the current directory, discarding detection failures, or publishing contradictory help can target the wrong bundle."

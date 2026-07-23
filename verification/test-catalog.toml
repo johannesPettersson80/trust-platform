@@ -24525,3 +24525,98 @@ requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_NUMERIC_PROMPT_NUMERIC_PROMPT_WRAPPER_PRESERVES_ZERO_ORDINARY_DEFAULT_AND_ERRORS_001.json"
 last_reviewed = "2026-07-23"
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_REGISTRY_PROJECT_RESOLUTION_REGISTRY_PUBLISH_DOWNLOAD_VERIFY_ROUND_TRIP_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_C65C7279DC207BDD19A0"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/registry_command.rs"
+name = "registry_publish_download_verify_round_trip"
+command = "cargo test -p trust-runtime --test registry_command registry_publish_download_verify_round_trip -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_REGISTRY_PROJECT_RESOLUTION_001"]
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#optional-project-resolution"
+expected_result = "An explicit project path is published and remains authoritative."
+expected_failure_mode = "The explicit project is ignored, replaced, or cannot be published."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_REGISTRY_PROJECT_RESOLUTION_REGISTRY_PUBLISH_DOWNLOAD_VERIFY_ROUND_TRIP_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_REGISTRY_PROJECT_RESOLUTION_REGISTRY_PUBLISH_HELP_DESCRIBES_STANDARD_BUNDLE_DETECTION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_3F945AF3BD9A10E38EBE"
+discovery_source_kind = "rust_integration_test"
+test_class = "failing_regression"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/registry_command.rs"
+name = "registry_publish_help_describes_standard_bundle_detection"
+command = "cargo test -p trust-runtime --test registry_command registry_publish_help_describes_standard_bundle_detection -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_REGISTRY_PROJECT_RESOLUTION_001"]
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#optional-project-resolution"
+expected_result = "Publish help describes standard bundle detection without claiming a current-directory fallback."
+expected_failure_mode = "The public CLI help contradicts the project-resolution contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_REGISTRY_PROJECT_RESOLUTION_REGISTRY_PUBLISH_HELP_DESCRIBES_STANDARD_BUNDLE_DETECTION_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_REGISTRY_PROJECT_RESOLUTION_REGISTRY_PUBLISH_WITHOUT_EXPLICIT_PROJECT_USES_DETECTED_BUNDLE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_9C25EF717FEDFB47F078"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/registry_command.rs"
+name = "registry_publish_without_explicit_project_uses_detected_bundle"
+command = "cargo test -p trust-runtime --test registry_command registry_publish_without_explicit_project_uses_detected_bundle -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_REGISTRY_PROJECT_RESOLUTION_001"]
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#optional-project-resolution"
+expected_result = "An omitted project publishes the bundle selected by standard detection."
+expected_failure_mode = "A detectable child project is ignored or the current directory is published instead."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_REGISTRY_PROJECT_RESOLUTION_REGISTRY_PUBLISH_WITHOUT_EXPLICIT_PROJECT_USES_DETECTED_BUNDLE_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_REGISTRY_PROJECT_RESOLUTION_REGISTRY_PUBLISH_WITHOUT_PROJECT_PRESERVES_DETECTION_FAILURE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_8AE20356DB8AEF560B7F"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/registry_command.rs"
+name = "registry_publish_without_project_preserves_detection_failure"
+command = "cargo test -p trust-runtime --test registry_command registry_publish_without_project_preserves_detection_failure -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_REGISTRY_PROJECT_RESOLUTION_001"]
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#optional-project-resolution"
+expected_result = "An omitted project preserves the standard bundle-detection failure."
+expected_failure_mode = "The current directory is substituted as an invented bundle or the detection error is discarded."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_REGISTRY_PROJECT_RESOLUTION_REGISTRY_PUBLISH_WITHOUT_PROJECT_PRESERVES_DETECTION_FAILURE_001.json"
+last_reviewed = "2026-07-23"

@@ -10,6 +10,8 @@ Target release: `v0.24.54`
 
 ### Fixed
 
+- trust-runtime: registry publish help now describes standard bundle detection
+  instead of claiming a current-directory fallback.
 - trust-runtime: `hmi init`, `hmi update`, and `hmi reset` now preserve standard
   bundle-detection failures instead of silently treating an undetectable
   current directory as the selected project.
