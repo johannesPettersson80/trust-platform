@@ -376,7 +376,10 @@ fn control_port_from_endpoint(endpoint: &str) -> Option<u16> {
 }
 
 fn validate_runtime_name(name: &str) -> anyhow::Result<String> {
-    let name = name.trim();
+    let trimmed = name.trim();
+    if trimmed != name {
+        anyhow::bail!("runtime name must not contain leading or trailing whitespace: {name:?}");
+    }
     if name.is_empty() {
         anyhow::bail!("runtime name must not be empty");
     }
@@ -543,11 +546,37 @@ mod tests {
         assert!(io_text.contains("driver = \"simulated\""));
         trust_runtime::config::validate_io_toml_text(io_text.as_str()).expect("io.toml validates");
 
+        let main_source =
+            fs::read_to_string(root.join("line_1/src/main.st")).expect("read main source");
+        let config_source =
+            fs::read_to_string(root.join("line_1/src/config.st")).expect("read config source");
+
+        let comparison_root = temp_dir("fleet-runtime-deterministic-source");
+        add_runtime(
+            &comparison_root,
+            "line_1",
+            FleetRuntimeTemplateArg::Simulate,
+            None,
+            None,
+        )
+        .expect("add comparison runtime");
+        assert_eq!(
+            main_source,
+            fs::read_to_string(comparison_root.join("line_1/src/main.st"))
+                .expect("read comparison main source")
+        );
+        assert_eq!(
+            config_source,
+            fs::read_to_string(comparison_root.join("line_1/src/config.st"))
+                .expect("read comparison config source")
+        );
+
         let listed = list_runtimes(&root).expect("list runtimes");
         assert_eq!(listed.runtimes.len(), 1);
         assert_eq!(listed.runtimes[0].name, "line_1");
         assert_eq!(listed.runtimes[0].path, "line_1");
 
+        fs::remove_dir_all(comparison_root).ok();
         fs::remove_dir_all(root).ok();
     }
 
@@ -576,6 +605,85 @@ mod tests {
         assert_eq!(listed.runtimes.len(), 1);
         assert_eq!(listed.runtimes[0].control_endpoint, "tcp://127.0.0.1:19911");
 
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn fleet_runtime_add_auto_selects_distinct_available_loopback_ports() {
+        let root = temp_dir("fleet-runtime-auto-ports");
+        let response = add_runtime(
+            &root,
+            "automatic",
+            FleetRuntimeTemplateArg::Simulate,
+            None,
+            None,
+        )
+        .expect("add runtime with automatic ports");
+
+        let control_port = control_port_from_endpoint(response.control_endpoint.as_str())
+            .expect("generated TCP control port");
+        assert_ne!(control_port, 0);
+        assert_ne!(response.web_port, 0);
+        assert_ne!(control_port, response.web_port);
+        TcpListener::bind(("127.0.0.1", control_port))
+            .expect("selected control port remains available");
+        TcpListener::bind(("127.0.0.1", response.web_port))
+            .expect("selected web port remains available");
+
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn fleet_runtime_add_rejects_whitespace_name_before_mutation() {
+        let root = temp_dir("fleet-runtime-whitespace-name");
+        let manifest_before =
+            fs::read(root.join(FLEET_MANIFEST_FILE)).expect_err("manifest starts absent");
+        assert_eq!(manifest_before.kind(), std::io::ErrorKind::NotFound);
+
+        let error = add_runtime(
+            &root,
+            " cell ",
+            FleetRuntimeTemplateArg::Empty,
+            Some(19912),
+            Some(19982),
+        )
+        .expect_err("whitespace name must fail");
+
+        assert!(
+            error.to_string().contains("leading or trailing whitespace"),
+            "unexpected error: {error:#}"
+        );
+        assert!(!root.join("cell").exists());
+        assert!(!root.join(FLEET_MANIFEST_FILE).exists());
+
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn fleet_runtime_add_rejects_malformed_manifest_before_project_mutation() {
+        let root = temp_dir("fleet-runtime-malformed-manifest");
+        let manifest_path = root.join(FLEET_MANIFEST_FILE);
+        let malformed = b"[[runtime]\nname = \"broken\"\n";
+        fs::write(&manifest_path, malformed).expect("write malformed manifest");
+
+        let error = add_runtime(
+            &root,
+            "cell",
+            FleetRuntimeTemplateArg::Empty,
+            Some(19908),
+            Some(19978),
+        )
+        .expect_err("malformed manifest must fail");
+
+        assert!(
+            error.to_string().contains("failed to parse"),
+            "unexpected error: {error:#}"
+        );
+        assert!(!root.join("cell").exists());
+        assert_eq!(
+            fs::read(&manifest_path).expect("reread malformed manifest"),
+            malformed
+        );
         fs::remove_dir_all(root).ok();
     }
 
@@ -689,6 +797,26 @@ web_port = 19923
                 .contains("duplicate fleet runtime name 'cell'"),
             "unexpected error: {duplicate_error:#}"
         );
+
+        fs::write(
+            &manifest_path,
+            r#"
+[[runtime]]
+name = " cell "
+path = "cell"
+control_endpoint = "tcp://127.0.0.1:19920"
+web_port = 19921
+"#,
+        )
+        .expect("write whitespace name manifest");
+        let whitespace_error =
+            load_manifest(&manifest_path).expect_err("whitespace name must fail");
+        assert!(
+            whitespace_error
+                .to_string()
+                .contains("leading or trailing whitespace"),
+            "unexpected error: {whitespace_error:#}"
+        );
         fs::remove_dir_all(root).ok();
     }
 
@@ -739,6 +867,25 @@ web_port = 19930
                 .contains("fleet TCP port 19930 is used more than once"),
             "unexpected error: {collision_error:#}"
         );
+
+        fs::write(
+            &manifest_path,
+            r#"
+[[runtime]]
+name = "first"
+path = "first"
+control_endpoint = "tcp://127.0.0.1:19930"
+web_port = 0
+"#,
+        )
+        .expect("write zero web port manifest");
+        let zero_port_error = load_manifest(&manifest_path).expect_err("zero web port must fail");
+        assert!(
+            zero_port_error
+                .to_string()
+                .contains("fleet TCP ports must be concrete, not 0"),
+            "unexpected error: {zero_port_error:#}"
+        );
         fs::remove_dir_all(root).ok();
     }
 
@@ -779,8 +926,22 @@ web_port = 19930
     #[test]
     fn generated_control_token_contains_32_random_bytes() {
         let token = generate_control_token().expect("generate control token");
+        assert!(
+            !token.contains('='),
+            "control token must not contain padding"
+        );
         let decoded = URL_SAFE_NO_PAD.decode(token).expect("decode control token");
         assert_eq!(decoded.len(), 32);
+    }
+
+    #[test]
+    fn resource_names_are_deterministic_and_never_start_with_a_digit() {
+        assert_eq!(resource_name_from_runtime_name("line_1-a"), "line1a");
+        assert_eq!(
+            resource_name_from_runtime_name("123-cell"),
+            "Runtime123cell"
+        );
+        assert_eq!(resource_name_from_runtime_name("--"), "Runtime");
     }
 
     fn temp_dir(prefix: &str) -> PathBuf {

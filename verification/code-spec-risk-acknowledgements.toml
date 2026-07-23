@@ -53330,20 +53330,6 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_164B5AD07F052827EA1423E1F36E438B454100CF303D02069E03CD3022B7ADB2"
-code_id = "CODE_164B5AD07F052827EA1423E1F36E438B454100CF303D02069E03CD3022B7ADB2"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:44f5c4f94bcb348b52bb94267c3b7fd4a162f4ad3c8665aa3f5fbd915abfb159"
-risk_signals = ["broad_error_suppression"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_16CECCC2E791BB6D5B61E7DCA494DF1AE9054739AC3DCB057CF224A970139CF2"
 code_id = "CODE_16CECCC2E791BB6D5B61E7DCA494DF1AE9054739AC3DCB057CF224A970139CF2"
 owner = "trust-runtime"
@@ -53820,20 +53806,6 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_26E05028E7297CE1978DBC5F6A55FFA1834596BA2FBFD87D3CF03D0F6F2C9D89"
-code_id = "CODE_26E05028E7297CE1978DBC5F6A55FFA1834596BA2FBFD87D3CF03D0F6F2C9D89"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:8b8702939d1dd7cf5624b92daefd44d5ad7d97d689d8ae250b1e325f5437a528"
-risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_2796B942FA0C053C82224BD2C08766C5312394513995B6AF4D8CB704B919BE31"
 code_id = "CODE_2796B942FA0C053C82224BD2C08766C5312394513995B6AF4D8CB704B919BE31"
 owner = "trust-runtime"
@@ -53951,20 +53923,6 @@ code_id = "CODE_2DD5F458F17E6A67F56B3ADE729590BE873975E9EFD96967B820058FCDF23B79
 owner = "trust-runtime"
 area = "runtime_safety"
 body_digest = "sha256:f36d2281664526d4b20529e26d9be9817090942bca564227a311714831536162"
-risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_2E3EFC76DB95C2D219C1AB4BB58EA9B4C4FB0FF81A818E324DD167EECF92E60B"
-code_id = "CODE_2E3EFC76DB95C2D219C1AB4BB58EA9B4C4FB0FF81A818E324DD167EECF92E60B"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:f6240d8e3617998809a90fb5c3f850c1d43e1c86b8e46ecf784bdd6fcc879fb2"
 risk_signals = ["state_mutation"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
 reviewed_by = "trust-runtime"
@@ -54470,20 +54428,6 @@ owner = "trust-runtime"
 area = "runtime_safety"
 body_digest = "sha256:7bfcc5fd96bd1f757926e75dcba23ea8285073105820685c12d608bcc8b817b6"
 risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_3E19815B224BFB768CC6260E72E1B8B42FA1CAF1BA0907E731B4A0A737B0AD6A"
-code_id = "CODE_3E19815B224BFB768CC6260E72E1B8B42FA1CAF1BA0907E731B4A0A737B0AD6A"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:0726e115f3ef32575c816980979b63a1ec63c2bc78b3ea061f6b4b73d49e6657"
-risk_signals = ["state_mutation"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-21"
@@ -55002,20 +54946,6 @@ owner = "trust-runtime"
 area = "runtime_safety"
 body_digest = "sha256:cc886fc3ec8ff3b2aff4bf1db27dddfa6b48411c704d3a416c83565f76c3a7b5"
 risk_signals = ["broad_error_suppression", "fault_mapping", "network_io"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_51A0CD14551093C94F8ABFC93B0614116DE217C8462EAE887E1969C61E445346"
-code_id = "CODE_51A0CD14551093C94F8ABFC93B0614116DE217C8462EAE887E1969C61E445346"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:6475090930f190054e20a74d1c6f5b99c85a412396b72215f63f5a38ad1fc59f"
-risk_signals = ["state_mutation"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-21"
@@ -56438,20 +56368,6 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_8AC92638CDDD9296AA345EF1A399D86DB6960F2C9941243D5760F917AA3EFD09"
-code_id = "CODE_8AC92638CDDD9296AA345EF1A399D86DB6960F2C9941243D5760F917AA3EFD09"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:780e71e5e254f9565f9b6084362c335bd3c3f2bd6dd5e588cae0f33a1bd72063"
-risk_signals = ["filesystem_or_environment", "protocol_response_or_status", "state_mutation", "subprocess_or_thread"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_8B04CBC73B76463A03F3CE8AB473422D94F760C3A025B4141834676CCA680618"
 code_id = "CODE_8B04CBC73B76463A03F3CE8AB473422D94F760C3A025B4141834676CCA680618"
 owner = "trust-runtime"
@@ -56514,34 +56430,6 @@ owner = "trust-runtime"
 area = "runtime_safety"
 body_digest = "sha256:ee932c65e873198fec41e8e99582c2436cbde325d28ab5c883c5bfd545554aec"
 risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_8C75B9E8F742FD6391346A73B051D96382F7D63C56AF5A7C22D50B4CC3E3FE4B"
-code_id = "CODE_8C75B9E8F742FD6391346A73B051D96382F7D63C56AF5A7C22D50B4CC3E3FE4B"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:c4e58b22382483059ab67458c6b031d3941373c035d023d3ada97c7acc94135b"
-risk_signals = ["broad_error_suppression", "fault_mapping", "network_io"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_8C7CADB13958A74EBA4A6F0CEAE01ADDC4E22164AD3C21A173AE455EFA72A1E3"
-code_id = "CODE_8C7CADB13958A74EBA4A6F0CEAE01ADDC4E22164AD3C21A173AE455EFA72A1E3"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:dde1959f12309b40e51b9c796cd11917bf8bb194b4bafa2c42894453a3c90aab"
-risk_signals = ["filesystem_or_environment"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-21"
@@ -56942,40 +56830,12 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_977CE7105E28AA20F9FD62369B7D2E1390C3A6A4D7379C9F4D58F714D20B4363"
-code_id = "CODE_977CE7105E28AA20F9FD62369B7D2E1390C3A6A4D7379C9F4D58F714D20B4363"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:7f54893bba3f78b1b07062afa44da7ec25b3a03f1637252848b97fd6dad7e616"
-risk_signals = ["broad_error_suppression", "host_time"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_97A2D0BF9B72F424FE9803F0320435EEEFE4021BA51BB0EE3F314452B36E2714"
 code_id = "CODE_97A2D0BF9B72F424FE9803F0320435EEEFE4021BA51BB0EE3F314452B36E2714"
 owner = "trust-runtime"
 area = "runtime_safety"
 body_digest = "sha256:50ae0a9c783a09136c2a7fc7e4315d33c59c453591e4345bd93ecc8f20a3a957"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_98065A105B718DCACA33EA57E87ECF5C21415BDBD0DCF3BAC566A5779A3544C2"
-code_id = "CODE_98065A105B718DCACA33EA57E87ECF5C21415BDBD0DCF3BAC566A5779A3544C2"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:e7a1f0d121c51a43e55ae75016f395feff1287dd4227493ddd7f766eaf09bf81"
-risk_signals = ["network_io", "state_mutation"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-21"
@@ -57074,20 +56934,6 @@ owner = "trust-runtime"
 area = "runtime_safety"
 body_digest = "sha256:98bdcbc31886de5f043940021c42193ecb3f8cdab29749f38336cdb4d0ce6929"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_9C76573CA41A35869D864B5A84BB0097972CE6BDDD64427C2CFD64BF7E69D1AA"
-code_id = "CODE_9C76573CA41A35869D864B5A84BB0097972CE6BDDD64427C2CFD64BF7E69D1AA"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:8b57ab8f1069571bcfdc3b6e3f762594ec30cbb8274fb187e650567623987678"
-risk_signals = ["filesystem_or_environment"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-21"
@@ -57382,20 +57228,6 @@ owner = "trust-runtime"
 area = "runtime_safety"
 body_digest = "sha256:ccec43e8551e534e845c941bda7e284a15b0c07886d4361e9bd284c17c221cd3"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_A31BA137DE566F68E1574BB916EA2D03FDC2FC81208D54114C6673CF9B3746C9"
-code_id = "CODE_A31BA137DE566F68E1574BB916EA2D03FDC2FC81208D54114C6673CF9B3746C9"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:694d74be3ac8c2f3ee34d55405aeeb8f2adce4322421316ff05c743d57e1fdf9"
-risk_signals = ["filesystem_or_environment"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-21"
@@ -57838,20 +57670,6 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_B36F5BD151179BBD6D9E2AB7B3644A41F57B2D7628E68E5D61613ECF4B0F31B7"
-code_id = "CODE_B36F5BD151179BBD6D9E2AB7B3644A41F57B2D7628E68E5D61613ECF4B0F31B7"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:62ef475ecdacc8874a4d0138481b66ce1c22f2a1b41c9f5c4b114189f441e769"
-risk_signals = ["filesystem_or_environment"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_B37767D3CBFB07EC55AAD2EE85BF699F6220C0BAF2CED87B13DFD25AF770EC89"
 code_id = "CODE_B37767D3CBFB07EC55AAD2EE85BF699F6220C0BAF2CED87B13DFD25AF770EC89"
 owner = "trust-runtime"
@@ -57950,20 +57768,6 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_B70AA8BCFEFD009113157C178091A08A5BED1BD71815ECB603E9D686D1458AC1"
-code_id = "CODE_B70AA8BCFEFD009113157C178091A08A5BED1BD71815ECB603E9D686D1458AC1"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:2ae3c64ddeb0df135eff4f885c7d2ca77f3e0c95fa26aac80ba552d816b30bf4"
-risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_B7658F59CBE857C5305DFFD30D688D578855AE13605798E0CAD4AA2CCD0B444E"
 code_id = "CODE_B7658F59CBE857C5305DFFD30D688D578855AE13605798E0CAD4AA2CCD0B444E"
 owner = "trust-runtime"
@@ -58054,20 +57858,6 @@ owner = "trust-runtime"
 area = "runtime_safety"
 body_digest = "sha256:ca511e99a8f10f5c18202e44c29f75819d6dc0746927a529852a2aa92c3f17c0"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_BA90707AE445CF07DE2FDC9254AAE029B058BF76FAB583E11AC1B337BB652D2F"
-code_id = "CODE_BA90707AE445CF07DE2FDC9254AAE029B058BF76FAB583E11AC1B337BB652D2F"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:0f581fe8d2c6454bd541bd21bdb261bd797d3465da58d5da5dc1f7f54ab86625"
-risk_signals = ["broad_error_suppression"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-21"
@@ -58272,20 +58062,6 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_BE606C841590D489A4B36E9D01ECC4C83A05F97C53CEC651651A80766D7D0FB9"
-code_id = "CODE_BE606C841590D489A4B36E9D01ECC4C83A05F97C53CEC651651A80766D7D0FB9"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:bec67325e8b6a4f956cc4625abede62306520ac32b9c1828f879a14b6d327894"
-risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_BECD08FD9AA161D9FECCAC70F1FAD64FF2945C0458342E76523DA42E1619E02E"
 code_id = "CODE_BECD08FD9AA161D9FECCAC70F1FAD64FF2945C0458342E76523DA42E1619E02E"
 owner = "trust-runtime"
@@ -58334,20 +58110,6 @@ owner = "trust-runtime"
 area = "runtime_safety"
 body_digest = "sha256:08f3a9e78add1495ef6d85b6b9c75626039ff4361690b85f50dfe0f3e6e62321"
 risk_signals = ["protocol_response_or_status", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_BFCEF47B85BF78730805C7A9C86E696FFE9EADA101B340A4392C1E029319905D"
-code_id = "CODE_BFCEF47B85BF78730805C7A9C86E696FFE9EADA101B340A4392C1E029319905D"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:ab08d52d8c4985c2d3cce936788010034252c805a066731f6ba974cba0c54f20"
-risk_signals = ["protocol_response_or_status"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-21"
@@ -58502,20 +58264,6 @@ owner = "trust-runtime"
 area = "runtime_safety"
 body_digest = "sha256:70d79f959d3382cdbed7cb96b3797b07ee2260e711820312a2d809841410ee90"
 risk_signals = ["fault_mapping", "filesystem_or_environment"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_C80027591D22BAA08675869E6C75C7AA6848E257285392C37BCDF84ABF33C92E"
-code_id = "CODE_C80027591D22BAA08675869E6C75C7AA6848E257285392C37BCDF84ABF33C92E"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:7fedb9f341df9bad86450df40cebbbf9bb5f5cbd77946d02d986aea19977ae15"
-risk_signals = ["protocol_response_or_status", "state_mutation"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-21"
@@ -59588,20 +59336,6 @@ rationale = "Acknowledges the state-mutation signal for this exact reviewed body
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_E59315D9DF40FEAC9910471577BF4F1E62A918289EE192128E75D357BDC86586"
-code_id = "CODE_E59315D9DF40FEAC9910471577BF4F1E62A918289EE192128E75D357BDC86586"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:20fe2dbc04caa938276d3ff63efa2d89ee8a9444155fd960183f4a2a5b787363"
-risk_signals = ["protocol_response_or_status"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_E5CB30A653DA71695E6C2B21C0E5C00FF9BF329AE007E06B07D92D43A1449A79"
 code_id = "CODE_E5CB30A653DA71695E6C2B21C0E5C00FF9BF329AE007E06B07D92D43A1449A79"
 owner = "trust-runtime"
@@ -59902,20 +59636,6 @@ owner = "trust-runtime"
 area = "runtime_safety"
 body_digest = "sha256:a62b50fa06c22df5f0b3785eebc2ea83c898685e190fcccce63cf2d253be54a7"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_F0676600C6A42606219BA3253DADA3F089CC90A95AF9001172F210A10EB9DC55"
-code_id = "CODE_F0676600C6A42606219BA3253DADA3F089CC90A95AF9001172F210A10EB9DC55"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:c74340e7c5a465b12e5eaf1e47ef2ade432bd649f257602e4529f39dc7041027"
-risk_signals = ["network_io"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-21"
@@ -81804,3 +81524,324 @@ reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-23"
 expires_on = "2027-07-23"
 rationale = "Deployment intentionally changes versioned bundle and pointer state. Focused unit and process-isolated integration tests prove validation, containment, copy closure, summary truth, pointer transitions, rollback, and pruning without relying on live hardware or external services."
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_26E05028E7297CE1978DBC5F6A55FFA1834596BA2FBFD87D3CF03D0F6F2C9D89"
+code_id = "CODE_26E05028E7297CE1978DBC5F6A55FFA1834596BA2FBFD87D3CF03D0F6F2C9D89"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:6ac1ad7a83903c279ef249d409cb24840ae67090c4c9adaa73c01730c6c9e2d9"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "Managed fleet commands create projects and credentials, select local listeners, persist lifecycle state, and exchange authenticated control messages. Focused unit and shipped-CLI tests prove validation, output, protocol, cleanup, and process lifecycle behavior without external hardware."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_2E3EFC76DB95C2D219C1AB4BB58EA9B4C4FB0FF81A818E324DD167EECF92E60B"
+code_id = "CODE_2E3EFC76DB95C2D219C1AB4BB58EA9B4C4FB0FF81A818E324DD167EECF92E60B"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:04064c324fd6fa8fbebd8300d7b4be425831e78e90216d0a678adbb9aac5273e"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "Managed fleet commands create projects and credentials, select local listeners, persist lifecycle state, and exchange authenticated control messages. Focused unit and shipped-CLI tests prove validation, output, protocol, cleanup, and process lifecycle behavior without external hardware."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_3E19815B224BFB768CC6260E72E1B8B42FA1CAF1BA0907E731B4A0A737B0AD6A"
+code_id = "CODE_3E19815B224BFB768CC6260E72E1B8B42FA1CAF1BA0907E731B4A0A737B0AD6A"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:0726e115f3ef32575c816980979b63a1ec63c2bc78b3ea061f6b4b73d49e6657"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "Managed fleet commands create projects and credentials, select local listeners, persist lifecycle state, and exchange authenticated control messages. Focused unit and shipped-CLI tests prove validation, output, protocol, cleanup, and process lifecycle behavior without external hardware."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_43937D074AD813E942100EC63D8E2B3B2763E9E61E76DAB1399D434C69DF855D"
+code_id = "CODE_43937D074AD813E942100EC63D8E2B3B2763E9E61E76DAB1399D434C69DF855D"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:8f569ffcb55cf7009f30fa2dd54d1be8416340ab066c9b33bd87a9f65041cfb8"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "Managed fleet commands create projects and credentials, select local listeners, persist lifecycle state, and exchange authenticated control messages. Focused unit and shipped-CLI tests prove validation, output, protocol, cleanup, and process lifecycle behavior without external hardware."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_459DF82729F56D50B40EF7592B333B14258EF68EF2639DB534DD8DB93864FBFA"
+code_id = "CODE_459DF82729F56D50B40EF7592B333B14258EF68EF2639DB534DD8DB93864FBFA"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:d16ca2f0f64888da5e19471ee73ae3dc18626d2cee2d1cc9c99e02b700058a5c"
+risk_signals = ["broad_error_suppression", "fault_mapping", "network_io", "protocol_response_or_status"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "Managed fleet commands create projects and credentials, select local listeners, persist lifecycle state, and exchange authenticated control messages. Focused unit and shipped-CLI tests prove validation, output, protocol, cleanup, and process lifecycle behavior without external hardware."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_51A0CD14551093C94F8ABFC93B0614116DE217C8462EAE887E1969C61E445346"
+code_id = "CODE_51A0CD14551093C94F8ABFC93B0614116DE217C8462EAE887E1969C61E445346"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:ce8e31896555ac49a8ba26ad7a01ef65e7bc0e7f1cbf0f202d545ca1e94b9f0c"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "Managed fleet commands create projects and credentials, select local listeners, persist lifecycle state, and exchange authenticated control messages. Focused unit and shipped-CLI tests prove validation, output, protocol, cleanup, and process lifecycle behavior without external hardware."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_8AC92638CDDD9296AA345EF1A399D86DB6960F2C9941243D5760F917AA3EFD09"
+code_id = "CODE_8AC92638CDDD9296AA345EF1A399D86DB6960F2C9941243D5760F917AA3EFD09"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:8c8c0c87e30a4a1ef8382d97bed48f910e5cd743c680c99fdfa0c8aff0e56910"
+risk_signals = ["filesystem_or_environment", "protocol_response_or_status", "state_mutation", "subprocess_or_thread"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "Managed fleet commands create projects and credentials, select local listeners, persist lifecycle state, and exchange authenticated control messages. Focused unit and shipped-CLI tests prove validation, output, protocol, cleanup, and process lifecycle behavior without external hardware."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_8C7CADB13958A74EBA4A6F0CEAE01ADDC4E22164AD3C21A173AE455EFA72A1E3"
+code_id = "CODE_8C7CADB13958A74EBA4A6F0CEAE01ADDC4E22164AD3C21A173AE455EFA72A1E3"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:53c658eec840d2a54ddfbd746b76ca22770874a17732c27e522e62de1adb71bd"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "Managed fleet commands create projects and credentials, select local listeners, persist lifecycle state, and exchange authenticated control messages. Focused unit and shipped-CLI tests prove validation, output, protocol, cleanup, and process lifecycle behavior without external hardware."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_98065A105B718DCACA33EA57E87ECF5C21415BDBD0DCF3BAC566A5779A3544C2"
+code_id = "CODE_98065A105B718DCACA33EA57E87ECF5C21415BDBD0DCF3BAC566A5779A3544C2"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:e7a1f0d121c51a43e55ae75016f395feff1287dd4227493ddd7f766eaf09bf81"
+risk_signals = ["network_io", "state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "Managed fleet commands create projects and credentials, select local listeners, persist lifecycle state, and exchange authenticated control messages. Focused unit and shipped-CLI tests prove validation, output, protocol, cleanup, and process lifecycle behavior without external hardware."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_9C76573CA41A35869D864B5A84BB0097972CE6BDDD64427C2CFD64BF7E69D1AA"
+code_id = "CODE_9C76573CA41A35869D864B5A84BB0097972CE6BDDD64427C2CFD64BF7E69D1AA"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:56accd9bb27839758bba8e57e3b72d554961e8b040d418a67f275d3ea9dce338"
+risk_signals = ["filesystem_or_environment"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "Managed fleet commands create projects and credentials, select local listeners, persist lifecycle state, and exchange authenticated control messages. Focused unit and shipped-CLI tests prove validation, output, protocol, cleanup, and process lifecycle behavior without external hardware."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_A31BA137DE566F68E1574BB916EA2D03FDC2FC81208D54114C6673CF9B3746C9"
+code_id = "CODE_A31BA137DE566F68E1574BB916EA2D03FDC2FC81208D54114C6673CF9B3746C9"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:eec2832cd31bed218b18f31d99258c68135d1d9575cd008df0210b7d15ea3948"
+risk_signals = ["filesystem_or_environment"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "Managed fleet commands create projects and credentials, select local listeners, persist lifecycle state, and exchange authenticated control messages. Focused unit and shipped-CLI tests prove validation, output, protocol, cleanup, and process lifecycle behavior without external hardware."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_B36F5BD151179BBD6D9E2AB7B3644A41F57B2D7628E68E5D61613ECF4B0F31B7"
+code_id = "CODE_B36F5BD151179BBD6D9E2AB7B3644A41F57B2D7628E68E5D61613ECF4B0F31B7"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:62ef475ecdacc8874a4d0138481b66ce1c22f2a1b41c9f5c4b114189f441e769"
+risk_signals = ["filesystem_or_environment"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "Managed fleet commands create projects and credentials, select local listeners, persist lifecycle state, and exchange authenticated control messages. Focused unit and shipped-CLI tests prove validation, output, protocol, cleanup, and process lifecycle behavior without external hardware."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_B70AA8BCFEFD009113157C178091A08A5BED1BD71815ECB603E9D686D1458AC1"
+code_id = "CODE_B70AA8BCFEFD009113157C178091A08A5BED1BD71815ECB603E9D686D1458AC1"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:57839e3d4f1d10a3af767a5c01c7292b42d9bb561551340dc847007c99ed4199"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "Managed fleet commands create projects and credentials, select local listeners, persist lifecycle state, and exchange authenticated control messages. Focused unit and shipped-CLI tests prove validation, output, protocol, cleanup, and process lifecycle behavior without external hardware."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_BA90707AE445CF07DE2FDC9254AAE029B058BF76FAB583E11AC1B337BB652D2F"
+code_id = "CODE_BA90707AE445CF07DE2FDC9254AAE029B058BF76FAB583E11AC1B337BB652D2F"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:3893843614f48121b5be876256737447e25ef0b84b8f0028416f9a465a60998f"
+risk_signals = ["broad_error_suppression"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "Managed fleet commands create projects and credentials, select local listeners, persist lifecycle state, and exchange authenticated control messages. Focused unit and shipped-CLI tests prove validation, output, protocol, cleanup, and process lifecycle behavior without external hardware."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_BE606C841590D489A4B36E9D01ECC4C83A05F97C53CEC651651A80766D7D0FB9"
+code_id = "CODE_BE606C841590D489A4B36E9D01ECC4C83A05F97C53CEC651651A80766D7D0FB9"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:bec67325e8b6a4f956cc4625abede62306520ac32b9c1828f879a14b6d327894"
+risk_signals = ["fault_mapping"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "Managed fleet commands create projects and credentials, select local listeners, persist lifecycle state, and exchange authenticated control messages. Focused unit and shipped-CLI tests prove validation, output, protocol, cleanup, and process lifecycle behavior without external hardware."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_BFCEF47B85BF78730805C7A9C86E696FFE9EADA101B340A4392C1E029319905D"
+code_id = "CODE_BFCEF47B85BF78730805C7A9C86E696FFE9EADA101B340A4392C1E029319905D"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:be6ff8503b20fee1a73e69bb1e2eee77c85eaaba3e84d70b9618ea0b2660631b"
+risk_signals = ["protocol_response_or_status"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "Managed fleet commands create projects and credentials, select local listeners, persist lifecycle state, and exchange authenticated control messages. Focused unit and shipped-CLI tests prove validation, output, protocol, cleanup, and process lifecycle behavior without external hardware."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_C80027591D22BAA08675869E6C75C7AA6848E257285392C37BCDF84ABF33C92E"
+code_id = "CODE_C80027591D22BAA08675869E6C75C7AA6848E257285392C37BCDF84ABF33C92E"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:0e9e2d0f7009f8a24aaadc4d8abce751e6bcf8ad782ea9773bc1c6c8360867bc"
+risk_signals = ["protocol_response_or_status", "state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "Managed fleet commands create projects and credentials, select local listeners, persist lifecycle state, and exchange authenticated control messages. Focused unit and shipped-CLI tests prove validation, output, protocol, cleanup, and process lifecycle behavior without external hardware."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_CF2E09D66475EA6F291EAA3D70E52DE772DD86A5E08ECDD5346CC0834D13CDE9"
+code_id = "CODE_CF2E09D66475EA6F291EAA3D70E52DE772DD86A5E08ECDD5346CC0834D13CDE9"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:0e3db067a4924389cf611244b6f2b456f7908fc9b0e180abc7608e2c2076fc37"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "Managed fleet commands create projects and credentials, select local listeners, persist lifecycle state, and exchange authenticated control messages. Focused unit and shipped-CLI tests prove validation, output, protocol, cleanup, and process lifecycle behavior without external hardware."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_DA3B48B6B2BAAA7E99B883D29F942EC1E8C16DD3F750A7A9129FF788CC20EA4F"
+code_id = "CODE_DA3B48B6B2BAAA7E99B883D29F942EC1E8C16DD3F750A7A9129FF788CC20EA4F"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:12edbf2c549cb9b04f162752955a4cbb6a4898e76144f275d5aea8020c9870b9"
+risk_signals = ["fault_mapping"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "Managed fleet commands create projects and credentials, select local listeners, persist lifecycle state, and exchange authenticated control messages. Focused unit and shipped-CLI tests prove validation, output, protocol, cleanup, and process lifecycle behavior without external hardware."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_E2C28E39AE064A68574E5B7096CEDA9B2ABB448139600084064D96F19F4F93C5"
+code_id = "CODE_E2C28E39AE064A68574E5B7096CEDA9B2ABB448139600084064D96F19F4F93C5"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:3c5744b97fcdb5ca6d42b535029ac3c3da9a73a2ac21d1ddf311109871125bd2"
+risk_signals = ["broad_error_suppression"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "Managed fleet commands create projects and credentials, select local listeners, persist lifecycle state, and exchange authenticated control messages. Focused unit and shipped-CLI tests prove validation, output, protocol, cleanup, and process lifecycle behavior without external hardware."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_E59315D9DF40FEAC9910471577BF4F1E62A918289EE192128E75D357BDC86586"
+code_id = "CODE_E59315D9DF40FEAC9910471577BF4F1E62A918289EE192128E75D357BDC86586"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:20fe2dbc04caa938276d3ff63efa2d89ee8a9444155fd960183f4a2a5b787363"
+risk_signals = ["protocol_response_or_status"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "Managed fleet commands create projects and credentials, select local listeners, persist lifecycle state, and exchange authenticated control messages. Focused unit and shipped-CLI tests prove validation, output, protocol, cleanup, and process lifecycle behavior without external hardware."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_EE46E7CE2F4AD5EBB650446220BB2F129C7CD8CCC90C5F2039E4F116333BE9F9"
+code_id = "CODE_EE46E7CE2F4AD5EBB650446220BB2F129C7CD8CCC90C5F2039E4F116333BE9F9"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:9713ecfd6818ac11468b116c8c08b0e1ef37fe7d55ceaebda09251e6f8729062"
+risk_signals = ["fault_mapping", "state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "Managed fleet commands create projects and credentials, select local listeners, persist lifecycle state, and exchange authenticated control messages. Focused unit and shipped-CLI tests prove validation, output, protocol, cleanup, and process lifecycle behavior without external hardware."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_F0676600C6A42606219BA3253DADA3F089CC90A95AF9001172F210A10EB9DC55"
+code_id = "CODE_F0676600C6A42606219BA3253DADA3F089CC90A95AF9001172F210A10EB9DC55"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:c74340e7c5a465b12e5eaf1e47ef2ade432bd649f257602e4529f39dc7041027"
+risk_signals = ["network_io"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "Managed fleet commands create projects and credentials, select local listeners, persist lifecycle state, and exchange authenticated control messages. Focused unit and shipped-CLI tests prove validation, output, protocol, cleanup, and process lifecycle behavior without external hardware."

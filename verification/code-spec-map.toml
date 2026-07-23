@@ -193227,23 +193227,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_022E8DC1A7C208F24EA3E7A65B8491F981CFC19698091D11FAD8204DFFE7B760"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/cli/fleet.rs"
-qualified_symbol = "trust_runtime::cli::FleetRuntimeAction"
-item_kind = "rust_public_type"
-signature_digest = "sha256:7ca4d077a62f52e4d0ffc2982cd56a9d35f218a5fae1471e7d0bb687723caf57"
-reviewed_body_digest = "sha256:49e2fad35c4659f43461cc881e10ac80bca1a1fbdf9e968d92639a95242386df"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "public"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_023A1912B112011F40F9EC06417E359E849A8A1BA4F780FEDCCA9DDA3E18EEF6"
 source_kind = "rust"
 path = "crates/trust-runtime/src/bin/trust-runtime/ads.rs"
@@ -195067,23 +195050,6 @@ last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_11B392B1FB8444BCF86EF50A3B0B9E0D7EEC288384D9F013BF4BF757ACB395E8"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
-qualified_symbol = "trust_runtime::fleet::print_logs_response"
-item_kind = "rust_function"
-signature_digest = "sha256:6c2106317beb1bee9a41654803332cd3e09b6446835196ad0660d9c61398c03a"
-reviewed_body_digest = "sha256:9daa0286b7dcfc864918d568f6a99d138d9d274e1a354dd534aa2e200052baec"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_123C56E0C0C41576929B948343F31B5A535CE62F50CF8DAAE9F5CC587E962AAD"
 source_kind = "rust"
 path = "crates/trust-runtime/src/openot_authoring/definition.rs"
@@ -195433,25 +195399,6 @@ area = "runtime_safety"
 visibility = "public"
 risk_signals = ["fault_mapping"]
 owner_ack = "RISK_ACK_16491AD816A67C8509E495994B5E294D3AA3949E1E30CAB192D5670BCA7D9C35"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_164B5AD07F052827EA1423E1F36E438B454100CF303D02069E03CD3022B7ADB2"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs"
-qualified_symbol = "trust_runtime::fleet::lifecycle::status_runtime_entry"
-item_kind = "rust_function"
-signature_digest = "sha256:cf771c33bdc3a0e9f217217d2cf95164f1bcfbcad17fe1e7dc5977aff95f645c"
-reviewed_body_digest = "sha256:44f5c4f94bcb348b52bb94267c3b7fd4a162f4ad3c8665aa3f5fbd915abfb159"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = ["broad_error_suppression"]
-owner_ack = "RISK_ACK_164B5AD07F052827EA1423E1F36E438B454100CF303D02069E03CD3022B7ADB2"
 owner_ack_expires_on = "2026-10-21"
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
@@ -196039,23 +195986,6 @@ reviewed_body_digest = "sha256:5eaaa39be6c5492f57927c0c3ba5232085dcee6d16da06b7a
 owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "public"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_1B962408A67F4F4ED568043E2081ED28857C25DBA88800D498342E6968C88EF9"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
-qualified_symbol = "trust_runtime::fleet::render_config_source"
-item_kind = "rust_function"
-signature_digest = "sha256:3684d698f04f397ee598d5ab2af2cc366d2438ee88409a82739ad1916a0c72ec"
-reviewed_body_digest = "sha256:db423f7f7f0720690ddada8fdfc1460527b2557f0264f958cf215b26d2ac71e0"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
 risk_signals = []
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
@@ -197363,25 +197293,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_26E05028E7297CE1978DBC5F6A55FFA1834596BA2FBFD87D3CF03D0F6F2C9D89"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
-qualified_symbol = "trust_runtime::fleet::runtime_toml_for_runtime"
-item_kind = "rust_function"
-signature_digest = "sha256:901e1c118702631b791d0600b7840c7f591780d80d4754362b4644ca04e5b7be"
-reviewed_body_digest = "sha256:8b8702939d1dd7cf5624b92daefd44d5ad7d97d689d8ae250b1e325f5437a528"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = ["state_mutation"]
-owner_ack = "RISK_ACK_26E05028E7297CE1978DBC5F6A55FFA1834596BA2FBFD87D3CF03D0F6F2C9D89"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_270FBE0BC5872FE898E9897035AA837A64C9C028B1C87482F1B9435AD8EC3180"
 source_kind = "rust"
 path = "crates/trust-runtime/src/bin/trust-runtime/cli/commands.rs"
@@ -198020,25 +197931,6 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_2E3EFC76DB95C2D219C1AB4BB58EA9B4C4FB0FF81A818E324DD167EECF92E60B"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs"
-qualified_symbol = "trust_runtime::fleet::lifecycle::remove_pid_file"
-item_kind = "rust_function"
-signature_digest = "sha256:db9bde7294d25a41fa3d8cc5037bb7b2b42321dbd4551162db045d3abd7c9ed0"
-reviewed_body_digest = "sha256:f6240d8e3617998809a90fb5c3f850c1d43e1c86b8e46ecf784bdd6fcc879fb2"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = ["state_mutation"]
-owner_ack = "RISK_ACK_2E3EFC76DB95C2D219C1AB4BB58EA9B4C4FB0FF81A818E324DD167EECF92E60B"
-owner_ack_expires_on = "2026-10-21"
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
 last_reviewed = "2026-07-21"
@@ -198742,23 +198634,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_363FC12CB5F7982C6C12FDB91D753CC3AD5A68DDCC761B95ACF2CB27A7AE14B1"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
-qualified_symbol = "trust_runtime::fleet::validate_runtime_name"
-item_kind = "rust_function"
-signature_digest = "sha256:2971f54061109016ccd17628542747a66218a5307116bac49b2dfb4a5cbc18cb"
-reviewed_body_digest = "sha256:170ca0c78f306f28bf83315894b658122d9fd0c4ae28e6a16c7f6474b3fb1e02"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_365606605D5B63130337F262370AA0DAB01BEEF50EB31C3A95261DCCC235E878"
 source_kind = "rust"
 path = "crates/trust-runtime/src/retain/manager.rs"
@@ -199341,23 +199216,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_3A7DF27B5D0E856E13CABE44EBF656FAC995E2E48D59582F35912F9C96EA9CC5"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/cli/fleet.rs"
-qualified_symbol = "trust_runtime::cli::FleetRuntimeTemplateArg"
-item_kind = "rust_public_type"
-signature_digest = "sha256:1e973302b758397d28270ce32afd5bbd2e143ce9fcdcad972ce3eb819a538702"
-reviewed_body_digest = "sha256:da7e790a4747ccf490806aaad5df88c7598de32ce54856bee36aab0af35f1d5d"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "public"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_3AB96B1BCD5D99261C08CC220E321012B2BC38CAB9EB22A2EC3B7580D182B83E"
 source_kind = "rust"
 path = "crates/trust-runtime/src/scheduler/handle_shared.rs"
@@ -199799,25 +199657,6 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_3E19815B224BFB768CC6260E72E1B8B42FA1CAF1BA0907E731B4A0A737B0AD6A"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
-qualified_symbol = "trust_runtime::fleet::table_mut"
-item_kind = "rust_function"
-signature_digest = "sha256:2bdd64b6fcdd1298e8b9b7dcf5b4ddbe6b47a4d85e6f3ec8ca5c8e43e8fcbefe"
-reviewed_body_digest = "sha256:0726e115f3ef32575c816980979b63a1ec63c2bc78b3ea061f6b4b73d49e6657"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = ["state_mutation"]
-owner_ack = "RISK_ACK_3E19815B224BFB768CC6260E72E1B8B42FA1CAF1BA0907E731B4A0A737B0AD6A"
-owner_ack_expires_on = "2026-10-21"
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
 last_reviewed = "2026-07-21"
@@ -200677,23 +200516,6 @@ spec_ref = "SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contrac
 invariant_ids = ["RT_HARNESS_LIFECYCLE_CONTROL_001"]
 test_ids = ["TEST_RUNTIME_HARNESS_CYCLE_TIME_001", "TEST_RUNTIME_HARNESS_NEGATIVE_TIME_001"]
 last_reviewed = "2026-07-22"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_46F0DA5449FA6AC9061407E9D79B8C8240A69275588F27844C12BF165B065186"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
-qualified_symbol = "trust_runtime::fleet::list_runtimes"
-item_kind = "rust_function"
-signature_digest = "sha256:a47d507df38724be61a7d622e1ab3cfc59af1430fd5c753da39ba1156635dd03"
-reviewed_body_digest = "sha256:25a706792973befb0baed0eadad8f7abaebbad6b97a9a92c7c8ade4e1bf14b1c"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
@@ -201758,25 +201580,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_51A0CD14551093C94F8ABFC93B0614116DE217C8462EAE887E1969C61E445346"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
-qualified_symbol = "trust_runtime::fleet::resource_name_from_runtime_name"
-item_kind = "rust_function"
-signature_digest = "sha256:e30707f1492aad79b183e9faa5786a9dd74919a59c703c265cc27bd77b5390d7"
-reviewed_body_digest = "sha256:6475090930f190054e20a74d1c6f5b99c85a412396b72215f63f5a38ad1fc59f"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = ["state_mutation"]
-owner_ack = "RISK_ACK_51A0CD14551093C94F8ABFC93B0614116DE217C8462EAE887E1969C61E445346"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_51A377186CAEF53F9533A1CD80592EF2C2E28E2E3A7ECEDD70A032110FED702B"
 source_kind = "rust"
 path = "crates/trust-runtime/src/openot_authoring/types.rs"
@@ -202566,23 +202369,6 @@ reviewed_body_digest = "sha256:68722f78f6d35fd44f3e204660ed415cc9ac70c81a7224f08
 owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "public"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_58D92882F4BD90E2A57C9A9389C6B8F24B32D1D90682EE39199140A4D3ADA1BD"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
-qualified_symbol = "trust_runtime::fleet::write_manifest"
-item_kind = "rust_function"
-signature_digest = "sha256:2d78ce5dd0dbbbff9a00bd6ff9b1fa7cfa970d1c0c20a7e7e3aa93f5f981edf2"
-reviewed_body_digest = "sha256:32b95a1aad620e5c1e03a99a4935a47c45a72acdf8893dcb53458702eaa7eafa"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
 risk_signals = []
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
@@ -204133,23 +203919,6 @@ visibility = "public"
 risk_signals = ["fault_mapping"]
 owner_ack = "RISK_ACK_66BC6AD4B8CF22A8AF80859AF92769D00AD262C9D6906FFAD49FA25232A2ED0A"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_66F8BCD32EBD977CE20691B9F35ABCE2CFFB35BAED442B990F3E595714E222B4"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
-qualified_symbol = "trust_runtime::fleet::print_lifecycle_response"
-item_kind = "rust_function"
-signature_digest = "sha256:5926729123cb6d826885a8f87aeba49f84fc7794124eb20df1e8bd309acfec87"
-reviewed_body_digest = "sha256:855501f4880aa2e2fbf31f93c96be71c1d045164eaf3380b93115b15b4401162"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = []
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
 last_reviewed = "2026-07-21"
@@ -207132,23 +206901,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_85EAD6CA8CAD05984CB548764DE1580D7586CADA67F3EC862947D3BCC90C1E1E"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs"
-qualified_symbol = "trust_runtime::fleet::lifecycle::runtime_project_path"
-item_kind = "rust_function"
-signature_digest = "sha256:321471a2c982223c9a56e1968971d30edfe8e5bcb22be0bd61fccdecf3dab515"
-reviewed_body_digest = "sha256:1569127aa428dd6c9f10b384f25adc694bf0dbe5205f22c06d0b21093a6d3c4a"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_86506257F18C3F5198A00FA3EED48804B6E39842F7E92E25F9D6CDF004A6F81C"
 source_kind = "rust"
 path = "crates/trust-runtime/src/bin/trust-runtime/run/runtime/signals.rs"
@@ -207704,25 +207456,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_8AC92638CDDD9296AA345EF1A399D86DB6960F2C9941243D5760F917AA3EFD09"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs"
-qualified_symbol = "trust_runtime::fleet::lifecycle::start_runtime"
-item_kind = "rust_function"
-signature_digest = "sha256:58c62a0758c0e223b407b030eb521760d45992efd0d0a6ee28356d9d9364f939"
-reviewed_body_digest = "sha256:780e71e5e254f9565f9b6084362c335bd3c3f2bd6dd5e588cae0f33a1bd72063"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = ["filesystem_or_environment", "protocol_response_or_status", "state_mutation", "subprocess_or_thread"]
-owner_ack = "RISK_ACK_8AC92638CDDD9296AA345EF1A399D86DB6960F2C9941243D5760F917AA3EFD09"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_8B04CBC73B76463A03F3CE8AB473422D94F760C3A025B4141834676CCA680618"
 source_kind = "rust"
 path = "crates/trust-runtime/src/openot_authoring/instrumentation.rs"
@@ -207881,44 +207614,6 @@ area = "runtime_safety"
 visibility = "public"
 risk_signals = ["fault_mapping"]
 owner_ack = "RISK_ACK_8C4F8192725F71B36F1CA11EBEEA143896F5FD0ADF3099CCCFFBC86481783DE0"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_8C75B9E8F742FD6391346A73B051D96382F7D63C56AF5A7C22D50B4CC3E3FE4B"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs"
-qualified_symbol = "trust_runtime::fleet::lifecycle::request_control"
-item_kind = "rust_function"
-signature_digest = "sha256:4457b00fd25ba65e424b3fa1e43b3ff4f2d64e1325c2170310c0678316cd0e90"
-reviewed_body_digest = "sha256:c4e58b22382483059ab67458c6b031d3941373c035d023d3ada97c7acc94135b"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = ["broad_error_suppression", "fault_mapping", "network_io"]
-owner_ack = "RISK_ACK_8C75B9E8F742FD6391346A73B051D96382F7D63C56AF5A7C22D50B4CC3E3FE4B"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_8C7CADB13958A74EBA4A6F0CEAE01ADDC4E22164AD3C21A173AE455EFA72A1E3"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs"
-qualified_symbol = "trust_runtime::fleet::lifecycle::runtime_logs"
-item_kind = "rust_function"
-signature_digest = "sha256:d952f20c1a40df85c4bbf90d647053fe05e0b1dc23379306a1a8bb3f0c8eda8c"
-reviewed_body_digest = "sha256:dde1959f12309b40e51b9c796cd11917bf8bb194b4bafa2c42894453a3c90aab"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = ["filesystem_or_environment"]
-owner_ack = "RISK_ACK_8C7CADB13958A74EBA4A6F0CEAE01ADDC4E22164AD3C21A173AE455EFA72A1E3"
 owner_ack_expires_on = "2026-10-21"
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
@@ -209323,25 +209018,6 @@ last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_977CE7105E28AA20F9FD62369B7D2E1390C3A6A4D7379C9F4D58F714D20B4363"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
-qualified_symbol = "trust_runtime::fleet::generate_control_token"
-item_kind = "rust_function"
-signature_digest = "sha256:032e6a01fa39f54fabd42883d8b69424c8f4ecaf4f2637d65b15eacc73940d33"
-reviewed_body_digest = "sha256:7f54893bba3f78b1b07062afa44da7ec25b3a03f1637252848b97fd6dad7e616"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = ["broad_error_suppression", "host_time"]
-owner_ack = "RISK_ACK_977CE7105E28AA20F9FD62369B7D2E1390C3A6A4D7379C9F4D58F714D20B4363"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_9781F7DD4F2BEAE3675778714BBF241780A21014E19594EA8EF233E88B5724A6"
 source_kind = "rust"
 path = "crates/trust-runtime/src/host/setup.rs"
@@ -209389,25 +209065,6 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_98065A105B718DCACA33EA57E87ECF5C21415BDBD0DCF3BAC566A5779A3544C2"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
-qualified_symbol = "trust_runtime::fleet::select_port"
-item_kind = "rust_function"
-signature_digest = "sha256:cb5c263da346fcb8b9f9da6ea3c8516c9e02fc3d8e8286964bef321511cd4293"
-reviewed_body_digest = "sha256:e7a1f0d121c51a43e55ae75016f395feff1287dd4227493ddd7f766eaf09bf81"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = ["network_io", "state_mutation"]
-owner_ack = "RISK_ACK_98065A105B718DCACA33EA57E87ECF5C21415BDBD0DCF3BAC566A5779A3544C2"
-owner_ack_expires_on = "2026-10-21"
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
 last_reviewed = "2026-07-21"
@@ -209867,25 +209524,6 @@ area = "runtime_safety"
 visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_9C42B8809AAC09D794AD15AD07DA2412701BBFB2CF8DFA7D25067F93167E7ED7"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_9C76573CA41A35869D864B5A84BB0097972CE6BDDD64427C2CFD64BF7E69D1AA"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
-qualified_symbol = "trust_runtime::fleet::load_manifest"
-item_kind = "rust_function"
-signature_digest = "sha256:93099f7083e45eb5d9b2e43d1b1b6a485b649484f8780914ef428249441046e2"
-reviewed_body_digest = "sha256:8b57ab8f1069571bcfdc3b6e3f762594ec30cbb8274fb187e650567623987678"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = ["filesystem_or_environment"]
-owner_ack = "RISK_ACK_9C76573CA41A35869D864B5A84BB0097972CE6BDDD64427C2CFD64BF7E69D1AA"
 owner_ack_expires_on = "2026-10-21"
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
@@ -210484,23 +210122,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_A04F7F2209301545DFDE6D6734A8030B08FBDDC0B7C82C744DCBD5B06879DCBD"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/cli/fleet.rs"
-qualified_symbol = "trust_runtime::cli::FleetAction"
-item_kind = "rust_public_type"
-signature_digest = "sha256:2f2ec6c4e2b8d1a3d8406d2522ac370f0ce0c47a5927decc8a371e107fca6377"
-reviewed_body_digest = "sha256:cdabf0d0efa2fe7bea6cd4cbcaa49acceb08c395de261dcf4b86593c5de3d38f"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "public"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_A08B2B157A851891203342D1C844EB0EEAE3B41C5783897891963126F3307A0D"
 source_kind = "rust"
 path = "crates/trust-runtime/src/host/simulation.rs"
@@ -210908,25 +210529,6 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_A31BA137DE566F68E1574BB916EA2D03FDC2FC81208D54114C6673CF9B3746C9"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs"
-qualified_symbol = "trust_runtime::fleet::lifecycle::read_control_auth_token"
-item_kind = "rust_function"
-signature_digest = "sha256:2725080f80a2933f3352ac2cf2f53bac12e62b40ea1896fb76fc3eb5d4fb1679"
-reviewed_body_digest = "sha256:694d74be3ac8c2f3ee34d55405aeeb8f2adce4322421316ff05c743d57e1fdf9"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = ["filesystem_or_environment"]
-owner_ack = "RISK_ACK_A31BA137DE566F68E1574BB916EA2D03FDC2FC81208D54114C6673CF9B3746C9"
-owner_ack_expires_on = "2026-10-21"
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
 last_reviewed = "2026-07-21"
@@ -212589,25 +212191,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_B36F5BD151179BBD6D9E2AB7B3644A41F57B2D7628E68E5D61613ECF4B0F31B7"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs"
-qualified_symbol = "trust_runtime::fleet::lifecycle::read_pid"
-item_kind = "rust_function"
-signature_digest = "sha256:23e82367f19abde4ab002c668cc1d98610344d9af3d79fc119e26df6b70616e7"
-reviewed_body_digest = "sha256:62ef475ecdacc8874a4d0138481b66ce1c22f2a1b41c9f5c4b114189f441e769"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = ["filesystem_or_environment"]
-owner_ack = "RISK_ACK_B36F5BD151179BBD6D9E2AB7B3644A41F57B2D7628E68E5D61613ECF4B0F31B7"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_B37767D3CBFB07EC55AAD2EE85BF699F6220C0BAF2CED87B13DFD25AF770EC89"
 source_kind = "rust"
 path = "crates/trust-runtime/src/host/ui/commands/settings.rs"
@@ -212744,23 +212327,6 @@ qualified_symbol = "trust_runtime::runtime::restart::retain_enum_error"
 item_kind = "rust_function"
 signature_digest = "sha256:9c99ae1c7643712058552cc1f2826b28fae9b0e00eb1d758ef481beb0aaa1836"
 reviewed_body_digest = "sha256:c93a1abe8dd6f768077d96d9e8424fc40d27160f2d3e9ec2c4b1f05d17af41a4"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_B49CB5E431C64265348EEEE3B8CE82E03CD3562496FCADEF384F5022D3E73532"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
-qualified_symbol = "trust_runtime::fleet::render_main_source"
-item_kind = "rust_function"
-signature_digest = "sha256:a7489b36556fee5427d56668608381d8eaf93e5e47d7d7bf94cce6a8f446df7c"
-reviewed_body_digest = "sha256:9c120089dce79ed9fc9fc5fa0766dc515b1c28d393f2e1a964f5dff0a366d306"
 owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
@@ -213087,25 +212653,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_B70AA8BCFEFD009113157C178091A08A5BED1BD71815ECB603E9D686D1458AC1"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
-qualified_symbol = "trust_runtime::fleet::add_runtime"
-item_kind = "rust_function"
-signature_digest = "sha256:ff6b3f71ee28c2ad21459b8368345fec038c2283de915d0d257896d5254f7c2f"
-reviewed_body_digest = "sha256:2ae3c64ddeb0df135eff4f885c7d2ca77f3e0c95fa26aac80ba552d816b30bf4"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = ["state_mutation"]
-owner_ack = "RISK_ACK_B70AA8BCFEFD009113157C178091A08A5BED1BD71815ECB603E9D686D1458AC1"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_B73EC5419CEC8BD896987B17AD7BAD8E3FF96B2C7835301F224BCCB7DB19DF0F"
 source_kind = "rust"
 path = "crates/trust-runtime/src/runtime/opcua_client_subsystem.rs"
@@ -213421,25 +212968,6 @@ area = "runtime_safety"
 visibility = "public"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_BA8C972A3975225271BB19C0E84CF2865F26EB56E72336E15416A2A90CA42198"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_BA90707AE445CF07DE2FDC9254AAE029B058BF76FAB583E11AC1B337BB652D2F"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
-qualified_symbol = "trust_runtime::fleet::control_port_from_endpoint"
-item_kind = "rust_function"
-signature_digest = "sha256:a8ebab4be2498ad483a4dfb7521d9a6f1173e3ffd42a2e7c515a338e79f2b6c0"
-reviewed_body_digest = "sha256:0f581fe8d2c6454bd541bd21bdb261bd797d3465da58d5da5dc1f7f54ab86625"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = ["broad_error_suppression"]
-owner_ack = "RISK_ACK_BA90707AE445CF07DE2FDC9254AAE029B058BF76FAB583E11AC1B337BB652D2F"
 owner_ack_expires_on = "2026-10-21"
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
@@ -213951,25 +213479,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_BE606C841590D489A4B36E9D01ECC4C83A05F97C53CEC651651A80766D7D0FB9"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
-qualified_symbol = "trust_runtime::fleet::write_runtime_project"
-item_kind = "rust_function"
-signature_digest = "sha256:1e7584ef6c548556b69993e7a1e709b14c47963015702a93fe49f0292b202154"
-reviewed_body_digest = "sha256:bec67325e8b6a4f956cc4625abede62306520ac32b9c1828f879a14b6d327894"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = ["fault_mapping"]
-owner_ack = "RISK_ACK_BE606C841590D489A4B36E9D01ECC4C83A05F97C53CEC651651A80766D7D0FB9"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_BECD08FD9AA161D9FECCAC70F1FAD64FF2945C0458342E76523DA42E1619E02E"
 source_kind = "rust"
 path = "crates/trust-runtime/src/host/ui/commands/io_nav.rs"
@@ -214109,25 +213618,6 @@ area = "runtime_safety"
 visibility = "private"
 risk_signals = ["protocol_response_or_status", "state_mutation"]
 owner_ack = "RISK_ACK_BFC68CB12964C550867D4355B7298BA124F3B448D8442CCAA19CF51A7F3F4F52"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_BFCEF47B85BF78730805C7A9C86E696FFE9EADA101B340A4392C1E029319905D"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs"
-qualified_symbol = "trust_runtime::fleet::lifecycle::status_runtime"
-item_kind = "rust_function"
-signature_digest = "sha256:a3c7e0d87358496f711481339c275316f919595c7fb7720ee0f8b4c1c633930c"
-reviewed_body_digest = "sha256:ab08d52d8c4985c2d3cce936788010034252c805a066731f6ba974cba0c54f20"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = ["protocol_response_or_status"]
-owner_ack = "RISK_ACK_BFCEF47B85BF78730805C7A9C86E696FFE9EADA101B340A4392C1E029319905D"
 owner_ack_expires_on = "2026-10-21"
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
@@ -214747,25 +214237,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_C80027591D22BAA08675869E6C75C7AA6848E257285392C37BCDF84ABF33C92E"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs"
-qualified_symbol = "trust_runtime::fleet::lifecycle::stop_runtime"
-item_kind = "rust_function"
-signature_digest = "sha256:49279e0d5c4a98968382b0820b50fbbc0b676ae5dc49731017c0e4ce80957634"
-reviewed_body_digest = "sha256:7fedb9f341df9bad86450df40cebbbf9bb5f5cbd77946d02d986aea19977ae15"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = ["protocol_response_or_status", "state_mutation"]
-owner_ack = "RISK_ACK_C80027591D22BAA08675869E6C75C7AA6848E257285392C37BCDF84ABF33C92E"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_C83204B9275A6A5494E029D24094C5E8D4969ACE9BF747DF20B96E12839B2B10"
 source_kind = "rust"
 path = "crates/trust-runtime/src/host/ui/state.rs"
@@ -215077,23 +214548,6 @@ reviewed_body_digest = "sha256:6eeac782a9756bb6c863d4850399d7c3fd12130674ffdd3e0
 owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "public"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_CAB5DA68D3CD1D4563C04029D13C96D4A5B2793BB7B78F1044C20A3260F9F27E"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs"
-qualified_symbol = "trust_runtime::fleet::lifecycle::resolve_manifest_runtime"
-item_kind = "rust_function"
-signature_digest = "sha256:7ad9f5ac3414f5c3077da0a4e980212927b1c0d24b2ff1816af101f9ffb5f2cb"
-reviewed_body_digest = "sha256:bbd13fc3762ad05235695676bd7bb3679d07180ce077211c0c50fdf45ad44492"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
 risk_signals = []
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
@@ -215821,23 +215275,6 @@ visibility = "public"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_CFE56EBBF5056FB0E871A8557015CBAF161AA83400A36DCE9664BAFA7BF00DD9"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_CFF38A87D01E93C856B97F438ADD59A7F8D195190FF2CC837C2478F54ACF34C7"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
-qualified_symbol = "trust_runtime::fleet::print_add_response"
-item_kind = "rust_function"
-signature_digest = "sha256:93f44892b9ae8fb9727299fd2ff587e70a22842b22a41da4936c8fd2975f5f6c"
-reviewed_body_digest = "sha256:511c45274b71ee11a0e165b4f8ff73c6578025c1b8133fef39882c3f122feb31"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = []
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
 last_reviewed = "2026-07-21"
@@ -218310,25 +217747,6 @@ last_reviewed = "2026-07-22"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_E59315D9DF40FEAC9910471577BF4F1E62A918289EE192128E75D357BDC86586"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
-qualified_symbol = "trust_runtime::fleet::run_fleet"
-item_kind = "rust_function"
-signature_digest = "sha256:65ca7fd7b57d593ebf9522d837d86d205ccafc4bd0e22966ac996296b31fab9e"
-reviewed_body_digest = "sha256:20fe2dbc04caa938276d3ff63efa2d89ee8a9444155fd960183f4a2a5b787363"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "public"
-risk_signals = ["protocol_response_or_status"]
-owner_ack = "RISK_ACK_E59315D9DF40FEAC9910471577BF4F1E62A918289EE192128E75D357BDC86586"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_E5CB30A653DA71695E6C2B21C0E5C00FF9BF329AE007E06B07D92D43A1449A79"
 source_kind = "rust"
 path = "crates/trust-runtime/src/runtime/core.rs"
@@ -218440,23 +217858,6 @@ qualified_symbol = "<trust_runtime::retain::StdRetainFileOps as RetainFileOps>::
 item_kind = "rust_method"
 signature_digest = "sha256:3469471e069df1810fdffd621508773e2c8a1fcefd0a634aaf7d5c92b4778026"
 reviewed_body_digest = "sha256:1716c22f1f5fedb1dae5d0f61f088e4a722162ad43e26cff3de0ec83f85afc16"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_E65A43E601AE5A8264C6C74D8C43055F4BF6F0CA205286185FD18535E9AAC541"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
-qualified_symbol = "trust_runtime::fleet::print_list_response"
-item_kind = "rust_function"
-signature_digest = "sha256:57abe44bd1742a893ad9b3cd355cc5a5887651da178b6a1438c545b4b62162b0"
-reviewed_body_digest = "sha256:b520c238eb9ffae3c24a8973e3db4d12374aae9b5f2fe1655de08037fa781342"
 owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
@@ -218918,23 +218319,6 @@ visibility = "public"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_EA4BD97B87F7EB91C2136943F29D76715724B83C5ECF5B7529DCA3D37510126B"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_EA73768C3BB58D5B1AB50E95CF42B68332FDB5B2C81AC39BA27DA5E56E6FC96B"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs"
-qualified_symbol = "trust_runtime::fleet::lifecycle::lifecycle_paths"
-item_kind = "rust_function"
-signature_digest = "sha256:2cccac68802cfbe03680b5d0a2ac0d3cd6670e1e132c44190fd297d684b60dcc"
-reviewed_body_digest = "sha256:a152be19e9d2d010e28e6e38cd40267cf24ec740cd8611e213f6ed84cefcb31a"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = []
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
 last_reviewed = "2026-07-21"
@@ -219678,25 +219062,6 @@ area = "runtime_safety"
 visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_F0523270B87A37B97E3B21961850406E3A38E511A313CF8272D51BFFA485E4E6"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_F0676600C6A42606219BA3253DADA3F089CC90A95AF9001172F210A10EB9DC55"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
-qualified_symbol = "trust_runtime::fleet::validate_requested_port"
-item_kind = "rust_function"
-signature_digest = "sha256:0877e2f7c4febbbd06c65937cf8daad6281e321fc1d12598218d5660666f44e2"
-reviewed_body_digest = "sha256:c74340e7c5a465b12e5eaf1e47ef2ade432bd649f257602e4529f39dc7041027"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = ["network_io"]
-owner_ack = "RISK_ACK_F0676600C6A42606219BA3253DADA3F089CC90A95AF9001172F210A10EB9DC55"
 owner_ack_expires_on = "2026-10-21"
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
@@ -276175,4 +275540,828 @@ disposition = "specified"
 spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
 invariant_ids = ["RT_VERSIONED_DEPLOY_STATE_001"]
 test_ids = ["TEST_RUNTIME_VERSIONED_DEPLOY_BUNDLE_TARGETS_INCLUDE_CURRENT_AND_IMMEDIATE_PREVIOUS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEFAULT_BUNDLE_LABELS_ARE_UNIQUE_FOR_CONSECUTIVE_DEPLOYMENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYED_SIDECAR_PATHS_REQUIRE_NORMALIZED_RELATIVE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_LABELS_ARE_PORTABLE_SINGLE_COMPONENTS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_PRUNE_BUNDLES_KEEPS_ONLY_SELECTED_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_READ_LINK_TARGET_RESOLVES_RELATIVE_TO_THE_LINK_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SAFE_STATE_COMPARISON_USES_STRUCTURAL_ADDRESSES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_COLLECTION_HANDLES_GLOB_METACHARACTERS_IN_PROJECT_PATHS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_SOURCE_DIFF_PROPAGATES_INVALID_SOURCE_DIRECTORY_ERRORS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_DOES_NOT_OVERWRITE_AN_ORDINARY_FILE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_UPDATE_SYMLINK_REPLACES_A_DANGLING_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_COPIES_ENABLED_PROTOCOL_SIDECARS_INTO_SELF_CONTAINED_BUNDLE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_RECOVERS_FROM_A_DANGLING_CURRENT_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_A_CURRENT_POINTER_OUTSIDE_ITS_BUNDLE_STORE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_DANGLING_OPTIONAL_BUNDLE_SYMLINKS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_BYTECODE_BEFORE_CHANGING_POINTERS_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_INVALID_PREVIOUS_SLOT_WITHOUT_PARTIAL_STATE_CHANGE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_LABELS_THAT_ESCAPE_THE_BUNDLES_DIRECTORY_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKED_SIDECAR_PARENT_DIRECTORIES_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_REJECTS_SYMLINKS_IN_THE_COPIED_BUNDLE_CLOSURE_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITH_RELATIVE_ROOT_KEEPS_CURRENT_AND_IMMEDIATE_PREVIOUS_FOR_ROLLBACK_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_WITHOUT_A_CURRENT_BUNDLE_CLEARS_A_STALE_PREVIOUS_POINTER_001", "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_SUMMARY_REPORTS_CURRENT_BUNDLE_AND_ANY_RUNTIME_FILE_CHANGE_001"]
+last_reviewed = "2026-07-23"
+[[mappings]]
+schema_version = 1
+code_id = "CODE_022E8DC1A7C208F24EA3E7A65B8491F981CFC19698091D11FAD8204DFFE7B760"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/cli/fleet.rs"
+qualified_symbol = "trust_runtime::cli::FleetRuntimeAction"
+item_kind = "rust_public_type"
+signature_digest = "sha256:7ca4d077a62f52e4d0ffc2982cd56a9d35f218a5fae1471e7d0bb687723caf57"
+reviewed_body_digest = "sha256:49e2fad35c4659f43461cc881e10ac80bca1a1fbdf9e968d92639a95242386df"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+invariant_ids = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+test_ids = ["TEST_RUNTIME_MANAGED_FLEET_PARSE_FLEET_LIST_COMMAND_001", "TEST_RUNTIME_MANAGED_FLEET_PARSE_FLEET_RUNTIME_ADD_COMMAND_001", "TEST_RUNTIME_MANAGED_FLEET_PARSE_FLEET_RUNTIME_LIFECYCLE_COMMANDS_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_LIFECYCLE_RUNS_THROUGH_THE_SHIPPED_CLI_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_11B392B1FB8444BCF86EF50A3B0B9E0D7EEC288384D9F013BF4BF757ACB395E8"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
+qualified_symbol = "trust_runtime::fleet::print_logs_response"
+item_kind = "rust_function"
+signature_digest = "sha256:6c2106317beb1bee9a41654803332cd3e09b6446835196ad0660d9c61398c03a"
+reviewed_body_digest = "sha256:ffde0a92f34cd854dd8fffc7054c19dfef537419d1327e71048d5bbf17ece5ca"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+invariant_ids = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+test_ids = ["TEST_RUNTIME_MANAGED_FLEET_CONTROL_TOKEN_GENERATION_FAILS_CLOSED_WHEN_SECURE_RANDOMNESS_FAILS_001", "TEST_RUNTIME_MANAGED_FLEET_EMPTY_TEMPLATE_USES_VALID_LOOPBACK_IO_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_AUTO_SELECTS_DISTINCT_AVAILABLE_LOOPBACK_PORTS_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_CREATES_SIMULATED_PROJECT_AND_MANIFEST_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_ANY_MANIFEST_PORT_COLLISION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_DUPLICATE_NAME_WITHOUT_REWRITING_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_MALFORMED_MANIFEST_BEFORE_PROJECT_MUTATION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_WHITESPACE_NAME_BEFORE_MUTATION_001", "TEST_RUNTIME_MANAGED_FLEET_GENERATED_CONTROL_TOKEN_CONTAINS_32_RANDOM_BYTES_001", "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_INVALID_ENDPOINTS_AND_PORT_COLLISIONS_001", "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_UNSAFE_OR_DUPLICATE_RUNTIME_NAMES_001", "TEST_RUNTIME_MANAGED_FLEET_RESOURCE_NAMES_ARE_DETERMINISTIC_AND_NEVER_START_WITH_A_DIGIT_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_LIFECYCLE_RUNS_THROUGH_THE_SHIPPED_CLI_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_1B962408A67F4F4ED568043E2081ED28857C25DBA88800D498342E6968C88EF9"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
+qualified_symbol = "trust_runtime::fleet::render_config_source"
+item_kind = "rust_function"
+signature_digest = "sha256:3684d698f04f397ee598d5ab2af2cc366d2438ee88409a82739ad1916a0c72ec"
+reviewed_body_digest = "sha256:77d7952cd6fe329942fb4eebfd9880aabd565700b15af1a9524f7b177903aad3"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+invariant_ids = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+test_ids = ["TEST_RUNTIME_MANAGED_FLEET_CONTROL_TOKEN_GENERATION_FAILS_CLOSED_WHEN_SECURE_RANDOMNESS_FAILS_001", "TEST_RUNTIME_MANAGED_FLEET_EMPTY_TEMPLATE_USES_VALID_LOOPBACK_IO_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_AUTO_SELECTS_DISTINCT_AVAILABLE_LOOPBACK_PORTS_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_CREATES_SIMULATED_PROJECT_AND_MANIFEST_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_ANY_MANIFEST_PORT_COLLISION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_DUPLICATE_NAME_WITHOUT_REWRITING_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_MALFORMED_MANIFEST_BEFORE_PROJECT_MUTATION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_WHITESPACE_NAME_BEFORE_MUTATION_001", "TEST_RUNTIME_MANAGED_FLEET_GENERATED_CONTROL_TOKEN_CONTAINS_32_RANDOM_BYTES_001", "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_INVALID_ENDPOINTS_AND_PORT_COLLISIONS_001", "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_UNSAFE_OR_DUPLICATE_RUNTIME_NAMES_001", "TEST_RUNTIME_MANAGED_FLEET_RESOURCE_NAMES_ARE_DETERMINISTIC_AND_NEVER_START_WITH_A_DIGIT_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_LIFECYCLE_RUNS_THROUGH_THE_SHIPPED_CLI_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_26E05028E7297CE1978DBC5F6A55FFA1834596BA2FBFD87D3CF03D0F6F2C9D89"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
+qualified_symbol = "trust_runtime::fleet::runtime_toml_for_runtime"
+item_kind = "rust_function"
+signature_digest = "sha256:901e1c118702631b791d0600b7840c7f591780d80d4754362b4644ca04e5b7be"
+reviewed_body_digest = "sha256:6ac1ad7a83903c279ef249d409cb24840ae67090c4c9adaa73c01730c6c9e2d9"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "RISK_ACK_26E05028E7297CE1978DBC5F6A55FFA1834596BA2FBFD87D3CF03D0F6F2C9D89"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+invariant_ids = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+test_ids = ["TEST_RUNTIME_MANAGED_FLEET_CONTROL_TOKEN_GENERATION_FAILS_CLOSED_WHEN_SECURE_RANDOMNESS_FAILS_001", "TEST_RUNTIME_MANAGED_FLEET_EMPTY_TEMPLATE_USES_VALID_LOOPBACK_IO_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_AUTO_SELECTS_DISTINCT_AVAILABLE_LOOPBACK_PORTS_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_CREATES_SIMULATED_PROJECT_AND_MANIFEST_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_ANY_MANIFEST_PORT_COLLISION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_DUPLICATE_NAME_WITHOUT_REWRITING_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_MALFORMED_MANIFEST_BEFORE_PROJECT_MUTATION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_WHITESPACE_NAME_BEFORE_MUTATION_001", "TEST_RUNTIME_MANAGED_FLEET_GENERATED_CONTROL_TOKEN_CONTAINS_32_RANDOM_BYTES_001", "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_INVALID_ENDPOINTS_AND_PORT_COLLISIONS_001", "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_UNSAFE_OR_DUPLICATE_RUNTIME_NAMES_001", "TEST_RUNTIME_MANAGED_FLEET_RESOURCE_NAMES_ARE_DETERMINISTIC_AND_NEVER_START_WITH_A_DIGIT_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_LIFECYCLE_RUNS_THROUGH_THE_SHIPPED_CLI_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_2E3EFC76DB95C2D219C1AB4BB58EA9B4C4FB0FF81A818E324DD167EECF92E60B"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs"
+qualified_symbol = "trust_runtime::fleet::lifecycle::remove_pid_file"
+item_kind = "rust_function"
+signature_digest = "sha256:db9bde7294d25a41fa3d8cc5037bb7b2b42321dbd4551162db045d3abd7c9ed0"
+reviewed_body_digest = "sha256:04064c324fd6fa8fbebd8300d7b4be425831e78e90216d0a678adbb9aac5273e"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "RISK_ACK_2E3EFC76DB95C2D219C1AB4BB58EA9B4C4FB0FF81A818E324DD167EECF92E60B"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+invariant_ids = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+test_ids = ["TEST_RUNTIME_MANAGED_FLEET_CONTROL_REQUEST_REJECTS_A_MISMATCHED_RESPONSE_ID_001", "TEST_RUNTIME_MANAGED_FLEET_CONTROL_REQUEST_REJECTS_MALFORMED_OR_AMBIGUOUS_RESPONSE_ENVELOPES_001", "TEST_RUNTIME_MANAGED_FLEET_CONTROL_RESPONSE_READER_REJECTS_AN_OVERSIZED_LINE_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_AUTH_READER_MATCHES_RUNTIME_TOKEN_NORMALIZATION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_LOGS_RETURN_REQUESTED_TAIL_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_START_ABORTS_WHEN_PID_PERSISTENCE_FAILS_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_START_REMOVES_PID_WHEN_CHILD_EXITS_BEFORE_READY_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REJECTS_A_CONNECTED_CONTROL_ERROR_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REJECTS_MALFORMED_RUNTIME_AUTH_CONFIG_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REPORTS_STOPPED_WHEN_ENDPOINT_UNREACHABLE_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_USES_ENDPOINT_EVIDENCE_NOT_A_STALE_PID_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_PROJECT_PATHS_RESOLVE_RELATIVE_AND_PRESERVE_ABSOLUTE_PATHS_001", "TEST_RUNTIME_MANAGED_FLEET_MISSING_RUNTIME_LOGS_ARE_EMPTY_WITHOUT_CREATING_STATE_001", "TEST_RUNTIME_MANAGED_FLEET_TERMINATE_STARTED_CHILD_KILLS_AND_REAPS_A_LIVE_PROCESS_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_LIFECYCLE_RUNS_THROUGH_THE_SHIPPED_CLI_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_363FC12CB5F7982C6C12FDB91D753CC3AD5A68DDCC761B95ACF2CB27A7AE14B1"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
+qualified_symbol = "trust_runtime::fleet::validate_runtime_name"
+item_kind = "rust_function"
+signature_digest = "sha256:2971f54061109016ccd17628542747a66218a5307116bac49b2dfb4a5cbc18cb"
+reviewed_body_digest = "sha256:dc7802ac47e0bd0479b0757803491d6dbc1c941c0e3ad5d4c91dfb67a5cf7368"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+invariant_ids = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+test_ids = ["TEST_RUNTIME_MANAGED_FLEET_CONTROL_TOKEN_GENERATION_FAILS_CLOSED_WHEN_SECURE_RANDOMNESS_FAILS_001", "TEST_RUNTIME_MANAGED_FLEET_EMPTY_TEMPLATE_USES_VALID_LOOPBACK_IO_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_AUTO_SELECTS_DISTINCT_AVAILABLE_LOOPBACK_PORTS_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_CREATES_SIMULATED_PROJECT_AND_MANIFEST_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_ANY_MANIFEST_PORT_COLLISION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_DUPLICATE_NAME_WITHOUT_REWRITING_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_MALFORMED_MANIFEST_BEFORE_PROJECT_MUTATION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_WHITESPACE_NAME_BEFORE_MUTATION_001", "TEST_RUNTIME_MANAGED_FLEET_GENERATED_CONTROL_TOKEN_CONTAINS_32_RANDOM_BYTES_001", "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_INVALID_ENDPOINTS_AND_PORT_COLLISIONS_001", "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_UNSAFE_OR_DUPLICATE_RUNTIME_NAMES_001", "TEST_RUNTIME_MANAGED_FLEET_RESOURCE_NAMES_ARE_DETERMINISTIC_AND_NEVER_START_WITH_A_DIGIT_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_LIFECYCLE_RUNS_THROUGH_THE_SHIPPED_CLI_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_3A7DF27B5D0E856E13CABE44EBF656FAC995E2E48D59582F35912F9C96EA9CC5"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/cli/fleet.rs"
+qualified_symbol = "trust_runtime::cli::FleetRuntimeTemplateArg"
+item_kind = "rust_public_type"
+signature_digest = "sha256:1e973302b758397d28270ce32afd5bbd2e143ce9fcdcad972ce3eb819a538702"
+reviewed_body_digest = "sha256:da7e790a4747ccf490806aaad5df88c7598de32ce54856bee36aab0af35f1d5d"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+invariant_ids = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+test_ids = ["TEST_RUNTIME_MANAGED_FLEET_PARSE_FLEET_LIST_COMMAND_001", "TEST_RUNTIME_MANAGED_FLEET_PARSE_FLEET_RUNTIME_ADD_COMMAND_001", "TEST_RUNTIME_MANAGED_FLEET_PARSE_FLEET_RUNTIME_LIFECYCLE_COMMANDS_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_LIFECYCLE_RUNS_THROUGH_THE_SHIPPED_CLI_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_3E19815B224BFB768CC6260E72E1B8B42FA1CAF1BA0907E731B4A0A737B0AD6A"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
+qualified_symbol = "trust_runtime::fleet::table_mut"
+item_kind = "rust_function"
+signature_digest = "sha256:2bdd64b6fcdd1298e8b9b7dcf5b4ddbe6b47a4d85e6f3ec8ca5c8e43e8fcbefe"
+reviewed_body_digest = "sha256:0726e115f3ef32575c816980979b63a1ec63c2bc78b3ea061f6b4b73d49e6657"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "RISK_ACK_3E19815B224BFB768CC6260E72E1B8B42FA1CAF1BA0907E731B4A0A737B0AD6A"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+invariant_ids = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+test_ids = ["TEST_RUNTIME_MANAGED_FLEET_CONTROL_TOKEN_GENERATION_FAILS_CLOSED_WHEN_SECURE_RANDOMNESS_FAILS_001", "TEST_RUNTIME_MANAGED_FLEET_EMPTY_TEMPLATE_USES_VALID_LOOPBACK_IO_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_AUTO_SELECTS_DISTINCT_AVAILABLE_LOOPBACK_PORTS_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_CREATES_SIMULATED_PROJECT_AND_MANIFEST_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_ANY_MANIFEST_PORT_COLLISION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_DUPLICATE_NAME_WITHOUT_REWRITING_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_MALFORMED_MANIFEST_BEFORE_PROJECT_MUTATION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_WHITESPACE_NAME_BEFORE_MUTATION_001", "TEST_RUNTIME_MANAGED_FLEET_GENERATED_CONTROL_TOKEN_CONTAINS_32_RANDOM_BYTES_001", "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_INVALID_ENDPOINTS_AND_PORT_COLLISIONS_001", "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_UNSAFE_OR_DUPLICATE_RUNTIME_NAMES_001", "TEST_RUNTIME_MANAGED_FLEET_RESOURCE_NAMES_ARE_DETERMINISTIC_AND_NEVER_START_WITH_A_DIGIT_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_LIFECYCLE_RUNS_THROUGH_THE_SHIPPED_CLI_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_43937D074AD813E942100EC63D8E2B3B2763E9E61E76DAB1399D434C69DF855D"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs"
+qualified_symbol = "trust_runtime::fleet::lifecycle::terminate_started_child"
+item_kind = "rust_function"
+signature_digest = "sha256:3e35ce739d57928c93864b9a1aad9dc8ee9c0e551a31fb9ec7200f12f44487b3"
+reviewed_body_digest = "sha256:8f569ffcb55cf7009f30fa2dd54d1be8416340ab066c9b33bd87a9f65041cfb8"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "RISK_ACK_43937D074AD813E942100EC63D8E2B3B2763E9E61E76DAB1399D434C69DF855D"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+invariant_ids = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+test_ids = ["TEST_RUNTIME_MANAGED_FLEET_CONTROL_REQUEST_REJECTS_A_MISMATCHED_RESPONSE_ID_001", "TEST_RUNTIME_MANAGED_FLEET_CONTROL_REQUEST_REJECTS_MALFORMED_OR_AMBIGUOUS_RESPONSE_ENVELOPES_001", "TEST_RUNTIME_MANAGED_FLEET_CONTROL_RESPONSE_READER_REJECTS_AN_OVERSIZED_LINE_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_AUTH_READER_MATCHES_RUNTIME_TOKEN_NORMALIZATION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_LOGS_RETURN_REQUESTED_TAIL_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_START_ABORTS_WHEN_PID_PERSISTENCE_FAILS_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_START_REMOVES_PID_WHEN_CHILD_EXITS_BEFORE_READY_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REJECTS_A_CONNECTED_CONTROL_ERROR_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REJECTS_MALFORMED_RUNTIME_AUTH_CONFIG_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REPORTS_STOPPED_WHEN_ENDPOINT_UNREACHABLE_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_USES_ENDPOINT_EVIDENCE_NOT_A_STALE_PID_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_PROJECT_PATHS_RESOLVE_RELATIVE_AND_PRESERVE_ABSOLUTE_PATHS_001", "TEST_RUNTIME_MANAGED_FLEET_MISSING_RUNTIME_LOGS_ARE_EMPTY_WITHOUT_CREATING_STATE_001", "TEST_RUNTIME_MANAGED_FLEET_TERMINATE_STARTED_CHILD_KILLS_AND_REAPS_A_LIVE_PROCESS_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_LIFECYCLE_RUNS_THROUGH_THE_SHIPPED_CLI_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_459DF82729F56D50B40EF7592B333B14258EF68EF2639DB534DD8DB93864FBFA"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs"
+qualified_symbol = "trust_runtime::fleet::lifecycle::exchange_control"
+item_kind = "rust_function"
+signature_digest = "sha256:9401c952c83edd060e6f16e97b59e7ccf5d9ec7654a9904324a6cfaf8d8b1d87"
+reviewed_body_digest = "sha256:d16ca2f0f64888da5e19471ee73ae3dc18626d2cee2d1cc9c99e02b700058a5c"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = ["broad_error_suppression", "fault_mapping", "network_io", "protocol_response_or_status"]
+owner_ack = "RISK_ACK_459DF82729F56D50B40EF7592B333B14258EF68EF2639DB534DD8DB93864FBFA"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+invariant_ids = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+test_ids = ["TEST_RUNTIME_MANAGED_FLEET_CONTROL_REQUEST_REJECTS_A_MISMATCHED_RESPONSE_ID_001", "TEST_RUNTIME_MANAGED_FLEET_CONTROL_REQUEST_REJECTS_MALFORMED_OR_AMBIGUOUS_RESPONSE_ENVELOPES_001", "TEST_RUNTIME_MANAGED_FLEET_CONTROL_RESPONSE_READER_REJECTS_AN_OVERSIZED_LINE_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_AUTH_READER_MATCHES_RUNTIME_TOKEN_NORMALIZATION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_LOGS_RETURN_REQUESTED_TAIL_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_START_ABORTS_WHEN_PID_PERSISTENCE_FAILS_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_START_REMOVES_PID_WHEN_CHILD_EXITS_BEFORE_READY_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REJECTS_A_CONNECTED_CONTROL_ERROR_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REJECTS_MALFORMED_RUNTIME_AUTH_CONFIG_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REPORTS_STOPPED_WHEN_ENDPOINT_UNREACHABLE_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_USES_ENDPOINT_EVIDENCE_NOT_A_STALE_PID_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_PROJECT_PATHS_RESOLVE_RELATIVE_AND_PRESERVE_ABSOLUTE_PATHS_001", "TEST_RUNTIME_MANAGED_FLEET_MISSING_RUNTIME_LOGS_ARE_EMPTY_WITHOUT_CREATING_STATE_001", "TEST_RUNTIME_MANAGED_FLEET_TERMINATE_STARTED_CHILD_KILLS_AND_REAPS_A_LIVE_PROCESS_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_LIFECYCLE_RUNS_THROUGH_THE_SHIPPED_CLI_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_46F0DA5449FA6AC9061407E9D79B8C8240A69275588F27844C12BF165B065186"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
+qualified_symbol = "trust_runtime::fleet::list_runtimes"
+item_kind = "rust_function"
+signature_digest = "sha256:a47d507df38724be61a7d622e1ab3cfc59af1430fd5c753da39ba1156635dd03"
+reviewed_body_digest = "sha256:25a706792973befb0baed0eadad8f7abaebbad6b97a9a92c7c8ade4e1bf14b1c"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+invariant_ids = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+test_ids = ["TEST_RUNTIME_MANAGED_FLEET_CONTROL_TOKEN_GENERATION_FAILS_CLOSED_WHEN_SECURE_RANDOMNESS_FAILS_001", "TEST_RUNTIME_MANAGED_FLEET_EMPTY_TEMPLATE_USES_VALID_LOOPBACK_IO_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_AUTO_SELECTS_DISTINCT_AVAILABLE_LOOPBACK_PORTS_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_CREATES_SIMULATED_PROJECT_AND_MANIFEST_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_ANY_MANIFEST_PORT_COLLISION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_DUPLICATE_NAME_WITHOUT_REWRITING_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_MALFORMED_MANIFEST_BEFORE_PROJECT_MUTATION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_WHITESPACE_NAME_BEFORE_MUTATION_001", "TEST_RUNTIME_MANAGED_FLEET_GENERATED_CONTROL_TOKEN_CONTAINS_32_RANDOM_BYTES_001", "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_INVALID_ENDPOINTS_AND_PORT_COLLISIONS_001", "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_UNSAFE_OR_DUPLICATE_RUNTIME_NAMES_001", "TEST_RUNTIME_MANAGED_FLEET_RESOURCE_NAMES_ARE_DETERMINISTIC_AND_NEVER_START_WITH_A_DIGIT_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_LIFECYCLE_RUNS_THROUGH_THE_SHIPPED_CLI_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_51A0CD14551093C94F8ABFC93B0614116DE217C8462EAE887E1969C61E445346"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
+qualified_symbol = "trust_runtime::fleet::resource_name_from_runtime_name"
+item_kind = "rust_function"
+signature_digest = "sha256:e30707f1492aad79b183e9faa5786a9dd74919a59c703c265cc27bd77b5390d7"
+reviewed_body_digest = "sha256:ce8e31896555ac49a8ba26ad7a01ef65e7bc0e7f1cbf0f202d545ca1e94b9f0c"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "RISK_ACK_51A0CD14551093C94F8ABFC93B0614116DE217C8462EAE887E1969C61E445346"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+invariant_ids = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+test_ids = ["TEST_RUNTIME_MANAGED_FLEET_CONTROL_TOKEN_GENERATION_FAILS_CLOSED_WHEN_SECURE_RANDOMNESS_FAILS_001", "TEST_RUNTIME_MANAGED_FLEET_EMPTY_TEMPLATE_USES_VALID_LOOPBACK_IO_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_AUTO_SELECTS_DISTINCT_AVAILABLE_LOOPBACK_PORTS_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_CREATES_SIMULATED_PROJECT_AND_MANIFEST_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_ANY_MANIFEST_PORT_COLLISION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_DUPLICATE_NAME_WITHOUT_REWRITING_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_MALFORMED_MANIFEST_BEFORE_PROJECT_MUTATION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_WHITESPACE_NAME_BEFORE_MUTATION_001", "TEST_RUNTIME_MANAGED_FLEET_GENERATED_CONTROL_TOKEN_CONTAINS_32_RANDOM_BYTES_001", "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_INVALID_ENDPOINTS_AND_PORT_COLLISIONS_001", "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_UNSAFE_OR_DUPLICATE_RUNTIME_NAMES_001", "TEST_RUNTIME_MANAGED_FLEET_RESOURCE_NAMES_ARE_DETERMINISTIC_AND_NEVER_START_WITH_A_DIGIT_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_LIFECYCLE_RUNS_THROUGH_THE_SHIPPED_CLI_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_58D92882F4BD90E2A57C9A9389C6B8F24B32D1D90682EE39199140A4D3ADA1BD"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
+qualified_symbol = "trust_runtime::fleet::write_manifest"
+item_kind = "rust_function"
+signature_digest = "sha256:2d78ce5dd0dbbbff9a00bd6ff9b1fa7cfa970d1c0c20a7e7e3aa93f5f981edf2"
+reviewed_body_digest = "sha256:32b95a1aad620e5c1e03a99a4935a47c45a72acdf8893dcb53458702eaa7eafa"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+invariant_ids = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+test_ids = ["TEST_RUNTIME_MANAGED_FLEET_CONTROL_TOKEN_GENERATION_FAILS_CLOSED_WHEN_SECURE_RANDOMNESS_FAILS_001", "TEST_RUNTIME_MANAGED_FLEET_EMPTY_TEMPLATE_USES_VALID_LOOPBACK_IO_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_AUTO_SELECTS_DISTINCT_AVAILABLE_LOOPBACK_PORTS_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_CREATES_SIMULATED_PROJECT_AND_MANIFEST_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_ANY_MANIFEST_PORT_COLLISION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_DUPLICATE_NAME_WITHOUT_REWRITING_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_MALFORMED_MANIFEST_BEFORE_PROJECT_MUTATION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_WHITESPACE_NAME_BEFORE_MUTATION_001", "TEST_RUNTIME_MANAGED_FLEET_GENERATED_CONTROL_TOKEN_CONTAINS_32_RANDOM_BYTES_001", "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_INVALID_ENDPOINTS_AND_PORT_COLLISIONS_001", "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_UNSAFE_OR_DUPLICATE_RUNTIME_NAMES_001", "TEST_RUNTIME_MANAGED_FLEET_RESOURCE_NAMES_ARE_DETERMINISTIC_AND_NEVER_START_WITH_A_DIGIT_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_LIFECYCLE_RUNS_THROUGH_THE_SHIPPED_CLI_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_66F8BCD32EBD977CE20691B9F35ABCE2CFFB35BAED442B990F3E595714E222B4"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
+qualified_symbol = "trust_runtime::fleet::print_lifecycle_response"
+item_kind = "rust_function"
+signature_digest = "sha256:5926729123cb6d826885a8f87aeba49f84fc7794124eb20df1e8bd309acfec87"
+reviewed_body_digest = "sha256:7463c524984d315e501957da50bad239acbb6aeafc9727f305a07b36814a6c3a"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+invariant_ids = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+test_ids = ["TEST_RUNTIME_MANAGED_FLEET_CONTROL_TOKEN_GENERATION_FAILS_CLOSED_WHEN_SECURE_RANDOMNESS_FAILS_001", "TEST_RUNTIME_MANAGED_FLEET_EMPTY_TEMPLATE_USES_VALID_LOOPBACK_IO_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_AUTO_SELECTS_DISTINCT_AVAILABLE_LOOPBACK_PORTS_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_CREATES_SIMULATED_PROJECT_AND_MANIFEST_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_ANY_MANIFEST_PORT_COLLISION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_DUPLICATE_NAME_WITHOUT_REWRITING_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_MALFORMED_MANIFEST_BEFORE_PROJECT_MUTATION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_WHITESPACE_NAME_BEFORE_MUTATION_001", "TEST_RUNTIME_MANAGED_FLEET_GENERATED_CONTROL_TOKEN_CONTAINS_32_RANDOM_BYTES_001", "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_INVALID_ENDPOINTS_AND_PORT_COLLISIONS_001", "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_UNSAFE_OR_DUPLICATE_RUNTIME_NAMES_001", "TEST_RUNTIME_MANAGED_FLEET_RESOURCE_NAMES_ARE_DETERMINISTIC_AND_NEVER_START_WITH_A_DIGIT_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_LIFECYCLE_RUNS_THROUGH_THE_SHIPPED_CLI_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_699E4108228D0C18C2FBBD01A3DFAD8F96042607E5C9B7DDD8CB93353684A458"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
+qualified_symbol = "trust_runtime::fleet::generate_control_token"
+item_kind = "rust_function"
+signature_digest = "sha256:2587b16bec9000a82d70c5e3491a4ba420bfa3f04a07de6e5f6d515e3fc4658a"
+reviewed_body_digest = "sha256:246d6a0f76080ec3360682442b2b2c63d65872974ce9513b207e5f7673894e77"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+invariant_ids = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+test_ids = ["TEST_RUNTIME_MANAGED_FLEET_CONTROL_TOKEN_GENERATION_FAILS_CLOSED_WHEN_SECURE_RANDOMNESS_FAILS_001", "TEST_RUNTIME_MANAGED_FLEET_EMPTY_TEMPLATE_USES_VALID_LOOPBACK_IO_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_AUTO_SELECTS_DISTINCT_AVAILABLE_LOOPBACK_PORTS_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_CREATES_SIMULATED_PROJECT_AND_MANIFEST_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_ANY_MANIFEST_PORT_COLLISION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_DUPLICATE_NAME_WITHOUT_REWRITING_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_MALFORMED_MANIFEST_BEFORE_PROJECT_MUTATION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_WHITESPACE_NAME_BEFORE_MUTATION_001", "TEST_RUNTIME_MANAGED_FLEET_GENERATED_CONTROL_TOKEN_CONTAINS_32_RANDOM_BYTES_001", "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_INVALID_ENDPOINTS_AND_PORT_COLLISIONS_001", "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_UNSAFE_OR_DUPLICATE_RUNTIME_NAMES_001", "TEST_RUNTIME_MANAGED_FLEET_RESOURCE_NAMES_ARE_DETERMINISTIC_AND_NEVER_START_WITH_A_DIGIT_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_LIFECYCLE_RUNS_THROUGH_THE_SHIPPED_CLI_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_85EAD6CA8CAD05984CB548764DE1580D7586CADA67F3EC862947D3BCC90C1E1E"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs"
+qualified_symbol = "trust_runtime::fleet::lifecycle::runtime_project_path"
+item_kind = "rust_function"
+signature_digest = "sha256:321471a2c982223c9a56e1968971d30edfe8e5bcb22be0bd61fccdecf3dab515"
+reviewed_body_digest = "sha256:1569127aa428dd6c9f10b384f25adc694bf0dbe5205f22c06d0b21093a6d3c4a"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+invariant_ids = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+test_ids = ["TEST_RUNTIME_MANAGED_FLEET_CONTROL_REQUEST_REJECTS_A_MISMATCHED_RESPONSE_ID_001", "TEST_RUNTIME_MANAGED_FLEET_CONTROL_REQUEST_REJECTS_MALFORMED_OR_AMBIGUOUS_RESPONSE_ENVELOPES_001", "TEST_RUNTIME_MANAGED_FLEET_CONTROL_RESPONSE_READER_REJECTS_AN_OVERSIZED_LINE_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_AUTH_READER_MATCHES_RUNTIME_TOKEN_NORMALIZATION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_LOGS_RETURN_REQUESTED_TAIL_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_START_ABORTS_WHEN_PID_PERSISTENCE_FAILS_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_START_REMOVES_PID_WHEN_CHILD_EXITS_BEFORE_READY_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REJECTS_A_CONNECTED_CONTROL_ERROR_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REJECTS_MALFORMED_RUNTIME_AUTH_CONFIG_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REPORTS_STOPPED_WHEN_ENDPOINT_UNREACHABLE_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_USES_ENDPOINT_EVIDENCE_NOT_A_STALE_PID_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_PROJECT_PATHS_RESOLVE_RELATIVE_AND_PRESERVE_ABSOLUTE_PATHS_001", "TEST_RUNTIME_MANAGED_FLEET_MISSING_RUNTIME_LOGS_ARE_EMPTY_WITHOUT_CREATING_STATE_001", "TEST_RUNTIME_MANAGED_FLEET_TERMINATE_STARTED_CHILD_KILLS_AND_REAPS_A_LIVE_PROCESS_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_LIFECYCLE_RUNS_THROUGH_THE_SHIPPED_CLI_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_8AC92638CDDD9296AA345EF1A399D86DB6960F2C9941243D5760F917AA3EFD09"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs"
+qualified_symbol = "trust_runtime::fleet::lifecycle::start_runtime"
+item_kind = "rust_function"
+signature_digest = "sha256:58c62a0758c0e223b407b030eb521760d45992efd0d0a6ee28356d9d9364f939"
+reviewed_body_digest = "sha256:8c8c0c87e30a4a1ef8382d97bed48f910e5cd743c680c99fdfa0c8aff0e56910"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = ["filesystem_or_environment", "protocol_response_or_status", "state_mutation", "subprocess_or_thread"]
+owner_ack = "RISK_ACK_8AC92638CDDD9296AA345EF1A399D86DB6960F2C9941243D5760F917AA3EFD09"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+invariant_ids = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+test_ids = ["TEST_RUNTIME_MANAGED_FLEET_CONTROL_REQUEST_REJECTS_A_MISMATCHED_RESPONSE_ID_001", "TEST_RUNTIME_MANAGED_FLEET_CONTROL_REQUEST_REJECTS_MALFORMED_OR_AMBIGUOUS_RESPONSE_ENVELOPES_001", "TEST_RUNTIME_MANAGED_FLEET_CONTROL_RESPONSE_READER_REJECTS_AN_OVERSIZED_LINE_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_AUTH_READER_MATCHES_RUNTIME_TOKEN_NORMALIZATION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_LOGS_RETURN_REQUESTED_TAIL_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_START_ABORTS_WHEN_PID_PERSISTENCE_FAILS_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_START_REMOVES_PID_WHEN_CHILD_EXITS_BEFORE_READY_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REJECTS_A_CONNECTED_CONTROL_ERROR_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REJECTS_MALFORMED_RUNTIME_AUTH_CONFIG_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REPORTS_STOPPED_WHEN_ENDPOINT_UNREACHABLE_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_USES_ENDPOINT_EVIDENCE_NOT_A_STALE_PID_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_PROJECT_PATHS_RESOLVE_RELATIVE_AND_PRESERVE_ABSOLUTE_PATHS_001", "TEST_RUNTIME_MANAGED_FLEET_MISSING_RUNTIME_LOGS_ARE_EMPTY_WITHOUT_CREATING_STATE_001", "TEST_RUNTIME_MANAGED_FLEET_TERMINATE_STARTED_CHILD_KILLS_AND_REAPS_A_LIVE_PROCESS_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_LIFECYCLE_RUNS_THROUGH_THE_SHIPPED_CLI_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_8C75B9E8F742FD6391346A73B051D96382F7D63C56AF5A7C22D50B4CC3E3FE4B"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs"
+qualified_symbol = "trust_runtime::fleet::lifecycle::request_control"
+item_kind = "rust_function"
+signature_digest = "sha256:4457b00fd25ba65e424b3fa1e43b3ff4f2d64e1325c2170310c0678316cd0e90"
+reviewed_body_digest = "sha256:a12572cc7d062c297366069e8f3f29fb5d2106b32f3ebf33e1350c97b7cf0897"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+invariant_ids = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+test_ids = ["TEST_RUNTIME_MANAGED_FLEET_CONTROL_REQUEST_REJECTS_A_MISMATCHED_RESPONSE_ID_001", "TEST_RUNTIME_MANAGED_FLEET_CONTROL_REQUEST_REJECTS_MALFORMED_OR_AMBIGUOUS_RESPONSE_ENVELOPES_001", "TEST_RUNTIME_MANAGED_FLEET_CONTROL_RESPONSE_READER_REJECTS_AN_OVERSIZED_LINE_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_AUTH_READER_MATCHES_RUNTIME_TOKEN_NORMALIZATION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_LOGS_RETURN_REQUESTED_TAIL_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_START_ABORTS_WHEN_PID_PERSISTENCE_FAILS_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_START_REMOVES_PID_WHEN_CHILD_EXITS_BEFORE_READY_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REJECTS_A_CONNECTED_CONTROL_ERROR_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REJECTS_MALFORMED_RUNTIME_AUTH_CONFIG_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REPORTS_STOPPED_WHEN_ENDPOINT_UNREACHABLE_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_USES_ENDPOINT_EVIDENCE_NOT_A_STALE_PID_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_PROJECT_PATHS_RESOLVE_RELATIVE_AND_PRESERVE_ABSOLUTE_PATHS_001", "TEST_RUNTIME_MANAGED_FLEET_MISSING_RUNTIME_LOGS_ARE_EMPTY_WITHOUT_CREATING_STATE_001", "TEST_RUNTIME_MANAGED_FLEET_TERMINATE_STARTED_CHILD_KILLS_AND_REAPS_A_LIVE_PROCESS_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_LIFECYCLE_RUNS_THROUGH_THE_SHIPPED_CLI_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_8C7CADB13958A74EBA4A6F0CEAE01ADDC4E22164AD3C21A173AE455EFA72A1E3"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs"
+qualified_symbol = "trust_runtime::fleet::lifecycle::runtime_logs"
+item_kind = "rust_function"
+signature_digest = "sha256:d952f20c1a40df85c4bbf90d647053fe05e0b1dc23379306a1a8bb3f0c8eda8c"
+reviewed_body_digest = "sha256:53c658eec840d2a54ddfbd746b76ca22770874a17732c27e522e62de1adb71bd"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "RISK_ACK_8C7CADB13958A74EBA4A6F0CEAE01ADDC4E22164AD3C21A173AE455EFA72A1E3"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+invariant_ids = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+test_ids = ["TEST_RUNTIME_MANAGED_FLEET_CONTROL_REQUEST_REJECTS_A_MISMATCHED_RESPONSE_ID_001", "TEST_RUNTIME_MANAGED_FLEET_CONTROL_REQUEST_REJECTS_MALFORMED_OR_AMBIGUOUS_RESPONSE_ENVELOPES_001", "TEST_RUNTIME_MANAGED_FLEET_CONTROL_RESPONSE_READER_REJECTS_AN_OVERSIZED_LINE_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_AUTH_READER_MATCHES_RUNTIME_TOKEN_NORMALIZATION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_LOGS_RETURN_REQUESTED_TAIL_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_START_ABORTS_WHEN_PID_PERSISTENCE_FAILS_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_START_REMOVES_PID_WHEN_CHILD_EXITS_BEFORE_READY_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REJECTS_A_CONNECTED_CONTROL_ERROR_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REJECTS_MALFORMED_RUNTIME_AUTH_CONFIG_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REPORTS_STOPPED_WHEN_ENDPOINT_UNREACHABLE_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_USES_ENDPOINT_EVIDENCE_NOT_A_STALE_PID_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_PROJECT_PATHS_RESOLVE_RELATIVE_AND_PRESERVE_ABSOLUTE_PATHS_001", "TEST_RUNTIME_MANAGED_FLEET_MISSING_RUNTIME_LOGS_ARE_EMPTY_WITHOUT_CREATING_STATE_001", "TEST_RUNTIME_MANAGED_FLEET_TERMINATE_STARTED_CHILD_KILLS_AND_REAPS_A_LIVE_PROCESS_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_LIFECYCLE_RUNS_THROUGH_THE_SHIPPED_CLI_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_98065A105B718DCACA33EA57E87ECF5C21415BDBD0DCF3BAC566A5779A3544C2"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
+qualified_symbol = "trust_runtime::fleet::select_port"
+item_kind = "rust_function"
+signature_digest = "sha256:cb5c263da346fcb8b9f9da6ea3c8516c9e02fc3d8e8286964bef321511cd4293"
+reviewed_body_digest = "sha256:e7a1f0d121c51a43e55ae75016f395feff1287dd4227493ddd7f766eaf09bf81"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = ["network_io", "state_mutation"]
+owner_ack = "RISK_ACK_98065A105B718DCACA33EA57E87ECF5C21415BDBD0DCF3BAC566A5779A3544C2"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+invariant_ids = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+test_ids = ["TEST_RUNTIME_MANAGED_FLEET_CONTROL_TOKEN_GENERATION_FAILS_CLOSED_WHEN_SECURE_RANDOMNESS_FAILS_001", "TEST_RUNTIME_MANAGED_FLEET_EMPTY_TEMPLATE_USES_VALID_LOOPBACK_IO_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_AUTO_SELECTS_DISTINCT_AVAILABLE_LOOPBACK_PORTS_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_CREATES_SIMULATED_PROJECT_AND_MANIFEST_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_ANY_MANIFEST_PORT_COLLISION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_DUPLICATE_NAME_WITHOUT_REWRITING_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_MALFORMED_MANIFEST_BEFORE_PROJECT_MUTATION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_WHITESPACE_NAME_BEFORE_MUTATION_001", "TEST_RUNTIME_MANAGED_FLEET_GENERATED_CONTROL_TOKEN_CONTAINS_32_RANDOM_BYTES_001", "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_INVALID_ENDPOINTS_AND_PORT_COLLISIONS_001", "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_UNSAFE_OR_DUPLICATE_RUNTIME_NAMES_001", "TEST_RUNTIME_MANAGED_FLEET_RESOURCE_NAMES_ARE_DETERMINISTIC_AND_NEVER_START_WITH_A_DIGIT_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_LIFECYCLE_RUNS_THROUGH_THE_SHIPPED_CLI_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_9A5E56B2FD8C4A6C468E9218AE59EC5CF4EACC57E889B17341EA6B55B495776C"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs"
+qualified_symbol = "trust_runtime::fleet::lifecycle::lifecycle_paths"
+item_kind = "rust_function"
+signature_digest = "sha256:18b820a838adce0b46a96fb43910e76fbd272b9c2a657452ad5cd860e71535da"
+reviewed_body_digest = "sha256:f220b4d49de3d203611cf1eef0091f1ef85dc06e2d13fbc2caf956067a171fcd"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+invariant_ids = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+test_ids = ["TEST_RUNTIME_MANAGED_FLEET_CONTROL_REQUEST_REJECTS_A_MISMATCHED_RESPONSE_ID_001", "TEST_RUNTIME_MANAGED_FLEET_CONTROL_REQUEST_REJECTS_MALFORMED_OR_AMBIGUOUS_RESPONSE_ENVELOPES_001", "TEST_RUNTIME_MANAGED_FLEET_CONTROL_RESPONSE_READER_REJECTS_AN_OVERSIZED_LINE_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_AUTH_READER_MATCHES_RUNTIME_TOKEN_NORMALIZATION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_LOGS_RETURN_REQUESTED_TAIL_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_START_ABORTS_WHEN_PID_PERSISTENCE_FAILS_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_START_REMOVES_PID_WHEN_CHILD_EXITS_BEFORE_READY_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REJECTS_A_CONNECTED_CONTROL_ERROR_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REJECTS_MALFORMED_RUNTIME_AUTH_CONFIG_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REPORTS_STOPPED_WHEN_ENDPOINT_UNREACHABLE_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_USES_ENDPOINT_EVIDENCE_NOT_A_STALE_PID_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_PROJECT_PATHS_RESOLVE_RELATIVE_AND_PRESERVE_ABSOLUTE_PATHS_001", "TEST_RUNTIME_MANAGED_FLEET_MISSING_RUNTIME_LOGS_ARE_EMPTY_WITHOUT_CREATING_STATE_001", "TEST_RUNTIME_MANAGED_FLEET_TERMINATE_STARTED_CHILD_KILLS_AND_REAPS_A_LIVE_PROCESS_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_LIFECYCLE_RUNS_THROUGH_THE_SHIPPED_CLI_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_9C76573CA41A35869D864B5A84BB0097972CE6BDDD64427C2CFD64BF7E69D1AA"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
+qualified_symbol = "trust_runtime::fleet::load_manifest"
+item_kind = "rust_function"
+signature_digest = "sha256:93099f7083e45eb5d9b2e43d1b1b6a485b649484f8780914ef428249441046e2"
+reviewed_body_digest = "sha256:56accd9bb27839758bba8e57e3b72d554961e8b040d418a67f275d3ea9dce338"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = ["filesystem_or_environment"]
+owner_ack = "RISK_ACK_9C76573CA41A35869D864B5A84BB0097972CE6BDDD64427C2CFD64BF7E69D1AA"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+invariant_ids = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+test_ids = ["TEST_RUNTIME_MANAGED_FLEET_CONTROL_TOKEN_GENERATION_FAILS_CLOSED_WHEN_SECURE_RANDOMNESS_FAILS_001", "TEST_RUNTIME_MANAGED_FLEET_EMPTY_TEMPLATE_USES_VALID_LOOPBACK_IO_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_AUTO_SELECTS_DISTINCT_AVAILABLE_LOOPBACK_PORTS_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_CREATES_SIMULATED_PROJECT_AND_MANIFEST_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_ANY_MANIFEST_PORT_COLLISION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_DUPLICATE_NAME_WITHOUT_REWRITING_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_MALFORMED_MANIFEST_BEFORE_PROJECT_MUTATION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_WHITESPACE_NAME_BEFORE_MUTATION_001", "TEST_RUNTIME_MANAGED_FLEET_GENERATED_CONTROL_TOKEN_CONTAINS_32_RANDOM_BYTES_001", "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_INVALID_ENDPOINTS_AND_PORT_COLLISIONS_001", "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_UNSAFE_OR_DUPLICATE_RUNTIME_NAMES_001", "TEST_RUNTIME_MANAGED_FLEET_RESOURCE_NAMES_ARE_DETERMINISTIC_AND_NEVER_START_WITH_A_DIGIT_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_LIFECYCLE_RUNS_THROUGH_THE_SHIPPED_CLI_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_A04F7F2209301545DFDE6D6734A8030B08FBDDC0B7C82C744DCBD5B06879DCBD"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/cli/fleet.rs"
+qualified_symbol = "trust_runtime::cli::FleetAction"
+item_kind = "rust_public_type"
+signature_digest = "sha256:2f2ec6c4e2b8d1a3d8406d2522ac370f0ce0c47a5927decc8a371e107fca6377"
+reviewed_body_digest = "sha256:cdabf0d0efa2fe7bea6cd4cbcaa49acceb08c395de261dcf4b86593c5de3d38f"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+invariant_ids = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+test_ids = ["TEST_RUNTIME_MANAGED_FLEET_PARSE_FLEET_LIST_COMMAND_001", "TEST_RUNTIME_MANAGED_FLEET_PARSE_FLEET_RUNTIME_ADD_COMMAND_001", "TEST_RUNTIME_MANAGED_FLEET_PARSE_FLEET_RUNTIME_LIFECYCLE_COMMANDS_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_LIFECYCLE_RUNS_THROUGH_THE_SHIPPED_CLI_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_A31BA137DE566F68E1574BB916EA2D03FDC2FC81208D54114C6673CF9B3746C9"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs"
+qualified_symbol = "trust_runtime::fleet::lifecycle::read_control_auth_token"
+item_kind = "rust_function"
+signature_digest = "sha256:2725080f80a2933f3352ac2cf2f53bac12e62b40ea1896fb76fc3eb5d4fb1679"
+reviewed_body_digest = "sha256:eec2832cd31bed218b18f31d99258c68135d1d9575cd008df0210b7d15ea3948"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = ["filesystem_or_environment"]
+owner_ack = "RISK_ACK_A31BA137DE566F68E1574BB916EA2D03FDC2FC81208D54114C6673CF9B3746C9"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+invariant_ids = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+test_ids = ["TEST_RUNTIME_MANAGED_FLEET_CONTROL_REQUEST_REJECTS_A_MISMATCHED_RESPONSE_ID_001", "TEST_RUNTIME_MANAGED_FLEET_CONTROL_REQUEST_REJECTS_MALFORMED_OR_AMBIGUOUS_RESPONSE_ENVELOPES_001", "TEST_RUNTIME_MANAGED_FLEET_CONTROL_RESPONSE_READER_REJECTS_AN_OVERSIZED_LINE_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_AUTH_READER_MATCHES_RUNTIME_TOKEN_NORMALIZATION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_LOGS_RETURN_REQUESTED_TAIL_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_START_ABORTS_WHEN_PID_PERSISTENCE_FAILS_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_START_REMOVES_PID_WHEN_CHILD_EXITS_BEFORE_READY_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REJECTS_A_CONNECTED_CONTROL_ERROR_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REJECTS_MALFORMED_RUNTIME_AUTH_CONFIG_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REPORTS_STOPPED_WHEN_ENDPOINT_UNREACHABLE_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_USES_ENDPOINT_EVIDENCE_NOT_A_STALE_PID_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_PROJECT_PATHS_RESOLVE_RELATIVE_AND_PRESERVE_ABSOLUTE_PATHS_001", "TEST_RUNTIME_MANAGED_FLEET_MISSING_RUNTIME_LOGS_ARE_EMPTY_WITHOUT_CREATING_STATE_001", "TEST_RUNTIME_MANAGED_FLEET_TERMINATE_STARTED_CHILD_KILLS_AND_REAPS_A_LIVE_PROCESS_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_LIFECYCLE_RUNS_THROUGH_THE_SHIPPED_CLI_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_B36F5BD151179BBD6D9E2AB7B3644A41F57B2D7628E68E5D61613ECF4B0F31B7"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs"
+qualified_symbol = "trust_runtime::fleet::lifecycle::read_pid"
+item_kind = "rust_function"
+signature_digest = "sha256:23e82367f19abde4ab002c668cc1d98610344d9af3d79fc119e26df6b70616e7"
+reviewed_body_digest = "sha256:62ef475ecdacc8874a4d0138481b66ce1c22f2a1b41c9f5c4b114189f441e769"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = ["filesystem_or_environment"]
+owner_ack = "RISK_ACK_B36F5BD151179BBD6D9E2AB7B3644A41F57B2D7628E68E5D61613ECF4B0F31B7"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+invariant_ids = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+test_ids = ["TEST_RUNTIME_MANAGED_FLEET_CONTROL_REQUEST_REJECTS_A_MISMATCHED_RESPONSE_ID_001", "TEST_RUNTIME_MANAGED_FLEET_CONTROL_REQUEST_REJECTS_MALFORMED_OR_AMBIGUOUS_RESPONSE_ENVELOPES_001", "TEST_RUNTIME_MANAGED_FLEET_CONTROL_RESPONSE_READER_REJECTS_AN_OVERSIZED_LINE_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_AUTH_READER_MATCHES_RUNTIME_TOKEN_NORMALIZATION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_LOGS_RETURN_REQUESTED_TAIL_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_START_ABORTS_WHEN_PID_PERSISTENCE_FAILS_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_START_REMOVES_PID_WHEN_CHILD_EXITS_BEFORE_READY_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REJECTS_A_CONNECTED_CONTROL_ERROR_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REJECTS_MALFORMED_RUNTIME_AUTH_CONFIG_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REPORTS_STOPPED_WHEN_ENDPOINT_UNREACHABLE_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_USES_ENDPOINT_EVIDENCE_NOT_A_STALE_PID_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_PROJECT_PATHS_RESOLVE_RELATIVE_AND_PRESERVE_ABSOLUTE_PATHS_001", "TEST_RUNTIME_MANAGED_FLEET_MISSING_RUNTIME_LOGS_ARE_EMPTY_WITHOUT_CREATING_STATE_001", "TEST_RUNTIME_MANAGED_FLEET_TERMINATE_STARTED_CHILD_KILLS_AND_REAPS_A_LIVE_PROCESS_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_LIFECYCLE_RUNS_THROUGH_THE_SHIPPED_CLI_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_B49CB5E431C64265348EEEE3B8CE82E03CD3562496FCADEF384F5022D3E73532"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
+qualified_symbol = "trust_runtime::fleet::render_main_source"
+item_kind = "rust_function"
+signature_digest = "sha256:a7489b36556fee5427d56668608381d8eaf93e5e47d7d7bf94cce6a8f446df7c"
+reviewed_body_digest = "sha256:afffb9079b3c875ee309492cb28c4019086865385bb76ab96b74100c16d78897"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+invariant_ids = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+test_ids = ["TEST_RUNTIME_MANAGED_FLEET_CONTROL_TOKEN_GENERATION_FAILS_CLOSED_WHEN_SECURE_RANDOMNESS_FAILS_001", "TEST_RUNTIME_MANAGED_FLEET_EMPTY_TEMPLATE_USES_VALID_LOOPBACK_IO_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_AUTO_SELECTS_DISTINCT_AVAILABLE_LOOPBACK_PORTS_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_CREATES_SIMULATED_PROJECT_AND_MANIFEST_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_ANY_MANIFEST_PORT_COLLISION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_DUPLICATE_NAME_WITHOUT_REWRITING_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_MALFORMED_MANIFEST_BEFORE_PROJECT_MUTATION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_WHITESPACE_NAME_BEFORE_MUTATION_001", "TEST_RUNTIME_MANAGED_FLEET_GENERATED_CONTROL_TOKEN_CONTAINS_32_RANDOM_BYTES_001", "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_INVALID_ENDPOINTS_AND_PORT_COLLISIONS_001", "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_UNSAFE_OR_DUPLICATE_RUNTIME_NAMES_001", "TEST_RUNTIME_MANAGED_FLEET_RESOURCE_NAMES_ARE_DETERMINISTIC_AND_NEVER_START_WITH_A_DIGIT_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_LIFECYCLE_RUNS_THROUGH_THE_SHIPPED_CLI_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_B70AA8BCFEFD009113157C178091A08A5BED1BD71815ECB603E9D686D1458AC1"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
+qualified_symbol = "trust_runtime::fleet::add_runtime"
+item_kind = "rust_function"
+signature_digest = "sha256:ff6b3f71ee28c2ad21459b8368345fec038c2283de915d0d257896d5254f7c2f"
+reviewed_body_digest = "sha256:57839e3d4f1d10a3af767a5c01c7292b42d9bb561551340dc847007c99ed4199"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "RISK_ACK_B70AA8BCFEFD009113157C178091A08A5BED1BD71815ECB603E9D686D1458AC1"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+invariant_ids = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+test_ids = ["TEST_RUNTIME_MANAGED_FLEET_CONTROL_TOKEN_GENERATION_FAILS_CLOSED_WHEN_SECURE_RANDOMNESS_FAILS_001", "TEST_RUNTIME_MANAGED_FLEET_EMPTY_TEMPLATE_USES_VALID_LOOPBACK_IO_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_AUTO_SELECTS_DISTINCT_AVAILABLE_LOOPBACK_PORTS_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_CREATES_SIMULATED_PROJECT_AND_MANIFEST_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_ANY_MANIFEST_PORT_COLLISION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_DUPLICATE_NAME_WITHOUT_REWRITING_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_MALFORMED_MANIFEST_BEFORE_PROJECT_MUTATION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_WHITESPACE_NAME_BEFORE_MUTATION_001", "TEST_RUNTIME_MANAGED_FLEET_GENERATED_CONTROL_TOKEN_CONTAINS_32_RANDOM_BYTES_001", "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_INVALID_ENDPOINTS_AND_PORT_COLLISIONS_001", "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_UNSAFE_OR_DUPLICATE_RUNTIME_NAMES_001", "TEST_RUNTIME_MANAGED_FLEET_RESOURCE_NAMES_ARE_DETERMINISTIC_AND_NEVER_START_WITH_A_DIGIT_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_LIFECYCLE_RUNS_THROUGH_THE_SHIPPED_CLI_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_BA90707AE445CF07DE2FDC9254AAE029B058BF76FAB583E11AC1B337BB652D2F"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
+qualified_symbol = "trust_runtime::fleet::control_port_from_endpoint"
+item_kind = "rust_function"
+signature_digest = "sha256:a8ebab4be2498ad483a4dfb7521d9a6f1173e3ffd42a2e7c515a338e79f2b6c0"
+reviewed_body_digest = "sha256:3893843614f48121b5be876256737447e25ef0b84b8f0028416f9a465a60998f"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = ["broad_error_suppression"]
+owner_ack = "RISK_ACK_BA90707AE445CF07DE2FDC9254AAE029B058BF76FAB583E11AC1B337BB652D2F"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+invariant_ids = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+test_ids = ["TEST_RUNTIME_MANAGED_FLEET_CONTROL_TOKEN_GENERATION_FAILS_CLOSED_WHEN_SECURE_RANDOMNESS_FAILS_001", "TEST_RUNTIME_MANAGED_FLEET_EMPTY_TEMPLATE_USES_VALID_LOOPBACK_IO_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_AUTO_SELECTS_DISTINCT_AVAILABLE_LOOPBACK_PORTS_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_CREATES_SIMULATED_PROJECT_AND_MANIFEST_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_ANY_MANIFEST_PORT_COLLISION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_DUPLICATE_NAME_WITHOUT_REWRITING_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_MALFORMED_MANIFEST_BEFORE_PROJECT_MUTATION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_WHITESPACE_NAME_BEFORE_MUTATION_001", "TEST_RUNTIME_MANAGED_FLEET_GENERATED_CONTROL_TOKEN_CONTAINS_32_RANDOM_BYTES_001", "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_INVALID_ENDPOINTS_AND_PORT_COLLISIONS_001", "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_UNSAFE_OR_DUPLICATE_RUNTIME_NAMES_001", "TEST_RUNTIME_MANAGED_FLEET_RESOURCE_NAMES_ARE_DETERMINISTIC_AND_NEVER_START_WITH_A_DIGIT_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_LIFECYCLE_RUNS_THROUGH_THE_SHIPPED_CLI_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_BE606C841590D489A4B36E9D01ECC4C83A05F97C53CEC651651A80766D7D0FB9"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
+qualified_symbol = "trust_runtime::fleet::write_runtime_project"
+item_kind = "rust_function"
+signature_digest = "sha256:1e7584ef6c548556b69993e7a1e709b14c47963015702a93fe49f0292b202154"
+reviewed_body_digest = "sha256:bec67325e8b6a4f956cc4625abede62306520ac32b9c1828f879a14b6d327894"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = ["fault_mapping"]
+owner_ack = "RISK_ACK_BE606C841590D489A4B36E9D01ECC4C83A05F97C53CEC651651A80766D7D0FB9"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+invariant_ids = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+test_ids = ["TEST_RUNTIME_MANAGED_FLEET_CONTROL_TOKEN_GENERATION_FAILS_CLOSED_WHEN_SECURE_RANDOMNESS_FAILS_001", "TEST_RUNTIME_MANAGED_FLEET_EMPTY_TEMPLATE_USES_VALID_LOOPBACK_IO_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_AUTO_SELECTS_DISTINCT_AVAILABLE_LOOPBACK_PORTS_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_CREATES_SIMULATED_PROJECT_AND_MANIFEST_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_ANY_MANIFEST_PORT_COLLISION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_DUPLICATE_NAME_WITHOUT_REWRITING_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_MALFORMED_MANIFEST_BEFORE_PROJECT_MUTATION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_WHITESPACE_NAME_BEFORE_MUTATION_001", "TEST_RUNTIME_MANAGED_FLEET_GENERATED_CONTROL_TOKEN_CONTAINS_32_RANDOM_BYTES_001", "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_INVALID_ENDPOINTS_AND_PORT_COLLISIONS_001", "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_UNSAFE_OR_DUPLICATE_RUNTIME_NAMES_001", "TEST_RUNTIME_MANAGED_FLEET_RESOURCE_NAMES_ARE_DETERMINISTIC_AND_NEVER_START_WITH_A_DIGIT_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_LIFECYCLE_RUNS_THROUGH_THE_SHIPPED_CLI_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_BFCEF47B85BF78730805C7A9C86E696FFE9EADA101B340A4392C1E029319905D"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs"
+qualified_symbol = "trust_runtime::fleet::lifecycle::status_runtime"
+item_kind = "rust_function"
+signature_digest = "sha256:a3c7e0d87358496f711481339c275316f919595c7fb7720ee0f8b4c1c633930c"
+reviewed_body_digest = "sha256:be6ff8503b20fee1a73e69bb1e2eee77c85eaaba3e84d70b9618ea0b2660631b"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = ["protocol_response_or_status"]
+owner_ack = "RISK_ACK_BFCEF47B85BF78730805C7A9C86E696FFE9EADA101B340A4392C1E029319905D"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+invariant_ids = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+test_ids = ["TEST_RUNTIME_MANAGED_FLEET_CONTROL_REQUEST_REJECTS_A_MISMATCHED_RESPONSE_ID_001", "TEST_RUNTIME_MANAGED_FLEET_CONTROL_REQUEST_REJECTS_MALFORMED_OR_AMBIGUOUS_RESPONSE_ENVELOPES_001", "TEST_RUNTIME_MANAGED_FLEET_CONTROL_RESPONSE_READER_REJECTS_AN_OVERSIZED_LINE_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_AUTH_READER_MATCHES_RUNTIME_TOKEN_NORMALIZATION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_LOGS_RETURN_REQUESTED_TAIL_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_START_ABORTS_WHEN_PID_PERSISTENCE_FAILS_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_START_REMOVES_PID_WHEN_CHILD_EXITS_BEFORE_READY_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REJECTS_A_CONNECTED_CONTROL_ERROR_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REJECTS_MALFORMED_RUNTIME_AUTH_CONFIG_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REPORTS_STOPPED_WHEN_ENDPOINT_UNREACHABLE_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_USES_ENDPOINT_EVIDENCE_NOT_A_STALE_PID_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_PROJECT_PATHS_RESOLVE_RELATIVE_AND_PRESERVE_ABSOLUTE_PATHS_001", "TEST_RUNTIME_MANAGED_FLEET_MISSING_RUNTIME_LOGS_ARE_EMPTY_WITHOUT_CREATING_STATE_001", "TEST_RUNTIME_MANAGED_FLEET_TERMINATE_STARTED_CHILD_KILLS_AND_REAPS_A_LIVE_PROCESS_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_LIFECYCLE_RUNS_THROUGH_THE_SHIPPED_CLI_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_C80027591D22BAA08675869E6C75C7AA6848E257285392C37BCDF84ABF33C92E"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs"
+qualified_symbol = "trust_runtime::fleet::lifecycle::stop_runtime"
+item_kind = "rust_function"
+signature_digest = "sha256:49279e0d5c4a98968382b0820b50fbbc0b676ae5dc49731017c0e4ce80957634"
+reviewed_body_digest = "sha256:0e9e2d0f7009f8a24aaadc4d8abce751e6bcf8ad782ea9773bc1c6c8360867bc"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = ["protocol_response_or_status", "state_mutation"]
+owner_ack = "RISK_ACK_C80027591D22BAA08675869E6C75C7AA6848E257285392C37BCDF84ABF33C92E"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+invariant_ids = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+test_ids = ["TEST_RUNTIME_MANAGED_FLEET_CONTROL_REQUEST_REJECTS_A_MISMATCHED_RESPONSE_ID_001", "TEST_RUNTIME_MANAGED_FLEET_CONTROL_REQUEST_REJECTS_MALFORMED_OR_AMBIGUOUS_RESPONSE_ENVELOPES_001", "TEST_RUNTIME_MANAGED_FLEET_CONTROL_RESPONSE_READER_REJECTS_AN_OVERSIZED_LINE_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_AUTH_READER_MATCHES_RUNTIME_TOKEN_NORMALIZATION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_LOGS_RETURN_REQUESTED_TAIL_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_START_ABORTS_WHEN_PID_PERSISTENCE_FAILS_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_START_REMOVES_PID_WHEN_CHILD_EXITS_BEFORE_READY_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REJECTS_A_CONNECTED_CONTROL_ERROR_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REJECTS_MALFORMED_RUNTIME_AUTH_CONFIG_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REPORTS_STOPPED_WHEN_ENDPOINT_UNREACHABLE_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_USES_ENDPOINT_EVIDENCE_NOT_A_STALE_PID_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_PROJECT_PATHS_RESOLVE_RELATIVE_AND_PRESERVE_ABSOLUTE_PATHS_001", "TEST_RUNTIME_MANAGED_FLEET_MISSING_RUNTIME_LOGS_ARE_EMPTY_WITHOUT_CREATING_STATE_001", "TEST_RUNTIME_MANAGED_FLEET_TERMINATE_STARTED_CHILD_KILLS_AND_REAPS_A_LIVE_PROCESS_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_LIFECYCLE_RUNS_THROUGH_THE_SHIPPED_CLI_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_CAB5DA68D3CD1D4563C04029D13C96D4A5B2793BB7B78F1044C20A3260F9F27E"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs"
+qualified_symbol = "trust_runtime::fleet::lifecycle::resolve_manifest_runtime"
+item_kind = "rust_function"
+signature_digest = "sha256:7ad9f5ac3414f5c3077da0a4e980212927b1c0d24b2ff1816af101f9ffb5f2cb"
+reviewed_body_digest = "sha256:bbd13fc3762ad05235695676bd7bb3679d07180ce077211c0c50fdf45ad44492"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+invariant_ids = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+test_ids = ["TEST_RUNTIME_MANAGED_FLEET_CONTROL_REQUEST_REJECTS_A_MISMATCHED_RESPONSE_ID_001", "TEST_RUNTIME_MANAGED_FLEET_CONTROL_REQUEST_REJECTS_MALFORMED_OR_AMBIGUOUS_RESPONSE_ENVELOPES_001", "TEST_RUNTIME_MANAGED_FLEET_CONTROL_RESPONSE_READER_REJECTS_AN_OVERSIZED_LINE_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_AUTH_READER_MATCHES_RUNTIME_TOKEN_NORMALIZATION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_LOGS_RETURN_REQUESTED_TAIL_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_START_ABORTS_WHEN_PID_PERSISTENCE_FAILS_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_START_REMOVES_PID_WHEN_CHILD_EXITS_BEFORE_READY_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REJECTS_A_CONNECTED_CONTROL_ERROR_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REJECTS_MALFORMED_RUNTIME_AUTH_CONFIG_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REPORTS_STOPPED_WHEN_ENDPOINT_UNREACHABLE_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_USES_ENDPOINT_EVIDENCE_NOT_A_STALE_PID_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_PROJECT_PATHS_RESOLVE_RELATIVE_AND_PRESERVE_ABSOLUTE_PATHS_001", "TEST_RUNTIME_MANAGED_FLEET_MISSING_RUNTIME_LOGS_ARE_EMPTY_WITHOUT_CREATING_STATE_001", "TEST_RUNTIME_MANAGED_FLEET_TERMINATE_STARTED_CHILD_KILLS_AND_REAPS_A_LIVE_PROCESS_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_LIFECYCLE_RUNS_THROUGH_THE_SHIPPED_CLI_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_CF2E09D66475EA6F291EAA3D70E52DE772DD86A5E08ECDD5346CC0834D13CDE9"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
+qualified_symbol = "trust_runtime::fleet::validate_manifest_port"
+item_kind = "rust_function"
+signature_digest = "sha256:21e471dacb767e8fa593208adf51f9dd70093bcfa57100b7ad7e2c6010481665"
+reviewed_body_digest = "sha256:0e3db067a4924389cf611244b6f2b456f7908fc9b0e180abc7608e2c2076fc37"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "RISK_ACK_CF2E09D66475EA6F291EAA3D70E52DE772DD86A5E08ECDD5346CC0834D13CDE9"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+invariant_ids = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+test_ids = ["TEST_RUNTIME_MANAGED_FLEET_CONTROL_TOKEN_GENERATION_FAILS_CLOSED_WHEN_SECURE_RANDOMNESS_FAILS_001", "TEST_RUNTIME_MANAGED_FLEET_EMPTY_TEMPLATE_USES_VALID_LOOPBACK_IO_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_AUTO_SELECTS_DISTINCT_AVAILABLE_LOOPBACK_PORTS_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_CREATES_SIMULATED_PROJECT_AND_MANIFEST_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_ANY_MANIFEST_PORT_COLLISION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_DUPLICATE_NAME_WITHOUT_REWRITING_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_MALFORMED_MANIFEST_BEFORE_PROJECT_MUTATION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_WHITESPACE_NAME_BEFORE_MUTATION_001", "TEST_RUNTIME_MANAGED_FLEET_GENERATED_CONTROL_TOKEN_CONTAINS_32_RANDOM_BYTES_001", "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_INVALID_ENDPOINTS_AND_PORT_COLLISIONS_001", "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_UNSAFE_OR_DUPLICATE_RUNTIME_NAMES_001", "TEST_RUNTIME_MANAGED_FLEET_RESOURCE_NAMES_ARE_DETERMINISTIC_AND_NEVER_START_WITH_A_DIGIT_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_LIFECYCLE_RUNS_THROUGH_THE_SHIPPED_CLI_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_CFF38A87D01E93C856B97F438ADD59A7F8D195190FF2CC837C2478F54ACF34C7"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
+qualified_symbol = "trust_runtime::fleet::print_add_response"
+item_kind = "rust_function"
+signature_digest = "sha256:93f44892b9ae8fb9727299fd2ff587e70a22842b22a41da4936c8fd2975f5f6c"
+reviewed_body_digest = "sha256:738d8351b4a8e307f0295ebedebcd84abc8c5d80abd5cdd04b98da0bdcc820d0"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+invariant_ids = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+test_ids = ["TEST_RUNTIME_MANAGED_FLEET_CONTROL_TOKEN_GENERATION_FAILS_CLOSED_WHEN_SECURE_RANDOMNESS_FAILS_001", "TEST_RUNTIME_MANAGED_FLEET_EMPTY_TEMPLATE_USES_VALID_LOOPBACK_IO_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_AUTO_SELECTS_DISTINCT_AVAILABLE_LOOPBACK_PORTS_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_CREATES_SIMULATED_PROJECT_AND_MANIFEST_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_ANY_MANIFEST_PORT_COLLISION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_DUPLICATE_NAME_WITHOUT_REWRITING_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_MALFORMED_MANIFEST_BEFORE_PROJECT_MUTATION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_WHITESPACE_NAME_BEFORE_MUTATION_001", "TEST_RUNTIME_MANAGED_FLEET_GENERATED_CONTROL_TOKEN_CONTAINS_32_RANDOM_BYTES_001", "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_INVALID_ENDPOINTS_AND_PORT_COLLISIONS_001", "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_UNSAFE_OR_DUPLICATE_RUNTIME_NAMES_001", "TEST_RUNTIME_MANAGED_FLEET_RESOURCE_NAMES_ARE_DETERMINISTIC_AND_NEVER_START_WITH_A_DIGIT_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_LIFECYCLE_RUNS_THROUGH_THE_SHIPPED_CLI_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_D85184085668D15E72D7413EDB5DDBBCD8788CE6536F9CDF41557A82DEB5BCCA"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs"
+qualified_symbol = "trust_runtime::fleet::lifecycle::read_control_response"
+item_kind = "rust_function"
+signature_digest = "sha256:24bfa98a44721e9d9e502c17609c5d5435df5068642f43049c9ce9195494a7ff"
+reviewed_body_digest = "sha256:7ebcc639876f6697678644377a2dd10b3678cc2c02b4755edbffff6482987c94"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+invariant_ids = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+test_ids = ["TEST_RUNTIME_MANAGED_FLEET_CONTROL_REQUEST_REJECTS_A_MISMATCHED_RESPONSE_ID_001", "TEST_RUNTIME_MANAGED_FLEET_CONTROL_REQUEST_REJECTS_MALFORMED_OR_AMBIGUOUS_RESPONSE_ENVELOPES_001", "TEST_RUNTIME_MANAGED_FLEET_CONTROL_RESPONSE_READER_REJECTS_AN_OVERSIZED_LINE_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_AUTH_READER_MATCHES_RUNTIME_TOKEN_NORMALIZATION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_LOGS_RETURN_REQUESTED_TAIL_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_START_ABORTS_WHEN_PID_PERSISTENCE_FAILS_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_START_REMOVES_PID_WHEN_CHILD_EXITS_BEFORE_READY_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REJECTS_A_CONNECTED_CONTROL_ERROR_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REJECTS_MALFORMED_RUNTIME_AUTH_CONFIG_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REPORTS_STOPPED_WHEN_ENDPOINT_UNREACHABLE_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_USES_ENDPOINT_EVIDENCE_NOT_A_STALE_PID_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_PROJECT_PATHS_RESOLVE_RELATIVE_AND_PRESERVE_ABSOLUTE_PATHS_001", "TEST_RUNTIME_MANAGED_FLEET_MISSING_RUNTIME_LOGS_ARE_EMPTY_WITHOUT_CREATING_STATE_001", "TEST_RUNTIME_MANAGED_FLEET_TERMINATE_STARTED_CHILD_KILLS_AND_REAPS_A_LIVE_PROCESS_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_LIFECYCLE_RUNS_THROUGH_THE_SHIPPED_CLI_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_DA3B48B6B2BAAA7E99B883D29F942EC1E8C16DD3F750A7A9129FF788CC20EA4F"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
+qualified_symbol = "trust_runtime::fleet::generate_control_token_with_rng"
+item_kind = "rust_function"
+signature_digest = "sha256:f24ebe9b73a9aad4cad25e39d197cbf5f27dfc7c32e4a8222097786aeed815f0"
+reviewed_body_digest = "sha256:12edbf2c549cb9b04f162752955a4cbb6a4898e76144f275d5aea8020c9870b9"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = ["fault_mapping"]
+owner_ack = "RISK_ACK_DA3B48B6B2BAAA7E99B883D29F942EC1E8C16DD3F750A7A9129FF788CC20EA4F"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+invariant_ids = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+test_ids = ["TEST_RUNTIME_MANAGED_FLEET_CONTROL_TOKEN_GENERATION_FAILS_CLOSED_WHEN_SECURE_RANDOMNESS_FAILS_001", "TEST_RUNTIME_MANAGED_FLEET_EMPTY_TEMPLATE_USES_VALID_LOOPBACK_IO_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_AUTO_SELECTS_DISTINCT_AVAILABLE_LOOPBACK_PORTS_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_CREATES_SIMULATED_PROJECT_AND_MANIFEST_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_ANY_MANIFEST_PORT_COLLISION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_DUPLICATE_NAME_WITHOUT_REWRITING_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_MALFORMED_MANIFEST_BEFORE_PROJECT_MUTATION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_WHITESPACE_NAME_BEFORE_MUTATION_001", "TEST_RUNTIME_MANAGED_FLEET_GENERATED_CONTROL_TOKEN_CONTAINS_32_RANDOM_BYTES_001", "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_INVALID_ENDPOINTS_AND_PORT_COLLISIONS_001", "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_UNSAFE_OR_DUPLICATE_RUNTIME_NAMES_001", "TEST_RUNTIME_MANAGED_FLEET_RESOURCE_NAMES_ARE_DETERMINISTIC_AND_NEVER_START_WITH_A_DIGIT_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_LIFECYCLE_RUNS_THROUGH_THE_SHIPPED_CLI_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_E2C28E39AE064A68574E5B7096CEDA9B2ABB448139600084064D96F19F4F93C5"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs"
+qualified_symbol = "trust_runtime::fleet::lifecycle::status_runtime_entry"
+item_kind = "rust_function"
+signature_digest = "sha256:19f1110eb8e6f07c7a31e900c4f84d0e67b0bfafd77e91f8005428b8e18eee8f"
+reviewed_body_digest = "sha256:3c5744b97fcdb5ca6d42b535029ac3c3da9a73a2ac21d1ddf311109871125bd2"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = ["broad_error_suppression"]
+owner_ack = "RISK_ACK_E2C28E39AE064A68574E5B7096CEDA9B2ABB448139600084064D96F19F4F93C5"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+invariant_ids = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+test_ids = ["TEST_RUNTIME_MANAGED_FLEET_CONTROL_REQUEST_REJECTS_A_MISMATCHED_RESPONSE_ID_001", "TEST_RUNTIME_MANAGED_FLEET_CONTROL_REQUEST_REJECTS_MALFORMED_OR_AMBIGUOUS_RESPONSE_ENVELOPES_001", "TEST_RUNTIME_MANAGED_FLEET_CONTROL_RESPONSE_READER_REJECTS_AN_OVERSIZED_LINE_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_AUTH_READER_MATCHES_RUNTIME_TOKEN_NORMALIZATION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_LOGS_RETURN_REQUESTED_TAIL_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_START_ABORTS_WHEN_PID_PERSISTENCE_FAILS_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_START_REMOVES_PID_WHEN_CHILD_EXITS_BEFORE_READY_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REJECTS_A_CONNECTED_CONTROL_ERROR_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REJECTS_MALFORMED_RUNTIME_AUTH_CONFIG_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REPORTS_STOPPED_WHEN_ENDPOINT_UNREACHABLE_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_USES_ENDPOINT_EVIDENCE_NOT_A_STALE_PID_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_PROJECT_PATHS_RESOLVE_RELATIVE_AND_PRESERVE_ABSOLUTE_PATHS_001", "TEST_RUNTIME_MANAGED_FLEET_MISSING_RUNTIME_LOGS_ARE_EMPTY_WITHOUT_CREATING_STATE_001", "TEST_RUNTIME_MANAGED_FLEET_TERMINATE_STARTED_CHILD_KILLS_AND_REAPS_A_LIVE_PROCESS_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_LIFECYCLE_RUNS_THROUGH_THE_SHIPPED_CLI_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_E59315D9DF40FEAC9910471577BF4F1E62A918289EE192128E75D357BDC86586"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
+qualified_symbol = "trust_runtime::fleet::run_fleet"
+item_kind = "rust_function"
+signature_digest = "sha256:65ca7fd7b57d593ebf9522d837d86d205ccafc4bd0e22966ac996296b31fab9e"
+reviewed_body_digest = "sha256:20fe2dbc04caa938276d3ff63efa2d89ee8a9444155fd960183f4a2a5b787363"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "public"
+risk_signals = ["protocol_response_or_status"]
+owner_ack = "RISK_ACK_E59315D9DF40FEAC9910471577BF4F1E62A918289EE192128E75D357BDC86586"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+invariant_ids = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+test_ids = ["TEST_RUNTIME_MANAGED_FLEET_CONTROL_TOKEN_GENERATION_FAILS_CLOSED_WHEN_SECURE_RANDOMNESS_FAILS_001", "TEST_RUNTIME_MANAGED_FLEET_EMPTY_TEMPLATE_USES_VALID_LOOPBACK_IO_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_AUTO_SELECTS_DISTINCT_AVAILABLE_LOOPBACK_PORTS_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_CREATES_SIMULATED_PROJECT_AND_MANIFEST_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_ANY_MANIFEST_PORT_COLLISION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_DUPLICATE_NAME_WITHOUT_REWRITING_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_MALFORMED_MANIFEST_BEFORE_PROJECT_MUTATION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_WHITESPACE_NAME_BEFORE_MUTATION_001", "TEST_RUNTIME_MANAGED_FLEET_GENERATED_CONTROL_TOKEN_CONTAINS_32_RANDOM_BYTES_001", "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_INVALID_ENDPOINTS_AND_PORT_COLLISIONS_001", "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_UNSAFE_OR_DUPLICATE_RUNTIME_NAMES_001", "TEST_RUNTIME_MANAGED_FLEET_RESOURCE_NAMES_ARE_DETERMINISTIC_AND_NEVER_START_WITH_A_DIGIT_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_LIFECYCLE_RUNS_THROUGH_THE_SHIPPED_CLI_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_E65A43E601AE5A8264C6C74D8C43055F4BF6F0CA205286185FD18535E9AAC541"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
+qualified_symbol = "trust_runtime::fleet::print_list_response"
+item_kind = "rust_function"
+signature_digest = "sha256:57abe44bd1742a893ad9b3cd355cc5a5887651da178b6a1438c545b4b62162b0"
+reviewed_body_digest = "sha256:7cbd69dd85b4a455d8ea5a89685f5e538d2580da756c418dfe7710dac18b9790"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+invariant_ids = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+test_ids = ["TEST_RUNTIME_MANAGED_FLEET_CONTROL_TOKEN_GENERATION_FAILS_CLOSED_WHEN_SECURE_RANDOMNESS_FAILS_001", "TEST_RUNTIME_MANAGED_FLEET_EMPTY_TEMPLATE_USES_VALID_LOOPBACK_IO_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_AUTO_SELECTS_DISTINCT_AVAILABLE_LOOPBACK_PORTS_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_CREATES_SIMULATED_PROJECT_AND_MANIFEST_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_ANY_MANIFEST_PORT_COLLISION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_DUPLICATE_NAME_WITHOUT_REWRITING_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_MALFORMED_MANIFEST_BEFORE_PROJECT_MUTATION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_WHITESPACE_NAME_BEFORE_MUTATION_001", "TEST_RUNTIME_MANAGED_FLEET_GENERATED_CONTROL_TOKEN_CONTAINS_32_RANDOM_BYTES_001", "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_INVALID_ENDPOINTS_AND_PORT_COLLISIONS_001", "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_UNSAFE_OR_DUPLICATE_RUNTIME_NAMES_001", "TEST_RUNTIME_MANAGED_FLEET_RESOURCE_NAMES_ARE_DETERMINISTIC_AND_NEVER_START_WITH_A_DIGIT_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_LIFECYCLE_RUNS_THROUGH_THE_SHIPPED_CLI_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_EE46E7CE2F4AD5EBB650446220BB2F129C7CD8CCC90C5F2039E4F116333BE9F9"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
+qualified_symbol = "trust_runtime::fleet::validate_manifest"
+item_kind = "rust_function"
+signature_digest = "sha256:76453e8094138b0f0c92f968af3635464de259c3e00243f96489e53672df512e"
+reviewed_body_digest = "sha256:9713ecfd6818ac11468b116c8c08b0e1ef37fe7d55ceaebda09251e6f8729062"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = ["fault_mapping", "state_mutation"]
+owner_ack = "RISK_ACK_EE46E7CE2F4AD5EBB650446220BB2F129C7CD8CCC90C5F2039E4F116333BE9F9"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+invariant_ids = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+test_ids = ["TEST_RUNTIME_MANAGED_FLEET_CONTROL_TOKEN_GENERATION_FAILS_CLOSED_WHEN_SECURE_RANDOMNESS_FAILS_001", "TEST_RUNTIME_MANAGED_FLEET_EMPTY_TEMPLATE_USES_VALID_LOOPBACK_IO_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_AUTO_SELECTS_DISTINCT_AVAILABLE_LOOPBACK_PORTS_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_CREATES_SIMULATED_PROJECT_AND_MANIFEST_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_ANY_MANIFEST_PORT_COLLISION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_DUPLICATE_NAME_WITHOUT_REWRITING_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_MALFORMED_MANIFEST_BEFORE_PROJECT_MUTATION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_WHITESPACE_NAME_BEFORE_MUTATION_001", "TEST_RUNTIME_MANAGED_FLEET_GENERATED_CONTROL_TOKEN_CONTAINS_32_RANDOM_BYTES_001", "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_INVALID_ENDPOINTS_AND_PORT_COLLISIONS_001", "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_UNSAFE_OR_DUPLICATE_RUNTIME_NAMES_001", "TEST_RUNTIME_MANAGED_FLEET_RESOURCE_NAMES_ARE_DETERMINISTIC_AND_NEVER_START_WITH_A_DIGIT_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_LIFECYCLE_RUNS_THROUGH_THE_SHIPPED_CLI_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_F0676600C6A42606219BA3253DADA3F089CC90A95AF9001172F210A10EB9DC55"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
+qualified_symbol = "trust_runtime::fleet::validate_requested_port"
+item_kind = "rust_function"
+signature_digest = "sha256:0877e2f7c4febbbd06c65937cf8daad6281e321fc1d12598218d5660666f44e2"
+reviewed_body_digest = "sha256:c74340e7c5a465b12e5eaf1e47ef2ade432bd649f257602e4529f39dc7041027"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = ["network_io"]
+owner_ack = "RISK_ACK_F0676600C6A42606219BA3253DADA3F089CC90A95AF9001172F210A10EB9DC55"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+invariant_ids = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+test_ids = ["TEST_RUNTIME_MANAGED_FLEET_CONTROL_TOKEN_GENERATION_FAILS_CLOSED_WHEN_SECURE_RANDOMNESS_FAILS_001", "TEST_RUNTIME_MANAGED_FLEET_EMPTY_TEMPLATE_USES_VALID_LOOPBACK_IO_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_AUTO_SELECTS_DISTINCT_AVAILABLE_LOOPBACK_PORTS_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_CREATES_SIMULATED_PROJECT_AND_MANIFEST_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_ANY_MANIFEST_PORT_COLLISION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_DUPLICATE_NAME_WITHOUT_REWRITING_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_MALFORMED_MANIFEST_BEFORE_PROJECT_MUTATION_001", "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_WHITESPACE_NAME_BEFORE_MUTATION_001", "TEST_RUNTIME_MANAGED_FLEET_GENERATED_CONTROL_TOKEN_CONTAINS_32_RANDOM_BYTES_001", "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_INVALID_ENDPOINTS_AND_PORT_COLLISIONS_001", "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_UNSAFE_OR_DUPLICATE_RUNTIME_NAMES_001", "TEST_RUNTIME_MANAGED_FLEET_RESOURCE_NAMES_ARE_DETERMINISTIC_AND_NEVER_START_WITH_A_DIGIT_001", "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_LIFECYCLE_RUNS_THROUGH_THE_SHIPPED_CLI_001"]
 last_reviewed = "2026-07-23"

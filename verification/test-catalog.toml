@@ -23520,3 +23520,722 @@ requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOYMENT_SUMMARY_REPORTS_CURRENT_BUNDLE_AND_ANY_RUNTIME_FILE_CHANGE_001.json"
 last_reviewed = "2026-07-23"
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_MANAGED_FLEET_PARSE_FLEET_LIST_COMMAND_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_F95DF735E782C1FFF3A2"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/cli/tests.rs"
+name = "parse_fleet_list_command"
+command = "cargo test -p trust-runtime --bin trust-runtime cli::tests::parse_fleet_list_command -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+expected_result = "The focused assertion suite for parse fleet list command satisfies SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding."
+expected_failure_mode = "The specified RT_MANAGED_FLEET_LIFECYCLE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_PARSE_FLEET_LIST_COMMAND_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_MANAGED_FLEET_PARSE_FLEET_RUNTIME_ADD_COMMAND_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_24CAD09D429B178C5142"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/cli/tests.rs"
+name = "parse_fleet_runtime_add_command"
+command = "cargo test -p trust-runtime --bin trust-runtime cli::tests::parse_fleet_runtime_add_command -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+expected_result = "The focused assertion suite for parse fleet runtime add command satisfies SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding."
+expected_failure_mode = "The specified RT_MANAGED_FLEET_LIFECYCLE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_PARSE_FLEET_RUNTIME_ADD_COMMAND_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_MANAGED_FLEET_PARSE_FLEET_RUNTIME_LIFECYCLE_COMMANDS_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_6B637583A37DE194C8B5"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/cli/tests.rs"
+name = "parse_fleet_runtime_lifecycle_commands"
+command = "cargo test -p trust-runtime --bin trust-runtime cli::tests::parse_fleet_runtime_lifecycle_commands -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+expected_result = "The focused assertion suite for parse fleet runtime lifecycle commands satisfies SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding."
+expected_failure_mode = "The specified RT_MANAGED_FLEET_LIFECYCLE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_PARSE_FLEET_RUNTIME_LIFECYCLE_COMMANDS_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_MANAGED_FLEET_CONTROL_TOKEN_GENERATION_FAILS_CLOSED_WHEN_SECURE_RANDOMNESS_FAILS_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_9084222DD3B1EA4E1DA5"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
+name = "control_token_generation_fails_closed_when_secure_randomness_fails"
+command = "cargo test -p trust-runtime --bin trust-runtime fleet::tests::control_token_generation_fails_closed_when_secure_randomness_fails -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+expected_result = "The focused assertion suite for control token generation fails closed when secure randomness fails satisfies SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding."
+expected_failure_mode = "The specified RT_MANAGED_FLEET_LIFECYCLE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_CONTROL_TOKEN_GENERATION_FAILS_CLOSED_WHEN_SECURE_RANDOMNESS_FAILS_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_MANAGED_FLEET_EMPTY_TEMPLATE_USES_VALID_LOOPBACK_IO_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_24384BED6AEB52A7F254"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
+name = "empty_template_uses_valid_loopback_io"
+command = "cargo test -p trust-runtime --bin trust-runtime fleet::tests::empty_template_uses_valid_loopback_io -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+expected_result = "The focused assertion suite for empty template uses valid loopback io satisfies SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding."
+expected_failure_mode = "The specified RT_MANAGED_FLEET_LIFECYCLE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_EMPTY_TEMPLATE_USES_VALID_LOOPBACK_IO_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_AUTO_SELECTS_DISTINCT_AVAILABLE_LOOPBACK_PORTS_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_9C28982BB9E8A3B1546F"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
+name = "fleet_runtime_add_auto_selects_distinct_available_loopback_ports"
+command = "cargo test -p trust-runtime --bin trust-runtime fleet::tests::fleet_runtime_add_auto_selects_distinct_available_loopback_ports -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+expected_result = "The focused assertion suite for fleet runtime add auto selects distinct available loopback ports satisfies SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding."
+expected_failure_mode = "The specified RT_MANAGED_FLEET_LIFECYCLE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_AUTO_SELECTS_DISTINCT_AVAILABLE_LOOPBACK_PORTS_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_CREATES_SIMULATED_PROJECT_AND_MANIFEST_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_98A2692A0CDA76565FE7"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
+name = "fleet_runtime_add_creates_simulated_project_and_manifest"
+command = "cargo test -p trust-runtime --bin trust-runtime fleet::tests::fleet_runtime_add_creates_simulated_project_and_manifest -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+expected_result = "The focused assertion suite for fleet runtime add creates simulated project and manifest satisfies SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding."
+expected_failure_mode = "The specified RT_MANAGED_FLEET_LIFECYCLE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_CREATES_SIMULATED_PROJECT_AND_MANIFEST_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_ANY_MANIFEST_PORT_COLLISION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_A7DD53CC8FD10F25B5E4"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
+name = "fleet_runtime_add_rejects_any_manifest_port_collision"
+command = "cargo test -p trust-runtime --bin trust-runtime fleet::tests::fleet_runtime_add_rejects_any_manifest_port_collision -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+expected_result = "The focused assertion suite for fleet runtime add rejects any manifest port collision satisfies SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding."
+expected_failure_mode = "The specified RT_MANAGED_FLEET_LIFECYCLE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_ANY_MANIFEST_PORT_COLLISION_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_DUPLICATE_NAME_WITHOUT_REWRITING_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_0BCC1154B4C4689BF731"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
+name = "fleet_runtime_add_rejects_duplicate_name_without_rewriting"
+command = "cargo test -p trust-runtime --bin trust-runtime fleet::tests::fleet_runtime_add_rejects_duplicate_name_without_rewriting -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+expected_result = "The focused assertion suite for fleet runtime add rejects duplicate name without rewriting satisfies SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding."
+expected_failure_mode = "The specified RT_MANAGED_FLEET_LIFECYCLE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_DUPLICATE_NAME_WITHOUT_REWRITING_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_MALFORMED_MANIFEST_BEFORE_PROJECT_MUTATION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_8534D47289751E2BE119"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
+name = "fleet_runtime_add_rejects_malformed_manifest_before_project_mutation"
+command = "cargo test -p trust-runtime --bin trust-runtime fleet::tests::fleet_runtime_add_rejects_malformed_manifest_before_project_mutation -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+expected_result = "The focused assertion suite for fleet runtime add rejects malformed manifest before project mutation satisfies SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding."
+expected_failure_mode = "The specified RT_MANAGED_FLEET_LIFECYCLE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_MALFORMED_MANIFEST_BEFORE_PROJECT_MUTATION_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_WHITESPACE_NAME_BEFORE_MUTATION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_96A2C7264E4ED4288863"
+discovery_source_kind = "rust_unit_test"
+test_class = "failing_regression"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
+name = "fleet_runtime_add_rejects_whitespace_name_before_mutation"
+command = "cargo test -p trust-runtime --bin trust-runtime fleet::tests::fleet_runtime_add_rejects_whitespace_name_before_mutation -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+expected_result = "The focused assertion suite for fleet runtime add rejects whitespace name before mutation satisfies SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding."
+expected_failure_mode = "The specified RT_MANAGED_FLEET_LIFECYCLE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_WHITESPACE_NAME_BEFORE_MUTATION_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_MANAGED_FLEET_GENERATED_CONTROL_TOKEN_CONTAINS_32_RANDOM_BYTES_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_4893BE716CDAD3A2CFCE"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
+name = "generated_control_token_contains_32_random_bytes"
+command = "cargo test -p trust-runtime --bin trust-runtime fleet::tests::generated_control_token_contains_32_random_bytes -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+expected_result = "The focused assertion suite for generated control token contains 32 random bytes satisfies SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding."
+expected_failure_mode = "The specified RT_MANAGED_FLEET_LIFECYCLE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_GENERATED_CONTROL_TOKEN_CONTAINS_32_RANDOM_BYTES_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_INVALID_ENDPOINTS_AND_PORT_COLLISIONS_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_A247941E9FF649EE2CBA"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
+name = "load_manifest_rejects_invalid_endpoints_and_port_collisions"
+command = "cargo test -p trust-runtime --bin trust-runtime fleet::tests::load_manifest_rejects_invalid_endpoints_and_port_collisions -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+expected_result = "The focused assertion suite for load manifest rejects invalid endpoints and port collisions satisfies SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding."
+expected_failure_mode = "The specified RT_MANAGED_FLEET_LIFECYCLE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_INVALID_ENDPOINTS_AND_PORT_COLLISIONS_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_UNSAFE_OR_DUPLICATE_RUNTIME_NAMES_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_86936E1B628E156428DE"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
+name = "load_manifest_rejects_unsafe_or_duplicate_runtime_names"
+command = "cargo test -p trust-runtime --bin trust-runtime fleet::tests::load_manifest_rejects_unsafe_or_duplicate_runtime_names -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+expected_result = "The focused assertion suite for load manifest rejects unsafe or duplicate runtime names satisfies SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding."
+expected_failure_mode = "The specified RT_MANAGED_FLEET_LIFECYCLE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_UNSAFE_OR_DUPLICATE_RUNTIME_NAMES_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_MANAGED_FLEET_RESOURCE_NAMES_ARE_DETERMINISTIC_AND_NEVER_START_WITH_A_DIGIT_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_F80CF206E53E15DB2316"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/fleet.rs"
+name = "resource_names_are_deterministic_and_never_start_with_a_digit"
+command = "cargo test -p trust-runtime --bin trust-runtime fleet::tests::resource_names_are_deterministic_and_never_start_with_a_digit -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+expected_result = "The focused assertion suite for resource names are deterministic and never start with a digit satisfies SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding."
+expected_failure_mode = "The specified RT_MANAGED_FLEET_LIFECYCLE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_RESOURCE_NAMES_ARE_DETERMINISTIC_AND_NEVER_START_WITH_A_DIGIT_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_MANAGED_FLEET_CONTROL_REQUEST_REJECTS_A_MISMATCHED_RESPONSE_ID_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_5CCCD623606CF814D6E7"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs"
+name = "control_request_rejects_a_mismatched_response_id"
+command = "cargo test -p trust-runtime --bin trust-runtime fleet::lifecycle::tests::control_request_rejects_a_mismatched_response_id -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+expected_result = "The focused assertion suite for control request rejects a mismatched response id satisfies SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding."
+expected_failure_mode = "The specified RT_MANAGED_FLEET_LIFECYCLE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_CONTROL_REQUEST_REJECTS_A_MISMATCHED_RESPONSE_ID_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_MANAGED_FLEET_CONTROL_REQUEST_REJECTS_MALFORMED_OR_AMBIGUOUS_RESPONSE_ENVELOPES_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_080910207F527BF99600"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs"
+name = "control_request_rejects_malformed_or_ambiguous_response_envelopes"
+command = "cargo test -p trust-runtime --bin trust-runtime fleet::lifecycle::tests::control_request_rejects_malformed_or_ambiguous_response_envelopes -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+expected_result = "The focused assertion suite for control request rejects malformed or ambiguous response envelopes satisfies SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding."
+expected_failure_mode = "The specified RT_MANAGED_FLEET_LIFECYCLE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_CONTROL_REQUEST_REJECTS_MALFORMED_OR_AMBIGUOUS_RESPONSE_ENVELOPES_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_MANAGED_FLEET_CONTROL_RESPONSE_READER_REJECTS_AN_OVERSIZED_LINE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_158BB93F8A34BDB932E5"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs"
+name = "control_response_reader_rejects_an_oversized_line"
+command = "cargo test -p trust-runtime --bin trust-runtime fleet::lifecycle::tests::control_response_reader_rejects_an_oversized_line -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+expected_result = "The focused assertion suite for control response reader rejects an oversized line satisfies SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding."
+expected_failure_mode = "The specified RT_MANAGED_FLEET_LIFECYCLE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_CONTROL_RESPONSE_READER_REJECTS_AN_OVERSIZED_LINE_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_AUTH_READER_MATCHES_RUNTIME_TOKEN_NORMALIZATION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_0F8817761C56410B11C0"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs"
+name = "fleet_runtime_auth_reader_matches_runtime_token_normalization"
+command = "cargo test -p trust-runtime --bin trust-runtime fleet::lifecycle::tests::fleet_runtime_auth_reader_matches_runtime_token_normalization -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+expected_result = "The focused assertion suite for fleet runtime auth reader matches runtime token normalization satisfies SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding."
+expected_failure_mode = "The specified RT_MANAGED_FLEET_LIFECYCLE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_AUTH_READER_MATCHES_RUNTIME_TOKEN_NORMALIZATION_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_LOGS_RETURN_REQUESTED_TAIL_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_BD46DE8F7A7923BE2A3F"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs"
+name = "fleet_runtime_logs_return_requested_tail"
+command = "cargo test -p trust-runtime --bin trust-runtime fleet::lifecycle::tests::fleet_runtime_logs_return_requested_tail -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+expected_result = "The focused assertion suite for fleet runtime logs return requested tail satisfies SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding."
+expected_failure_mode = "The specified RT_MANAGED_FLEET_LIFECYCLE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_LOGS_RETURN_REQUESTED_TAIL_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_START_ABORTS_WHEN_PID_PERSISTENCE_FAILS_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_854F5707FF7CD9C515B6"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs"
+name = "fleet_runtime_start_aborts_when_pid_persistence_fails"
+command = "cargo test -p trust-runtime --bin trust-runtime fleet::lifecycle::tests::fleet_runtime_start_aborts_when_pid_persistence_fails -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+expected_result = "The focused assertion suite for fleet runtime start aborts when pid persistence fails satisfies SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding."
+expected_failure_mode = "The specified RT_MANAGED_FLEET_LIFECYCLE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_START_ABORTS_WHEN_PID_PERSISTENCE_FAILS_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_START_REMOVES_PID_WHEN_CHILD_EXITS_BEFORE_READY_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_15A410BF7000186F450D"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs"
+name = "fleet_runtime_start_removes_pid_when_child_exits_before_ready"
+command = "cargo test -p trust-runtime --bin trust-runtime fleet::lifecycle::tests::fleet_runtime_start_removes_pid_when_child_exits_before_ready -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+expected_result = "The focused assertion suite for fleet runtime start removes pid when child exits before ready satisfies SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding."
+expected_failure_mode = "The specified RT_MANAGED_FLEET_LIFECYCLE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_START_REMOVES_PID_WHEN_CHILD_EXITS_BEFORE_READY_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REJECTS_A_CONNECTED_CONTROL_ERROR_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_FC563874E148E67E37C6"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs"
+name = "fleet_runtime_status_rejects_a_connected_control_error"
+command = "cargo test -p trust-runtime --bin trust-runtime fleet::lifecycle::tests::fleet_runtime_status_rejects_a_connected_control_error -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+expected_result = "The focused assertion suite for fleet runtime status rejects a connected control error satisfies SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding."
+expected_failure_mode = "The specified RT_MANAGED_FLEET_LIFECYCLE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REJECTS_A_CONNECTED_CONTROL_ERROR_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REJECTS_MALFORMED_RUNTIME_AUTH_CONFIG_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_1A983969F719D5FAE8F2"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs"
+name = "fleet_runtime_status_rejects_malformed_runtime_auth_config"
+command = "cargo test -p trust-runtime --bin trust-runtime fleet::lifecycle::tests::fleet_runtime_status_rejects_malformed_runtime_auth_config -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+expected_result = "The focused assertion suite for fleet runtime status rejects malformed runtime auth config satisfies SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding."
+expected_failure_mode = "The specified RT_MANAGED_FLEET_LIFECYCLE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REJECTS_MALFORMED_RUNTIME_AUTH_CONFIG_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REPORTS_STOPPED_WHEN_ENDPOINT_UNREACHABLE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_EA1F36511801C6B5FC9E"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs"
+name = "fleet_runtime_status_reports_stopped_when_endpoint_unreachable"
+command = "cargo test -p trust-runtime --bin trust-runtime fleet::lifecycle::tests::fleet_runtime_status_reports_stopped_when_endpoint_unreachable -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+expected_result = "The focused assertion suite for fleet runtime status reports stopped when endpoint unreachable satisfies SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding."
+expected_failure_mode = "The specified RT_MANAGED_FLEET_LIFECYCLE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REPORTS_STOPPED_WHEN_ENDPOINT_UNREACHABLE_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_USES_ENDPOINT_EVIDENCE_NOT_A_STALE_PID_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_E11ABDA573127DFD2DCF"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs"
+name = "fleet_runtime_status_uses_endpoint_evidence_not_a_stale_pid"
+command = "cargo test -p trust-runtime --bin trust-runtime fleet::lifecycle::tests::fleet_runtime_status_uses_endpoint_evidence_not_a_stale_pid -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+expected_result = "The focused assertion suite for fleet runtime status uses endpoint evidence not a stale pid satisfies SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding."
+expected_failure_mode = "The specified RT_MANAGED_FLEET_LIFECYCLE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_USES_ENDPOINT_EVIDENCE_NOT_A_STALE_PID_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_PROJECT_PATHS_RESOLVE_RELATIVE_AND_PRESERVE_ABSOLUTE_PATHS_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_4746C630EFC11272E8EE"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs"
+name = "managed_runtime_project_paths_resolve_relative_and_preserve_absolute_paths"
+command = "cargo test -p trust-runtime --bin trust-runtime fleet::lifecycle::tests::managed_runtime_project_paths_resolve_relative_and_preserve_absolute_paths -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+expected_result = "The focused assertion suite for managed runtime project paths resolve relative and preserve absolute paths satisfies SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding."
+expected_failure_mode = "The specified RT_MANAGED_FLEET_LIFECYCLE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_PROJECT_PATHS_RESOLVE_RELATIVE_AND_PRESERVE_ABSOLUTE_PATHS_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_MANAGED_FLEET_MISSING_RUNTIME_LOGS_ARE_EMPTY_WITHOUT_CREATING_STATE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_A1147C37954714456712"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs"
+name = "missing_runtime_logs_are_empty_without_creating_state"
+command = "cargo test -p trust-runtime --bin trust-runtime fleet::lifecycle::tests::missing_runtime_logs_are_empty_without_creating_state -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+expected_result = "The focused assertion suite for missing runtime logs are empty without creating state satisfies SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding."
+expected_failure_mode = "The specified RT_MANAGED_FLEET_LIFECYCLE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_MISSING_RUNTIME_LOGS_ARE_EMPTY_WITHOUT_CREATING_STATE_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_MANAGED_FLEET_TERMINATE_STARTED_CHILD_KILLS_AND_REAPS_A_LIVE_PROCESS_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_123C418AD2B153371776"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs"
+name = "terminate_started_child_kills_and_reaps_a_live_process"
+command = "cargo test -p trust-runtime --bin trust-runtime fleet::lifecycle::tests::terminate_started_child_kills_and_reaps_a_live_process -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+expected_result = "The focused assertion suite for terminate started child kills and reaps a live process satisfies SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding."
+expected_failure_mode = "The specified RT_MANAGED_FLEET_LIFECYCLE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_TERMINATE_STARTED_CHILD_KILLS_AND_REAPS_A_LIVE_PROCESS_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_LIFECYCLE_RUNS_THROUGH_THE_SHIPPED_CLI_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_C2396909732452FAE9DE"
+discovery_source_kind = "rust_integration_test"
+test_class = "integration"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/fleet_lifecycle_command.rs"
+name = "managed_runtime_lifecycle_runs_through_the_shipped_cli"
+command = "cargo test -p trust-runtime --test fleet_lifecycle_command managed_runtime_lifecycle_runs_through_the_shipped_cli -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MANAGED_FLEET_LIFECYCLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+expected_result = "The focused assertion suite for managed runtime lifecycle runs through the shipped cli satisfies SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding."
+expected_failure_mode = "The specified RT_MANAGED_FLEET_LIFECYCLE_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_LIFECYCLE_RUNS_THROUGH_THE_SHIPPED_CLI_001.json"
+last_reviewed = "2026-07-23"

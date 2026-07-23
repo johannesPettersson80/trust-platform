@@ -372,6 +372,34 @@ mod tests {
             },
             other => panic!("expected fleet command, got {other:?}"),
         }
+
+        let automatic = Cli::parse_from([
+            "trust-runtime",
+            "fleet",
+            "runtime",
+            "add",
+            "--fleet-root",
+            "fleet",
+            "--name",
+            "automatic",
+        ]);
+        match automatic.command.expect("automatic command") {
+            Command::Fleet {
+                action:
+                    FleetAction::Runtime {
+                        action:
+                            FleetRuntimeAction::Add {
+                                control_port,
+                                web_port,
+                                ..
+                            },
+                    },
+            } => {
+                assert_eq!(control_port, None);
+                assert_eq!(web_port, None);
+            }
+            other => panic!("expected automatic fleet runtime add, got {other:?}"),
+        }
     }
 
     #[test]

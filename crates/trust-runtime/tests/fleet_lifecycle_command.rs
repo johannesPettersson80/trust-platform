@@ -82,6 +82,35 @@ fn managed_runtime_lifecycle_runs_through_the_shipped_cli() {
         ],
     );
     assert_success(&add, "fleet runtime add");
+    let add: serde_json::Value = serde_json::from_slice(&add.stdout).expect("parse add JSON");
+    assert_eq!(
+        add.get("name").and_then(serde_json::Value::as_str),
+        Some("cell")
+    );
+    let expected_control_endpoint = format!("tcp://127.0.0.1:{control_port}");
+    assert_eq!(
+        add.get("control_endpoint")
+            .and_then(serde_json::Value::as_str),
+        Some(expected_control_endpoint.as_str())
+    );
+
+    let list = run_fleet(&root, &["list"]);
+    assert_success(&list, "fleet list");
+    let list: serde_json::Value = serde_json::from_slice(&list.stdout).expect("parse list JSON");
+    assert_eq!(
+        list.get("schema_version")
+            .and_then(serde_json::Value::as_u64),
+        Some(1)
+    );
+    let runtimes = list
+        .get("runtimes")
+        .and_then(serde_json::Value::as_array)
+        .expect("fleet list runtimes");
+    assert_eq!(runtimes.len(), 1);
+    assert_eq!(
+        runtimes[0].get("name").and_then(serde_json::Value::as_str),
+        Some("cell")
+    );
 
     let start = run_fleet(&root, &["runtime", "start", "--name", "cell"]);
     assert_success(&start, "fleet runtime start");
@@ -114,6 +143,28 @@ fn managed_runtime_lifecycle_runs_through_the_shipped_cli() {
         .get("pid")
         .and_then(serde_json::Value::as_u64)
         .is_some());
+
+    let logs = run_fleet(
+        &root,
+        &["runtime", "logs", "--name", "cell", "--lines", "5"],
+    );
+    assert_success(&logs, "fleet runtime logs");
+    let logs: serde_json::Value = serde_json::from_slice(&logs.stdout).expect("parse logs JSON");
+    assert_eq!(
+        logs.get("schema_version")
+            .and_then(serde_json::Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        logs.get("name").and_then(serde_json::Value::as_str),
+        Some("cell")
+    );
+    assert!(
+        logs.get("lines")
+            .and_then(serde_json::Value::as_array)
+            .is_some(),
+        "logs response must contain a JSON line array"
+    );
 
     let stop = run_fleet(&root, &["runtime", "stop", "--name", "cell"]);
     assert_success(&stop, "fleet runtime stop");

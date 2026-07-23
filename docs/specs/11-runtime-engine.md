@@ -1969,6 +1969,10 @@ identifier before and after rollback.
 beneath the selected fleet root and registers it in `fleet.toml`. Runtime names
 use the CLI's portable name alphabet and must be unique in a manifest; hand-edited
 manifests are subject to the same validation before list or lifecycle actions.
+Generated entries use the portable runtime name as a relative project path
+beneath the fleet root. A hand-edited nonempty project path is resolved against
+the fleet root when relative and retained as a local path when absolute; this
+path flexibility does not relax name, endpoint, or port validation.
 Every control endpoint must parse under the runtime control-endpoint contract,
 every web port must be nonzero, and TCP control ports and web ports must be
 unique across roles and runtime entries. Ambiguous or malformed manifests fail
@@ -1993,13 +1997,17 @@ credential is likewise an error. The PID file is advisory process metadata.
 
 `status` and `logs` are read-only and do not create `.trust-runtime` state when
 it is absent. Log tailing retains only the requested final lines in memory
-rather than loading the complete log file. A start operation writes lifecycle
-state only after spawning the process; if PID persistence fails, it terminates
-and reaps that child, and if the child exits before the control endpoint becomes
-ready, start fails and removes the stale PID file.
+rather than loading the complete log file. A start operation may create its
+lifecycle directory and open the child log as spawn setup, but it publishes the
+advisory PID only after spawning the process. If PID persistence fails, it
+terminates and reaps that child, and if the child exits before the control
+endpoint becomes ready, start fails and removes the stale PID file.
 
-Control endpoints are local by default (`unix://` on Unix-like platforms) and the Unix socket is
-created with restrictive permissions (0600) to prevent accidental exposure.
+Managed-fleet scaffolding always emits a loopback TCP control endpoint because
+the manifest and lifecycle commands need one portable explicit endpoint. This
+is distinct from the generic runtime default, which uses `unix://` on Unix-like
+platforms; a generated Unix socket is created with restrictive permissions
+(0600) to prevent accidental exposure.
 
 #### 6.9 Debug Attach (Production)
 
