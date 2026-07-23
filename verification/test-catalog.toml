@@ -21868,3 +21868,123 @@ requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_VERIFICATION_MUTATION_REFRESH_REGRESSION_GATE_001.json"
 last_reviewed = "2026-07-23"
+[[tests]]
+schema_version = 2
+id = "TEST_DIRECT_ADDRESS_PARSER_PARSE_ADDRESSES_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_54528961A849760A419E"
+discovery_source_kind = "rust_integration_test"
+test_class = "integration"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/io_address.rs"
+name = "parse_addresses"
+command = "cargo test -p trust-runtime --test io_address parse_addresses -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_DIRECT_ADDRESS_PARSER_001"]
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#9-2-direct-address-format"
+expected_result = "Representative concrete input, output, and memory addresses parse to their exact area, size, byte, bit, and path fields."
+expected_failure_mode = "A valid direct address is rejected or any parsed location field differs from the written runtime address contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_DIRECT_ADDRESS_PARSER_PARSE_ADDRESSES_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_DIRECT_ADDRESS_PARSER_DIRECT_ADDRESS_PARSER_COVERS_HIERARCHY_AND_EXACT_WILDCARDS_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_C584CEA91CA60313FA04"
+discovery_source_kind = "rust_integration_test"
+test_class = "unit"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/io_address.rs"
+name = "direct_address_parser_covers_hierarchy_and_exact_wildcards"
+command = "cargo test -p trust-runtime --test io_address direct_address_parser_covers_hierarchy_and_exact_wildcards -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_DIRECT_ADDRESS_PARSER_001"]
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#9-2-direct-address-format"
+expected_result = "Hierarchical, implicit-bit, maximum-component, and exact unsized-wildcard inputs produce the specified runtime representation."
+expected_failure_mode = "A valid hierarchy or exact wildcard is rejected, truncated, assigned the wrong area or size, or represented as an unintended concrete location."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_DIRECT_ADDRESS_PARSER_DIRECT_ADDRESS_PARSER_COVERS_HIERARCHY_AND_EXACT_WILDCARDS_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_DIRECT_ADDRESS_PARSER_DIRECT_ADDRESS_PARSER_REJECTS_MALFORMED_WILDCARDS_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_9A5C0DB59A1CEE77A1C7"
+discovery_source_kind = "rust_integration_test"
+test_class = "failing_regression"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/io_address.rs"
+name = "direct_address_parser_rejects_malformed_wildcards"
+command = "cargo test -p trust-runtime --test io_address direct_address_parser_rejects_malformed_wildcards -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_DIRECT_ADDRESS_PARSER_001"]
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#9-2-direct-address-format"
+expected_result = "Every sized, suffixed, repeated, internally spaced, or hierarchical wildcard form returns InvalidIoAddress without a partial address."
+expected_failure_mode = "The parser again accepts any malformed wildcard prefix as wildcard authority or returns a non-contract error."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_DIRECT_ADDRESS_PARSER_DIRECT_ADDRESS_PARSER_REJECTS_MALFORMED_WILDCARDS_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_DIRECT_ADDRESS_PARSER_DIRECT_ADDRESS_PARSER_REJECTS_NON_DECIMAL_AND_OUT_OF_RANGE_COMPONENTS_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_8E4AFD2ECAED91CF7A60"
+discovery_source_kind = "rust_integration_test"
+test_class = "negative_malformed_input"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/io_address.rs"
+name = "direct_address_parser_rejects_non_decimal_and_out_of_range_components"
+command = "cargo test -p trust-runtime --test io_address direct_address_parser_rejects_non_decimal_and_out_of_range_components -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_DIRECT_ADDRESS_PARSER_001"]
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#9-2-direct-address-format"
+expected_result = "Missing, signed, non-ASCII, overflowing, unknown-area or size, and out-of-range bit components return InvalidIoAddress with the normalized input and no partial address."
+expected_failure_mode = "A malformed component is accepted, coerced, truncated, or rejected without the stable InvalidIoAddress contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_DIRECT_ADDRESS_PARSER_DIRECT_ADDRESS_PARSER_REJECTS_NON_DECIMAL_AND_OUT_OF_RANGE_COMPONENTS_001.json"
+last_reviewed = "2026-07-23"
+malformed_input_class_ids = ["runtime_direct_address_bit_index_out_of_range", "runtime_direct_address_component_overflow", "runtime_direct_address_missing_or_empty_component", "runtime_direct_address_non_decimal_component", "runtime_direct_address_unknown_area_or_size"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_DIRECT_ADDRESS_PARSER_IEC_6_5_5_2_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_FF081237FFA2A8F3966E"
+discovery_source_kind = "rust_integration_test"
+test_class = "runtime_vertical"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/io_hierarchy.rs"
+name = "iec_6_5_5_2"
+command = "cargo test -p trust-runtime --test io_hierarchy iec_6_5_5_2 -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_DIRECT_ADDRESS_PARSER_001"]
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#9-2-direct-address-format"
+expected_result = "An ST program with hierarchical input and output addresses compiles, receives a direct input, executes one scan cycle, and exposes the expected direct output."
+expected_failure_mode = "The runtime cannot bind the hierarchy through source compilation and scan execution or observes the wrong output value."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_DIRECT_ADDRESS_PARSER_IEC_6_5_5_2_001.json"
+last_reviewed = "2026-07-23"

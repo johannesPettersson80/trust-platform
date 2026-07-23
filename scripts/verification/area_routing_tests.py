@@ -106,14 +106,17 @@ class AreaRoutingTests(unittest.TestCase):
         self.assertEqual(result.conditional_suite_tiers, ())
 
     def test_direct_address_parser_uses_runtime_safety_route_without_protocol_loopback(self) -> None:
-        result = classify_changed_path(
-            self.matrix,
+        for path in (
             "crates/trust-runtime/src/io/addressing.rs",
-        )
+            "crates/trust-runtime/tests/io_address.rs",
+            "crates/trust-runtime/tests/io_hierarchy.rs",
+        ):
+            with self.subTest(path=path):
+                result = classify_changed_path(self.matrix, path)
 
-        self.assertEqual(result.route_ids, ("direct_address_parser",))
-        self.assertEqual(result.area_ids, ("runtime_safety",))
-        self.assertNotIn("protocol_loopback", result.required_test_classes)
+                self.assertEqual(result.route_ids, ("direct_address_parser",))
+                self.assertEqual(result.area_ids, ("runtime_safety",))
+                self.assertNotIn("protocol_loopback", result.required_test_classes)
 
     def test_single_star_wildcard_does_not_cross_path_segments(self) -> None:
         direct = classify_changed_path(self.matrix, "scripts/perf_bench.py")

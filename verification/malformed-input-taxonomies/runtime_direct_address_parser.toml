@@ -1,0 +1,42 @@
+schema_version = 1
+id = "MALFORMED_INPUT_RUNTIME_DIRECT_ADDRESS_PARSER_V1"
+title = "Runtime direct-address parser malformed-input taxonomy"
+area = "runtime_safety"
+surface_id = "runtime_direct_address_parser"
+review_doc = "verification/malformed-input-taxonomies/runtime_direct_address_parser.md"
+last_reviewed = "2026-07-23"
+
+[[classes]]
+id = "runtime_direct_address_bit_index_out_of_range"
+title = "Direct-address bit index out of range"
+disposition = "required"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#9-2-direct-address-format"
+rationale = "The runtime address-format contract restricts the final component of a hierarchical bit address to 0 through 7."
+
+[[classes]]
+id = "runtime_direct_address_component_overflow"
+title = "Direct-address component overflow"
+disposition = "required"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#9-2-direct-address-format"
+rationale = "The runtime address-format contract rejects location and bit components that exceed their owning integer representation."
+
+[[classes]]
+id = "runtime_direct_address_missing_or_empty_component"
+title = "Missing or empty direct-address component"
+disposition = "required"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#9-2-direct-address-format"
+rationale = "The runtime address-format contract requires one or more non-empty location components and forbids empty hierarchy segments."
+
+[[classes]]
+id = "runtime_direct_address_non_decimal_component"
+title = "Non-decimal direct-address component"
+disposition = "required"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#9-2-direct-address-format"
+rationale = "The runtime address-format contract permits only unsigned ASCII decimal digits in concrete location components."
+
+[[classes]]
+id = "runtime_direct_address_unknown_area_or_size"
+title = "Unknown direct-address area or size"
+disposition = "required"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#9-2-direct-address-format"
+rationale = "The runtime address-format contract recognizes only the written I, Q, and M areas and X, B, W, D, and L size designators."

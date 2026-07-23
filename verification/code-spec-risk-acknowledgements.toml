@@ -49130,20 +49130,6 @@ rationale = "Binds scanner-derived ADS dispatch, request, aggregate, handle, not
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_426BE6FAD377298CB1C359F60CD4D6251A47451505975C17F3131FB54BFC082C"
-code_id = "CODE_426BE6FAD377298CB1C359F60CD4D6251A47451505975C17F3131FB54BFC082C"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:6ada0a4734e859b216b06a91924cd91185e2e6b30979f3ef3a0b3e519dec6416"
-risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_42CDB5BF919BF2F93A8FAF01521DFB59BE21043F5719781173A9918AF4F8E119"
 code_id = "CODE_42CDB5BF919BF2F93A8FAF01521DFB59BE21043F5719781173A9918AF4F8E119"
 owner = "trust-runtime"
@@ -49841,20 +49827,6 @@ reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-22"
 expires_on = "2026-10-22"
 rationale = "Binds scanner-derived ADS dispatch, request, aggregate, handle, notification, and wire risks to one reviewed command contract and focused suite."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_68A1DF988E1D2702271662D7F716D7B2DBADEA0756AC531AD291A20F8C6D2AF3"
-code_id = "CODE_68A1DF988E1D2702271662D7F716D7B2DBADEA0756AC531AD291A20F8C6D2AF3"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:bc85f05c6d728d379454c18e18b9c7f2596eeb2a4cef2c2496ea9418c2b851da"
-risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
 
 [[acknowledgements]]
 schema_version = 1
@@ -50647,20 +50619,6 @@ code_id = "CODE_95BAEF5464F8EBCD17C792E9AF8A0036CBE257D188C9B6CC27E932F4224D3089
 owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:c51819d166951d71af6f4782a91eaa9e78ef236f91f670a736640fb7c3d05f7e"
-risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_96B527444E4CA8F1A489A23BDCB82BD046DDBD4589E81F17C0E7CF4A2BF6ED15"
-code_id = "CODE_96B527444E4CA8F1A489A23BDCB82BD046DDBD4589E81F17C0E7CF4A2BF6ED15"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:11c751f03cfa0486e8315fae360a69e66239d7180189e9a0d6b85af1329364e3"
 risk_signals = ["state_mutation"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
 reviewed_by = "trust-runtime"
@@ -81825,3 +81783,44 @@ reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-23"
 expires_on = "2027-07-23"
 rationale = "OPC UA client parsing, certificate trust, error guidance, and service-vector cardinality are security and false-success boundaries."
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_68A1DF988E1D2702271662D7F716D7B2DBADEA0756AC531AD291A20F8C6D2AF3"
+code_id = "CODE_68A1DF988E1D2702271662D7F716D7B2DBADEA0756AC531AD291A20F8C6D2AF3"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:55f969a6510e0fd2a5dbdd52e0477e47edfd518085f7a00fe8b72b09d81e432d"
+risk_signals = ["fault_mapping"]
+review_ref = "SPEC_RUNTIME_SEMANTICS_001#9-2-direct-address-format"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "A malformed direct address accepted as a wildcard or concrete location can bind I/O to unintended authority."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_7916CA7620769A0F0FEFBFAF5CCFA500012EACC341F9F6013A8E63F020F490DA"
+code_id = "CODE_7916CA7620769A0F0FEFBFAF5CCFA500012EACC341F9F6013A8E63F020F490DA"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:847efa4088845f0610abc90fae85783d5f31d59c399bd4b14f4bc8cb2bbcf39e"
+risk_signals = ["fault_mapping"]
+review_ref = "SPEC_RUNTIME_SEMANTICS_001#9-2-direct-address-format"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "A malformed direct address accepted as a wildcard or concrete location can bind I/O to unintended authority."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_96B527444E4CA8F1A489A23BDCB82BD046DDBD4589E81F17C0E7CF4A2BF6ED15"
+code_id = "CODE_96B527444E4CA8F1A489A23BDCB82BD046DDBD4589E81F17C0E7CF4A2BF6ED15"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:afb9b5edeb3f52fcda1493926d0f845be003f57dc8219ed5876cac0f8cb29075"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_SEMANTICS_001#9-2-direct-address-format"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "A malformed direct address accepted as a wildcard or concrete location can bind I/O to unintended authority."

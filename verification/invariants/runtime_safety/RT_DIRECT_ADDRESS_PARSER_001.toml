@@ -1,0 +1,96 @@
+schema_version = 1
+id = "RT_DIRECT_ADDRESS_PARSER_001"
+title = "Direct-address parsing accepts only IEC-shaped locations"
+area = "runtime_safety"
+risk = "wrong_result"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-23"
+claim = "The runtime direct-address parser accepts IEC area, size, hierarchy, and exact unsized wildcard forms while rejecting malformed wildcard, non-decimal, overflow, and bit-range inputs as InvalidIoAddress."
+proof_level = "T1"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-runtime/src/io/addressing.rs"]
+tests = [
+  "TEST_DIRECT_ADDRESS_PARSER_PARSE_ADDRESSES_001",
+  "TEST_DIRECT_ADDRESS_PARSER_DIRECT_ADDRESS_PARSER_COVERS_HIERARCHY_AND_EXACT_WILDCARDS_001",
+  "TEST_DIRECT_ADDRESS_PARSER_DIRECT_ADDRESS_PARSER_REJECTS_MALFORMED_WILDCARDS_001",
+  "TEST_DIRECT_ADDRESS_PARSER_DIRECT_ADDRESS_PARSER_REJECTS_NON_DECIMAL_AND_OUT_OF_RANGE_COMPONENTS_001",
+  "TEST_DIRECT_ADDRESS_PARSER_IEC_6_5_5_2_001"
+]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate", "hierarchy_depth_resource_stress", "wildcard_declaration_context_and_var_config_resolution", "downstream_binding_interface_and_coercion_semantics", "IoAddress_public_type_fact", "IoSize_Bytes_variant_semantics"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_SEMANTICS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_SEMANTICS_001#9-2-direct-address-format"
+
+[[behavior]]
+partition = { equals = "CONCRETE_DIRECT_ADDRESS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#9-2-direct-address-format"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "All areas, declared sizes, implicit-bit form, hierarchy, and component bounds produce the exact parsed fields."
+
+[[behavior]]
+partition = { equals = "EXACT_UNSIZED_WILDCARD" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#9-2-direct-address-format"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Only exact %I*, %Q*, and %M* forms produce wildcard authority after outer trimming."
+
+[[behavior]]
+partition = { equals = "MALFORMED_WILDCARD" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#9-2-direct-address-format"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Sized, suffixed, repeated, or internally spaced wildcard forms return InvalidIoAddress."
+
+[[behavior]]
+partition = { equals = "MALFORMED_COMPONENT_SHAPE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#9-2-direct-address-format"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Missing, signed, non-ASCII, empty, unknown-area, and unknown-size components return InvalidIoAddress."
+
+[[behavior]]
+partition = { equals = "OUT_OF_RANGE_COMPONENT" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#9-2-direct-address-format"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Overflowing u32/u8 components and bit indices above seven return InvalidIoAddress."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "Focused positives cover every area and size, implicit bit, bit and non-bit hierarchy, exact wildcards, outer trimming, and u32::MAX."
+
+[[coverage.cells]]
+dimension = "boundary_high"
+state = "covered"
+rationale = "u32 and u8 overflow plus bit 7/8 boundaries are locked."
+
+[[coverage.cells]]
+dimension = "encoding_or_unicode"
+state = "covered"
+rationale = "Signed and representative non-ASCII numeric components are rejected."
+
+[[coverage.cells]]
+dimension = "resource_limit"
+state = "gap_open"
+rationale = "Very deep hierarchy resource-stress proof remains open."

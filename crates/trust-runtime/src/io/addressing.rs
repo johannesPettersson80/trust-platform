@@ -32,8 +32,18 @@ impl IoAddress {
             _ => return Err(RuntimeError::InvalidIoAddress(trimmed.into())),
         };
         let rest: String = chars.collect();
-        if rest.trim().is_empty() {
+        if rest.is_empty() {
             return Err(RuntimeError::InvalidIoAddress(trimmed.into()));
+        }
+        if rest == "*" {
+            return Ok(Self {
+                area,
+                size: IoSize::Bit,
+                byte: 0,
+                bit: 0,
+                path: Vec::new(),
+                wildcard: true,
+            });
         }
 
         let mut rest_chars = rest.chars();
@@ -46,56 +56,26 @@ impl IoAddress {
             'W' => (IoSize::Word, rest_chars.as_str()),
             'D' => (IoSize::DWord, rest_chars.as_str()),
             'L' => (IoSize::LWord, rest_chars.as_str()),
-            '*' => {
-                return Ok(Self {
-                    area,
-                    size: IoSize::Bit,
-                    byte: 0,
-                    bit: 0,
-                    path: Vec::new(),
-                    wildcard: true,
-                })
-            }
             ch if ch.is_ascii_digit() => (IoSize::Bit, rest.as_str()),
             _ => return Err(RuntimeError::InvalidIoAddress(trimmed.into())),
         };
 
-        if rest.trim() == "*" {
-            return Ok(Self {
-                area,
-                size,
-                byte: 0,
-                bit: 0,
-                path: Vec::new(),
-                wildcard: true,
-            });
-        }
-
         let mut path: Vec<u32> = Vec::new();
         let mut bit = 0u8;
         let parts: Vec<&str> = rest.split('.').collect();
-        if parts.is_empty() {
-            return Err(RuntimeError::InvalidIoAddress(trimmed.into()));
-        }
         if matches!(size, IoSize::Bit) && parts.len() >= 2 {
             for part in &parts[..parts.len() - 1] {
-                path.push(parse_u32(Some(part), trimmed)?);
+                path.push(parse_u32(part, trimmed)?);
             }
-            let bit_part = parts
-                .last()
-                .copied()
-                .ok_or_else(|| RuntimeError::InvalidIoAddress(trimmed.into()))?;
+            let bit_part = parts[parts.len() - 1];
             bit = parse_u8(bit_part, trimmed)?;
             if bit > 7 {
                 return Err(RuntimeError::InvalidIoAddress(trimmed.into()));
             }
         } else {
             for part in &parts {
-                path.push(parse_u32(Some(part), trimmed)?);
+                path.push(parse_u32(part, trimmed)?);
             }
-        }
-        if path.is_empty() {
-            return Err(RuntimeError::InvalidIoAddress(trimmed.into()));
         }
         let byte = path[0];
         Ok(Self {
@@ -166,14 +146,19 @@ impl IoSafeState {
         Ok(())
     }
 }
-fn parse_u32(value: Option<&str>, full: &str) -> Result<u32, RuntimeError> {
+fn parse_u32(value: &str, full: &str) -> Result<u32, RuntimeError> {
+    if value.is_empty() || !value.bytes().all(|byte| byte.is_ascii_digit()) {
+        return Err(RuntimeError::InvalidIoAddress(full.into()));
+    }
     value
-        .ok_or_else(|| RuntimeError::InvalidIoAddress(full.into()))?
         .parse::<u32>()
         .map_err(|_| RuntimeError::InvalidIoAddress(full.into()))
 }
 
 fn parse_u8(value: &str, full: &str) -> Result<u8, RuntimeError> {
+    if value.is_empty() || !value.bytes().all(|byte| byte.is_ascii_digit()) {
+        return Err(RuntimeError::InvalidIoAddress(full.into()));
+    }
     value
         .parse::<u8>()
         .map_err(|_| RuntimeError::InvalidIoAddress(full.into()))

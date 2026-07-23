@@ -10,6 +10,10 @@ Target release: `v0.24.54`
 
 ### Fixed
 
+- trust-runtime: direct-address parsing now rejects sized, suffixed, spaced,
+  and otherwise malformed IEC wildcard forms, plus signed or non-decimal
+  address components such as `%IW+1`, instead of accepting partial or
+  ambiguous locations.
 - trust-runtime: Modbus `f32` point scaling now rejects finite internal `f64`
   results that would narrow to infinity in the process image or wire payload.
 - trust-runtime: MQTT raw reads now select the newest payload drained for a

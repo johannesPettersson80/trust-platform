@@ -13682,16 +13682,6 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
-discovery_id = "DISC_54528961A849760A419E"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/io_address.rs"
-name = "parse_addresses"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_5454DCB596DED437F8EC"
 discovery_source_kind = "vscode_test"
 path = "editors/vscode/src/test/suite/ux-shell-contract.test.ts"
@@ -41132,16 +41122,6 @@ catalog_test_id = "TEST_RUNTIME_SETUP_CANCEL_001"
 last_reviewed = "2026-07-22"
 
 [[reviews]]
-discovery_id = "DISC_FF081237FFA2A8F3966E"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/io_hierarchy.rs"
-name = "iec_6_5_5_2"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_FF3064BED9A1C8998224"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/ads/diagnostics/tests/schema_tests.rs"
@@ -42810,4 +42790,53 @@ name = "mutation_refresh_regression_gate"
 ignore_state = "not_ignored"
 disposition = "catalog_mapped"
 catalog_test_id = "TEST_VERIFICATION_MUTATION_REFRESH_REGRESSION_GATE_001"
+last_reviewed = "2026-07-23"
+[[reviews]]
+discovery_id = "DISC_54528961A849760A419E"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/io_address.rs"
+name = "parse_addresses"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_DIRECT_ADDRESS_PARSER_PARSE_ADDRESSES_001"
+last_reviewed = "2026-07-23"
+
+[[reviews]]
+discovery_id = "DISC_C584CEA91CA60313FA04"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/io_address.rs"
+name = "direct_address_parser_covers_hierarchy_and_exact_wildcards"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_DIRECT_ADDRESS_PARSER_DIRECT_ADDRESS_PARSER_COVERS_HIERARCHY_AND_EXACT_WILDCARDS_001"
+last_reviewed = "2026-07-23"
+
+[[reviews]]
+discovery_id = "DISC_9A5C0DB59A1CEE77A1C7"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/io_address.rs"
+name = "direct_address_parser_rejects_malformed_wildcards"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_DIRECT_ADDRESS_PARSER_DIRECT_ADDRESS_PARSER_REJECTS_MALFORMED_WILDCARDS_001"
+last_reviewed = "2026-07-23"
+
+[[reviews]]
+discovery_id = "DISC_8E4AFD2ECAED91CF7A60"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/io_address.rs"
+name = "direct_address_parser_rejects_non_decimal_and_out_of_range_components"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_DIRECT_ADDRESS_PARSER_DIRECT_ADDRESS_PARSER_REJECTS_NON_DECIMAL_AND_OUT_OF_RANGE_COMPONENTS_001"
+last_reviewed = "2026-07-23"
+
+[[reviews]]
+discovery_id = "DISC_FF081237FFA2A8F3966E"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/io_hierarchy.rs"
+name = "iec_6_5_5_2"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_DIRECT_ADDRESS_PARSER_IEC_6_5_5_2_001"
 last_reviewed = "2026-07-23"

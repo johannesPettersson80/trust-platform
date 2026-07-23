@@ -1124,6 +1124,33 @@ pub enum AddressSize {
 }
 ```
 
+The runtime parser implements IEC 61131-3 Ed.3 section 6.5.5.1 and Table 16 as
+`%` followed by area `I`, `Q`, or `M`, an optional size `X`, `B`, `W`, `D`, or
+`L`, and one or more dot-separated unsigned address components. Components use
+ASCII decimal digits without a sign and must fit in `u32`. For a bit address
+with at least two components, the final component is the bit index and must be
+in `0..=7`; the preceding components form the location path. A one-component
+implicit- or `X`-sized bit address uses that component as its location and
+defaults the bit index to zero. For every concrete address, `IoAddress::byte`
+mirrors the first location-path component. For a non-bit address, every
+component remains in `IoAddress::path` and `IoAddress::bit` is zero. The parser
+does not impose an additional fixed
+hierarchy-level limit beyond those component and input-size bounds. This
+location correspondence, returned representation, and hierarchy limit are
+truST's implementer-specific choices under sections 6.5.5.1 and 6.5.5.2.
+
+Partly specified addresses follow section 6.5.5.4: after surrounding
+whitespace is removed, only `%I*`, `%Q*`, and `%M*` are wildcard forms. The
+asterisk replaces both the size prefix and all unsigned address components, so
+sized wildcards, trailing wildcard text, and interior whitespace are invalid.
+An accepted wildcard sets the matching area and `wildcard = true`; because it
+does not name a concrete location, its representation uses `IoSize::Bit`, zero
+byte and bit fields, and an empty path as an unresolved sentinel. Declaration
+and `VAR_CONFIG` resolution of that sentinel is a separate downstream contract.
+Malformed input returns `RuntimeError::InvalidIoAddress` without producing a
+partial address. This parsing contract is IEC-conforming product behavior, not
+an IEC decision or deviation.
+
 #### 9.3 Address Examples
 
 | Address | Area | Size | Offset |
