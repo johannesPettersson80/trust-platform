@@ -474,9 +474,71 @@ in-process IEC arithmetic, `IS_VALID`, subnormal, or signed-zero semantics.
 - A previously accepted finite value may remain visible for diagnostics, but
   a faulted point does not apply it as a fresh input. A later finite `Good`
   sample may recover through the normal subscription path.
-- This rule is limited to OPC UA client scalar ingress. OPC UA egress, arrays,
+- This rule is limited to OPC UA client scalar ingress. Scalar OPC UA egress
+  is governed by the worker/cache integrity contract below. Arrays,
   structures, subnormal values, signed zero, and other protocol/API/retained
   ingress boundaries require their own reviewed contracts.
+
+###### OPC UA client worker, cache, and scalar-output integrity
+
+This is a truST OPC UA product contract outside IEC 61131-3. IEC defines the
+PLC data types exposed at the runtime boundary, but it does not define OPC UA
+session generations, subscription event authority, write acknowledgements, or
+worker shutdown. These rules therefore belong here, not in
+`IEC_DECISIONS.md` or `IEC_DEVIATIONS.md`.
+
+The client cache is closed over the configured bindings. A subscription sample
+from the active session may mutate cache or PLC input authority only when its
+variable name, node ID, declared OPC UA data type, and access mode exactly
+match one configured readable point. A current-session sample with an unknown
+or mismatched identity is a visible validation fault and must not create a
+dynamic point status, replace a configured point's value, or write PLC
+storage.
+
+Every connection or recovery candidate has a monotonically increasing local
+session generation, and every callback sink created for that candidate carries
+that generation. Only events from the active generation may change connection,
+point, value, or freshness authority. A delayed sample, disconnect, or
+session-closed callback from an older generation is ignored and cannot regress
+a newer connected session. Within the active generation, accepted event time
+and point freshness never move backward; an older event cannot replace a newer
+value or connection/point state.
+
+Each locally captured output intent carries a monotonically increasing write
+generation. Capturing a changed finite value atomically replaces the queued
+value for that point. A transport completion may remove the queued value or
+change its point quality only when the completion still names the exact
+generation that was transmitted. Completion of an older value cannot remove a
+newer queued value or overwrite its pending or error quality. A correctly
+correlated validation rejection terminally removes that exact generation,
+faults the affected point visibly, and does not reconnect the otherwise
+healthy session.
+
+For scalar `Float`/`REAL` and `Double`/`LREAL` outputs, the value must be finite
+at the declared width before it enters the pending-write cache. A non-finite
+output cancels any older queued intent for that point, advances the local write
+generation, reports an explicit point fault, and is never sent to the
+transport. The queued-value baseline is cleared so a later finite value can be
+queued normally. The runtime does not clamp, normalize, or substitute a
+default.
+
+At the OPC UA wire adapter boundary, a write response is successful only when
+it contains exactly one status for every request, in request order, and every
+status is `Good`. A missing, extra, or non-good result cannot be
+reported to the worker as a successful batch. This is a fail-closed truST
+adapter rule; it does not claim that IEC 61131-3 defines OPC UA service-result
+semantics.
+
+Worker shutdown or drop must wake an idle interval wait promptly rather than
+sleeping for the configured tick interval, attempt transport disconnect, make
+the shared connection and readable-point authority non-good, and join the
+worker thread. Raw values may remain available for diagnostics. This local
+wakeup guarantee does not claim cancellation of a transport call already in
+flight.
+
+Whether pending outputs replay after reconnect and how server source
+timestamps are ordered remain unresolved product decisions. This contract does
+not provide authority for tests that select those behaviors.
 
 5. **ADS floating-point ingress**
 - ADS `REAL`/`LREAL` values entering through client reads/notifications or ADS

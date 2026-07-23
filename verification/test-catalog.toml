@@ -20695,3 +20695,386 @@ requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_POLICY_WRITE_AUDIT_WRITE_PORT_REJECTS_READ_ONLY_GATE_WITHOUT_MUTATION_001.json"
 last_reviewed = "2026-07-23"
+[[tests]]
+schema_version = 2
+id = "TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_PERSISTENT_WORKER_APPLIES_SUBSCRIPTION_UPDATES_WITHOUT_RECONNECTING_PER_SCAN_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_58C4F9FEBAD2FEFEAA75"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/opcua/tests.rs"
+name = "persistent_worker_applies_subscription_updates_without_reconnecting_per_scan"
+command = "cargo test -p trust-runtime --lib opcua::tests::persistent_worker_applies_subscription_updates_without_reconnecting_per_scan -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity"
+expected_result = "The focused assertion suite for persistent worker applies subscription updates without reconnecting per scan satisfies SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity."
+expected_failure_mode = "The specified RT_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_PERSISTENT_WORKER_APPLIES_SUBSCRIPTION_UPDATES_WITHOUT_RECONNECTING_PER_SCAN_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_OPCUA_EVENT_QUEUE_REJECTS_SATURATION_AND_RECOVERS_AFTER_DRAIN_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_D074D829A8C6B93DAC92"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/opcua/tests.rs"
+name = "opcua_event_queue_rejects_saturation_and_recovers_after_drain"
+command = "cargo test -p trust-runtime --lib opcua::tests::opcua_event_queue_rejects_saturation_and_recovers_after_drain -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity"
+expected_result = "The focused assertion suite for opcua event queue rejects saturation and recovers after drain satisfies SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity."
+expected_failure_mode = "The specified RT_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_OPCUA_EVENT_QUEUE_REJECTS_SATURATION_AND_RECOVERS_AFTER_DRAIN_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_PERSISTENT_WORKER_BATCHES_WRITES_WITHOUT_RECONNECTING_PER_WRITE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_BDE300CE810CD01E9DFE"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/opcua/tests.rs"
+name = "persistent_worker_batches_writes_without_reconnecting_per_write"
+command = "cargo test -p trust-runtime --lib opcua::tests::persistent_worker_batches_writes_without_reconnecting_per_write -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity"
+expected_result = "The focused assertion suite for persistent worker batches writes without reconnecting per write satisfies SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity."
+expected_failure_mode = "The specified RT_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_PERSISTENT_WORKER_BATCHES_WRITES_WITHOUT_RECONNECTING_PER_WRITE_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_PERSISTENT_WORKER_REJECTED_WRITE_MARKS_POINT_WITHOUT_RECONNECTING_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_45DCF63A60FA87D72979"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/opcua/tests.rs"
+name = "persistent_worker_rejected_write_marks_point_without_reconnecting"
+command = "cargo test -p trust-runtime --lib opcua::tests::persistent_worker_rejected_write_marks_point_without_reconnecting -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity"
+expected_result = "The focused assertion suite for persistent worker rejected write marks point without reconnecting satisfies SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity."
+expected_failure_mode = "The specified RT_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_PERSISTENT_WORKER_REJECTED_WRITE_MARKS_POINT_WITHOUT_RECONNECTING_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_PERSISTENT_WORKER_MARKS_STALE_THEN_RECOVERS_ON_SUBSCRIPTION_UPDATE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_5F738C6D18E335AC385C"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/opcua/tests.rs"
+name = "persistent_worker_marks_stale_then_recovers_on_subscription_update"
+command = "cargo test -p trust-runtime --lib opcua::tests::persistent_worker_marks_stale_then_recovers_on_subscription_update -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity"
+expected_result = "The focused assertion suite for persistent worker marks stale then recovers on subscription update satisfies SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity."
+expected_failure_mode = "The specified RT_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_PERSISTENT_WORKER_MARKS_STALE_THEN_RECOVERS_ON_SUBSCRIPTION_UPDATE_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_PERSISTENT_WORKER_RECONNECTS_AFTER_SESSION_LOSS_WITHOUT_SCAN_THREAD_IO_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_D0022CD29DB5061F146B"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/opcua/tests.rs"
+name = "persistent_worker_reconnects_after_session_loss_without_scan_thread_io"
+command = "cargo test -p trust-runtime --lib opcua::tests::persistent_worker_reconnects_after_session_loss_without_scan_thread_io -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity"
+expected_result = "The focused assertion suite for persistent worker reconnects after session loss without scan thread io satisfies SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity."
+expected_failure_mode = "The specified RT_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_PERSISTENT_WORKER_RECONNECTS_AFTER_SESSION_LOSS_WITHOUT_SCAN_THREAD_IO_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_PERSISTENT_WORKER_RECREATES_SUBSCRIPTION_AFTER_SERVER_RESTART_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_825048A5CCB4563DE83C"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/opcua/tests.rs"
+name = "persistent_worker_recreates_subscription_after_server_restart"
+command = "cargo test -p trust-runtime --lib opcua::tests::persistent_worker_recreates_subscription_after_server_restart -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity"
+expected_result = "The focused assertion suite for persistent worker recreates subscription after server restart satisfies SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity."
+expected_failure_mode = "The specified RT_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_PERSISTENT_WORKER_RECREATES_SUBSCRIPTION_AFTER_SERVER_RESTART_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_PERSISTENT_WORKER_USES_RECOVERY_HOOK_TO_REESTABLISH_SUBSCRIPTIONS_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_D2C8A6DEB11E476D80F6"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/opcua/tests.rs"
+name = "persistent_worker_uses_recovery_hook_to_reestablish_subscriptions"
+command = "cargo test -p trust-runtime --lib opcua::tests::persistent_worker_uses_recovery_hook_to_reestablish_subscriptions -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity"
+expected_result = "The focused assertion suite for persistent worker uses recovery hook to reestablish subscriptions satisfies SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity."
+expected_failure_mode = "The specified RT_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_PERSISTENT_WORKER_USES_RECOVERY_HOOK_TO_REESTABLISH_SUBSCRIPTIONS_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_CONNECTED_DETAIL_REPORTS_TIMEOUT_NEGOTIATION_OR_DOCUMENTED_GAP_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_607FE044E9F299285455"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/opcua/tests.rs"
+name = "connected_detail_reports_timeout_negotiation_or_documented_gap"
+command = "cargo test -p trust-runtime --lib opcua::tests::connected_detail_reports_timeout_negotiation_or_documented_gap -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity"
+expected_result = "The focused assertion suite for connected detail reports timeout negotiation or documented gap satisfies SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity."
+expected_failure_mode = "The specified RT_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_CONNECTED_DETAIL_REPORTS_TIMEOUT_NEGOTIATION_OR_DOCUMENTED_GAP_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_CURRENT_SESSION_SAMPLES_REQUIRE_EXACT_CONFIGURED_IDENTITY_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_9875E7BDA7C3B55909BE"
+discovery_source_kind = "rust_unit_test"
+test_class = "failing_regression"
+area = "protocols"
+path = "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+name = "current_session_samples_require_exact_configured_identity"
+command = "cargo test -p trust-runtime --lib opcua::tests::worker_integrity::current_session_samples_require_exact_configured_identity -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity"
+expected_result = "The focused assertion suite for current session samples require exact configured identity satisfies SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity."
+expected_failure_mode = "The specified RT_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_CURRENT_SESSION_SAMPLES_REQUIRE_EXACT_CONFIGURED_IDENTITY_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_OLDER_SESSION_CALLBACKS_CANNOT_REGRESS_RECONNECTED_WORKER_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_7EA277F1D09BF524610E"
+discovery_source_kind = "rust_unit_test"
+test_class = "failing_regression"
+area = "protocols"
+path = "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+name = "older_session_callbacks_cannot_regress_reconnected_worker"
+command = "cargo test -p trust-runtime --lib opcua::tests::worker_integrity::older_session_callbacks_cannot_regress_reconnected_worker -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity"
+expected_result = "The focused assertion suite for older session callbacks cannot regress reconnected worker satisfies SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity."
+expected_failure_mode = "The specified RT_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_OLDER_SESSION_CALLBACKS_CANNOT_REGRESS_RECONNECTED_WORKER_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_OLDER_ACTIVE_SESSION_SAMPLE_CANNOT_REPLACE_NEWER_VALUE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_594D34B8573DA8A8BFE9"
+discovery_source_kind = "rust_unit_test"
+test_class = "failing_regression"
+area = "protocols"
+path = "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+name = "older_active_session_sample_cannot_replace_newer_value"
+command = "cargo test -p trust-runtime --lib opcua::tests::worker_integrity::older_active_session_sample_cannot_replace_newer_value -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity"
+expected_result = "The focused assertion suite for older active session sample cannot replace newer value satisfies SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity."
+expected_failure_mode = "The specified RT_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_OLDER_ACTIVE_SESSION_SAMPLE_CANNOT_REPLACE_NEWER_VALUE_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_WRITE_COMPLETION_PRESERVES_NEWER_PENDING_GENERATION_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_D28E6BEDE474849C675E"
+discovery_source_kind = "rust_unit_test"
+test_class = "failing_regression"
+area = "protocols"
+path = "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+name = "write_completion_preserves_newer_pending_generation"
+command = "cargo test -p trust-runtime --lib opcua::tests::worker_integrity::write_completion_preserves_newer_pending_generation -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity"
+expected_result = "The focused assertion suite for write completion preserves newer pending generation satisfies SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity."
+expected_failure_mode = "The specified RT_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_WRITE_COMPLETION_PRESERVES_NEWER_PENDING_GENERATION_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_NON_FINITE_OUTPUTS_CANCEL_PENDING_AND_ALLOW_LATER_FINITE_VALUE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_C001B994FE7AE2B5A2B5"
+discovery_source_kind = "rust_unit_test"
+test_class = "failing_regression"
+area = "protocols"
+path = "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+name = "non_finite_outputs_cancel_pending_and_allow_later_finite_value"
+command = "cargo test -p trust-runtime --lib opcua::tests::worker_integrity::non_finite_outputs_cancel_pending_and_allow_later_finite_value -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity"
+expected_result = "The focused assertion suite for non finite outputs cancel pending and allow later finite value satisfies SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity."
+expected_failure_mode = "The specified RT_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_NON_FINITE_OUTPUTS_CANCEL_PENDING_AND_ALLOW_LATER_FINITE_VALUE_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_WORKER_SHUTDOWN_INTERRUPTS_IDLE_WAIT_AND_REVOKES_GOOD_AUTHORITY_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_EF19FDB7F2CC0535B8D8"
+discovery_source_kind = "rust_unit_test"
+test_class = "failing_regression"
+area = "protocols"
+path = "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+name = "worker_shutdown_interrupts_idle_wait_and_revokes_good_authority"
+command = "cargo test -p trust-runtime --lib opcua::tests::worker_integrity::worker_shutdown_interrupts_idle_wait_and_revokes_good_authority -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity"
+expected_result = "The focused assertion suite for worker shutdown interrupts idle wait and revokes good authority satisfies SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity."
+expected_failure_mode = "The specified RT_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_WORKER_SHUTDOWN_INTERRUPTS_IDLE_WAIT_AND_REVOKES_GOOD_AUTHORITY_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_WIRE_WRITE_STATUS_CARDINALITY_MUST_MATCH_REQUEST_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_CF8FEB2C530D5491FA6A"
+discovery_source_kind = "rust_unit_test"
+test_class = "failing_regression"
+area = "protocols"
+path = "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+name = "wire_write_status_cardinality_must_match_request"
+command = "cargo test -p trust-runtime --lib opcua::tests::worker_integrity::wire_write_status_cardinality_must_match_request -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity"
+expected_result = "The focused assertion suite for wire write status cardinality must match request satisfies SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity."
+expected_failure_mode = "The specified RT_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_001 behavior regresses or reports false success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_WIRE_WRITE_STATUS_CARDINALITY_MUST_MATCH_REQUEST_001.json"
+last_reviewed = "2026-07-23"

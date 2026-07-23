@@ -3,6 +3,8 @@ use crate::value::{EnumValue, Value};
 use smol_str::SmolStr;
 use std::sync::Mutex;
 
+mod worker_integrity;
+
 static OPCUA_CLIENT_PKI_ENV_LOCK: Mutex<()> = Mutex::new(());
 
 #[test]

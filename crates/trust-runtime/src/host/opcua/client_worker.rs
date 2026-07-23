@@ -45,12 +45,15 @@ pub struct OpcUaClientWorker<T> {
     read_points: Vec<OpcUaClientPointConfig>,
     write_points: Vec<OpcUaClientPointConfig>,
     shared: OpcUaSharedClientCache,
-    sink: OpcUaClientEventSink,
+    event_sender: std::sync::mpsc::SyncSender<OpcUaClientWorkerEvent>,
     events: std::sync::mpsc::Receiver<OpcUaClientWorkerEvent>,
     transport: T,
     reconnect_backoff_ms: u64,
     next_reconnect_after_ms: Option<u64>,
     connected_since_ms: Option<u64>,
+    next_session_generation: u64,
+    active_session_generation: Option<u64>,
+    active_event_ms: Option<u64>,
 }
 
 impl<T: OpcUaClientTransport> OpcUaClientWorker<T> {
@@ -77,12 +80,15 @@ impl<T: OpcUaClientTransport> OpcUaClientWorker<T> {
             read_points,
             write_points,
             shared,
-            sink: OpcUaClientEventSink::new(sender),
+            event_sender: sender,
             events,
             transport,
             reconnect_backoff_ms: DEFAULT_OPCUA_RECONNECT_BACKOFF_MS,
             next_reconnect_after_ms: None,
             connected_since_ms: None,
+            next_session_generation: 0,
+            active_session_generation: None,
+            active_event_ms: None,
         }
     }
 
@@ -115,6 +121,7 @@ impl<T: OpcUaClientTransport> OpcUaClientWorker<T> {
     }
 
     pub fn connect(&mut self, now_ms: u64) -> Result<(), OpcUaClientBridgeError> {
+        let (generation, sink) = self.next_session_candidate()?;
         self.shared.mark_connecting(
             now_ms,
             format!(
@@ -124,14 +131,16 @@ impl<T: OpcUaClientTransport> OpcUaClientWorker<T> {
         );
         let result = self
             .transport
-            .connect(&self.connection, self.sink.clone())
+            .connect(&self.connection, sink.clone())
             .and_then(|session| {
                 self.transport
-                    .subscribe_read_points(self.read_points.as_slice(), self.sink.clone())?;
+                    .subscribe_read_points(self.read_points.as_slice(), sink)?;
                 Ok(session)
             });
         match result {
             Ok(session) => {
+                self.active_session_generation = Some(generation);
+                self.active_event_ms = Some(now_ms);
                 self.connected_since_ms = Some(now_ms);
                 self.next_reconnect_after_ms = None;
                 self.shared.mark_connected(
@@ -146,6 +155,8 @@ impl<T: OpcUaClientTransport> OpcUaClientWorker<T> {
                 Ok(())
             }
             Err(error) => {
+                self.active_session_generation = None;
+                self.active_event_ms = None;
                 self.handle_runtime_error(now_ms, &error);
                 Err(error)
             }
@@ -162,18 +173,23 @@ impl<T: OpcUaClientTransport> OpcUaClientWorker<T> {
 
     pub fn mark_reconnecting(&mut self, now_ms: u64, detail: impl Into<String>) {
         let detail = detail.into();
+        self.active_session_generation = None;
+        self.active_event_ms = None;
         self.shared.mark_reconnecting(now_ms, detail.clone());
         self.next_reconnect_after_ms = Some(now_ms.saturating_add(self.reconnect_backoff_ms));
         self.connected_since_ms = None;
     }
 
     fn recover_or_reconnect(&mut self, now_ms: u64) -> Result<(), OpcUaClientBridgeError> {
+        let (generation, sink) = self.next_session_candidate()?;
         match self.transport.recover_after_disconnect(
             &self.connection,
             self.read_points.as_slice(),
-            self.sink.clone(),
+            sink,
         ) {
             Ok(Some(session)) => {
+                self.active_session_generation = Some(generation);
+                self.active_event_ms = Some(now_ms);
                 self.connected_since_ms = Some(now_ms);
                 self.next_reconnect_after_ms = None;
                 self.shared.mark_connected(
@@ -206,14 +222,25 @@ impl<T: OpcUaClientTransport> OpcUaClientWorker<T> {
     fn drain_events(&mut self, now_ms: u64) {
         while let Ok(event) = self.events.try_recv() {
             match event {
-                OpcUaClientWorkerEvent::Sample(sample) => {
-                    self.shared.apply_sample(sample);
+                OpcUaClientWorkerEvent::Sample { generation, sample } => {
+                    if !self.event_is_current(generation, sample.last_seen_ms.unwrap_or(now_ms)) {
+                        continue;
+                    }
+                    if let Err(detail) = self.shared.apply_sample(sample) {
+                        self.active_session_generation = None;
+                        self.active_event_ms = None;
+                        self.shared.mark_faulted(now_ms, detail);
+                    }
                 }
                 OpcUaClientWorkerEvent::ConnectionStatus {
+                    generation,
                     connected,
                     at_ms,
                     detail,
                 } => {
+                    if !self.event_is_current(generation, at_ms) {
+                        continue;
+                    }
                     if connected {
                         self.connected_since_ms = Some(at_ms);
                         self.shared.mark_connected(at_ms, detail);
@@ -221,7 +248,14 @@ impl<T: OpcUaClientTransport> OpcUaClientWorker<T> {
                         self.mark_reconnecting(at_ms, detail);
                     }
                 }
-                OpcUaClientWorkerEvent::SessionClosed { at_ms, detail } => {
+                OpcUaClientWorkerEvent::SessionClosed {
+                    generation,
+                    at_ms,
+                    detail,
+                } => {
+                    if !self.event_is_current(generation, at_ms) {
+                        continue;
+                    }
                     self.mark_reconnecting(at_ms, detail);
                 }
             }
@@ -230,42 +264,46 @@ impl<T: OpcUaClientTransport> OpcUaClientWorker<T> {
     }
 
     fn publish_pending_writes(&mut self, now_ms: u64) -> Result<(), OpcUaClientBridgeError> {
-        let pending = self.shared.snapshot().pending_writes;
+        let pending = self.shared.pending_write_batch();
         if pending.is_empty() {
             return Ok(());
         }
         let mut writes = Vec::new();
         for point in &self.write_points {
-            if let Some(value) = pending.get(point.var.as_str()) {
-                writes.push((point.clone(), value.clone()));
+            if let Some(pending) = pending.get(point.var.as_str()) {
+                writes.push((point.clone(), pending.value.clone(), pending.generation));
             }
         }
         if writes.is_empty() {
             return Ok(());
         }
-        if let Err(error) = self.transport.write_values(writes.as_slice()) {
+        let transport_writes = writes
+            .iter()
+            .map(|(point, value, _)| (point.clone(), value.clone()))
+            .collect::<Vec<_>>();
+        if let Err(error) = self.transport.write_values(transport_writes.as_slice()) {
             if error.is_transport() {
                 self.handle_runtime_error(now_ms, &error);
                 return Err(error);
             }
-            for (point, _) in &writes {
-                self.shared.ack_write(point);
-                self.shared.set_point_status(
+            for (point, _, generation) in &writes {
+                self.shared.complete_write(
                     point,
+                    *generation,
                     OpcUaClientConnectionState::Faulted,
-                    Some(now_ms),
+                    now_ms,
                     None,
                     format!("OPC UA client write rejected: {error}"),
                 );
             }
             return Ok(());
         }
-        for (point, value) in writes {
-            self.shared.ack_write(&point);
-            self.shared.set_point_status(
+        for (point, value, generation) in writes {
+            self.shared.complete_write(
                 &point,
+                generation,
                 OpcUaClientConnectionState::Connected,
-                Some(now_ms),
+                now_ms,
                 Some(value),
                 "Live OPC UA client value written through persistent session.",
             );
@@ -300,6 +338,35 @@ impl<T: OpcUaClientTransport> OpcUaClientWorker<T> {
             self.shared.mark_faulted(now_ms, error.to_string());
         }
     }
+
+    fn next_session_candidate(
+        &mut self,
+    ) -> Result<(u64, OpcUaClientEventSink), OpcUaClientBridgeError> {
+        self.next_session_generation =
+            self.next_session_generation.checked_add(1).ok_or_else(|| {
+                OpcUaClientBridgeError::validation("OPC UA client session generation exhausted")
+            })?;
+        let generation = self.next_session_generation;
+        Ok((
+            generation,
+            OpcUaClientEventSink::new(self.event_sender.clone(), generation),
+        ))
+    }
+
+    fn event_is_current(&mut self, generation: u64, at_ms: u64) -> bool {
+        if self.active_session_generation != Some(generation)
+            || self
+                .active_event_ms
+                .is_some_and(|accepted| at_ms < accepted)
+        {
+            return false;
+        }
+        self.active_event_ms = Some(
+            self.active_event_ms
+                .map_or(at_ms, |accepted| accepted.max(at_ms)),
+        );
+        true
+    }
 }
 
 pub struct OpcUaClientWorkerThread {
@@ -315,6 +382,9 @@ impl OpcUaClientWorkerThread {
 
     fn request_stop(&self) {
         self.stop.store(true, std::sync::atomic::Ordering::SeqCst);
+        if let Some(join) = &self.join {
+            join.thread().unpark();
+        }
     }
 
     fn join_worker(&mut self) -> Result<(), OpcUaClientBridgeError> {
@@ -351,9 +421,12 @@ impl<T: OpcUaClientTransport + Send + 'static> OpcUaClientWorker<T> {
                 let mut worker = self;
                 while !stop_ref.load(std::sync::atomic::Ordering::SeqCst) {
                     let _ = worker.tick(opcua_client_now_ms());
-                    std::thread::sleep(interval);
+                    std::thread::park_timeout(interval);
                 }
                 let _ = worker.transport.disconnect();
+                worker
+                    .shared
+                    .mark_shutdown("OPC UA client worker stopped; readable values are not live.");
             })
             .map_err(|err| {
                 OpcUaClientBridgeError::transport(format!(
@@ -585,15 +658,7 @@ impl OpcUaClientTransport for OpcUaWireClientTransport {
                 .write(write_values.as_slice())
                 .map_err(|err| OpcUaClientBridgeError::transport(err.to_string()))?
         };
-        for ((point, _), status) in values.iter().zip(statuses) {
-            if !status.is_good() {
-                return Err(OpcUaClientBridgeError::validation(format!(
-                    "OPC UA node '{}' write returned {status}",
-                    point.node_id
-                )));
-            }
-        }
-        Ok(())
+        validate_opcua_write_statuses(values, statuses.as_slice())
     }
 
     fn recover_after_disconnect(
@@ -719,6 +784,29 @@ fn sample_from_data_value(
             detail: error.to_string(),
         },
     }
+}
+
+#[cfg(feature = "opcua-wire")]
+fn validate_opcua_write_statuses(
+    values: &[(OpcUaClientPointConfig, Value)],
+    statuses: &[::opcua::client::prelude::StatusCode],
+) -> Result<(), OpcUaClientBridgeError> {
+    if statuses.len() != values.len() {
+        return Err(OpcUaClientBridgeError::validation(format!(
+            "OPC UA write returned {} status result(s) for {} requested write(s)",
+            statuses.len(),
+            values.len()
+        )));
+    }
+    for ((point, _), status) in values.iter().zip(statuses) {
+        if !status.is_good() {
+            return Err(OpcUaClientBridgeError::validation(format!(
+                "OPC UA node '{}' write returned {status}",
+                point.node_id
+            )));
+        }
+    }
+    Ok(())
 }
 
 fn session_detail(

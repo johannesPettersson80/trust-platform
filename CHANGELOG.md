@@ -10,6 +10,10 @@ Target release: `v0.24.54`
 
 ### Fixed
 
+- trust-runtime: OPC UA client workers now reject mismatched and stale-session
+  subscription events, preserve newer queued output generations across older
+  completions, reject non-finite scalar outputs before transport, and wake
+  promptly while revoking readable authority during shutdown.
 - trust-runtime: ADS server publication now selects bounded symbol sets in
   canonical-name order, client policy compares parsed exact IP identities and
   requires explicit opt-in for unpinned entries, and security-first write

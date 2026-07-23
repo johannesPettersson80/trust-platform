@@ -48276,34 +48276,6 @@ rationale = "Binds scanner-derived ADS report and evidence facts to the versione
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_0D540BC3CDCF99C565EFB9777C4A5C8FDB0E65AEFF5C5D3F67AE46ACFDA485A0"
-code_id = "CODE_0D540BC3CDCF99C565EFB9777C4A5C8FDB0E65AEFF5C5D3F67AE46ACFDA485A0"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:3f403679f45af0910da1587bdb5b076d28c5d304fd58b8ef13094d02def630be"
-risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_0DDFA644DEC0EC333778734DD058AE122850B74734C0770A320AEBE75509D0B8"
-code_id = "CODE_0DDFA644DEC0EC333778734DD058AE122850B74734C0770A320AEBE75509D0B8"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:a89063cf7817d1848e23b78a8f6f29c20c74e4fc9cabfc79a21703a13750c512"
-risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_0E2F179B9E59A7631C450809964C8E8040FDC74F8AFBE1527FAFECAA3FF9FACA"
 code_id = "CODE_0E2F179B9E59A7631C450809964C8E8040FDC74F8AFBE1527FAFECAA3FF9FACA"
 owner = "trust-runtime"
@@ -48478,20 +48450,6 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:ec48c60fbe87d4c17527adedf938e66e9469aec88c66f5cfe472d090dd1b1d25"
 risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_16729CFC15D76DE6B1C80051C09EB9BB8A15DFCA2EB23F0FE5BA8DADD3AF1AF2"
-code_id = "CODE_16729CFC15D76DE6B1C80051C09EB9BB8A15DFCA2EB23F0FE5BA8DADD3AF1AF2"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:781cee8d0565420f3366c2ffe123335b3c7b327e6618f1b9c67debe491c2ab27"
-risk_signals = ["state_mutation"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-21"
@@ -48948,20 +48906,6 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_2E278A4DA169F8EC8262160A10A5A75B3782C6779810E3F7ABAB1971E86637C3"
-code_id = "CODE_2E278A4DA169F8EC8262160A10A5A75B3782C6779810E3F7ABAB1971E86637C3"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:8fdedc8335a20da2e953e18130b3947a61b0220e9eb5359a90847b3d84994f8a"
-risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_2FD4D6C7A5B70B43D09E344C70468BC7F13FE9310CD3041C008F7C1754B0134B"
 code_id = "CODE_2FD4D6C7A5B70B43D09E344C70468BC7F13FE9310CD3041C008F7C1754B0134B"
 owner = "trust-runtime"
@@ -48987,20 +48931,6 @@ reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-22"
 expires_on = "2026-10-22"
 rationale = "Binds scanner-derived ADS report and evidence facts to the versioned fail-closed diagnostic truth contract and focused suite."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_34F6C5B14F2F60DCE3B2B4036F37E77D0E230943F7D36FF872D93A9EA9F9C358"
-code_id = "CODE_34F6C5B14F2F60DCE3B2B4036F37E77D0E230943F7D36FF872D93A9EA9F9C358"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:a8f9c297c99548d4fbd05505f78096971b20d46e2a091090f7a220716c43e79b"
-risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
 
 [[acknowledgements]]
 schema_version = 1
@@ -49228,20 +49158,6 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_43D4CFB6BA80F83F6E16C0ECDF92B9730CAA50E6CDBA5558428ACF6BF8BFF2FB"
-code_id = "CODE_43D4CFB6BA80F83F6E16C0ECDF92B9730CAA50E6CDBA5558428ACF6BF8BFF2FB"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:c948e297a56b02c32d81326688d2daf8bc818d76aa3f6ac1337ebedeef0371a4"
-risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_44A91BC7D7A83CB2D4E52301C54F915304FA90051EC11EEB5E9223A96BB907A2"
 code_id = "CODE_44A91BC7D7A83CB2D4E52301C54F915304FA90051EC11EEB5E9223A96BB907A2"
 owner = "trust-runtime"
@@ -49416,20 +49332,6 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:fbd73b500dd5a0902161fd91d90ab6314276119aa996255137b490fba99e942f"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_4DCC0F1D6C1D256C5F331F375176540DEAD6B8FCAF33CF01D91788F1DF2FCDBC"
-code_id = "CODE_4DCC0F1D6C1D256C5F331F375176540DEAD6B8FCAF33CF01D91788F1DF2FCDBC"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:31cb7e09f305296bb55be5172bf1c121df72062e891638b427030f387aab334e"
-risk_signals = ["protocol_response_or_status", "state_mutation"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-21"
@@ -49942,20 +49844,6 @@ rationale = "Binds scanner-derived ADS dispatch, request, aggregate, handle, not
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_67C697A29ED45A4EEDDDBD84BBE75914BEDF729FA24B1FCCF6014A9026324A37"
-code_id = "CODE_67C697A29ED45A4EEDDDBD84BBE75914BEDF729FA24B1FCCF6014A9026324A37"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:e7343dc7e0c1a6e93c1cf2a8bf657bf511129c7cbb13ee070b0cb1096eb8f004"
-risk_signals = ["protocol_response_or_status", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_68A1DF988E1D2702271662D7F716D7B2DBADEA0756AC531AD291A20F8C6D2AF3"
 code_id = "CODE_68A1DF988E1D2702271662D7F716D7B2DBADEA0756AC531AD291A20F8C6D2AF3"
 owner = "trust-runtime"
@@ -50236,20 +50124,6 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_79E1AB29CDCF428873F033533E89892BA7F7E595C8592DE1019407BA154DD629"
-code_id = "CODE_79E1AB29CDCF428873F033533E89892BA7F7E595C8592DE1019407BA154DD629"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:d264828bad84db8a474191be3159bde5bb680c96628ab921a4ec7969e170ddac"
-risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_79EDEC612B44BD0FC64DFBDA928087CFDC8362B6FFA71BE797124F8C40E4C00F"
 code_id = "CODE_79EDEC612B44BD0FC64DFBDA928087CFDC8362B6FFA71BE797124F8C40E4C00F"
 owner = "trust-runtime"
@@ -50284,20 +50158,6 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:b24f304ffc7fad1016e04ba7d26b5bf0c5cc80710e1911432a2338c852f08d37"
 risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_7DE8540322847088B983DCED9F6F9015CAE17D08999A22AE0F14D71D21C6208D"
-code_id = "CODE_7DE8540322847088B983DCED9F6F9015CAE17D08999A22AE0F14D71D21C6208D"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:71f24b9d90a7324ab7f3344ddb9e12d96b1f56d582e79997187885bb7af95d39"
-risk_signals = ["state_mutation"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-21"
@@ -50354,20 +50214,6 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:a5fede97afc50a8dc5cbf342856e7827939e5c73bb94f94e4ad1623c7895c0f4"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_81F2B1D271E361ACFB9ABE64BEB29ED6690575B1BE9756D55C287371180A14B6"
-code_id = "CODE_81F2B1D271E361ACFB9ABE64BEB29ED6690575B1BE9756D55C287371180A14B6"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:ad6fd3e0507cd70ac57958f83d97a16148b3716c53ba81df03a031cf7ef23bc1"
-risk_signals = ["fault_mapping", "protocol_response_or_status", "state_mutation"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-21"
@@ -50754,20 +50600,6 @@ rationale = "Acknowledges scanner-derived network and route-authority risks whil
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_935E1EADC32D19320B060C0B6DF8664775699752590141A30CDDCD9AAE54E0C0"
-code_id = "CODE_935E1EADC32D19320B060C0B6DF8664775699752590141A30CDDCD9AAE54E0C0"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:6d353692f5f663d7493ced1fa4346d16e47588252bf9fdc9254eef135ff8bd7d"
-risk_signals = ["broad_error_suppression", "host_time"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_93CEEBADD5B5754C2B55EC4A7923A6A06DB5A6D961BD6A61DB8607A243D3F4E6"
 code_id = "CODE_93CEEBADD5B5754C2B55EC4A7923A6A06DB5A6D961BD6A61DB8607A243D3F4E6"
 owner = "trust-runtime"
@@ -50802,20 +50634,6 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:b7916d5e68565063ba9ddec402390bb707afdfbcdf969ac54a4c6cf5b2ed40c7"
 risk_signals = ["broad_error_suppression"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_946942C886658A268E3929086645C924CEE3E1F21C97344A75098EC1B813362F"
-code_id = "CODE_946942C886658A268E3929086645C924CEE3E1F21C97344A75098EC1B813362F"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:5eca9d44b3ad7b02ffa6f1a2801f741386b10b8ed7bfd57f48a5b13ad2a83455"
-risk_signals = ["state_mutation"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-21"
@@ -50919,20 +50737,6 @@ reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-22"
 expires_on = "2026-10-22"
 rationale = "Binds live ADS client transport facts and strict canonical parsing to the client transport product contract."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_9861B0DC59AF9665C292F2C7C4F0119737EE941A5BBC3216E63D5516157C20DF"
-code_id = "CODE_9861B0DC59AF9665C292F2C7C4F0119737EE941A5BBC3216E63D5516157C20DF"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:cab9fde2eea32c2b58f5ebed49393a49e7b683ef1cfa8405dccdec8747b0069a"
-risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
 
 [[acknowledgements]]
 schema_version = 1
@@ -51045,20 +50849,6 @@ reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-22"
 expires_on = "2026-10-22"
 rationale = "Binds scanner-derived ADS dispatch, request, aggregate, handle, notification, and wire risks to one reviewed command contract and focused suite."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_9D511D1AD0603D1852320335D09712A10D3A373044C82855D4FF83A95A1F6EFB"
-code_id = "CODE_9D511D1AD0603D1852320335D09712A10D3A373044C82855D4FF83A95A1F6EFB"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:692713ac614f6ecd90342c227964b273fe232efdb25b37246c7c2bb88fcf153f"
-risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
 
 [[acknowledgements]]
 schema_version = 1
@@ -51250,20 +51040,6 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:7a0074391d7b91041cd552a55699d571b9a161264c4126b02ee7514121b3c1b0"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_AA679C83B185033F344E32BFDD9A451E8AB5575CFD4C3BE09DC065EEFF39A23D"
-code_id = "CODE_AA679C83B185033F344E32BFDD9A451E8AB5575CFD4C3BE09DC065EEFF39A23D"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:c84935b71e1b141d6f97026597cefe68e128c865fe621313cdc0036ec6cb8db6"
-risk_signals = ["fault_mapping"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-21"
@@ -51664,20 +51440,6 @@ rationale = "Binds scanner-derived ADS dispatch, request, aggregate, handle, not
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_C05B9F2403772A1016F97150ED8A70813DD4B231A0581E11CB0FA258A565B66C"
-code_id = "CODE_C05B9F2403772A1016F97150ED8A70813DD4B231A0581E11CB0FA258A565B66C"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:0562f56629b2ddc45a8ce7fb278c5ae20dc5490eadd7afebb2f7c8eae1009dcf"
-risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_C145B2130B45C27ABED4908E776088EF76DCC99F1B918C865BF58074E36C9A16"
 code_id = "CODE_C145B2130B45C27ABED4908E776088EF76DCC99F1B918C865BF58074E36C9A16"
 owner = "trust-runtime"
@@ -51846,20 +51608,6 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_C6F431B3D943F1DA4E7A308AE20822432BAC688BB041A8B69AE3BBC81647FAFD"
-code_id = "CODE_C6F431B3D943F1DA4E7A308AE20822432BAC688BB041A8B69AE3BBC81647FAFD"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:9469cd5b663a2ef6433581f9d33d7c154136fa99ae7f6bff63045dc47858bbfc"
-risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_C705931B489233019B291CEB997F8B8F80697AEB549F91BFE30C6D7458C10FC4"
 code_id = "CODE_C705931B489233019B291CEB997F8B8F80697AEB549F91BFE30C6D7458C10FC4"
 owner = "trust-runtime"
@@ -52014,20 +51762,6 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_D238DFAC01A2BD33861B4AFF0446D5C3C735B973A8DE57B7B9B94FF0ECE83BA8"
-code_id = "CODE_D238DFAC01A2BD33861B4AFF0446D5C3C735B973A8DE57B7B9B94FF0ECE83BA8"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:97234085c124f377db69d5f074487affb63927ad4de95578d474154addebcff0"
-risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_D381FD350C83B8C3CC147B8E297EACB834CA07AD896E93E41CBDEFC66F71D363"
 code_id = "CODE_D381FD350C83B8C3CC147B8E297EACB834CA07AD896E93E41CBDEFC66F71D363"
 owner = "trust-runtime"
@@ -52146,20 +51880,6 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:663c1d5289c47f2ab7aa3b626489597a32fbca9a2be4e37ead811ad0cbad677f"
 risk_signals = ["protocol_response_or_status"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_D83BE639EA29C44EAAF0C488F356271F38F794698B062402C04D0CB581574FC7"
-code_id = "CODE_D83BE639EA29C44EAAF0C488F356271F38F794698B062402C04D0CB581574FC7"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:a63864f4092c57c2ead6bc1f6ef2c086d838aeb5fe64e8392369e3db7e010b1f"
-risk_signals = ["fault_mapping"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-21"
@@ -52336,20 +52056,6 @@ rationale = "Acknowledges scanner-derived network discovery and endpoint-identit
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_DF5BA2B2373A3542C1B18BDD393132B32BDDCCE4632F042168FF4B25A750924C"
-code_id = "CODE_DF5BA2B2373A3542C1B18BDD393132B32BDDCCE4632F042168FF4B25A750924C"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:4c2b38a30adf236356489cd2e80049da3aace48a8e42520cf1e88777eb758a72"
-risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_DFCCC85A52ABF6BA9154148607B07C519C1EAFCF6F2BB5ECF22AF3BA7F0E43F1"
 code_id = "CODE_DFCCC85A52ABF6BA9154148607B07C519C1EAFCF6F2BB5ECF22AF3BA7F0E43F1"
 owner = "trust-runtime"
@@ -52417,20 +52123,6 @@ reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-22"
 expires_on = "2026-10-22"
 rationale = "Acknowledges scanner-derived credential, generated-script, and route-mutation risks while binding the route owner to the reviewed product security contract and focused tests."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_E13D47B40233EC2F8BCD7534E0A2716BE8D4C1EE621423BC44343E406B6A201E"
-code_id = "CODE_E13D47B40233EC2F8BCD7534E0A2716BE8D4C1EE621423BC44343E406B6A201E"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:1300fef433586205e155d94a807cb196407b75228d7149e68182af45abcbd682"
-risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
 
 [[acknowledgements]]
 schema_version = 1
@@ -52546,20 +52238,6 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_E7E1F7A6F8B87472AC2D7761522018A5C909D96ABC5381DEAE1BE23AD082C5EB"
-code_id = "CODE_E7E1F7A6F8B87472AC2D7761522018A5C909D96ABC5381DEAE1BE23AD082C5EB"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:d26bf32a3ee91667155072667cf5a55d37761c8e5457ca37cf87afec516e20a9"
-risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_E87087EAF839357FFFEBF7F207315C393564C9194A9BA74245D22112E85FB79E"
 code_id = "CODE_E87087EAF839357FFFEBF7F207315C393564C9194A9BA74245D22112E85FB79E"
 owner = "trust-runtime"
@@ -52608,20 +52286,6 @@ owner = "trust-runtime"
 area = "protocols"
 body_digest = "sha256:d22703b3e49f4e7cd3f799a4352b9735ba2a3b33a0cb4dec8a1ab8f7719db37d"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_EA75342E532A2A4FFEA26C8A9E782EAF2672A720246EB949E9DF8A674BE0E180"
-code_id = "CODE_EA75342E532A2A4FFEA26C8A9E782EAF2672A720246EB949E9DF8A674BE0E180"
-owner = "trust-runtime"
-area = "protocols"
-body_digest = "sha256:2c984ad2c3dc66882b3e16984733c32933564cf875e9cdde8143bca140b1460c"
-risk_signals = ["protocol_response_or_status", "state_mutation"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-21"
@@ -81701,3 +81365,422 @@ reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-23"
 expires_on = "2027-01-23"
 rationale = "ADS server client policy and write-back are externally reachable security and mutation boundaries; exact source pinning, fail-closed ordering, resource-state admission, bounded refusal evidence, and audit truth were reviewed against focused tests."
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_0D540BC3CDCF99C565EFB9777C4A5C8FDB0E65AEFF5C5D3F67AE46ACFDA485A0"
+code_id = "CODE_0D540BC3CDCF99C565EFB9777C4A5C8FDB0E65AEFF5C5D3F67AE46ACFDA485A0"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:4d7f13c3ec67eca3aaaf5a215542955989a8241a018207a10b793e9433ad01d0"
+risk_signals = ["fault_mapping"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "The OPC UA worker/cache boundary owns live session, freshness, PLC input, and queued-output authority; its state and fault paths require explicit review."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_0DDFA644DEC0EC333778734DD058AE122850B74734C0770A320AEBE75509D0B8"
+code_id = "CODE_0DDFA644DEC0EC333778734DD058AE122850B74734C0770A320AEBE75509D0B8"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:b01f1491959e5eb4a90e31267113527f46c1cf5655393edb920e654d9b817227"
+risk_signals = ["fault_mapping"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "The OPC UA worker/cache boundary owns live session, freshness, PLC input, and queued-output authority; its state and fault paths require explicit review."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_16729CFC15D76DE6B1C80051C09EB9BB8A15DFCA2EB23F0FE5BA8DADD3AF1AF2"
+code_id = "CODE_16729CFC15D76DE6B1C80051C09EB9BB8A15DFCA2EB23F0FE5BA8DADD3AF1AF2"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:1ce0379580e8498c15f9b7c4ec1a1505b607c3871f02c6bc8409879558d4df7e"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "The OPC UA worker/cache boundary owns live session, freshness, PLC input, and queued-output authority; its state and fault paths require explicit review."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_1D658738193A0E1BE459985259CE67F5B88AB3171F4B47808998914F9E8728B5"
+code_id = "CODE_1D658738193A0E1BE459985259CE67F5B88AB3171F4B47808998914F9E8728B5"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:f43120a63ee6e181535dcc2016ddef802402fcfc29508a3a2ce1fc66b4be50a1"
+risk_signals = ["protocol_response_or_status", "state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "The OPC UA worker/cache boundary owns live session, freshness, PLC input, and queued-output authority; its state and fault paths require explicit review."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_2BEBCD66A506908814A1E8C6D1F6F18B242EA2DEC6C6A69307E8A3C480FAD75B"
+code_id = "CODE_2BEBCD66A506908814A1E8C6D1F6F18B242EA2DEC6C6A69307E8A3C480FAD75B"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:f21c8fa79bfc92552a73b4ffd752e2348c0df7a5dc7c8fcfb6ab924f1333ef8e"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "The OPC UA worker/cache boundary owns live session, freshness, PLC input, and queued-output authority; its state and fault paths require explicit review."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_34F6C5B14F2F60DCE3B2B4036F37E77D0E230943F7D36FF872D93A9EA9F9C358"
+code_id = "CODE_34F6C5B14F2F60DCE3B2B4036F37E77D0E230943F7D36FF872D93A9EA9F9C358"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:a8f9c297c99548d4fbd05505f78096971b20d46e2a091090f7a220716c43e79b"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "The OPC UA worker/cache boundary owns live session, freshness, PLC input, and queued-output authority; its state and fault paths require explicit review."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_43D4CFB6BA80F83F6E16C0ECDF92B9730CAA50E6CDBA5558428ACF6BF8BFF2FB"
+code_id = "CODE_43D4CFB6BA80F83F6E16C0ECDF92B9730CAA50E6CDBA5558428ACF6BF8BFF2FB"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:c948e297a56b02c32d81326688d2daf8bc818d76aa3f6ac1337ebedeef0371a4"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "The OPC UA worker/cache boundary owns live session, freshness, PLC input, and queued-output authority; its state and fault paths require explicit review."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_4DCC0F1D6C1D256C5F331F375176540DEAD6B8FCAF33CF01D91788F1DF2FCDBC"
+code_id = "CODE_4DCC0F1D6C1D256C5F331F375176540DEAD6B8FCAF33CF01D91788F1DF2FCDBC"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:31cb7e09f305296bb55be5172bf1c121df72062e891638b427030f387aab334e"
+risk_signals = ["protocol_response_or_status", "state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "The OPC UA worker/cache boundary owns live session, freshness, PLC input, and queued-output authority; its state and fault paths require explicit review."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_67C697A29ED45A4EEDDDBD84BBE75914BEDF729FA24B1FCCF6014A9026324A37"
+code_id = "CODE_67C697A29ED45A4EEDDDBD84BBE75914BEDF729FA24B1FCCF6014A9026324A37"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:4ac896248f56e0e86574d279a25fb54d7bc04e44cf54edf1a8a7873db11a0911"
+risk_signals = ["protocol_response_or_status", "state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "The OPC UA worker/cache boundary owns live session, freshness, PLC input, and queued-output authority; its state and fault paths require explicit review."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_79E1AB29CDCF428873F033533E89892BA7F7E595C8592DE1019407BA154DD629"
+code_id = "CODE_79E1AB29CDCF428873F033533E89892BA7F7E595C8592DE1019407BA154DD629"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:b53db80c85302921f1c98552e290a534353958eb9368d1672e3b524b1f3e9649"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "The OPC UA worker/cache boundary owns live session, freshness, PLC input, and queued-output authority; its state and fault paths require explicit review."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_81F2B1D271E361ACFB9ABE64BEB29ED6690575B1BE9756D55C287371180A14B6"
+code_id = "CODE_81F2B1D271E361ACFB9ABE64BEB29ED6690575B1BE9756D55C287371180A14B6"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:ad6fd3e0507cd70ac57958f83d97a16148b3716c53ba81df03a031cf7ef23bc1"
+risk_signals = ["fault_mapping", "protocol_response_or_status", "state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "The OPC UA worker/cache boundary owns live session, freshness, PLC input, and queued-output authority; its state and fault paths require explicit review."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_8219890040F3A9134ED9E7C0C8738AB9421B65109A178E76C0E627D649566495"
+code_id = "CODE_8219890040F3A9134ED9E7C0C8738AB9421B65109A178E76C0E627D649566495"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:6b4d94df8e219b14ff4efce83f3adbfa976d652dffc7bd693f8d5daef4667791"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "The OPC UA worker/cache boundary owns live session, freshness, PLC input, and queued-output authority; its state and fault paths require explicit review."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_8300C433527D7C5422CD2FCB9E9D08A12211737BE3AFF1DDF1849C858E568675"
+code_id = "CODE_8300C433527D7C5422CD2FCB9E9D08A12211737BE3AFF1DDF1849C858E568675"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:1caabd154e43aae5abf52108d7885a1da91688731f6f5020a679f7213befc5c5"
+risk_signals = ["protocol_response_or_status", "state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "The OPC UA worker/cache boundary owns live session, freshness, PLC input, and queued-output authority; its state and fault paths require explicit review."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_935E1EADC32D19320B060C0B6DF8664775699752590141A30CDDCD9AAE54E0C0"
+code_id = "CODE_935E1EADC32D19320B060C0B6DF8664775699752590141A30CDDCD9AAE54E0C0"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:6d353692f5f663d7493ced1fa4346d16e47588252bf9fdc9254eef135ff8bd7d"
+risk_signals = ["broad_error_suppression", "host_time"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "The OPC UA worker/cache boundary owns live session, freshness, PLC input, and queued-output authority; its state and fault paths require explicit review."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_946942C886658A268E3929086645C924CEE3E1F21C97344A75098EC1B813362F"
+code_id = "CODE_946942C886658A268E3929086645C924CEE3E1F21C97344A75098EC1B813362F"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:39b90f5d24b502ca42fd11b85a57dbbf7a3225893541f1230641e0f2a5ea0cec"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "The OPC UA worker/cache boundary owns live session, freshness, PLC input, and queued-output authority; its state and fault paths require explicit review."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_9504692B3E784DA3B6A89F35655AFC93AB82D91FACC7969D0D85F392F75AC95B"
+code_id = "CODE_9504692B3E784DA3B6A89F35655AFC93AB82D91FACC7969D0D85F392F75AC95B"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:6eb4d566d66ab320a537e10dbcb302d988e3c280651958f15a1efa518d171e96"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "The OPC UA worker/cache boundary owns live session, freshness, PLC input, and queued-output authority; its state and fault paths require explicit review."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_9861B0DC59AF9665C292F2C7C4F0119737EE941A5BBC3216E63D5516157C20DF"
+code_id = "CODE_9861B0DC59AF9665C292F2C7C4F0119737EE941A5BBC3216E63D5516157C20DF"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:cab9fde2eea32c2b58f5ebed49393a49e7b683ef1cfa8405dccdec8747b0069a"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "The OPC UA worker/cache boundary owns live session, freshness, PLC input, and queued-output authority; its state and fault paths require explicit review."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_9D511D1AD0603D1852320335D09712A10D3A373044C82855D4FF83A95A1F6EFB"
+code_id = "CODE_9D511D1AD0603D1852320335D09712A10D3A373044C82855D4FF83A95A1F6EFB"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:bb3ddf31017d500c4cbc561af1b99bbf4f8857a6f0347134e4d25bf964f587c1"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "The OPC UA worker/cache boundary owns live session, freshness, PLC input, and queued-output authority; its state and fault paths require explicit review."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_AA679C83B185033F344E32BFDD9A451E8AB5575CFD4C3BE09DC065EEFF39A23D"
+code_id = "CODE_AA679C83B185033F344E32BFDD9A451E8AB5575CFD4C3BE09DC065EEFF39A23D"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:c84935b71e1b141d6f97026597cefe68e128c865fe621313cdc0036ec6cb8db6"
+risk_signals = ["fault_mapping"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "The OPC UA worker/cache boundary owns live session, freshness, PLC input, and queued-output authority; its state and fault paths require explicit review."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_C05B9F2403772A1016F97150ED8A70813DD4B231A0581E11CB0FA258A565B66C"
+code_id = "CODE_C05B9F2403772A1016F97150ED8A70813DD4B231A0581E11CB0FA258A565B66C"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:0562f56629b2ddc45a8ce7fb278c5ae20dc5490eadd7afebb2f7c8eae1009dcf"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "The OPC UA worker/cache boundary owns live session, freshness, PLC input, and queued-output authority; its state and fault paths require explicit review."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_C6F431B3D943F1DA4E7A308AE20822432BAC688BB041A8B69AE3BBC81647FAFD"
+code_id = "CODE_C6F431B3D943F1DA4E7A308AE20822432BAC688BB041A8B69AE3BBC81647FAFD"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:9469cd5b663a2ef6433581f9d33d7c154136fa99ae7f6bff63045dc47858bbfc"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "The OPC UA worker/cache boundary owns live session, freshness, PLC input, and queued-output authority; its state and fault paths require explicit review."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_C9F404D145A1F883E79E088E79CD8FCEC29E67C42E9C32C3F87D34F69F6F1394"
+code_id = "CODE_C9F404D145A1F883E79E088E79CD8FCEC29E67C42E9C32C3F87D34F69F6F1394"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:8bf4ba2df6b555470632925283b3729526621c877b1ed1d3d8b2a25e6ba1f0ef"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "The OPC UA worker/cache boundary owns live session, freshness, PLC input, and queued-output authority; its state and fault paths require explicit review."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_D238DFAC01A2BD33861B4AFF0446D5C3C735B973A8DE57B7B9B94FF0ECE83BA8"
+code_id = "CODE_D238DFAC01A2BD33861B4AFF0446D5C3C735B973A8DE57B7B9B94FF0ECE83BA8"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:97234085c124f377db69d5f074487affb63927ad4de95578d474154addebcff0"
+risk_signals = ["fault_mapping"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "The OPC UA worker/cache boundary owns live session, freshness, PLC input, and queued-output authority; its state and fault paths require explicit review."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_D58F5693277AAE6B8D4DCE013252F621823F335E9B369DCF101ACE50B26BBD29"
+code_id = "CODE_D58F5693277AAE6B8D4DCE013252F621823F335E9B369DCF101ACE50B26BBD29"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:e415460b82734130e3d4c3b1a65374b91b86d7c2df3ee3e5f0e9f1f2bf50bb38"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "The OPC UA worker/cache boundary owns live session, freshness, PLC input, and queued-output authority; its state and fault paths require explicit review."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_D83BE639EA29C44EAAF0C488F356271F38F794698B062402C04D0CB581574FC7"
+code_id = "CODE_D83BE639EA29C44EAAF0C488F356271F38F794698B062402C04D0CB581574FC7"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:a63864f4092c57c2ead6bc1f6ef2c086d838aeb5fe64e8392369e3db7e010b1f"
+risk_signals = ["fault_mapping"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "The OPC UA worker/cache boundary owns live session, freshness, PLC input, and queued-output authority; its state and fault paths require explicit review."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_E13D47B40233EC2F8BCD7534E0A2716BE8D4C1EE621423BC44343E406B6A201E"
+code_id = "CODE_E13D47B40233EC2F8BCD7534E0A2716BE8D4C1EE621423BC44343E406B6A201E"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:7a6fb84c0a8c289c63bbe90fd864a6eb87462ea7ea41721f648c9885ab55252b"
+risk_signals = ["protocol_response_or_status", "state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "The OPC UA worker/cache boundary owns live session, freshness, PLC input, and queued-output authority; its state and fault paths require explicit review."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_E3E242D417256C9B0D174F30872EB03E020B833D58F671935EF09A372D4A8483"
+code_id = "CODE_E3E242D417256C9B0D174F30872EB03E020B833D58F671935EF09A372D4A8483"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:27e29670a5a10884a484fe02a3fc9808d00e24c34e6f807b34b58d8b087cacb1"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "The OPC UA worker/cache boundary owns live session, freshness, PLC input, and queued-output authority; its state and fault paths require explicit review."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_E7E1F7A6F8B87472AC2D7761522018A5C909D96ABC5381DEAE1BE23AD082C5EB"
+code_id = "CODE_E7E1F7A6F8B87472AC2D7761522018A5C909D96ABC5381DEAE1BE23AD082C5EB"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:4e02c03fe733db127e1766f48c399e85f4f47c736e84c591219c6298d4aee4fa"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "The OPC UA worker/cache boundary owns live session, freshness, PLC input, and queued-output authority; its state and fault paths require explicit review."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_E95F3FA83DA4834E36BE66179FEFA0B1E2082F888370E22AB195585BE5E982A1"
+code_id = "CODE_E95F3FA83DA4834E36BE66179FEFA0B1E2082F888370E22AB195585BE5E982A1"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:0ecc598ffcbdeb72325b86e8d373b11e7e7c5fc59a879686378efb244da98f51"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "The OPC UA worker/cache boundary owns live session, freshness, PLC input, and queued-output authority; its state and fault paths require explicit review."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_EA75342E532A2A4FFEA26C8A9E782EAF2672A720246EB949E9DF8A674BE0E180"
+code_id = "CODE_EA75342E532A2A4FFEA26C8A9E782EAF2672A720246EB949E9DF8A674BE0E180"
+owner = "trust-runtime"
+area = "protocols"
+body_digest = "sha256:04c6596757762ea4835fcc6a9fa1283ac33964d0b88aff29adb9bfad3e6d2720"
+risk_signals = ["state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-client-worker-cache-and-scalar-output-integrity"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "The OPC UA worker/cache boundary owns live session, freshness, PLC input, and queued-output authority; its state and fault paths require explicit review."
