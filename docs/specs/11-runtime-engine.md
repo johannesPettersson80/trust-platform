@@ -1145,7 +1145,37 @@ failure and must produce a non-zero process exit rather than being printed as
 a successful scripted result. Human-oriented status, health, and task-summary
 rendering happens only after `ok = true`.
 
-##### 6.8.1a ADS CLI authoring and server-control contract
+##### 6.8.1a Offline communication authoring client
+
+`trust-runtime comm` is a scriptable local authoring surface. Each accepted
+subcommand delegates to exactly one matching offline communication operation
+and emits that operation's JSON result:
+
+- `schema` optionally limits the schema request to the selected protocol;
+- `topology` reads the selected project and reports its offline fleet topology;
+- `apply` requires `--params` to decode as a JSON object, forwards the selected
+  protocol and action, and includes `instance_id` only when one was supplied;
+- `discover` forwards the selected protocol, origin, passive flag, and only the
+  optional scope fields that were supplied by the caller;
+- `browse-symbols` accepts an optional JSON-object target, optional cached JSON
+  snapshot, instance, and connection name, and selects project-aware browsing
+  only when a project was supplied;
+- `opcua-trust list` reports the selected client PKI directory and its trusted
+  server certificates, while `opcua-trust clear` removes those trusted
+  certificates and reports the number removed.
+
+Malformed JSON, a non-object `--params` or target, an unreadable or malformed
+snapshot file, and any delegated operation failure are command failures. They
+must not be printed as successful communication results. These offline CLI
+rules are truST host-product behavior outside IEC 61131-3 and are neither an
+IEC decision nor an IEC deviation.
+
+The default runtime template consumed by offline topology and apply operations
+must itself satisfy current runtime configuration validation. An unset optional
+mesh authentication token is omitted; the template must not serialize an empty
+secret value that the parser rejects even while mesh is disabled.
+
+##### 6.8.1b ADS CLI authoring and server-control contract
 
 `trust-runtime ads` is the scriptable ADS authoring, validation, route, and
 server-control surface. Offline import canonicalizes cached symbol snapshots,

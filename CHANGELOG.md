@@ -10,6 +10,9 @@ Target release: `v0.24.54`
 
 ### Fixed
 
+- trust-runtime: generated runtime templates no longer serialize an empty mesh
+  authentication token that current configuration validation rejects, restoring
+  offline communication topology for newly generated projects.
 - trust-runtime: Modbus worker input and output deadline results now preserve
   the configured `fault`, `warn`, or `ignore` policy; faulted stale input no
   longer copies a cached snapshot, and timed-out output remains queued.

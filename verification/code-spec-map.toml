@@ -200790,23 +200790,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_44C67FCF852531D4ED736EE7BE8F37D9A02F7E8A3AD09329423A91C1CC0CC793"
-source_kind = "rust"
-path = "crates/trust-runtime/src/host/bundle_template.rs"
-qualified_symbol = "trust_runtime::bundle_template::render_runtime_toml"
-item_kind = "rust_function"
-signature_digest = "sha256:24e59ea1339cc891ded49ec64d51c04002c8619dcd638c9943df874174161e76"
-reviewed_body_digest = "sha256:4e833c279cab8881edc0e51d677c21e52a7bdf97a8d3ca47d23f4b68c2bbee2c"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "public"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_451A6A72A2249D1ACF56B704A9677C391941D67B1C2C002E335143C7DCBE5693"
 source_kind = "rust"
 path = "crates/trust-runtime/src/scheduler/runner_loop.rs"
@@ -204608,23 +204591,6 @@ qualified_symbol = "trust_runtime::simulation::parse_physics_joint_kind"
 item_kind = "rust_function"
 signature_digest = "sha256:bad8a9d03ff597917048b708f7b7d5b1f3c111da7cca5d548e3e4eb5ace7e7a2"
 reviewed_body_digest = "sha256:a8fb7b5d25137e4a5a5fe5b7c2caf557588c9fb15b0f58aa7da78a94e29e0e9c"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_67537C1EF71036ED01A516FDCBBEEEAC041BCDB45FCFA67629E8CFAC0C6FB604"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/comm.rs"
-qualified_symbol = "trust_runtime::comm::print_json"
-item_kind = "rust_function"
-signature_digest = "sha256:ff4837eb7037136f14542e8cde5002fb04618b2111f4b33fa370951793cbf362"
-reviewed_body_digest = "sha256:11f87113f72d1b6d0fa2e1a586a9bdd8dd5269a1a0a5183c25ba2f856409c123"
 owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
@@ -208969,25 +208935,6 @@ spec_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-
 invariant_ids = ["RT_ADS_CLI_AUTHORING_001"]
 test_ids = ["TEST_RUNTIME_ADS_VALIDATE_MISSING_SYMBOL_001", "TEST_RUNTIME_ADS_VALIDATE_TYPE_MISMATCH_001", "TEST_RUNTIME_ADS_VALIDATE_SOURCE_DRIFT_001", "TEST_RUNTIME_ADS_IMPORT_OUTPUT_POLICY_001"]
 last_reviewed = "2026-07-22"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_8E63740D4D5EB6224201AB10162CB5E0CB3DD8E08764D028A0A942FF9EEC15F0"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/comm.rs"
-qualified_symbol = "trust_runtime::comm::run_comm"
-item_kind = "rust_function"
-signature_digest = "sha256:9bb051f2eab81b2ef4b93895a296e1ea6181e8caf97485a69781d2c31a63f405"
-reviewed_body_digest = "sha256:125f06f6b8e4cea76ba9cdb91ff07947869fb9374b28255f1035042baf0e96ce"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "public"
-risk_signals = ["fault_mapping", "filesystem_or_environment", "state_mutation"]
-owner_ack = "RISK_ACK_8E63740D4D5EB6224201AB10162CB5E0CB3DD8E08764D028A0A942FF9EEC15F0"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
@@ -216525,23 +216472,6 @@ qualified_symbol = "trust_runtime::runtime::restart::value_is_retainable"
 item_kind = "rust_function"
 signature_digest = "sha256:7bfd821751154e741585459733fea294113775206a9ccf1541739d07893d1b88"
 reviewed_body_digest = "sha256:ea66859aa0d6a9627fc02f88b6c634c6cb7547a4524b5a4d4cb03b685b970030"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_CCFFE868A4CD288D5F9A238B4907AF1DBD792C083725F1BEEAD568A066AB6EE8"
-source_kind = "rust"
-path = "crates/trust-runtime/src/bin/trust-runtime/comm.rs"
-qualified_symbol = "trust_runtime::comm::parse_params"
-item_kind = "rust_function"
-signature_digest = "sha256:68b39891864f8b409a0cf70ef2d3a6125e8cd940bb6561da9dc2daa57ac628e7"
-reviewed_body_digest = "sha256:7830a7ea8463c7568498c4632cd3b3ab9192a3e8737b836e891e999cab105547"
 owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
@@ -275915,4 +275845,81 @@ disposition = "specified"
 spec_ref = "SPEC_RUNTIME_ENGINE_001#modbus-default-fault-and-deadline-integrity"
 invariant_ids = ["RT_MODBUS_WORKER_DEADLINE_POLICY_001"]
 test_ids = ["TEST_MODBUS_WORKER_DEADLINE_POLICY_INPUT_DEADLINE_FOLLOWS_ERROR_POLICY_WITHOUT_FAULT_COPY_001", "TEST_MODBUS_WORKER_DEADLINE_POLICY_MODBUS_COLD_START_NO_DATA_FOLLOWS_ON_ERROR_POLICY_001"]
+last_reviewed = "2026-07-23"
+[[mappings]]
+schema_version = 1
+code_id = "CODE_44C67FCF852531D4ED736EE7BE8F37D9A02F7E8A3AD09329423A91C1CC0CC793"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/bundle_template.rs"
+qualified_symbol = "trust_runtime::bundle_template::render_runtime_toml"
+item_kind = "rust_function"
+signature_digest = "sha256:24e59ea1339cc891ded49ec64d51c04002c8619dcd638c9943df874174161e76"
+reviewed_body_digest = "sha256:7226ec48d7bf4485d9535dabcd08e55ad394f51dce0a7e423ea2054045c9813a"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#offline-communication-authoring-client"
+invariant_ids = ["RT_OFFLINE_COMM_AUTHORING_CLI_001"]
+test_ids = ["TEST_OFFLINE_COMM_AUTHORING_CLI_COMM_CLI_RUNS_SCHEMA_APPLY_TOPOLOGY_AND_CACHED_BROWSE_OFFLINE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_67537C1EF71036ED01A516FDCBBEEEAC041BCDB45FCFA67629E8CFAC0C6FB604"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/comm.rs"
+qualified_symbol = "trust_runtime::comm::print_json"
+item_kind = "rust_function"
+signature_digest = "sha256:ff4837eb7037136f14542e8cde5002fb04618b2111f4b33fa370951793cbf362"
+reviewed_body_digest = "sha256:11f87113f72d1b6d0fa2e1a586a9bdd8dd5269a1a0a5183c25ba2f856409c123"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#offline-communication-authoring-client"
+invariant_ids = ["RT_OFFLINE_COMM_AUTHORING_CLI_001"]
+test_ids = ["TEST_OFFLINE_COMM_AUTHORING_CLI_COMM_CLI_RUNS_SCHEMA_APPLY_TOPOLOGY_AND_CACHED_BROWSE_OFFLINE_001", "TEST_OFFLINE_COMM_AUTHORING_CLI_COMM_CLI_VALIDATES_PAYLOADS_AND_MANAGES_THE_SELECTED_OPCUA_TRUST_STORE_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_8E63740D4D5EB6224201AB10162CB5E0CB3DD8E08764D028A0A942FF9EEC15F0"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/comm.rs"
+qualified_symbol = "trust_runtime::comm::run_comm"
+item_kind = "rust_function"
+signature_digest = "sha256:9bb051f2eab81b2ef4b93895a296e1ea6181e8caf97485a69781d2c31a63f405"
+reviewed_body_digest = "sha256:125f06f6b8e4cea76ba9cdb91ff07947869fb9374b28255f1035042baf0e96ce"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "public"
+risk_signals = ["fault_mapping", "filesystem_or_environment", "state_mutation"]
+owner_ack = "RISK_ACK_8E63740D4D5EB6224201AB10162CB5E0CB3DD8E08764D028A0A942FF9EEC15F0"
+owner_ack_expires_on = "2027-07-23"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#offline-communication-authoring-client"
+invariant_ids = ["RT_OFFLINE_COMM_AUTHORING_CLI_001"]
+test_ids = ["TEST_OFFLINE_COMM_AUTHORING_CLI_COMM_CLI_RUNS_SCHEMA_APPLY_TOPOLOGY_AND_CACHED_BROWSE_OFFLINE_001", "TEST_OFFLINE_COMM_AUTHORING_CLI_COMM_CLI_VALIDATES_PAYLOADS_AND_MANAGES_THE_SELECTED_OPCUA_TRUST_STORE_001", "TEST_OFFLINE_COMM_AUTHORING_CLI_COMM_CLI_REJECTS_MALFORMED_LOCAL_AUTHORING_INPUTS_001"]
+last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_CCFFE868A4CD288D5F9A238B4907AF1DBD792C083725F1BEEAD568A066AB6EE8"
+source_kind = "rust"
+path = "crates/trust-runtime/src/bin/trust-runtime/comm.rs"
+qualified_symbol = "trust_runtime::comm::parse_params"
+item_kind = "rust_function"
+signature_digest = "sha256:68b39891864f8b409a0cf70ef2d3a6125e8cd940bb6561da9dc2daa57ac628e7"
+reviewed_body_digest = "sha256:7830a7ea8463c7568498c4632cd3b3ab9192a3e8737b836e891e999cab105547"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#offline-communication-authoring-client"
+invariant_ids = ["RT_OFFLINE_COMM_AUTHORING_CLI_001"]
+test_ids = ["TEST_OFFLINE_COMM_AUTHORING_CLI_COMM_CLI_VALIDATES_PAYLOADS_AND_MANAGES_THE_SELECTED_OPCUA_TRUST_STORE_001", "TEST_OFFLINE_COMM_AUTHORING_CLI_COMM_CLI_REJECTS_MALFORMED_LOCAL_AUTHORING_INPUTS_001"]
 last_reviewed = "2026-07-23"

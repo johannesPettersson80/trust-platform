@@ -22107,3 +22107,76 @@ requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_MODBUS_WORKER_DEADLINE_POLICY_MODBUS_SAFE_STATE_HANDOFF_SUCCEEDS_WHEN_WORKER_CONFIRMS_DELIVERY_001.json"
 last_reviewed = "2026-07-23"
+[[tests]]
+schema_version = 2
+id = "TEST_OFFLINE_COMM_AUTHORING_CLI_COMM_CLI_RUNS_SCHEMA_APPLY_TOPOLOGY_AND_CACHED_BROWSE_OFFLINE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_2506BEE285376D583002"
+discovery_source_kind = "rust_integration_test"
+test_class = "failing_regression"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/communication_examples_cli.rs"
+name = "comm_cli_runs_schema_apply_topology_and_cached_browse_offline"
+command = "cargo test -p trust-runtime --test communication_examples_cli comm_cli_runs_schema_apply_topology_and_cached_browse_offline -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OFFLINE_COMM_AUTHORING_CLI_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#offline-communication-authoring-client"
+expected_result = "A freshly rendered project supports schema filtering, communication apply, offline topology, and cached ADS browse with structured JSON results."
+expected_failure_mode = "A generated runtime template is rejected, a command reaches the wrong offline operation, or a successful authoring action emits an invalid result."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_OFFLINE_COMM_AUTHORING_CLI_COMM_CLI_RUNS_SCHEMA_APPLY_TOPOLOGY_AND_CACHED_BROWSE_OFFLINE_001.json"
+last_reviewed = "2026-07-23"
+
+[[tests]]
+schema_version = 2
+id = "TEST_OFFLINE_COMM_AUTHORING_CLI_COMM_CLI_VALIDATES_PAYLOADS_AND_MANAGES_THE_SELECTED_OPCUA_TRUST_STORE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_93BD743DA4E466CC5374"
+discovery_source_kind = "rust_integration_test"
+test_class = "negative_malformed_input"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/communication_examples_cli.rs"
+name = "comm_cli_validates_payloads_and_manages_the_selected_opcua_trust_store"
+command = "cargo test -p trust-runtime --test communication_examples_cli comm_cli_validates_payloads_and_manages_the_selected_opcua_trust_store -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OFFLINE_COMM_AUTHORING_CLI_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#offline-communication-authoring-client"
+expected_result = "A non-object apply payload is rejected while discovery and selected OPC UA trust-store list and clear operations return structured results."
+expected_failure_mode = "A non-object apply payload is accepted, or the selected trust store is ignored, misreported, or not cleared."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_OFFLINE_COMM_AUTHORING_CLI_COMM_CLI_VALIDATES_PAYLOADS_AND_MANAGES_THE_SELECTED_OPCUA_TRUST_STORE_001.json"
+last_reviewed = "2026-07-23"
+malformed_input_class_ids = ["runtime_comm_params_non_object"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_OFFLINE_COMM_AUTHORING_CLI_COMM_CLI_REJECTS_MALFORMED_LOCAL_AUTHORING_INPUTS_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_075CE2A943F3370897EB"
+discovery_source_kind = "rust_integration_test"
+test_class = "negative_malformed_input"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/communication_examples_cli.rs"
+name = "comm_cli_rejects_malformed_local_authoring_inputs"
+command = "cargo test -p trust-runtime --test communication_examples_cli comm_cli_rejects_malformed_local_authoring_inputs -- --exact --nocapture --test-threads=1"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OFFLINE_COMM_AUTHORING_CLI_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#offline-communication-authoring-client"
+expected_result = "Malformed parameter JSON, a non-object target, and missing or malformed snapshot files each fail before any successful communication result is printed."
+expected_failure_mode = "Malformed local authoring input is accepted, reaches a delegated operation with invented values, or is printed as success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_OFFLINE_COMM_AUTHORING_CLI_COMM_CLI_REJECTS_MALFORMED_LOCAL_AUTHORING_INPUTS_001.json"
+last_reviewed = "2026-07-23"
+malformed_input_class_ids = ["runtime_comm_params_malformed_json", "runtime_comm_snapshot_malformed_json", "runtime_comm_snapshot_unreadable", "runtime_comm_target_non_object"]

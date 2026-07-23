@@ -56900,20 +56900,6 @@ rationale = "Acknowledges exact scanner-derived filesystem, authorization, time,
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_8E63740D4D5EB6224201AB10162CB5E0CB3DD8E08764D028A0A942FF9EEC15F0"
-code_id = "CODE_8E63740D4D5EB6224201AB10162CB5E0CB3DD8E08764D028A0A942FF9EEC15F0"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:125f06f6b8e4cea76ba9cdb91ff07947869fb9374b28255f1035042baf0e96ce"
-risk_signals = ["fault_mapping", "filesystem_or_environment", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_8E83CA3433B1A1179E4E75EC6FC2E3152E846DF28FA7636BAE1EB756F64520A0"
 code_id = "CODE_8E83CA3433B1A1179E4E75EC6FC2E3152E846DF28FA7636BAE1EB756F64520A0"
 owner = "trust-runtime"
@@ -81823,3 +81809,16 @@ reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-23"
 expires_on = "2027-07-23"
 rationale = "Modbus deadline policy projection can otherwise report stale input or unconfirmed output as successful under the fault policy."
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_8E63740D4D5EB6224201AB10162CB5E0CB3DD8E08764D028A0A942FF9EEC15F0"
+code_id = "CODE_8E63740D4D5EB6224201AB10162CB5E0CB3DD8E08764D028A0A942FF9EEC15F0"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:125f06f6b8e4cea76ba9cdb91ff07947869fb9374b28255f1035042baf0e96ce"
+risk_signals = ["fault_mapping", "filesystem_or_environment", "state_mutation"]
+review_ref = "SPEC_RUNTIME_ENGINE_001#offline-communication-authoring-client"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-23"
+expires_on = "2027-07-23"
+rationale = "The offline communication CLI and its generated runtime template must reject malformed local inputs and must not report invalid generated projects as successful authoring results."

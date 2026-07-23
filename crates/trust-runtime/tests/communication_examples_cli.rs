@@ -73,6 +73,21 @@ fn successful_json(output: Output, command: &str) -> Value {
     })
 }
 
+fn assert_cli_failure(output: Output, command: &str, expected_stderr: &str) {
+    assert!(
+        !output.status.success(),
+        "expected {command} failure.\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains(expected_stderr),
+        "expected {command} stderr to contain {expected_stderr:?}.\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
 #[cfg(unix)]
 fn normalize_runtime_endpoint_for_platform(_project: &Path) {}
 
@@ -410,4 +425,78 @@ fn comm_cli_validates_payloads_and_manages_the_selected_opcua_trust_store() {
     assert!(!trusted.join("server.der").exists());
 
     let _ = std::fs::remove_dir_all(&pki_root);
+}
+
+#[test]
+fn comm_cli_rejects_malformed_local_authoring_inputs() {
+    let malformed_params = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+        .args([
+            "comm",
+            "apply",
+            "--project",
+            ".",
+            "--protocol",
+            "modbus-tcp",
+            "--params",
+            "{",
+            "--json",
+        ])
+        .output()
+        .expect("run comm apply with malformed params");
+    assert_cli_failure(
+        malformed_params,
+        "comm apply with malformed params",
+        "failed to parse --params as a JSON object",
+    );
+
+    let non_object_target = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+        .args([
+            "comm",
+            "browse-symbols",
+            "--protocol",
+            "ads",
+            "--target",
+            "[]",
+            "--json",
+        ])
+        .output()
+        .expect("run comm browse-symbols with non-object target");
+    assert_cli_failure(
+        non_object_target,
+        "comm browse-symbols with non-object target",
+        "--params must be a JSON object",
+    );
+
+    let temp_root = unique_temp_dir("comm-cli-malformed-input");
+    std::fs::create_dir_all(&temp_root).expect("create malformed comm input directory");
+    let missing_snapshot = temp_root.join("missing.json");
+    let unreadable = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+        .args(["comm", "browse-symbols", "--protocol", "ads"])
+        .arg("--snapshot-file")
+        .arg(&missing_snapshot)
+        .arg("--json")
+        .output()
+        .expect("run comm browse-symbols with missing snapshot");
+    assert_cli_failure(
+        unreadable,
+        "comm browse-symbols with missing snapshot",
+        "failed to read snapshot file",
+    );
+
+    let malformed_snapshot = temp_root.join("malformed.json");
+    std::fs::write(&malformed_snapshot, b"{").expect("write malformed snapshot");
+    let malformed = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+        .args(["comm", "browse-symbols", "--protocol", "ads"])
+        .arg("--snapshot-file")
+        .arg(&malformed_snapshot)
+        .arg("--json")
+        .output()
+        .expect("run comm browse-symbols with malformed snapshot");
+    assert_cli_failure(
+        malformed,
+        "comm browse-symbols with malformed snapshot",
+        "failed to parse snapshot file",
+    );
+
+    let _ = std::fs::remove_dir_all(&temp_root);
 }
