@@ -15,11 +15,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from .code_spec_live import load_code_spec_metadata
+from .code_spec_live import CodeSpecMetadata, load_code_spec_metadata
 from .code_spec_rust import invoke_rust_extractor
 from .code_spec_typescript import invoke_typescript_extractor
 from .coverage_trace_inventory import code_inventory_digest
 from .mapping_catalog_updates import render_denominator_document
+from .mapping_artifact_paths import resolve_mapping_artifact_output
 from .mapping_denominator import reconcile_denominator_document
 from .mapping_candidates import analyze_mapping_candidates
 from .mapping_assertions import invoke_assertion_inventories
@@ -83,6 +84,29 @@ def build_candidate_document(
     }
 
 
+def generate_pilot_candidate_document(
+    *,
+    root: Path,
+    trace: Mapping[str, Any],
+    trace_digest: str,
+    metadata: CodeSpecMetadata,
+) -> dict[str, Any]:
+    """Build execution-guided signals without scanning or mutating catalog state."""
+
+    live_code_facts = _validated_live_code_facts(root, trace)
+    analysis = analyze_mapping_candidates(
+        trace_records=trace["tests"],
+        code_mappings=metadata.mappings,
+        invariants=metadata.invariants,
+        live_code_facts=live_code_facts,
+    )
+    return build_candidate_document(
+        source_commit=str(trace["source_commit"]),
+        trace_digest=trace_digest,
+        analysis=analysis,
+    )
+
+
 def select_quarantine_candidates(
     candidates: Sequence[Mapping[str, Any]],
     *,
@@ -131,18 +155,12 @@ def generate_mapping_candidates(
             "trace source commit is stale: "
             f"trace={trace.get('source_commit')} current={current_commit}"
         )
-    live_code_facts = _validated_live_code_facts(root, trace)
-    analysis = analyze_mapping_candidates(
-        trace_records=trace["tests"],
-        code_mappings=metadata.mappings,
-        invariants=metadata.invariants,
-        live_code_facts=live_code_facts,
-    )
     trace_digest = _canonical_digest(trace)
-    candidate_document = build_candidate_document(
-        source_commit=str(trace["source_commit"]),
+    candidate_document = generate_pilot_candidate_document(
+        root=root,
+        trace=trace,
         trace_digest=trace_digest,
-        analysis=analysis,
+        metadata=metadata,
     )
     candidate_schema = _load_json(
         root / "verification/schemas/mapping-candidates.schema.json"
@@ -349,6 +367,63 @@ def generate_mapping_candidates(
     return candidate_document, proposal_document
 
 
+def generate_pilot_candidates(
+    *,
+    root: Path,
+    trace_path: Path,
+    candidates_path: Path,
+) -> dict[str, Any]:
+    """Generate only the hidden-ground-truth candidate plane."""
+
+    root = root.resolve()
+    candidates_path = resolve_mapping_artifact_output(
+        root,
+        candidates_path,
+        "mapping pilot candidate output",
+    )
+    trace = _load_json(trace_path)
+    trace_schema = _load_json(
+        root / "verification/schemas/test-coverage-trace.schema.json"
+    )
+    failures = validate_json_schema_instance(trace, trace_schema)
+    if failures:
+        raise ValueError("; ".join(failures))
+    current_commit = _git_head(root)
+    if trace.get("source_commit") != current_commit:
+        raise ValueError(
+            "trace source commit is stale: "
+            f"trace={trace.get('source_commit')} current={current_commit}"
+        )
+    metadata = load_code_spec_metadata(root)
+    candidate_document = generate_pilot_candidate_document(
+        root=root,
+        trace=trace,
+        trace_digest=_canonical_digest(trace),
+        metadata=metadata,
+    )
+    candidate_schema = _load_json(
+        root / "verification/schemas/mapping-candidates.schema.json"
+    )
+    failures = validate_json_schema_instance(candidate_document, candidate_schema)
+    if failures:
+        raise ValueError("; ".join(failures))
+    content = (
+        json.dumps(candidate_document, indent=2, sort_keys=True) + "\n"
+    ).encode()
+    relative = _relative_to_root(root, candidates_path)
+    apply_mapping_transaction(
+        root=root,
+        replacements={relative: content},
+        validate=lambda: (
+            []
+            if candidates_path.is_file()
+            and candidates_path.read_bytes() == content
+            else ["pilot candidate report bytes differ"]
+        ),
+    )
+    return candidate_document
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=Path.cwd())
@@ -370,6 +445,11 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=Path("verification/test-catalog-mapping-decisions.toml"),
     )
+    parser.add_argument(
+        "--pilot-only",
+        action="store_true",
+        help="write candidate signals only; do not scan or mutate catalog planes",
+    )
     parser.add_argument("--timestamp")
     return parser
 
@@ -378,6 +458,18 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     root = args.root.resolve()
     try:
+        if args.pilot_only:
+            candidates = generate_pilot_candidates(
+                root=root,
+                trace_path=_resolve(root, args.trace),
+                candidates_path=_resolve(root, args.candidates_out),
+            )
+            print(
+                "mapping pilot candidates generated: "
+                f"{len(candidates['candidates'])} candidates, "
+                f"{len(candidates['demands'])} specification demands"
+            )
+            return 0
         candidates, proposals = generate_mapping_candidates(
             root=root,
             trace_path=_resolve(root, args.trace),

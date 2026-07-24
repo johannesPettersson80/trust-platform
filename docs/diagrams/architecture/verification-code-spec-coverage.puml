@@ -34,6 +34,7 @@ package "Reviewed verification graph" {
 package "Live test denominator" {
   [test scanners] as TestScanners
   database "Stable DISC facts" as TestFacts
+  [reviewed denominator + exact per-file resolver] as FocusedResolver
 }
 
 package "Execution-guided mapping accelerator" {
@@ -86,7 +87,9 @@ VerificationGraph --> Join
 FuzzInventory --> Join : direct surface area
 AreaOwners --> Join : canonical owner for area
 TestScanners --> TestFacts
-TestFacts --> RustTrace
+TestDenominator --> FocusedResolver : reviewed DISC identity
+TestFacts --> FocusedResolver : final campaign refresh only
+FocusedResolver --> RustTrace : focused Rust files only
 TestFacts --> DirectTrace
 TestFacts --> VsCodeTrace
 TestFacts --> StructuralTrace
@@ -138,6 +141,13 @@ note bottom of SemanticReview
   Coverage, names, paths, and mutation kills are not semantic proof.
   Each assertion is bound to exact oracle behavior rows;
   high-risk mappings require two distinct reviewers.
+end note
+
+note bottom of FocusedResolver
+  Focused pilot and implementation shards reconstruct only requested
+  reviewed source files and fail on stale identity. They do not rerun
+  the whole-repository test scanner. The scanner remains authoritative
+  for the single final denominator campaign.
 end note
 
 note bottom of CodeRefreshProposals

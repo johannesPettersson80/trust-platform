@@ -14,6 +14,7 @@ from .mapping_ground_truth import (
     evaluate_ground_truth,
     partition_ground_truth_candidates,
 )
+from .mapping_artifact_paths import resolve_mapping_artifact_output
 from .test_catalog_json_schema import validate_json_schema_instance
 
 
@@ -24,6 +25,11 @@ def generate_ground_truth_report(
     review_path: Path,
     output_path: Path,
 ) -> dict[str, Any]:
+    output_path = resolve_mapping_artifact_output(
+        root,
+        output_path,
+        "mapping ground-truth report output",
+    )
     candidate_document = json.loads(candidate_path.read_text())
     if not isinstance(candidate_document, dict):
         raise ValueError("candidate report root must be an object")

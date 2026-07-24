@@ -28,6 +28,11 @@ from .coverage_trace_inputs import trace_input_digest
 from .coverage_trace_resolver import mechanical_rust_target, resolve_rust_tests
 from .coverage_trace_resume import reusable_completed_attempt_ids
 from .coverage_trace_tools import export_attempt_coverage
+from .focused_test_facts import (
+    focused_rust_input_digest,
+    resolve_focused_rust_facts,
+)
+from .test_catalog_denominator import load_test_catalog_denominator
 from .test_catalog_json_schema import validate_json_schema_instance
 from .test_catalog_scanner import scan_repository
 
@@ -490,6 +495,20 @@ def select_ground_truth_pilot_ids(
     return sorted(selected)
 
 
+def resolve_requested_trace_facts(
+    *,
+    root: Path,
+    discovery_ids: Sequence[str],
+) -> list[Any]:
+    """Resolve a focused Rust shard without scanning unrelated test files."""
+
+    return resolve_focused_rust_facts(
+        root=root,
+        discovery_ids=discovery_ids,
+        denominator=load_test_catalog_denominator(root),
+    )
+
+
 def run_focused_rust_trace(
     *,
     root: Path,
@@ -500,6 +519,8 @@ def run_focused_rust_trace(
     llvm_tools_dir: Path,
     temporary_dir: Path,
     resume: bool = False,
+    source_facts: Sequence[Any] | None = None,
+    source_input_digest: str | None = None,
 ) -> dict[str, Any]:
     root = root.resolve()
     trace_root = trace_root.resolve()
@@ -507,7 +528,25 @@ def run_focused_rust_trace(
     if trace_root.exists() and any(trace_root.iterdir()) and not resume:
         raise ValueError("trace root must be absent or empty for an exact focused run")
     trace_root.mkdir(parents=True, exist_ok=True)
-    scan = scan_repository(root)
+    if source_facts is not None:
+        live_facts = list(source_facts)
+        if not isinstance(source_input_digest, str) or not re.fullmatch(
+            r"sha256:[0-9a-f]{64}",
+            source_input_digest,
+        ):
+            raise ValueError("supplied trace facts require an exact input digest")
+    else:
+        denominator = load_test_catalog_denominator(root)
+        live_facts = resolve_focused_rust_facts(
+            root=root,
+            discovery_ids=discovery_ids,
+            denominator=denominator,
+        )
+        source_input_digest = focused_rust_input_digest(
+            root=root,
+            facts=live_facts,
+            denominator=denominator,
+        )
     facts = {
         fact.stable_id: {
             "discovery_id": fact.stable_id,
@@ -517,7 +556,7 @@ def run_focused_rust_trace(
             "ignore_state": fact.ignore_state,
             "package": fact.package,
         }
-        for fact in scan.inferred_facts
+        for fact in live_facts
     }
     requested_ids = sorted(set(discovery_ids))
     if len(requested_ids) != len(discovery_ids):
@@ -680,7 +719,7 @@ def run_focused_rust_trace(
             source_commit=_git_head(root),
             platform=f"{platform.system().lower()}-{platform.machine().lower()}",
             input_digest=trace_input_digest(
-                scan.input_digest,
+                source_input_digest,
                 resolved,
                 metadata.code_map,
             ),
@@ -706,7 +745,7 @@ def run_focused_rust_trace(
                     {str(fact["discovery_source_kind"]) for fact in requested_facts}
                 ),
             },
-            "input_digest": trace_input_digest(scan.input_digest, [], {}),
+            "input_digest": trace_input_digest(source_input_digest, [], {}),
             "code_inventory_digests": {},
             "tests": [],
         }
@@ -780,8 +819,12 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         discovery_ids = args.discovery_id
+        source_facts = None
+        source_input_digest = None
         if args.all_rust:
             scan = scan_repository(args.root.resolve())
+            source_facts = list(scan.inferred_facts)
+            source_input_digest = scan.input_digest
             discovery_ids = sorted(
                 fact.stable_id
                 for fact in scan.inferred_facts
@@ -790,11 +833,19 @@ def main(argv: list[str] | None = None) -> int:
                 and fact.ignore_state != "ignored"
             )
         elif args.ground_truth_count is not None:
-            scan = scan_repository(args.root.resolve())
             metadata = load_code_spec_metadata(args.root.resolve())
+            denominator = load_test_catalog_denominator(args.root.resolve())
+            reviews = denominator.get("reviews", [])
+            if not isinstance(reviews, list):
+                raise ValueError("test-catalog denominator reviews are malformed")
             discovery_ids = select_ground_truth_pilot_ids(
                 tests=metadata.tests,
-                live_discovery_ids={fact.stable_id for fact in scan.inferred_facts},
+                live_discovery_ids={
+                    str(review["discovery_id"])
+                    for review in reviews
+                    if isinstance(review, Mapping)
+                    and isinstance(review.get("discovery_id"), str)
+                },
                 count=args.ground_truth_count,
             )
         document = run_focused_rust_trace(
@@ -806,6 +857,8 @@ def main(argv: list[str] | None = None) -> int:
             llvm_tools_dir=args.llvm_tools_dir,
             temporary_dir=args.temporary_dir,
             resume=args.resume,
+            source_facts=source_facts,
+            source_input_digest=source_input_digest,
         )
     except (OSError, ValueError, subprocess.SubprocessError) as error:
         print(f"focused coverage trace failed: {error}", file=sys.stderr)

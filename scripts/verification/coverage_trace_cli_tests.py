@@ -7,6 +7,7 @@ import json
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from types import SimpleNamespace
 from unittest import mock
 
 from scripts.verification import coverage_trace_resume
@@ -18,6 +19,8 @@ from scripts.verification.coverage_trace_cli import (
     nextest_filter_expression,
     requested_tests_document,
     resolve_nextest_list_shard,
+    resolve_requested_trace_facts,
+    run_focused_rust_trace,
     reusable_completed_attempt_ids,
     rust_package_target_inventory,
     select_ground_truth_pilot_ids,
@@ -28,6 +31,88 @@ from scripts.verification.coverage_trace_cli import (
 
 
 class CoverageTraceCliTests(unittest.TestCase):
+    @mock.patch(
+        "scripts.verification.coverage_trace_cli.validate_json_schema_instance",
+        return_value=[],
+    )
+    @mock.patch(
+        "scripts.verification.coverage_trace_cli.validate_trace_document",
+        return_value=[],
+    )
+    @mock.patch(
+        "scripts.verification.coverage_trace_cli._git_head",
+        return_value="a" * 40,
+    )
+    def test_unsupported_focused_fact_uses_explicit_source_input_digest(
+        self,
+        _git_head: mock.Mock,
+        validate_trace: mock.Mock,
+        validate_schema: mock.Mock,
+    ) -> None:
+        del _git_head, validate_trace, validate_schema
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            schema = root / "verification/schemas/test-coverage-trace.schema.json"
+            schema.parent.mkdir(parents=True)
+            schema.write_text("{}")
+            discovery_id = "DISC_" + "A" * 20
+            fact = SimpleNamespace(
+                stable_id=discovery_id,
+                source_kind="vscode_test",
+                path="editors/vscode/src/test/example.test.ts",
+                name="example",
+                ignore_state="not_ignored",
+                package=None,
+            )
+
+            document = run_focused_rust_trace(
+                root=root,
+                discovery_ids=[discovery_id],
+                trace_root=root / "trace",
+                output_path=root / "trace.json",
+                cargo_target_dir=root / "cargo-target",
+                llvm_tools_dir=root / "llvm-tools",
+                temporary_dir=root / "temporary",
+                source_facts=[fact],
+                source_input_digest="sha256:" + "1" * 64,
+            )
+
+        self.assertEqual(
+            "unsupported",
+            document["tests"][0]["trace_status"],
+        )
+        self.assertRegex(document["input_digest"], r"^sha256:[0-9a-f]{64}$")
+
+    @mock.patch("scripts.verification.coverage_trace_cli.scan_repository")
+    @mock.patch(
+        "scripts.verification.coverage_trace_cli.resolve_focused_rust_facts"
+    )
+    @mock.patch(
+        "scripts.verification.coverage_trace_cli.load_test_catalog_denominator"
+    )
+    def test_focused_trace_resolves_requested_files_without_full_scan(
+        self,
+        load_denominator: mock.Mock,
+        resolve_focused: mock.Mock,
+        scan_repository: mock.Mock,
+    ) -> None:
+        load_denominator.return_value = {"reviews": []}
+        fact = mock.Mock(stable_id="DISC_" + "A" * 20)
+        resolve_focused.return_value = [fact]
+
+        resolved = resolve_requested_trace_facts(
+            root=Path("/workspace"),
+            discovery_ids=[fact.stable_id],
+        )
+
+        self.assertEqual([fact], resolved)
+        scan_repository.assert_not_called()
+        resolve_focused.assert_called_once_with(
+            root=Path("/workspace"),
+            discovery_ids=[fact.stable_id],
+            denominator=load_denominator.return_value,
+        )
+
     def test_cargo_metadata_marks_binary_only_test_ownership(self) -> None:
         inventory = rust_package_target_inventory(
             {

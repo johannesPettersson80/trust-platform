@@ -11,11 +11,13 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
-from .mapping_assertions import invoke_rust_assertion_inventory
-from .metadata_validator.constants import HIGH_RISKS
-from .test_catalog_json_schema import validate_json_schema_instance
-from .test_catalog_scanner import scan_repository
 from .code_spec_live import load_code_spec_metadata
+from .focused_test_facts import resolve_focused_rust_facts
+from .mapping_assertions import invoke_rust_assertion_inventory
+from .mapping_artifact_paths import resolve_mapping_artifact_output
+from .metadata_validator.constants import HIGH_RISKS
+from .test_catalog_denominator import load_test_catalog_denominator
+from .test_catalog_json_schema import validate_json_schema_instance
 
 
 def build_pilot_review(
@@ -148,6 +150,11 @@ def generate_pilot_review(
     non_oracle_assertion_indices: Sequence[int],
     reviewer_ids: Sequence[str],
 ) -> dict[str, Any]:
+    output_path = resolve_mapping_artifact_output(
+        root,
+        output_path,
+        "mapping pilot review output",
+    )
     candidate_document = json.loads(candidates_path.read_text())
     candidates = candidate_document.get("candidates")
     if (
@@ -158,20 +165,7 @@ def generate_pilot_review(
         raise ValueError("candidate report candidates are invalid")
     candidate = _indexed(list(candidates), candidate_index, "candidate")
     discovery_id = _required_string(candidate, "discovery_id", "candidate")
-    scan = scan_repository(root)
-    scanned = {
-        fact.stable_id: {
-            "discovery_id": fact.stable_id,
-            "discovery_source_kind": fact.source_kind,
-            "path": fact.path,
-            "name": fact.name,
-            "ignore_state": fact.ignore_state,
-        }
-        for fact in scan.inferred_facts
-    }
-    fact = scanned.get(discovery_id)
-    if fact is None:
-        raise ValueError(f"pilot candidate is absent from live scan: {discovery_id}")
+    fact = resolve_pilot_fact(root=root, discovery_id=discovery_id)
     inventory = invoke_rust_assertion_inventory(
         root, [fact], environment=os.environ
     )[discovery_id]
@@ -207,6 +201,26 @@ def generate_pilot_review(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(document, indent=2, sort_keys=True) + "\n")
     return document
+
+
+def resolve_pilot_fact(
+    *,
+    root: Path,
+    discovery_id: str,
+) -> dict[str, Any]:
+    facts = resolve_focused_rust_facts(
+        root=root,
+        discovery_ids=[discovery_id],
+        denominator=load_test_catalog_denominator(root),
+    )
+    fact = facts[0]
+    return {
+        "discovery_id": fact.stable_id,
+        "discovery_source_kind": fact.source_kind,
+        "path": fact.path,
+        "name": fact.name,
+        "ignore_state": fact.ignore_state,
+    }
 
 
 def build_parser() -> argparse.ArgumentParser:

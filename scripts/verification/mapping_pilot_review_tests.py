@@ -3,8 +3,15 @@
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from unittest import mock
 
-from scripts.verification.mapping_pilot_review import build_pilot_review
+from scripts.verification.mapping_pilot_review import (
+    build_pilot_review,
+    generate_pilot_review,
+    resolve_pilot_fact,
+)
 
 
 def _candidate() -> dict[str, object]:
@@ -27,6 +34,53 @@ def _inventory() -> dict[str, object]:
 
 
 class MappingPilotReviewTests(unittest.TestCase):
+    def test_pilot_review_rejects_catalog_plane_output_before_loading_candidates(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            unsafe = root / "verification/test-catalog.toml"
+            with self.assertRaisesRegex(ValueError, "artifact quarantine"):
+                generate_pilot_review(
+                    root=root,
+                    candidates_path=root / "missing-candidates.json",
+                    output_path=unsafe,
+                    candidate_index=1,
+                    invariant_index=1,
+                    oracle_assertion_bindings={1: [1]},
+                    setup_assertion_indices=[],
+                    non_oracle_assertion_indices=[],
+                    reviewer_ids=["reviewer-a"],
+                )
+
+    @mock.patch(
+        "scripts.verification.mapping_pilot_review.resolve_focused_rust_facts"
+    )
+    @mock.patch(
+        "scripts.verification.mapping_pilot_review.load_test_catalog_denominator"
+    )
+    def test_pilot_review_resolves_one_file_without_full_scan(
+        self,
+        load_denominator: mock.Mock,
+        resolve_focused: mock.Mock,
+    ) -> None:
+        fact = mock.Mock(
+            stable_id="DISC_" + "A" * 20,
+            source_kind="rust_unit_test",
+            path="crates/example/src/lib.rs",
+            name="exact_case",
+            ignore_state="not_ignored",
+        )
+        resolve_focused.return_value = [fact]
+        load_denominator.return_value = {"reviews": []}
+
+        resolved = resolve_pilot_fact(
+            root=Path("/workspace"),
+            discovery_id=fact.stable_id,
+        )
+
+        self.assertEqual(fact.stable_id, resolved["discovery_id"])
+
     def test_display_indices_generate_exact_ids_and_complete_assertion_review(self) -> None:
         review = build_pilot_review(
             candidate=_candidate(),
