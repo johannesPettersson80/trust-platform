@@ -411,6 +411,7 @@ def _accepted_review(
         selected_records.append(invariant)
     area = _shared_field(selected_records, "area", proposal_index)
     owner = _shared_field(selected_records, "owner", proposal_index)
+    _shared_oracle_ref(selected_records, proposal_index)
     suite_tiers = sorted(
         {
             tier
@@ -624,6 +625,28 @@ def _shared_field(
             f"proposal {proposal_index} selected invariants do not share {field}"
         )
     return next(iter(values))
+
+
+def _shared_oracle_ref(
+    records: Sequence[Mapping[str, Any]],
+    proposal_index: int,
+) -> str:
+    refs: set[str] = set()
+    for record in records:
+        oracle = record.get("oracle")
+        refs.add(
+            _required_string(
+                oracle if isinstance(oracle, Mapping) else {},
+                "ref",
+                f"proposal {proposal_index} selected invariant oracle",
+            )
+        )
+    if len(refs) != 1:
+        raise ValueError(
+            f"proposal {proposal_index} selected invariants do not share "
+            "one oracle ref"
+        )
+    return next(iter(refs))
 
 
 def _parse_behavior_ref(value: str) -> tuple[str, int]:

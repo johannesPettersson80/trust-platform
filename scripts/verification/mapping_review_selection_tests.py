@@ -319,6 +319,37 @@ class MappingReviewSelectionTests(unittest.TestCase):
                 invariants=invariants,
             )
 
+    def test_selected_invariants_must_share_one_exact_oracle(self) -> None:
+        proposals = _proposal_document()
+        proposals["proposals"][0]["candidate_invariant_ids"].append("INV_TWO")
+        proposals["proposals"][0]["behavior_refs"].append(
+            "INV_TWO#behavior:0"
+        )
+        proposals["proposals"][0]["suggestions"]["source_behavior_refs"].append(
+            "INV_TWO#behavior:0"
+        )
+        invariants = _invariants()
+        invariants["INV_TWO"] = {
+            **copy.deepcopy(invariants["INV_ONE"]),
+            "id": "INV_TWO",
+            "oracle": {"ref": "SPEC_EXAMPLE_002#exact"},
+        }
+        selection = _accepted_selection(proposals)
+        accepted = selection["reviews"][0]
+        accepted["selected_invariant_indices"] = [1, 2]
+        accepted["oracle_bindings"] = [
+            {"assertion_index": 1, "behavior_indices": [1]},
+            {"assertion_index": 2, "behavior_indices": [2]},
+        ]
+        accepted["setup_assertion_indices"] = []
+
+        with self.assertRaisesRegex(ValueError, "share one oracle ref"):
+            build_review_input_from_selection(
+                proposal_document=proposals,
+                selection_document=selection,
+                invariants=invariants,
+            )
+
     def test_selection_and_card_schemas_are_closed(self) -> None:
         proposals = _proposal_document()
         selection = _accepted_selection(proposals)
