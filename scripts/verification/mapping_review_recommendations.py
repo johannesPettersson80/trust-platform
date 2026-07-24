@@ -39,6 +39,11 @@ REJECTED_FIELDS = {
     "evidence",
     "rejection_reason",
 }
+CONFIRMATION_FIELDS = {
+    "proposal_index",
+    "outcome",
+    "evidence",
+}
 
 
 def compile_review_recommendations(
@@ -146,8 +151,16 @@ def _compile_proposal_recommendations(
     recommendations: Sequence[tuple[str, Mapping[str, Any]]],
 ) -> dict[str, Any]:
     normalized: list[tuple[str, dict[str, Any]]] = []
+    confirmations: list[str] = []
     for reviewer_id, review in recommendations:
         outcome = review.get("outcome")
+        if outcome == "confirmed":
+            if set(review) != CONFIRMATION_FIELDS:
+                raise ValueError(
+                    f"mapping review proposal {proposal_index} confirmation fields drift"
+                )
+            confirmations.append(reviewer_id)
+            continue
         expected_fields = (
             ACCEPTED_FIELDS if outcome == "accepted" else REJECTED_FIELDS
         )
@@ -161,14 +174,25 @@ def _compile_proposal_recommendations(
             if key != "evidence"
         }
         normalized.append((reviewer_id, semantic))
+    if not normalized:
+        raise ValueError(
+            f"mapping review proposal {proposal_index} lacks a semantic decision"
+        )
     reference = normalized[0][1]
     if any(semantic != reference for _, semantic in normalized[1:]):
         raise ValueError(
             f"mapping review proposal {proposal_index} reviewers conflict"
         )
+    if confirmations and reference["outcome"] != "accepted":
+        raise ValueError(
+            f"mapping review proposal {proposal_index} cannot confirm a rejection"
+        )
     result = dict(reference)
     result["reviewer_ids"] = sorted(
-        {reviewer_id for reviewer_id, _ in normalized}
+        {
+            *confirmations,
+            *(reviewer_id for reviewer_id, _ in normalized),
+        }
     )
     if result["outcome"] == "accepted":
         result["confirm_generated_catalog"] = True

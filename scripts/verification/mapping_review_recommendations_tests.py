@@ -63,6 +63,22 @@ def _recommendation(
     }
 
 
+def _confirmation(reviewer: str, indices: tuple[int, ...] = (1,)) -> dict:
+    return {
+        "schema_version": 1,
+        "reviewer_id": reviewer,
+        "range": [1, 2],
+        "reviews": [
+            {
+                "proposal_index": index,
+                "outcome": "confirmed",
+                "evidence": "Independent review confirmed every semantic binding.",
+            }
+            for index in indices
+        ],
+    }
+
+
 class MappingReviewRecommendationsTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -92,7 +108,7 @@ class MappingReviewRecommendationsTests(unittest.TestCase):
         selection = self.compile(
             [
                 _recommendation("reviewer-a"),
-                _recommendation("reviewer-b", indices=(1,)),
+                _confirmation("reviewer-b"),
             ]
         )
 
@@ -117,6 +133,21 @@ class MappingReviewRecommendationsTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "complete queue"):
             self.compile([_recommendation("reviewer-a", indices=(1,))])
+
+        with self.assertRaisesRegex(ValueError, "cannot confirm a rejection"):
+            self.compile(
+                [
+                    _recommendation(
+                        "reviewer-a",
+                        accepted=False,
+                        indices=(1, 2),
+                    ),
+                    _confirmation("reviewer-b"),
+                ]
+            )
+
+        with self.assertRaisesRegex(ValueError, "lacks a semantic decision"):
+            self.compile([_confirmation("reviewer-b")], complete=False)
 
     def test_closed_schema_rejects_generated_ids_and_unknown_fields(self) -> None:
         forged = copy.deepcopy(_recommendation("reviewer-a"))

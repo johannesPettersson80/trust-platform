@@ -30,7 +30,8 @@
     "review": {
       "oneOf": [
         { "$ref": "#/$defs/accepted" },
-        { "$ref": "#/$defs/rejected" }
+        { "$ref": "#/$defs/rejected" },
+        { "$ref": "#/$defs/confirmed" }
       ]
     },
     "accepted": {
@@ -89,6 +90,16 @@
         "outcome": { "const": "rejected" },
         "evidence": { "$ref": "#/$defs/evidence" },
         "rejection_reason": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "confirmed": {
+      "type": "object",
+      "required": ["proposal_index", "outcome", "evidence"],
+      "properties": {
+        "proposal_index": { "type": "integer", "minimum": 1 },
+        "outcome": { "const": "confirmed" },
+        "evidence": { "$ref": "#/$defs/evidence" }
       },
       "additionalProperties": false
     }
