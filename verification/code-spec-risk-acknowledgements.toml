@@ -82038,3 +82038,17 @@ reviewed_by = "verification"
 reviewed_on = "2026-07-24"
 expires_on = "2026-10-24"
 rationale = "Accepts the scanner-derived risk signals for the exact code-spec refresh quarantine fact; the reviewed path batch forbids accepted-map writes, semantic inference, gap closure, and proof promotion."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_8CFD05F7F1A2B5D0B9CBC36395F2090F998E558067EF062041A6417013183B4D"
+code_id = "CODE_8CFD05F7F1A2B5D0B9CBC36395F2090F998E558067EF062041A6417013183B4D"
+owner = "release-engineering"
+area = "supply_chain_platform"
+body_digest = "sha256:96cde82f5410a75f2148438bd6f0870bea1aaa712fb2c8536eeec378214f32d5"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-24/collect-source-paths-gap-route-review.md#accepted-exact-fact-gap-route"
+reviewed_by = "release-engineering"
+reviewed_on = "2026-07-24"
+expires_on = "2026-10-24"
+rationale = "Acknowledges the scanner-derived risk signals for this exact reviewed body while the fact remains bound to an explicit open historical code-spec gap; it neither specifies behavior nor suppresses any risk signal."

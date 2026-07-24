@@ -277015,3 +277015,22 @@ spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal
 invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
 test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
 last_reviewed = "2026-07-24"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_8CFD05F7F1A2B5D0B9CBC36395F2090F998E558067EF062041A6417013183B4D"
+source_kind = "rust"
+path = "crates/trust-runtime/src/host/bundle_builder/build.rs"
+qualified_symbol = "trust_runtime::bundle_builder::collect_source_paths"
+item_kind = "rust_function"
+signature_digest = "sha256:0f5af5034e2ea94fb68c7188655dfdc8d72ebb194cbf65be1bd0bacce94949c8"
+reviewed_body_digest = "sha256:96cde82f5410a75f2148438bd6f0870bea1aaa712fb2c8536eeec378214f32d5"
+owner = "release-engineering"
+area = "supply_chain_platform"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "RISK_ACK_8CFD05F7F1A2B5D0B9CBC36395F2090F998E558067EF062041A6417013183B4D"
+owner_ack_expires_on = "2026-10-24"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_SUPPLY_CHAIN_PLATFORM_001"
+last_reviewed = "2026-07-24"

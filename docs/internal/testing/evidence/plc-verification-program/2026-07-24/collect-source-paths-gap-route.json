@@ -1,0 +1,96 @@
+{
+  "batch_id": "COLLECT_SOURCE_PATHS_GAP_ROUTE_20260724",
+  "check_command": "python3 docs/internal/testing/evidence/plc-verification-program/2026-07-24/generate-collect-source-paths-gap-route.py --root . --check",
+  "command": "python3 docs/internal/testing/evidence/plc-verification-program/2026-07-24/generate-collect-source-paths-gap-route.py --root . --apply",
+  "fact": {
+    "area_candidates": [
+      "bytecode_vm",
+      "control_security",
+      "supply_chain_platform"
+    ],
+    "body_digest": "sha256:96cde82f5410a75f2148438bd6f0870bea1aaa712fb2c8536eeec378214f32d5",
+    "code_id": "CODE_8CFD05F7F1A2B5D0B9CBC36395F2090F998E558067EF062041A6417013183B4D",
+    "item_kind": "rust_function",
+    "line": 190,
+    "path": "crates/trust-runtime/src/host/bundle_builder/build.rs",
+    "qualified_symbol": "trust_runtime::bundle_builder::collect_source_paths",
+    "risk_signals": [
+      "state_mutation"
+    ],
+    "signature_digest": "sha256:0f5af5034e2ea94fb68c7188655dfdc8d72ebb194cbf65be1bd0bacce94949c8",
+    "source_kind": "rust",
+    "visibility": "private"
+  },
+  "generated_mapping": {
+    "area": "supply_chain_platform",
+    "code_id": "CODE_8CFD05F7F1A2B5D0B9CBC36395F2090F998E558067EF062041A6417013183B4D",
+    "disposition": "spec_gap",
+    "item_kind": "rust_function",
+    "last_reviewed": "2026-07-24",
+    "owner": "release-engineering",
+    "owner_ack": "RISK_ACK_8CFD05F7F1A2B5D0B9CBC36395F2090F998E558067EF062041A6417013183B4D",
+    "owner_ack_expires_on": "2026-10-24",
+    "path": "crates/trust-runtime/src/host/bundle_builder/build.rs",
+    "qualified_symbol": "trust_runtime::bundle_builder::collect_source_paths",
+    "reviewed_body_digest": "sha256:96cde82f5410a75f2148438bd6f0870bea1aaa712fb2c8536eeec378214f32d5",
+    "risk_signals": [
+      "state_mutation"
+    ],
+    "schema_version": 1,
+    "signature_digest": "sha256:0f5af5034e2ea94fb68c7188655dfdc8d72ebb194cbf65be1bd0bacce94949c8",
+    "source_kind": "rust",
+    "spec_gap_ref": "SPEC_GAP_P17_HISTORICAL_CODE_SUPPLY_CHAIN_PLATFORM_001",
+    "visibility": "private"
+  },
+  "generated_risk_acknowledgement": {
+    "area": "supply_chain_platform",
+    "body_digest": "sha256:96cde82f5410a75f2148438bd6f0870bea1aaa712fb2c8536eeec378214f32d5",
+    "code_id": "CODE_8CFD05F7F1A2B5D0B9CBC36395F2090F998E558067EF062041A6417013183B4D",
+    "expires_on": "2026-10-24",
+    "id": "RISK_ACK_8CFD05F7F1A2B5D0B9CBC36395F2090F998E558067EF062041A6417013183B4D",
+    "owner": "release-engineering",
+    "rationale": "Acknowledges the scanner-derived risk signals for this exact reviewed body while the fact remains bound to an explicit open historical code-spec gap; it neither specifies behavior nor suppresses any risk signal.",
+    "review_ref": "docs/internal/testing/evidence/plc-verification-program/2026-07-24/collect-source-paths-gap-route-review.md#accepted-exact-fact-gap-route",
+    "reviewed_by": "release-engineering",
+    "reviewed_on": "2026-07-24",
+    "risk_signals": [
+      "state_mutation"
+    ],
+    "schema_version": 1
+  },
+  "generator": "docs/internal/testing/evidence/plc-verification-program/2026-07-24/generate-collect-source-paths-gap-route.py",
+  "generator_sha256": "sha256:9e321be982eda17c0d73248718fbbb54f10fe9fb2c655c02428dbd319286bbd5",
+  "output_digests": {
+    "docs/internal/testing/evidence/plc-verification-program/2026-07-24/collect-source-paths-gap-route-review.md": "sha256:a44ce01ffd804faa3daa67a325108e12e8dc0fcf8ebf374aa0656b5d248fb631",
+    "verification/code-spec-map.toml": "sha256:15702592ff49dc407635df2d877ac6431288868b16e2be212aaa0d8e54e24883",
+    "verification/code-spec-risk-acknowledgements.toml": "sha256:cb9fc8fdac35b2b2e68f7445a5e9bfd55cd2edd515a1533ff6b4ea357cd5450b",
+    "verification/spec-gaps.toml": "sha256:19d5c4ced425c7d6302736b503eb4529ecc9e3107be5bcf6c1bd579bce1ad4dd"
+  },
+  "proposal": "docs/internal/testing/evidence/plc-verification-program/2026-07-24/collect-source-paths-gap-route-proposal.json",
+  "proposal_digest": "sha256:52dd88d55c67a83b5e376a46b8392d4b38f5c4b8cac5638fa904eec7745729cc",
+  "proposal_sha256": "sha256:04e254d3d981cca0d68f93d55659874d4b51df346be2447fd5e19e7ece76794b",
+  "route": {
+    "area": "supply_chain_platform",
+    "gap_id": "SPEC_GAP_P17_HISTORICAL_CODE_SUPPLY_CHAIN_PLATFORM_001",
+    "owner": "release-engineering"
+  },
+  "schema_version": 1,
+  "selection": "docs/internal/testing/evidence/plc-verification-program/2026-07-24/collect-source-paths-gap-route-selection.toml",
+  "selection_sha256": "sha256:6ab10b6f8128fa47b40c71c39e7527a80010ff1e3554f17b9cfd5fd60786cec0",
+  "sibling_code_ids": [
+    "CODE_031E5F22BACAF8A1B46399E49797A842FDCB621EA9285FC08401032D49F6FC82",
+    "CODE_345DDCAF252A894A2117F57CF28035D7AEE3DAC7826182C83F771B642EDC8D93",
+    "CODE_69DCEE00016C2BE34549CC43132729DE2202FD3A0FF2703741B8DB0187A7BBDD",
+    "CODE_81C5CB9B9B6EA81E6BAF4C956F2BC45C5D663D37EA7326B14D150F89777BE0EB",
+    "CODE_99AE07A9416D699F8EDFC5A13B64F8BB64AB8769B775909ED2F95237CD75D8BD",
+    "CODE_C12D2507363D27A5AE6853927B20A42F006D6A8A36E0AEB76E355E920620D9C2",
+    "CODE_DC147B59126502CCF6D119B67AFEE75B5525E282CB9AA2E99E37B1B22D10E8A9",
+    "CODE_DCA98CA5AD56AC57D195BE244DF612663CF49DF5D5AA670C39EDDD021445DA12",
+    "CODE_F863E5BDC8A37FF473F815D2663608DE630034C4143E678C768A2036398C8D5C"
+  ],
+  "source_blob_sha256": "sha256:0a8dc7b13e1542f93fb3f969b338951c08bc869e6aec52675f1a861ffdbb869b",
+  "source_report": "target/gate-artifacts/code-spec-coverage-p18-refresh/code-spec-coverage.json",
+  "source_report_commit": "949b9ac030ab4971343d99f51cd7931225c599cb",
+  "source_report_input_digest": "sha256:c0d4552531827c024cfee8006ea21e421b05d0dc1e3d4b4a7bc0e4073a9f3b0c",
+  "source_report_sha256": "sha256:d336e815cf40f183b679457fb0036fba107c718d7d24df1853156349e7647a0a"
+}
