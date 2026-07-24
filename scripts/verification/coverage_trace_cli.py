@@ -320,10 +320,65 @@ def validate_resume_request(
     current: Mapping[str, Any],
     legacy: Mapping[str, Any],
 ) -> None:
-    if existing not in (current, legacy):
-        raise ValueError(
-            "resume request does not match existing Rust trace denominator"
+    """Validate stored request shape before reconciling it with live tests.
+
+    Resume reconciliation is performed per attempt by
+    ``reusable_completed_attempt_ids``.  The live denominator may legitimately
+    grow, shrink, or change identity between commits; requiring whole-document
+    equality here would prevent that exact reconciliation from running.
+    """
+
+    if existing in (current, legacy):
+        return
+    if set(existing) != {"schema_version", "tests"}:
+        raise ValueError("existing Rust resume request root fields drift")
+    schema_version = existing.get("schema_version")
+    if schema_version not in {1, 2}:
+        raise ValueError("existing Rust resume request schema_version is unsupported")
+    tests = existing.get("tests")
+    if not isinstance(tests, list):
+        raise ValueError("existing Rust resume request tests must be an array")
+    required_fields = {
+        "discovery_id",
+        "nextest_binary_id",
+        "nextest_test_name",
+    }
+    if schema_version == 2:
+        required_fields.add("nextest_binary_path")
+    discovery_ids: set[str] = set()
+    runtime_identities: set[tuple[str, ...]] = set()
+    for index, record in enumerate(tests):
+        if not isinstance(record, Mapping) or set(record) != required_fields:
+            raise ValueError(
+                f"existing Rust resume request test[{index}] fields drift"
+            )
+        for field in sorted(required_fields):
+            value = record.get(field)
+            if not isinstance(value, str) or not value:
+                raise ValueError(
+                    f"existing Rust resume request test[{index}] "
+                    f"requires non-empty {field}"
+                )
+        discovery_id = str(record["discovery_id"])
+        if discovery_id in discovery_ids:
+            raise ValueError(
+                f"existing Rust resume request duplicates {discovery_id}"
+            )
+        discovery_ids.add(discovery_id)
+        runtime_identity = tuple(
+            str(record[field])
+            for field in (
+                "nextest_binary_id",
+                "nextest_test_name",
+                *(("nextest_binary_path",) if schema_version == 2 else ()),
+            )
         )
+        if runtime_identity in runtime_identities:
+            raise ValueError(
+                "existing Rust resume request duplicates runtime identity "
+                f"{runtime_identity}"
+            )
+        runtime_identities.add(runtime_identity)
 
 
 def select_ground_truth_pilot_ids(

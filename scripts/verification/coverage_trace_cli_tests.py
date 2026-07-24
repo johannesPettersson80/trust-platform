@@ -216,7 +216,7 @@ class CoverageTraceCliTests(unittest.TestCase):
             document,
         )
 
-    def test_resume_request_migrates_only_the_exact_legacy_identity_set(
+    def test_resume_request_accepts_well_formed_denominator_reconciliation(
         self,
     ) -> None:
         resolved = [
@@ -240,7 +240,7 @@ class CoverageTraceCliTests(unittest.TestCase):
             current=current,
             legacy=legacy,
         )
-        changed = {
+        changed_identity = {
             **legacy,
             "tests": [
                 {
@@ -249,9 +249,61 @@ class CoverageTraceCliTests(unittest.TestCase):
                 }
             ],
         }
-        with self.assertRaisesRegex(ValueError, "does not match"):
+        validate_resume_request(
+            existing=changed_identity,
+            current=current,
+            legacy=legacy,
+        )
+        validate_resume_request(
+            existing={"schema_version": 2, "tests": []},
+            current=current,
+            legacy=legacy,
+        )
+        validate_resume_request(
+            existing={
+                "schema_version": 2,
+                "tests": [
+                    *current["tests"],
+                    {
+                        "discovery_id": "DISC_TWO",
+                        "nextest_binary_id": "pkg-b",
+                        "nextest_binary_path": "/target/pkg-b",
+                        "nextest_test_name": "module::test_b",
+                    },
+                ],
+            },
+            current=current,
+            legacy=legacy,
+        )
+
+    def test_resume_request_rejects_malformed_or_ambiguous_history(self) -> None:
+        resolved = [
+            {
+                "discovery_id": "DISC_ONE",
+                "nextest_binary_id": "pkg-a",
+                "nextest_binary_path": "/target/pkg-a",
+                "nextest_test_name": "module::test_a",
+            }
+        ]
+        current = requested_tests_document(resolved)
+        legacy = legacy_requested_tests_document(resolved)
+        malformed = {
+            **current,
+            "tests": [{**current["tests"][0], "unexpected": "field"}],
+        }
+        with self.assertRaisesRegex(ValueError, "fields drift"):
             validate_resume_request(
-                existing=changed,
+                existing=malformed,
+                current=current,
+                legacy=legacy,
+            )
+        duplicate = {
+            **current,
+            "tests": [current["tests"][0], current["tests"][0]],
+        }
+        with self.assertRaisesRegex(ValueError, "duplicates DISC_ONE"):
+            validate_resume_request(
+                existing=duplicate,
                 current=current,
                 legacy=legacy,
             )
@@ -440,6 +492,56 @@ class CoverageTraceCliTests(unittest.TestCase):
 
         self.assertEqual({"DISC_COMPLETE"}, reusable)
         self.assertFalse(partial_exists)
+
+    def test_resume_reconciles_removed_test_without_losing_unchanged_attempt(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            executable = root / "test-binary"
+            executable.write_bytes(b"unchanged binary")
+            executable_digest = (
+                "sha256:" + hashlib.sha256(executable.read_bytes()).hexdigest()
+            )
+            for discovery_id, test_name in (
+                ("DISC_CURRENT", "module::current"),
+                ("DISC_REMOVED", "module::removed"),
+            ):
+                attempt = root / f"attempts/{discovery_id.lower()}"
+                (attempt / "profiles").mkdir(parents=True)
+                (attempt / "profiles/profile.profraw").write_bytes(b"profile")
+                (attempt / "attempt.json").write_text(
+                    json.dumps(
+                        {
+                            "discovery_id": discovery_id,
+                            "binary_id": "example",
+                            "test_name": test_name,
+                            "test_executable": str(executable),
+                            "test_executable_digest": executable_digest,
+                            "status": "completed",
+                            "exit_code": 0,
+                        }
+                    )
+                )
+
+            reusable = reusable_completed_attempt_ids(
+                trace_root=root,
+                resolved=[
+                    {
+                        "discovery_id": "DISC_CURRENT",
+                        "nextest_binary_id": "example",
+                        "nextest_binary_path": str(executable),
+                        "nextest_test_name": "module::current",
+                    }
+                ],
+                purge_incomplete=True,
+            )
+            current_exists = (root / "attempts/disc_current").is_dir()
+            removed_exists = (root / "attempts/disc_removed").exists()
+
+        self.assertEqual({"DISC_CURRENT"}, reusable)
+        self.assertTrue(current_exists)
+        self.assertFalse(removed_exists)
 
     def test_resume_hashes_each_shared_test_executable_once(self) -> None:
         with TemporaryDirectory() as directory:
