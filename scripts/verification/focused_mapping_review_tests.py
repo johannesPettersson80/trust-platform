@@ -21,6 +21,10 @@ from scripts.verification.focused_mapping_review import (
     FocusedMappingReviewResult,
     execute_focused_review_batch,
 )
+from scripts.verification.focused_mapping_review_support import (
+    validate_authority_batch_scope,
+    validate_projected_authority_review_support,
+)
 from scripts.verification.mapping_catalog_updates import (
     render_denominator_document,
 )
@@ -157,7 +161,7 @@ class FocusedMappingReviewTests(unittest.TestCase):
                 return_value=application,
             ):
                 with self.assertRaisesRegex(
-                    ValueError, "trace-covered spec-gap code fact"
+                    ValueError, "not trace-covered"
                 ):
                     fixture.execute(
                         authority_selection_path=fixture.authority_selection
@@ -174,11 +178,239 @@ class FocusedMappingReviewTests(unittest.TestCase):
                 return_value=application,
             ):
                 with self.assertRaisesRegex(
-                    ValueError, "differ from accepted review"
+                    ValueError, "not a subset of the accepted review"
                 ):
                     fixture.execute(
                         authority_selection_path=fixture.authority_selection
                     )
+
+    def test_authority_scope_accepts_per_code_invariant_subsets(self) -> None:
+        discovery_id = "DISC_" + "A" * 20
+        proposal_id = "MAP_CAND_" + "A" * 20 + "_" + "B" * 12
+        code_1 = "CODE_" + "1" * 64
+        code_2 = "CODE_" + "2" * 64
+        proposal = {
+            "id": proposal_id,
+            "discovery_id": discovery_id,
+            "covered_code_ids": [code_1, code_2],
+        }
+        review = {
+            "proposal_id": proposal_id,
+            "outcome": "accepted",
+            "selected_invariant_ids": ["INV_1", "INV_2"],
+        }
+        manifest = {
+            "rows": [
+                {
+                    "code_id": code_1,
+                    "invariant_ids": ["INV_1"],
+                    "discovery_ids": [discovery_id],
+                },
+                {
+                    "code_id": code_2,
+                    "invariant_ids": ["INV_1", "INV_2"],
+                    "discovery_ids": [discovery_id],
+                },
+            ]
+        }
+
+        validate_authority_batch_scope(
+            application_manifest=manifest,
+            review_inputs=[review],
+            selected_proposals=[proposal],
+            canonical_mappings={
+                code_1: {"disposition": "spec_gap"},
+                code_2: {"disposition": "spec_gap"},
+            },
+        )
+
+    def test_authority_scope_requires_every_covered_canonical_gap(self) -> None:
+        discovery_id = "DISC_" + "A" * 20
+        proposal_id = "MAP_CAND_" + "A" * 20 + "_" + "B" * 12
+        code_1 = "CODE_" + "1" * 64
+        code_2 = "CODE_" + "2" * 64
+        with self.assertRaisesRegex(
+            ValueError, "canonical covered spec-gap set"
+        ):
+            validate_authority_batch_scope(
+                application_manifest={
+                    "rows": [
+                        {
+                            "code_id": code_1,
+                            "invariant_ids": ["INV_1"],
+                            "discovery_ids": [discovery_id],
+                        }
+                    ]
+                },
+                review_inputs=[
+                    {
+                        "proposal_id": proposal_id,
+                        "outcome": "accepted",
+                        "selected_invariant_ids": ["INV_1"],
+                    }
+                ],
+                selected_proposals=[
+                    {
+                        "id": proposal_id,
+                        "discovery_id": discovery_id,
+                        "covered_code_ids": [code_1, code_2],
+                    }
+                ],
+                canonical_mappings={
+                    code_1: {"disposition": "spec_gap"},
+                    code_2: {"disposition": "spec_gap"},
+                },
+            )
+
+    def test_authority_scope_rejects_authority_for_specified_code(self) -> None:
+        discovery_id = "DISC_" + "A" * 20
+        proposal_id = "MAP_CAND_" + "A" * 20 + "_" + "B" * 12
+        code_id = "CODE_" + "1" * 64
+        with self.assertRaisesRegex(
+            ValueError, "not a canonical spec-gap code fact"
+        ):
+            validate_authority_batch_scope(
+                application_manifest={
+                    "rows": [
+                        {
+                            "code_id": code_id,
+                            "invariant_ids": ["INV_1"],
+                            "discovery_ids": [discovery_id],
+                        }
+                    ]
+                },
+                review_inputs=[
+                    {
+                        "proposal_id": proposal_id,
+                        "outcome": "accepted",
+                        "selected_invariant_ids": ["INV_1"],
+                    }
+                ],
+                selected_proposals=[
+                    {
+                        "id": proposal_id,
+                        "discovery_id": discovery_id,
+                        "covered_code_ids": [code_id],
+                    }
+                ],
+                canonical_mappings={
+                    code_id: {
+                        "disposition": "specified",
+                        "invariant_ids": ["INV_1"],
+                    }
+                },
+            )
+
+    def test_projected_support_includes_existing_specified_code(self) -> None:
+        discovery_id = "DISC_" + "A" * 20
+        proposal_id = "MAP_CAND_" + "A" * 20 + "_" + "B" * 12
+        gap_code = "CODE_" + "1" * 64
+        specified_code = "CODE_" + "2" * 64
+        validate_projected_authority_review_support(
+            application_manifest={
+                "rows": [
+                    {
+                        "code_id": gap_code,
+                        "invariant_ids": ["INV_1"],
+                    }
+                ]
+            },
+            review_inputs=[
+                {
+                    "proposal_id": proposal_id,
+                    "outcome": "accepted",
+                    "selected_invariant_ids": ["INV_1", "INV_2"],
+                }
+            ],
+            selected_proposals=[
+                {
+                    "id": proposal_id,
+                    "discovery_id": discovery_id,
+                    "covered_code_ids": [gap_code, specified_code],
+                }
+            ],
+            projected_mappings={
+                gap_code: {
+                    "disposition": "specified",
+                    "invariant_ids": ["INV_1"],
+                },
+                specified_code: {
+                    "disposition": "specified",
+                    "invariant_ids": ["INV_2"],
+                },
+            },
+        )
+
+    def test_projected_support_rejects_unsupported_review_invariant(
+        self,
+    ) -> None:
+        discovery_id = "DISC_" + "A" * 20
+        proposal_id = "MAP_CAND_" + "A" * 20 + "_" + "B" * 12
+        code_id = "CODE_" + "1" * 64
+        with self.assertRaisesRegex(
+            ValueError, "lack committed code authority"
+        ):
+            validate_projected_authority_review_support(
+                application_manifest={
+                    "rows": [
+                        {
+                            "code_id": code_id,
+                            "invariant_ids": ["INV_1"],
+                        }
+                    ]
+                },
+                review_inputs=[
+                    {
+                        "proposal_id": proposal_id,
+                        "outcome": "accepted",
+                        "selected_invariant_ids": ["INV_1", "INV_2"],
+                    }
+                ],
+                selected_proposals=[
+                    {
+                        "id": proposal_id,
+                        "discovery_id": discovery_id,
+                        "covered_code_ids": [code_id],
+                    }
+                ],
+                projected_mappings={
+                    code_id: {
+                        "disposition": "specified",
+                        "invariant_ids": ["INV_1"],
+                    }
+                },
+            )
+
+    def test_code_map_drift_before_authority_plan_fails_snapshot_cas(
+        self,
+    ) -> None:
+        with ReviewFixture() as fixture:
+            application = fixture.authority_application(
+                [fixture.proposals[0]["discovery_id"]]
+            )
+            concurrent = fixture.code_map.read_bytes() + b"# concurrent\n"
+
+            def drift(*_args: object, **_kwargs: object):
+                fixture.code_map.write_bytes(concurrent)
+                application.expected_originals[
+                    "verification/code-spec-map.toml"
+                ] = concurrent
+                return application
+
+            with fixture.patches(), mock.patch(
+                "scripts.verification.focused_mapping_review."
+                "build_authority_selection_application",
+                side_effect=drift,
+            ):
+                with self.assertRaisesRegex(
+                    ValueError, "precondition collides"
+                ):
+                    fixture.execute(
+                        authority_selection_path=fixture.authority_selection
+                    )
+
+            self.assertEqual(concurrent, fixture.code_map.read_bytes())
+            self.assertFalse(fixture.receipt.exists())
 
     def test_initial_catalog_snapshot_detects_planning_window_race(self) -> None:
         with ReviewFixture() as fixture:
@@ -601,6 +833,12 @@ class ReviewFixture:
             + b"A" * 64
             + b'"\ndisposition = "spec_gap"\n'
         )
+        self.mappings = {
+            authority_code_id: {
+                "code_id": authority_code_id,
+                "disposition": "spec_gap",
+            }
+        }
         self.spec_sources = self.verification / "spec-sources.toml"
         self.spec_sources.write_text("schema_version = 1\nspec_sources = []\n")
         self.decisions = (
@@ -629,7 +867,9 @@ class ReviewFixture:
                 "scripts.verification.focused_mapping_review."
                 "load_code_spec_metadata",
                 return_value=CodeSpecMetadata(
-                    invariants=self.invariants, tests={}
+                    mappings=self.mappings,
+                    invariants=self.invariants,
+                    tests={},
                 ),
             )
         )
@@ -716,7 +956,10 @@ class ReviewFixture:
         self, discovery_ids: list[object]
     ) -> AuthoritySelectionApplication:
         before = self.code_map.read_bytes()
-        after = before.replace(b'"spec_gap"', b'"specified"')
+        after = before.replace(
+            b'disposition = "spec_gap"\n',
+            b'disposition = "specified"\ninvariant_ids = ["INV_1"]\n',
+        )
         test_ids = [
             "TEST_AUTO_" + str(discovery_id).removeprefix("DISC_")
             for discovery_id in discovery_ids

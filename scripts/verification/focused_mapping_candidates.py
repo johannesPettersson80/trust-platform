@@ -30,6 +30,7 @@ from .coverage_trace_evidence import (
 from .focused_trace_authentication import authenticate_focused_trace
 from .mapping_assertions import invoke_assertion_inventories
 from .mapping_candidates import analyze_mapping_candidates
+from .focused_mapping_queue import merge_focused_queue
 from .mapping_live_code_facts import validated_live_code_facts
 from .mapping_proposals import (
     build_mapping_proposals,
@@ -303,6 +304,33 @@ def generate_focused_mapping_candidates(
             "verification/schemas/test-catalog-proposals.schema.json"
         ],
     )
+    proposal_schema = _json_document(
+        metadata_preconditions[
+            "verification/schemas/test-catalog-proposals.schema.json"
+        ],
+        "mapping proposal schema",
+    )
+    existing_proposal_document = tomllib.loads(proposal_original.decode())
+    existing_failures = validate_json_schema_instance(
+        existing_proposal_document, proposal_schema
+    )
+    if existing_failures:
+        raise ValueError(
+            "existing proposal queue is invalid: "
+            + "; ".join(existing_failures)
+        )
+    candidate_document, proposals = merge_focused_queue(
+        existing_queue=existing_proposal_document,
+        focused_candidate_document=candidate_document,
+        focused_proposals=proposals,
+        selected_discovery_ids=requested,
+        code_mappings=metadata.mappings,
+    )
+    merged_candidate_failures = validate_json_schema_instance(
+        candidate_document, candidate_schema
+    )
+    if merged_candidate_failures:
+        raise ValueError("; ".join(merged_candidate_failures))
     proposal_document = _build_proposal_document(
         source_commit=str(trace["source_commit"]),
         trace_digest=trace_digest,
@@ -317,12 +345,6 @@ def generate_focused_mapping_candidates(
         tests=metadata.tests,
         denominator_reviews=context.reviews_by_id,
         invariants=metadata.invariants,
-    )
-    proposal_schema = _json_document(
-        metadata_preconditions[
-            "verification/schemas/test-catalog-proposals.schema.json"
-        ],
-        "mapping proposal schema",
     )
     quarantine_failures.extend(
         validate_json_schema_instance(proposal_document, proposal_schema)

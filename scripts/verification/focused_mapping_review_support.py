@@ -24,6 +24,7 @@ from .test_catalog_json_schema import validate_json_schema_instance
 PROPOSAL_PATH = Path("verification/test-catalog-proposals.toml")
 DECISION_PATH = Path("verification/test-catalog-mapping-decisions.toml")
 CATALOG_PATH = Path("verification/test-catalog.toml")
+CODE_MAP_PATH = Path("verification/code-spec-map.toml")
 DENOMINATOR_PATH = Path("verification/test-catalog-denominator.toml")
 IGNORED_PATH = Path("verification/ignored-tests.toml")
 SELECTION_SCHEMA_PATH = Path(
@@ -548,6 +549,7 @@ def validate_authority_batch_scope(
     application_manifest: Mapping[str, Any],
     review_inputs: Sequence[Mapping[str, Any]],
     selected_proposals: Sequence[Mapping[str, Any]],
+    canonical_mappings: Mapping[str, Mapping[str, Any]],
 ) -> None:
     reviews = {
         required_string(review, "proposal_id", "mapping review input"): review
@@ -566,6 +568,7 @@ def validate_authority_batch_scope(
     rows = application_manifest.get("rows")
     if not isinstance(rows, list) or not rows:
         raise ValueError("authority application manifest requires rows")
+    authority_invariants_by_discovery: dict[str, dict[str, set[str]]] = {}
     for row in rows:
         if not isinstance(row, Mapping):
             raise ValueError("authority application rows must be objects")
@@ -573,9 +576,13 @@ def validate_authority_batch_scope(
         invariant_ids = set(
             string_array(row.get("invariant_ids"), f"{code_id} invariants")
         )
+        if not invariant_ids:
+            raise ValueError(f"{code_id} authority row requires invariants")
         discovery_ids = string_array(
             row.get("discovery_ids"), f"{code_id} discoveries"
         )
+        if not discovery_ids:
+            raise ValueError(f"{code_id} authority row requires discoveries")
         for discovery_id in discovery_ids:
             accepted = accepted_by_discovery.get(discovery_id)
             if accepted is None:
@@ -590,10 +597,10 @@ def validate_authority_batch_scope(
                     f"{discovery_id} reviewed invariants",
                 )
             )
-            if invariant_ids != reviewed_invariants:
+            if not invariant_ids <= reviewed_invariants:
                 raise ValueError(
-                    f"{code_id} authority invariants differ from accepted "
-                    f"review for {discovery_id}"
+                    f"{code_id} authority invariants are not a subset of "
+                    f"the accepted review for {discovery_id}"
                 )
             covered = set(
                 string_array(
@@ -601,17 +608,190 @@ def validate_authority_batch_scope(
                     f"{discovery_id} covered code IDs",
                 )
             )
-            spec_gaps = set(
-                string_array(
-                    proposal.get("spec_gap_code_ids"),
-                    f"{discovery_id} spec-gap code IDs",
-                )
-            )
-            if code_id not in covered or code_id not in spec_gaps:
+            if code_id not in covered:
                 raise ValueError(
-                    f"{code_id} is not a trace-covered spec-gap code fact "
-                    f"for accepted discovery {discovery_id}"
+                    f"{code_id} is not trace-covered for accepted discovery "
+                    f"{discovery_id}"
                 )
+            canonical = canonical_mappings.get(code_id)
+            if canonical is None or canonical.get("disposition") != "spec_gap":
+                raise ValueError(
+                    f"{code_id} is not a canonical spec-gap code fact"
+                )
+            by_code = authority_invariants_by_discovery.setdefault(
+                discovery_id, {}
+            )
+            if code_id in by_code:
+                raise ValueError(
+                    f"{code_id} has duplicate authority rows for "
+                    f"{discovery_id}"
+                )
+            by_code[code_id] = invariant_ids
+
+    for discovery_id, (proposal, review) in accepted_by_discovery.items():
+        covered = set(
+            string_array(
+                proposal.get("covered_code_ids"),
+                f"{discovery_id} covered code IDs",
+            )
+        )
+        missing_canonical = sorted(covered - set(canonical_mappings))
+        if missing_canonical:
+            raise ValueError(
+                f"{discovery_id} covered code IDs are absent from the "
+                "canonical code map: "
+                + ", ".join(missing_canonical)
+            )
+        expected_gap_codes = {
+            code_id
+            for code_id in covered
+            if canonical_mappings[code_id].get("disposition") == "spec_gap"
+        }
+        authority_by_code = authority_invariants_by_discovery.get(
+            discovery_id, {}
+        )
+        actual_gap_codes = set(authority_by_code)
+        if actual_gap_codes != expected_gap_codes:
+            missing = sorted(expected_gap_codes - actual_gap_codes)
+            extra = sorted(actual_gap_codes - expected_gap_codes)
+            details = []
+            if missing:
+                details.append("missing: " + ", ".join(missing))
+            if extra:
+                details.append("extra: " + ", ".join(extra))
+            raise ValueError(
+                f"{discovery_id} authority code scope differs from the "
+                "canonical covered spec-gap set: "
+                + "; ".join(details)
+            )
+
+        projected_invariants: set[str] = set()
+        for code_id in covered:
+            canonical = canonical_mappings[code_id]
+            if canonical.get("disposition") == "spec_gap":
+                projected_invariants.update(authority_by_code[code_id])
+            elif canonical.get("disposition") == "specified":
+                projected_invariants.update(
+                    string_array(
+                        canonical.get("invariant_ids"),
+                        f"{code_id} canonical invariants",
+                    )
+                )
+        reviewed_invariants = set(
+            string_array(
+                review.get("selected_invariant_ids"),
+                f"{discovery_id} reviewed invariants",
+            )
+        )
+        unsupported = sorted(reviewed_invariants - projected_invariants)
+        if unsupported:
+            raise ValueError(
+                f"{discovery_id} accepted review invariants lack projected "
+                "code authority: "
+                + ", ".join(unsupported)
+            )
+
+
+def validate_projected_authority_review_support(
+    *,
+    application_manifest: Mapping[str, Any],
+    review_inputs: Sequence[Mapping[str, Any]],
+    selected_proposals: Sequence[Mapping[str, Any]],
+    projected_mappings: Mapping[str, Mapping[str, Any]],
+) -> None:
+    """Recheck accepted review authority against the committed code map."""
+
+    for row in application_manifest.get("rows", []):
+        if not isinstance(row, Mapping):
+            raise ValueError("authority application rows must be objects")
+        code_id = required_string(row, "code_id", "authority row")
+        projected = projected_mappings.get(code_id)
+        if projected is None or projected.get("disposition") != "specified":
+            raise ValueError(
+                f"{code_id} is not specified in the projected code map"
+            )
+        row_invariants = set(
+            string_array(row.get("invariant_ids"), f"{code_id} invariants")
+        )
+        projected_invariants = set(
+            string_array(
+                projected.get("invariant_ids"),
+                f"{code_id} projected invariants",
+            )
+        )
+        if projected_invariants != row_invariants:
+            raise ValueError(
+                f"{code_id} projected invariants differ from the authority "
+                "application"
+            )
+
+    proposals_by_id = {
+        required_string(proposal, "id", "selected proposal"): proposal
+        for proposal in selected_proposals
+    }
+    for review in review_inputs:
+        if review.get("outcome") != "accepted":
+            continue
+        proposal_id = required_string(
+            review, "proposal_id", "mapping review input"
+        )
+        proposal = proposals_by_id.get(proposal_id)
+        if proposal is None:
+            raise ValueError(
+                f"accepted mapping review names unknown proposal {proposal_id}"
+            )
+        discovery_id = required_string(
+            proposal, "discovery_id", proposal_id
+        )
+        covered = string_array(
+            proposal.get("covered_code_ids"),
+            f"{discovery_id} covered code IDs",
+        )
+        supported: set[str] = set()
+        for code_id in covered:
+            projected = projected_mappings.get(code_id)
+            if projected is None:
+                raise ValueError(
+                    f"{discovery_id} covered code is absent from the "
+                    f"projected code map: {code_id}"
+                )
+            if projected.get("disposition") == "specified":
+                supported.update(
+                    string_array(
+                        projected.get("invariant_ids"),
+                        f"{code_id} projected invariants",
+                    )
+                )
+        selected = set(
+            string_array(
+                review.get("selected_invariant_ids"),
+                f"{discovery_id} reviewed invariants",
+            )
+        )
+        unsupported = sorted(selected - supported)
+        if unsupported:
+            raise ValueError(
+                f"{discovery_id} accepted review invariants lack committed "
+                "code authority: "
+                + ", ".join(unsupported)
+            )
+
+
+def index_code_mappings(
+    document: Mapping[str, Any], label: str
+) -> dict[str, Mapping[str, Any]]:
+    rows = document.get("mappings")
+    if not isinstance(rows, list):
+        raise ValueError(f"{label} mappings must be an array")
+    result: dict[str, Mapping[str, Any]] = {}
+    for row in rows:
+        if not isinstance(row, Mapping):
+            raise ValueError(f"{label} mapping rows must be objects")
+        code_id = required_string(row, "code_id", label)
+        if code_id in result:
+            raise ValueError(f"{label} duplicates {code_id}")
+        result[code_id] = row
+    return result
 
 
 def index_records(value: Any, label: str) -> dict[str, Mapping[str, Any]]:

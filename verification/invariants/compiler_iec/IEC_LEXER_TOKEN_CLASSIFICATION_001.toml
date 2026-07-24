@@ -3,7 +3,7 @@ id = "IEC_LEXER_TOKEN_CLASSIFICATION_001"
 title = "Lexer assigns the specified token class"
 area = "compiler_iec"
 risk = "wrong_result"
-status = "planned"
+status = "mapped"
 owner = "trust-syntax"
 last_reviewed = "2026-07-24"
 claim = "The lexer classifies IEC and documented truST lexical forms as their exact TokenKind, recognizes keywords case-insensitively, and emits Error rather than a valid string token for an invalid escape."
@@ -13,7 +13,7 @@ source_refs = [
   "crates/trust-syntax/src/lexer/tokens/token_kind.rs",
   "crates/trust-syntax/src/lexer/mod.rs",
 ]
-tests = []
+tests = ["TEST_AUTO_AAADEA7806AA1F78A9A3"]
 gates = ["veryquick", "pr"]
 evidence_refs = []
 spec_gap_refs = []

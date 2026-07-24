@@ -24567,9 +24567,11 @@ owner = "language"
 area = "compiler_iec"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_COMPILER_IEC_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#6a-trust-emitted-token-contract"
+invariant_ids = ["IEC_LEXER_PRAGMA_TRIVIA_001"]
+test_ids = ["TEST_AUTO_AAADEA7806AA1F78A9A3"]
+last_reviewed = "2026-07-24"
 
 [[mappings]]
 schema_version = 1
@@ -38161,9 +38163,11 @@ owner = "language"
 area = "compiler_iec"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_COMPILER_IEC_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#6a-trust-emitted-token-contract"
+invariant_ids = ["IEC_LEXER_PRAGMA_TRIVIA_001", "IEC_LEXER_TOKEN_CLASSIFICATION_001"]
+test_ids = ["TEST_AUTO_AAADEA7806AA1F78A9A3"]
+last_reviewed = "2026-07-24"
 
 [[mappings]]
 schema_version = 1
@@ -46428,9 +46432,11 @@ owner = "language"
 area = "compiler_iec"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_COMPILER_IEC_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#6a-trust-emitted-token-contract"
+invariant_ids = ["IEC_LEXER_PRAGMA_TRIVIA_001", "IEC_LEXER_TOKEN_CLASSIFICATION_001"]
+test_ids = ["TEST_AUTO_AAADEA7806AA1F78A9A3"]
+last_reviewed = "2026-07-24"
 
 [[mappings]]
 schema_version = 1
@@ -47713,9 +47719,11 @@ owner = "language"
 area = "compiler_iec"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_COMPILER_IEC_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#6a-trust-emitted-token-contract"
+invariant_ids = ["IEC_LEXER_PRAGMA_TRIVIA_001", "IEC_LEXER_TOKEN_CLASSIFICATION_001"]
+test_ids = ["TEST_AUTO_AAADEA7806AA1F78A9A3"]
+last_reviewed = "2026-07-24"
 
 [[mappings]]
 schema_version = 1
@@ -49654,9 +49662,11 @@ owner = "language"
 area = "compiler_iec"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_COMPILER_IEC_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#6a-trust-emitted-token-contract"
+invariant_ids = ["IEC_LEXER_PRAGMA_TRIVIA_001", "IEC_LEXER_TOKEN_CLASSIFICATION_001"]
+test_ids = ["TEST_AUTO_AAADEA7806AA1F78A9A3"]
+last_reviewed = "2026-07-24"
 
 [[mappings]]
 schema_version = 1

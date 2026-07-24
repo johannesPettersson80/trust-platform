@@ -32,6 +32,7 @@ from .focused_mapping_context import (
 )
 from .focused_mapping_review_support import (
     CATALOG_PATH,
+    CODE_MAP_PATH,
     DECISION_PATH,
     DECISION_SCHEMA_PATH,
     DEFAULT_RECEIPT_PATH,
@@ -48,6 +49,7 @@ from .focused_mapping_review_support import (
     expected_authority_replacement_paths,
     git_head,
     index_records,
+    index_code_mappings,
     initial_decision_document,
     load_json_bytes,
     load_json_file,
@@ -65,6 +67,7 @@ from .focused_mapping_review_support import (
     selected_invariant_sources_from_snapshot,
     selected_proposals_from_numbered_selection,
     validate_authority_batch_scope,
+    validate_projected_authority_review_support,
     validate_exact_replacements,
     validate_focused_post_state,
     validate_read_only_inputs,
@@ -98,6 +101,7 @@ class AuthorityClosureRequest:
     proposal_document: Mapping[str, Any]
     review_inputs: tuple[Mapping[str, Any], ...]
     selected_proposals: tuple[Mapping[str, Any], ...]
+    canonical_mappings: Mapping[str, Mapping[str, Any]]
     review_batch: MappingReviewBatch
     projected_catalog: Mapping[str, Any]
     projected_denominator: Mapping[str, Any]
@@ -156,6 +160,7 @@ def execute_focused_review_batch(
         for path in (
             PROPOSAL_PATH,
             CATALOG_PATH,
+            CODE_MAP_PATH,
             DENOMINATOR_PATH,
             IGNORED_PATH,
             SELECTION_SCHEMA_PATH,
@@ -231,6 +236,15 @@ def execute_focused_review_batch(
 
     metadata = load_code_spec_metadata(root)
     require_unchanged_originals(root, original_bytes)
+    canonical_mappings = index_code_mappings(
+        load_toml_bytes(
+            captured_bytes(
+                root, original_bytes, canonical_files[CODE_MAP_PATH]
+            ),
+            CODE_MAP_PATH.as_posix(),
+        ),
+        "frozen code-spec map",
+    )
     review_document = build_review_input_from_selection(
         proposal_document=proposal_document,
         selection_document=selection_document,
@@ -352,6 +366,7 @@ def execute_focused_review_batch(
         proposal_document=proposal_document,
         review_inputs=review_inputs,
         selected_proposals=selected_proposals,
+        canonical_mappings=canonical_mappings,
         batch=batch,
         projected_catalog=projected_catalog,
         projected_denominator=projected_denominator,
@@ -363,6 +378,7 @@ def execute_focused_review_batch(
             application_manifest=authority_plan.application_manifest,
             review_inputs=review_inputs,
             selected_proposals=selected_proposals,
+            canonical_mappings=canonical_mappings,
         )
         expected_authority_paths = expected_authority_replacement_paths(
             root=root,
@@ -469,6 +485,7 @@ def _build_authority_plan(
     proposal_document: Mapping[str, Any],
     review_inputs: Sequence[Mapping[str, Any]],
     selected_proposals: Sequence[Mapping[str, Any]],
+    canonical_mappings: Mapping[str, Mapping[str, Any]],
     batch: MappingReviewBatch,
     projected_catalog: Mapping[str, Any],
     projected_denominator: Mapping[str, Any],
@@ -491,6 +508,7 @@ def _build_authority_plan(
                 proposal_document=proposal_document,
                 review_inputs=tuple(review_inputs),
                 selected_proposals=tuple(selected_proposals),
+                canonical_mappings=canonical_mappings,
                 review_batch=batch,
                 projected_catalog=projected_catalog,
                 projected_denominator=projected_denominator,
@@ -522,6 +540,7 @@ def build_authority_closure_plan(
         application_manifest=application.manifest,
         review_inputs=request.review_inputs,
         selected_proposals=request.selected_proposals,
+        canonical_mappings=request.canonical_mappings,
     )
     _validate_authority_projected_closure(
         application=application,
@@ -553,6 +572,18 @@ def build_authority_closure_plan(
                 catalog=catalog,
                 denominator=denominator,
                 invariants=invariants,
+            )
+            projected_mappings = index_code_mappings(
+                tomllib.loads(
+                    (root / CODE_MAP_PATH).read_text(encoding="utf-8")
+                ),
+                "projected code-spec map",
+            )
+            validate_projected_authority_review_support(
+                application_manifest=application.manifest,
+                review_inputs=request.review_inputs,
+                selected_proposals=request.selected_proposals,
+                projected_mappings=projected_mappings,
             )
         except (KeyError, OSError, ValueError, tomllib.TOMLDecodeError) as error:
             return [f"authority closure post-state failed: {error}"]

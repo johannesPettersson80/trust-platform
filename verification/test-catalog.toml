@@ -25456,3 +25456,34 @@ mapping_reviewed_source_digest = "sha256:9e5017b19862900ec7ea09f453aaf3c4883f309
 mapping_assertion_review_digest = "sha256:75873512987821cec58d55ff20bc099a4b97f9f242dd7f873808902a10ef720f"
 mapping_behavior_refs = ["RT_CONFIG_SCHEMA_001#behavior:1"]
 mapping_reviewer_ids = ["codex-main-review", "codex-review-c"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_AAADEA7806AA1F78A9A3"
+subject_kind = "generated_test"
+discovery_id = "DISC_AAADEA7806AA1F78A9A3"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/lexer_pragmas.rs"
+name = "iec_6_2"
+command = "cargo nextest run -p trust-syntax --test lexer_pragmas -E '(binary_id(=trust-syntax::lexer_pragmas) & test(=iec_6_2))'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_LEXER_PRAGMA_TRIVIA_001", "IEC_LEXER_TOKEN_CLASSIFICATION_001"]
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#6a-trust-emitted-token-contract"
+expected_result = "The complete brace-delimited source is represented by one Pragma token. Pragma is trivia, and removing trivia preserves the exact token kinds before and after it. Brace text inside a character string remains part of the string token and is not emitted as a pragma. Each supported operator or delimiter spelling produces its exact TokenKind. Decimal, based, separated, real, and exponent forms produce the specified integer or real literal TokenKind. Narrow and wide strings with valid escapes produce their exact string literal TokenKind."
+expected_failure_mode = "The observed result violates the reviewed behavior: The complete brace-delimited source is represented by one Pragma token. The observed result violates the reviewed behavior: Pragma is trivia, and removing trivia preserves the exact token kinds before and after it. The observed result violates the reviewed behavior: Brace text inside a character string remains part of the string token and is not emitted as a pragma. The observed result violates the reviewed behavior: Each supported operator or delimiter spelling produces its exact TokenKind. The observed result violates the reviewed behavior: Decimal, based, separated, real, and exponent forms produce the specified integer or real literal TokenKind. The observed result violates the reviewed behavior: Narrow and wide strings with valid escapes produce their exact string literal TokenKind."
+suite_tiers = ["pr", "veryquick"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_AAADEA7806AA1F78A9A3.json"
+last_reviewed = "2026-07-24"
+mapping_proposal_id = "MAP_CAND_AAADEA7806AA1F78A9A3_E08F55D2AE10"
+mapping_proposal_digest = "sha256:e08f55d2ae10206b55864539271cfc494ea395a56ad3783de0c703ee3aa6e6aa"
+mapping_decision_id = "MAP_DEC_1DA74092929EE35D9B169923"
+mapping_reviewed_source_digest = "sha256:9d31b474c6e289e05bcda3369d2f66c2855147d067357f2a66a058d5ea7fb0b0"
+mapping_assertion_review_digest = "sha256:4a7f1423ddc3f177ae738d1f1badb5aa4696f0870d5b0f200dfe1164dcdae121"
+mapping_behavior_refs = ["IEC_LEXER_PRAGMA_TRIVIA_001#behavior:0", "IEC_LEXER_PRAGMA_TRIVIA_001#behavior:1", "IEC_LEXER_PRAGMA_TRIVIA_001#behavior:2", "IEC_LEXER_TOKEN_CLASSIFICATION_001#behavior:2", "IEC_LEXER_TOKEN_CLASSIFICATION_001#behavior:5", "IEC_LEXER_TOKEN_CLASSIFICATION_001#behavior:6"]
+mapping_reviewer_ids = ["herschel", "semantic-authority-adjudicator"]

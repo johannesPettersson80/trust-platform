@@ -29157,9 +29157,9 @@ discovery_source_kind = "rust_integration_test"
 path = "crates/trust-syntax/tests/lexer_pragmas.rs"
 name = "iec_6_2"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_AUTO_AAADEA7806AA1F78A9A3"
+last_reviewed = "2026-07-24"
 
 [[reviews]]
 discovery_id = "DISC_AAC24666A37789CB72A0"

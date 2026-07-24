@@ -3,7 +3,7 @@ id = "IEC_LEXER_PRAGMA_TRIVIA_001"
 title = "Balanced pragmas are lossless parser trivia"
 area = "compiler_iec"
 risk = "wrong_result"
-status = "planned"
+status = "mapped"
 owner = "trust-syntax"
 last_reviewed = "2026-07-24"
 claim = "A balanced brace-delimited pragma is emitted as one lossless Pragma token and classified as parser trivia so removing it preserves the exact tokenization of surrounding Structured Text."
@@ -14,7 +14,7 @@ source_refs = [
   "crates/trust-syntax/src/lexer/tokens/token_kind_impl_classification.rs",
   "crates/trust-syntax/src/lexer/mod.rs",
 ]
-tests = []
+tests = ["TEST_AUTO_AAADEA7806AA1F78A9A3"]
 gates = ["veryquick", "pr"]
 evidence_refs = []
 spec_gap_refs = []
