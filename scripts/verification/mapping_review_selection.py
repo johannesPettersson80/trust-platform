@@ -115,8 +115,8 @@ def build_review_card(
                     "behavior_index": behavior_index,
                     "behavior_ref": behavior_ref,
                     "invariant_index": invariant_index_by_id[invariant_id],
-                    "case_family": _required_string(
-                        behavior, "case_family", behavior_ref
+                    "case_family": _display_case_family(
+                        behavior, behavior_ref
                     ),
                     "outcome": _required_string(
                         behavior, "outcome", behavior_ref
@@ -204,7 +204,7 @@ def build_review_card(
     return {
         "schema_version": 1,
         "generator": "test-catalog-mapping-review-card",
-        "generator_version": "1",
+        "generator_version": "2",
         "source_commit": _required_string(
             proposal_document, "source_commit", "proposal queue"
         ),
@@ -576,6 +576,27 @@ def _behavior_rationale(
     ):
         raise ValueError(f"selected behavior does not resolve: {behavior_ref}")
     return _required_string(behaviors[row_index], "rationale", behavior_ref)
+
+
+def _display_case_family(
+    behavior: Mapping[str, Any],
+    behavior_ref: str,
+) -> str:
+    family = behavior.get("case_family")
+    if family is None:
+        partition = behavior.get("partition")
+        if (
+            not isinstance(partition, Mapping)
+            or "equals" in partition
+        ):
+            raise ValueError(
+                f"{behavior_ref} lacks case_family outside a non-equals "
+                "partition"
+            )
+        return "not_applicable"
+    if not isinstance(family, str) or not family:
+        raise ValueError(f"{behavior_ref} requires non-empty case_family")
+    return family
 
 
 def _shared_field(

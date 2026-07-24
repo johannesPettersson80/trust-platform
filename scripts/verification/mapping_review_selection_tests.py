@@ -139,6 +139,26 @@ def _accepted_selection(document: dict) -> dict:
 
 
 class MappingReviewSelectionTests(unittest.TestCase):
+    def test_non_equals_behavior_without_family_is_not_applicable(self) -> None:
+        proposals = _proposal_document()
+        invariants = _invariants()
+        invariants["INV_ONE"]["behavior"][0] = {
+            "partition": {"malformed": "VALUE"},
+            "outcome": "reject",
+            "rationale": "The malformed value is rejected.",
+        }
+
+        card = build_review_card(
+            proposal_document=proposals,
+            invariants=invariants,
+        )
+
+        self.assertEqual(
+            "not_applicable",
+            card["proposals"][0]["behaviors"][0]["case_family"],
+        )
+        self.assertEqual("2", card["generator_version"])
+
     def test_numbered_selection_generates_all_ids_command_and_catalog_fields(self) -> None:
         proposals = _proposal_document()
         card = build_review_card(

@@ -14,7 +14,7 @@
   "properties": {
     "schema_version": { "const": 1 },
     "generator": { "const": "test-catalog-mapping-review-card" },
-    "generator_version": { "const": "1" },
+    "generator_version": { "const": "2" },
     "source_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
     "proposal_queue_digest": { "$ref": "#/$defs/digest" },
     "proposals": {
