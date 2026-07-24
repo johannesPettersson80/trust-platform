@@ -1793,6 +1793,63 @@ conflicts_with = []
 
 [[spec_sources]]
 schema_version = 2
+id = "SPEC_IEC_LEXICAL_ELEMENTS_001"
+title = "truST IEC lexical-elements contract"
+area = "compiler_iec"
+owner = "language"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/specs/01-lexical-elements.md"
+version = "current"
+last_reviewed = "2026-07-24"
+covers = [
+  "character_set",
+  "identifiers",
+  "keywords",
+  "comments",
+  "pragmas",
+  "numeric_literals",
+  "character_string_literals",
+  "time_literals",
+  "lexer_token_classification",
+]
+known_limitations = [
+  "This normative product source cites IEC 61131-3 but does not replace the registered external IEC source for conformance proof.",
+  "The documented ASCII-only identifier limitation remains DEV-013.",
+]
+conflicts_with = []
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_IEC_VARIABLES_001"
+title = "truST IEC variable contract"
+area = "compiler_iec"
+owner = "language"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/specs/03-variables.md"
+version = "current"
+last_reviewed = "2026-07-24"
+covers = [
+  "variable_declarations",
+  "directly_represented_variables",
+  "direct_address_lexical_forms",
+]
+known_limitations = [
+  "This normative product source cites IEC 61131-3 but does not replace the registered external IEC source for conformance proof.",
+]
+conflicts_with = []
+
+[[spec_sources]]
+schema_version = 2
 id = "SPEC_IEC_DATA_TYPES_CANDIDATE_001"
 title = "truST IEC data-type contract candidate"
 area = "compiler_iec"

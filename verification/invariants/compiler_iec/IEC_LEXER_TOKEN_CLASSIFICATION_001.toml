@@ -1,0 +1,133 @@
+schema_version = 1
+id = "IEC_LEXER_TOKEN_CLASSIFICATION_001"
+title = "Lexer assigns the specified token class"
+area = "compiler_iec"
+risk = "wrong_result"
+status = "planned"
+owner = "trust-syntax"
+last_reviewed = "2026-07-24"
+claim = "The lexer classifies IEC and documented truST lexical forms as their exact TokenKind, recognizes keywords case-insensitively, and emits Error rather than a valid string token for an invalid escape."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = [
+  "crates/trust-syntax/src/lexer/tokens/token_kind.rs",
+  "crates/trust-syntax/src/lexer/mod.rs",
+]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = [
+  "cataloged_behavior_tests",
+  "assertion_reachability",
+  "mutation_sensitivity",
+  "broad_remote_gate",
+]
+
+[input]
+name = "source"
+type = "Structured Text source"
+declared = "One or more lexical forms governed by the registered lexical, expression, or variable specification"
+
+[spec]
+status = "specified"
+source_refs = [
+  "SPEC_IEC_LEXICAL_ELEMENTS_001",
+  "SPEC_IEC_EXPRESSIONS_001",
+  "SPEC_IEC_VARIABLES_001",
+]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#6a-trust-emitted-token-contract"
+
+[[behavior]]
+partition = { equals = "CASE_INSENSITIVE_KEYWORD" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#3-keywords-section-613"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Every supported case spelling of a keyword produces the same exact keyword TokenKind."
+
+[[behavior]]
+partition = { equals = "IEC_OR_DOCUMENTED_PRODUCT_KEYWORD" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#3-keywords-section-613"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "IEC keywords and explicitly documented truST extension keywords produce their registered keyword TokenKind while adjacent identifiers remain identifiers."
+
+[[behavior]]
+partition = { equals = "OPERATOR_OR_DELIMITER" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#6a-trust-emitted-token-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Each supported operator or delimiter spelling produces its exact TokenKind."
+
+[[behavior]]
+partition = { equals = "DIRECT_ADDRESS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#6a-trust-emitted-token-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Complete and documented incomplete direct-address forms produce DirectAddress tokens."
+
+[[behavior]]
+partition = { equals = "HASH_PREFIXED_PRODUCT_IDENTIFIER" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#6a-trust-emitted-token-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The documented Siemens SCL extension tokenizes the number sign and following identifier separately without changing surrounding operators."
+
+[[behavior]]
+partition = { equals = "INTEGER_OR_REAL_LITERAL" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#7-numeric-literals-table-5-section-632"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Decimal, based, separated, real, and exponent forms produce the specified integer or real literal TokenKind."
+
+[[behavior]]
+partition = { equals = "STRING_OR_VALID_ESCAPE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#8-character-string-literals-table-6-section-633"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Narrow and wide strings with valid escapes produce their exact string literal TokenKind."
+
+[[behavior]]
+partition = { equals = "INVALID_STRING_ESCAPE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#6a-trust-emitted-token-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "An invalid escape produces an Error token and is not misclassified as a valid narrow or wide string."
+
+[[behavior]]
+partition = { equals = "TIME_OR_DURATION_LITERAL" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#10-duration-literals-table-8-section-634"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Supported duration spellings produce TimeLiteral without case sensitivity or separator loss."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Existing focused lexer assertions await generated catalog mapping and behavior-lock evidence."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Existing invalid-escape assertions await generated catalog mapping and behavior-lock evidence."

@@ -1,0 +1,71 @@
+schema_version = 1
+id = "IEC_LEXER_PRAGMA_TRIVIA_001"
+title = "Balanced pragmas are lossless parser trivia"
+area = "compiler_iec"
+risk = "wrong_result"
+status = "planned"
+owner = "trust-syntax"
+last_reviewed = "2026-07-24"
+claim = "A balanced brace-delimited pragma is emitted as one lossless Pragma token and classified as parser trivia so removing it preserves the exact tokenization of surrounding Structured Text."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = [
+  "crates/trust-syntax/src/lexer/tokens/token_kind.rs",
+  "crates/trust-syntax/src/lexer/tokens/token_kind_impl_classification.rs",
+  "crates/trust-syntax/src/lexer/mod.rs",
+]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = [
+  "cataloged_behavior_tests",
+  "assertion_reachability",
+  "mutation_sensitivity",
+  "broad_remote_gate",
+]
+
+[input]
+name = "source"
+type = "Structured Text source"
+declared = "A balanced brace-delimited pragma alone or adjacent to ordinary Structured Text"
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_IEC_LEXICAL_ELEMENTS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#6a-trust-emitted-token-contract"
+
+[[behavior]]
+partition = { equals = "BALANCED_PRAGMA" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#trust-lexer-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The complete brace-delimited source is represented by one Pragma token."
+
+[[behavior]]
+partition = { equals = "PRAGMA_BETWEEN_ST_TOKENS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#trust-lexer-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Pragma is trivia, and removing trivia preserves the exact token kinds before and after it."
+
+[[behavior]]
+partition = { equals = "BRACES_INSIDE_STRING_LITERAL" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#trust-lexer-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Brace text inside a character string remains part of the string token and is not emitted as a pragma."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Existing focused pragma assertions await generated catalog mapping and behavior-lock evidence."

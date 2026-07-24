@@ -234,6 +234,43 @@ Pragmas are delimited by curly brackets `{` and `}`.
 1. Syntax and semantics of pragma contents are Implementer specific
 2. Pragmas are permitted anywhere spaces are allowed, except within string literals
 
+### truST lexer contract
+
+A balanced brace-delimited pragma is emitted as one `Pragma` token whose source
+text includes both delimiters and the complete pragma content. `Pragma` tokens
+are classified as parser trivia: removing trivia removes the pragma but
+preserves the exact tokenization of surrounding Structured Text. A brace
+sequence inside a character string literal remains string content and is not
+recognized as a pragma.
+
+IEC 61131-3 Ed.3 section 6.2 and Table 4 specify the delimiters and placement
+rules while leaving pragma content syntax and semantics implementer-specific.
+The single lossless token and parser-trivia representation above is therefore a
+truST product contract, not an IEC deviation.
+
+## 6A. truST Emitted-Token Contract
+
+The following table makes the lexer-facing product representation normative.
+It does not change the IEC source syntax defined above; it fixes the internal
+token boundary that parser and tooling consumers may rely on.
+
+| Source form | Required emitted token sequence |
+|-------------|---------------------------------|
+| A supported keyword in any case spelling | The keyword's exact `Kw*` token; a neighboring non-keyword name remains `Ident` |
+| `:= = <> < <= > >= + - * / ** & ;` | `Assign`, `Eq`, `Neq`, `Lt`, `LtEq`, `Gt`, `GtEq`, `Plus`, `Minus`, `Star`, `Slash`, `Power`, `Ampersand`, `Semicolon` |
+| Siemens SCL `#identifier` extension | `Hash` followed by `Ident`; surrounding operators and delimiters remain separate tokens |
+| Complete direct addresses such as `%IX0.0`, `%QW10`, `%MD100`, `%IB5` | One `DirectAddress` token |
+| Incomplete direct addresses `%I*`, `%Q*`, `%M*` | One `DirectAddress` token; lexical recognition does not make the form contextually valid outside the uses permitted by `docs/specs/03-variables.md` section 5 |
+| Integer, real, duration, narrow-string, and wide-string forms defined in sections 7 through 10 | The corresponding `IntLiteral`, `RealLiteral`, `TimeLiteral`, `StringLiteral`, or `WideStringLiteral` token |
+| A narrow or wide string containing a malformed escape | One or more `Error` tokens and no `StringLiteral` or `WideStringLiteral` token for the malformed lexeme |
+| A balanced pragma | One lossless `Pragma` token; it is parser trivia and does not change surrounding tokenization |
+
+The operator spellings are aligned with IEC 61131-3 Ed.3 section 7.3.2,
+Table 71; direct-address forms are aligned with section 6.5.5, Table 16. The
+`TokenKind` names, the Siemens SCL split, incomplete-address lexical boundary,
+malformed-escape error representation, and pragma trivia representation are
+truST product contracts. They are not IEC deviations.
+
 ## 7. Numeric Literals (Table 5, Section 6.3.2)
 
 | No. | Type | Examples | Notes |

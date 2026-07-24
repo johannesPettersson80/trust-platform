@@ -78,8 +78,15 @@ fn test_var_keywords() {
 fn test_pragmas() {
     // IEC 61131-3 Table 4 examples
     let tokens = lex("{VERSION 2.0} {AUTHOR JHC} {x:= 256, y:= 384}");
-    let kinds: Vec<_> = tokens.iter().map(|(k, _)| *k).collect();
-    assert!(kinds.contains(&TokenKind::Pragma));
+    let pragma_texts: Vec<_> = tokens
+        .iter()
+        .filter(|(kind, _)| *kind == TokenKind::Pragma)
+        .map(|(_, text)| *text)
+        .collect();
+    assert_eq!(
+        pragma_texts,
+        vec!["{VERSION 2.0}", "{AUTHOR JHC}", "{x:= 256, y:= 384}"]
+    );
     // Pragmas are trivia, so filtering them should leave nothing
     let non_trivia: Vec<_> = tokens.iter().filter(|(k, _)| !k.is_trivia()).collect();
     assert!(non_trivia.is_empty());
@@ -88,6 +95,12 @@ fn test_pragmas() {
 #[test]
 fn test_pragma_with_code() {
     let tokens = lex("{VERSION 2.0} x := 42;");
+    let pragma_texts: Vec<_> = tokens
+        .iter()
+        .filter(|(kind, _)| *kind == TokenKind::Pragma)
+        .map(|(_, text)| *text)
+        .collect();
+    assert_eq!(pragma_texts, vec!["{VERSION 2.0}"]);
     let kinds: Vec<_> = tokens
         .iter()
         .map(|(k, _)| *k)

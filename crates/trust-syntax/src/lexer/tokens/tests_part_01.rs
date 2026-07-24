@@ -3,10 +3,12 @@ use super::*;
 #[test]
 fn test_keywords_case_insensitive() {
     let tokens = lex("PROGRAM program Program PrOgRaM");
-    assert!(tokens
+    let kinds: Vec<_> = tokens
         .iter()
         .filter(|(k, _)| !k.is_trivia())
-        .all(|(kind, _)| *kind == TokenKind::KwProgram));
+        .map(|(kind, _)| *kind)
+        .collect();
+    assert_eq!(kinds, vec![TokenKind::KwProgram; 4]);
 }
 
 #[test]
@@ -109,7 +111,7 @@ fn test_integer_literals() {
         .map(|(k, _)| *k)
         .filter(|k| !k.is_trivia())
         .collect();
-    assert!(kinds.iter().all(|k| *k == TokenKind::IntLiteral));
+    assert_eq!(kinds, vec![TokenKind::IntLiteral; 5]);
 }
 
 #[test]
@@ -121,7 +123,7 @@ fn test_real_literals() {
         .map(|(k, _)| *k)
         .filter(|k| !k.is_trivia())
         .collect();
-    assert!(kinds.iter().all(|k| *k == TokenKind::RealLiteral));
+    assert_eq!(kinds, vec![TokenKind::RealLiteral; 4]);
 }
 
 #[test]
@@ -141,7 +143,7 @@ fn test_direct_addresses() {
         .map(|(k, _)| *k)
         .filter(|k| !k.is_trivia())
         .collect();
-    assert!(kinds.iter().all(|k| *k == TokenKind::DirectAddress));
+    assert_eq!(kinds, vec![TokenKind::DirectAddress; 7]);
 }
 
 #[test]
@@ -204,7 +206,7 @@ fn test_time_literals() {
         .map(|(k, _)| *k)
         .filter(|k| !k.is_trivia())
         .collect();
-    assert!(kinds.iter().all(|k| *k == TokenKind::TimeLiteral));
+    assert_eq!(kinds, vec![TokenKind::TimeLiteral; 7]);
 }
 
 #[test]
