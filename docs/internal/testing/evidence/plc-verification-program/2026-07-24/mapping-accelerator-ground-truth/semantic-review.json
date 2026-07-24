@@ -1,0 +1,78 @@
+{
+  "candidate_report_digest": "sha256:3b59cfe0aed808fc86abcf5b4871020003295cc84f1b2fb9a547eff8563392da",
+  "generator": "mapping-pilot-semantic-review",
+  "generator_version": "1",
+  "reviews": [
+    {
+      "assertion_inventory_digest": "sha256:fb768c3c606eb1827ff9f7ea9322d9b0577af38ea7fa1555be80aa78b95aff57",
+      "assertion_reviews": [
+        {
+          "assertion_id": "ASSERT_02AA1656446DAAFA088AE7AE",
+          "behavior_refs": [
+            "RT_SIGNED_INTEGER_MATERIALIZATION_001#behavior:0"
+          ],
+          "disposition": "oracle_bound",
+          "rationale": "Reviewer bound this generated assertion to the selected behavior."
+        },
+        {
+          "assertion_id": "ASSERT_41B210E952990BAFD1A07091",
+          "behavior_refs": [
+            "RT_SIGNED_INTEGER_MATERIALIZATION_001#behavior:0"
+          ],
+          "disposition": "oracle_bound",
+          "rationale": "Reviewer bound this generated assertion to the selected behavior."
+        },
+        {
+          "assertion_id": "ASSERT_5D4B5766EA0F7FEE62E36E0B",
+          "behavior_refs": [
+            "RT_SIGNED_INTEGER_MATERIALIZATION_001#behavior:1"
+          ],
+          "disposition": "oracle_bound",
+          "rationale": "Reviewer bound this generated assertion to the selected behavior."
+        },
+        {
+          "assertion_id": "ASSERT_D6C1BEA091765D65AE92476D",
+          "behavior_refs": [
+            "RT_SIGNED_INTEGER_MATERIALIZATION_001#behavior:2"
+          ],
+          "disposition": "oracle_bound",
+          "rationale": "Reviewer bound this generated assertion to the selected behavior."
+        },
+        {
+          "assertion_id": "ASSERT_E4F92F156BE02761F69B672E",
+          "behavior_refs": [
+            "RT_SIGNED_INTEGER_MATERIALIZATION_001#behavior:3"
+          ],
+          "disposition": "oracle_bound",
+          "rationale": "Reviewer bound this generated assertion to the selected behavior."
+        },
+        {
+          "assertion_id": "ASSERT_F818413D9B3E6B23B9BE3798",
+          "behavior_refs": [
+            "RT_SIGNED_INTEGER_MATERIALIZATION_001#behavior:0"
+          ],
+          "disposition": "oracle_bound",
+          "rationale": "Reviewer bound this generated assertion to the selected behavior."
+        }
+      ],
+      "candidate_signal_digest": "sha256:61cc7a9e7677d64193792a50d3992c067f6a01ab70b79bb7080b8706c6d43c52",
+      "discovery_id": "DISC_6B24586F9855E7F43C3D",
+      "reviewer_ids": [
+        "codex-independent-review-attribution-perf",
+        "codex-main-semantic-review"
+      ],
+      "selected_behavior_refs": [
+        "RT_SIGNED_INTEGER_MATERIALIZATION_001#behavior:0",
+        "RT_SIGNED_INTEGER_MATERIALIZATION_001#behavior:1",
+        "RT_SIGNED_INTEGER_MATERIALIZATION_001#behavior:2",
+        "RT_SIGNED_INTEGER_MATERIALIZATION_001#behavior:3"
+      ],
+      "selected_invariant_ids": [
+        "RT_SIGNED_INTEGER_MATERIALIZATION_001"
+      ],
+      "test_source_digest": "sha256:6ddcc8ec44add8433d1fa75484c8d0975b774b1222017f06ef316577d1eb8519"
+    }
+  ],
+  "schema_version": 1,
+  "source_commit": "85afb534732c95e6f84e48fecd50756a9f21b964"
+}

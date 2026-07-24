@@ -1,0 +1,65 @@
+{
+  "accepted_results": [
+    {
+      "discovery_id": "DISC_6B24586F9855E7F43C3D",
+      "exact": true,
+      "expected_invariant_ids": [
+        "RT_SIGNED_INTEGER_MATERIALIZATION_001"
+      ],
+      "false_invariant_ids": [],
+      "missed_invariant_ids": [],
+      "selected_invariant_ids": [
+        "RT_SIGNED_INTEGER_MATERIALIZATION_001"
+      ]
+    }
+  ],
+  "candidate_report_digest": "sha256:3b59cfe0aed808fc86abcf5b4871020003295cc84f1b2fb9a547eff8563392da",
+  "candidate_results": [
+    {
+      "candidate_invariant_ids": [
+        "IEC_STANDARD_TIME_FUNCTIONS_001"
+      ],
+      "discovery_id": "DISC_1B5448C8DB96DF53A63C",
+      "exact": false,
+      "expected_invariant_ids": [
+        "VM_SEAM_VALID_001"
+      ],
+      "false_invariant_ids": [
+        "IEC_STANDARD_TIME_FUNCTIONS_001"
+      ],
+      "missed_invariant_ids": [
+        "VM_SEAM_VALID_001"
+      ]
+    },
+    {
+      "candidate_invariant_ids": [
+        "RT_SIGNED_INTEGER_MATERIALIZATION_001"
+      ],
+      "discovery_id": "DISC_6B24586F9855E7F43C3D",
+      "exact": true,
+      "expected_invariant_ids": [
+        "RT_SIGNED_INTEGER_MATERIALIZATION_001"
+      ],
+      "false_invariant_ids": [],
+      "missed_invariant_ids": []
+    }
+  ],
+  "candidate_signals": 2,
+  "creates_catalog_mappings": false,
+  "exact_accepted_mappings": [
+    "DISC_6B24586F9855E7F43C3D"
+  ],
+  "exact_candidates": [
+    "DISC_6B24586F9855E7F43C3D"
+  ],
+  "generator": "mapping-ground-truth-pilot",
+  "generator_version": "1",
+  "non_ground_truth_candidate_ids": [],
+  "pilot_candidates": 2,
+  "pilot_review_digest": "sha256:76ddefc461d2c7334f70ca1c82aa860e4b736748bbf4093c104d0931b7a947b0",
+  "reviewed_acceptances": 1,
+  "schema_version": 1,
+  "source_commit": "85afb534732c95e6f84e48fecd50756a9f21b964",
+  "zero_false_accepted_mappings": true,
+  "zero_false_candidates": false
+}
