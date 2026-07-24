@@ -83,6 +83,31 @@ def direct_test_command(
     raise ValueError(f"unsupported direct trace source kind {source_kind!r}")
 
 
+def direct_test_request(
+    fact: Mapping[str, Any],
+    *,
+    command: Sequence[str],
+    authority: str,
+) -> dict[str, Any]:
+    """Describe an exact direct test in the shared resumable-attempt schema."""
+
+    executable = Path(command[0]).resolve()
+    return {
+        "discovery_id": _required_string(fact, "discovery_id", "scanner fact"),
+        "discovery_source_kind": _required_string(
+            fact, "discovery_source_kind", "scanner fact"
+        ),
+        "path": _required_string(fact, "path", "scanner fact"),
+        "name": _required_string(fact, "name", "scanner fact"),
+        "package": fact.get("package"),
+        "nextest_binary_id": executable.name,
+        "nextest_binary_path": str(executable),
+        "nextest_test_name": _required_string(fact, "name", "scanner fact"),
+        "command": shlex.join(command),
+        "command_authority": authority,
+    }
+
+
 def build_instrumented_binaries(
     *,
     root: Path,
@@ -249,20 +274,15 @@ def run_direct_trace(
             trust_dev_bin=trust_dev_bin,
             trust_runtime_bin=trust_runtime_bin,
         )
-        binary_id = Path(command[0]).name
-        requested.append(
-            {
-                "discovery_id": discovery_id,
-                "discovery_source_kind": source_kind,
-                "path": _required_string(fact, "path", discovery_id),
-                "name": _required_string(fact, "name", discovery_id),
-                "package": fact.get("package"),
-                "nextest_binary_id": binary_id,
-                "nextest_test_name": fact["name"],
-                "command": shlex.join(command),
-                "command_authority": authority,
-            }
+        request = direct_test_request(
+            fact,
+            command=command,
+            authority=authority,
         )
+        binary_id = _required_string(
+            request, "nextest_binary_id", discovery_id
+        )
+        requested.append(request)
         prepared.append((fact, command, binary_id))
     reusable = (
         reusable_completed_attempt_ids(

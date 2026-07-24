@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -9,7 +11,11 @@ from tempfile import TemporaryDirectory
 from scripts.verification.coverage_trace_direct import (
     direct_instrumentation_environment,
     direct_test_command,
+    direct_test_request,
     parse_llvm_cov_environment,
+)
+from scripts.verification.coverage_trace_resume import (
+    reusable_completed_attempt_ids,
 )
 
 
@@ -140,6 +146,68 @@ class CoverageTraceDirectTests(unittest.TestCase):
                 trust_dev_bin=Path("/dev/null"),
                 trust_runtime_bin=Path("/dev/null"),
             )
+
+    def test_direct_request_can_resume_exact_completed_attempt(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            executable = root / "target/debug/trust-dev"
+            executable.parent.mkdir(parents=True)
+            executable.write_bytes(b"instrumented direct runner")
+            discovery_id = "DISC_TEST_DIRECT"
+            fact = {
+                "discovery_id": discovery_id,
+                "discovery_source_kind": "structured_text_test",
+                "path": "fixtures/project/src/main.st",
+                "name": "checks_value",
+                "package": None,
+            }
+            command = [
+                str(executable),
+                "test",
+                "--project",
+                "fixtures/project",
+                "--filter",
+                "checks_value",
+            ]
+            request = direct_test_request(
+                fact,
+                command=command,
+                authority="verified_synthesized",
+            )
+            attempt = (
+                root
+                / "trace/attempts"
+                / hashlib.sha256(discovery_id.encode()).hexdigest()
+            )
+            profiles = attempt / "profiles"
+            profiles.mkdir(parents=True)
+            (profiles / "coverage.profraw").write_bytes(b"profile")
+            (attempt / "attempt.json").write_text(
+                json.dumps(
+                    {
+                        "discovery_id": discovery_id,
+                        "binary_id": executable.name,
+                        "test_name": "checks_value",
+                        "test_executable": str(executable.resolve()),
+                        "test_executable_digest": (
+                            "sha256:" + hashlib.sha256(
+                                executable.read_bytes()
+                            ).hexdigest()
+                        ),
+                        "status": "completed",
+                        "exit_code": 0,
+                    }
+                )
+            )
+
+            reusable = reusable_completed_attempt_ids(
+                trace_root=root / "trace",
+                resolved=[request],
+                purge_incomplete=True,
+            )
+
+        self.assertEqual({discovery_id}, reusable)
+        self.assertEqual(str(executable.resolve()), request["nextest_binary_path"])
 
 
 if __name__ == "__main__":
