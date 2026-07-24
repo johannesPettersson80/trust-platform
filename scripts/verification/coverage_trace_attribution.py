@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from bisect import bisect_left
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -177,17 +179,39 @@ def attributed_code_ids(
 ) -> tuple[str, ...]:
     """Return live code facts intersected by at least one executed code region."""
 
+    regions_by_path: dict[str, list[CoveredRegion]] = {}
+    for region in regions:
+        regions_by_path.setdefault(region.path, []).append(region)
+    interval_indexes: dict[str, tuple[list[int], list[int]]] = {}
+    for path, path_regions in regions_by_path.items():
+        ordered = sorted(path_regions, key=lambda item: (item.start, item.end))
+        starts: list[int] = []
+        maximum_ends: list[int] = []
+        maximum_end: int | None = None
+        for region in ordered:
+            starts.append(region.start)
+            maximum_end = (
+                region.end
+                if maximum_end is None
+                else max(maximum_end, region.end)
+            )
+            maximum_ends.append(maximum_end)
+        interval_indexes[path] = (starts, maximum_ends)
+
     covered: set[str] = set()
     for code_id, span in spans.items():
         if code_id != span.code_id:
             raise ValueError(f"code span key does not match embedded ID {code_id}")
         if span.body_start < 0 or span.body_end <= span.body_start:
             raise ValueError(f"{code_id} has invalid source span")
-        if any(
-            region.path == span.path
-            and region.start < span.body_end
-            and span.body_start < region.end
-            for region in regions
+        interval_index = interval_indexes.get(span.path)
+        if interval_index is None:
+            continue
+        starts, maximum_ends = interval_index
+        candidate_index = bisect_left(starts, span.body_end) - 1
+        if (
+            candidate_index >= 0
+            and maximum_ends[candidate_index] > span.body_start
         ):
             covered.add(code_id)
     return tuple(sorted(covered))
@@ -196,8 +220,7 @@ def attributed_code_ids(
 def _source_offset(source: bytes, line: int, column: int, label: str) -> int:
     if line < 1 or column < 1:
         raise ValueError(f"{label} line and column must be positive")
-    line_starts = [0]
-    line_starts.extend(index + 1 for index, value in enumerate(source) if value == 10)
+    line_starts = _source_line_starts(source)
     if line > len(line_starts):
         raise ValueError(f"{label} line {line} is outside source")
     start = line_starts[line - 1]
@@ -208,6 +231,14 @@ def _source_offset(source: bytes, line: int, column: int, label: str) -> int:
     if offset < len(source) and 0x80 <= source[offset] <= 0xBF:
         raise ValueError(f"{label} column {column} is not a UTF-8 boundary")
     return offset
+
+
+@lru_cache(maxsize=4096)
+def _source_line_starts(source: bytes) -> tuple[int, ...]:
+    return (
+        0,
+        *(index + 1 for index, value in enumerate(source) if value == 10),
+    )
 
 
 def _segment_values(
@@ -242,6 +273,7 @@ def _repo_path(root: Path, filename: str) -> str | None:
     return _normalize_repo_path(filename)
 
 
+@lru_cache(maxsize=8192)
 def _normalize_repo_path(path: str) -> str:
     normalized = path.replace("\\", "/")
     parsed = PurePosixPath(normalized)

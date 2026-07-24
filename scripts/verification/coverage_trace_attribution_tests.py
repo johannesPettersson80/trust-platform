@@ -7,6 +7,7 @@ from pathlib import Path
 
 from scripts.verification.coverage_trace_attribution import (
     CodeSpan,
+    CoveredRegion,
     attributed_code_ids,
     parse_llvm_export,
 )
@@ -96,6 +97,82 @@ class LlvmCoverageAttributionTests(unittest.TestCase):
             tuple(sorted((CODE_ADJACENT, CODE_OUTER))),
             attributed_code_ids(regions, self.spans),
         )
+
+    def test_interval_index_preserves_nested_adjacent_and_disjoint_overlap(self) -> None:
+        source = b"abcdefghij"
+        path = "crates/example/src/intervals.rs"
+        code_nested = "CODE_" + "D" * 64
+        code_adjacent = "CODE_" + "E" * 64
+        code_disjoint = "CODE_" + "F" * 64
+        spans = {
+            code_nested: CodeSpan(code_nested, path, 3, 5),
+            code_adjacent: CodeSpan(code_adjacent, path, 6, 8),
+            code_disjoint: CodeSpan(code_disjoint, path, 8, 10),
+        }
+        regions = parse_llvm_export(
+            _export(
+                path,
+                [
+                    [1, 2, 1, 8, 1, 0, 0, 0],
+                    [1, 4, 1, 5, 2, 0, 0, 0],
+                ],
+            ),
+            root=self.root,
+            sources={path: source},
+        )
+
+        self.assertEqual(
+            tuple(sorted((code_nested, code_adjacent))),
+            attributed_code_ids(regions, spans),
+        )
+
+    def test_interval_index_matches_naive_overlap_across_paths_and_duplicates(
+        self,
+    ) -> None:
+        other_path = "crates/example/src/other.rs"
+        regions = (
+            CoveredRegion(self.path, 10, 14, 1),
+            CoveredRegion(self.path, 1, 10, 1),
+            CoveredRegion(other_path, 4, 7, 1),
+            CoveredRegion(self.path, 1, 10, 1),
+            CoveredRegion(self.path, 3, 5, 1),
+        )
+        code_ids = ["CODE_" + character * 64 for character in "DEFGH"]
+        spans = {
+            code_ids[0]: CodeSpan(code_ids[0], self.path, 2, 4),
+            code_ids[1]: CodeSpan(code_ids[1], self.path, 9, 11),
+            code_ids[2]: CodeSpan(code_ids[2], self.path, 14, 16),
+            code_ids[3]: CodeSpan(code_ids[3], other_path, 6, 8),
+            code_ids[4]: CodeSpan(code_ids[4], other_path, 7, 9),
+        }
+        expected = tuple(
+            sorted(
+                code_id
+                for code_id, span in spans.items()
+                if any(
+                    region.path == span.path
+                    and region.start < span.body_end
+                    and span.body_start < region.end
+                    for region in regions
+                )
+            )
+        )
+
+        self.assertEqual(expected, attributed_code_ids(regions, spans))
+
+    def test_interval_index_still_rejects_invalid_uncovered_span(self) -> None:
+        code_id = "CODE_" + "D" * 64
+        spans = {
+            code_id: CodeSpan(
+                code_id,
+                "crates/example/src/uncovered.rs",
+                4,
+                4,
+            )
+        }
+
+        with self.assertRaisesRegex(ValueError, "invalid source span"):
+            attributed_code_ids((), spans)
 
     def test_repo_relative_filename_is_supported_deterministically(self) -> None:
         document = _export(
