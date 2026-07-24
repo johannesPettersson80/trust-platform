@@ -35,11 +35,11 @@ declared = "IEC selection, iteration, POU, or expression syntax"
 
 [spec]
 status = "specified"
-source_refs = ["SPEC_IEC_DECISIONS_001"]
+source_refs = ["SPEC_IEC_DECISIONS_001", "SPEC_IEC_STATEMENTS_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_IEC_DECISIONS_001"
+ref = "SPEC_IEC_STATEMENTS_001#malformed-source-recovery"
 
 [[behavior]]
 partition = { equals = "CASE_MISSING_OF" }
@@ -58,6 +58,15 @@ outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
 rationale = "A CASE label without its colon is rejected visibly."
+
+[[behavior]]
+partition = { equals = "IF_MISSING_THEN" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#malformed-source-recovery"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "IF without THEN produces the required-token diagnostic before its body."
 
 [[behavior]]
 partition = { equals = "ELSIF_MISSING_THEN" }
@@ -139,6 +148,33 @@ outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
 rationale = "End-of-file before the owning POU terminator produces a visible parse failure."
+
+[[behavior]]
+partition = { equals = "MISSING_STATEMENT_SEMICOLON" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#malformed-source-recovery"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A missing statement semicolon diagnoses at the following statement boundary."
+
+[[behavior]]
+partition = { equals = "INVALID_SIGNED_BASED_TYPED_LITERAL" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#malformed-source-recovery"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A typed based numeric literal with a leading sign remains visible in the partial tree and produces the invalid-leading-sign diagnostic."
+
+[[behavior]]
+partition = { equals = "HASH_WITHOUT_IDENTIFIER" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#malformed-source-recovery"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A truST number-sign local reference without its required following identifier produces the expected-identifier diagnostic."
 
 [[behavior]]
 partition = { equals = "UNKNOWN_TOKEN" }

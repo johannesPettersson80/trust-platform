@@ -633,6 +633,12 @@ malformed:
 - `WHILE` diagnoses a missing `DO`, and `REPEAT` diagnoses a missing `UNTIL`;
 - missing block or POU terminators diagnose before an outer terminator or
   end-of-file is consumed;
+- a missing statement semicolon diagnoses at the following statement boundary,
+  and a missing `THEN` after an `IF` condition diagnoses before its body;
+- a typed based numeric literal with a leading sign remains represented in the
+  partial tree but produces the stable invalid-leading-sign diagnostic;
+- the truST `#identifier` extension diagnoses a number sign without its
+  required following identifier;
 - unknown tokens are diagnosed and recovery advances or stops at a known
   statement/block synchronization boundary; and
 - unclosed expression delimiters and excessive nesting terminate through
