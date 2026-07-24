@@ -803,15 +803,26 @@ def _selected_input_preconditions(
     reviews = denominator.get("reviews")
     if not isinstance(reviews, list):
         raise ValueError("focused denominator reviews are malformed")
-    paths = {
-        str(review["path"])
-        for review in reviews
-        if isinstance(review, Mapping)
-        and review.get("discovery_id") in requested
-        and isinstance(review.get("path"), str)
-    }
-    if len(paths) != len(requested):
+    path_by_discovery: dict[str, str] = {}
+    for review in reviews:
+        if not isinstance(review, Mapping):
+            continue
+        discovery_id = review.get("discovery_id")
+        path = review.get("path")
+        if discovery_id not in requested or not isinstance(path, str):
+            continue
+        if (
+            discovery_id in path_by_discovery
+            and path_by_discovery[discovery_id] != path
+        ):
+            raise ValueError(
+                f"focused denominator duplicates {discovery_id} with "
+                "different source paths"
+            )
+        path_by_discovery[str(discovery_id)] = path
+    if set(path_by_discovery) != set(requested):
         raise ValueError("focused selected source paths are incomplete")
+    paths = set(path_by_discovery.values())
     code_map = tomllib.loads(
         metadata_preconditions["verification/code-spec-map.toml"].decode()
     )

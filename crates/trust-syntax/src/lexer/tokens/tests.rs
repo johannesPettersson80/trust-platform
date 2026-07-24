@@ -1,10 +1,9 @@
 use super::*;
-use logos::Logos;
 
 fn lex(input: &str) -> Vec<(TokenKind, &str)> {
-    TokenKind::lexer(input)
-        .spanned()
-        .map(|(tok, span)| (tok.unwrap_or(TokenKind::Error), &input[span]))
+    crate::lexer::lex_with_text(input)
+        .into_iter()
+        .map(|(token, text)| (token.kind, text))
         .collect()
 }
 

@@ -10,6 +10,7 @@ from tempfile import TemporaryDirectory
 from unittest import mock
 
 from scripts.verification.focused_mapping_candidates import (
+    _selected_input_preconditions,
     _validate_candidate_output_separation,
     generate_focused_mapping_candidates,
 )
@@ -25,6 +26,60 @@ from scripts.verification.mapping_candidates_cli import (
 
 
 class MappingCandidatesCliTests(unittest.TestCase):
+    def test_focused_batch_accepts_multiple_tests_in_one_source_file(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "crates/example/src/lib.rs"
+            source.parent.mkdir(parents=True)
+            source.write_text(
+                "#[test]\nfn first() {}\n#[test]\nfn second() {}\n"
+            )
+            manifest = root / "crates/example/Cargo.toml"
+            manifest.write_text(
+                '[package]\nname = "example"\nversion = "0.1.0"\n'
+            )
+            first = "DISC_" + "1" * 20
+            second = "DISC_" + "2" * 20
+            result = _selected_input_preconditions(
+                root=root,
+                requested=[first, second],
+                trace={
+                    "tests": [
+                        {
+                            "discovery_id": first,
+                            "covered_code_ids": [],
+                        },
+                        {
+                            "discovery_id": second,
+                            "covered_code_ids": [],
+                        },
+                    ]
+                },
+                metadata_preconditions={
+                    "verification/test-catalog-denominator.toml": (
+                        (
+                            "[[reviews]]\n"
+                            f'discovery_id = "{first}"\n'
+                            'path = "crates/example/src/lib.rs"\n'
+                            "[[reviews]]\n"
+                            f'discovery_id = "{second}"\n'
+                            'path = "crates/example/src/lib.rs"\n'
+                        ).encode()
+                    ),
+                    "verification/code-spec-map.toml": b"mappings = []\n",
+                },
+            )
+
+            self.assertEqual(
+                {
+                    "crates/example/Cargo.toml",
+                    "crates/example/src/lib.rs",
+                },
+                set(result),
+            )
+
     def test_candidate_outputs_reject_raw_and_authority_input_overlap(self) -> None:
         for label, authenticated in (
             (
