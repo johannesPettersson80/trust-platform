@@ -197,6 +197,8 @@ def resolve_rust_tests(
             "cargo_target_kind" in fact or "cargo_target_name" in fact
         )
         target_suite_key: str | None = None
+        target_kind: str | None = None
+        target_name: str | None = None
         if target_requested:
             target_kind = _required_string(
                 fact,
@@ -294,23 +296,25 @@ def resolve_rust_tests(
                 ),
             ]
         )
-        resolved.append(
-            {
-                "discovery_id": discovery_id,
-                "discovery_source_kind": source_kind,
-                "path": _required_string(fact, "path", discovery_id),
-                "name": name,
-                "ignore_state": _required_string(
-                    fact, "ignore_state", discovery_id
-                ),
-                "package": package,
-                "nextest_binary_id": match["binary_id"],
-                "nextest_binary_path": match["binary_path"],
-                "nextest_test_name": match["test_name"],
-                "command": command,
-                "command_authority": "verified_synthesized",
-            }
-        )
+        record: dict[str, Any] = {
+            "discovery_id": discovery_id,
+            "discovery_source_kind": source_kind,
+            "path": _required_string(fact, "path", discovery_id),
+            "name": name,
+            "ignore_state": _required_string(
+                fact, "ignore_state", discovery_id
+            ),
+            "package": package,
+            "nextest_binary_id": match["binary_id"],
+            "nextest_binary_path": match["binary_path"],
+            "nextest_test_name": match["test_name"],
+            "command": command,
+            "command_authority": "verified_synthesized",
+        }
+        if target_requested:
+            record["cargo_target_kind"] = target_kind
+            record["cargo_target_name"] = target_name
+        resolved.append(record)
     return resolved, unsupported
 
 

@@ -165,6 +165,59 @@ def targeted_nextest_list_shards(
     return shards
 
 
+def resolve_nextest_list_shard(
+    *,
+    shard: Mapping[str, Any],
+    nextest_document: Mapping[str, Any],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Resolve one batched list document exactly once."""
+
+    targets = shard.get("targets")
+    if not isinstance(targets, Sequence) or isinstance(targets, (str, bytes)):
+        raise ValueError("nextest list shard targets must be an array")
+    facts: list[Mapping[str, Any]] = []
+    for target in targets:
+        if not isinstance(target, Mapping):
+            raise ValueError("nextest list shard target must be an object")
+        target_facts = target.get("facts")
+        if not isinstance(target_facts, Sequence) or isinstance(
+            target_facts,
+            (str, bytes),
+        ):
+            raise ValueError("nextest list shard target facts must be an array")
+        if any(not isinstance(fact, Mapping) for fact in target_facts):
+            raise ValueError("nextest list shard facts must be objects")
+        facts.extend(target_facts)
+    resolved, unsupported = resolve_rust_tests(
+        facts=facts,
+        nextest_document=nextest_document,
+    )
+    for record in resolved:
+        target_kind = _required_string(
+            record,
+            "cargo_target_kind",
+            "resolved test",
+        )
+        target_name = record.get("cargo_target_name")
+        target_args = _cargo_target_args(
+            kind=target_kind,
+            name=target_name,
+        )
+        record["command"] = shlex.join(
+            [
+                "cargo",
+                "nextest",
+                "run",
+                "-p",
+                str(record["package"]),
+                *target_args,
+                "-E",
+                nextest_filter_expression([record]),
+            ]
+        )
+    return resolved, unsupported
+
+
 def coverage_run_commands(
     *,
     resolved: Sequence[Mapping[str, Any]],
@@ -532,34 +585,12 @@ def run_focused_rust_trace(
                 raise ValueError("cargo nextest list emitted invalid JSON") from error
             if not isinstance(nextest_document, Mapping):
                 raise ValueError("cargo nextest list root must be an object")
-            for target in shard["targets"]:
-                shard_resolved, shard_unsupported = resolve_rust_tests(
-                    facts=target["facts"],
-                    nextest_document=nextest_document,
-                )
-                target_kind = str(target["cargo_target_kind"])
-                target_name = target["cargo_target_name"]
-                target_args = _cargo_target_args(
-                    kind=target_kind,
-                    name=target_name,
-                )
-                for record in shard_resolved:
-                    record["cargo_target_kind"] = target_kind
-                    record["cargo_target_name"] = target_name
-                    record["command"] = shlex.join(
-                        [
-                            "cargo",
-                            "nextest",
-                            "run",
-                            "-p",
-                            str(record["package"]),
-                            *target_args,
-                            "-E",
-                            nextest_filter_expression([record]),
-                        ]
-                    )
-                resolved.extend(shard_resolved)
-                unsupported.extend(shard_unsupported)
+            shard_resolved, shard_unsupported = resolve_nextest_list_shard(
+                shard=shard,
+                nextest_document=nextest_document,
+            )
+            resolved.extend(shard_resolved)
+            unsupported.extend(shard_unsupported)
         resolved.sort(key=lambda row: str(row["discovery_id"]))
         unsupported.sort(key=lambda row: str(row["discovery_id"]))
     for fact in requested_facts:

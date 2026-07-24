@@ -174,6 +174,11 @@ class CoverageTraceResolverTests(unittest.TestCase):
             "example-integration",
             resolved[0]["nextest_binary_id"],
         )
+        self.assertEqual("test", resolved[0]["cargo_target_kind"])
+        self.assertEqual(
+            "api_smoke",
+            resolved[0]["cargo_target_name"],
+        )
 
     def test_combined_listing_missing_exact_target_fails_closed(self) -> None:
         fact = _fact(

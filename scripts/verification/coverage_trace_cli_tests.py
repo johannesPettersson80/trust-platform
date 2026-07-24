@@ -17,6 +17,7 @@ from scripts.verification.coverage_trace_cli import (
     legacy_requested_tests_document,
     nextest_filter_expression,
     requested_tests_document,
+    resolve_nextest_list_shard,
     reusable_completed_attempt_ids,
     rust_package_target_inventory,
     select_ground_truth_pilot_ids,
@@ -203,6 +204,60 @@ class CoverageTraceCliTests(unittest.TestCase):
                     }
                 ),
             )
+
+    @mock.patch(
+        "scripts.verification.coverage_trace_cli.resolve_rust_tests"
+    )
+    def test_batched_nextest_document_is_resolved_once(
+        self,
+        resolve: mock.Mock,
+    ) -> None:
+        resolve.return_value = (
+            [
+                {
+                    "discovery_id": "DISC_INTEGRATION",
+                    "package": "example",
+                    "cargo_target_kind": "test",
+                    "cargo_target_name": "api_smoke",
+                    "nextest_binary_id": "api_smoke",
+                    "nextest_test_name": "integration_case",
+                }
+            ],
+            [],
+        )
+        shard = targeted_nextest_list_shards(
+            [
+                {
+                    "discovery_id": "DISC_LIB",
+                    "discovery_source_kind": "rust_unit_test",
+                    "package": "example",
+                    "path": "crates/example/src/lib.rs",
+                },
+                {
+                    "discovery_id": "DISC_INTEGRATION",
+                    "discovery_source_kind": "rust_integration_test",
+                    "package": "example",
+                    "path": "crates/example/tests/api_smoke.rs",
+                },
+            ]
+        )[0]
+        document = {"rust-suites": {}}
+
+        resolved, unsupported = resolve_nextest_list_shard(
+            shard=shard,
+            nextest_document=document,
+        )
+
+        self.assertEqual([], unsupported)
+        self.assertEqual(1, resolve.call_count)
+        self.assertEqual(
+            ["DISC_INTEGRATION", "DISC_LIB"],
+            sorted(
+                fact["discovery_id"]
+                for fact in resolve.call_args.kwargs["facts"]
+            ),
+        )
+        self.assertIn("--test api_smoke", resolved[0]["command"])
 
     def test_coverage_commands_are_sharded_by_exact_cargo_target(self) -> None:
         commands = coverage_run_commands(
