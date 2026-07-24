@@ -33,6 +33,7 @@ from .test_catalog_scanner import scan_repository
 
 
 MAX_TESTS_PER_COVERAGE_COMMAND = 64
+MAX_TARGETS_PER_NEXTEST_LIST_COMMAND = 16
 LIBRARY_TARGET_KINDS = {
     "lib",
     "rlib",
@@ -94,9 +95,9 @@ def targeted_nextest_list_shards(
     facts: Sequence[Mapping[str, Any]],
 ) -> list[dict[str, Any]]:
     groups: dict[
-        tuple[str, str, str | None],
-        list[Mapping[str, Any]],
-    ] = defaultdict(list)
+        str,
+        dict[tuple[str, str | None], list[Mapping[str, Any]]],
+    ] = defaultdict(lambda: defaultdict(list))
     for fact in facts:
         package = _required_string(fact, "package", "Rust scanner fact")
         target = mechanical_rust_target(fact)
@@ -104,40 +105,63 @@ def targeted_nextest_list_shards(
         name = target.get("name")
         if name is not None and (not isinstance(name, str) or not name):
             raise ValueError("Rust cargo target name must be null or non-empty")
-        groups[(package, kind, name)].append(fact)
+        groups[package][(kind, name)].append(fact)
     shards: list[dict[str, Any]] = []
-    for (package, kind, name), group_facts in sorted(
-        groups.items(),
-        key=lambda item: (
-            item[0][0],
-            item[0][1],
-            item[0][2] or "",
-        ),
-    ):
-        target_args = ["--lib"] if kind == "lib" else [f"--{kind}", str(name)]
-        shards.append(
-            {
-                "package": package,
-                "cargo_target_kind": kind,
-                "cargo_target_name": name,
-                "facts": sorted(
-                    group_facts,
-                    key=lambda fact: str(fact.get("discovery_id", "")),
-                ),
-                "command": [
-                    "cargo",
-                    "nextest",
-                    "list",
-                    "--run-ignored",
-                    "all",
-                    "--message-format",
-                    "json",
-                    "-p",
-                    package,
-                    *target_args,
-                ],
-            }
-        )
+    for package, package_groups in sorted(groups.items()):
+        targets: list[dict[str, Any]] = []
+        for (kind, name), group_facts in sorted(
+            package_groups.items(),
+            key=lambda item: (item[0][0], item[0][1] or ""),
+        ):
+            exact_facts: list[dict[str, Any]] = []
+            for fact in sorted(
+                group_facts,
+                key=lambda row: str(row.get("discovery_id", "")),
+            ):
+                exact_fact = dict(fact)
+                exact_fact["cargo_target_kind"] = kind
+                exact_fact["cargo_target_name"] = name
+                exact_facts.append(exact_fact)
+            targets.append(
+                {
+                    "cargo_target_kind": kind,
+                    "cargo_target_name": name,
+                    "facts": exact_facts,
+                }
+            )
+        for offset in range(
+            0,
+            len(targets),
+            MAX_TARGETS_PER_NEXTEST_LIST_COMMAND,
+        ):
+            chunk = targets[
+                offset : offset + MAX_TARGETS_PER_NEXTEST_LIST_COMMAND
+            ]
+            command = [
+                "cargo",
+                "nextest",
+                "list",
+                "--run-ignored",
+                "all",
+                "--message-format",
+                "json",
+                "-p",
+                package,
+            ]
+            for target in chunk:
+                command.extend(
+                    _cargo_target_args(
+                        kind=str(target["cargo_target_kind"]),
+                        name=target["cargo_target_name"],
+                    )
+                )
+            shards.append(
+                {
+                    "package": package,
+                    "targets": chunk,
+                    "command": command,
+                }
+            )
     return shards
 
 
@@ -157,13 +181,7 @@ def coverage_run_commands(
         name = record.get("cargo_target_name")
         if name is not None and (not isinstance(name, str) or not name):
             raise ValueError("resolved test cargo target name must be null or non-empty")
-        if kind == "lib":
-            if name is not None:
-                raise ValueError("library target must not carry a target name")
-        elif kind not in {"test", "bin", "example", "bench"}:
-            raise ValueError(f"unsupported exact cargo target kind {kind!r}")
-        elif name is None:
-            raise ValueError(f"{kind} target requires a target name")
+        _cargo_target_args(kind=kind, name=name)
         groups[(package, kind, name)].append(record)
     commands: list[list[str]] = []
     for (package, kind, name), records in sorted(
@@ -174,7 +192,7 @@ def coverage_run_commands(
             item[0][2] or "",
         ),
     ):
-        target_args = ["--lib"] if kind == "lib" else [f"--{kind}", str(name)]
+        target_args = _cargo_target_args(kind=kind, name=name)
         ordered = sorted(
             records,
             key=lambda row: (
@@ -514,34 +532,34 @@ def run_focused_rust_trace(
                 raise ValueError("cargo nextest list emitted invalid JSON") from error
             if not isinstance(nextest_document, Mapping):
                 raise ValueError("cargo nextest list root must be an object")
-            shard_resolved, shard_unsupported = resolve_rust_tests(
-                facts=shard["facts"],
-                nextest_document=nextest_document,
-            )
-            target_kind = str(shard["cargo_target_kind"])
-            target_name = shard["cargo_target_name"]
-            target_args = (
-                ["--lib"]
-                if target_kind == "lib"
-                else [f"--{target_kind}", str(target_name)]
-            )
-            for record in shard_resolved:
-                record["cargo_target_kind"] = target_kind
-                record["cargo_target_name"] = target_name
-                record["command"] = shlex.join(
-                    [
-                        "cargo",
-                        "nextest",
-                        "run",
-                        "-p",
-                        str(record["package"]),
-                        *target_args,
-                        "-E",
-                        nextest_filter_expression([record]),
-                    ]
+            for target in shard["targets"]:
+                shard_resolved, shard_unsupported = resolve_rust_tests(
+                    facts=target["facts"],
+                    nextest_document=nextest_document,
                 )
-            resolved.extend(shard_resolved)
-            unsupported.extend(shard_unsupported)
+                target_kind = str(target["cargo_target_kind"])
+                target_name = target["cargo_target_name"]
+                target_args = _cargo_target_args(
+                    kind=target_kind,
+                    name=target_name,
+                )
+                for record in shard_resolved:
+                    record["cargo_target_kind"] = target_kind
+                    record["cargo_target_name"] = target_name
+                    record["command"] = shlex.join(
+                        [
+                            "cargo",
+                            "nextest",
+                            "run",
+                            "-p",
+                            str(record["package"]),
+                            *target_args,
+                            "-E",
+                            nextest_filter_expression([record]),
+                        ]
+                    )
+                resolved.extend(shard_resolved)
+                unsupported.extend(shard_unsupported)
         resolved.sort(key=lambda row: str(row["discovery_id"]))
         unsupported.sort(key=lambda row: str(row["discovery_id"]))
     for fact in requested_facts:
@@ -820,3 +838,19 @@ def _required_string(
     if not isinstance(value, str) or not value:
         raise ValueError(f"{label} requires non-empty {field}")
     return value
+
+
+def _cargo_target_args(
+    *,
+    kind: str,
+    name: Any,
+) -> list[str]:
+    if kind == "lib":
+        if name is not None:
+            raise ValueError("library target must not carry a target name")
+        return ["--lib"]
+    if kind not in {"test", "bin", "example", "bench"}:
+        raise ValueError(f"unsupported exact cargo target kind {kind!r}")
+    if not isinstance(name, str) or not name:
+        raise ValueError(f"{kind} target requires a target name")
+    return [f"--{kind}", name]

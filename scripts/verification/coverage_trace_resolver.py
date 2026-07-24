@@ -11,6 +11,14 @@ from .coverage_trace_filter import exact_name_matcher
 
 
 RUST_SOURCE_KINDS = {"rust_unit_test", "rust_integration_test"}
+NEXTEST_LIBRARY_KINDS = {
+    "lib",
+    "rlib",
+    "dylib",
+    "cdylib",
+    "staticlib",
+    "proc-macro",
+}
 
 
 def mechanical_rust_target(fact: Mapping[str, Any]) -> dict[str, Any]:
@@ -129,12 +137,26 @@ def resolve_rust_tests(
     if not isinstance(suites, Mapping):
         raise ValueError("nextest list lacks rust-suites object")
     runtime_tests: list[dict[str, str]] = []
+    runtime_suites: list[dict[str, str]] = []
     for suite_key, suite in suites.items():
         if not isinstance(suite_key, str) or not isinstance(suite, Mapping):
             raise ValueError("nextest rust-suites entries must be objects")
         package = _required_string(suite, "package-name", suite_key)
         binary_id = _required_string(suite, "binary-id", suite_key)
+        binary_name = _required_string(suite, "binary-name", suite_key)
         binary_path = _required_string(suite, "binary-path", suite_key)
+        raw_kind = _required_string(suite, "kind", suite_key)
+        target_kind = (
+            "lib" if raw_kind in NEXTEST_LIBRARY_KINDS else raw_kind
+        )
+        runtime_suites.append(
+            {
+                "suite_key": suite_key,
+                "package": package,
+                "target_kind": target_kind,
+                "binary_name": binary_name,
+            }
+        )
         testcases = suite.get("testcases")
         if not isinstance(testcases, Mapping):
             raise ValueError(f"nextest suite {suite_key} lacks testcases object")
@@ -144,6 +166,9 @@ def resolve_rust_tests(
             runtime_tests.append(
                 {
                     "package": package,
+                    "suite_key": suite_key,
+                    "target_kind": target_kind,
+                    "binary_name": binary_name,
                     "binary_id": binary_id,
                     "binary_path": binary_path,
                     "test_name": test_name,
@@ -168,11 +193,75 @@ def resolve_rust_tests(
             continue
         package = _required_string(fact, "package", discovery_id)
         name = _required_string(fact, "name", discovery_id)
+        target_requested = (
+            "cargo_target_kind" in fact or "cargo_target_name" in fact
+        )
+        target_suite_key: str | None = None
+        if target_requested:
+            target_kind = _required_string(
+                fact,
+                "cargo_target_kind",
+                discovery_id,
+            )
+            target_name = fact.get("cargo_target_name")
+            if target_kind == "lib":
+                if target_name is not None:
+                    raise ValueError(
+                        f"{discovery_id} library target must not carry a name"
+                    )
+            elif target_kind in {"test", "bin", "example", "bench"}:
+                if not isinstance(target_name, str) or not target_name:
+                    raise ValueError(
+                        f"{discovery_id} {target_kind} target requires a name"
+                    )
+            else:
+                raise ValueError(
+                    f"{discovery_id} has unsupported target kind "
+                    f"{target_kind!r}"
+                )
+            target_suites = [
+                suite
+                for suite in runtime_suites
+                if suite["package"] == package
+                and suite["target_kind"] == target_kind
+                and (
+                    target_kind == "lib"
+                    or suite["binary_name"] == target_name
+                )
+            ]
+            if len(target_suites) != 1:
+                target_suite_keys = {
+                    suite["suite_key"] for suite in target_suites
+                }
+                candidates = sorted(
+                    {
+                        test["test_name"]
+                        for test in runtime_tests
+                        if test["suite_key"] in target_suite_keys
+                    }
+                )
+                unsupported.append(
+                    _unsupported(
+                        fact,
+                        reason=(
+                            "no_nextest_identity"
+                            if not target_suites
+                            else "ambiguous_nextest_target"
+                        ),
+                        candidates=candidates,
+                    )
+                )
+                continue
+            target_suite_key = target_suites[0]["suite_key"]
         matches = sorted(
             (
                 test
                 for test in runtime_tests
                 if test["package"] == package
+                and (
+                    target_suite_key is None
+                    or test["suite_key"] == target_suite_key
+                )
                 and test["test_name"].rsplit("::", 1)[-1] == name
             ),
             key=lambda row: (row["binary_id"], row["test_name"]),

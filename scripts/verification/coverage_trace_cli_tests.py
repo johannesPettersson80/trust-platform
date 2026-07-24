@@ -98,7 +98,7 @@ class CoverageTraceCliTests(unittest.TestCase):
             ]
         )
 
-        self.assertEqual(2, len(shards))
+        self.assertEqual(1, len(shards))
         commands = [shard["command"] for shard in shards]
         self.assertTrue(any("--lib" in command for command in commands))
         self.assertTrue(
@@ -110,6 +110,99 @@ class CoverageTraceCliTests(unittest.TestCase):
             )
         )
         self.assertTrue(all("--tests" not in command for command in commands))
+        self.assertEqual(2, len(shards[0]["targets"]))
+
+    def test_nextest_listing_batches_at_most_sixteen_exact_targets_per_package(
+        self,
+    ) -> None:
+        facts = [
+            {
+                "discovery_id": f"DISC_{index:020X}",
+                "discovery_source_kind": "rust_integration_test",
+                "package": "example",
+                "path": f"crates/example/tests/target_{index:02}.rs",
+            }
+            for index in range(17)
+        ]
+
+        shards = targeted_nextest_list_shards(list(reversed(facts)))
+
+        self.assertEqual(2, len(shards))
+        self.assertEqual(
+            [16, 1],
+            [len(shard["targets"]) for shard in shards],
+        )
+        self.assertTrue(
+            all(
+                len(shard["targets"]) <= 16
+                for shard in shards
+            )
+        )
+        self.assertEqual(
+            [16, 1],
+            [
+                sum(1 for argument in shard["command"] if argument == "--test")
+                for shard in shards
+            ],
+        )
+        self.assertEqual(
+            [
+                "target_00",
+                "target_01",
+                "target_02",
+                "target_03",
+                "target_04",
+                "target_05",
+                "target_06",
+                "target_07",
+                "target_08",
+                "target_09",
+                "target_10",
+                "target_11",
+                "target_12",
+                "target_13",
+                "target_14",
+                "target_15",
+            ],
+            [
+                target["cargo_target_name"]
+                for target in shards[0]["targets"]
+            ],
+        )
+
+    def test_nextest_listing_never_batches_targets_across_packages(self) -> None:
+        shards = targeted_nextest_list_shards(
+            [
+                {
+                    "discovery_id": "DISC_B",
+                    "discovery_source_kind": "rust_integration_test",
+                    "package": "package-b",
+                    "path": "crates/package-b/tests/shared.rs",
+                },
+                {
+                    "discovery_id": "DISC_A",
+                    "discovery_source_kind": "rust_integration_test",
+                    "package": "package-a",
+                    "path": "crates/package-a/tests/shared.rs",
+                },
+            ]
+        )
+
+        self.assertEqual(["package-a", "package-b"], [
+            shard["package"] for shard in shards
+        ])
+        for shard in shards:
+            package = shard["package"]
+            self.assertEqual(
+                [package],
+                sorted(
+                    {
+                        fact["package"]
+                        for target in shard["targets"]
+                        for fact in target["facts"]
+                    }
+                ),
+            )
 
     def test_coverage_commands_are_sharded_by_exact_cargo_target(self) -> None:
         commands = coverage_run_commands(

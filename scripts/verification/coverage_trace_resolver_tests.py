@@ -46,6 +46,35 @@ def _list(*test_names: str) -> dict[str, object]:
     }
 
 
+def _multi_target_list() -> dict[str, object]:
+    return {
+        "test-count": 2,
+        "rust-build-meta": {},
+        "rust-suites": {
+            "example-lib": {
+                "package-name": "example",
+                "binary-id": "example-lib",
+                "binary-name": "example",
+                "binary-path": "/target/example-lib",
+                "kind": "lib",
+                "testcases": {
+                    "lib_module::same_name": {"ignored": False},
+                },
+            },
+            "example-integration": {
+                "package-name": "example",
+                "binary-id": "example-integration",
+                "binary-name": "api_smoke",
+                "binary-path": "/target/api-smoke",
+                "kind": "test",
+                "testcases": {
+                    "integration_module::same_name": {"ignored": False},
+                },
+            },
+        },
+    }
+
+
 class CoverageTraceResolverTests(unittest.TestCase):
     def test_mechanical_target_selection_never_expands_to_all_package_targets(self) -> None:
         cases = [
@@ -120,6 +149,79 @@ class CoverageTraceResolverTests(unittest.TestCase):
         self.assertEqual("example", resolved[0]["nextest_binary_id"])
         self.assertEqual("/target/example", resolved[0]["nextest_binary_path"])
         self.assertEqual("verified_synthesized", resolved[0]["command_authority"])
+
+    def test_combined_listing_resolves_with_exact_target_kind_and_binary_name(
+        self,
+    ) -> None:
+        fact = _fact(
+            "DISC_INTEGRATION",
+            path="crates/example/tests/api_smoke.rs",
+            source_kind="rust_integration_test",
+        )
+        fact["cargo_target_kind"] = "test"
+        fact["cargo_target_name"] = "api_smoke"
+        resolved, unsupported = resolve_rust_tests(
+            facts=[fact],
+            nextest_document=_multi_target_list(),
+        )
+
+        self.assertEqual([], unsupported)
+        self.assertEqual(
+            "integration_module::same_name",
+            resolved[0]["nextest_test_name"],
+        )
+        self.assertEqual(
+            "example-integration",
+            resolved[0]["nextest_binary_id"],
+        )
+
+    def test_combined_listing_missing_exact_target_fails_closed(self) -> None:
+        fact = _fact(
+            "DISC_MISSING_TARGET",
+            path="crates/example/tests/not_listed.rs",
+            source_kind="rust_integration_test",
+        )
+        fact["cargo_target_kind"] = "test"
+        fact["cargo_target_name"] = "not_listed"
+        resolved, unsupported = resolve_rust_tests(
+            facts=[fact],
+            nextest_document=_multi_target_list(),
+        )
+
+        self.assertEqual([], resolved)
+        self.assertEqual("no_nextest_identity", unsupported[0]["reason"])
+
+    def test_combined_listing_duplicate_exact_target_fails_closed(self) -> None:
+        document = _multi_target_list()
+        document["rust-suites"]["duplicate-integration"] = {
+            "package-name": "example",
+            "binary-id": "example-integration-duplicate",
+            "binary-name": "api_smoke",
+            "binary-path": "/target/api-smoke-duplicate",
+            "kind": "test",
+            "testcases": {
+                "integration_module::same_name": {"ignored": False},
+            },
+        }
+
+        fact = _fact(
+            "DISC_DUPLICATE_TARGET",
+            path="crates/example/tests/api_smoke.rs",
+            source_kind="rust_integration_test",
+        )
+        fact["cargo_target_kind"] = "test"
+        fact["cargo_target_name"] = "api_smoke"
+
+        resolved, unsupported = resolve_rust_tests(
+            facts=[fact],
+            nextest_document=document,
+        )
+
+        self.assertEqual([], resolved)
+        self.assertEqual(
+            "ambiguous_nextest_target",
+            unsupported[0]["reason"],
+        )
 
     def test_ambiguous_terminal_name_fails_closed(self) -> None:
         resolved, unsupported = resolve_rust_tests(
