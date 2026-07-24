@@ -23,6 +23,7 @@ def reusable_completed_attempt_ids(
         for record in resolved
     }
     completed_ids: set[str] = set()
+    executable_digests: dict[Path, str] = {}
     attempts_root = trace_root / "attempts"
     if not attempts_root.is_dir():
         return completed_ids
@@ -38,16 +39,30 @@ def reusable_completed_attempt_ids(
             else None
         )
         record = expected.get(str(discovery_id))
+        executable_value = (
+            manifest.get("test_executable")
+            if isinstance(manifest, Mapping)
+            else None
+        )
+        executable = (
+            Path(executable_value)
+            if isinstance(executable_value, str)
+            else None
+        )
+        executable_digest = None
+        if executable is not None and executable.is_file():
+            executable_digest = executable_digests.get(executable)
+            if executable_digest is None:
+                executable_digest = _file_digest(executable)
+                executable_digests[executable] = executable_digest
         reusable = (
             record is not None
             and manifest.get("status") == "completed"
             and manifest.get("exit_code") == 0
             and manifest.get("binary_id") == record.get("nextest_binary_id")
             and manifest.get("test_name") == record.get("nextest_test_name")
-            and isinstance(manifest.get("test_executable"), str)
-            and Path(str(manifest["test_executable"])).is_file()
-            and manifest.get("test_executable_digest")
-            == _file_digest(Path(str(manifest["test_executable"])))
+            and executable_digest is not None
+            and manifest.get("test_executable_digest") == executable_digest
             and any((attempt_dir / "profiles").glob("*.profraw"))
         )
         if reusable:

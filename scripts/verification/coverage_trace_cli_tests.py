@@ -7,7 +7,9 @@ import json
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest import mock
 
+from scripts.verification import coverage_trace_resume
 from scripts.verification.coverage_trace_cli import (
     MAX_TESTS_PER_COVERAGE_COMMAND,
     coverage_run_commands,
@@ -338,6 +340,53 @@ class CoverageTraceCliTests(unittest.TestCase):
 
         self.assertEqual({"DISC_COMPLETE"}, reusable)
         self.assertFalse(partial_exists)
+
+    def test_resume_hashes_each_shared_test_executable_once(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            executable = root / "test-binary"
+            executable.write_bytes(b"shared binary")
+            executable_digest = (
+                "sha256:" + hashlib.sha256(executable.read_bytes()).hexdigest()
+            )
+            resolved = []
+            for suffix in ("ONE", "TWO"):
+                attempt = root / f"attempts/{suffix.lower()}"
+                (attempt / "profiles").mkdir(parents=True)
+                (attempt / "profiles/profile.profraw").write_bytes(b"profile")
+                (attempt / "attempt.json").write_text(
+                    json.dumps(
+                        {
+                            "discovery_id": f"DISC_{suffix}",
+                            "binary_id": "example",
+                            "test_name": f"module::{suffix.lower()}",
+                            "test_executable": str(executable),
+                            "test_executable_digest": executable_digest,
+                            "status": "completed",
+                            "exit_code": 0,
+                        }
+                    )
+                )
+                resolved.append(
+                    {
+                        "discovery_id": f"DISC_{suffix}",
+                        "nextest_binary_id": "example",
+                        "nextest_test_name": f"module::{suffix.lower()}",
+                    }
+                )
+
+            with mock.patch(
+                "scripts.verification.coverage_trace_resume._file_digest",
+                wraps=coverage_trace_resume._file_digest,
+            ) as digest:
+                reusable = reusable_completed_attempt_ids(
+                    trace_root=root,
+                    resolved=resolved,
+                    purge_incomplete=True,
+                )
+
+        self.assertEqual({"DISC_ONE", "DISC_TWO"}, reusable)
+        self.assertEqual(1, digest.call_count)
 
 
 if __name__ == "__main__":
