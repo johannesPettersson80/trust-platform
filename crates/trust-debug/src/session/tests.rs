@@ -472,7 +472,6 @@ interfaces = []
 enabled = false
 listen = "0.0.0.0:5200"
 tls = false
-auth_token = ""
 publish = []
 
 [runtime.ads]
