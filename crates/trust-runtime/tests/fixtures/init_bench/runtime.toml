@@ -34,7 +34,6 @@ interfaces = []
 enabled = false
 listen = "127.0.0.1:0"
 tls = false
-auth_token = ""
 publish = []
 
 [runtime.opcua]
