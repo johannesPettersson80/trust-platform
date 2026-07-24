@@ -34,12 +34,12 @@ source_refs = ["SPEC_RUNTIME_ENGINE_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-ads-cli-authoring-and-server-control-contract"
 
 [[behavior]]
 partition = { equals = "BYTE_IDENTICAL_OR_CHANGED_OUTPUT" }
 case_family = "persistence_or_recovery"
-oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-ads-cli-authoring-and-server-control-contract"
 outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
@@ -48,7 +48,7 @@ rationale = "Import creates missing parents, reports byte-identical output uncha
 [[behavior]]
 partition = { equals = "INCOMPATIBLE_SNAPSHOT_OR_GENERATED_SOURCE" }
 case_family = "wrong_type_or_shape"
-oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-ads-cli-authoring-and-server-control-contract"
 outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_applicable" }
@@ -57,7 +57,7 @@ rationale = "Missing symbols, type mismatches, and generated-source drift fail b
 [[behavior]]
 partition = { equals = "LIVE_AUTHORING_WITHOUT_WIRE_FEATURE" }
 case_family = "platform_or_filesystem_variation"
-oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-ads-cli-authoring-and-server-control-contract"
 outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }

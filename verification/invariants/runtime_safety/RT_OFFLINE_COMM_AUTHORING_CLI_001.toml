@@ -26,12 +26,12 @@ source_refs = ["SPEC_RUNTIME_ENGINE_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_RUNTIME_ENGINE_001#offline-communication-authoring-client"
+ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-offline-communication-authoring-client"
 
 [[behavior]]
 partition = { equals = "VALID_OFFLINE_AUTHORING_ACTION" }
 case_family = "happy_path"
-oracle_ref = "SPEC_RUNTIME_ENGINE_001#offline-communication-authoring-client"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-offline-communication-authoring-client"
 outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
@@ -40,7 +40,7 @@ rationale = "Schema, topology, apply, discover, cached browse, and OPC UA trust 
 [[behavior]]
 partition = { equals = "MALFORMED_LOCAL_JSON_OR_SNAPSHOT" }
 case_family = "wrong_type_or_shape"
-oracle_ref = "SPEC_RUNTIME_ENGINE_001#offline-communication-authoring-client"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-offline-communication-authoring-client"
 outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "status_degraded" }
@@ -49,7 +49,7 @@ rationale = "Malformed or incorrectly shaped local inputs fail before a delegate
 [[behavior]]
 partition = { equals = "FRESH_DEFAULT_RUNTIME_TEMPLATE" }
 case_family = "ordering_or_lifecycle"
-oracle_ref = "SPEC_RUNTIME_ENGINE_001#offline-communication-authoring-client"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-offline-communication-authoring-client"
 outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }

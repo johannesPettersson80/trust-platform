@@ -38,12 +38,12 @@ source_refs = ["SPEC_RUNTIME_ENGINE_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-ads-cli-authoring-and-server-control-contract"
 
 [[behavior]]
 partition = { equals = "ROUTE_ARTIFACT_GENERATION_OR_REMOVAL" }
 case_family = "happy_path"
-oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-ads-cli-authoring-and-server-control-contract"
 outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
@@ -52,7 +52,7 @@ rationale = "Client, server, and removal route commands generate the selected de
 [[behavior]]
 partition = { equals = "DIRECT_ROUTE_CREDENTIAL_CHANNEL" }
 case_family = "auth_or_permission"
-oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-ads-cli-authoring-and-server-control-contract"
 outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
@@ -61,7 +61,7 @@ rationale = "Password argv is unsupported, standard input must be explicit and n
 [[behavior]]
 partition = { equals = "DOCTOR_PROOF_OR_WRITE_PROBE_OPTIONS" }
 case_family = "missing_required"
-oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-ads-cli-authoring-and-server-control-contract"
 outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }

@@ -35,12 +35,12 @@ source_refs = ["SPEC_RUNTIME_ENGINE_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-ads-cli-authoring-and-server-control-contract"
 
 [[behavior]]
 partition = { equals = "ADS_WIRE_FEATURE_ABSENT" }
 case_family = "platform_or_filesystem_variation"
-oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-ads-cli-authoring-and-server-control-contract"
 outcome = "not_safe_reported"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
@@ -49,7 +49,7 @@ rationale = "Discovery, browse, Doctor, live validation, and symbol import retur
 [[behavior]]
 partition = { equals = "SERVER_CONTROL_REJECTED_OR_MALFORMED" }
 case_family = "wrong_type_or_shape"
-oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-ads-cli-authoring-and-server-control-contract"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-ads-cli-authoring-and-server-control-contract"
 outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "status_degraded" }
