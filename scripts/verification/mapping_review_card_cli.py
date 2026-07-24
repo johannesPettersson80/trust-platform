@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from .code_spec_live import load_code_spec_metadata
+from .mapping_review_batches import build_review_batches
 from .mapping_review_selection import build_review_card
 from .test_catalog_json_schema import validate_json_schema_instance
 
@@ -24,6 +25,9 @@ DEFAULT_MARKDOWN = Path(
 )
 CARD_SCHEMA = Path(
     "verification/schemas/test-catalog-mapping-review-card.schema.json"
+)
+BATCH_SCHEMA = Path(
+    "verification/schemas/test-catalog-mapping-review-batches.schema.json"
 )
 
 
@@ -52,6 +56,42 @@ def generate_review_card(
     json_path.write_text(rendered_json)
     markdown_path.write_text(rendered_markdown)
     return card
+
+
+def generate_review_batches(
+    *,
+    root: Path,
+    card: Mapping[str, Any],
+    batch_dir: Path,
+    max_batch_size: int,
+) -> dict[str, Any]:
+    manifest, cards = build_review_batches(
+        card,
+        max_batch_size=max_batch_size,
+    )
+    schema = json.loads((root / BATCH_SCHEMA).read_text())
+    failures = validate_json_schema_instance(manifest, schema)
+    if failures:
+        raise ValueError("; ".join(failures))
+    batch_dir.mkdir(parents=True, exist_ok=True)
+    batches = manifest["batches"]
+    for batch_card, batch in zip(cards, batches, strict=True):
+        card_failures = validate_json_schema_instance(
+            batch_card,
+            json.loads((root / CARD_SCHEMA).read_text()),
+        )
+        if card_failures:
+            raise ValueError("; ".join(card_failures))
+        (batch_dir / batch["json_file"]).write_text(
+            json.dumps(batch_card, indent=2, sort_keys=True) + "\n"
+        )
+        (batch_dir / batch["markdown_file"]).write_text(
+            render_review_card_markdown(batch_card)
+        )
+    (batch_dir / "manifest.json").write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n"
+    )
+    return manifest
 
 
 def render_review_card_markdown(card: Mapping[str, Any]) -> str:
@@ -140,6 +180,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--proposals", type=Path, default=DEFAULT_PROPOSALS)
     parser.add_argument("--json-out", type=Path, default=DEFAULT_JSON)
     parser.add_argument("--markdown-out", type=Path, default=DEFAULT_MARKDOWN)
+    parser.add_argument("--batch-dir", type=Path)
+    parser.add_argument("--max-batch-size", type=int, default=20)
     return parser
 
 
@@ -153,12 +195,26 @@ def main(argv: list[str] | None = None) -> int:
             json_path=_resolve(root, args.json_out),
             markdown_path=_resolve(root, args.markdown_out),
         )
+        manifest = (
+            generate_review_batches(
+                root=root,
+                card=card,
+                batch_dir=_resolve(root, args.batch_dir),
+                max_batch_size=args.max_batch_size,
+            )
+            if args.batch_dir is not None
+            else None
+        )
     except (OSError, ValueError, json.JSONDecodeError, tomllib.TOMLDecodeError) as error:
         print(f"mapping review card generation failed: {error}", file=sys.stderr)
         return 2
-    print(
-        f"mapping review card generated: {len(card['proposals'])} numbered proposals"
-    )
+    message = f"mapping review card generated: {len(card['proposals'])} numbered proposals"
+    if manifest is not None:
+        message += (
+            f" in {manifest['batch_count']} batches across "
+            f"{manifest['semantic_group_count']} semantic groups"
+        )
+    print(message)
     return 0
 
 
