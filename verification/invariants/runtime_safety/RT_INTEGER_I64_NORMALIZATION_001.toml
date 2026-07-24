@@ -10,7 +10,7 @@ claim = "Normalizing an integer runtime value to i64 preserves every representab
 proof_level = "G1"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-runtime-core/src/numeric.rs"]
-tests = ["TEST_RUNTIME_INTEGER_I64_NORMALIZATION_001", "TEST_RUNTIME_INTEGER_I64_NORMALIZATION_TRACE_001"]
+tests = ["TEST_AUTO_25B0EF01FE0B077934F8", "TEST_RUNTIME_INTEGER_I64_NORMALIZATION_001", "TEST_RUNTIME_INTEGER_I64_NORMALIZATION_TRACE_001"]
 gates = ["pr"]
 evidence_refs = [
   "EVID_TEST_RUNTIME_INTEGER_I64_NORMALIZATION_TRACE_001_LOCK_BASELINE",
