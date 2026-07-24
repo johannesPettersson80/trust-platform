@@ -172075,11 +172075,11 @@ item_kind = "rust_public_type"
 signature_digest = "sha256:8e061b69d628d59daa9093ca8f314275a67865ff42c9d2065a4db9ae498c4185"
 reviewed_body_digest = "sha256:c4f78196750175c9cd20bc7456b2c6ed52bd36c39f51ba288fd1a48a40dcb295"
 owner = "trust-runtime"
-area = "protocols"
+area = "runtime_safety"
 visibility = "public"
 risk_signals = []
 disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
 last_reviewed = "2026-07-21"
 
 [[mappings]]
@@ -173512,11 +173512,11 @@ item_kind = "rust_public_type"
 signature_digest = "sha256:a89b74cad5846513178a1064b9dcc66db4bb2fda59f801cf021cf32d9c0c3d6c"
 reviewed_body_digest = "sha256:a27984c9d3d765c5d3bcda9acf18e140bf13d4f0de78ed31c881a93a30fbb2ff"
 owner = "trust-runtime"
-area = "protocols"
+area = "runtime_safety"
 visibility = "public"
 risk_signals = []
 disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
 last_reviewed = "2026-07-21"
 
 [[mappings]]
@@ -177095,11 +177095,11 @@ item_kind = "rust_public_type"
 signature_digest = "sha256:847889ff2af4f7b719055f38640ba352209074c53bfe32202200a0a3747a83c9"
 reviewed_body_digest = "sha256:98cbb89d3fd4fe314a5ad45f39bf1ab663ce690e968a48686a3ed3aad15c6dc8"
 owner = "trust-runtime"
-area = "protocols"
+area = "runtime_safety"
 visibility = "public"
 risk_signals = []
 disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
 last_reviewed = "2026-07-21"
 
 [[mappings]]
@@ -179589,11 +179589,11 @@ item_kind = "rust_method"
 signature_digest = "sha256:27ad8d677663946a77b4024385e92e68fd0cf4c8a3f0cc548ff0f81a5983d9f5"
 reviewed_body_digest = "sha256:dc98334c014513381c87fae92be020c3e77138118625ebe58f13a9519450de50"
 owner = "trust-runtime"
-area = "protocols"
+area = "runtime_safety"
 visibility = "public"
 risk_signals = []
 disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
 last_reviewed = "2026-07-21"
 
 [[mappings]]
@@ -181629,11 +181629,11 @@ item_kind = "rust_public_type"
 signature_digest = "sha256:6c44c51c1e5904d68cf276caf6c10f9730dead47f3de387c158ef34b1852893f"
 reviewed_body_digest = "sha256:ff823d3e5d509b92715fce45356310b0e27e7e349afd26959f75a1ca934ad7ac"
 owner = "trust-runtime"
-area = "protocols"
+area = "runtime_safety"
 visibility = "public"
 risk_signals = []
 disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
 last_reviewed = "2026-07-21"
 
 [[mappings]]
@@ -182504,11 +182504,11 @@ item_kind = "rust_public_type"
 signature_digest = "sha256:9cb4c8821095fb1f5a2a92d5d7bc58a7a6af687fd4c28bcc5aa8cf5ffbea27e4"
 reviewed_body_digest = "sha256:d31392b9e5493acfc890163f8f818c4dec5303701622c07f324dda84ffba8306"
 owner = "trust-runtime"
-area = "protocols"
+area = "runtime_safety"
 visibility = "public"
 risk_signals = []
 disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
 last_reviewed = "2026-07-21"
 
 [[mappings]]
@@ -182521,11 +182521,11 @@ item_kind = "rust_method"
 signature_digest = "sha256:ebce709e7d01e6c4acc3c35ce6e5be3622b35688655d40f897743943c0b6b33d"
 reviewed_body_digest = "sha256:8fa9d030d1fd8a435172152e2b61ea204831a390de2fe96335da63bc2642a54c"
 owner = "trust-runtime"
-area = "protocols"
+area = "runtime_safety"
 visibility = "public"
 risk_signals = []
 disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
 last_reviewed = "2026-07-21"
 
 [[mappings]]
@@ -186004,11 +186004,11 @@ item_kind = "rust_public_type"
 signature_digest = "sha256:76ca40acadaeec3ae7c892687780e402eec20001c4c6111995e6648f240deae6"
 reviewed_body_digest = "sha256:894513630f55c24c3d54c9a2d6133aeeb3a853056a5c885842916538eef0ad89"
 owner = "trust-runtime"
-area = "protocols"
+area = "runtime_safety"
 visibility = "public"
 risk_signals = []
 disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
 last_reviewed = "2026-07-21"
 
 [[mappings]]
@@ -188381,11 +188381,11 @@ item_kind = "rust_public_type"
 signature_digest = "sha256:b93adb16fd1a84a149785484f282228f80d42457283a8b999a73dd9dd960c828"
 reviewed_body_digest = "sha256:6d6a4eb2a52fd262cd6f3415e9f1fe015e6561080c02968ac3a136283d8afd2b"
 owner = "trust-runtime"
-area = "protocols"
+area = "runtime_safety"
 visibility = "public"
 risk_signals = []
 disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
 last_reviewed = "2026-07-21"
 
 [[mappings]]
@@ -191596,11 +191596,11 @@ item_kind = "rust_public_type"
 signature_digest = "sha256:22a037bf7be4c32f9320d949fbc2c3951cea39155a5157f21babbaa720a4b06d"
 reviewed_body_digest = "sha256:bb8a8948df573a0649557d66f1c23222ec6c6f622b9805c1d77a9950085634bc"
 owner = "trust-runtime"
-area = "protocols"
+area = "runtime_safety"
 visibility = "public"
 risk_signals = []
 disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PROTOCOLS_001"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
 last_reviewed = "2026-07-21"
 
 [[mappings]]
