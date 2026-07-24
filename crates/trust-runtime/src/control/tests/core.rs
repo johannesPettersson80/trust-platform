@@ -4149,7 +4149,7 @@ fn ads_server_doctor_control_request_returns_server_report_without_external_proo
 
 #[cfg(feature = "ads-server")]
 #[test]
-fn ads_server_status_reflects_last_external_doctor_evidence_without_overclaiming() {
+fn ads_server_status_rejects_external_claim_without_live_server_evidence() {
     let state = hmi_test_state(ads_server_runtime_source());
     *state.ads_server_config.lock().expect("ads server config") = Some(ads_server_runtime_config());
 
@@ -4169,6 +4169,10 @@ fn ads_server_status_reflects_last_external_doctor_evidence_without_overclaiming
         None,
     );
     assert!(doctor.ok, "ads.server.doctor failed: {:?}", doctor.error);
+    assert!(doctor
+        .result
+        .as_ref()
+        .is_some_and(|report| report.get("evidence").is_none()));
     assert_eq!(
         doctor
             .result
@@ -4192,14 +4196,9 @@ fn ads_server_status_reflects_last_external_doctor_evidence_without_overclaiming
         result
             .get("external_client_verified")
             .and_then(serde_json::Value::as_bool),
-        Some(true)
+        Some(false)
     );
-    assert_eq!(
-        result
-            .get("external_client_kind")
-            .and_then(serde_json::Value::as_str),
-        Some("pyads")
-    );
+    assert!(result.get("external_client_kind").is_some_and(serde_json::Value::is_null));
     assert_eq!(
         result
             .get("production_ready")
@@ -4210,7 +4209,7 @@ fn ads_server_status_reflects_last_external_doctor_evidence_without_overclaiming
         result
             .get("proof_status")
             .and_then(serde_json::Value::as_str),
-        Some("external_client_verified")
+        Some("not_ready")
     );
 
     let topology = handle_request_value(
@@ -4233,32 +4232,9 @@ fn ads_server_status_reflects_last_external_doctor_evidence_without_overclaiming
             endpoint.get("protocol").and_then(serde_json::Value::as_str) == Some("ads_server")
         })
         .expect("ADS server endpoint");
-    let live_value = ads_server
-        .pointer("/live/value")
-        .expect("ADS server live value");
-    assert_eq!(
-        live_value
-            .get("external_client_verified")
-            .and_then(serde_json::Value::as_bool),
-        Some(true)
-    );
-    assert_eq!(
-        live_value
-            .get("external_client_kind")
-            .and_then(serde_json::Value::as_str),
-        Some("pyads")
-    );
-    assert_eq!(
-        live_value
-            .get("external_client_name")
-            .and_then(serde_json::Value::as_str),
-        Some("ci-pyads")
-    );
-    assert_eq!(
-        live_value
-            .get("proof_status")
-            .and_then(serde_json::Value::as_str),
-        Some("external_client_verified")
+    assert!(
+        ads_server.get("live").is_none(),
+        "caller-supplied external evidence must not create live fleet proof"
     );
 }
 
