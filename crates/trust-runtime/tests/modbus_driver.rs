@@ -414,9 +414,12 @@ byte_order = "little"
     outputs[1..5].copy_from_slice(&501u32.to_le_bytes());
     outputs[5..7].copy_from_slice(&60u16.to_le_bytes());
 
-    driver
-        .write_outputs(&outputs)
-        .expect("write mapped outputs");
+    match driver.write_outputs(&outputs) {
+        Ok(()) => {}
+        Err(RuntimeError::IoTransport(message))
+            if message.as_str() == "modbus output handoff pending" => {}
+        Err(error) => panic!("write mapped outputs: {error}"),
+    }
 
     let deadline = Instant::now() + StdDuration::from_millis(500);
     loop {
