@@ -623,9 +623,12 @@ Statement
 #### Malformed-source recovery
 
 IEC 61131-3 Ed.3 section 7.3.3.3, sections 7.3.3.4.2 through
-7.3.3.4.4, and Table 72 define the required selection and iteration syntax.
-truST applies the following fail-closed recovery contract when that syntax is
-malformed:
+7.3.3.4.4, and Table 72 define the required selection and iteration syntax;
+section 6.3.2 and Table 5 define numeric and typed-literal syntax. The
+documented `#identifier` extension is governed by
+`docs/specs/01-lexical-elements.md`, and test-POU terminators are governed by
+`docs/specs/04-pou-declarations.md`. truST applies the following fail-closed
+product recovery contract whenever these accepted source forms are malformed:
 
 - missing `THEN` after `ELSIF`, `OF` after a `CASE` selector, or `:` after a
   CASE label produces a parse diagnostic;

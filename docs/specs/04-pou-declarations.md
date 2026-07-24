@@ -36,6 +36,9 @@ Current parser/HIR behavior:
 - `TEST_PROGRAM` is parsed with PROGRAM structure and collected as `SymbolKind::Program`.
 - `TEST_FUNCTION_BLOCK` is parsed with FUNCTION_BLOCK structure and collected as `SymbolKind::FunctionBlock`.
 - Mismatched end markers produce actionable diagnostics (`expected END_TEST_PROGRAM` / `expected END_TEST_FUNCTION_BLOCK`).
+- End-of-file before the matching test-POU terminator produces the same
+  actionable required-terminator diagnostic; an unterminated `TEST_PROGRAM`
+  reports `expected END_TEST_PROGRAM`.
 
 ## 2. FUNCTION Declaration (Table 19, Section 6.6.2)
 

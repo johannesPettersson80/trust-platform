@@ -66,6 +66,31 @@ conflicts_with = []
 
 [[spec_sources]]
 schema_version = 2
+id = "SPEC_IEC_POU_DECLARATIONS_001"
+title = "truST IEC and product POU declaration contract"
+area = "compiler_iec"
+owner = "language"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/specs/04-pou-declarations.md"
+version = "current"
+last_reviewed = "2026-07-24"
+covers = [
+  "pou_declarations",
+  "pou_terminators",
+  "test_pou_extensions",
+]
+known_limitations = [
+  "TEST_PROGRAM and TEST_FUNCTION_BLOCK are documented truST extensions rather than IEC POU kinds.",
+]
+conflicts_with = []
+
+[[spec_sources]]
+schema_version = 2
 id = "SPEC_WEB_IDE_FULL_001"
 title = "truST Web IDE full specification"
 area = "control_security"

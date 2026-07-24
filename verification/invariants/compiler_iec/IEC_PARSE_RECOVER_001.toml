@@ -6,7 +6,7 @@ risk = "silent_corruption"
 status = "implemented"
 owner = "trust-syntax"
 last_reviewed = "2026-07-14"
-claim = "Parser recovery must not silently accept malformed delimiter or nesting structure."
+claim = "Parser recovery must visibly reject malformed statement, literal, product-extension, delimiter, terminator, and nesting structure while preserving only a bounded partial tree for tooling."
 proof_level = "G1"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-syntax/src"]
@@ -31,11 +31,11 @@ missing = ["broad_remote_gate"]
 [input]
 name = "source"
 type = "Structured Text source"
-declared = "IEC selection, iteration, POU, or expression syntax"
+declared = "IEC or documented truST statement, literal, local-reference, POU, or expression syntax"
 
 [spec]
 status = "specified"
-source_refs = ["SPEC_IEC_DECISIONS_001", "SPEC_IEC_STATEMENTS_001"]
+source_refs = ["SPEC_IEC_DECISIONS_001", "SPEC_IEC_POU_DECLARATIONS_001", "SPEC_IEC_STATEMENTS_001"]
 
 [oracle]
 kind = "trust_contract"
@@ -141,6 +141,15 @@ delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", pr
 rationale = "The inner construct diagnoses its missing terminator without consuming the outer terminator or following statement."
 
 [[behavior]]
+partition = { equals = "MISSING_INNER_TERMINATOR_AT_OUTER_BOUNDARY_ONLY" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#malformed-source-recovery"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A missing inner terminator diagnoses before and does not consume the displayed outer terminator."
+
+[[behavior]]
 partition = { equals = "MISSING_POU_TERMINATOR_AT_EOF" }
 case_family = "wrong_type_or_shape"
 oracle_ref = "SPEC_IEC_DECISIONS_001#malformed-structured-text-parser-recovery-policy"
@@ -148,6 +157,15 @@ outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
 rationale = "End-of-file before the owning POU terminator produces a visible parse failure."
+
+[[behavior]]
+partition = { equals = "MISSING_TEST_PROGRAM_TERMINATOR_AT_EOF" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_POU_DECLARATIONS_001#implementation-extension-test-pous"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "End-of-file before END_TEST_PROGRAM produces the documented test-POU terminator diagnostic."
 
 [[behavior]]
 partition = { equals = "MISSING_STATEMENT_SEMICOLON" }
