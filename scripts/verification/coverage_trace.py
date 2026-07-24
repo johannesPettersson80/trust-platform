@@ -77,11 +77,18 @@ def validate_trace_document(
                 record.get("attribution_kind") == "llvm_source_coverage"
                 and (
                     not isinstance(code_inventory_digests, Mapping)
-                    or "rust_product" not in code_inventory_digests
+                    or not any(
+                        key in code_inventory_digests
+                        for key in (
+                            "rust_product",
+                            "rust_focused_projection",
+                            "rust_observed_paths",
+                        )
+                    )
                 )
             ):
                 failures.append(
-                    f"{label} LLVM attribution requires rust_product inventory digest"
+                    f"{label} LLVM attribution requires Rust inventory digest"
                 )
             if (
                 record.get("attribution_kind") == "istanbul_source_coverage"

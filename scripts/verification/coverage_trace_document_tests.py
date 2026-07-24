@@ -2,13 +2,22 @@
 
 from __future__ import annotations
 
+import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from scripts.verification.code_spec_common import CodeSourceSpan
 from scripts.verification.coverage_trace_document import build_rust_trace_document
+from scripts.verification.coverage_trace_inputs import (
+    focused_rust_trace_input_provenance,
+    trace_input_digest,
+)
 from scripts.verification.coverage_trace_resume import profile_digest
+from scripts.verification.test_catalog_json_schema import (
+    validate_json_schema_instance,
+)
 
 
 DISCOVERY_ID = "DISC_00000000000000000001"
@@ -16,6 +25,76 @@ CODE_ID = "CODE_" + "A" * 64
 
 
 class CoverageTraceDocumentTests(unittest.TestCase):
+    def test_focused_input_provenance_recomputes_exact_trace_digest(self) -> None:
+        resolved = [
+            {
+                "discovery_id": "DISC_" + "A" * 20,
+                "discovery_source_kind": "rust_unit_test",
+                "path": "crates/example/src/lib.rs",
+                "name": "exact_case",
+                "ignore_state": "not_ignored",
+                "package": "example",
+                "nextest_binary_id": "example::lib",
+                "nextest_binary_path": "/tmp/example",
+                "nextest_test_name": "tests::exact_case",
+                "cargo_target_kind": "lib",
+                "cargo_target_name": None,
+                "command": "cargo nextest run",
+                "command_authority": "verified_synthesized",
+            }
+        ]
+        code_map = {"schema_version": 1, "mappings": []}
+        source_digest = "sha256:" + "1" * 64
+
+        provenance = focused_rust_trace_input_provenance(
+            source_input_digest=source_digest,
+            resolved=resolved,
+            code_map=code_map,
+            trace_root="target/gate-artifacts/trace",
+            raw_evidence_digest="sha256:" + "4" * 64,
+            llvm_tool_digests={
+                "llvm-profdata": "sha256:" + "5" * 64,
+                "llvm-cov": "sha256:" + "6" * 64,
+            },
+            llvm_tool_paths={
+                "llvm-profdata": "/toolchain/llvm-profdata",
+                "llvm-cov": "/toolchain/llvm-cov",
+            },
+        )
+
+        self.assertEqual(resolved, provenance["resolved"])
+        self.assertEqual(
+            trace_input_digest(source_digest, resolved, code_map),
+            provenance["input_digest"],
+        )
+
+        schema = json.loads(
+            (
+                Path(__file__).resolve().parents[2]
+                / "verification/schemas/test-coverage-trace.schema.json"
+            ).read_text()
+        )
+        document = {
+            "schema_version": 1,
+            "generator": "test-coverage-trace",
+            "generator_version": "1",
+            "source_commit": "a" * 40,
+            "platform": "linux-x86_64",
+            "scope": {
+                "mode": "focused_shard",
+                "requested_discovery_ids": [resolved[0]["discovery_id"]],
+                "source_kinds": ["rust_unit_test"],
+            },
+            "input_digest": provenance["input_digest"],
+            "input_provenance": provenance,
+            "code_inventory_digests": {},
+            "tests": [],
+        }
+        self.assertEqual(
+            [],
+            validate_json_schema_instance(document, schema),
+        )
+
     def test_completed_attempt_and_export_create_exact_trace_record(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -78,33 +157,35 @@ class CoverageTraceDocumentTests(unittest.TestCase):
                 ],
             }
 
+            span = CodeSourceSpan(
+                CODE_ID, source_path, 0, len(source)
+            )
+            span_resolver = mock.Mock(return_value={CODE_ID: span})
             document = build_rust_trace_document(
                 root=root,
                 trace_root=trace_root,
                 requested=[request],
                 coverage_exports={DISCOVERY_ID: export},
                 sources={source_path: source},
-                spans={
-                    CODE_ID: CodeSourceSpan(
-                        CODE_ID, source_path, 0, len(source)
-                    )
-                },
+                spans={},
                 source_commit="a" * 40,
                 platform="linux-x86_64",
                 input_digest="sha256:" + "1" * 64,
                 code_inventory_digests={
-                    "rust_product": "sha256:" + "2" * 64,
+                    "rust_observed_paths": "sha256:" + "2" * 64,
                 },
                 mode="focused_shard",
+                span_resolver=span_resolver,
             )
 
         record = document["tests"][0]
+        span_resolver.assert_called_once_with([source_path])
         self.assertEqual([CODE_ID], record["covered_code_ids"])
         self.assertEqual(12, record["duration_ms"])
         self.assertEqual("observed", record["trace_status"])
         self.assertRegex(record["profile_digest"], r"^sha256:[0-9a-f]{64}$")
         self.assertEqual(
-            {"rust_product": "sha256:" + "2" * 64},
+            {"rust_observed_paths": "sha256:" + "2" * 64},
             document["code_inventory_digests"],
         )
 

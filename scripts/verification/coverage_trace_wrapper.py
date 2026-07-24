@@ -13,7 +13,6 @@ import time
 from collections.abc import Mapping
 from pathlib import Path
 
-
 TRACE_ROOT_ENV = "TRUST_CATALOG_TRACE_ROOT"
 NEXTEST_IDENTITY_ENV = (
     "NEXTEST_TEST_NAME",
@@ -160,9 +159,23 @@ def complete_attempt_manifest(
         "status": "completed",
         "exit_code": exit_code,
         "duration_ms": duration_ms,
+        "profile_digest": _profile_digest(attempt_dir / "profiles"),
     }
     _atomic_write_json(attempt_dir / "attempt.json", completed)
     return completed
+
+
+def _profile_digest(profiles_dir: Path) -> str:
+    profiles = sorted(profiles_dir.glob("*.profraw"))
+    if not profiles:
+        raise ValueError(f"trace attempt has no raw profiles: {profiles_dir}")
+    digest = hashlib.sha256()
+    for path in profiles:
+        digest.update(path.name.encode())
+        digest.update(b"\0")
+        digest.update(path.read_bytes())
+        digest.update(b"\0")
+    return "sha256:" + digest.hexdigest()
 
 
 def _requested_discovery_id(

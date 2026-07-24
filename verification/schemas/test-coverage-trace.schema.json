@@ -39,10 +39,12 @@
       "additionalProperties": false
     },
     "input_digest": { "$ref": "#/$defs/digest" },
+    "input_provenance": { "$ref": "#/$defs/focused_rust_input_provenance" },
     "code_inventory_digests": {
       "type": "object",
       "properties": {
         "rust_product": { "$ref": "#/$defs/digest" },
+        "rust_observed_paths": { "$ref": "#/$defs/digest" },
         "typescript_product": { "$ref": "#/$defs/digest" }
       },
       "additionalProperties": false
@@ -77,6 +79,98 @@
         "structured_text_test",
         "vscode_test"
       ]
+    },
+    "resolved_rust_test": {
+      "type": "object",
+      "required": [
+        "discovery_id",
+        "discovery_source_kind",
+        "path",
+        "name",
+        "ignore_state",
+        "package",
+        "nextest_binary_id",
+        "nextest_binary_path",
+        "nextest_test_name",
+        "cargo_target_kind",
+        "cargo_target_name",
+        "command",
+        "command_authority"
+      ],
+      "properties": {
+        "discovery_id": { "$ref": "#/$defs/discovery_id" },
+        "discovery_source_kind": {
+          "enum": ["rust_integration_test", "rust_unit_test"]
+        },
+        "path": { "type": "string", "pattern": "^[^/\\\\][^\\\\]*$" },
+        "name": { "type": "string", "minLength": 1 },
+        "ignore_state": {
+          "enum": ["not_ignored", "ignored", "conditional"]
+        },
+        "package": { "type": "string", "minLength": 1 },
+        "nextest_binary_id": { "type": "string", "minLength": 1 },
+        "nextest_binary_path": { "type": "string", "minLength": 1 },
+        "nextest_test_name": { "type": "string", "minLength": 1 },
+        "command": { "type": "string", "minLength": 1 },
+        "command_authority": { "const": "verified_synthesized" },
+        "cargo_target_kind": {
+          "enum": ["bench", "bin", "example", "lib", "test"]
+        },
+        "cargo_target_name": {
+          "type": ["string", "null"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "focused_rust_input_provenance": {
+      "type": "object",
+      "required": [
+        "kind",
+        "source_input_digest",
+        "resolution_digest",
+        "code_map_digest",
+        "resolved",
+        "input_digest",
+        "trace_root",
+        "raw_evidence_digest",
+        "llvm_tool_digests",
+        "llvm_tool_paths"
+      ],
+      "properties": {
+        "kind": { "const": "focused_rust_v1" },
+        "source_input_digest": { "$ref": "#/$defs/digest" },
+        "resolution_digest": { "$ref": "#/$defs/digest" },
+        "code_map_digest": { "$ref": "#/$defs/digest" },
+        "resolved": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/resolved_rust_test" }
+        },
+        "input_digest": { "$ref": "#/$defs/digest" }
+        ,"trace_root": {
+          "type": "string",
+          "pattern": "^target/gate-artifacts/[^\\\\]+"
+        },
+        "raw_evidence_digest": { "$ref": "#/$defs/digest" }
+        ,"llvm_tool_digests": {
+          "type": "object",
+          "required": ["llvm-profdata", "llvm-cov"],
+          "properties": {
+            "llvm-profdata": { "$ref": "#/$defs/digest" },
+            "llvm-cov": { "$ref": "#/$defs/digest" }
+          },
+          "additionalProperties": false
+        },
+        "llvm_tool_paths": {
+          "type": "object",
+          "required": ["llvm-profdata", "llvm-cov"],
+          "properties": {
+            "llvm-profdata": { "type": "string", "pattern": "^/" },
+            "llvm-cov": { "type": "string", "pattern": "^/" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
     },
     "test_record": {
       "type": "object",

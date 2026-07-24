@@ -31,6 +31,160 @@ from scripts.verification.coverage_trace_cli import (
 
 
 class CoverageTraceCliTests(unittest.TestCase):
+    def test_focused_trace_never_invokes_whole_rust_extractor(self) -> None:
+        discovery_id = "DISC_" + "A" * 20
+        resolved = {
+            "discovery_id": discovery_id,
+            "discovery_source_kind": "rust_unit_test",
+            "path": "crates/example/src/lib.rs",
+            "name": "exact_case",
+            "ignore_state": "not_ignored",
+            "package": "example",
+            "nextest_binary_id": "example::lib",
+            "nextest_binary_path": "/tmp/example",
+            "nextest_test_name": "tests::exact_case",
+            "cargo_target_kind": "lib",
+            "cargo_target_name": None,
+            "command": "cargo nextest run exact",
+            "command_authority": "verified_synthesized",
+        }
+        fact = SimpleNamespace(
+            stable_id=discovery_id,
+            source_kind="rust_unit_test",
+            path="crates/example/src/lib.rs",
+            name="exact_case",
+            ignore_state="not_ignored",
+            package="example",
+        )
+        output_document = {
+            "schema_version": 1,
+            "generator": "test-coverage-trace",
+            "generator_version": "1",
+            "source_commit": "a" * 40,
+            "platform": "linux-x86_64",
+            "scope": {
+                "mode": "focused_shard",
+                "requested_discovery_ids": [discovery_id],
+                "source_kinds": ["rust_unit_test"],
+            },
+            "input_digest": "sha256:" + "1" * 64,
+            "code_inventory_digests": {
+                "rust_focused_projection": "sha256:" + "2" * 64,
+            },
+            "tests": [],
+        }
+        metadata = mock.Mock(
+            code_map={"schema_version": 1, "mappings": []},
+            mappings={},
+        )
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            schema = root / "verification/schemas/test-coverage-trace.schema.json"
+            schema.parent.mkdir(parents=True)
+            schema.write_text("{}")
+            (root / "scripts/verification").mkdir(parents=True)
+            (root / "scripts/verification/coverage_trace_wrapper.py").write_text("")
+            focused_inventory = mock.Mock(spans={"CODE_X": mock.Mock()})
+            with mock.patch(
+                "scripts.verification.coverage_trace_cli.invoke_rust_extractor",
+                side_effect=AssertionError("whole Rust extractor invoked"),
+                create=True,
+            ) as whole_extractor, mock.patch(
+                "scripts.verification.coverage_trace_cli._run",
+                side_effect=[
+                    mock.Mock(stdout='{"packages": []}'),
+                    mock.Mock(stdout="unused"),
+                    mock.Mock(stdout="{}"),
+                ],
+            ), mock.patch(
+                "scripts.verification.coverage_trace_cli.parse_llvm_cov_environment",
+                return_value={},
+            ), mock.patch(
+                "scripts.verification.coverage_trace_cli.rust_package_target_inventory",
+                return_value={"example": {}},
+            ), mock.patch(
+                "scripts.verification.coverage_trace_cli.targeted_nextest_list_shards",
+                return_value=[{"command": ["cargo", "nextest", "list"]}],
+            ), mock.patch(
+                "scripts.verification.coverage_trace_cli.resolve_nextest_list_shard",
+                return_value=([resolved], []),
+            ), mock.patch(
+                "scripts.verification.coverage_trace_cli.reusable_completed_attempt_ids",
+                return_value={discovery_id},
+            ), mock.patch(
+                "scripts.verification.coverage_trace_cli.load_code_spec_metadata",
+                return_value=metadata,
+            ), mock.patch(
+                "scripts.verification.coverage_trace_cli.executed_repository_paths",
+                return_value=("crates/example/src/lib.rs",),
+            ), mock.patch(
+                "scripts.verification.coverage_trace_cli."
+                "focused_rust_observed_source_projection",
+                return_value=(
+                    {"crates/example/src/lib.rs": b"fn product() {}"},
+                    "sha256:" + "2" * 64,
+                ),
+            ) as source_projection, mock.patch(
+                "scripts.verification.coverage_trace_cli.export_attempt_coverage",
+                return_value={discovery_id: {}},
+            ), mock.patch(
+                "scripts.verification.coverage_trace_cli.focused_rust_path_inventory",
+                return_value=focused_inventory,
+            ) as path_inventory, mock.patch(
+                "scripts.verification.coverage_trace_cli.build_rust_trace_document",
+                return_value=output_document,
+            ) as build_document, mock.patch(
+                "scripts.verification.coverage_trace_cli.capture_raw_trace_evidence",
+                return_value=mock.Mock(
+                    digest="sha256:" + "3" * 64,
+                    tool_digests={
+                        "llvm-profdata": "sha256:" + "4" * 64,
+                        "llvm-cov": "sha256:" + "5" * 64,
+                    },
+                    tool_paths={
+                        "llvm-profdata": "/toolchain/llvm-profdata",
+                        "llvm-cov": "/toolchain/llvm-cov",
+                    },
+                ),
+            ), mock.patch(
+                "scripts.verification.coverage_trace_cli._git_head",
+                return_value="a" * 40,
+            ), mock.patch(
+                "scripts.verification.coverage_trace_cli.validate_trace_document",
+                return_value=[],
+            ), mock.patch(
+                "scripts.verification.coverage_trace_cli.validate_json_schema_instance",
+                return_value=[],
+            ):
+                document = run_focused_rust_trace(
+                    root=root,
+                    discovery_ids=[discovery_id],
+                    trace_root=root / "target/gate-artifacts/trace",
+                    output_path=root / "trace.json",
+                    cargo_target_dir=root / "cargo-target",
+                    llvm_tools_dir=root / "llvm-tools",
+                    temporary_dir=root / "temporary",
+                    source_facts=[fact],
+                    source_input_digest="sha256:" + "1" * 64,
+                    resume=True,
+                )
+                whole_extractor.assert_not_called()
+                source_projection.assert_called_once_with(
+                    root,
+                    ["crates/example/src/lib.rs"],
+                    metadata.mappings,
+                )
+                self.assertEqual(
+                    focused_inventory.spans,
+                    build_document.call_args.kwargs["spans"],
+                )
+                path_inventory.assert_called_once_with(
+                    root,
+                    ["crates/example/src/lib.rs"],
+                    metadata.mappings,
+                )
+                self.assertEqual(output_document, document)
+
     @mock.patch(
         "scripts.verification.coverage_trace_cli.validate_json_schema_instance",
         return_value=[],

@@ -173,6 +173,97 @@ def parse_llvm_export(
     return tuple(sorted(set(regions), key=lambda item: (item.path, item.start, item.end, item.count)))
 
 
+def executed_repository_paths(
+    document: Mapping[str, Any],
+    *,
+    root: Path,
+) -> tuple[str, ...]:
+    """Return repository paths having at least one positive executed region.
+
+    This intentionally does not read any source file.  It is the discovery
+    pass used after an unfiltered LLVM export so focused tracing can decide
+    which source bytes to open.
+    """
+
+    _require_exact_fields(document, ROOT_FIELDS, "LLVM export root")
+    if document.get("type") != "llvm.coverage.json.export":
+        raise ValueError("LLVM export type must equal llvm.coverage.json.export")
+    version = document.get("version")
+    if not isinstance(version, str) or not version.startswith(("2.", "3.")):
+        raise ValueError(f"unsupported LLVM coverage export version {version!r}")
+    paths: set[str] = set()
+    for data_index, record in enumerate(
+        _object_list(document.get("data"), "LLVM export data")
+    ):
+        label = f"LLVM export data[{data_index}]"
+        _require_allowed_fields(record, DATA_FIELDS, label)
+        for file_index, file_record in enumerate(
+            _object_list(record.get("files"), f"{label}.files")
+        ):
+            file_label = f"{label}.files[{file_index}]"
+            _require_allowed_fields(file_record, FILE_FIELDS, file_label)
+            path = _repo_path(root, _string(file_record.get("filename"), file_label))
+            if path is None:
+                continue
+            raw_regions = file_record.get("regions", [])
+            if not isinstance(raw_regions, Sequence) or isinstance(
+                raw_regions, (str, bytes)
+            ):
+                raise ValueError(f"{file_label}.regions must be an array")
+            if any(
+                _region_values(value, f"{file_label}.regions[{index}]")[4] > 0
+                and _region_values(value, f"{file_label}.regions[{index}]")[7] == 0
+                for index, value in enumerate(raw_regions)
+            ):
+                paths.add(path)
+                continue
+            raw_segments = file_record.get("segments", [])
+            if not isinstance(raw_segments, Sequence) or isinstance(
+                raw_segments, (str, bytes)
+            ):
+                raise ValueError(f"{file_label}.segments must be an array")
+            if any(
+                (values := _segment_values(
+                    value, f"{file_label}.segments[{index}]"
+                ))[2] > 0
+                and values[3]
+                and not values[5]
+                for index, value in enumerate(raw_segments)
+            ):
+                paths.add(path)
+        for function_index, function in enumerate(
+            _object_list(record.get("functions", []), f"{label}.functions")
+        ):
+            function_label = f"{label}.functions[{function_index}]"
+            _require_allowed_fields(function, FUNCTION_FIELDS, function_label)
+            filenames = function.get("filenames")
+            if not isinstance(filenames, Sequence) or isinstance(
+                filenames, (str, bytes)
+            ) or any(not isinstance(item, str) or not item for item in filenames):
+                raise ValueError(f"{function_label}.filenames must be a string array")
+            raw_regions = function.get("regions")
+            if not isinstance(raw_regions, Sequence) or isinstance(
+                raw_regions, (str, bytes)
+            ):
+                raise ValueError(f"{function_label}.regions must be an array")
+            for region_index, raw_region in enumerate(raw_regions):
+                values = _region_values(
+                    raw_region, f"{function_label}.regions[{region_index}]"
+                )
+                if values[4] <= 0 or values[7] != 0:
+                    continue
+                file_id = values[5]
+                if file_id < 0 or file_id >= len(filenames):
+                    raise ValueError(
+                        f"{function_label}.regions[{region_index}] "
+                        "has invalid filename index"
+                    )
+                path = _repo_path(root, filenames[file_id])
+                if path is not None:
+                    paths.add(path)
+    return tuple(sorted(paths))
+
+
 def attributed_code_ids(
     regions: Sequence[CoveredRegion],
     spans: Mapping[str, CodeSpan],

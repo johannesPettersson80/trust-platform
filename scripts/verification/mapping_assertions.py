@@ -55,6 +55,7 @@ def invoke_assertion_inventories(
     facts: Sequence[Mapping[str, Any]],
     *,
     environment: Mapping[str, str] | None = None,
+    workspace_root: Path | None = None,
 ) -> dict[str, dict[str, Any]]:
     """Dispatch one mixed proposal batch to syntax-aware source adapters."""
 
@@ -80,7 +81,10 @@ def invoke_assertion_inventories(
         (
             "rust",
             lambda rows: invoke_rust_assertion_inventory(
-                root, rows, environment=environment
+                root,
+                rows,
+                environment=environment,
+                workspace_root=workspace_root,
             ),
         ),
         ("structured_text_test", lambda rows: invoke_st_assertion_inventory(root, rows)),
@@ -300,6 +304,7 @@ def invoke_rust_assertion_inventory(
     facts: Sequence[Mapping[str, Any]],
     *,
     environment: Mapping[str, str] | None = None,
+    workspace_root: Path | None = None,
 ) -> dict[str, dict[str, Any]]:
     """Extract all requested Rust tests in one xtask process."""
 
@@ -330,6 +335,10 @@ def invoke_rust_assertion_inventory(
             )
         ],
     }
+    invocation_environment = dict(environment or os.environ)
+    invocation_environment["TRUST_VERIFICATION_INPUT_ROOT"] = str(
+        root.resolve()
+    )
     completed = subprocess.run(
         [
             "cargo",
@@ -340,12 +349,12 @@ def invoke_rust_assertion_inventory(
             "--",
             "test-assertions-batch",
         ],
-        cwd=root,
+        cwd=workspace_root or root,
         input=json.dumps(request_document, sort_keys=True),
         capture_output=True,
         text=True,
         check=False,
-        env=dict(environment or os.environ),
+        env=invocation_environment,
     )
     if completed.returncode != 0:
         detail = completed.stderr.strip() or completed.stdout.strip()

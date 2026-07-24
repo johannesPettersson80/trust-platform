@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from .code_spec_common import CodeSourceSpan
 from .coverage_trace import validate_trace_document
@@ -29,6 +29,10 @@ def build_rust_trace_document(
     input_digest: str,
     code_inventory_digests: Mapping[str, str],
     mode: str,
+    input_provenance: Mapping[str, Any] | None = None,
+    span_resolver: (
+        Callable[[Sequence[str]], Mapping[str, CodeSourceSpan]] | None
+    ) = None,
 ) -> dict[str, Any]:
     """Join exact completed attempts with LLVM exports and governed code spans."""
 
@@ -53,6 +57,8 @@ def build_rust_trace_document(
         )
 
     records: list[dict[str, Any]] = []
+    live_spans = dict(spans)
+    resolved_span_paths = {span.path for span in live_spans.values()}
     for discovery_id in sorted(requested_by_id):
         request = requested_by_id[discovery_id]
         attempt_dir, attempt = attempts[discovery_id]
@@ -108,12 +114,35 @@ def build_rust_trace_document(
                 root=root,
                 sources=sources,
             )
+            region_paths = {region.path for region in regions}
+            missing_span_paths = sorted(region_paths - resolved_span_paths)
+            if missing_span_paths and span_resolver is not None:
+                additional = span_resolver(missing_span_paths)
+                overlap = sorted(set(live_spans) & set(additional))
+                if overlap:
+                    raise ValueError(
+                        f"focused span resolver duplicates code IDs: {overlap}"
+                    )
+                invalid_paths = sorted(
+                    {
+                        span.path
+                        for span in additional.values()
+                        if span.path not in missing_span_paths
+                    }
+                )
+                if invalid_paths:
+                    raise ValueError(
+                        "focused span resolver returned unrequested paths: "
+                        f"{invalid_paths}"
+                    )
+                live_spans.update(additional)
+                resolved_span_paths.update(missing_span_paths)
             record.update(
                 {
                     "trace_status": "observed",
                     "attribution_kind": "llvm_source_coverage",
                     "covered_code_ids": list(
-                        attributed_code_ids(regions, spans)
+                        attributed_code_ids(regions, live_spans)
                     ),
                     "limitations": [
                         "Execution coverage ranks candidates and creates no "
@@ -156,6 +185,8 @@ def build_rust_trace_document(
         "code_inventory_digests": dict(sorted(code_inventory_digests.items())),
         "tests": records,
     }
+    if input_provenance is not None:
+        document["input_provenance"] = dict(input_provenance)
     live_facts = {
         discovery_id: {
             "discovery_id": discovery_id,

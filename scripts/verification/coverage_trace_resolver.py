@@ -126,6 +126,58 @@ def mechanical_rust_target(fact: Mapping[str, Any]) -> dict[str, Any]:
     return {"kind": "lib", "name": None, "cargo_args": ("--lib",)}
 
 
+def mechanical_resolved_rust_command(
+    record: Mapping[str, Any],
+) -> str:
+    """Rebuild one exact nextest command from its resolved runtime identity."""
+
+    package = _required_string(record, "package", "resolved test")
+    target_kind = _required_string(
+        record,
+        "cargo_target_kind",
+        "resolved test",
+    )
+    target_name = record.get("cargo_target_name")
+    if target_kind == "lib":
+        if target_name is not None:
+            raise ValueError("library target must not carry a target name")
+        target_args = ["--lib"]
+    elif target_kind in {"test", "bin", "example", "bench"}:
+        if not isinstance(target_name, str) or not target_name:
+            raise ValueError(f"{target_kind} target requires a target name")
+        target_args = [f"--{target_kind}", target_name]
+    else:
+        raise ValueError(
+            f"unsupported exact cargo target kind {target_kind!r}"
+        )
+    binary_id = _required_string(
+        record,
+        "nextest_binary_id",
+        "resolved test",
+    )
+    test_name = _required_string(
+        record,
+        "nextest_test_name",
+        "resolved test",
+    )
+    expression = (
+        f"(binary_id({exact_name_matcher(binary_id)}) & "
+        f"test({exact_name_matcher(test_name)}))"
+    )
+    return shlex.join(
+        [
+            "cargo",
+            "nextest",
+            "run",
+            "-p",
+            package,
+            *target_args,
+            "-E",
+            expression,
+        ]
+    )
+
+
 def resolve_rust_tests(
     *,
     facts: Sequence[Mapping[str, Any]],

@@ -17,20 +17,31 @@ from pathlib import Path
 from typing import Any
 
 from .code_spec_live import load_code_spec_metadata
-from .code_spec_rust import invoke_rust_extractor
 from .coverage_trace import validate_trace_document
 from .coverage_trace_config import render_nextest_tool_config
 from .coverage_trace_document import build_rust_trace_document
+from .coverage_trace_attribution import executed_repository_paths
+from .coverage_trace_evidence import capture_raw_trace_evidence
 from .coverage_trace_direct import parse_llvm_cov_environment
 from .coverage_trace_filter import exact_name_matcher
-from .coverage_trace_inventory import code_inventory_digest
-from .coverage_trace_inputs import trace_input_digest
-from .coverage_trace_resolver import mechanical_rust_target, resolve_rust_tests
+from .coverage_trace_inputs import (
+    focused_rust_trace_input_provenance,
+    trace_input_digest,
+)
+from .coverage_trace_resolver import (
+    mechanical_resolved_rust_command,
+    mechanical_rust_target,
+    resolve_rust_tests,
+)
 from .coverage_trace_resume import reusable_completed_attempt_ids
 from .coverage_trace_tools import export_attempt_coverage
 from .focused_test_facts import (
     focused_rust_input_digest,
     resolve_focused_rust_facts,
+)
+from .mapping_live_code_facts import (
+    focused_rust_path_inventory,
+    focused_rust_observed_source_projection,
 )
 from .test_catalog_denominator import load_test_catalog_denominator
 from .test_catalog_json_schema import validate_json_schema_instance
@@ -198,28 +209,7 @@ def resolve_nextest_list_shard(
         nextest_document=nextest_document,
     )
     for record in resolved:
-        target_kind = _required_string(
-            record,
-            "cargo_target_kind",
-            "resolved test",
-        )
-        target_name = record.get("cargo_target_name")
-        target_args = _cargo_target_args(
-            kind=target_kind,
-            name=target_name,
-        )
-        record["command"] = shlex.join(
-            [
-                "cargo",
-                "nextest",
-                "run",
-                "-p",
-                str(record["package"]),
-                *target_args,
-                "-E",
-                nextest_filter_expression([record]),
-            ]
-        )
+        record["command"] = mechanical_resolved_rust_command(record)
     return resolved, unsupported
 
 
@@ -692,23 +682,46 @@ def run_focused_rust_trace(
             _run(run_command, root=root, environment=environment)
 
         metadata = load_code_spec_metadata(root)
-        matrix = tomllib.loads((root / "verification/matrix.toml").read_text())
-        inventory = invoke_rust_extractor(
-            root,
-            matrix,
-            area_bindings={},
-            reject_invented_area_bindings=False,
-            environment=environment,
-        )
         exports = export_attempt_coverage(
             root=root,
             trace_root=trace_root,
             llvm_tools_dir=llvm_tools_dir.resolve(),
-            source_paths=inventory.source_paths,
         )
-        sources = {
-            path: (root / path).read_bytes() for path in inventory.source_paths
-        }
+        observed_paths = sorted(
+            {
+                path
+                for discovery_id in exports
+                for path in executed_repository_paths(
+                    exports[discovery_id], root=root
+                )
+            }
+        )
+        sources, source_projection_digest = (
+            focused_rust_observed_source_projection(
+                root,
+                observed_paths,
+                metadata.mappings,
+            )
+        )
+        inventory = focused_rust_path_inventory(
+            root,
+            sorted(sources),
+            metadata.mappings,
+        )
+        raw_evidence = capture_raw_trace_evidence(
+            root=root,
+            trace_root=trace_root,
+            llvm_tools_dir=llvm_tools_dir,
+        )
+        input_provenance = focused_rust_trace_input_provenance(
+            source_input_digest=source_input_digest,
+            resolved=resolved,
+            code_map=metadata.code_map,
+            trace_root=trace_root.relative_to(root).as_posix(),
+            raw_evidence_digest=raw_evidence.digest,
+            llvm_tool_digests=raw_evidence.tool_digests,
+            llvm_tool_paths=raw_evidence.tool_paths,
+        )
         document = build_rust_trace_document(
             root=root,
             trace_root=trace_root,
@@ -718,18 +731,12 @@ def run_focused_rust_trace(
             spans=inventory.spans,
             source_commit=_git_head(root),
             platform=f"{platform.system().lower()}-{platform.machine().lower()}",
-            input_digest=trace_input_digest(
-                source_input_digest,
-                resolved,
-                metadata.code_map,
-            ),
+            input_digest=input_provenance["input_digest"],
             code_inventory_digests={
-                "rust_product": code_inventory_digest(
-                    inventory.facts,
-                    inventory.spans,
-                )
+                "rust_observed_paths": source_projection_digest,
             },
             mode="focused_shard",
+            input_provenance=input_provenance,
         )
     else:
         document = {

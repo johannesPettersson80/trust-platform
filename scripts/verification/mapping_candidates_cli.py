@@ -16,14 +16,13 @@ from pathlib import Path
 from typing import Any
 
 from .code_spec_live import CodeSpecMetadata, load_code_spec_metadata
-from .code_spec_rust import invoke_rust_extractor
-from .code_spec_typescript import invoke_typescript_extractor
-from .coverage_trace_inventory import code_inventory_digest
+from .focused_mapping_candidates import generate_focused_mapping_candidates
 from .mapping_catalog_updates import render_denominator_document
 from .mapping_artifact_paths import resolve_mapping_artifact_output
 from .mapping_denominator import reconcile_denominator_document
 from .mapping_candidates import analyze_mapping_candidates
 from .mapping_assertions import invoke_assertion_inventories
+from .mapping_live_code_facts import validated_live_code_facts
 from .mapping_proposals import (
     build_mapping_proposals,
     validate_mapping_quarantine,
@@ -93,7 +92,11 @@ def generate_pilot_candidate_document(
 ) -> dict[str, Any]:
     """Build execution-guided signals without scanning or mutating catalog state."""
 
-    live_code_facts = _validated_live_code_facts(root, trace)
+    live_code_facts = validated_live_code_facts(
+        root,
+        trace,
+        metadata.mappings,
+    )
     analysis = analyze_mapping_candidates(
         trace_records=trace["tests"],
         code_mappings=metadata.mappings,
@@ -450,6 +453,51 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="write candidate signals only; do not scan or mutate catalog planes",
     )
+    parser.add_argument(
+        "--focused-rust-discovery-id",
+        action="append",
+        default=[],
+        help=(
+            "generate production quarantine planes for this reviewed Rust DISC ID "
+            "without the full repository test scan; repeat for a batch"
+        ),
+    )
+    parser.add_argument(
+        "--legacy-full-scan",
+        action="store_true",
+        help=(
+            "run the deprecated repository-wide scanner instead of the "
+            "focused production route"
+        ),
+    )
+    parser.add_argument(
+        "--authority-plan",
+        type=Path,
+        help=(
+            "optional quarantined reviewed code-spec authority projection used "
+            "only for candidate ranking"
+        ),
+    )
+    parser.add_argument(
+        "--trace-root",
+        type=Path,
+        help="focused raw coverage evidence root",
+    )
+    parser.add_argument(
+        "--cargo-target-dir",
+        type=Path,
+        help="focused coverage Cargo target directory",
+    )
+    parser.add_argument(
+        "--llvm-tools-dir",
+        type=Path,
+        help="directory containing llvm-cov and llvm-profdata",
+    )
+    parser.add_argument(
+        "--temporary-dir",
+        type=Path,
+        help="focused coverage temporary directory",
+    )
     parser.add_argument("--timestamp")
     return parser
 
@@ -458,6 +506,38 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     root = args.root.resolve()
     try:
+        if args.pilot_only and args.focused_rust_discovery_id:
+            raise ValueError(
+                "--pilot-only and --focused-rust-discovery-id are mutually exclusive"
+            )
+        if args.legacy_full_scan and (
+            args.pilot_only or args.focused_rust_discovery_id
+        ):
+            raise ValueError(
+                "--legacy-full-scan is mutually exclusive with focused and "
+                "pilot generation modes"
+            )
+        if args.authority_plan is not None and not args.focused_rust_discovery_id:
+            raise ValueError(
+                "--authority-plan requires --focused-rust-discovery-id"
+            )
+        if args.focused_rust_discovery_id:
+            required_paths = {
+                "--trace-root": args.trace_root,
+                "--cargo-target-dir": args.cargo_target_dir,
+                "--llvm-tools-dir": args.llvm_tools_dir,
+                "--temporary-dir": args.temporary_dir,
+            }
+            missing_paths = [
+                option
+                for option, value in required_paths.items()
+                if value is None
+            ]
+            if missing_paths:
+                raise ValueError(
+                    "focused mapping candidate generation requires "
+                    + ", ".join(missing_paths)
+                )
         if args.pilot_only:
             candidates = generate_pilot_candidates(
                 root=root,
@@ -470,14 +550,42 @@ def main(argv: list[str] | None = None) -> int:
                 f"{len(candidates['demands'])} specification demands"
             )
             return 0
-        candidates, proposals = generate_mapping_candidates(
-            root=root,
-            trace_path=_resolve(root, args.trace),
-            candidates_path=_resolve(root, args.candidates_out),
-            proposals_path=_resolve(root, args.proposals_out),
-            decisions_path=_resolve(root, args.decisions),
-            timestamp=args.timestamp,
-        )
+        if (
+            not args.focused_rust_discovery_id
+            and not args.legacy_full_scan
+        ):
+            raise ValueError(
+                "production mapping candidate generation requires explicit "
+                "--focused-rust-discovery-id or --legacy-full-scan"
+            )
+        if args.focused_rust_discovery_id:
+            candidates, proposals = generate_focused_mapping_candidates(
+                root=root,
+                trace_path=_resolve(root, args.trace),
+                candidates_path=_resolve(root, args.candidates_out),
+                proposals_path=_resolve(root, args.proposals_out),
+                decisions_path=_resolve(root, args.decisions),
+                rust_discovery_ids=args.focused_rust_discovery_id,
+                authority_plan_path=(
+                    _resolve(root, args.authority_plan)
+                    if args.authority_plan is not None
+                    else None
+                ),
+                trace_root=_resolve(root, args.trace_root),
+                cargo_target_dir=_resolve(root, args.cargo_target_dir),
+                llvm_tools_dir=_resolve(root, args.llvm_tools_dir),
+                temporary_dir=_resolve(root, args.temporary_dir),
+                timestamp=args.timestamp,
+            )
+        else:
+            candidates, proposals = generate_mapping_candidates(
+                root=root,
+                trace_path=_resolve(root, args.trace),
+                candidates_path=_resolve(root, args.candidates_out),
+                proposals_path=_resolve(root, args.proposals_out),
+                decisions_path=_resolve(root, args.decisions),
+                timestamp=args.timestamp,
+            )
     except (OSError, ValueError, json.JSONDecodeError, tomllib.TOMLDecodeError) as error:
         print(f"mapping candidate generation failed: {error}", file=sys.stderr)
         return 2
@@ -542,85 +650,6 @@ def _validate_generated_files(
     except (OSError, json.JSONDecodeError, tomllib.TOMLDecodeError) as error:
         failures.append(f"mapping candidate replacement cannot be read: {error}")
     return failures
-
-
-def _validated_live_code_facts(
-    root: Path,
-    trace: Mapping[str, Any],
-) -> dict[str, Mapping[str, Any]]:
-    configured = trace.get("code_inventory_digests")
-    if not isinstance(configured, Mapping):
-        raise ValueError("trace lacks code inventory digests")
-    facts: dict[str, Mapping[str, Any]] = {}
-    matrix = tomllib.loads((root / "verification/matrix.toml").read_text())
-    if "rust_product" in configured:
-        inventory = invoke_rust_extractor(
-            root,
-            matrix,
-            area_bindings={},
-            reject_invented_area_bindings=False,
-            environment=os.environ,
-        )
-        actual = code_inventory_digest(inventory.facts, inventory.spans)
-        expected = configured.get("rust_product")
-        if actual != expected:
-            raise ValueError(
-                "trace Rust code inventory is stale: "
-                f"trace={expected} current={actual}"
-            )
-        facts.update(
-            {
-                code_id: {
-                    "code_id": code_id,
-                    "area": fact.area,
-                    "path": fact.path,
-                    "qualified_symbol": fact.qualified_symbol,
-                }
-                for code_id, fact in inventory.facts.items()
-            }
-        )
-    if "typescript_product" in configured:
-        inventory = invoke_typescript_extractor(
-            root,
-            matrix,
-            area_bindings={},
-        )
-        actual = code_inventory_digest(inventory.facts, inventory.spans)
-        expected = configured.get("typescript_product")
-        if actual != expected:
-            raise ValueError(
-                "trace TypeScript code inventory is stale: "
-                f"trace={expected} current={actual}"
-            )
-        overlap = sorted(set(facts) & set(inventory.facts))
-        if overlap:
-            raise ValueError(
-                f"trace code inventories overlap live identities: {overlap}"
-            )
-        facts.update(
-            {
-                code_id: {
-                    "code_id": code_id,
-                    "area": fact.area,
-                    "path": fact.path,
-                    "qualified_symbol": fact.qualified_symbol,
-                }
-                for code_id, fact in inventory.facts.items()
-            }
-        )
-    covered = {
-        str(code_id)
-        for record in trace.get("tests", [])
-        if isinstance(record, Mapping)
-        for code_id in record.get("covered_code_ids", [])
-        if isinstance(code_id, str)
-    }
-    unknown = sorted(covered - set(facts))
-    if unknown:
-        raise ValueError(
-            f"trace covered code IDs lack a validated live adapter: {unknown}"
-        )
-    return dict(sorted(facts.items()))
 
 
 def _git_head(root: Path) -> str:

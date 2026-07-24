@@ -16,6 +16,8 @@ mod test_assertions;
 use code_spec_scan::{run_rust_extract, run_rust_tooling, run_rust_universe};
 use full_map::architecture_doctor_full_map;
 
+const VERIFICATION_INPUT_ROOT_ENV: &str = "TRUST_VERIFICATION_INPUT_ROOT";
+
 fn main() -> ExitCode {
     match run() {
         Ok(()) => ExitCode::SUCCESS,
@@ -33,23 +35,49 @@ fn run() -> Result<()> {
         return Ok(());
     };
     let root = workspace_root()?;
+    let input_root = verification_input_root(&root, &command)?;
     match command.as_str() {
         "architecture-map" => architecture_map(&root),
         "architecture-doctor" => {
             let mode = args.next().unwrap_or_else(|| "--all".to_string());
             architecture_doctor(&root, &mode)
         }
-        "code-spec-rust" => run_rust_extract(&root, &args.collect::<Vec<_>>()),
+        "code-spec-rust" => run_rust_extract(&input_root, &args.collect::<Vec<_>>()),
         "code-spec-rust-all" => run_rust_universe(&root),
         "code-spec-rust-tooling" => run_rust_tooling(&root),
-        "test-assertions" => test_assertions::run(&root, &args.collect::<Vec<_>>()),
-        "test-assertions-batch" => test_assertions::run_batch(&root, &args.collect::<Vec<_>>()),
+        "test-assertions" => test_assertions::run(&input_root, &args.collect::<Vec<_>>()),
+        "test-assertions-batch" => {
+            test_assertions::run_batch(&input_root, &args.collect::<Vec<_>>())
+        }
         "-h" | "--help" | "help" => {
             print_usage();
             Ok(())
         }
         other => bail!("unknown xtask command '{other}'"),
     }
+}
+
+fn verification_input_root(workspace_root: &Path, command: &str) -> Result<PathBuf> {
+    if !matches!(
+        command,
+        "code-spec-rust" | "test-assertions" | "test-assertions-batch"
+    ) {
+        return Ok(workspace_root.to_path_buf());
+    }
+    let Some(candidate) = env::var_os(VERIFICATION_INPUT_ROOT_ENV) else {
+        return Ok(workspace_root.to_path_buf());
+    };
+    let candidate = PathBuf::from(candidate);
+    if !candidate.is_absolute() {
+        bail!("{VERIFICATION_INPUT_ROOT_ENV} must be absolute")
+    }
+    let canonical = candidate
+        .canonicalize()
+        .with_context(|| format!("resolve {VERIFICATION_INPUT_ROOT_ENV}"))?;
+    if !canonical.is_dir() {
+        bail!("{VERIFICATION_INPUT_ROOT_ENV} must name a directory")
+    }
+    Ok(canonical)
 }
 
 fn print_usage() {

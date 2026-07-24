@@ -32,12 +32,14 @@ class CoverageExportStore(Mapping[str, Mapping[str, Any]]):
         jobs: Mapping[str, _CoverageExportJob],
         profdata_tool: Path,
         cov_tool: Path,
-        resolved_sources: Sequence[str],
+        resolved_sources: Sequence[str] | None,
     ) -> None:
         self._jobs = dict(sorted(jobs.items()))
         self._profdata_tool = profdata_tool
         self._cov_tool = cov_tool
-        self._resolved_sources = tuple(resolved_sources)
+        self._resolved_sources = (
+            tuple(resolved_sources) if resolved_sources is not None else None
+        )
 
     def __getitem__(self, discovery_id: str) -> Mapping[str, Any]:
         job = self._jobs[discovery_id]
@@ -165,18 +167,19 @@ def _llvm_cov_export_command(
     cov_tool: Path,
     merged_profile: Path,
     executable: Path,
-    resolved_sources: Sequence[str],
+    resolved_sources: Sequence[str] | None,
 ) -> list[str]:
-    return [
+    command = [
         str(cov_tool),
         "export",
         "-format=text",
         "-skip-functions",
         f"-instr-profile={merged_profile}",
         str(executable),
-        "--sources",
-        *resolved_sources,
     ]
+    if resolved_sources is not None:
+        command.extend(["--sources", *resolved_sources])
+    return command
 
 
 def export_attempt_coverage(
@@ -184,7 +187,7 @@ def export_attempt_coverage(
     root: Path,
     trace_root: Path,
     llvm_tools_dir: Path,
-    source_paths: Sequence[str],
+    source_paths: Sequence[str] | None = None,
     allow_nonzero_exit: bool = False,
 ) -> Mapping[str, Mapping[str, Any]]:
     """Merge and export attempts without retaining the campaign in memory."""
@@ -247,7 +250,11 @@ def export_attempt_coverage(
         jobs=jobs,
         profdata_tool=profdata_tool,
         cov_tool=cov_tool,
-        resolved_sources=_resolved_coverage_sources(root, source_paths),
+        resolved_sources=(
+            _resolved_coverage_sources(root, source_paths)
+            if source_paths is not None
+            else None
+        ),
     )
     for job in jobs.values():
         if job.exit_code != 0:

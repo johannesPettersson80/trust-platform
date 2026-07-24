@@ -61,6 +61,22 @@ def _trace(mode: str = "focused_shard") -> dict[str, object]:
 
 
 class CoverageTraceWrapperTests(unittest.TestCase):
+    def test_observed_path_inventory_digest_authorizes_real_focused_trace(
+        self,
+    ) -> None:
+        trace = _trace()
+        trace["code_inventory_digests"] = {
+            "rust_observed_paths": "sha256:" + "3" * 64
+        }
+
+        self.assertEqual(
+            [],
+            validate_trace_document(
+                trace,
+                live_facts={DISCOVERY_ID: _fact()},
+            ),
+        )
+
     def test_attempt_identity_is_hashed_and_profiles_use_module_and_pid(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             trace_root = Path(directory).resolve()
@@ -113,6 +129,7 @@ class CoverageTraceWrapperTests(unittest.TestCase):
             )
             self.assertEqual("started", manifest["status"])
 
+            (attempt_dir / "profiles" / "case.profraw").write_bytes(b"profile")
             completed = complete_attempt_manifest(
                 attempt_dir,
                 manifest,
