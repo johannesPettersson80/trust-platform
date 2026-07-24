@@ -25197,9 +25197,11 @@ owner = "language"
 area = "compiler_iec"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_COMPILER_IEC_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_IEC_STATEMENTS_001#malformed-source-recovery"
+invariant_ids = ["IEC_PARSE_RECOVER_001"]
+test_ids = ["TEST_AUTO_5AFBA0A9B09308B307A8"]
+last_reviewed = "2026-07-25"
 
 [[mappings]]
 schema_version = 1
@@ -30139,9 +30141,11 @@ owner = "language"
 area = "compiler_iec"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_COMPILER_IEC_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_IEC_STATEMENTS_001#malformed-source-recovery"
+invariant_ids = ["IEC_PARSE_RECOVER_001"]
+test_ids = ["TEST_AUTO_5AFBA0A9B09308B307A8", "TEST_AUTO_BD20C08C66256CFB638D", "TEST_AUTO_C0ABE0A15530B5A2F5C0", "TEST_AUTO_CB4F519F73BE3B2118DE", "TEST_AUTO_F627D87564ECA0E3906F", "TEST_AUTO_F861248D3482A78B0E6F"]
+last_reviewed = "2026-07-25"
 
 [[mappings]]
 schema_version = 1
@@ -37531,9 +37535,11 @@ owner = "language"
 area = "compiler_iec"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_COMPILER_IEC_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_IEC_STATEMENTS_001#malformed-source-recovery"
+invariant_ids = ["IEC_PARSE_RECOVER_001"]
+test_ids = ["TEST_AUTO_5AFBA0A9B09308B307A8", "TEST_AUTO_BD20C08C66256CFB638D", "TEST_AUTO_C0ABE0A15530B5A2F5C0", "TEST_AUTO_CB4F519F73BE3B2118DE", "TEST_AUTO_F627D87564ECA0E3906F", "TEST_AUTO_F861248D3482A78B0E6F"]
+last_reviewed = "2026-07-25"
 
 [[mappings]]
 schema_version = 1
@@ -39779,9 +39785,11 @@ owner = "language"
 area = "compiler_iec"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_COMPILER_IEC_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_IEC_STATEMENTS_001#malformed-source-recovery"
+invariant_ids = ["IEC_PARSE_RECOVER_001"]
+test_ids = ["TEST_AUTO_5AFBA0A9B09308B307A8", "TEST_AUTO_BD20C08C66256CFB638D", "TEST_AUTO_C0ABE0A15530B5A2F5C0", "TEST_AUTO_CB4F519F73BE3B2118DE", "TEST_AUTO_F627D87564ECA0E3906F", "TEST_AUTO_F861248D3482A78B0E6F"]
+last_reviewed = "2026-07-25"
 
 [[mappings]]
 schema_version = 1

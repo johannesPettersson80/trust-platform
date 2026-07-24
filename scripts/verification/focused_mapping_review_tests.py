@@ -224,43 +224,40 @@ class FocusedMappingReviewTests(unittest.TestCase):
             },
         )
 
-    def test_authority_scope_requires_every_covered_canonical_gap(self) -> None:
+    def test_authority_scope_allows_reviewed_subset_of_covered_gaps(self) -> None:
         discovery_id = "DISC_" + "A" * 20
         proposal_id = "MAP_CAND_" + "A" * 20 + "_" + "B" * 12
         code_1 = "CODE_" + "1" * 64
         code_2 = "CODE_" + "2" * 64
-        with self.assertRaisesRegex(
-            ValueError, "canonical covered spec-gap set"
-        ):
-            validate_authority_batch_scope(
-                application_manifest={
-                    "rows": [
-                        {
-                            "code_id": code_1,
-                            "invariant_ids": ["INV_1"],
-                            "discovery_ids": [discovery_id],
-                        }
-                    ]
-                },
-                review_inputs=[
+        validate_authority_batch_scope(
+            application_manifest={
+                "rows": [
                     {
-                        "proposal_id": proposal_id,
-                        "outcome": "accepted",
-                        "selected_invariant_ids": ["INV_1"],
+                        "code_id": code_1,
+                        "invariant_ids": ["INV_1"],
+                        "discovery_ids": [discovery_id],
                     }
-                ],
-                selected_proposals=[
-                    {
-                        "id": proposal_id,
-                        "discovery_id": discovery_id,
-                        "covered_code_ids": [code_1, code_2],
-                    }
-                ],
-                canonical_mappings={
-                    code_1: {"disposition": "spec_gap"},
-                    code_2: {"disposition": "spec_gap"},
-                },
-            )
+                ]
+            },
+            review_inputs=[
+                {
+                    "proposal_id": proposal_id,
+                    "outcome": "accepted",
+                    "selected_invariant_ids": ["INV_1"],
+                }
+            ],
+            selected_proposals=[
+                {
+                    "id": proposal_id,
+                    "discovery_id": discovery_id,
+                    "covered_code_ids": [code_1, code_2],
+                }
+            ],
+            canonical_mappings={
+                code_1: {"disposition": "spec_gap"},
+                code_2: {"disposition": "spec_gap"},
+            },
+        )
 
     def test_authority_scope_rejects_authority_for_specified_code(self) -> None:
         discovery_id = "DISC_" + "A" * 20

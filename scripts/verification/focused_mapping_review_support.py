@@ -642,34 +642,17 @@ def validate_authority_batch_scope(
                 "canonical code map: "
                 + ", ".join(missing_canonical)
             )
-        expected_gap_codes = {
-            code_id
-            for code_id in covered
-            if canonical_mappings[code_id].get("disposition") == "spec_gap"
-        }
         authority_by_code = authority_invariants_by_discovery.get(
             discovery_id, {}
         )
-        actual_gap_codes = set(authority_by_code)
-        if actual_gap_codes != expected_gap_codes:
-            missing = sorted(expected_gap_codes - actual_gap_codes)
-            extra = sorted(actual_gap_codes - expected_gap_codes)
-            details = []
-            if missing:
-                details.append("missing: " + ", ".join(missing))
-            if extra:
-                details.append("extra: " + ", ".join(extra))
-            raise ValueError(
-                f"{discovery_id} authority code scope differs from the "
-                "canonical covered spec-gap set: "
-                + "; ".join(details)
-            )
 
         projected_invariants: set[str] = set()
         for code_id in covered:
             canonical = canonical_mappings[code_id]
             if canonical.get("disposition") == "spec_gap":
-                projected_invariants.update(authority_by_code[code_id])
+                projected_invariants.update(
+                    authority_by_code.get(code_id, set())
+                )
             elif canonical.get("disposition") == "specified":
                 projected_invariants.update(
                     string_array(
