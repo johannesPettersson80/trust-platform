@@ -10,6 +10,11 @@ from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from .mapping_demand_refinement import (
+    build_spec_demand_observations,
+    build_structural_demand_ranking,
+)
+
 
 OBSERVED = "observed"
 SPECIFIED = "specified"
@@ -156,12 +161,19 @@ def analyze_mapping_candidates(
                 "mutation_kill_ids": mutation_kill_ids,
             }
         )
+    spec_demand_observations = build_spec_demand_observations(
+        trace_records=trace_records,
+        code_mappings=code_mappings,
+        live_code_facts=authoritative_live_facts,
+        dominant_concentration_ppm=DOMINANT_CONCENTRATION_PPM,
+    )
     return {
         "candidates": candidates,
         "demands": demands,
-        "demand_ranking": _build_demand_ranking(
-            demands=demands,
-            code_mappings=code_mappings,
+        "spec_demand_observations": spec_demand_observations,
+        "demand_ranking": _build_demand_ranking(spec_demand_observations),
+        "structural_demand_ranking": build_structural_demand_ranking(
+            spec_demand_observations
         ),
         "unmapped_code_demand_ranking": [
             {
@@ -170,8 +182,8 @@ def analyze_mapping_candidates(
                     unmapped_discovery_by_area[area]
                 ),
                 "covered_code_ids": sorted(unmapped_code_by_area[area]),
-                "tests_affected": len(unmapped_discovery_by_area[area]),
-                "code_facts_missing": len(unmapped_code_by_area[area]),
+                "tests_touching": len(unmapped_discovery_by_area[area]),
+                "code_facts_touched": len(unmapped_code_by_area[area]),
             }
             for area in sorted(
                 unmapped_code_by_area,
@@ -186,45 +198,45 @@ def analyze_mapping_candidates(
 
 
 def _build_demand_ranking(
-    *,
-    demands: Sequence[Mapping[str, Any]],
-    code_mappings: Mapping[str, Mapping[str, Any]],
+    observations: Sequence[Mapping[str, Any]],
 ) -> list[dict[str, Any]]:
     discovery_by_gap: dict[str, set[str]] = defaultdict(set)
     code_by_gap: dict[str, set[str]] = defaultdict(set)
-    for demand in demands:
-        discovery_id = _required_string(demand, "discovery_id", "demand")
-        gap_refs = _sorted_unique_strings(
-            demand.get("spec_gap_refs"), f"{discovery_id} spec_gap_refs"
+    for observation in observations:
+        discovery_id = _required_string(
+            observation, "discovery_id", "specification-demand observation"
         )
-        for gap_ref in gap_refs:
-            discovery_by_gap[gap_ref].add(discovery_id)
-        for code_id in _sorted_unique_strings(
-            demand.get("covered_code_ids"), f"{discovery_id} covered_code_ids"
-        ):
-            mapping = code_mappings.get(code_id)
-            if mapping is None or mapping.get("disposition") != SPEC_GAP:
-                continue
+        cells = observation.get("cells")
+        if not isinstance(cells, Sequence) or isinstance(cells, (str, bytes)):
+            raise ValueError(f"{discovery_id} structural cells must be an array")
+        for cell in cells:
+            if not isinstance(cell, Mapping):
+                raise ValueError(f"{discovery_id} structural cell must be an object")
             gap_ref = _required_string(
-                mapping, "spec_gap_ref", f"{code_id} spec-gap mapping"
+                cell, "parent_spec_gap_ref", f"{discovery_id} structural cell"
             )
-            if gap_ref in gap_refs:
-                code_by_gap[gap_ref].add(code_id)
+            discovery_by_gap[gap_ref].add(discovery_id)
+            code_by_gap[gap_ref].update(
+                _sorted_unique_strings(
+                    cell.get("covered_code_ids"),
+                    f"{discovery_id} {gap_ref} covered_code_ids",
+                )
+            )
     rows = [
         {
             "spec_gap_ref": gap_ref,
             "affected_discovery_ids": sorted(discovery_ids),
             "covered_code_ids": sorted(code_by_gap[gap_ref]),
-            "tests_unblocked": len(discovery_ids),
-            "code_facts_unblocked": len(code_by_gap[gap_ref]),
+            "tests_touching": len(discovery_ids),
+            "code_facts_touched": len(code_by_gap[gap_ref]),
         }
         for gap_ref, discovery_ids in discovery_by_gap.items()
     ]
     return sorted(
         rows,
         key=lambda row: (
-            -int(row["tests_unblocked"]),
-            -int(row["code_facts_unblocked"]),
+            -int(row["tests_touching"]),
+            -int(row["code_facts_touched"]),
             str(row["spec_gap_ref"]),
         ),
     )

@@ -12,7 +12,9 @@ MAPPING_SCHEMA_REQUIRED_FIELDS = {
         "trace_digest",
         "candidates",
         "demands",
+        "spec_demand_observations",
         "demand_ranking",
+        "structural_demand_ranking",
         "unmapped_code_demand_ranking",
     ],
     "mapping-ground-truth-review.schema.json": [
@@ -77,6 +79,7 @@ MAPPING_SCHEMA_REQUIRED_FIELDS = {
         "last_generated",
         "demands",
         "demand_ranking",
+        "structural_demand_ranking",
         "unmapped_code_demand_ranking",
         "proposals",
     ],

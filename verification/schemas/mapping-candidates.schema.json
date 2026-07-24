@@ -11,7 +11,9 @@
     "trace_digest",
     "candidates",
     "demands",
+    "spec_demand_observations",
     "demand_ranking",
+    "structural_demand_ranking",
     "unmapped_code_demand_ranking"
   ],
   "properties": {
@@ -28,9 +30,17 @@
       "type": "array",
       "items": { "$ref": "#/$defs/demand" }
     },
+    "spec_demand_observations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/spec_demand_observation" }
+    },
     "demand_ranking": {
       "type": "array",
       "items": { "$ref": "#/$defs/demand_ranking" }
+    },
+    "structural_demand_ranking": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/structural_demand_ranking" }
     },
     "unmapped_code_demand_ranking": {
       "type": "array",
@@ -126,14 +136,75 @@
       },
       "additionalProperties": false
     },
+    "structural_cell": {
+      "type": "object",
+      "required": [
+        "cell_id",
+        "parent_spec_gap_ref",
+        "area",
+        "owner",
+        "source_kind",
+        "path",
+        "qualified_symbol_parent",
+        "item_kind",
+        "covered_code_ids"
+      ],
+      "properties": {
+        "cell_id": { "type": "string", "pattern": "^DEMAND_CELL_[A-F0-9]{64}$" },
+        "parent_spec_gap_ref": {
+          "type": "string",
+          "pattern": "^SPEC_GAP_[A-Z0-9_]+$"
+        },
+        "area": { "type": "string", "minLength": 1 },
+        "owner": { "type": "string", "minLength": 1 },
+        "source_kind": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1 },
+        "qualified_symbol_parent": { "type": "string" },
+        "item_kind": { "type": "string", "minLength": 1 },
+        "covered_code_ids": { "$ref": "#/$defs/code_ids" }
+      },
+      "additionalProperties": false
+    },
+    "spec_demand_observation": {
+      "type": "object",
+      "required": [
+        "discovery_id",
+        "spec_gap_code_ids",
+        "unmapped_code_ids",
+        "cells",
+        "affinity_tier",
+        "dominant_cell_id",
+        "dominant_concentration_ppm"
+      ],
+      "properties": {
+        "discovery_id": { "$ref": "#/$defs/discovery_id" },
+        "spec_gap_code_ids": { "$ref": "#/$defs/code_ids" },
+        "unmapped_code_ids": { "$ref": "#/$defs/code_ids" },
+        "cells": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/structural_cell" }
+        },
+        "affinity_tier": { "enum": ["R1", "R2", "R3"] },
+        "dominant_cell_id": {
+          "type": "string",
+          "pattern": "^(?:|DEMAND_CELL_[A-F0-9]{64})$"
+        },
+        "dominant_concentration_ppm": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        }
+      },
+      "additionalProperties": false
+    },
     "demand_ranking": {
       "type": "object",
       "required": [
         "spec_gap_ref",
         "affected_discovery_ids",
         "covered_code_ids",
-        "tests_unblocked",
-        "code_facts_unblocked"
+        "tests_touching",
+        "code_facts_touched"
       ],
       "properties": {
         "spec_gap_ref": {
@@ -146,8 +217,51 @@
           "uniqueItems": true
         },
         "covered_code_ids": { "$ref": "#/$defs/code_ids" },
-        "tests_unblocked": { "type": "integer", "minimum": 1 },
-        "code_facts_unblocked": { "type": "integer", "minimum": 1 }
+        "tests_touching": { "type": "integer", "minimum": 1 },
+        "code_facts_touched": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "structural_demand_ranking": {
+      "type": "object",
+      "required": [
+        "cell_id",
+        "parent_spec_gap_ref",
+        "area",
+        "owner",
+        "source_kind",
+        "path",
+        "qualified_symbol_parent",
+        "item_kind",
+        "affected_discovery_ids",
+        "covered_code_ids",
+        "tests_touching",
+        "tests_exclusive",
+        "tests_dominant",
+        "code_facts_touched"
+      ],
+      "properties": {
+        "cell_id": { "type": "string", "pattern": "^DEMAND_CELL_[A-F0-9]{64}$" },
+        "parent_spec_gap_ref": {
+          "type": "string",
+          "pattern": "^SPEC_GAP_[A-Z0-9_]+$"
+        },
+        "area": { "type": "string", "minLength": 1 },
+        "owner": { "type": "string", "minLength": 1 },
+        "source_kind": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1 },
+        "qualified_symbol_parent": { "type": "string" },
+        "item_kind": { "type": "string", "minLength": 1 },
+        "affected_discovery_ids": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/discovery_id" },
+          "uniqueItems": true
+        },
+        "covered_code_ids": { "$ref": "#/$defs/code_ids" },
+        "tests_touching": { "type": "integer", "minimum": 1 },
+        "tests_exclusive": { "type": "integer", "minimum": 0 },
+        "tests_dominant": { "type": "integer", "minimum": 0 },
+        "code_facts_touched": { "type": "integer", "minimum": 1 }
       },
       "additionalProperties": false
     },
@@ -157,8 +271,8 @@
         "area",
         "affected_discovery_ids",
         "covered_code_ids",
-        "tests_affected",
-        "code_facts_missing"
+        "tests_touching",
+        "code_facts_touched"
       ],
       "properties": {
         "area": { "type": "string", "minLength": 1 },
@@ -168,8 +282,8 @@
           "uniqueItems": true
         },
         "covered_code_ids": { "$ref": "#/$defs/code_ids" },
-        "tests_affected": { "type": "integer", "minimum": 1 },
-        "code_facts_missing": { "type": "integer", "minimum": 1 }
+        "tests_touching": { "type": "integer", "minimum": 1 },
+        "code_facts_touched": { "type": "integer", "minimum": 1 }
       },
       "additionalProperties": false
     }

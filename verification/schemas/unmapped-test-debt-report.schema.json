@@ -144,6 +144,7 @@
         "specification_demands",
         "unmapped_code_facts",
         "demand_ranking",
+        "structural_demand_ranking",
         "unmapped_code_demand_ranking"
       ],
       "properties": {
@@ -159,6 +160,10 @@
         "demand_ranking": {
           "type": "array",
           "items": { "$ref": "#/$defs/spec_demand_ranking" }
+        },
+        "structural_demand_ranking": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/structural_demand_ranking" }
         },
         "unmapped_code_demand_ranking": {
           "type": "array",
@@ -182,8 +187,8 @@
         "spec_gap_ref",
         "affected_discovery_ids",
         "covered_code_ids",
-        "tests_unblocked",
-        "code_facts_unblocked"
+        "tests_touching",
+        "code_facts_touched"
       ],
       "properties": {
         "spec_gap_ref": {
@@ -206,8 +211,61 @@
           },
           "uniqueItems": true
         },
-        "tests_unblocked": { "type": "integer", "minimum": 1 },
-        "code_facts_unblocked": { "type": "integer", "minimum": 1 }
+        "tests_touching": { "type": "integer", "minimum": 1 },
+        "code_facts_touched": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "structural_demand_ranking": {
+      "type": "object",
+      "required": [
+        "cell_id",
+        "parent_spec_gap_ref",
+        "area",
+        "owner",
+        "source_kind",
+        "path",
+        "qualified_symbol_parent",
+        "item_kind",
+        "affected_discovery_ids",
+        "covered_code_ids",
+        "tests_touching",
+        "tests_exclusive",
+        "tests_dominant",
+        "code_facts_touched"
+      ],
+      "properties": {
+        "cell_id": { "type": "string", "pattern": "^DEMAND_CELL_[A-F0-9]{64}$" },
+        "parent_spec_gap_ref": {
+          "type": "string",
+          "pattern": "^SPEC_GAP_[A-Z0-9_]+$"
+        },
+        "area": { "type": "string", "minLength": 1 },
+        "owner": { "type": "string", "minLength": 1 },
+        "source_kind": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1 },
+        "qualified_symbol_parent": { "type": "string" },
+        "item_kind": { "type": "string", "minLength": 1 },
+        "affected_discovery_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^DISC_[A-F0-9]{20}$"
+          },
+          "uniqueItems": true
+        },
+        "covered_code_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^CODE_[A-F0-9]{64}$"
+          },
+          "uniqueItems": true
+        },
+        "tests_touching": { "type": "integer", "minimum": 1 },
+        "tests_exclusive": { "type": "integer", "minimum": 0 },
+        "tests_dominant": { "type": "integer", "minimum": 0 },
+        "code_facts_touched": { "type": "integer", "minimum": 1 }
       },
       "additionalProperties": false
     },
@@ -217,8 +275,8 @@
         "area",
         "affected_discovery_ids",
         "covered_code_ids",
-        "tests_affected",
-        "code_facts_missing"
+        "tests_touching",
+        "code_facts_touched"
       ],
       "properties": {
         "area": { "type": "string", "minLength": 1 },
@@ -238,8 +296,8 @@
           },
           "uniqueItems": true
         },
-        "tests_affected": { "type": "integer", "minimum": 1 },
-        "code_facts_missing": { "type": "integer", "minimum": 1 }
+        "tests_touching": { "type": "integer", "minimum": 1 },
+        "code_facts_touched": { "type": "integer", "minimum": 1 }
       },
       "additionalProperties": false
     }

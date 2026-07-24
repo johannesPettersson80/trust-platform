@@ -105,6 +105,7 @@ class MappingReviewBatchTests(unittest.TestCase):
             "last_generated": "2026-07-23T20:30:00Z",
             "demands": [],
             "demand_ranking": [],
+            "structural_demand_ranking": [],
             "unmapped_code_demand_ranking": [],
             "proposals": [accepted, rejected],
         }

@@ -101,7 +101,9 @@ class MappingContractTests(unittest.TestCase):
                 }
             ],
             "demands": [],
+            "spec_demand_observations": [],
             "demand_ranking": [],
+            "structural_demand_ranking": [],
             "unmapped_code_demand_ranking": [],
         }
         schema = _schema("mapping-candidates.schema.json")
@@ -123,6 +125,7 @@ class MappingContractTests(unittest.TestCase):
             "last_generated": "2026-07-23T20:30:00Z",
             "demands": [],
             "demand_ranking": [],
+            "structural_demand_ranking": [],
             "unmapped_code_demand_ranking": [],
             "proposals": [
                 {

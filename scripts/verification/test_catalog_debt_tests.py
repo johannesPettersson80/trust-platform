@@ -180,8 +180,26 @@ class UnmappedTestDebtTests(unittest.TestCase):
                         "spec_gap_ref": "SPEC_GAP_FIXTURE",
                         "affected_discovery_ids": ["DISC_" + "A" * 20],
                         "covered_code_ids": ["CODE_" + "1" * 64],
-                        "tests_unblocked": 1,
-                        "code_facts_unblocked": 1,
+                        "tests_touching": 1,
+                        "code_facts_touched": 1,
+                    }
+                ],
+                "structural_demand_ranking": [
+                    {
+                        "cell_id": "DEMAND_CELL_" + "A" * 64,
+                        "parent_spec_gap_ref": "SPEC_GAP_FIXTURE",
+                        "area": "runtime",
+                        "owner": "trust-runtime",
+                        "source_kind": "rust",
+                        "path": "crates/example/src/lib.rs",
+                        "qualified_symbol_parent": "example",
+                        "item_kind": "rust_function",
+                        "affected_discovery_ids": ["DISC_" + "A" * 20],
+                        "covered_code_ids": ["CODE_" + "1" * 64],
+                        "tests_touching": 1,
+                        "tests_exclusive": 1,
+                        "tests_dominant": 0,
+                        "code_facts_touched": 1,
                     }
                 ],
                 "unmapped_code_demand_ranking": [
@@ -192,8 +210,8 @@ class UnmappedTestDebtTests(unittest.TestCase):
                             "CODE_" + "2" * 64,
                             "CODE_" + "3" * 64,
                         ],
-                        "tests_affected": 1,
-                        "code_facts_missing": 2,
+                        "tests_touching": 1,
+                        "code_facts_touched": 2,
                     }
                 ],
             },
@@ -555,8 +573,26 @@ def _mapping_proposals_fixture() -> dict:
                 "spec_gap_ref": "SPEC_GAP_FIXTURE",
                 "affected_discovery_ids": ["DISC_" + "A" * 20],
                 "covered_code_ids": ["CODE_" + "1" * 64],
-                "tests_unblocked": 1,
-                "code_facts_unblocked": 1,
+                "tests_touching": 1,
+                "code_facts_touched": 1,
+            }
+        ],
+        "structural_demand_ranking": [
+            {
+                "cell_id": "DEMAND_CELL_" + "A" * 64,
+                "parent_spec_gap_ref": "SPEC_GAP_FIXTURE",
+                "area": "runtime",
+                "owner": "trust-runtime",
+                "source_kind": "rust",
+                "path": "crates/example/src/lib.rs",
+                "qualified_symbol_parent": "example",
+                "item_kind": "rust_function",
+                "affected_discovery_ids": ["DISC_" + "A" * 20],
+                "covered_code_ids": ["CODE_" + "1" * 64],
+                "tests_touching": 1,
+                "tests_exclusive": 1,
+                "tests_dominant": 0,
+                "code_facts_touched": 1,
             }
         ],
         "unmapped_code_demand_ranking": [
@@ -567,8 +603,8 @@ def _mapping_proposals_fixture() -> dict:
                     "CODE_" + "2" * 64,
                     "CODE_" + "3" * 64,
                 ],
-                "tests_affected": 1,
-                "code_facts_missing": 2,
+                "tests_touching": 1,
+                "code_facts_touched": 2,
             }
         ],
     }

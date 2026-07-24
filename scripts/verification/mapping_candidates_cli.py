@@ -70,7 +70,13 @@ def build_candidate_document(
         "trace_digest": trace_digest,
         "candidates": list(analysis.get("candidates", [])),
         "demands": list(analysis.get("demands", [])),
+        "spec_demand_observations": list(
+            analysis.get("spec_demand_observations", [])
+        ),
         "demand_ranking": list(analysis.get("demand_ranking", [])),
+        "structural_demand_ranking": list(
+            analysis.get("structural_demand_ranking", [])
+        ),
         "unmapped_code_demand_ranking": list(
             analysis.get("unmapped_code_demand_ranking", [])
         ),
@@ -275,6 +281,9 @@ def generate_mapping_candidates(
         "last_generated": generated,
         "demands": list(candidate_document["demands"]),
         "demand_ranking": list(candidate_document["demand_ranking"]),
+        "structural_demand_ranking": list(
+            candidate_document["structural_demand_ranking"]
+        ),
         "unmapped_code_demand_ranking": list(
             candidate_document["unmapped_code_demand_ranking"]
         ),

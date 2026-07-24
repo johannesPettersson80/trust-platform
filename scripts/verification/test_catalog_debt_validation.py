@@ -31,6 +31,7 @@ from .test_catalog_debt_mapping_validation import (
     CANDIDATE_TIER_COUNT_FIELDS,
     MAPPING_ACCELERATOR_FIELDS,
     SPEC_DEMAND_RANKING_FIELDS,
+    STRUCTURAL_DEMAND_RANKING_FIELDS,
     UNMAPPED_CODE_DEMAND_RANKING_FIELDS,
     validate_mapping_accelerator,
 )
@@ -360,6 +361,10 @@ def validate_schema_contract(schema: dict[str, Any]) -> list[str]:
         ("mapping_accelerator", MAPPING_ACCELERATOR_FIELDS),
         ("candidate_tier_count", CANDIDATE_TIER_COUNT_FIELDS),
         ("spec_demand_ranking", SPEC_DEMAND_RANKING_FIELDS),
+        (
+            "structural_demand_ranking",
+            STRUCTURAL_DEMAND_RANKING_FIELDS,
+        ),
         (
             "unmapped_code_demand_ranking",
             UNMAPPED_CODE_DEMAND_RANKING_FIELDS,

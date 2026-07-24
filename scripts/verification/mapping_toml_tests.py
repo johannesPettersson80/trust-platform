@@ -95,6 +95,7 @@ class MappingTomlTests(unittest.TestCase):
             "last_generated": "2026-07-23T20:30:00Z",
             "demands": [],
             "demand_ranking": [],
+            "structural_demand_ranking": [],
             "unmapped_code_demand_ranking": [],
             "proposals": [],
         }
@@ -120,6 +121,26 @@ class MappingTomlTests(unittest.TestCase):
                 }
             ],
             "demand_ranking": [],
+            "structural_demand_ranking": [
+                {
+                    "cell_id": "DEMAND_CELL_" + "A" * 64,
+                    "parent_spec_gap_ref": "SPEC_GAP_EXAMPLE",
+                    "area": "verification",
+                    "owner": "verification",
+                    "source_kind": "python",
+                    "path": "scripts/verification/example.py",
+                    "qualified_symbol_parent": "scripts::verification",
+                    "item_kind": "python_function",
+                    "affected_discovery_ids": [
+                        "DISC_00000000000000000002"
+                    ],
+                    "covered_code_ids": ["CODE_" + "B" * 64],
+                    "tests_touching": 1,
+                    "tests_exclusive": 1,
+                    "tests_dominant": 0,
+                    "code_facts_touched": 1,
+                }
+            ],
             "unmapped_code_demand_ranking": [],
             "proposals": [
                 {

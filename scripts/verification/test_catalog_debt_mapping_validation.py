@@ -14,6 +14,7 @@ MAPPING_ACCELERATOR_FIELDS = {
     "specification_demands",
     "unmapped_code_facts",
     "demand_ranking",
+    "structural_demand_ranking",
     "unmapped_code_demand_ranking",
 }
 CANDIDATE_TIER_COUNT_FIELDS = {"candidate_tier", "pending_proposals"}
@@ -21,20 +22,37 @@ SPEC_DEMAND_RANKING_FIELDS = {
     "spec_gap_ref",
     "affected_discovery_ids",
     "covered_code_ids",
-    "tests_unblocked",
-    "code_facts_unblocked",
+    "tests_touching",
+    "code_facts_touched",
+}
+STRUCTURAL_DEMAND_RANKING_FIELDS = {
+    "cell_id",
+    "parent_spec_gap_ref",
+    "area",
+    "owner",
+    "source_kind",
+    "path",
+    "qualified_symbol_parent",
+    "item_kind",
+    "affected_discovery_ids",
+    "covered_code_ids",
+    "tests_touching",
+    "tests_exclusive",
+    "tests_dominant",
+    "code_facts_touched",
 }
 UNMAPPED_CODE_DEMAND_RANKING_FIELDS = {
     "area",
     "affected_discovery_ids",
     "covered_code_ids",
-    "tests_affected",
-    "code_facts_missing",
+    "tests_touching",
+    "code_facts_touched",
 }
 
 DISCOVERY_ID_RE = re.compile(r"^DISC_[A-F0-9]{20}$")
 CODE_ID_RE = re.compile(r"^CODE_[A-F0-9]{64}$")
 SPEC_GAP_RE = re.compile(r"^SPEC_GAP_[A-Z0-9_]+$")
+DEMAND_CELL_RE = re.compile(r"^DEMAND_CELL_[A-F0-9]{64}$")
 
 
 def validate_mapping_accelerator(value: Any, failures: list[str]) -> None:
@@ -101,14 +119,38 @@ def validate_mapping_accelerator(value: Any, failures: list[str]) -> None:
         canonical = sorted(
             (row for row in demand_rows if isinstance(row, dict)),
             key=lambda row: (
-                -_safe_int(row.get("tests_unblocked")),
-                -_safe_int(row.get("code_facts_unblocked")),
+                -_safe_int(row.get("tests_touching")),
+                -_safe_int(row.get("code_facts_touched")),
                 str(row.get("spec_gap_ref", "")),
             ),
         )
         if demand_rows != canonical:
             failures.append(
                 "mapping_accelerator.demand_ranking must use canonical yield order"
+            )
+
+    structural_rows = value.get("structural_demand_ranking")
+    if not isinstance(structural_rows, list):
+        failures.append(
+            "mapping_accelerator.structural_demand_ranking must be an array"
+        )
+    else:
+        for index, row in enumerate(structural_rows):
+            _validate_structural_demand_row(row, index, failures)
+        canonical = sorted(
+            (row for row in structural_rows if isinstance(row, dict)),
+            key=lambda row: (
+                -_safe_int(row.get("tests_exclusive")),
+                -_safe_int(row.get("tests_dominant")),
+                -_safe_int(row.get("tests_touching")),
+                -_safe_int(row.get("code_facts_touched")),
+                str(row.get("cell_id", "")),
+            ),
+        )
+        if structural_rows != canonical:
+            failures.append(
+                "mapping_accelerator.structural_demand_ranking "
+                "must use canonical locality order"
             )
 
     unmapped_rows = value.get("unmapped_code_demand_ranking")
@@ -129,8 +171,8 @@ def validate_mapping_accelerator(value: Any, failures: list[str]) -> None:
         canonical = sorted(
             (row for row in unmapped_rows if isinstance(row, dict)),
             key=lambda row: (
-                -_safe_int(row.get("tests_affected")),
-                -_safe_int(row.get("code_facts_missing")),
+                -_safe_int(row.get("tests_touching")),
+                -_safe_int(row.get("code_facts_touched")),
                 str(row.get("area", "")),
             ),
         )
@@ -170,17 +212,75 @@ def _validate_spec_demand_row(
         failures,
     )
     _validate_positive_count(
-        value.get("tests_unblocked"),
+        value.get("tests_touching"),
         len(discovery_ids),
-        f"{label}.tests_unblocked",
+        f"{label}.tests_touching",
         failures,
     )
     _validate_positive_count(
-        value.get("code_facts_unblocked"),
+        value.get("code_facts_touched"),
         len(code_ids),
-        f"{label}.code_facts_unblocked",
+        f"{label}.code_facts_touched",
         failures,
     )
+
+
+def _validate_structural_demand_row(
+    value: Any,
+    index: int,
+    failures: list[str],
+) -> None:
+    label = f"mapping_accelerator.structural_demand_ranking[{index}]"
+    if not isinstance(value, dict):
+        failures.append(f"{label} must be an object")
+        return
+    check_exact_fields(value, STRUCTURAL_DEMAND_RANKING_FIELDS, label, failures)
+    if not DEMAND_CELL_RE.fullmatch(str(value.get("cell_id", ""))):
+        failures.append(f"{label}.cell_id is invalid")
+    if not SPEC_GAP_RE.fullmatch(str(value.get("parent_spec_gap_ref", ""))):
+        failures.append(f"{label}.parent_spec_gap_ref is invalid")
+    for field in ("area", "owner", "source_kind", "path", "item_kind"):
+        if not isinstance(value.get(field), str) or not value[field]:
+            failures.append(f"{label}.{field} must be non-empty")
+    if not isinstance(value.get("qualified_symbol_parent"), str):
+        failures.append(f"{label}.qualified_symbol_parent must be a string")
+    discovery_ids = _validate_identifier_array(
+        value.get("affected_discovery_ids"),
+        DISCOVERY_ID_RE,
+        f"{label}.affected_discovery_ids",
+        failures,
+    )
+    code_ids = _validate_identifier_array(
+        value.get("covered_code_ids"),
+        CODE_ID_RE,
+        f"{label}.covered_code_ids",
+        failures,
+    )
+    touching = value.get("tests_touching")
+    _validate_positive_count(
+        touching,
+        len(discovery_ids),
+        f"{label}.tests_touching",
+        failures,
+    )
+    _validate_positive_count(
+        value.get("code_facts_touched"),
+        len(code_ids),
+        f"{label}.code_facts_touched",
+        failures,
+    )
+    for field in ("tests_exclusive", "tests_dominant"):
+        count = value.get(field)
+        if (
+            not isinstance(count, int)
+            or isinstance(count, bool)
+            or count < 0
+            or not isinstance(touching, int)
+            or count > touching
+        ):
+            failures.append(
+                f"{label}.{field} must be between zero and tests_touching"
+            )
 
 
 def _validate_unmapped_code_demand_row(
@@ -213,15 +313,15 @@ def _validate_unmapped_code_demand_row(
         failures,
     )
     _validate_positive_count(
-        value.get("tests_affected"),
+        value.get("tests_touching"),
         len(discovery_ids),
-        f"{label}.tests_affected",
+        f"{label}.tests_touching",
         failures,
     )
     _validate_positive_count(
-        value.get("code_facts_missing"),
+        value.get("code_facts_touched"),
         len(code_ids),
-        f"{label}.code_facts_missing",
+        f"{label}.code_facts_touched",
         failures,
     )
 

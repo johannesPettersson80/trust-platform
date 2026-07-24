@@ -192,30 +192,48 @@ class UnmappedTestDebtReport:
                 "",
                 "### Specification demand ranking",
                 "",
-                "| Spec gap | Tests unblocked | CODE facts unblocked |",
+                "| Spec gap | Tests touching | CODE facts touched |",
                 "| --- | ---: | ---: |",
             ]
         )
         for row in accelerator["demand_ranking"]:
             lines.append(
-                f"| `{row['spec_gap_ref']}` | {row['tests_unblocked']} | "
-                f"{row['code_facts_unblocked']} |"
+                f"| `{row['spec_gap_ref']}` | {row['tests_touching']} | "
+                f"{row['code_facts_touched']} |"
             )
         if not accelerator["demand_ranking"]:
             lines.append("| none | 0 | 0 |")
         lines.extend(
             [
                 "",
+                "### Structural specification-review cells",
+                "",
+                "| Cell | Parent gap | Source | Exclusive | Dominant | Touching | CODE facts |",
+                "| --- | --- | --- | ---: | ---: | ---: | ---: |",
+            ]
+        )
+        for row in accelerator["structural_demand_ranking"]:
+            lines.append(
+                f"| `{row['cell_id']}` | `{row['parent_spec_gap_ref']}` | "
+                f"`{row['path']}` | {row['tests_exclusive']} | "
+                f"{row['tests_dominant']} | {row['tests_touching']} | "
+                f"{row['code_facts_touched']} |"
+            )
+        if not accelerator["structural_demand_ranking"]:
+            lines.append("| none | none | none | 0 | 0 | 0 | 0 |")
+        lines.extend(
+            [
+                "",
                 "### Live code-map demand ranking",
                 "",
-                "| Area | Tests affected | Missing CODE facts |",
+                "| Area | Tests touching | Unmapped CODE facts touched |",
                 "| --- | ---: | ---: |",
             ]
         )
         for row in accelerator["unmapped_code_demand_ranking"]:
             lines.append(
-                f"| `{row['area']}` | {row['tests_affected']} | "
-                f"{row['code_facts_missing']} |"
+                f"| `{row['area']}` | {row['tests_touching']} | "
+                f"{row['code_facts_touched']} |"
             )
         if not accelerator["unmapped_code_demand_ranking"]:
             lines.append("| none | 0 | 0 |")
@@ -340,6 +358,7 @@ def analyze_unmapped_test_debt(
                 "proposals": [],
                 "demands": [],
                 "demand_ranking": [],
+                "structural_demand_ranking": [],
                 "unmapped_code_demand_ranking": [],
             }
         ),
@@ -360,6 +379,10 @@ def mapping_accelerator_summary(
     )
     demand_ranking = _mapping_array(
         proposal_document.get("demand_ranking"), "mapping demand ranking"
+    )
+    structural_ranking = _mapping_array(
+        proposal_document.get("structural_demand_ranking"),
+        "structural mapping demand ranking",
     )
     unmapped_ranking = _mapping_array(
         proposal_document.get("unmapped_code_demand_ranking"),
@@ -392,6 +415,9 @@ def mapping_accelerator_summary(
             }
         ),
         "demand_ranking": [dict(row) for row in demand_ranking],
+        "structural_demand_ranking": [
+            dict(row) for row in structural_ranking
+        ],
         "unmapped_code_demand_ranking": [
             dict(row) for row in unmapped_ranking
         ],

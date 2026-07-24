@@ -27,15 +27,31 @@ DEMAND_RANKING_FIELDS = (
     "spec_gap_ref",
     "affected_discovery_ids",
     "covered_code_ids",
-    "tests_unblocked",
-    "code_facts_unblocked",
+    "tests_touching",
+    "code_facts_touched",
+)
+STRUCTURAL_DEMAND_RANKING_FIELDS = (
+    "cell_id",
+    "parent_spec_gap_ref",
+    "area",
+    "owner",
+    "source_kind",
+    "path",
+    "qualified_symbol_parent",
+    "item_kind",
+    "affected_discovery_ids",
+    "covered_code_ids",
+    "tests_touching",
+    "tests_exclusive",
+    "tests_dominant",
+    "code_facts_touched",
 )
 UNMAPPED_CODE_DEMAND_RANKING_FIELDS = (
     "area",
     "affected_discovery_ids",
     "covered_code_ids",
-    "tests_affected",
-    "code_facts_missing",
+    "tests_touching",
+    "code_facts_touched",
 )
 PROPOSAL_FIELDS = (
     "schema_version",
@@ -216,6 +232,7 @@ def render_proposals_toml(document: Mapping[str, Any]) -> str:
         *PROPOSAL_ROOT_FIELDS,
         "demands",
         "demand_ranking",
+        "structural_demand_ranking",
         "unmapped_code_demand_ranking",
         "proposals",
     }
@@ -230,6 +247,11 @@ def render_proposals_toml(document: Mapping[str, Any]) -> str:
             "demand_ranking",
             document.get("demand_ranking"),
             DEMAND_RANKING_FIELDS,
+        ),
+        (
+            "structural_demand_ranking",
+            document.get("structural_demand_ranking"),
+            STRUCTURAL_DEMAND_RANKING_FIELDS,
         ),
         (
             "unmapped_code_demand_ranking",

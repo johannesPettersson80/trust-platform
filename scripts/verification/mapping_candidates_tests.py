@@ -22,6 +22,26 @@ def _specified(*invariant_ids: str) -> dict[str, object]:
     }
 
 
+def _gap(
+    code_id: str,
+    gap_ref: str,
+    *,
+    path: str = "crates/example/src/lib.rs",
+    qualified_symbol: str = "example::behavior",
+) -> dict[str, object]:
+    return {
+        "code_id": code_id,
+        "disposition": "spec_gap",
+        "spec_gap_ref": gap_ref,
+        "area": "runtime_safety",
+        "owner": "trust-runtime",
+        "source_kind": "rust",
+        "path": path,
+        "qualified_symbol": qualified_symbol,
+        "item_kind": "rust_function",
+    }
+
+
 def _live(*code_ids: str) -> dict[str, dict[str, str]]:
     return {
         code_id: {"code_id": code_id, "area": "runtime_safety"}
@@ -106,8 +126,8 @@ class MappingCandidateTests(unittest.TestCase):
                     "area": "runtime_safety",
                     "affected_discovery_ids": ["DISC_00000000000000000001"],
                     "covered_code_ids": ["CODE_LIVE_UNMAPPED"],
-                    "tests_affected": 1,
-                    "code_facts_missing": 1,
+                    "tests_touching": 1,
+                    "code_facts_touched": 1,
                 }
             ],
             result["unmapped_code_demand_ranking"],
@@ -149,10 +169,7 @@ class MappingCandidateTests(unittest.TestCase):
                 _trace("DISC_00000000000000000001", "CODE_GAP"),
             ],
             code_mappings={
-                "CODE_GAP": {
-                    "disposition": "spec_gap",
-                    "spec_gap_ref": "SPEC_GAP_RUNTIME_001",
-                }
+                "CODE_GAP": _gap("CODE_GAP", "SPEC_GAP_RUNTIME_001")
             },
             invariants={},
         )
@@ -187,22 +204,27 @@ class MappingCandidateTests(unittest.TestCase):
                 _trace("DISC_00000000000000000003", "CODE_OTHER"),
             ],
             code_mappings={
-                "CODE_GAP_A": {
-                    "disposition": "spec_gap",
-                    "spec_gap_ref": "SPEC_GAP_HIGH_YIELD",
-                },
-                "CODE_GAP_B": {
-                    "disposition": "spec_gap",
-                    "spec_gap_ref": "SPEC_GAP_HIGH_YIELD",
-                },
-                "CODE_GAP_SHARED": {
-                    "disposition": "spec_gap",
-                    "spec_gap_ref": "SPEC_GAP_HIGH_YIELD",
-                },
-                "CODE_OTHER": {
-                    "disposition": "spec_gap",
-                    "spec_gap_ref": "SPEC_GAP_LOW_YIELD",
-                },
+                "CODE_GAP_A": _gap(
+                    "CODE_GAP_A",
+                    "SPEC_GAP_HIGH_YIELD",
+                    qualified_symbol="example::high::a",
+                ),
+                "CODE_GAP_B": _gap(
+                    "CODE_GAP_B",
+                    "SPEC_GAP_HIGH_YIELD",
+                    qualified_symbol="example::high::b",
+                ),
+                "CODE_GAP_SHARED": _gap(
+                    "CODE_GAP_SHARED",
+                    "SPEC_GAP_HIGH_YIELD",
+                    qualified_symbol="example::high::shared",
+                ),
+                "CODE_OTHER": _gap(
+                    "CODE_OTHER",
+                    "SPEC_GAP_LOW_YIELD",
+                    path="crates/example/src/other.rs",
+                    qualified_symbol="example::other",
+                ),
             },
             invariants={},
         )
@@ -220,8 +242,8 @@ class MappingCandidateTests(unittest.TestCase):
                         "CODE_GAP_B",
                         "CODE_GAP_SHARED",
                     ],
-                    "tests_unblocked": 2,
-                    "code_facts_unblocked": 3,
+                    "tests_touching": 2,
+                    "code_facts_touched": 3,
                 },
                 {
                     "spec_gap_ref": "SPEC_GAP_LOW_YIELD",
@@ -229,11 +251,36 @@ class MappingCandidateTests(unittest.TestCase):
                         "DISC_00000000000000000003",
                     ],
                     "covered_code_ids": ["CODE_OTHER"],
-                    "tests_unblocked": 1,
-                    "code_facts_unblocked": 1,
+                    "tests_touching": 1,
+                    "code_facts_touched": 1,
                 },
             ],
             result.get("demand_ranking"),
+        )
+        self.assertEqual(3, len(result["spec_demand_observations"]))
+        self.assertEqual(2, len(result["structural_demand_ranking"]))
+
+    def test_mixed_mapping_candidate_is_also_visible_to_spec_demand_ranking(self) -> None:
+        result = analyze_mapping_candidates(
+            trace_records=[
+                _trace(
+                    "DISC_00000000000000000001",
+                    "CODE_SPECIFIED",
+                    "CODE_GAP",
+                )
+            ],
+            code_mappings={
+                "CODE_SPECIFIED": _specified("INV_ONE"),
+                "CODE_GAP": _gap("CODE_GAP", "SPEC_GAP_RUNTIME_001"),
+            },
+            invariants={"INV_ONE": {"risk": "maintenance"}},
+        )
+
+        self.assertEqual(1, len(result["candidates"]))
+        self.assertEqual([], result["demands"])
+        self.assertEqual(
+            ["DISC_00000000000000000001"],
+            result["demand_ranking"][0]["affected_discovery_ids"],
         )
 
     def test_mutation_kill_upgrades_single_fact_candidate_to_c1(self) -> None:
