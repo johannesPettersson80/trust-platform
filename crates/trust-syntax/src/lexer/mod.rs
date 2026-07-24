@@ -102,8 +102,7 @@ pub fn lex(source: &str) -> Vec<Token> {
 /// Useful for debugging and testing.
 #[must_use]
 pub fn lex_with_text(source: &str) -> Vec<(Token, &str)> {
-    lex(source)
-        .into_iter()
+    Lexer::new(source)
         .map(|token| {
             let text = &source[usize::from(token.range.start())..usize::from(token.range.end())];
             (token, text)

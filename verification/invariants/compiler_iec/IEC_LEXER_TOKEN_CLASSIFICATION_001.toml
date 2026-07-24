@@ -1,12 +1,12 @@
 schema_version = 1
 id = "IEC_LEXER_TOKEN_CLASSIFICATION_001"
-title = "Lexer assigns the specified token class"
+title = "Lexer emits the specified token representation"
 area = "compiler_iec"
 risk = "wrong_result"
 status = "mapped"
 owner = "trust-syntax"
 last_reviewed = "2026-07-24"
-claim = "The lexer classifies IEC and documented truST lexical forms as their exact TokenKind, recognizes keywords case-insensitively, and emits Error rather than a valid string token for an invalid escape."
+claim = "The lexer classifies IEC and documented truST lexical forms as their exact TokenKind, preserves emitted source boundaries and slices, recognizes keywords case-insensitively, and emits Error rather than a valid string token for an invalid escape."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = [
@@ -27,7 +27,7 @@ missing = [
 [input]
 name = "source"
 type = "Structured Text source"
-declared = "One or more lexical forms governed by the registered lexical, expression, or variable specification"
+declared = "One or more lexical forms governed by the registered lexical, expression, or variable specification, including the emitted source representation"
 
 [spec]
 status = "specified"
@@ -157,6 +157,24 @@ outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
 rationale = "Supported date, time-of-day, and combined date-and-time prefixes and payload forms produce DateLiteral, TimeOfDayLiteral, and DateAndTimeLiteral, respectively."
+
+[[behavior]]
+partition = { equals = "TOKEN_UTF8_BYTE_RANGE" }
+case_family = "boundary"
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#source-boundary-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Each emitted token range is the exact half-open UTF-8 byte range of its source lexeme, including trivia."
+
+[[behavior]]
+partition = { equals = "LOSSLESS_SOURCE_SLICE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#source-boundary-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "lex_with_text returns source[token.range] exactly, without normalization or reconstruction."
 
 [[coverage.cells]]
 dimension = "happy_path"

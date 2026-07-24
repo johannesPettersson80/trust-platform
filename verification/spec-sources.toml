@@ -1816,6 +1816,7 @@ covers = [
   "character_string_literals",
   "time_literals",
   "lexer_token_classification",
+  "lexer_source_fidelity",
 ]
 known_limitations = [
   "This normative product source cites IEC 61131-3 but does not replace the registered external IEC source for conformance proof.",
