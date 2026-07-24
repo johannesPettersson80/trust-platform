@@ -8,7 +8,8 @@ import os
 import shlex
 import subprocess
 import time
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
+from concurrent.futures import CancelledError, ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
 
@@ -249,9 +250,12 @@ def run_direct_trace(
     input_digest: str,
     mode: str,
     resume: bool = False,
+    jobs: int = 1,
 ) -> dict[str, Any]:
     """Execute exact direct tests, isolate profiles, and build a Rust trace."""
 
+    if jobs not in {1, 2}:
+        raise ValueError("direct trace jobs must be 1 or 2")
     if trace_root.exists() and any(trace_root.iterdir()) and not resume:
         raise ValueError("direct trace root must be absent or empty")
     trace_root.mkdir(parents=True, exist_ok=True)
@@ -293,54 +297,79 @@ def run_direct_trace(
         if resume
         else set()
     )
+    pending: list[tuple[Mapping[str, Any], list[str], str]] = []
     for fact, command, binary_id in prepared:
         discovery_id = _required_string(fact, "discovery_id", "scanner fact")
         if discovery_id in reusable:
             continue
-        attempt_dir = (
-            trace_root
-            / "attempts"
-            / hashlib.sha256(discovery_id.encode()).hexdigest()
-        )
-        profiles = attempt_dir / "profiles"
-        profiles.mkdir(parents=True)
-        attempt_environment = dict(environment)
-        attempt_environment["LLVM_PROFILE_FILE"] = str(
-            profiles / "%m-%p.profraw"
-        )
-        started = time.monotonic()
-        completed = subprocess.run(
-            command,
-            cwd=root,
-            env=attempt_environment,
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-        duration_ms = max(0, round((time.monotonic() - started) * 1000))
-        if completed.returncode != 0:
-            raise ValueError(
-                f"{discovery_id} direct test failed with {completed.returncode}: "
-                f"{completed.stderr.strip() or completed.stdout.strip()}"
+        pending.append((fact, command, binary_id))
+    binary_evidence = _capture_binary_evidence(
+        Path(command[0]) for _, command, _ in prepared
+    )
+    if jobs == 1:
+        for fact, command, binary_id in pending:
+            executable = Path(command[0]).resolve()
+            digest, signature = binary_evidence[executable]
+            _execute_direct_attempt(
+                root=root,
+                trace_root=trace_root,
+                fact=fact,
+                command=command,
+                binary_id=binary_id,
+                environment=environment,
+                executable_digest=digest,
+                executable_signature=signature,
             )
-        if not any(profiles.glob("*.profraw")):
-            raise ValueError(f"{discovery_id} produced no LLVM profile")
-        attempt_id = f"direct:{discovery_id}"
-        manifest = {
-            "schema_version": 1,
-            "discovery_id": discovery_id,
-            "binary_id": binary_id,
-            "test_name": _required_string(fact, "name", discovery_id),
-            "attempt_id": attempt_id,
-            "test_executable": str(Path(command[0]).resolve()),
-            "test_executable_digest": _file_digest(Path(command[0])),
-            "test_arguments": command[1:],
-            "status": "completed",
-            "exit_code": 0,
-            "duration_ms": duration_ms,
-        }
-        (attempt_dir / "attempt.json").write_text(
-            json.dumps(manifest, indent=2, sort_keys=True) + "\n"
+    else:
+        structured_text = [
+            row
+            for row in pending
+            if row[0]["discovery_source_kind"] == "structured_text_test"
+        ]
+        conformance = [
+            row
+            for row in pending
+            if row[0]["discovery_source_kind"] == "conformance_case"
+        ]
+        _execute_structured_text_attempts(
+            root=root,
+            trace_root=trace_root,
+            pending=structured_text,
+            environment=environment,
+            binary_evidence=binary_evidence,
+            jobs=jobs,
+        )
+        for fact, command, binary_id in conformance:
+            executable = Path(command[0]).resolve()
+            digest, signature = binary_evidence[executable]
+            _execute_direct_attempt(
+                root=root,
+                trace_root=trace_root,
+                fact=fact,
+                command=command,
+                binary_id=binary_id,
+                environment=environment,
+                executable_digest=digest,
+                executable_signature=signature,
+            )
+    for executable, (_, signature) in binary_evidence.items():
+        if _file_signature(executable) != signature:
+            raise ValueError(
+                f"direct test executable changed during batch: {executable}"
+            )
+    completed = reusable_completed_attempt_ids(
+        trace_root=trace_root,
+        resolved=requested,
+        purge_incomplete=False,
+    )
+    expected = {
+        _required_string(request, "discovery_id", "direct request")
+        for request in requested
+    }
+    if completed != expected:
+        missing = sorted(expected - completed)
+        raise ValueError(
+            f"direct trace batch barrier lacks completed attempts: {missing}"
         )
     exports = export_attempt_coverage(
         root=root,
@@ -374,6 +403,147 @@ def run_direct_trace(
     return document
 
 
+def _execute_direct_attempt(
+    *,
+    root: Path,
+    trace_root: Path,
+    fact: Mapping[str, Any],
+    command: Sequence[str],
+    binary_id: str,
+    environment: Mapping[str, str],
+    executable_digest: str,
+    executable_signature: tuple[int, ...],
+) -> None:
+    """Run one direct test with attempt-owned profiles and temporary files."""
+
+    discovery_id = _required_string(fact, "discovery_id", "scanner fact")
+    executable = Path(command[0]).resolve()
+    if _file_signature(executable) != executable_signature:
+        raise ValueError(
+            f"{discovery_id} executable changed before direct test"
+        )
+    attempt_dir = (
+        trace_root
+        / "attempts"
+        / hashlib.sha256(discovery_id.encode()).hexdigest()
+    )
+    profiles = attempt_dir / "profiles"
+    profiles.mkdir(parents=True)
+    temporary_dir = attempt_dir / "temporary"
+    temporary_dir.mkdir()
+    attempt_environment = dict(environment)
+    attempt_environment["LLVM_PROFILE_FILE"] = str(
+        profiles / "%m-%p.profraw"
+    )
+    for variable in ("TMPDIR", "TMP", "TEMP"):
+        attempt_environment[variable] = str(temporary_dir)
+    started = time.monotonic()
+    completed = subprocess.run(
+        list(command),
+        cwd=root,
+        env=attempt_environment,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    duration_ms = max(0, round((time.monotonic() - started) * 1000))
+    if completed.returncode != 0:
+        raise ValueError(
+            f"{discovery_id} direct test failed with {completed.returncode}: "
+            f"{completed.stderr.strip() or completed.stdout.strip()}"
+        )
+    if not any(profiles.glob("*.profraw")):
+        raise ValueError(f"{discovery_id} produced no LLVM profile")
+    if _file_signature(executable) != executable_signature:
+        raise ValueError(
+            f"{discovery_id} executable changed during direct test"
+        )
+    attempt_id = f"direct:{discovery_id}"
+    manifest = {
+        "schema_version": 1,
+        "discovery_id": discovery_id,
+        "binary_id": binary_id,
+        "test_name": _required_string(fact, "name", discovery_id),
+        "attempt_id": attempt_id,
+        "test_executable": str(executable),
+        "test_executable_digest": executable_digest,
+        "test_arguments": list(command[1:]),
+        "status": "completed",
+        "exit_code": 0,
+        "duration_ms": duration_ms,
+    }
+    (attempt_dir / "attempt.json").write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n"
+    )
+
+
+def _execute_structured_text_attempts(
+    *,
+    root: Path,
+    trace_root: Path,
+    pending: Sequence[tuple[Mapping[str, Any], list[str], str]],
+    environment: Mapping[str, str],
+    binary_evidence: Mapping[Path, tuple[str, tuple[int, ...]]],
+    jobs: int,
+) -> None:
+    """Run bounded ST attempts and stop queuing work after the first failure."""
+
+    failures: list[tuple[str, str]] = []
+    with ThreadPoolExecutor(max_workers=jobs) as executor:
+        future_ids = {}
+        for fact, command, binary_id in pending:
+            discovery_id = _required_string(
+                fact, "discovery_id", "scanner fact"
+            )
+            executable = Path(command[0]).resolve()
+            digest, signature = binary_evidence[executable]
+            future = executor.submit(
+                _execute_direct_attempt,
+                root=root,
+                trace_root=trace_root,
+                fact=fact,
+                command=command,
+                binary_id=binary_id,
+                environment=environment,
+                executable_digest=digest,
+                executable_signature=signature,
+            )
+            future_ids[future] = discovery_id
+        for future in as_completed(future_ids):
+            discovery_id = future_ids[future]
+            try:
+                future.result()
+            except CancelledError:
+                continue
+            except Exception as error:
+                failures.append((discovery_id, str(error)))
+                for other in future_ids:
+                    if other is not future:
+                        other.cancel()
+    if failures:
+        detail = "; ".join(
+            f"{discovery_id}: {message}"
+            for discovery_id, message in sorted(failures)
+        )
+        raise ValueError(f"direct Structured Text attempts failed: {detail}")
+
+
+def _capture_binary_evidence(
+    paths: Iterable[Path],
+) -> dict[Path, tuple[str, tuple[int, ...]]]:
+    evidence: dict[Path, tuple[str, tuple[int, ...]]] = {}
+    for path in sorted({path.resolve() for path in paths}):
+        before = _file_signature(path)
+        digest = _file_digest(path)
+        after = _file_signature(path)
+        if before != after:
+            raise ValueError(
+                f"direct test executable changed during digest: {path}"
+            )
+        evidence[path] = (digest, after)
+    return evidence
+
+
 def _st_project_root(source: Path) -> Path | None:
     for parent in source.parents:
         if parent.name != "src":
@@ -393,6 +563,17 @@ def _required_binary(binaries: Mapping[str, Path], name: str) -> Path:
 
 def _file_digest(path: Path) -> str:
     return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _file_signature(path: Path) -> tuple[int, ...]:
+    stat = path.stat()
+    return (
+        stat.st_dev,
+        stat.st_ino,
+        stat.st_size,
+        stat.st_mtime_ns,
+        stat.st_ctime_ns,
+    )
 
 
 def _required_string(

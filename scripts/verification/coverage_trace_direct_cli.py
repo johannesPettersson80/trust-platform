@@ -40,6 +40,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--llvm-tools-dir", type=Path, required=True)
     parser.add_argument("--resume", action="store_true")
     parser.add_argument(
+        "--jobs",
+        type=int,
+        default=1,
+        help="parallel Structured Text workers; conformance remains serialized",
+    )
+    parser.add_argument(
         "--temporary-dir",
         type=Path,
         default=Path(
@@ -142,6 +148,7 @@ def main(argv: list[str] | None = None) -> int:
             ),
             mode=args.mode,
             resume=args.resume,
+            jobs=args.jobs,
         )
     except (OSError, ValueError, subprocess.SubprocessError) as error:
         print(f"direct coverage trace failed: {error}", file=sys.stderr)

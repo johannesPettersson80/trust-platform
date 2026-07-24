@@ -68,6 +68,8 @@ class TestCatalogCampaignTests(unittest.TestCase):
         self.assertIn("--all-rust", flattened)
         self.assertIn("--all-direct", flattened)
         self.assertIn("--all-vscode", flattened)
+        direct_command = dict(commands)["direct trace"]
+        self.assertEqual("2", direct_command[direct_command.index("--jobs") + 1])
 
     def test_pilot_samples_existing_ground_truth_and_each_adapter_kind(self) -> None:
         rust = [_fact("rust_unit_test", f"rust_{index}") for index in range(20)]

@@ -308,6 +308,8 @@ def campaign_commands(
                 str(llvm_tools_dir),
                 "--temporary-dir",
                 str(temporary_dir / "direct"),
+                "--jobs",
+                "2",
                 *resume_args,
             ],
         ),
