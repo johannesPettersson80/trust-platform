@@ -13,6 +13,8 @@ from scripts.verification import coverage_trace_resume
 from scripts.verification.coverage_trace_cli import (
     MAX_TESTS_PER_COVERAGE_COMMAND,
     coverage_run_commands,
+    instrumented_nextest_list_environment,
+    legacy_requested_tests_document,
     nextest_filter_expression,
     requested_tests_document,
     reusable_completed_attempt_ids,
@@ -20,6 +22,7 @@ from scripts.verification.coverage_trace_cli import (
     select_ground_truth_pilot_ids,
     targeted_nextest_list_shards,
     trace_environment,
+    validate_resume_request,
 )
 
 
@@ -185,12 +188,13 @@ class CoverageTraceCliTests(unittest.TestCase):
         self.assertNotIn("'", expression)
         self.assertNotIn(";", expression)
 
-    def test_requested_document_contains_only_wrapper_identity(self) -> None:
+    def test_requested_document_contains_current_executable_identity(self) -> None:
         document = requested_tests_document(
             [
                 {
                     "discovery_id": "DISC_ONE",
                     "nextest_binary_id": "pkg-a",
+                    "nextest_binary_path": "/target/pkg-a",
                     "nextest_test_name": "module::test_a",
                     "path": "ignored",
                 }
@@ -199,17 +203,58 @@ class CoverageTraceCliTests(unittest.TestCase):
 
         self.assertEqual(
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "tests": [
                     {
                         "discovery_id": "DISC_ONE",
                         "nextest_binary_id": "pkg-a",
+                        "nextest_binary_path": "/target/pkg-a",
                         "nextest_test_name": "module::test_a",
                     }
                 ],
             },
             document,
         )
+
+    def test_resume_request_migrates_only_the_exact_legacy_identity_set(
+        self,
+    ) -> None:
+        resolved = [
+            {
+                "discovery_id": "DISC_ONE",
+                "nextest_binary_id": "pkg-a",
+                "nextest_binary_path": "/target/pkg-a",
+                "nextest_test_name": "module::test_a",
+            }
+        ]
+        current = requested_tests_document(resolved)
+        legacy = legacy_requested_tests_document(resolved)
+
+        validate_resume_request(
+            existing=current,
+            current=current,
+            legacy=legacy,
+        )
+        validate_resume_request(
+            existing=legacy,
+            current=current,
+            legacy=legacy,
+        )
+        changed = {
+            **legacy,
+            "tests": [
+                {
+                    **legacy["tests"][0],
+                    "nextest_test_name": "module::different",
+                }
+            ],
+        }
+        with self.assertRaisesRegex(ValueError, "does not match"):
+            validate_resume_request(
+                existing=changed,
+                current=current,
+                legacy=legacy,
+            )
 
     def test_filter_encodes_syntax_characters_and_rejects_duplicates(self) -> None:
         expression = nextest_filter_expression(
@@ -275,15 +320,68 @@ class CoverageTraceCliTests(unittest.TestCase):
             temporary = root / "temporary"
 
             environment = trace_environment(
-                base_environment={"PATH": "/bin"},
+                base_environment={
+                    "PATH": "/bin",
+                    "CARGO_LLVM_COV_TARGET_DIR": "/stale/target",
+                    "CARGO_LLVM_COV_BUILD_DIR": "/stale/build",
+                },
                 cargo_target_dir=target,
                 temporary_dir=temporary,
             )
 
             self.assertEqual(str(target.resolve()), environment["CARGO_TARGET_DIR"])
+            coverage_target = str((target / "llvm-cov-target").resolve())
+            self.assertEqual(
+                coverage_target,
+                environment["CARGO_LLVM_COV_TARGET_DIR"],
+            )
+            self.assertEqual(
+                coverage_target,
+                environment["CARGO_LLVM_COV_BUILD_DIR"],
+            )
             self.assertEqual(str(temporary.resolve()), environment.get("TMPDIR"))
             self.assertTrue(temporary.is_dir())
             self.assertEqual("/bin", environment["PATH"])
+
+    def test_nextest_listing_uses_the_exact_instrumented_target_directory(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            target = root / "target"
+            run_environment = trace_environment(
+                base_environment={
+                    "PATH": "/bin",
+                    "CARGO_LLVM_COV_TARGET_DIR": "/stale/target",
+                    "CARGO_LLVM_COV_BUILD_DIR": "/stale/build",
+                },
+                cargo_target_dir=target,
+                temporary_dir=root / "tmp",
+            )
+            environment = instrumented_nextest_list_environment(
+                base_environment=run_environment,
+                llvm_cov_environment={
+                    "RUSTC_WRAPPER": "/bin/cargo-llvm-cov",
+                    "CARGO_LLVM_COV": "1",
+                    "LLVM_PROFILE_FILE": "/tmp/profile-%p.profraw",
+                },
+                cargo_target_dir=target,
+            )
+
+        expected = str((target / "llvm-cov-target").resolve())
+        self.assertEqual(expected, environment["CARGO_TARGET_DIR"])
+        self.assertEqual(expected, environment["CARGO_LLVM_COV_TARGET_DIR"])
+        self.assertEqual(expected, environment["CARGO_LLVM_COV_BUILD_DIR"])
+        self.assertEqual(
+            run_environment["CARGO_LLVM_COV_TARGET_DIR"],
+            environment["CARGO_TARGET_DIR"],
+        )
+        self.assertEqual(
+            run_environment["CARGO_LLVM_COV_BUILD_DIR"],
+            environment["CARGO_TARGET_DIR"],
+        )
+        self.assertEqual("/bin/cargo-llvm-cov", environment["RUSTC_WRAPPER"])
+        self.assertEqual(str(root / "tmp"), environment["TMPDIR"])
 
     def test_resume_reuses_only_complete_exact_attempts_and_purges_partial(self) -> None:
         with TemporaryDirectory() as directory:
@@ -326,11 +424,13 @@ class CoverageTraceCliTests(unittest.TestCase):
                     {
                         "discovery_id": "DISC_COMPLETE",
                         "nextest_binary_id": "example",
+                        "nextest_binary_path": str(executable),
                         "nextest_test_name": "module::complete",
                     },
                     {
                         "discovery_id": "DISC_PARTIAL",
                         "nextest_binary_id": "example",
+                        "nextest_binary_path": str(executable),
                         "nextest_test_name": "module::partial",
                     },
                 ],
@@ -371,6 +471,7 @@ class CoverageTraceCliTests(unittest.TestCase):
                     {
                         "discovery_id": f"DISC_{suffix}",
                         "nextest_binary_id": "example",
+                        "nextest_binary_path": str(executable),
                         "nextest_test_name": f"module::{suffix.lower()}",
                     }
                 )
@@ -387,6 +488,248 @@ class CoverageTraceCliTests(unittest.TestCase):
 
         self.assertEqual({"DISC_ONE", "DISC_TWO"}, reusable)
         self.assertEqual(1, digest.call_count)
+
+    def test_resume_rejects_manifest_executable_that_is_not_current(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            old_executable = root / "old-test-binary"
+            old_executable.write_bytes(b"old")
+            current_executable = root / "current-test-binary"
+            current_executable.write_bytes(b"current")
+            attempt = root / "attempts/old"
+            (attempt / "profiles").mkdir(parents=True)
+            (attempt / "profiles/profile.profraw").write_bytes(b"profile")
+            (attempt / "attempt.json").write_text(
+                json.dumps(
+                    {
+                        "discovery_id": "DISC_ONE",
+                        "binary_id": "example",
+                        "test_name": "module::one",
+                        "test_executable": str(old_executable),
+                        "test_executable_digest": (
+                            "sha256:"
+                            + hashlib.sha256(old_executable.read_bytes()).hexdigest()
+                        ),
+                        "status": "completed",
+                        "exit_code": 0,
+                    }
+                )
+            )
+
+            reusable = reusable_completed_attempt_ids(
+                trace_root=root,
+                resolved=[
+                    {
+                        "discovery_id": "DISC_ONE",
+                        "nextest_binary_id": "example",
+                        "nextest_binary_path": str(current_executable),
+                        "nextest_test_name": "module::one",
+                    }
+                ],
+                purge_incomplete=True,
+            )
+
+        self.assertEqual(set(), reusable)
+
+    def test_resume_hashes_each_distinct_executable_once(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            resolved = []
+            for suffix in ("ONE", "TWO"):
+                executable = root / f"test-binary-{suffix.lower()}"
+                executable.write_bytes(suffix.encode())
+                attempt = root / f"attempts/{suffix.lower()}"
+                (attempt / "profiles").mkdir(parents=True)
+                (attempt / "profiles/profile.profraw").write_bytes(b"profile")
+                (attempt / "attempt.json").write_text(
+                    json.dumps(
+                        {
+                            "discovery_id": f"DISC_{suffix}",
+                            "binary_id": f"example-{suffix.lower()}",
+                            "test_name": f"module::{suffix.lower()}",
+                            "test_executable": str(executable),
+                            "test_executable_digest": (
+                                "sha256:"
+                                + hashlib.sha256(executable.read_bytes()).hexdigest()
+                            ),
+                            "status": "completed",
+                            "exit_code": 0,
+                        }
+                    )
+                )
+                resolved.append(
+                    {
+                        "discovery_id": f"DISC_{suffix}",
+                        "nextest_binary_id": f"example-{suffix.lower()}",
+                        "nextest_binary_path": str(executable),
+                        "nextest_test_name": f"module::{suffix.lower()}",
+                    }
+                )
+
+            with mock.patch(
+                "scripts.verification.coverage_trace_resume._file_digest",
+                wraps=coverage_trace_resume._file_digest,
+            ) as digest:
+                reusable = reusable_completed_attempt_ids(
+                    trace_root=root,
+                    resolved=resolved,
+                    purge_incomplete=True,
+                )
+
+        self.assertEqual({"DISC_ONE", "DISC_TWO"}, reusable)
+        self.assertEqual(2, digest.call_count)
+
+    def test_resume_purges_missing_non_file_and_changed_digest_executables(
+        self,
+    ) -> None:
+        for case in ("missing", "directory", "changed_digest"):
+            with self.subTest(case=case), TemporaryDirectory() as directory:
+                root = Path(directory)
+                executable = root / "test-binary"
+                if case == "directory":
+                    executable.mkdir()
+                    manifest_digest = "sha256:not-a-file"
+                elif case == "changed_digest":
+                    executable.write_bytes(b"current")
+                    manifest_digest = (
+                        "sha256:" + hashlib.sha256(b"old").hexdigest()
+                    )
+                else:
+                    manifest_digest = "sha256:missing"
+                attempt = root / "attempts/one"
+                (attempt / "profiles").mkdir(parents=True)
+                (attempt / "profiles/profile.profraw").write_bytes(b"profile")
+                (attempt / "attempt.json").write_text(
+                    json.dumps(
+                        {
+                            "discovery_id": "DISC_ONE",
+                            "binary_id": "example",
+                            "test_name": "module::one",
+                            "test_executable": str(executable),
+                            "test_executable_digest": manifest_digest,
+                            "status": "completed",
+                            "exit_code": 0,
+                        }
+                    )
+                )
+
+                reusable = reusable_completed_attempt_ids(
+                    trace_root=root,
+                    resolved=[
+                        {
+                            "discovery_id": "DISC_ONE",
+                            "nextest_binary_id": "example",
+                            "nextest_binary_path": str(executable),
+                            "nextest_test_name": "module::one",
+                        }
+                    ],
+                    purge_incomplete=True,
+                )
+
+                self.assertEqual(set(), reusable)
+                self.assertFalse(attempt.exists())
+
+    def test_resume_rejects_duplicate_discovery_even_when_one_attempt_is_invalid(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            executable = root / "test-binary"
+            executable.write_bytes(b"binary")
+            valid = root / "attempts/valid"
+            invalid = root / "attempts/invalid"
+            (valid / "profiles").mkdir(parents=True)
+            invalid.mkdir(parents=True)
+            (valid / "profiles/profile.profraw").write_bytes(b"profile")
+            (valid / "attempt.json").write_text(
+                json.dumps(
+                    {
+                        "discovery_id": "DISC_DUPLICATE",
+                        "binary_id": "example",
+                        "test_name": "module::duplicate",
+                        "test_executable": str(executable),
+                        "test_executable_digest": (
+                            "sha256:"
+                            + hashlib.sha256(executable.read_bytes()).hexdigest()
+                        ),
+                        "status": "completed",
+                        "exit_code": 0,
+                    }
+                )
+            )
+            (invalid / "attempt.json").write_text(
+                json.dumps(
+                    {
+                        "discovery_id": "DISC_DUPLICATE",
+                        "status": "started",
+                    }
+                )
+            )
+
+            with self.assertRaisesRegex(ValueError, "duplicates attempt"):
+                reusable_completed_attempt_ids(
+                    trace_root=root,
+                    resolved=[
+                        {
+                            "discovery_id": "DISC_DUPLICATE",
+                            "nextest_binary_id": "example",
+                            "nextest_binary_path": str(executable),
+                            "nextest_test_name": "module::duplicate",
+                        }
+                    ],
+                    purge_incomplete=True,
+                )
+
+    def test_resume_rejects_executable_replaced_while_it_is_hashed(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            executable = root / "test-binary"
+            executable.write_bytes(b"original")
+            attempt = root / "attempts/one"
+            (attempt / "profiles").mkdir(parents=True)
+            (attempt / "profiles/profile.profraw").write_bytes(b"profile")
+            (attempt / "attempt.json").write_text(
+                json.dumps(
+                    {
+                        "discovery_id": "DISC_ONE",
+                        "binary_id": "example",
+                        "test_name": "module::one",
+                        "test_executable": str(executable),
+                        "test_executable_digest": (
+                            "sha256:"
+                            + hashlib.sha256(executable.read_bytes()).hexdigest()
+                        ),
+                        "status": "completed",
+                        "exit_code": 0,
+                    }
+                )
+            )
+            original_digest = coverage_trace_resume._file_digest
+
+            def replace_after_hash(path: Path) -> str:
+                digest = original_digest(path)
+                path.write_bytes(b"replacement")
+                return digest
+
+            with (
+                mock.patch(
+                    "scripts.verification.coverage_trace_resume._file_digest",
+                    side_effect=replace_after_hash,
+                ),
+                self.assertRaisesRegex(ValueError, "changed during resume"),
+            ):
+                reusable_completed_attempt_ids(
+                    trace_root=root,
+                    resolved=[
+                        {
+                            "discovery_id": "DISC_ONE",
+                            "nextest_binary_id": "example",
+                            "nextest_binary_path": str(executable),
+                            "nextest_test_name": "module::one",
+                        }
+                    ],
+                    purge_incomplete=True,
+                )
 
 
 if __name__ == "__main__":

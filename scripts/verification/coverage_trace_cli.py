@@ -21,6 +21,7 @@ from .code_spec_rust import invoke_rust_extractor
 from .coverage_trace import validate_trace_document
 from .coverage_trace_config import render_nextest_tool_config
 from .coverage_trace_document import build_rust_trace_document
+from .coverage_trace_direct import parse_llvm_cov_environment
 from .coverage_trace_filter import exact_name_matcher
 from .coverage_trace_inventory import code_inventory_digest
 from .coverage_trace_inputs import trace_input_digest
@@ -210,10 +211,32 @@ def trace_environment(
     temporary_dir: Path,
 ) -> dict[str, str]:
     environment = dict(base_environment)
-    environment["CARGO_TARGET_DIR"] = str(cargo_target_dir.resolve())
+    resolved_target = cargo_target_dir.resolve()
+    coverage_target = (resolved_target / "llvm-cov-target").resolve()
+    environment["CARGO_TARGET_DIR"] = str(resolved_target)
+    environment["CARGO_LLVM_COV_TARGET_DIR"] = str(coverage_target)
+    environment["CARGO_LLVM_COV_BUILD_DIR"] = str(coverage_target)
     resolved_temporary = temporary_dir.resolve()
     resolved_temporary.mkdir(parents=True, exist_ok=True)
     environment["TMPDIR"] = str(resolved_temporary)
+    return environment
+
+
+def instrumented_nextest_list_environment(
+    *,
+    base_environment: Mapping[str, str],
+    llvm_cov_environment: Mapping[str, str],
+    cargo_target_dir: Path,
+) -> dict[str, str]:
+    """Build list identities with the same coverage executable as trace runs."""
+
+    environment = dict(base_environment)
+    environment.update(llvm_cov_environment)
+    coverage_target = (cargo_target_dir.resolve() / "llvm-cov-target").resolve()
+    coverage_target.mkdir(parents=True, exist_ok=True)
+    environment["CARGO_TARGET_DIR"] = str(coverage_target)
+    environment["CARGO_LLVM_COV_TARGET_DIR"] = str(coverage_target)
+    environment["CARGO_LLVM_COV_BUILD_DIR"] = str(coverage_target)
     return environment
 
 
@@ -253,6 +276,33 @@ def requested_tests_document(
             "nextest_binary_id": _required_string(
                 record, "nextest_binary_id", "resolved test"
             ),
+            "nextest_binary_path": _required_string(
+                record, "nextest_binary_path", "resolved test"
+            ),
+            "nextest_test_name": _required_string(
+                record, "nextest_test_name", "resolved test"
+            ),
+        }
+        for record in sorted(
+            resolved, key=lambda row: str(row.get("discovery_id", ""))
+        )
+    ]
+    return {"schema_version": 2, "tests": tests}
+
+
+def legacy_requested_tests_document(
+    resolved: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Exact v1 projection accepted only for one-way resume migration."""
+
+    tests = [
+        {
+            "discovery_id": _required_string(
+                record, "discovery_id", "resolved test"
+            ),
+            "nextest_binary_id": _required_string(
+                record, "nextest_binary_id", "resolved test"
+            ),
             "nextest_test_name": _required_string(
                 record, "nextest_test_name", "resolved test"
             ),
@@ -262,6 +312,18 @@ def requested_tests_document(
         )
     ]
     return {"schema_version": 1, "tests": tests}
+
+
+def validate_resume_request(
+    *,
+    existing: Mapping[str, Any],
+    current: Mapping[str, Any],
+    legacy: Mapping[str, Any],
+) -> None:
+    if existing not in (current, legacy):
+        raise ValueError(
+            "resume request does not match existing Rust trace denominator"
+        )
 
 
 def select_ground_truth_pilot_ids(
@@ -364,6 +426,18 @@ def run_focused_rust_trace(
             raise ValueError("cargo metadata emitted invalid JSON") from error
         if not isinstance(cargo_metadata, Mapping):
             raise ValueError("cargo metadata root must be an object")
+        llvm_cov_environment = parse_llvm_cov_environment(
+            _run(
+                ["cargo", "llvm-cov", "show-env"],
+                root=root,
+                environment=environment,
+            ).stdout
+        )
+        list_environment = instrumented_nextest_list_environment(
+            base_environment=environment,
+            llvm_cov_environment=llvm_cov_environment,
+            cargo_target_dir=cargo_target_dir,
+        )
         package_targets = rust_package_target_inventory(cargo_metadata)
         for fact in rust_facts:
             package = str(fact["package"])
@@ -377,7 +451,7 @@ def run_focused_rust_trace(
             listed = _run(
                 list(shard["command"]),
                 root=root,
-                environment=environment,
+                environment=list_environment,
             )
             try:
                 nextest_document = json.loads(listed.stdout)
@@ -433,10 +507,13 @@ def run_focused_rust_trace(
         request_path = trace_root / "requested-tests.json"
         if resume and request_path.is_file():
             existing_request = json.loads(request_path.read_text())
-            if existing_request != request_document:
-                raise ValueError(
-                    "resume request does not match existing Rust trace denominator"
-                )
+            if not isinstance(existing_request, Mapping):
+                raise ValueError("resume request root must be an object")
+            validate_resume_request(
+                existing=existing_request,
+                current=request_document,
+                legacy=legacy_requested_tests_document(resolved),
+            )
         _write_json(request_path, request_document)
         tool_config = trace_root / "nextest.toml"
         rendered_tool_config = render_nextest_tool_config(

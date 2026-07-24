@@ -118,6 +118,7 @@ class CoverageTraceResolverTests(unittest.TestCase):
         self.assertEqual([], unsupported)
         self.assertEqual("module::same_name", resolved[0]["nextest_test_name"])
         self.assertEqual("example", resolved[0]["nextest_binary_id"])
+        self.assertEqual("/target/example", resolved[0]["nextest_binary_path"])
         self.assertEqual("verified_synthesized", resolved[0]["command_authority"])
 
     def test_ambiguous_terminal_name_fails_closed(self) -> None:

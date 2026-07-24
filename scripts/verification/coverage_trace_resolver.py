@@ -134,6 +134,7 @@ def resolve_rust_tests(
             raise ValueError("nextest rust-suites entries must be objects")
         package = _required_string(suite, "package-name", suite_key)
         binary_id = _required_string(suite, "binary-id", suite_key)
+        binary_path = _required_string(suite, "binary-path", suite_key)
         testcases = suite.get("testcases")
         if not isinstance(testcases, Mapping):
             raise ValueError(f"nextest suite {suite_key} lacks testcases object")
@@ -144,6 +145,7 @@ def resolve_rust_tests(
                 {
                     "package": package,
                     "binary_id": binary_id,
+                    "binary_path": binary_path,
                     "test_name": test_name,
                 }
             )
@@ -214,6 +216,7 @@ def resolve_rust_tests(
                 ),
                 "package": package,
                 "nextest_binary_id": match["binary_id"],
+                "nextest_binary_path": match["binary_path"],
                 "nextest_test_name": match["test_name"],
                 "command": command,
                 "command_authority": "verified_synthesized",

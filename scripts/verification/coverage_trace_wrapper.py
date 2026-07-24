@@ -40,9 +40,13 @@ def prepare_attempt_environment(
     trace_root = Path(values[TRACE_ROOT_ENV])
     if not trace_root.is_absolute():
         raise ValueError(f"{TRACE_ROOT_ENV} must be an absolute path")
+    if not command:
+        raise ValueError("coverage trace wrapper requires a test executable")
+    test_executable = Path(command[0]).resolve()
     discovery_id = _requested_discovery_id(
         trace_root,
         binary_id=values["NEXTEST_BINARY_ID"],
+        binary_path=test_executable,
         test_name=values["NEXTEST_TEST_NAME"],
     )
     identity = {
@@ -62,13 +66,13 @@ def prepare_attempt_environment(
         **identity,
         "attempt_key": attempt_key,
         "profile_pattern": (profiles_dir / "%m-%p.profraw").as_posix(),
-        "test_executable": command[0] if command else None,
+        "test_executable": str(test_executable),
         "test_executable_digest": (
-            _file_digest(Path(command[0]))
-            if command and Path(command[0]).is_file()
+            _file_digest(test_executable)
+            if test_executable.is_file()
             else None
         ),
-        "test_arguments": command[1:] if command else [],
+        "test_arguments": command[1:],
         "status": "started",
     }
     _atomic_write_json(attempt_dir / "attempt.json", manifest)
@@ -165,6 +169,7 @@ def _requested_discovery_id(
     trace_root: Path,
     *,
     binary_id: str,
+    binary_path: Path,
     test_name: str,
 ) -> str:
     path = trace_root / REQUESTS_NAME
@@ -177,39 +182,48 @@ def _requested_discovery_id(
         "tests",
     }:
         raise ValueError(f"{REQUESTS_NAME} root fields drift")
-    if document.get("schema_version") != 1:
-        raise ValueError(f"{REQUESTS_NAME} schema_version must equal 1")
+    if document.get("schema_version") != 2:
+        raise ValueError(f"{REQUESTS_NAME} schema_version must equal 2")
     tests = document.get("tests")
     if not isinstance(tests, list):
         raise ValueError(f"{REQUESTS_NAME} tests must be an array")
-    by_identity: dict[tuple[str, str], str] = {}
+    by_identity: dict[tuple[str, str, Path], str] = {}
     discovery_ids: set[str] = set()
     for index, record in enumerate(tests):
         if not isinstance(record, Mapping) or set(record) != {
             "discovery_id",
             "nextest_binary_id",
+            "nextest_binary_path",
             "nextest_test_name",
         }:
             raise ValueError(f"{REQUESTS_NAME} test[{index}] fields drift")
         discovery_id = record.get("discovery_id")
         requested_binary = record.get("nextest_binary_id")
+        requested_path = record.get("nextest_binary_path")
         requested_name = record.get("nextest_test_name")
         if (
             not isinstance(discovery_id, str)
             or DISCOVERY_ID_RE.fullmatch(discovery_id) is None
             or not isinstance(requested_binary, str)
             or not requested_binary
+            or not isinstance(requested_path, str)
+            or not requested_path
+            or not Path(requested_path).is_absolute()
             or not isinstance(requested_name, str)
             or not requested_name
         ):
             raise ValueError(f"{REQUESTS_NAME} test[{index}] identity is invalid")
-        identity = (requested_binary, requested_name)
+        identity = (
+            requested_binary,
+            requested_name,
+            Path(requested_path).resolve(),
+        )
         if identity in by_identity or discovery_id in discovery_ids:
             raise ValueError(f"{REQUESTS_NAME} contains duplicate identity")
         by_identity[identity] = discovery_id
         discovery_ids.add(discovery_id)
     try:
-        return by_identity[(binary_id, test_name)]
+        return by_identity[(binary_id, test_name, binary_path.resolve())]
     except KeyError as error:
         raise ValueError(
             f"runtime identity {binary_id}${test_name} is not in requested-tests"

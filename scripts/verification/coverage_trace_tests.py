@@ -66,11 +66,12 @@ class CoverageTraceWrapperTests(unittest.TestCase):
             trace_root = Path(directory).resolve()
             (trace_root / "requested-tests.json").write_text(
                 """{
-  "schema_version": 1,
+  "schema_version": 2,
   "tests": [
     {
       "discovery_id": "DISC_00000000000000000001",
       "nextest_binary_id": "trust-runtime::lib",
+      "nextest_binary_path": "/repo/target/test-binary",
       "nextest_test_name": "module::test with spaces"
     }
   ]
@@ -141,7 +142,7 @@ class CoverageTraceWrapperTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             trace_root = Path(directory).resolve()
             (trace_root / "requested-tests.json").write_text(
-                '{"schema_version":1,"tests":[]}'
+                '{"schema_version":2,"tests":[]}'
             )
             with self.assertRaisesRegex(ValueError, "not in requested-tests"):
                 prepare_attempt_environment(
@@ -150,7 +151,38 @@ class CoverageTraceWrapperTests(unittest.TestCase):
                         "NEXTEST_TEST_NAME": "unrequested",
                         "NEXTEST_BINARY_ID": "binary",
                         "NEXTEST_ATTEMPT_ID": "attempt",
+                    },
+                    command=["/tmp/test-binary"],
+                )
+
+    def test_runtime_executable_must_match_requested_binary_path(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            trace_root = Path(directory).resolve()
+            (trace_root / "requested-tests.json").write_text(
+                json.dumps(
+                    {
+                        "schema_version": 2,
+                        "tests": [
+                            {
+                                "discovery_id": DISCOVERY_ID,
+                                "nextest_binary_id": "binary",
+                                "nextest_binary_path": "/current/test-binary",
+                                "nextest_test_name": "module::test",
+                            }
+                        ],
                     }
+                )
+            )
+
+            with self.assertRaisesRegex(ValueError, "not in requested-tests"):
+                prepare_attempt_environment(
+                    {
+                        "TRUST_CATALOG_TRACE_ROOT": str(trace_root),
+                        "NEXTEST_TEST_NAME": "module::test",
+                        "NEXTEST_BINARY_ID": "binary",
+                        "NEXTEST_ATTEMPT_ID": "attempt",
+                    },
+                    command=["/stale/test-binary"],
                 )
 
 
