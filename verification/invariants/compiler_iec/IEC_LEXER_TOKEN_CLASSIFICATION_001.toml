@@ -122,6 +122,42 @@ no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
 rationale = "Supported duration spellings produce TimeLiteral without case sensitivity or separator loss."
 
+[[behavior]]
+partition = { equals = "COMMENT_TOKEN_CLASSIFICATION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#6a-trust-emitted-token-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A line comment and a matching parenthesized block comment produce LineComment and BlockComment tokens, respectively."
+
+[[behavior]]
+partition = { equals = "NUMERIC_DOT_RANGE_BOUNDARY" }
+case_family = "boundary"
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#6a-trust-emitted-token-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A range delimiter after an integer is DotDot, a decimal point followed by a digit remains inside RealLiteral, and a trailing standalone point is Dot after IntLiteral."
+
+[[behavior]]
+partition = { equals = "TYPED_LITERAL_COMPOSITE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#6a-trust-emitted-token-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Typed numeric and Boolean source forms emit a TypedLiteralPrefix followed by the separately classified sign and value payload tokens."
+
+[[behavior]]
+partition = { equals = "DATE_TIME_LITERAL_CLASS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#11-date-and-time-literals-table-9-section-635"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Supported date, time-of-day, and combined date-and-time prefixes and payload forms produce DateLiteral, TimeOfDayLiteral, and DateAndTimeLiteral, respectively."
+
 [[coverage.cells]]
 dimension = "happy_path"
 state = "gap_open"

@@ -261,15 +261,39 @@ token boundary that parser and tooling consumers may rely on.
 | Siemens SCL `#identifier` extension | `Hash` followed by `Ident`; surrounding operators and delimiters remain separate tokens |
 | Complete direct addresses such as `%IX0.0`, `%QW10`, `%MD100`, `%IB5` | One `DirectAddress` token |
 | Incomplete direct addresses `%I*`, `%Q*`, `%M*` | One `DirectAddress` token; lexical recognition does not make the form contextually valid outside the uses permitted by `docs/specs/03-variables.md` section 5 |
+| `//...` up to but excluding its line terminator, and `(* ... *)` through its matching terminator | One `LineComment` or `BlockComment` token, respectively; both are parser trivia |
+| `1..5`, `1.0`, and `1.` | `IntLiteral`, `DotDot`, `IntLiteral`; `RealLiteral`; and `IntLiteral`, `Dot`, respectively |
 | Integer, real, duration, narrow-string, and wide-string forms defined in sections 7 through 10 | The corresponding `IntLiteral`, `RealLiteral`, `TimeLiteral`, `StringLiteral`, or `WideStringLiteral` token |
+| Typed numeric or Boolean forms such as `INT#-123` and `BOOL#TRUE` | A `TypedLiteralPrefix` followed by the separately emitted payload tokens: `Minus`, `IntLiteral` or `KwTrue`, respectively |
+| Date, time-of-day, and combined date-and-time forms defined in section 11 | One `DateLiteral`, `TimeOfDayLiteral`, or `DateAndTimeLiteral` token, respectively |
 | A narrow or wide string containing a malformed escape | One or more `Error` tokens and no `StringLiteral` or `WideStringLiteral` token for the malformed lexeme |
 | A balanced pragma | One lossless `Pragma` token; it is parser trivia and does not change surrounding tokenization |
 
 The operator spellings are aligned with IEC 61131-3 Ed.3 section 7.3.2,
 Table 71; direct-address forms are aligned with section 6.5.5, Table 16. The
-`TokenKind` names, the Siemens SCL split, incomplete-address lexical boundary,
-malformed-escape error representation, and pragma trivia representation are
-truST product contracts. They are not IEC deviations.
+comment source forms, typed-literal source forms, and date/time source forms are
+aligned with sections 6.1.5 and 6.3.2 through 6.3.5, Tables 3 and 5 through 9.
+The `TokenKind` names, the Siemens SCL split, incomplete-address lexical
+boundary, dot/range boundary, typed-literal token split, malformed-escape error
+representation, comment trivia representation, and pragma trivia
+representation are truST product contracts. They are not IEC deviations.
+
+### Source-boundary contract
+
+For every token emitted by `lex`, `Token::range` is the half-open UTF-8 byte
+range of that token's exact source lexeme. Ranges include trivia tokens and
+advance in source order without shifting the following token. For example,
+lexing `abc := 123` yields ranges `0..3`, `3..4`, and `4..6` for `abc`, the
+space, and `:=`.
+
+For every pair emitted by `lex_with_text`, the returned text is exactly
+`source[token.range]`. It is not normalized, case-folded, or reconstructed.
+For example, the non-trivia text slices for `x := 42` are exactly `x`, `:=`,
+and `42`.
+
+IEC 61131-3 defines the external source forms but does not define truST's
+internal byte-range or borrowed-source-slice API. These source-boundary rules
+are therefore truST product contracts, not IEC decisions or deviations.
 
 ## 7. Numeric Literals (Table 5, Section 6.3.2)
 
@@ -437,7 +461,7 @@ Two-character combinations beginning with dollar sign `$`:
 3. **Literals**: Numbers, strings, durations, dates
 4. **Operators**: Symbols and operator keywords
 5. **Delimiters**: Punctuation (`;`, `,`, `.`, etc.)
-6. **Comments**: To be discarded or preserved for IDE features
+6. **Comments**: Preserved as `LineComment` or `BlockComment` trivia tokens
 7. **Pragmas**: For implementer-specific processing
 8. **Whitespace**: Separators (can be discarded)
 
