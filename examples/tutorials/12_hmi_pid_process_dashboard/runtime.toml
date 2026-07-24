@@ -24,7 +24,6 @@ interfaces = []
 [runtime.mesh]
 enabled = false
 listen = "127.0.0.1:15282"
-auth_token = ""
 publish = []
 subscribe = {}
 

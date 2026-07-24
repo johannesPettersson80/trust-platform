@@ -20,9 +20,11 @@ Target release: `v0.24.54`
   installed bundle, and rejects symbolic links in the copied bundle closure.
 - trust-runtime: standalone `ide serve` now rejects a non-directory project
   path before constructing control state or attempting to bind the web server.
-- trust-runtime: generated runtime templates no longer serialize an empty mesh
-  authentication token that current configuration validation rejects, restoring
-  offline communication topology for newly generated projects.
+- trust-runtime: generated runtime templates and shipped examples no longer
+  serialize an empty mesh authentication token that current configuration
+  validation rejects; OSCAT runtime examples also include the required log,
+  retain, watchdog, and fault sections, restoring loadable example projects and
+  offline communication topology.
 - trust-runtime: Modbus worker input and output deadline results now preserve
   the configured `fault`, `warn`, or `ignore` policy; faulted stale input no
   longer copies a cached snapshot, and timed-out output remains queued.

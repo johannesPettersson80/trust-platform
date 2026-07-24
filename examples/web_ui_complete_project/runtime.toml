@@ -33,7 +33,6 @@ role = "peer"
 listen = "0.0.0.0:5200"
 connect = ["tcp://rapid-a:7447", "tcp://rapid-b:7447"]
 tls = false
-auth_token = ""
 zenohd_version = "1.7.2"
 plugin_versions = {}
 publish = ["rapid/topic/status"]

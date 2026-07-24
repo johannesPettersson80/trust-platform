@@ -9,6 +9,21 @@ cycle_interval_ms = 100
 endpoint = "tcp://127.0.0.1:0"
 auth_token = "trust-oscat-oop-example-token"
 
+[runtime.log]
+level = "info"
+
+[runtime.retain]
+mode = "none"
+save_interval_ms = 1000
+
+[runtime.watchdog]
+enabled = false
+timeout_ms = 1000
+action = "halt"
+
+[runtime.fault]
+policy = "halt"
+
 [runtime.opcua]
 enabled = true
 listen = "127.0.0.1:4840"
