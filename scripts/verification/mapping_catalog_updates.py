@@ -320,9 +320,21 @@ def _toml_value(value: Any) -> str:
     raise ValueError(f"unsupported generated TOML value {value!r}")
 
 
-def _canonical_digest(values: Sequence[str]) -> str:
+def _canonical_digest(values: Sequence[Mapping[str, Any]]) -> str:
+    normalized = sorted(
+        (dict(value) for value in values),
+        key=lambda value: json.dumps(
+            value,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+        ),
+    )
     encoded = json.dumps(
-        sorted(values), sort_keys=True, separators=(",", ":")
+        normalized,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
     ).encode()
     return "sha256:" + hashlib.sha256(encoded).hexdigest()
 

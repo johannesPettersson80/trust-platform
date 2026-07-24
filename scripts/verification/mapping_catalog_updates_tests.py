@@ -92,6 +92,62 @@ class MappingCatalogUpdateTests(unittest.TestCase):
             r"^sha256:[0-9a-f]{64}$",
         )
 
+    def test_assertion_review_digest_is_canonical_and_content_sensitive(self) -> None:
+        decision = _decision()
+        decision["assertion_reviews"].append(
+            {
+                "assertion_id": "ASSERT_" + "B" * 24,
+                "disposition": "setup_or_precondition",
+                "behavior_refs": [],
+                "rationale": "The assertion establishes test setup.",
+            }
+        )
+        reversed_decision = {
+            **decision,
+            "assertion_reviews": list(reversed(decision["assertion_reviews"])),
+        }
+        changed_decision = {
+            **decision,
+            "assertion_reviews": [
+                {
+                    **decision["assertion_reviews"][0],
+                    "rationale": "Changed semantic review.",
+                },
+                decision["assertion_reviews"][1],
+            ],
+        }
+        invariants = {
+            "INV_ONE": {"oracle": {"ref": "SPEC_EXAMPLE_001#exact"}}
+        }
+
+        original = build_accepted_catalog_record(
+            proposal=_proposal(),
+            decision=decision,
+            invariants=invariants,
+            reviewed_date="2026-07-23",
+        )
+        reordered = build_accepted_catalog_record(
+            proposal=_proposal(),
+            decision=reversed_decision,
+            invariants=invariants,
+            reviewed_date="2026-07-23",
+        )
+        changed = build_accepted_catalog_record(
+            proposal=_proposal(),
+            decision=changed_decision,
+            invariants=invariants,
+            reviewed_date="2026-07-23",
+        )
+
+        self.assertEqual(
+            original["mapping_assertion_review_digest"],
+            reordered["mapping_assertion_review_digest"],
+        )
+        self.assertNotEqual(
+            original["mapping_assertion_review_digest"],
+            changed["mapping_assertion_review_digest"],
+        )
+
     def test_catalog_append_and_invariant_update_preserve_existing_records(self) -> None:
         record = build_accepted_catalog_record(
             proposal=_proposal(),
