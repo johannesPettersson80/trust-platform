@@ -15,6 +15,10 @@ from pathlib import Path
 from typing import Any
 
 from .code_spec_live import load_code_spec_metadata
+from .focused_mapping_review import (
+    DEFAULT_RECEIPT_PATH,
+    execute_focused_review_batch,
+)
 from .mapping_denominator import reconcile_denominator_document
 from .mapping_assertions import (
     invoke_assertion_inventories,
@@ -47,6 +51,8 @@ def execute_review_batch(
     review_selection_path: Path,
     reviewed_date: str,
 ) -> MappingReviewBatch:
+    """Legacy repository-wide scanner/reconciliation review path."""
+
     root = root.resolve()
     proposal_document = _load_toml(root / PROPOSAL_PATH)
     source_commit = _git_head(root)
@@ -255,6 +261,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--root", type=Path, default=Path.cwd())
     parser.add_argument("--selection", type=Path, required=True)
     parser.add_argument("--reviewed-date")
+    parser.add_argument(
+        "--receipt-out", type=Path, default=DEFAULT_RECEIPT_PATH
+    )
+    parser.add_argument("--authority-selection", type=Path)
+    parser.add_argument(
+        "--legacy-full-scan",
+        action="store_true",
+        help="use the previous repository-wide scan/reconcile path",
+    )
     return parser
 
 
@@ -268,11 +283,39 @@ def main(argv: list[str] | None = None) -> int:
         else root / args.selection
     )
     try:
-        plan = execute_review_batch(
-            root=root,
-            review_selection_path=review_selection_path,
-            reviewed_date=reviewed_date,
-        )
+        if args.legacy_full_scan:
+            if args.authority_selection is not None:
+                raise ValueError(
+                    "--authority-selection is unavailable in legacy mode"
+                )
+            plan = execute_review_batch(
+                root=root,
+                review_selection_path=review_selection_path,
+                reviewed_date=reviewed_date,
+            )
+        else:
+            receipt_path = (
+                args.receipt_out
+                if args.receipt_out.is_absolute()
+                else root / args.receipt_out
+            )
+            authority_selection_path = (
+                None
+                if args.authority_selection is None
+                else (
+                    args.authority_selection
+                    if args.authority_selection.is_absolute()
+                    else root / args.authority_selection
+                )
+            )
+            result = execute_focused_review_batch(
+                root=root,
+                review_selection_path=review_selection_path,
+                reviewed_date=reviewed_date,
+                receipt_path=receipt_path,
+                authority_selection_path=authority_selection_path,
+            )
+            plan = result.batch
     except (
         OSError,
         ValueError,
