@@ -50,6 +50,7 @@ def execute_review_batch(
     root = root.resolve()
     proposal_document = _load_toml(root / PROPOSAL_PATH)
     source_commit = _git_head(root)
+    _validate_proposal_source_commit(proposal_document, source_commit)
     decision_file = root / DECISION_PATH
     decision_document = (
         _load_toml(decision_file)
@@ -356,3 +357,19 @@ def _git_head(root: Path) -> str:
     if completed.returncode != 0 or COMMIT_RE.fullmatch(head) is None:
         raise ValueError("mapping review cannot resolve source commit")
     return head
+
+
+def _validate_proposal_source_commit(
+    proposal_document: Mapping[str, Any],
+    source_commit: str,
+) -> None:
+    proposal_commit = proposal_document.get("source_commit")
+    if (
+        not isinstance(proposal_commit, str)
+        or COMMIT_RE.fullmatch(proposal_commit) is None
+        or proposal_commit != source_commit
+    ):
+        raise ValueError(
+            "mapping review proposal source commit is stale: "
+            f"proposal={proposal_commit} current={source_commit}"
+        )

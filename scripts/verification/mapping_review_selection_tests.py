@@ -291,6 +291,34 @@ class MappingReviewSelectionTests(unittest.TestCase):
             by_id["ASSERT_" + "B" * 24],
         )
 
+    def test_each_selected_invariant_requires_an_oracle_bound_assertion(self) -> None:
+        proposals = _proposal_document()
+        proposals["proposals"][0]["candidate_invariant_ids"].append("INV_TWO")
+        proposals["proposals"][0]["behavior_refs"].append(
+            "INV_TWO#behavior:0"
+        )
+        proposals["proposals"][0]["suggestions"]["source_behavior_refs"].append(
+            "INV_TWO#behavior:0"
+        )
+        invariants = _invariants()
+        invariants["INV_TWO"] = {
+            **copy.deepcopy(invariants["INV_ONE"]),
+            "id": "INV_TWO",
+            "oracle": {"ref": "SPEC_EXAMPLE_002#exact"},
+        }
+        selection = _accepted_selection(proposals)
+        selection["reviews"][0]["selected_invariant_indices"] = [1, 2]
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "oracle-bound assertion for every selected invariant",
+        ):
+            build_review_input_from_selection(
+                proposal_document=proposals,
+                selection_document=selection,
+                invariants=invariants,
+            )
+
     def test_selection_and_card_schemas_are_closed(self) -> None:
         proposals = _proposal_document()
         selection = _accepted_selection(proposals)

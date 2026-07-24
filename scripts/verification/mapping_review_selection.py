@@ -339,6 +339,15 @@ def _accepted_review(
             for behavior_ref in refs
         }
     )
+    bound_invariants = {
+        behavior_ref.partition("#behavior:")[0]
+        for behavior_ref in selected_behavior_refs
+    }
+    if bound_invariants != set(selected_invariants):
+        raise ValueError(
+            f"proposal {proposal_index} requires an oracle-bound assertion "
+            "for every selected invariant"
+        )
     setup = _indices(
         selection.get("setup_assertion_indices"),
         len(assertions),
