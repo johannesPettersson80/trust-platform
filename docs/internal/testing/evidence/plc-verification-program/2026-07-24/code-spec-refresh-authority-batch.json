@@ -1,0 +1,36 @@
+{
+  "authority": {
+    "invariant_id": "VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001",
+    "review_ref": "docs/internal/testing/evidence/plc-verification-program/2026-07-24/code-spec-refresh-quarantine-risk-review.md#accepted-path-coherent-risk-batch",
+    "shell_spec_gap_ref": "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001",
+    "spec_ref": "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine",
+    "test_id": "TEST_VERIFICATION_METADATA_GATE_001"
+  },
+  "batch_id": "CODE_SPEC_AUTHORITY_BATCH_REFRESH_QUARANTINE_20260724",
+  "check_command": "python3 docs/internal/testing/evidence/plc-verification-program/2026-07-24/generate-code-spec-refresh-authority-batch.py --root . --check",
+  "command": "python3 docs/internal/testing/evidence/plc-verification-program/2026-07-24/generate-code-spec-refresh-authority-batch.py --root . --apply",
+  "fact_set_digest": "sha256:afde28e1ba35a344ccd79fd53cc447ae1670cf2ec20c4500239eb0ba435112dd",
+  "facts_total": 33,
+  "generated_mapping_rows_digest": "sha256:e65dee31a10b49450abadec8a16031aa598abbf17e3893e185f8b1872b7fcb91",
+  "generated_risk_rows_digest": "sha256:a98da349d3155f4c1cbe9d62293cc0433fc8cda18b0183e22265f8519b2aa930",
+  "generator": "docs/internal/testing/evidence/plc-verification-program/2026-07-24/generate-code-spec-refresh-authority-batch.py",
+  "generator_sha256": "sha256:eab44b2015e4b8f8fbbd825fa0f40c04a1f52e864cd23911adf5406f343a8b81",
+  "output_code_map_sha256": "sha256:ecb788467cd3a5e5d4c7475d1763c87b1cca4751f39cefbfa5847a2b5f692896",
+  "output_risk_acknowledgements_sha256": "sha256:fd05baa34d474f11a7bca71e4e95e0861d0cd5763f3f322b3e8ddb2b3c9b26f9",
+  "preserved_unselected_map_blocks_sha256": "sha256:7d3351f61e385f6598d5ea26c7e5de687c770a41c307325a32e38d68a7b7d5bc",
+  "preserved_unselected_risk_blocks_sha256": "sha256:2a3eb579168d832d816ca97bdd0517a3ab1fe4eaf7450e47f33e35b148c62838",
+  "risk_acknowledgements_total": 17,
+  "schema_version": 1,
+  "selected_paths": [
+    "scripts/generate_code_spec_refresh_proposals.py",
+    "scripts/verification/code_spec_refresh.py",
+    "scripts/verification/code_spec_refresh_cli.py",
+    "scripts/verification_metadata_gate.sh"
+  ],
+  "source_digests": {
+    "scripts/generate_code_spec_refresh_proposals.py": "sha256:ff72ac03a25913ef049ed7cee33c2ff12c45d5c9819d6c3c88805a06b8ef0208",
+    "scripts/verification/code_spec_refresh.py": "sha256:182b64945f102972992f8a20ca59ab88c18b1134a984f75cffd97d4edc630277",
+    "scripts/verification/code_spec_refresh_cli.py": "sha256:1c1899f61d9977f977f3e7c14b6b0218d874e38f35cd4ee3645c5964dd356db3",
+    "scripts/verification_metadata_gate.sh": "sha256:a73ca14eaf605b28cb7c6be0bad83f252c6219595027b2e2b1da1850a9d67f55"
+  }
+}

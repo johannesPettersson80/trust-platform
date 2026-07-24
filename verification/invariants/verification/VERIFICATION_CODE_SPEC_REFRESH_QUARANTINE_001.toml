@@ -1,0 +1,55 @@
+schema_version = 1
+id = "VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"
+title = "Code-to-spec refresh findings remain complete, deterministic, and quarantined"
+area = "verification"
+risk = "silent_corruption"
+status = "mapped"
+owner = "verification"
+last_reviewed = "2026-07-24"
+claim = "An at-rest-canonical code-spec report must partition every finding exactly once into deterministic untrusted review-required proposals without inferring source liveness or semantic bindings, mutating accepted metadata, closing gaps, or creating proof."
+proof_level = "T1"
+contract_kind = "protocol_trace"
+source_refs = [
+  "docs/internal/testing/checklists/plc-verification-program/metadata-model.md#code-to-spec-refresh-proposal-quarantine",
+  "scripts/verification/code_spec_refresh.py",
+  "scripts/verification/code_spec_refresh_cli.py",
+  "verification/schemas/code-spec-refresh-proposals.schema.json",
+]
+tests = ["TEST_VERIFICATION_METADATA_GATE_001"]
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["reviewed_acceptance_transaction", "final_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_VERIFICATION_PROGRAM_CONTRACT_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001"
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "Focused fixtures generate a schema-valid proposal plane whose exact partition and operation-set digest reconcile."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "covered"
+rationale = "The closed JSON schema rejects proof, automatic acceptance, and unrecognized fields."
+
+[[coverage.cells]]
+dimension = "supply_chain_or_artifact_fault"
+state = "covered"
+rationale = "Focused fixtures reject report count drift, duplicate identities, non-derived fact identities, source-input drift, generated-ID drift, operation-set digest drift, exact-row reconstruction drift, reviewer-role drift, and proposal/fact identity drift."
+
+[[coverage.cells]]
+dimension = "extra_or_unknown"
+state = "covered"
+rationale = "An unknown report finding fails closed instead of disappearing from the review denominator."
+
+[[coverage.cells]]
+dimension = "auth_or_permission"
+state = "covered"
+rationale = "Stale successors require the exact path, qualified-symbol, and item-kind tuple; missing mappings carry no inferred specification or disposition."

@@ -16,7 +16,7 @@ name = "verification_metadata_gate"
 command = "scripts/verification_metadata_gate.sh"
 owner = "verification"
 status = "mapped"
-invariants = ["VERIFICATION_METADATA_INTEGRITY_001"]
+invariants = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001", "VERIFICATION_METADATA_INTEGRITY_001"]
 oracle_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001"
 expected_result = "The complete committed verification metadata graph, schemas, self-tests, inventories, and generated cases validate without an integrity finding."
 expected_failure_mode = "A malformed, stale, invented, duplicate, or referentially broken verification record is accepted or a registered verification self-test is skipped."
@@ -25,7 +25,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_VERIFICATION_METADATA_GATE_001.json"
-last_reviewed = "2026-07-21"
+last_reviewed = "2026-07-24"
 
 [[tests]]
 schema_version = 2

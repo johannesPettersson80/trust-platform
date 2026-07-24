@@ -1177,6 +1177,45 @@ candidate. Before scaling, a hidden-ground-truth pilot must report zero false
 accepted mappings; recall, runtime, profile volume, unsupported source kinds,
 and review time remain visible measurements rather than pass claims.
 
+### Code-to-Spec Refresh Proposal Quarantine
+
+`target/gate-artifacts/code-spec-refresh/code-spec-refresh-proposals.json` is
+an observation-only refresh plane for the production code-to-spec denominator.
+It consumes one at-rest-canonical code-spec coverage report and the
+byte-identical code map from that report's source revision. The generator
+verifies the report commit, clean input closure, input digest, code-map bytes,
+fact-identity derivation, and exact finding partition. It does not independently
+rerun the live source extractors, so every proposal is explicitly
+`untrusted_until_live_reconstruction`. It generates stable proposal and
+review-group identities from exact report observations; no human authors code
+identities, signature or body digests, counts, or operation-set digests.
+
+The refresh plane partitions every source finding exactly once into missing
+mapping proposals, body-digest rebind proposals, stale-identity proposals, or
+closed semantic-review groups. Unknown finding vocabulary, count drift,
+duplicate identities, stale input-closure bytes, noncanonical input, partial
+finding partition, proposal-ID drift, reviewer-role drift, reconstructed-row
+drift, and operation-set digest drift fail closed. Success therefore means only
+that the frozen observations formed a complete quarantined review queue. It
+does not establish that reported facts are live, source-derived, or eligible
+for acceptance.
+
+Refresh proposals cannot write `verification/code-spec-map.toml`, risk
+acknowledgements, gaps, invariants, specifications, tests, proof, claims, or
+coverage state. Missing mappings contain exact reported fact observations but no
+suggested disposition or semantic binding. Digest and identity candidates
+remain review-required even when an exact mechanical join exists. Cross-area,
+test/invariant relation, missing fragment, risk acknowledgement, and unmapped
+findings remain explicit semantic-review groups. A later acceptance command
+must first rerun the canonical live extractors from a clean accepted source
+revision and require exact equality with every reported fact, finding, mapping,
+and input digest. It must then bind a reviewed group digest, reconstruct the
+proposal set from those live inputs, generate all accepted metadata
+mechanically, validate the complete replacement graph, and use one recoverable
+compare-and-swap transaction. The same live reconstruction must run again
+inside the compare-and-swap precondition; this proposal contract alone does
+not authorize review or mutation.
+
 All three Phase 2 reports are report-only. A complete, exhaustively reviewed
 denominator returns success; corrupt
 metadata, stale joins, unsafe or symlinked input paths, dirty source commits,

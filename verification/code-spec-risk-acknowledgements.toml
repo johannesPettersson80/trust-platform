@@ -72958,20 +72958,6 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_B0AF247D489DF0CA6A91568659FC43CC34009CACA24F136D491B7A7B9617C9D4"
-code_id = "CODE_B0AF247D489DF0CA6A91568659FC43CC34009CACA24F136D491B7A7B9617C9D4"
-owner = "verification"
-area = "verification"
-body_digest = "sha256:6a73553ec9d72b8d38cd96a5a04dbdd7c3a19e8b80688fd134947faaed0a817a"
-risk_signals = ["filesystem_or_environment", "state_mutation", "subprocess_or_thread"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#verification-historical-risk-gap"
-reviewed_by = "verification"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_B0C48EB186C7191BC6D737D7C25AEDFD6D71CD53D3D3216450B6FA7D5336C571"
 code_id = "CODE_B0C48EB186C7191BC6D737D7C25AEDFD6D71CD53D3D3216450B6FA7D5336C571"
 owner = "verification"
@@ -81814,3 +81800,241 @@ reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-23"
 expires_on = "2027-07-23"
 rationale = "Play is the first-run mutation boundary. It must validate launch options before mutation, distinguish ordinary project absence from detection failures, and delegate the exact selected project to runtime startup."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_18509DE7678382AB1B47F5C3FC453912F6399C386345319B8BA2626DC9FAE51A"
+code_id = "CODE_18509DE7678382AB1B47F5C3FC453912F6399C386345319B8BA2626DC9FAE51A"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:67d79bf1e8df2f4fb5901df1e0aabe58223250fbf04a0ef37fce6c6ae5163f41"
+risk_signals = ["authorization", "state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-24/code-spec-refresh-quarantine-risk-review.md#accepted-path-coherent-risk-batch"
+reviewed_by = "verification"
+reviewed_on = "2026-07-24"
+expires_on = "2026-10-24"
+rationale = "Accepts the scanner-derived risk signals for the exact code-spec refresh quarantine fact; the reviewed path batch forbids accepted-map writes, semantic inference, gap closure, and proof promotion."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_1917AA7F493C02AAC8686D0B6142E63E7862F826A88274B5AEB2022DA07F270D"
+code_id = "CODE_1917AA7F493C02AAC8686D0B6142E63E7862F826A88274B5AEB2022DA07F270D"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:d1238d6ed4a592d1e57e457a2fb7266d3c67ac231400b0c92f26bb6ec7bb2952"
+risk_signals = ["authorization", "state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-24/code-spec-refresh-quarantine-risk-review.md#accepted-path-coherent-risk-batch"
+reviewed_by = "verification"
+reviewed_on = "2026-07-24"
+expires_on = "2026-10-24"
+rationale = "Accepts the scanner-derived risk signals for the exact code-spec refresh quarantine fact; the reviewed path batch forbids accepted-map writes, semantic inference, gap closure, and proof promotion."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_20FF2B788D9E521D54C501C7BA5585086AA54B90956822048E5AB6972DC2ACB4"
+code_id = "CODE_20FF2B788D9E521D54C501C7BA5585086AA54B90956822048E5AB6972DC2ACB4"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:273cc855217f20c1226f39934f31f0a54ed5aed96174cf164857db8d781b6af3"
+risk_signals = ["filesystem_or_environment", "state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-24/code-spec-refresh-quarantine-risk-review.md#accepted-path-coherent-risk-batch"
+reviewed_by = "verification"
+reviewed_on = "2026-07-24"
+expires_on = "2026-10-24"
+rationale = "Accepts the scanner-derived risk signals for the exact code-spec refresh quarantine fact; the reviewed path batch forbids accepted-map writes, semantic inference, gap closure, and proof promotion."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_346A73C2649CC25930AEF29420AC956194C07586AEAE918EE27D1C110023D5A1"
+code_id = "CODE_346A73C2649CC25930AEF29420AC956194C07586AEAE918EE27D1C110023D5A1"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:0fdc66f3f3ab3aa9ee5b3fb418fc0ceb4be438076e03b608082e526c5504a767"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-24/code-spec-refresh-quarantine-risk-review.md#accepted-path-coherent-risk-batch"
+reviewed_by = "verification"
+reviewed_on = "2026-07-24"
+expires_on = "2026-10-24"
+rationale = "Accepts the scanner-derived risk signals for the exact code-spec refresh quarantine fact; the reviewed path batch forbids accepted-map writes, semantic inference, gap closure, and proof promotion."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_46EF03CD58E1407EFB0C22342FECD57140E2A7D11CA77DBAC0C4FC1D9F27D1F3"
+code_id = "CODE_46EF03CD58E1407EFB0C22342FECD57140E2A7D11CA77DBAC0C4FC1D9F27D1F3"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:d5648b3c1d8de6432f75b6ff782b39b27df525ba741327bfefe5da0847f3711f"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-24/code-spec-refresh-quarantine-risk-review.md#accepted-path-coherent-risk-batch"
+reviewed_by = "verification"
+reviewed_on = "2026-07-24"
+expires_on = "2026-10-24"
+rationale = "Accepts the scanner-derived risk signals for the exact code-spec refresh quarantine fact; the reviewed path batch forbids accepted-map writes, semantic inference, gap closure, and proof promotion."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_560BE779A5E1B4D5060A2BA24A18C498C28B524B3AA8E45E572C7D3BCD88C46C"
+code_id = "CODE_560BE779A5E1B4D5060A2BA24A18C498C28B524B3AA8E45E572C7D3BCD88C46C"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:1d5dd47edacc20563983a052625a9f2a1f1f63ec6a00c148dd384f49bd7083e5"
+risk_signals = ["fault_mapping"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-24/code-spec-refresh-quarantine-risk-review.md#accepted-path-coherent-risk-batch"
+reviewed_by = "verification"
+reviewed_on = "2026-07-24"
+expires_on = "2026-10-24"
+rationale = "Accepts the scanner-derived risk signals for the exact code-spec refresh quarantine fact; the reviewed path batch forbids accepted-map writes, semantic inference, gap closure, and proof promotion."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_5E609FDAE803201F9B5364B0C0ADF6F48AC355EF30A86E95381048867650E1AC"
+code_id = "CODE_5E609FDAE803201F9B5364B0C0ADF6F48AC355EF30A86E95381048867650E1AC"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:f22e999e9c9a34b92c6fe3f53c37928305c138f106711cf484344acb097836b3"
+risk_signals = ["authorization", "state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-24/code-spec-refresh-quarantine-risk-review.md#accepted-path-coherent-risk-batch"
+reviewed_by = "verification"
+reviewed_on = "2026-07-24"
+expires_on = "2026-10-24"
+rationale = "Accepts the scanner-derived risk signals for the exact code-spec refresh quarantine fact; the reviewed path batch forbids accepted-map writes, semantic inference, gap closure, and proof promotion."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_84B67DFFFABB7F09F68F43D011C72F4FD9CB69BDD527CBAA403145D0370B5E34"
+code_id = "CODE_84B67DFFFABB7F09F68F43D011C72F4FD9CB69BDD527CBAA403145D0370B5E34"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:1c6bafd3b4381b21081bbdb4b3ce6f96c29c78a800cc96c5a4a38ede90a86d4b"
+risk_signals = ["fault_mapping", "state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-24/code-spec-refresh-quarantine-risk-review.md#accepted-path-coherent-risk-batch"
+reviewed_by = "verification"
+reviewed_on = "2026-07-24"
+expires_on = "2026-10-24"
+rationale = "Accepts the scanner-derived risk signals for the exact code-spec refresh quarantine fact; the reviewed path batch forbids accepted-map writes, semantic inference, gap closure, and proof promotion."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_92A4D739830BA14E4F6D83FED4B40AE2E701BCD95FB6F1165526FBE6229381CD"
+code_id = "CODE_92A4D739830BA14E4F6D83FED4B40AE2E701BCD95FB6F1165526FBE6229381CD"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:e7f5348cb70cf29081583ba8c173236a694ec665f5fc8b62d97508150dcd9658"
+risk_signals = ["filesystem_or_environment"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-24/code-spec-refresh-quarantine-risk-review.md#accepted-path-coherent-risk-batch"
+reviewed_by = "verification"
+reviewed_on = "2026-07-24"
+expires_on = "2026-10-24"
+rationale = "Accepts the scanner-derived risk signals for the exact code-spec refresh quarantine fact; the reviewed path batch forbids accepted-map writes, semantic inference, gap closure, and proof promotion."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_B0AF247D489DF0CA6A91568659FC43CC34009CACA24F136D491B7A7B9617C9D4"
+code_id = "CODE_B0AF247D489DF0CA6A91568659FC43CC34009CACA24F136D491B7A7B9617C9D4"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:a73ca14eaf605b28cb7c6be0bad83f252c6219595027b2e2b1da1850a9d67f55"
+risk_signals = ["filesystem_or_environment", "state_mutation", "subprocess_or_thread"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-24/code-spec-refresh-quarantine-risk-review.md#accepted-path-coherent-risk-batch"
+reviewed_by = "verification"
+reviewed_on = "2026-07-24"
+expires_on = "2026-10-24"
+rationale = "Accepts the scanner-derived risk signals for the exact code-spec refresh quarantine fact; the reviewed path batch forbids accepted-map writes, semantic inference, gap closure, and proof promotion."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_D2CA12D202EE239813A553F8FAD4BEEFB5D407541C56A8C81AB4766151EE69C7"
+code_id = "CODE_D2CA12D202EE239813A553F8FAD4BEEFB5D407541C56A8C81AB4766151EE69C7"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:d6132f8af48eeb581ff04bf436a80dea7bd39750b08e7618e46e3474ddd5e20e"
+risk_signals = ["fault_mapping", "state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-24/code-spec-refresh-quarantine-risk-review.md#accepted-path-coherent-risk-batch"
+reviewed_by = "verification"
+reviewed_on = "2026-07-24"
+expires_on = "2026-10-24"
+rationale = "Accepts the scanner-derived risk signals for the exact code-spec refresh quarantine fact; the reviewed path batch forbids accepted-map writes, semantic inference, gap closure, and proof promotion."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_D406EB4DA38AE60C4FFBC2729AA903A711D7BC9B76AB9FBD8BF80FAC17999E7E"
+code_id = "CODE_D406EB4DA38AE60C4FFBC2729AA903A711D7BC9B76AB9FBD8BF80FAC17999E7E"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:8caf717e9881c348fe7434ec931a747062546689a7dfecbff2f6e9e54b4e1277"
+risk_signals = ["subprocess_or_thread"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-24/code-spec-refresh-quarantine-risk-review.md#accepted-path-coherent-risk-batch"
+reviewed_by = "verification"
+reviewed_on = "2026-07-24"
+expires_on = "2026-10-24"
+rationale = "Accepts the scanner-derived risk signals for the exact code-spec refresh quarantine fact; the reviewed path batch forbids accepted-map writes, semantic inference, gap closure, and proof promotion."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_D71A9EDA9A799DDE7CDD7C4870A32BC388D20362030CA98444005B0516E80EDC"
+code_id = "CODE_D71A9EDA9A799DDE7CDD7C4870A32BC388D20362030CA98444005B0516E80EDC"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:a6ff3db8dfa9705d7f26a2933e1fe5cdd55d8701fcf2e6ef38077e57e0caeaf1"
+risk_signals = ["subprocess_or_thread"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-24/code-spec-refresh-quarantine-risk-review.md#accepted-path-coherent-risk-batch"
+reviewed_by = "verification"
+reviewed_on = "2026-07-24"
+expires_on = "2026-10-24"
+rationale = "Accepts the scanner-derived risk signals for the exact code-spec refresh quarantine fact; the reviewed path batch forbids accepted-map writes, semantic inference, gap closure, and proof promotion."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_D91716100C4E8ABE4AB127CC40CF482B79E7BD69371ACDB3F12EEF6F0EB1D5F2"
+code_id = "CODE_D91716100C4E8ABE4AB127CC40CF482B79E7BD69371ACDB3F12EEF6F0EB1D5F2"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:7bf34403fab255ed79c1d5a37508e0a490204836908ab60d1d047c40164b138f"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-24/code-spec-refresh-quarantine-risk-review.md#accepted-path-coherent-risk-batch"
+reviewed_by = "verification"
+reviewed_on = "2026-07-24"
+expires_on = "2026-10-24"
+rationale = "Accepts the scanner-derived risk signals for the exact code-spec refresh quarantine fact; the reviewed path batch forbids accepted-map writes, semantic inference, gap closure, and proof promotion."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_DACF56D3B0E73063A156269998ACB32CB1E5DBDE5C7F1304371D70CEB3C0E630"
+code_id = "CODE_DACF56D3B0E73063A156269998ACB32CB1E5DBDE5C7F1304371D70CEB3C0E630"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:fd1af6551f059ae95ce2a702594ffc2e40c11e94c073f7c09f336c1e24449e92"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-24/code-spec-refresh-quarantine-risk-review.md#accepted-path-coherent-risk-batch"
+reviewed_by = "verification"
+reviewed_on = "2026-07-24"
+expires_on = "2026-10-24"
+rationale = "Accepts the scanner-derived risk signals for the exact code-spec refresh quarantine fact; the reviewed path batch forbids accepted-map writes, semantic inference, gap closure, and proof promotion."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_E16581B88FE8BDDAF6C83C5338C239BFC0392F36FECA230445549EB66A08F7C9"
+code_id = "CODE_E16581B88FE8BDDAF6C83C5338C239BFC0392F36FECA230445549EB66A08F7C9"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:43a9fdf4012c0c053d07c853cd1275c6c32397599d65289296258065525dac14"
+risk_signals = ["protocol_response_or_status", "state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-24/code-spec-refresh-quarantine-risk-review.md#accepted-path-coherent-risk-batch"
+reviewed_by = "verification"
+reviewed_on = "2026-07-24"
+expires_on = "2026-10-24"
+rationale = "Accepts the scanner-derived risk signals for the exact code-spec refresh quarantine fact; the reviewed path batch forbids accepted-map writes, semantic inference, gap closure, and proof promotion."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_F16C759548585464F315CCD55B317739725B759810938F0E6DCA391EC2F0C31D"
+code_id = "CODE_F16C759548585464F315CCD55B317739725B759810938F0E6DCA391EC2F0C31D"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:a74b8b8fab2e608b2fc0e95a60e6b1f96dba9b755d8e7bb96bf2cd6de6cdf23a"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-24/code-spec-refresh-quarantine-risk-review.md#accepted-path-coherent-risk-batch"
+reviewed_by = "verification"
+reviewed_on = "2026-07-24"
+expires_on = "2026-10-24"
+rationale = "Accepts the scanner-derived risk signals for the exact code-spec refresh quarantine fact; the reviewed path batch forbids accepted-map writes, semantic inference, gap closure, and proof promotion."

@@ -250936,25 +250936,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_B0AF247D489DF0CA6A91568659FC43CC34009CACA24F136D491B7A7B9617C9D4"
-source_kind = "shell"
-path = "scripts/verification_metadata_gate.sh"
-qualified_symbol = "scripts::verification_metadata_gate::<entrypoint>"
-item_kind = "shell_entrypoint"
-signature_digest = "sha256:7ea33e535bdd1008b90798d757a412cd89dee8cbfb7cbe3c763e71f7a40bc177"
-reviewed_body_digest = "sha256:6a73553ec9d72b8d38cd96a5a04dbdd7c3a19e8b80688fd134947faaed0a817a"
-owner = "verification"
-area = "verification"
-visibility = "public"
-risk_signals = ["filesystem_or_environment", "state_mutation", "subprocess_or_thread"]
-owner_ack = "RISK_ACK_B0AF247D489DF0CA6A91568659FC43CC34009CACA24F136D491B7A7B9617C9D4"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_B0B61B728F71CEDC286EA6DDF5367E45A4CC94C2A297002134CCCEAE57289B8E"
 source_kind = "python"
 path = "scripts/verification/mutation_program_report_contract.py"
@@ -276375,3 +276356,662 @@ spec_ref = "SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-startu
 invariant_ids = ["RT_PLAY_LAUNCH_001"]
 test_ids = ["TEST_RUNTIME_CLI_PREVALIDATION_001"]
 last_reviewed = "2026-07-23"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_18509DE7678382AB1B47F5C3FC453912F6399C386345319B8BA2626DC9FAE51A"
+source_kind = "python"
+path = "scripts/verification/code_spec_refresh.py"
+qualified_symbol = "scripts::verification::code_spec_refresh::validate_refresh_proposals"
+item_kind = "python_function"
+signature_digest = "sha256:04fa6351e43ccacaa8bc46e09acf3fe576645fdf7fb57134e9d3f7192aac3c4a"
+reviewed_body_digest = "sha256:67d79bf1e8df2f4fb5901df1e0aabe58223250fbf04a0ef37fce6c6ae5163f41"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = ["authorization", "state_mutation"]
+owner_ack = "RISK_ACK_18509DE7678382AB1B47F5C3FC453912F6399C386345319B8BA2626DC9FAE51A"
+owner_ack_expires_on = "2026-10-24"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-07-24"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_1917AA7F493C02AAC8686D0B6142E63E7862F826A88274B5AEB2022DA07F270D"
+source_kind = "python"
+path = "scripts/verification/code_spec_refresh.py"
+qualified_symbol = "scripts::verification::code_spec_refresh::_stale_identity_proposals"
+item_kind = "python_function"
+signature_digest = "sha256:142422c410f2e06202bcb5366dca3c2942834ca9869519bd3a15a81ae0c4efb0"
+reviewed_body_digest = "sha256:d1238d6ed4a592d1e57e457a2fb7266d3c67ac231400b0c92f26bb6ec7bb2952"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = ["authorization", "state_mutation"]
+owner_ack = "RISK_ACK_1917AA7F493C02AAC8686D0B6142E63E7862F826A88274B5AEB2022DA07F270D"
+owner_ack_expires_on = "2026-10-24"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-07-24"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_1EBA110290BE5567E553E88B10F0C955D0D46A5A6C9DD78A9DFFDB60825BBB09"
+source_kind = "python"
+path = "scripts/verification/code_spec_refresh.py"
+qualified_symbol = "scripts::verification::code_spec_refresh::_digest"
+item_kind = "python_function"
+signature_digest = "sha256:4ced8028f2fa7f6e87443ff022c52373398dab7c90ba4705c66ac36db2080b3f"
+reviewed_body_digest = "sha256:e844e0a660aadd0c1f4629cc85a7ad1c4f8e22020ae88acf764cd02758934365"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-07-24"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_1F0BD7A1E2B242D2EA2CDF2CF9A315A1B29C1F185D51898E60026518B38A4CE9"
+source_kind = "python"
+path = "scripts/verification/code_spec_refresh.py"
+qualified_symbol = "scripts::verification::code_spec_refresh::_stable_id"
+item_kind = "python_function"
+signature_digest = "sha256:596d6c80a78b474aa767a09a483688f2dc677371796454218622baf298265283"
+reviewed_body_digest = "sha256:d6517150af7245a4a5690f12a79f8059f4081a838af6b1c0ff1ba2351ebfe1e5"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-07-24"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_20FF2B788D9E521D54C501C7BA5585086AA54B90956822048E5AB6972DC2ACB4"
+source_kind = "python"
+path = "scripts/verification/code_spec_refresh_cli.py"
+qualified_symbol = "scripts::verification::code_spec_refresh_cli::main"
+item_kind = "python_function"
+signature_digest = "sha256:f0a6b65cef4057e8d33663ae46d4151b52064ae49e890a04beaa4d8fb29aa681"
+reviewed_body_digest = "sha256:273cc855217f20c1226f39934f31f0a54ed5aed96174cf164857db8d781b6af3"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = ["filesystem_or_environment", "state_mutation"]
+owner_ack = "RISK_ACK_20FF2B788D9E521D54C501C7BA5585086AA54B90956822048E5AB6972DC2ACB4"
+owner_ack_expires_on = "2026-10-24"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-07-24"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_2BB9BC3372C015E323E81139A8EAC9E0B6B44FE9636D002EF389EE7821058669"
+source_kind = "python"
+path = "scripts/verification/code_spec_refresh.py"
+qualified_symbol = "scripts::verification::code_spec_refresh::_validate_fact_observation"
+item_kind = "python_function"
+signature_digest = "sha256:799280d6bcf8dbc92e299cba5ffa287a6defb40f452fff06ce68fc3dab26f350"
+reviewed_body_digest = "sha256:79ad17ba3ad0c0c364fac550a0ad152ce3c5a2a23ec81f93d301cfac2cf876fb"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-07-24"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_346A73C2649CC25930AEF29420AC956194C07586AEAE918EE27D1C110023D5A1"
+source_kind = "python"
+path = "scripts/verification/code_spec_refresh.py"
+qualified_symbol = "scripts::verification::code_spec_refresh::_missing_mapping_proposals"
+item_kind = "python_function"
+signature_digest = "sha256:3af7ff9400d39c8482111e4cd48d848944893e65fa7b9f05616c34c9e6a13a3b"
+reviewed_body_digest = "sha256:0fdc66f3f3ab3aa9ee5b3fb418fc0ceb4be438076e03b608082e526c5504a767"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "RISK_ACK_346A73C2649CC25930AEF29420AC956194C07586AEAE918EE27D1C110023D5A1"
+owner_ack_expires_on = "2026-10-24"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-07-24"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_46EF03CD58E1407EFB0C22342FECD57140E2A7D11CA77DBAC0C4FC1D9F27D1F3"
+source_kind = "python"
+path = "scripts/verification/code_spec_refresh.py"
+qualified_symbol = "scripts::verification::code_spec_refresh::build_refresh_proposals"
+item_kind = "python_function"
+signature_digest = "sha256:eed84928e5e650fec96544c335a9512fd91a145096deeda7a6c970e2b32f1b47"
+reviewed_body_digest = "sha256:d5648b3c1d8de6432f75b6ff782b39b27df525ba741327bfefe5da0847f3711f"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = ["state_mutation"]
+owner_ack = "RISK_ACK_46EF03CD58E1407EFB0C22342FECD57140E2A7D11CA77DBAC0C4FC1D9F27D1F3"
+owner_ack_expires_on = "2026-10-24"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-07-24"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_560BE779A5E1B4D5060A2BA24A18C498C28B524B3AA8E45E572C7D3BCD88C46C"
+source_kind = "python"
+path = "scripts/verification/code_spec_refresh_cli.py"
+qualified_symbol = "scripts::verification::code_spec_refresh_cli::parse_args"
+item_kind = "python_function"
+signature_digest = "sha256:4c4491bfe779cc7324ff0bd67a401f7167ebc115024a99d766997573bab31598"
+reviewed_body_digest = "sha256:1d5dd47edacc20563983a052625a9f2a1f1f63ec6a00c148dd384f49bd7083e5"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = ["fault_mapping"]
+owner_ack = "RISK_ACK_560BE779A5E1B4D5060A2BA24A18C498C28B524B3AA8E45E572C7D3BCD88C46C"
+owner_ack_expires_on = "2026-10-24"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-07-24"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_59AAC77E9D7AE2C267C1FD5E5B2D9C8F32C20ED8DFF61C3F92A435B9557D1D55"
+source_kind = "python"
+path = "scripts/verification/code_spec_refresh.py"
+qualified_symbol = "scripts::verification::code_spec_refresh::_is_string_sequence"
+item_kind = "python_function"
+signature_digest = "sha256:8f2cb926dbb7b1134b9771d6ab1a66c0683afa92bd86f85ecb89792eb93c9298"
+reviewed_body_digest = "sha256:c596dc49830bbf62e46fcc02710062d8fe5bdcaa500d95886f55657c9d122c1b"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-07-24"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_5C4FECA79AE49E80A3399B3BB6A25A32749D4E13E7A422886A0BA2E120CA8A0F"
+source_kind = "python"
+path = "scripts/verification/code_spec_refresh.py"
+qualified_symbol = "scripts::verification::code_spec_refresh::_semantic_kind"
+item_kind = "python_function"
+signature_digest = "sha256:e265ac948d281946200d6304d21f69e0e1b8a756152020f70a24427d2c0af3fa"
+reviewed_body_digest = "sha256:27fa98c6f5150af26867df17de2a4f231f3453057710803b7d9a40adf25c1eb7"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-07-24"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_5E609FDAE803201F9B5364B0C0ADF6F48AC355EF30A86E95381048867650E1AC"
+source_kind = "python"
+path = "scripts/verification/code_spec_refresh.py"
+qualified_symbol = "scripts::verification::code_spec_refresh::_digest_rebind_proposals"
+item_kind = "python_function"
+signature_digest = "sha256:691720c3638cbf0198c690bfd21fafeef27df389540e93c9b2787a8b73bfa6f1"
+reviewed_body_digest = "sha256:f22e999e9c9a34b92c6fe3f53c37928305c138f106711cf484344acb097836b3"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = ["authorization", "state_mutation"]
+owner_ack = "RISK_ACK_5E609FDAE803201F9B5364B0C0ADF6F48AC355EF30A86E95381048867650E1AC"
+owner_ack_expires_on = "2026-10-24"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-07-24"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_646885117C40A41809AC679E7652E14C938CD98B837D50A32164EB93024B5D13"
+source_kind = "python"
+path = "scripts/verification/code_spec_refresh_cli.py"
+qualified_symbol = "scripts::verification::code_spec_refresh_cli::_require_quarantine_output"
+item_kind = "python_function"
+signature_digest = "sha256:69c023d4a4836812742f0719f08c8a0df94d35f8ceea4f4766c291b89d2254c0"
+reviewed_body_digest = "sha256:4e24a8376b4076311e7c489e97cd52ff9144600575e84a2d513198e0b3ce1272"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-07-24"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_6B5C84EF51B7B2DBC85A1D389CA56653DEF4220CB1EADD735CBB93468A0B066C"
+source_kind = "python"
+path = "scripts/verification/code_spec_refresh.py"
+qualified_symbol = "scripts::verification::code_spec_refresh::_is_record_sequence"
+item_kind = "python_function"
+signature_digest = "sha256:e0e115190ac0b20df4d1364a5aefa43a1c6b5cb7cfbcc63cf2af7bbf0354c11a"
+reviewed_body_digest = "sha256:478283418bfc36ddad155e94ed29f72a84065cfc4ff7922b3650c8581a0167f9"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-07-24"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_6FFE4EC95E6876AA4D2243912C1E7F446AB869ECCDFF84A9E71AFC4AAB755EFB"
+source_kind = "python"
+path = "scripts/verification/code_spec_refresh_cli.py"
+qualified_symbol = "scripts::verification::code_spec_refresh_cli::_verify_report_provenance"
+item_kind = "python_function"
+signature_digest = "sha256:99a8475a48904ded21f4c773eeb44089cf0eb97e015782cea51e3f22e96ac89d"
+reviewed_body_digest = "sha256:bd7785f3978da9feb9b30dc2d97fff915670a56d9b234f8701efe6a878106e32"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-07-24"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_70D73093AA79446EF6BBB03DA3490F7550D9360B9CB7B8DBE9E5206E5ED6D324"
+source_kind = "python"
+path = "scripts/verification/code_spec_refresh_cli.py"
+qualified_symbol = "scripts::verification::code_spec_refresh_cli::_repo_path"
+item_kind = "python_function"
+signature_digest = "sha256:d827378f0687a3ab8aea1eb834f222a1dd791abdf6358fcda072aaa543ef9752"
+reviewed_body_digest = "sha256:ecd971a03e2df52b924a5e4a73a6f1214367db67f65a6ed0296df78fd6fb4798"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-07-24"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_84B67DFFFABB7F09F68F43D011C72F4FD9CB69BDD527CBAA403145D0370B5E34"
+source_kind = "python"
+path = "scripts/verification/code_spec_refresh.py"
+qualified_symbol = "scripts::verification::code_spec_refresh::_findings_by_subject"
+item_kind = "python_function"
+signature_digest = "sha256:ebcb49530caaf733d430378cbd21fb1c1dc8bb3d06d7e2905e720891dac4800d"
+reviewed_body_digest = "sha256:1c6bafd3b4381b21081bbdb4b3ce6f96c29c78a800cc96c5a4a38ede90a86d4b"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = ["fault_mapping", "state_mutation"]
+owner_ack = "RISK_ACK_84B67DFFFABB7F09F68F43D011C72F4FD9CB69BDD527CBAA403145D0370B5E34"
+owner_ack_expires_on = "2026-10-24"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-07-24"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_8A275459E9A359BB21CF910ACB5DF8E49D77921E81DF928B18F2D297696DD401"
+source_kind = "python"
+path = "scripts/verification/code_spec_refresh_cli.py"
+qualified_symbol = "scripts::verification::code_spec_refresh_cli::_sha256"
+item_kind = "python_function"
+signature_digest = "sha256:c89fb6345e6f2d7d4c3f2e2c761af4ed5d9df85cbe83edd134015e86bf8891c9"
+reviewed_body_digest = "sha256:8722be8507675b989275458712f8cc6b444fdd9bf9c362521e440445f704356d"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-07-24"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_92A4D739830BA14E4F6D83FED4B40AE2E701BCD95FB6F1165526FBE6229381CD"
+source_kind = "python"
+path = "scripts/verification/code_spec_refresh_cli.py"
+qualified_symbol = "scripts::verification::code_spec_refresh_cli::_atomic_write"
+item_kind = "python_function"
+signature_digest = "sha256:6a722364123cbe6eacf4368f1d2e09739072e9b33933eff3df88fd0d4a6d8713"
+reviewed_body_digest = "sha256:e7f5348cb70cf29081583ba8c173236a694ec665f5fc8b62d97508150dcd9658"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = ["filesystem_or_environment"]
+owner_ack = "RISK_ACK_92A4D739830BA14E4F6D83FED4B40AE2E701BCD95FB6F1165526FBE6229381CD"
+owner_ack_expires_on = "2026-10-24"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-07-24"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_A892B261E21149773542E60A11A5762AE385CD5E469567804E88ED1E158A0C21"
+source_kind = "python"
+path = "scripts/verification/code_spec_refresh.py"
+qualified_symbol = "scripts::verification::code_spec_refresh::_fact_observation"
+item_kind = "python_function"
+signature_digest = "sha256:10805d0c2a6ba44d49bb6a8379f1e9c5855fa5e88aa1d1f0482aed74fff2fdd7"
+reviewed_body_digest = "sha256:c45a44f781dec2f962b3db685e060517444f98a13a732da3b37baadb259c06b0"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-07-24"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_AF2BBCDCC4E19E4484B7571F257B29E7D93B8C20134800412BDBDA3D73E48CAB"
+source_kind = "python"
+path = "scripts/verification/code_spec_refresh.py"
+qualified_symbol = "scripts::verification::code_spec_refresh::_split_finding"
+item_kind = "python_function"
+signature_digest = "sha256:56d708a2e40f6ab8ab2e50df8fa703e7094e604c17fcc137e652d0ce3d2719a2"
+reviewed_body_digest = "sha256:b5aeaf4b5b2d9afddb16fa0ba86a903e47cacd7be8c8752ff0ef552be0fedbae"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-07-24"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_B0AF247D489DF0CA6A91568659FC43CC34009CACA24F136D491B7A7B9617C9D4"
+source_kind = "shell"
+path = "scripts/verification_metadata_gate.sh"
+qualified_symbol = "scripts::verification_metadata_gate::<entrypoint>"
+item_kind = "shell_entrypoint"
+signature_digest = "sha256:7ea33e535bdd1008b90798d757a412cd89dee8cbfb7cbe3c763e71f7a40bc177"
+reviewed_body_digest = "sha256:a73ca14eaf605b28cb7c6be0bad83f252c6219595027b2e2b1da1850a9d67f55"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = ["filesystem_or_environment", "state_mutation", "subprocess_or_thread"]
+owner_ack = "RISK_ACK_B0AF247D489DF0CA6A91568659FC43CC34009CACA24F136D491B7A7B9617C9D4"
+owner_ack_expires_on = "2026-10-24"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
+last_reviewed = "2026-07-24"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_BF86512271F682EBE03C6316661A062E8478AAEDCCA979A70FD872821141DF49"
+source_kind = "python"
+path = "scripts/verification/code_spec_refresh.py"
+qualified_symbol = "scripts::verification::code_spec_refresh::_require_digest"
+item_kind = "python_function"
+signature_digest = "sha256:ec3413f16fef2a5655867b9abdca4e6e9b91fa2e374b52f1ee6af88081a8ce26"
+reviewed_body_digest = "sha256:e48e59444d67c69a99cf5668804c5f7a6edbed9f45773831f3080c4f142ddc81"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-07-24"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_CEC2866F23EAC5C6EA25BF7D4F108C0EC4F963C4AB3195E1F7C0B6F39485D062"
+source_kind = "python"
+path = "scripts/generate_code_spec_refresh_proposals.py"
+qualified_symbol = "scripts::generate_code_spec_refresh_proposals::<entrypoint>"
+item_kind = "python_entrypoint"
+signature_digest = "sha256:8a5ee10fc503f004c43e3347166e4df4ff99e71c7cc86c31b057a9a90bcb1586"
+reviewed_body_digest = "sha256:0d9048239b79d1a38bd3997865c321d7abc7dcf6708cf2036f21be8a2039d93a"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-07-24"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_D2CA12D202EE239813A553F8FAD4BEEFB5D407541C56A8C81AB4766151EE69C7"
+source_kind = "python"
+path = "scripts/verification/code_spec_refresh.py"
+qualified_symbol = "scripts::verification::code_spec_refresh::_semantic_review_groups"
+item_kind = "python_function"
+signature_digest = "sha256:8bfa6875dde259488b3d555016094b8f4c898e3609a160e95d2bc7acc3e3944f"
+reviewed_body_digest = "sha256:d6132f8af48eeb581ff04bf436a80dea7bd39750b08e7618e46e3474ddd5e20e"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = ["fault_mapping", "state_mutation"]
+owner_ack = "RISK_ACK_D2CA12D202EE239813A553F8FAD4BEEFB5D407541C56A8C81AB4766151EE69C7"
+owner_ack_expires_on = "2026-10-24"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-07-24"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_D406EB4DA38AE60C4FFBC2729AA903A711D7BC9B76AB9FBD8BF80FAC17999E7E"
+source_kind = "python"
+path = "scripts/verification/code_spec_refresh_cli.py"
+qualified_symbol = "scripts::verification::code_spec_refresh_cli::_verify_source_commit"
+item_kind = "python_function"
+signature_digest = "sha256:705c757bd4ce34a6d0791ce6cc23f9a6d1ac222c88317714bd2351e08b1537a6"
+reviewed_body_digest = "sha256:8caf717e9881c348fe7434ec931a747062546689a7dfecbff2f6e9e54b4e1277"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = ["subprocess_or_thread"]
+owner_ack = "RISK_ACK_D406EB4DA38AE60C4FFBC2729AA903A711D7BC9B76AB9FBD8BF80FAC17999E7E"
+owner_ack_expires_on = "2026-10-24"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-07-24"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_D71A9EDA9A799DDE7CDD7C4870A32BC388D20362030CA98444005B0516E80EDC"
+source_kind = "python"
+path = "scripts/verification/code_spec_refresh_cli.py"
+qualified_symbol = "scripts::verification::code_spec_refresh_cli::_verify_tracked_bytes"
+item_kind = "python_function"
+signature_digest = "sha256:8d31ef9cecc14c728a627edbd2e74f8d4a8d0faf9c3a34321e3b22751b339575"
+reviewed_body_digest = "sha256:a6ff3db8dfa9705d7f26a2933e1fe5cdd55d8701fcf2e6ef38077e57e0caeaf1"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = ["subprocess_or_thread"]
+owner_ack = "RISK_ACK_D71A9EDA9A799DDE7CDD7C4870A32BC388D20362030CA98444005B0516E80EDC"
+owner_ack_expires_on = "2026-10-24"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-07-24"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_D91716100C4E8ABE4AB127CC40CF482B79E7BD69371ACDB3F12EEF6F0EB1D5F2"
+source_kind = "python"
+path = "scripts/verification/code_spec_refresh.py"
+qualified_symbol = "scripts::verification::code_spec_refresh::_proposal_findings"
+item_kind = "python_function"
+signature_digest = "sha256:3892c0e059ca532537346c607372ce5dc5c9d4e0f1223434f4c64568b70d35af"
+reviewed_body_digest = "sha256:7bf34403fab255ed79c1d5a37508e0a490204836908ab60d1d047c40164b138f"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "RISK_ACK_D91716100C4E8ABE4AB127CC40CF482B79E7BD69371ACDB3F12EEF6F0EB1D5F2"
+owner_ack_expires_on = "2026-10-24"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-07-24"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_DACF56D3B0E73063A156269998ACB32CB1E5DBDE5C7F1304371D70CEB3C0E630"
+source_kind = "python"
+path = "scripts/verification/code_spec_refresh.py"
+qualified_symbol = "scripts::verification::code_spec_refresh::_validate_proposal_rows"
+item_kind = "python_function"
+signature_digest = "sha256:3056e01532efa98b3969a425c042928eee407b93a5a610d5e83f02072928f68c"
+reviewed_body_digest = "sha256:fd1af6551f059ae95ce2a702594ffc2e40c11e94c073f7c09f336c1e24449e92"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "RISK_ACK_DACF56D3B0E73063A156269998ACB32CB1E5DBDE5C7F1304371D70CEB3C0E630"
+owner_ack_expires_on = "2026-10-24"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-07-24"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_DC624B9DF1DEF8CCF6A934B421603FA3567EEBBB13E770E56FD4817EC7FAC624"
+source_kind = "python"
+path = "scripts/verification/code_spec_refresh.py"
+qualified_symbol = "scripts::verification::code_spec_refresh::canonical_json"
+item_kind = "python_function"
+signature_digest = "sha256:0305a34b93c5c5768c081109de47af048961580677ab919bc356fe0088196446"
+reviewed_body_digest = "sha256:fb2d8ef11a9921c571a7ecb4b5fd7fbc23908590b0e4d84402ff31e029a1e32a"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-07-24"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_E16581B88FE8BDDAF6C83C5338C239BFC0392F36FECA230445549EB66A08F7C9"
+source_kind = "python"
+path = "scripts/verification/code_spec_refresh.py"
+qualified_symbol = "scripts::verification::code_spec_refresh::_validate_report"
+item_kind = "python_function"
+signature_digest = "sha256:300112ae4649a6bc4e1e35aa454e045d5f967cf17307f30e381492303a6d5d68"
+reviewed_body_digest = "sha256:43a9fdf4012c0c053d07c853cd1275c6c32397599d65289296258065525dac14"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = ["protocol_response_or_status", "state_mutation"]
+owner_ack = "RISK_ACK_E16581B88FE8BDDAF6C83C5338C239BFC0392F36FECA230445549EB66A08F7C9"
+owner_ack_expires_on = "2026-10-24"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-07-24"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_F16C759548585464F315CCD55B317739725B759810938F0E6DCA391EC2F0C31D"
+source_kind = "python"
+path = "scripts/verification/code_spec_refresh.py"
+qualified_symbol = "scripts::verification::code_spec_refresh::_index_code_map"
+item_kind = "python_function"
+signature_digest = "sha256:56edb267ce7c2b82946567f102f2a078bd04892ea51d5279b07a076d26dd5a34"
+reviewed_body_digest = "sha256:a74b8b8fab2e608b2fc0e95a60e6b1f96dba9b755d8e7bb96bf2cd6de6cdf23a"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "RISK_ACK_F16C759548585464F315CCD55B317739725B759810938F0E6DCA391EC2F0C31D"
+owner_ack_expires_on = "2026-10-24"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-07-24"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_F8946818C0F6FECF03274FBD332F2500C93904A4F7D4C35CFE083C4426A4CF74"
+source_kind = "python"
+path = "scripts/verification/code_spec_refresh.py"
+qualified_symbol = "scripts::verification::code_spec_refresh::_digest_hex"
+item_kind = "python_function"
+signature_digest = "sha256:bb5c156fdc9a7bc1adf352ca04c8eba4ed07b95c1fa64d00a9de75bbf3579378"
+reviewed_body_digest = "sha256:a8f0a116b9b3334a2511e7618295f60a00e2aa1dff603ead79dae9de61929369"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = []
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-07-24"

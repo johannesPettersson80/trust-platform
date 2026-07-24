@@ -49,6 +49,11 @@ package "Execution-guided mapping accelerator" {
   [recoverable atomic catalog transaction] as CatalogTransaction
 }
 
+package "Code-map refresh quarantine" {
+  [deterministic finding partition] as CodeRefreshBuilder
+  database "review-required code-map proposals" as CodeRefreshProposals
+}
+
 package "Existing enforcement path" {
   [canonical JSON + Markdown report] as Report
   [report / changed / full policy] as Policy
@@ -103,6 +108,9 @@ CatalogTransaction --> TestCatalog
 CatalogTransaction --> TestDenominator
 CatalogTransaction --> Decisions
 Join --> Report
+Report --> CodeRefreshBuilder : at-rest-canonical observations
+Map --> CodeRefreshBuilder : byte-identical source mapping
+CodeRefreshBuilder --> CodeRefreshProposals : stable IDs + exact partition
 Report --> Policy
 Policy --> Gate
 Report --> Planner : reuse one scan
@@ -115,6 +123,7 @@ RiskAcks --> MetadataGate : closed schema validation
 Debt --> MetadataGate : static schema validation
 PrivateInputs --> MetadataGate : schema + live digest
 Proposals --> MetadataGate : quarantine + staleness validation
+CodeRefreshProposals --> MetadataGate : closed schema only
 Decisions --> MetadataGate : closed decision schema
 TestCatalog --> VerificationGraph
 TestDenominator --> Report : reviewed live denominator
@@ -129,6 +138,13 @@ note bottom of SemanticReview
   Coverage, names, paths, and mutation kills are not semantic proof.
   Each assertion is bound to exact oracle behavior rows;
   high-risk mappings require two distinct reviewers.
+end note
+
+note bottom of CodeRefreshProposals
+  This plane has no write edge into the accepted map.
+  Reported facts stay untrusted until live reconstruction.
+  It cannot infer bindings, close gaps, promote proof,
+  or refresh digests without an explicit reviewed transaction.
 end note
 
 note bottom of Report

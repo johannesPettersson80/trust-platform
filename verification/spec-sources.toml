@@ -2061,6 +2061,7 @@ covers = [
   "verification_metadata_contract",
   "case_proof_contract",
   "ci_report_gate_contract",
+  "code_spec_refresh_quarantine",
 ]
 known_limitations = [
   "The contract validates verification metadata and evidence integrity; it does not independently prove product behavior.",
