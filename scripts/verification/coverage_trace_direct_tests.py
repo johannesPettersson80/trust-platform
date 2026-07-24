@@ -21,6 +21,7 @@ from scripts.verification.coverage_trace_direct import (
     run_direct_trace,
 )
 from scripts.verification.coverage_trace_resume import (
+    profile_digest,
     reusable_completed_attempt_ids,
 )
 
@@ -200,6 +201,7 @@ class CoverageTraceDirectTests(unittest.TestCase):
                                 executable.read_bytes()
                             ).hexdigest()
                         ),
+                        "test_arguments": request["test_arguments"],
                         "status": "completed",
                         "exit_code": 0,
                     }
@@ -214,6 +216,143 @@ class CoverageTraceDirectTests(unittest.TestCase):
 
         self.assertEqual({discovery_id}, reusable)
         self.assertEqual(str(executable.resolve()), request["nextest_binary_path"])
+
+    def test_nonzero_attempt_requires_explicit_resume_policy(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            executable = root / "target/debug/trust-dev"
+            executable.parent.mkdir(parents=True)
+            executable.write_bytes(b"instrumented direct runner")
+            discovery_id = "DISC_TEST_NONZERO"
+            request = direct_test_request(
+                {
+                    "discovery_id": discovery_id,
+                    "discovery_source_kind": "structured_text_test",
+                    "path": "fixtures/project/src/main.st",
+                    "name": "negative_case",
+                    "package": None,
+                },
+                command=[
+                    str(executable),
+                    "test",
+                    "--project",
+                    "fixtures/project",
+                    "--filter",
+                    "negative_case",
+                ],
+                authority="verified_synthesized",
+            )
+            attempt = (
+                root
+                / "trace/attempts"
+                / hashlib.sha256(discovery_id.encode()).hexdigest()
+            )
+            profiles = attempt / "profiles"
+            profiles.mkdir(parents=True)
+            (profiles / "coverage.profraw").write_bytes(b"profile")
+            (attempt / "attempt.json").write_text(
+                json.dumps(
+                    {
+                        "discovery_id": discovery_id,
+                        "binary_id": executable.name,
+                        "test_name": "negative_case",
+                        "test_executable": str(executable.resolve()),
+                        "test_executable_digest": (
+                            "sha256:"
+                            + hashlib.sha256(executable.read_bytes()).hexdigest()
+                        ),
+                        "test_arguments": request["test_arguments"],
+                        "status": "completed",
+                        "exit_code": 9,
+                    }
+                )
+            )
+
+            with self.assertRaisesRegex(ValueError, "incomplete attempt"):
+                reusable_completed_attempt_ids(
+                    trace_root=root / "trace",
+                    resolved=[request],
+                    purge_incomplete=False,
+                )
+            reusable = reusable_completed_attempt_ids(
+                trace_root=root / "trace",
+                resolved=[request],
+                purge_incomplete=False,
+                allow_nonzero_exit=True,
+            )
+
+        self.assertEqual({discovery_id}, reusable)
+
+    def test_direct_resume_rejects_argument_or_profile_drift(self) -> None:
+        for scenario in ("arguments", "profile"):
+            with self.subTest(scenario=scenario), TemporaryDirectory() as directory:
+                root = Path(directory)
+                executable = root / "target/debug/trust-dev"
+                executable.parent.mkdir(parents=True)
+                executable.write_bytes(b"instrumented direct runner")
+                discovery_id = "DISC_TEST_DRIFT"
+                request = direct_test_request(
+                    {
+                        "discovery_id": discovery_id,
+                        "discovery_source_kind": "structured_text_test",
+                        "path": "fixtures/project/src/main.st",
+                        "name": "drift_case",
+                        "package": None,
+                    },
+                    command=[
+                        str(executable),
+                        "test",
+                        "--project",
+                        "fixtures/project",
+                        "--filter",
+                        "drift_case",
+                    ],
+                    authority="verified_synthesized",
+                )
+                attempt = root / "trace/attempts/one"
+                profiles = attempt / "profiles"
+                profiles.mkdir(parents=True)
+                profile = profiles / "coverage.profraw"
+                profile.write_bytes(b"profile")
+                (attempt / "attempt.json").write_text(
+                    json.dumps(
+                        {
+                            "discovery_id": discovery_id,
+                            "binary_id": executable.name,
+                            "test_name": "drift_case",
+                            "test_executable": str(executable.resolve()),
+                            "test_executable_digest": (
+                                "sha256:"
+                                + hashlib.sha256(
+                                    executable.read_bytes()
+                                ).hexdigest()
+                            ),
+                            "test_arguments": request["test_arguments"],
+                            "profile_digest": profile_digest(profiles),
+                            "status": "completed",
+                            "exit_code": 7,
+                        }
+                    )
+                )
+                if scenario == "arguments":
+                    request["test_arguments"] = [
+                        *request["test_arguments"],
+                        "--changed",
+                    ]
+                else:
+                    profile.write_bytes(b"mutated")
+
+                reusable = reusable_completed_attempt_ids(
+                    trace_root=root / "trace",
+                    resolved=[request],
+                    purge_incomplete=True,
+                    allow_nonzero_exit=True,
+                    require_profile_digest=True,
+                )
+                attempt_exists = attempt.exists()
+
+            self.assertEqual(set(), reusable)
+            self.assertFalse(attempt_exists)
 
     def test_two_st_workers_are_isolated_and_conformance_is_serialized(
         self,
@@ -247,7 +386,7 @@ class CoverageTraceDirectTests(unittest.TestCase):
             conformance_overlapped = False
             temporary_roots: set[str] = set()
 
-            def fake_run(command, *, env, **_kwargs):
+            def fake_run(command, *, env=None, **_kwargs):
                 nonlocal active_st, maximum_st, conformance_overlapped
                 is_st = Path(command[0]).name == "trust-dev"
                 with lock:
@@ -316,7 +455,9 @@ class CoverageTraceDirectTests(unittest.TestCase):
         self.assertFalse(conformance_overlapped)
         self.assertEqual(3, len(temporary_roots))
 
-    def test_worker_failure_blocks_export_and_writes_no_manifest(self) -> None:
+    def test_worker_infrastructure_failure_blocks_export_and_manifest(
+        self,
+    ) -> None:
         with TemporaryDirectory() as directory:
             root = Path(directory)
             trust_dev, trust_runtime = self._write_binaries(root)
@@ -330,9 +471,7 @@ class CoverageTraceDirectTests(unittest.TestCase):
 
             def fake_run(command, *, env, **_kwargs):
                 if command[-1] == "case_fail":
-                    return subprocess.CompletedProcess(
-                        command, 1, "", "expected failure"
-                    )
+                    raise OSError("runner unavailable")
                 profile = Path(
                     env["LLVM_PROFILE_FILE"].replace("%m-%p", "profile")
                 )
@@ -350,7 +489,7 @@ class CoverageTraceDirectTests(unittest.TestCase):
                 ) as export,
             ):
                 with self.assertRaisesRegex(
-                    ValueError, "DISC_FAIL.*expected failure"
+                    ValueError, "DISC_FAIL.*runner unavailable"
                 ):
                     run_direct_trace(
                         root=root,
@@ -390,6 +529,140 @@ class CoverageTraceDirectTests(unittest.TestCase):
             )
             self.assertFalse(failed.exists())
             self.assertTrue(passed.exists())
+
+    def test_nonzero_direct_execution_is_completed_and_resumable(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            trust_dev, trust_runtime = self._write_binaries(root)
+            source = root / "tests/group/project/src/main.st"
+            source.parent.mkdir(parents=True)
+            source.write_text("TEST_PROGRAM A\nEND_TEST_PROGRAM\n")
+            governed = root / "crates/example/src/lib.rs"
+            governed.parent.mkdir(parents=True)
+            governed.write_text("pub fn behavior() {}\n")
+            tools = root / "llvm"
+            tools.mkdir()
+            (tools / "llvm-profdata").write_bytes(b"tool")
+            (tools / "llvm-cov").write_bytes(b"tool")
+            discovery_id = "DISC_NONZERO"
+            fact = self._st_fact(discovery_id, "case_nonzero")
+            direct_calls = 0
+
+            def fake_run(command, *, env=None, **_kwargs):
+                nonlocal direct_calls
+                if Path(command[0]).name == "trust-dev":
+                    direct_calls += 1
+                    self.assertIsNotNone(env)
+                    profile = Path(
+                        env["LLVM_PROFILE_FILE"].replace("%m-%p", "profile")
+                    )
+                    profile.write_bytes(b"profile")
+                    return subprocess.CompletedProcess(
+                        command, 7, "", "behavior assertion failed"
+                    )
+                if Path(command[0]).name == "llvm-profdata":
+                    Path(command[command.index("-o") + 1]).write_bytes(
+                        b"merged"
+                    )
+                    return subprocess.CompletedProcess(
+                        command, 0, "", ""
+                    )
+                raise AssertionError(f"unexpected command: {command}")
+
+            arguments = {
+                "root": root,
+                "facts": [fact],
+                "trace_root": root / "trace",
+                "output_path": root / "trace.json",
+                "binaries": {
+                    "trust-dev": trust_dev,
+                    "trust-runtime": trust_runtime,
+                },
+                "environment": {},
+                "llvm_tools_dir": tools,
+                "rust_inventory": SimpleNamespace(
+                    source_paths=["crates/example/src/lib.rs"],
+                    spans={},
+                    facts={},
+                ),
+                "source_commit": "0" * 40,
+                "platform": "test",
+                "input_digest": "sha256:test",
+                "mode": "focused_shard",
+                "jobs": 1,
+            }
+            with patch(
+                "scripts.verification.coverage_trace_direct.subprocess.run",
+                side_effect=fake_run,
+            ):
+                first = run_direct_trace(
+                    **arguments,
+                )
+                second = run_direct_trace(
+                    **arguments,
+                    resume=True,
+                )
+
+            attempt = (
+                root
+                / "trace/attempts"
+                / hashlib.sha256(discovery_id.encode()).hexdigest()
+                / "attempt.json"
+            )
+            manifest = json.loads(attempt.read_text())
+
+        self.assertEqual(1, direct_calls)
+        self.assertEqual("completed", manifest["status"])
+        self.assertEqual(7, manifest["exit_code"])
+        self.assertRegex(manifest["profile_digest"], r"^sha256:[0-9a-f]{64}$")
+        for document in (first, second):
+            self.assertEqual("failed", document["tests"][0]["trace_status"])
+            self.assertEqual([], document["tests"][0]["covered_code_ids"])
+
+    def test_signal_termination_is_an_infrastructure_failure(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            trust_dev, trust_runtime = self._write_binaries(root)
+            source = root / "tests/group/project/src/main.st"
+            source.parent.mkdir(parents=True)
+            source.write_text("TEST_PROGRAM A\nEND_TEST_PROGRAM\n")
+
+            def fake_run(command, *, env, **_kwargs):
+                profile = Path(
+                    env["LLVM_PROFILE_FILE"].replace("%m-%p", "profile")
+                )
+                profile.write_bytes(b"partial")
+                return subprocess.CompletedProcess(command, -9, "", "")
+
+            with (
+                patch(
+                    "scripts.verification.coverage_trace_direct.subprocess.run",
+                    side_effect=fake_run,
+                ),
+                self.assertRaisesRegex(ValueError, "terminated by signal 9"),
+            ):
+                run_direct_trace(
+                    root=root,
+                    facts=[self._st_fact("DISC_SIGNAL", "case_signal")],
+                    trace_root=root / "trace",
+                    output_path=root / "trace.json",
+                    binaries={
+                        "trust-dev": trust_dev,
+                        "trust-runtime": trust_runtime,
+                    },
+                    environment={},
+                    llvm_tools_dir=root / "llvm",
+                    rust_inventory=SimpleNamespace(
+                        source_paths=[],
+                        spans={},
+                        facts={},
+                    ),
+                    source_commit="0" * 40,
+                    platform="test",
+                    input_digest="sha256:test",
+                    mode="focused_shard",
+                    jobs=1,
+                )
 
     def test_direct_jobs_outside_reviewed_bound_fail_closed(self) -> None:
         for jobs in (0, 3):

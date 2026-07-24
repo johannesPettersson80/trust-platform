@@ -16,7 +16,10 @@ from typing import Any
 from .code_spec_rust import RustInventory
 from .coverage_trace_document import build_rust_trace_document
 from .coverage_trace_inventory import code_inventory_digest
-from .coverage_trace_resume import reusable_completed_attempt_ids
+from .coverage_trace_resume import (
+    profile_digest,
+    reusable_completed_attempt_ids,
+)
 from .coverage_trace_tools import export_attempt_coverage
 
 
@@ -104,6 +107,7 @@ def direct_test_request(
         "nextest_binary_id": executable.name,
         "nextest_binary_path": str(executable),
         "nextest_test_name": _required_string(fact, "name", "scanner fact"),
+        "test_arguments": list(command[1:]),
         "command": shlex.join(command),
         "command_authority": authority,
     }
@@ -293,6 +297,8 @@ def run_direct_trace(
             trace_root=trace_root,
             resolved=requested,
             purge_incomplete=True,
+            allow_nonzero_exit=True,
+            require_profile_digest=True,
         )
         if resume
         else set()
@@ -361,6 +367,8 @@ def run_direct_trace(
         trace_root=trace_root,
         resolved=requested,
         purge_incomplete=False,
+        allow_nonzero_exit=True,
+        require_profile_digest=True,
     )
     expected = {
         _required_string(request, "discovery_id", "direct request")
@@ -376,6 +384,7 @@ def run_direct_trace(
         trace_root=trace_root,
         llvm_tools_dir=llvm_tools_dir,
         source_paths=rust_inventory.source_paths,
+        allow_nonzero_exit=True,
     )
     sources = {
         path: (root / path).read_bytes() for path in rust_inventory.source_paths
@@ -447,10 +456,10 @@ def _execute_direct_attempt(
         text=True,
     )
     duration_ms = max(0, round((time.monotonic() - started) * 1000))
-    if completed.returncode != 0:
+    if completed.returncode < 0:
         raise ValueError(
-            f"{discovery_id} direct test failed with {completed.returncode}: "
-            f"{completed.stderr.strip() or completed.stdout.strip()}"
+            f"{discovery_id} direct test terminated by signal "
+            f"{-completed.returncode}"
         )
     if not any(profiles.glob("*.profraw")):
         raise ValueError(f"{discovery_id} produced no LLVM profile")
@@ -469,8 +478,9 @@ def _execute_direct_attempt(
         "test_executable_digest": executable_digest,
         "test_arguments": list(command[1:]),
         "status": "completed",
-        "exit_code": 0,
+        "exit_code": completed.returncode,
         "duration_ms": duration_ms,
+        "profile_digest": profile_digest(profiles),
     }
     (attempt_dir / "attempt.json").write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n"
@@ -486,7 +496,7 @@ def _execute_structured_text_attempts(
     binary_evidence: Mapping[Path, tuple[str, tuple[int, ...]]],
     jobs: int,
 ) -> None:
-    """Run bounded ST attempts and stop queuing work after the first failure."""
+    """Run bounded ST attempts and fail closed on infrastructure errors."""
 
     failures: list[tuple[str, str]] = []
     with ThreadPoolExecutor(max_workers=jobs) as executor:

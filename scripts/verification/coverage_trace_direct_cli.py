@@ -153,7 +153,16 @@ def main(argv: list[str] | None = None) -> int:
     except (OSError, ValueError, subprocess.SubprocessError) as error:
         print(f"direct coverage trace failed: {error}", file=sys.stderr)
         return 2
-    print(f"direct coverage trace complete: {len(document['tests'])} tests observed")
+    observed = sum(
+        record["trace_status"] == "observed" for record in document["tests"]
+    )
+    failed = sum(
+        record["trace_status"] == "failed" for record in document["tests"]
+    )
+    print(
+        f"direct coverage trace complete: {observed}/{len(document['tests'])} "
+        f"tests observed; {failed} failed"
+    )
     return 0
 
 

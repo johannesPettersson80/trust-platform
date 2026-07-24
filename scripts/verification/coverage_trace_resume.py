@@ -15,8 +15,14 @@ def reusable_completed_attempt_ids(
     trace_root: Path,
     resolved: Sequence[Mapping[str, Any]],
     purge_incomplete: bool,
+    allow_nonzero_exit: bool = False,
+    require_profile_digest: bool = False,
 ) -> set[str]:
-    """Return exact reusable attempts and remove only incomplete generated ones."""
+    """Return exact reusable attempts and remove only incomplete generated ones.
+
+    Nonzero executions are reusable only for adapters that explicitly preserve
+    them as non-semantic failed trace records.
+    """
 
     expected: dict[str, Mapping[str, Any]] = {}
     for record in resolved:
@@ -107,16 +113,63 @@ def reusable_completed_attempt_ids(
                         f"test executable changed during resume validation: "
                         f"{current_executable}"
                     )
+        exit_code = (
+            manifest.get("exit_code")
+            if isinstance(manifest, Mapping)
+            else None
+        )
+        accepted_exit = (
+            isinstance(exit_code, int)
+            and not isinstance(exit_code, bool)
+            and exit_code >= 0
+            and (allow_nonzero_exit or exit_code == 0)
+        )
+        expected_arguments = (
+            record.get("test_arguments")
+            if isinstance(record, Mapping)
+            else None
+        )
+        arguments_match = (
+            expected_arguments is None
+            or (
+                isinstance(expected_arguments, list)
+                and all(isinstance(item, str) for item in expected_arguments)
+                and isinstance(manifest, Mapping)
+                and manifest.get("test_arguments") == expected_arguments
+            )
+        )
+        profiles_dir = attempt_dir / "profiles"
+        raw_profiles = sorted(profiles_dir.glob("*.profraw"))
+        recorded_profile_digest = (
+            manifest.get("profile_digest")
+            if isinstance(manifest, Mapping)
+            else None
+        )
+        must_check_profile_digest = (
+            require_profile_digest or recorded_profile_digest is not None
+        )
+        current_profile_digest = (
+            profile_digest(profiles_dir)
+            if raw_profiles and must_check_profile_digest
+            else None
+        )
+        profile_digest_matches = (
+            not must_check_profile_digest
+            or recorded_profile_digest == current_profile_digest
+        )
         reusable = (
-            record is not None
+            isinstance(manifest, Mapping)
+            and record is not None
             and manifest.get("status") == "completed"
-            and manifest.get("exit_code") == 0
+            and accepted_exit
             and manifest.get("binary_id") == record.get("nextest_binary_id")
             and manifest.get("test_name") == record.get("nextest_test_name")
+            and arguments_match
             and manifest_executable == current_executable
             and executable_digest is not None
             and manifest.get("test_executable_digest") == executable_digest
-            and any((attempt_dir / "profiles").glob("*.profraw"))
+            and bool(raw_profiles)
+            and profile_digest_matches
         )
         if reusable:
             if _file_signature(current_executable) != executable_signature:
@@ -130,6 +183,21 @@ def reusable_completed_attempt_ids(
             raise ValueError(f"trace contains incomplete attempt {attempt_dir.name}")
         shutil.rmtree(attempt_dir)
     return completed_ids
+
+
+def profile_digest(profiles_dir: Path) -> str:
+    """Hash exact profile names and bytes for stable attempt provenance."""
+
+    profiles = sorted(profiles_dir.glob("*.profraw"))
+    if not profiles:
+        raise ValueError(f"trace attempt has no raw profiles: {profiles_dir}")
+    digest = hashlib.sha256()
+    for path in profiles:
+        digest.update(path.name.encode())
+        digest.update(b"\0")
+        digest.update(path.read_bytes())
+        digest.update(b"\0")
+    return "sha256:" + digest.hexdigest()
 
 
 def _file_digest(path: Path) -> str:

@@ -8,6 +8,7 @@ from pathlib import Path
 
 from scripts.verification.code_spec_common import CodeSourceSpan
 from scripts.verification.coverage_trace_document import build_rust_trace_document
+from scripts.verification.coverage_trace_resume import profile_digest
 
 
 DISCOVERY_ID = "DISC_00000000000000000001"
@@ -106,6 +107,64 @@ class CoverageTraceDocumentTests(unittest.TestCase):
             {"rust_product": "sha256:" + "2" * 64},
             document["code_inventory_digests"],
         )
+
+    def test_nonzero_attempt_creates_failed_record_without_attribution(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            trace_root = root / "trace"
+            attempt = trace_root / "attempts" / "attempt-key"
+            profiles = attempt / "profiles"
+            profiles.mkdir(parents=True)
+            (profiles / "one.profraw").write_bytes(b"profile")
+            manifest = {
+                "discovery_id": DISCOVERY_ID,
+                "test_name": "tests::negative",
+                "binary_id": "example",
+                "attempt_id": "run:negative",
+                "status": "completed",
+                "exit_code": 7,
+                "duration_ms": 23,
+                "profile_digest": profile_digest(profiles),
+            }
+            import json
+
+            (attempt / "attempt.json").write_text(json.dumps(manifest))
+            request = {
+                "discovery_id": DISCOVERY_ID,
+                "discovery_source_kind": "structured_text_test",
+                "path": "tests/fixtures/negative/src/main.st",
+                "name": "negative",
+                "nextest_binary_id": "example",
+                "nextest_test_name": "tests::negative",
+                "command": "trust-dev test --filter negative",
+                "command_authority": "verified_synthesized",
+            }
+
+            document = build_rust_trace_document(
+                root=root,
+                trace_root=trace_root,
+                requested=[request],
+                coverage_exports={DISCOVERY_ID: {"invalid": "unused"}},
+                sources={},
+                spans={},
+                source_commit="a" * 40,
+                platform="linux-x86_64",
+                input_digest="sha256:" + "1" * 64,
+                code_inventory_digests={
+                    "rust_product": "sha256:" + "2" * 64,
+                },
+                mode="focused_shard",
+            )
+
+        record = document["tests"][0]
+        self.assertEqual("failed", record["trace_status"])
+        self.assertEqual("unavailable", record["attribution_kind"])
+        self.assertEqual([], record["covered_code_ids"])
+        self.assertEqual(7, record["exit_code"])
+        self.assertEqual(23, record["duration_ms"])
+        self.assertIn("no semantic candidate", record["limitations"][0])
 
     def test_missing_duplicate_or_failed_attempt_fails_closed(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

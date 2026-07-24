@@ -248,6 +248,51 @@ class CoverageTraceContractTests(unittest.TestCase):
         self.assertTrue(any("observed record requires exit_code 0" in item for item in failures))
         self.assertTrue(any("exact or verified command" in item for item in failures))
 
+    def test_failed_record_requires_exact_nonsemantic_provenance(self) -> None:
+        document = _trace()
+        record = document["tests"][0]
+        record.update(
+            {
+                "trace_status": "failed",
+                "attribution_kind": "unavailable",
+                "exit_code": 7,
+                "covered_code_ids": [],
+            }
+        )
+        self.assertEqual(
+            [],
+            validate_trace_document(
+                document,
+                live_facts={DISCOVERY_ID: _fact()},
+            ),
+        )
+
+        record["command_authority"] = "unavailable"
+        record["exit_code"] = 0
+        record["duration_ms"] = -1
+        record["attribution_kind"] = "structural_only"
+        record["covered_code_ids"] = ["CODE_" + "A" * 64]
+        record.pop("attempt_id")
+        record.pop("profile_digest")
+        failures = validate_trace_document(
+            document,
+            live_facts={DISCOVERY_ID: _fact()},
+        )
+
+        for required in (
+            "exact or verified command",
+            "positive nonzero exit_code",
+            "requires attempt_id",
+            "requires profile_digest",
+            "nonnegative duration_ms",
+            "requires unavailable attribution",
+            "cannot claim covered code",
+        ):
+            self.assertTrue(
+                any(required in failure for failure in failures),
+                (required, failures),
+            )
+
     def test_istanbul_observation_requires_typescript_inventory_digest(self) -> None:
         document = _trace()
         document["tests"][0]["attribution_kind"] = "istanbul_source_coverage"

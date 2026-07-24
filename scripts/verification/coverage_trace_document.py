@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -14,6 +13,7 @@ from .coverage_trace_attribution import (
     attributed_code_ids,
     parse_llvm_export,
 )
+from .coverage_trace_resume import profile_digest
 
 
 def build_rust_trace_document(
@@ -56,8 +56,13 @@ def build_rust_trace_document(
     for discovery_id in sorted(requested_by_id):
         request = requested_by_id[discovery_id]
         attempt_dir, attempt = attempts[discovery_id]
-        if attempt.get("status") != "completed" or attempt.get("exit_code") != 0:
-            raise ValueError(f"{discovery_id} attempt did not complete successfully")
+        exit_code = attempt.get("exit_code")
+        if (
+            attempt.get("status") != "completed"
+            or not isinstance(exit_code, int)
+            or isinstance(exit_code, bool)
+        ):
+            raise ValueError(f"{discovery_id} attempt did not complete")
         if attempt.get("binary_id") != request.get("nextest_binary_id"):
             raise ValueError(f"{discovery_id} attempt binary identity drifted")
         if attempt.get("test_name") != request.get("nextest_test_name"):
@@ -69,37 +74,66 @@ def build_rust_trace_document(
             or duration_ms < 0
         ):
             raise ValueError(f"{discovery_id} attempt duration is invalid")
-        regions = parse_llvm_export(
-            coverage_exports[discovery_id],
-            root=root,
-            sources=sources,
+        source_kind = _required_string(
+            request, "discovery_source_kind", discovery_id
         )
-        records.append(
-            {
-                "discovery_id": discovery_id,
-                "discovery_source_kind": _required_string(
-                    request, "discovery_source_kind", discovery_id
-                ),
-                "path": _required_string(request, "path", discovery_id),
-                "name": _required_string(request, "name", discovery_id),
-                "command": _required_string(request, "command", discovery_id),
-                "command_authority": _required_string(
-                    request, "command_authority", discovery_id
-                ),
-                "trace_status": "observed",
-                "attribution_kind": "llvm_source_coverage",
-                "attempt_id": _required_string(
-                    attempt, "attempt_id", discovery_id
-                ),
-                "exit_code": 0,
-                "duration_ms": duration_ms,
-                "profile_digest": _profile_digest(attempt_dir / "profiles"),
-                "covered_code_ids": list(attributed_code_ids(regions, spans)),
-                "limitations": [
-                    "Execution coverage ranks candidates and creates no semantic proof."
-                ],
-            }
-        )
+        current_profile_digest = profile_digest(attempt_dir / "profiles")
+        recorded_profile_digest = attempt.get("profile_digest")
+        if recorded_profile_digest is not None:
+            if recorded_profile_digest != current_profile_digest:
+                raise ValueError(
+                    f"{discovery_id} attempt profile digest drifted"
+                )
+        elif source_kind in {"structured_text_test", "conformance_case"}:
+            raise ValueError(
+                f"{discovery_id} direct attempt lacks profile digest"
+            )
+        record = {
+            "discovery_id": discovery_id,
+            "discovery_source_kind": source_kind,
+            "path": _required_string(request, "path", discovery_id),
+            "name": _required_string(request, "name", discovery_id),
+            "command": _required_string(request, "command", discovery_id),
+            "command_authority": _required_string(
+                request, "command_authority", discovery_id
+            ),
+            "attempt_id": _required_string(attempt, "attempt_id", discovery_id),
+            "exit_code": exit_code,
+            "duration_ms": duration_ms,
+            "profile_digest": current_profile_digest,
+        }
+        if exit_code == 0:
+            regions = parse_llvm_export(
+                coverage_exports[discovery_id],
+                root=root,
+                sources=sources,
+            )
+            record.update(
+                {
+                    "trace_status": "observed",
+                    "attribution_kind": "llvm_source_coverage",
+                    "covered_code_ids": list(
+                        attributed_code_ids(regions, spans)
+                    ),
+                    "limitations": [
+                        "Execution coverage ranks candidates and creates no "
+                        "semantic proof."
+                    ],
+                }
+            )
+        else:
+            record.update(
+                {
+                    "trace_status": "failed",
+                    "attribution_kind": "unavailable",
+                    "covered_code_ids": [],
+                    "limitations": [
+                        "Exact command exited nonzero; no semantic candidate "
+                        "was generated."
+                    ],
+                }
+            )
+        records.append(record)
     document = {
         "schema_version": 1,
         "generator": "test-coverage-trace",
@@ -160,19 +194,6 @@ def _load_attempts(
             raise ValueError(f"trace attempts duplicate {discovery_id}")
         attempts[discovery_id] = (path.parent, document)
     return attempts
-
-
-def _profile_digest(profiles_dir: Path) -> str:
-    profiles = sorted(profiles_dir.glob("*.profraw"))
-    if not profiles:
-        raise ValueError(f"trace attempt has no raw profiles: {profiles_dir}")
-    digest = hashlib.sha256()
-    for path in profiles:
-        digest.update(path.name.encode())
-        digest.update(b"\0")
-        digest.update(path.read_bytes())
-        digest.update(b"\0")
-    return "sha256:" + digest.hexdigest()
 
 
 def _required_string(

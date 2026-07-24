@@ -11,6 +11,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .coverage_trace_resume import profile_digest
+
 
 @dataclass(frozen=True)
 class _CoverageExportJob:
@@ -18,6 +20,7 @@ class _CoverageExportJob:
     attempt_dir: Path
     executable: Path
     profiles: tuple[Path, ...]
+    exit_code: int
 
 
 class CoverageExportStore(Mapping[str, Mapping[str, Any]]):
@@ -38,6 +41,10 @@ class CoverageExportStore(Mapping[str, Mapping[str, Any]]):
 
     def __getitem__(self, discovery_id: str) -> Mapping[str, Any]:
         job = self._jobs[discovery_id]
+        if job.exit_code != 0:
+            raise ValueError(
+                f"{discovery_id} failed attempt has no coverage attribution"
+            )
         merged_descriptor, merged_temporary = tempfile.mkstemp(
             prefix=".merged.profdata.", suffix=".staged", dir=job.attempt_dir
         )
@@ -178,6 +185,7 @@ def export_attempt_coverage(
     trace_root: Path,
     llvm_tools_dir: Path,
     source_paths: Sequence[str],
+    allow_nonzero_exit: bool = False,
 ) -> Mapping[str, Mapping[str, Any]]:
     """Merge and export attempts without retaining the campaign in memory."""
 
@@ -191,7 +199,14 @@ def export_attempt_coverage(
             raise ValueError(f"cannot load attempt manifest {path}") from error
         if not isinstance(document, Mapping):
             raise ValueError(f"attempt manifest {path} must be an object")
-        if document.get("status") != "completed" or document.get("exit_code") != 0:
+        exit_code = document.get("exit_code")
+        accepted_exit = (
+            isinstance(exit_code, int)
+            and not isinstance(exit_code, bool)
+            and exit_code >= 0
+            and (allow_nonzero_exit or exit_code == 0)
+        )
+        if document.get("status") != "completed" or not accepted_exit:
             raise ValueError(f"{path} is not a successful completed attempt")
         parsed.append((path, document))
     profdata_tool = llvm_tools_dir / "llvm-profdata"
@@ -215,15 +230,62 @@ def export_attempt_coverage(
         profiles = sorted((attempt_dir / "profiles").glob("*.profraw"))
         if not profiles:
             raise ValueError(f"{discovery_id} has no raw profiles")
+        recorded_profile_digest = manifest.get("profile_digest")
+        if recorded_profile_digest is not None:
+            if recorded_profile_digest != profile_digest(attempt_dir / "profiles"):
+                raise ValueError(f"{discovery_id} profile digest drifted")
+        elif manifest["exit_code"] != 0:
+            raise ValueError(f"{discovery_id} failed attempt lacks profile digest")
         jobs[discovery_id] = _CoverageExportJob(
             discovery_id=discovery_id,
             attempt_dir=attempt_dir,
             executable=executable,
             profiles=tuple(profiles),
+            exit_code=manifest["exit_code"],
         )
-    return CoverageExportStore(
+    store = CoverageExportStore(
         jobs=jobs,
         profdata_tool=profdata_tool,
         cov_tool=cov_tool,
         resolved_sources=_resolved_coverage_sources(root, source_paths),
     )
+    for job in jobs.values():
+        if job.exit_code != 0:
+            _validate_failed_profiles(job, profdata_tool)
+    return store
+
+
+def _validate_failed_profiles(
+    job: _CoverageExportJob,
+    profdata_tool: Path,
+) -> None:
+    """Prove a failed attempt still emitted readable instrumentation data."""
+
+    descriptor, temporary = tempfile.mkstemp(
+        prefix=".failed.profdata.", suffix=".staged", dir=job.attempt_dir
+    )
+    os.close(descriptor)
+    merged_path = Path(temporary)
+    merged_path.unlink()
+    try:
+        merge = subprocess.run(
+            [
+                str(profdata_tool),
+                "merge",
+                "-sparse",
+                *(str(profile) for profile in job.profiles),
+                "-o",
+                str(merged_path),
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if merge.returncode != 0:
+            raise ValueError(
+                f"{job.discovery_id} failed-profile merge failed: "
+                f"{merge.stderr.strip()}"
+            )
+    finally:
+        if merged_path.exists():
+            merged_path.unlink()

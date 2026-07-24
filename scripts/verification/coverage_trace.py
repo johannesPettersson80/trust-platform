@@ -93,6 +93,41 @@ def validate_trace_document(
                 failures.append(
                     f"{label} Istanbul attribution requires typescript_product inventory digest"
                 )
+        elif status == "failed":
+            if authority not in {"exact", "verified_synthesized"}:
+                failures.append(
+                    f"{label} failed record requires an exact or verified command"
+                )
+            exit_code = record.get("exit_code")
+            if (
+                not isinstance(exit_code, int)
+                or isinstance(exit_code, bool)
+                or exit_code <= 0
+            ):
+                failures.append(
+                    f"{label} failed record requires positive nonzero exit_code"
+                )
+            for field in ("attempt_id", "profile_digest"):
+                value = record.get(field)
+                if not isinstance(value, str) or not value:
+                    failures.append(f"{label} failed record requires {field}")
+            duration_ms = record.get("duration_ms")
+            if (
+                not isinstance(duration_ms, int)
+                or isinstance(duration_ms, bool)
+                or duration_ms < 0
+            ):
+                failures.append(
+                    f"{label} failed record requires nonnegative duration_ms"
+                )
+            if record.get("attribution_kind") != "unavailable":
+                failures.append(
+                    f"{label} failed record requires unavailable attribution"
+                )
+            if covered_code_ids:
+                failures.append(
+                    f"{label} failed record cannot claim covered code"
+                )
         else:
             if authority not in {
                 "exact",

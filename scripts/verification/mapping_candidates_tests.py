@@ -30,6 +30,23 @@ def _live(*code_ids: str) -> dict[str, dict[str, str]]:
 
 
 class MappingCandidateTests(unittest.TestCase):
+    def test_failed_execution_cannot_generate_candidate_or_demand(self) -> None:
+        result = analyze_mapping_candidates(
+            trace_records=[
+                {
+                    "discovery_id": "DISC_00000000000000000001",
+                    "trace_status": "failed",
+                    "covered_code_ids": [],
+                }
+            ],
+            code_mappings={"CODE_A": _specified("INV_ONE")},
+            invariants={"INV_ONE": {"risk": "maintenance"}},
+        )
+
+        self.assertEqual([], result["candidates"])
+        self.assertEqual([], result["demands"])
+        self.assertEqual([], result["unmapped_code_demand_ranking"])
+
     def test_unique_execution_join_ranks_without_lexical_inference(self) -> None:
         result = analyze_mapping_candidates(
             trace_records=[
