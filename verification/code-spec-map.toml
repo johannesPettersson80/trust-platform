@@ -27675,9 +27675,11 @@ owner = "language"
 area = "compiler_iec"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_COMPILER_IEC_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_IEC_SEMANTIC_RULES_001#12-1-primary-diagnostics-and-cascade-suppression"
+invariant_ids = ["IEC_HIR_DIAGNOSTIC_CASCADE_001"]
+test_ids = ["TEST_AUTO_676E12E0C907FAD3DC06", "TEST_AUTO_933D6414381B36343249"]
+last_reviewed = "2026-07-26"
 
 [[mappings]]
 schema_version = 1
@@ -40950,9 +40952,11 @@ owner = "language"
 area = "compiler_iec"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_COMPILER_IEC_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_IEC_SEMANTIC_RULES_001#12-1-primary-diagnostics-and-cascade-suppression"
+invariant_ids = ["IEC_HIR_DIAGNOSTIC_CASCADE_001"]
+test_ids = ["TEST_AUTO_676E12E0C907FAD3DC06", "TEST_AUTO_933D6414381B36343249"]
+last_reviewed = "2026-07-26"
 
 [[mappings]]
 schema_version = 1
@@ -47031,9 +47035,11 @@ owner = "language"
 area = "compiler_iec"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_COMPILER_IEC_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_IEC_SEMANTIC_RULES_001#12-1-primary-diagnostics-and-cascade-suppression"
+invariant_ids = ["IEC_HIR_DIAGNOSTIC_CASCADE_001"]
+test_ids = ["TEST_AUTO_933D6414381B36343249"]
+last_reviewed = "2026-07-26"
 
 [[mappings]]
 schema_version = 1
@@ -50026,9 +50032,11 @@ owner = "language"
 area = "compiler_iec"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_COMPILER_IEC_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_IEC_SEMANTIC_RULES_001#12-1-primary-diagnostics-and-cascade-suppression"
+invariant_ids = ["IEC_HIR_DIAGNOSTIC_CASCADE_001"]
+test_ids = ["TEST_AUTO_676E12E0C907FAD3DC06"]
+last_reviewed = "2026-07-26"
 
 [[mappings]]
 schema_version = 1

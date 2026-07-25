@@ -837,23 +837,32 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   Play-launch coherent-batch progress (2026-07-23): automatic test discovery found one direct existing pre-mutation behavior lock and rejected parser and lexical false positives. Product specifications now define explicit completeness and the narrow omitted-project first-run exception. Deterministic scanner-driven automation binds 1 live code fact and 1 focused tests to `RT_PLAY_LAUNCH_001`; repository totals become 1,566 specified facts, 13,786 remaining `spec_gap` facts, 1,019 catalog-mapped tests, and 3,360 remaining `reviewed_nonmapping` tests. Play launch and bundle selection are truST host/product behavior outside IEC 61131-3, not an IEC decision or deviation.
   <!-- generated:runtime-play-launch:end -->
   <!-- generated:hir-assignments-and-variable-semantics:start -->
-  HIR assignment and variable-semantics coherent-batch progress (2026-07-25):
+  HIR assignment and variable-semantics coherent-batch progress
+  (2026-07-25; updated 2026-07-26):
   automatic discovery found 69 existing focused tests. Saved per-test execution
   evidence, reviewed code-spec authority, and exact assertion-to-behavior
-  review catalog-map 65 tests across 11 HIR invariants; all 65 high-risk rows
-  have two independent reviewers, 72 oracle-bound assertions, four setup-only
-  assertions, and no unclassified assertion. Two enum/subrange cases remain
-  explicit specification gaps, and two primary-diagnostic-only cases remain
-  explicit assertion-strength gaps; none received invented authority.
-  Deterministic atomic generation raises repository totals to 1,628 specified
-  code facts, leaves 13,757 `spec_gap` facts, raises the denominator to 1,138
-  `catalog_mapped` tests, and leaves 3,248 `reviewed_nonmapping` tests. The
+  review catalog-map 67 tests across 11 HIR invariants; all 67 high-risk rows
+  have two independent reviewers, 76 oracle-bound assertions, four setup-only
+  assertions, and no unclassified assertion. The two former
+  primary-diagnostic-only cases now assert both the evaluator's primary
+  diagnostic and suppression of the dependent bounds/range diagnostic. The
+  focused run exposed that the former subrange fixture could succeed through
+  ordinary undefined-name resolution; the typed divide-by-zero fixture now
+  proves the intended constant-evaluation path. Two enum/subrange cases remain
+  explicit specification gaps; none received invented authority.
+  Deterministic atomic generation raises repository totals to 1,632 specified
+  code facts, leaves 13,753 `spec_gap` facts, raises the denominator to 1,140
+  `catalog_mapped` tests, and leaves 3,246 `reviewed_nonmapping` tests. The
   first atomic apply exposed and fixed a focused-review bug where the prebuilt
   assertion extractor was still sent schema v1 after the extractor contract
   advanced to v2; the existing focused transaction test now locks the shared
-  schema constant. The 1,360-case focused verification-tool suite is green.
+  schema constant. The strengthened two-test shard, its 2/2 focused trace, and
+  38 exact authority/review/transaction tests are green. The preceding
+  1,360-case focused verification-tool suite remains green; a redundant
+  umbrella repeat for this two-row metadata follow-up was stopped after five
+  minutes without failure and will not be repeated.
   No broad workspace test, coverage campaign, mutation campaign, or final gate
-  has run. Assertion reachability, mutation sensitivity, the four explicit
+  has run. Assertion reachability, mutation sensitivity, the two explicit
   unresolved cases, remaining semantic domains, and final broad gates remain
   open.
   <!-- generated:hir-assignments-and-variable-semantics:end -->

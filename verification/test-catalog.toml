@@ -28621,3 +28621,67 @@ mapping_assertion_review_digest = "sha256:0b5bca1b325365d900450bdd7e1f258bf60a2d
 mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:9277d3193152a7cc41e372c3cedb54d8b0c0fcdafd2a0a2afe419209ee3f3493", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
 mapping_behavior_refs = ["IEC_HIR_VAR_ACCESS_001#behavior:1"]
 mapping_reviewer_ids = ["review-attribution-perf", "semantic-authority-adjudicator"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_676E12E0C907FAD3DC06"
+subject_kind = "generated_test"
+discovery_id = "DISC_676E12E0C907FAD3DC06"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs"
+name = "test_subrange_assignment_const_eval_error_reports_primary_diagnostic"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking -E '(binary_id(=trust-hir::semantic_type_checking) & test(=assignments_and_var_access::test_subrange_assignment_const_eval_error_reports_primary_diagnostic))'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_DIAGNOSTIC_CASCADE_001"]
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001#12-1-primary-diagnostics-and-cascade-suppression"
+expected_result = "A failed array-bound, index, or subrange constant evaluation reports the evaluator's primary diagnostic and suppresses dependent bounds or range diagnostics."
+expected_failure_mode = "The observed result violates the reviewed behavior: A failed array-bound, index, or subrange constant evaluation reports the evaluator's primary diagnostic and suppresses dependent bounds or range diagnostics."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_676E12E0C907FAD3DC06.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_676E12E0C907FAD3DC06_A00B6A88D0A0"
+mapping_proposal_digest = "sha256:a00b6a88d0a07cd2c61b7ace3bd39d3653952e6c0f660bf8542b0377a95b1955"
+mapping_decision_id = "MAP_DEC_7A86A9DA27BA77F6FE61870E"
+mapping_reviewed_source_digest = "sha256:28da157c42b7a9b903b7da67c251263854c1249cc44fdab3b0c8d0e7caac3fb2"
+mapping_assertion_review_digest = "sha256:a6b0a3ce7b4905cceaba4f69da846f9d517b4092284c40369210d24038094d56"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:28da157c42b7a9b903b7da67c251263854c1249cc44fdab3b0c8d0e7caac3fb2", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_DIAGNOSTIC_CASCADE_001#behavior:3"]
+mapping_reviewer_ids = ["review-attribution-perf", "semantic-authority-adjudicator"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_933D6414381B36343249"
+subject_kind = "generated_test"
+discovery_id = "DISC_933D6414381B36343249"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs"
+name = "test_array_index_const_eval_error_reports_primary_diagnostic"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking -E '(binary_id(=trust-hir::semantic_type_checking) & test(=assignments_and_var_access::test_array_index_const_eval_error_reports_primary_diagnostic))'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_DIAGNOSTIC_CASCADE_001"]
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001#12-1-primary-diagnostics-and-cascade-suppression"
+expected_result = "A failed array-bound, index, or subrange constant evaluation reports the evaluator's primary diagnostic and suppresses dependent bounds or range diagnostics."
+expected_failure_mode = "The observed result violates the reviewed behavior: A failed array-bound, index, or subrange constant evaluation reports the evaluator's primary diagnostic and suppresses dependent bounds or range diagnostics."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_933D6414381B36343249.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_933D6414381B36343249_C7AA3E7CC126"
+mapping_proposal_digest = "sha256:c7aa3e7cc12612c169d47bfb7c406536d41274c3960b0e76654dc95a68c3b9d4"
+mapping_decision_id = "MAP_DEC_A3174745538D12D54385DCB1"
+mapping_reviewed_source_digest = "sha256:28da157c42b7a9b903b7da67c251263854c1249cc44fdab3b0c8d0e7caac3fb2"
+mapping_assertion_review_digest = "sha256:f68722d0da876215b4c9e17590ee1823a9fa251976acf64aaca27f76b65a7a62"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:28da157c42b7a9b903b7da67c251263854c1249cc44fdab3b0c8d0e7caac3fb2", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_DIAGNOSTIC_CASCADE_001#behavior:3"]
+mapping_reviewer_ids = ["review-attribution-perf", "semantic-authority-adjudicator"]
