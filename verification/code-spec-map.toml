@@ -47024,13 +47024,13 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_E1A6E0A24D24C91D93204BEEACC5EB03BDC143DE01BBCC2F3004C78B05ACC1DC"
+code_id = "CODE_4FCE98AC46151766E428EBEE02051101E02B48805536173E280E82A21142042A"
 source_kind = "rust"
 path = "crates/trust-hir/src/type_check/calls/exprs.rs"
 qualified_symbol = "trust_hir::type_check::calls::exprs::CallChecker<'a,'b>::check_array_index_bounds"
 item_kind = "rust_method"
-signature_digest = "sha256:69f799e339db1c1ad41aac71f0c51ae6c2f9b73bebd3e9bcee29dcaeb76890a5"
-reviewed_body_digest = "sha256:523d1329849f7266b3ff855701ef3841a3d3150e64374cb766beaf3a39b84142"
+signature_digest = "sha256:cd1c669b46e84bcf2d197681a59037958517a9e5cf55df23781e32cb1617d931"
+reviewed_body_digest = "sha256:afc2f9d7450424fbe6b024e88d0cd158374420030e72641cdb82b7df1bebc672"
 owner = "language"
 area = "compiler_iec"
 visibility = "private"
