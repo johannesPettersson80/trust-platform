@@ -363,14 +363,22 @@ END_PROGRAM
 
 #[test]
 fn test_array_index_const_eval_error_reports_primary_diagnostic() {
-    check_has_error(
+    let errors = check_errors(
         r#"
 PROGRAM Test
     VAR arr : ARRAY[0..3] OF DINT; x : DINT; END_VAR
     x := arr[1 / 0];
 END_PROGRAM
 "#,
-        DiagnosticCode::InvalidOperation,
+    );
+
+    assert!(
+        errors.contains(&DiagnosticCode::InvalidOperation),
+        "expected primary InvalidOperation diagnostic, got {errors:?}"
+    );
+    assert!(
+        !errors.contains(&DiagnosticCode::OutOfRange),
+        "failed index constant evaluation must not emit a dependent bounds diagnostic, got {errors:?}"
     );
 }
 
@@ -393,7 +401,7 @@ END_PROGRAM
 
 #[test]
 fn test_subrange_assignment_const_eval_error_reports_primary_diagnostic() {
-    check_has_error(
+    let errors = check_errors(
         r#"
 TYPE Small : INT (0..10);
 END_TYPE
@@ -402,10 +410,18 @@ PROGRAM Test
 VAR
     value : Small;
 END_VAR
-value := MissingConstant;
+value := INT#1 / INT#0;
 END_PROGRAM
 "#,
-        DiagnosticCode::UndefinedVariable,
+    );
+
+    assert!(
+        errors.contains(&DiagnosticCode::InvalidOperation),
+        "expected primary InvalidOperation diagnostic, got {errors:?}"
+    );
+    assert!(
+        !errors.contains(&DiagnosticCode::OutOfRange),
+        "failed subrange constant evaluation must not emit a dependent range diagnostic, got {errors:?}"
     );
 }
 
