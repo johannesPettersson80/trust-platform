@@ -22,7 +22,7 @@ source_refs = ["SPEC_IEC_VARIABLES_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_IEC_VARIABLES_001"
+ref = "SPEC_IEC_VARIABLES_001#persistence-qualifiers"
 
 [[behavior]]
 partition = { equals = "ONE_PERMITTED_STORAGE_QUALIFIER" }

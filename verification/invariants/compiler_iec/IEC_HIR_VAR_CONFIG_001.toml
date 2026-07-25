@@ -22,7 +22,7 @@ source_refs = ["SPEC_IEC_VARIABLES_001", "SPEC_IEC_DEVIATIONS_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_IEC_VARIABLES_001"
+ref = "SPEC_IEC_VARIABLES_001#2-variable-section-keywords-figure-7-section-6-5-2"
 
 [[behavior]]
 partition = { equals = "UNIQUE_SIMPLE_OR_NESTED_TARGET" }

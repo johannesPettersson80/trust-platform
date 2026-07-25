@@ -22,7 +22,7 @@ source_refs = ["SPEC_IEC_VARIABLES_001", "SPEC_IEC_DATA_TYPES_CANDIDATE_001", "S
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_IEC_VARIABLES_001"
+ref = "SPEC_IEC_SEMANTIC_RULES_001#2-2-type-compatibility"
 
 [[behavior]]
 partition = { equals = "DIRECT_ADDRESS_COMPATIBLE_TYPE" }

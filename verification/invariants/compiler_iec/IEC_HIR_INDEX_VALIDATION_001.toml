@@ -22,7 +22,7 @@ source_refs = ["SPEC_IEC_DATA_TYPES_CANDIDATE_001", "SPEC_IEC_SEMANTIC_RULES_001
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001"
+ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#3-4-array-data-types-section-6-4-4-5"
 
 [[behavior]]
 partition = { equals = "ARITHMETIC_CONSTANT_ARRAY_BOUNDS" }

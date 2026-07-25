@@ -22,7 +22,7 @@ source_refs = ["SPEC_IEC_SEMANTIC_RULES_001", "SPEC_IEC_POU_DECLARATIONS_001", "
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_IEC_SEMANTIC_RULES_001"
+ref = "SPEC_IEC_SEMANTIC_RULES_001#6-2-return-value-mismatch"
 
 [[behavior]]
 partition = { equals = "IMPLICIT_RESULT_VARIABLE" }

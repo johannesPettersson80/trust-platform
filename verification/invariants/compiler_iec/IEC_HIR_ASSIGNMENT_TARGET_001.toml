@@ -22,7 +22,7 @@ source_refs = ["SPEC_IEC_SEMANTIC_RULES_001", "SPEC_IEC_STATEMENTS_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_IEC_SEMANTIC_RULES_001"
+ref = "SPEC_IEC_SEMANTIC_RULES_001#2-1-valid-assignment-targets"
 
 [[behavior]]
 partition = { equals = "MODIFIABLE_STORAGE" }

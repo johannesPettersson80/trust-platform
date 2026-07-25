@@ -22,7 +22,7 @@ source_refs = ["SPEC_IEC_SEMANTIC_RULES_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_IEC_SEMANTIC_RULES_001"
+ref = "SPEC_IEC_SEMANTIC_RULES_001#12-1-primary-diagnostics-and-cascade-suppression"
 
 [[behavior]]
 partition = { equals = "UNRESOLVED_EXPRESSION_PREREQUISITE" }

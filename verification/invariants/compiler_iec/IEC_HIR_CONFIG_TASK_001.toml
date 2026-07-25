@@ -22,7 +22,7 @@ source_refs = ["SPEC_IEC_CONFIG_TASKS_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_IEC_CONFIG_TASKS_001"
+ref = "SPEC_IEC_CONFIG_TASKS_001#3-validation-rules"
 
 [[behavior]]
 partition = { equals = "VALID_TASK_AND_PROGRAM_BINDING" }
