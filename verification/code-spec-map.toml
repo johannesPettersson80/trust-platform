@@ -45022,7 +45022,7 @@ path = "crates/trust-hir/src/type_check/calls/exprs.rs"
 qualified_symbol = "trust_hir::type_check::calls::exprs::CallChecker<'a,'b>::infer_index_expr_outcome"
 item_kind = "rust_method"
 signature_digest = "sha256:2d2a2487cd2cfbed1a2d476d8e0b67188c41d54279aca4b16faa7963158e4073"
-reviewed_body_digest = "sha256:84a735344dab3321a78686c7b14140257df43e0126683d56b950101ab56ec39b"
+reviewed_body_digest = "sha256:b46820e46a115d830460ad502c77dedff5b7e17066234a12d3005f7a653aba28"
 owner = "language"
 area = "compiler_iec"
 visibility = "private"
@@ -45033,7 +45033,7 @@ disposition = "specified"
 spec_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#3-4-array-data-types-section-6-4-4-5"
 invariant_ids = ["IEC_HIR_INDEX_VALIDATION_001"]
 test_ids = ["TEST_AUTO_266BDE9C118EC67BB33F", "TEST_AUTO_916E8E1AEE73915D81C8", "TEST_AUTO_A25BB3FEB5C48857A3A0", "TEST_AUTO_A46A89E48C5A55B24EDE", "TEST_AUTO_A723C3C42DD87072CBAB", "TEST_AUTO_B0A03B1D1843D11B16EF", "TEST_AUTO_F25FF98FCAA0C51E01B4"]
-last_reviewed = "2026-07-25"
+last_reviewed = "2026-07-26"
 
 [[mappings]]
 schema_version = 1
