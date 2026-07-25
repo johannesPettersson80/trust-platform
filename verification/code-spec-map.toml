@@ -24953,9 +24953,11 @@ visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_0976EA5436EA37CD1A880C9132B6447BF633264DB169D7141C5504F85F3F0772"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_COMPILER_IEC_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_IEC_SEMANTIC_RULES_001#2-2-type-compatibility"
+invariant_ids = ["IEC_HIR_ASSIGNMENT_BINDING_001"]
+test_ids = ["TEST_AUTO_ADA1DFE377B61260A27B"]
+last_reviewed = "2026-07-25"
 
 [[mappings]]
 schema_version = 1
@@ -25530,9 +25532,11 @@ owner = "language"
 area = "compiler_iec"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_COMPILER_IEC_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_IEC_SEMANTIC_RULES_001#2-1-valid-assignment-targets"
+invariant_ids = ["IEC_HIR_ASSIGNMENT_TARGET_001"]
+test_ids = ["TEST_AUTO_20450D5B3C155324F612", "TEST_AUTO_291FF7F6CDF6929C30FD", "TEST_AUTO_6E73437927ED1FC5CF7D"]
+last_reviewed = "2026-07-25"
 
 [[mappings]]
 schema_version = 1
@@ -25619,9 +25623,11 @@ visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_10CB8247CB8149B02EC545739215452138824C6373FC833C93391256870CA7F6"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_COMPILER_IEC_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_IEC_SEMANTIC_RULES_001#6-2-return-value-mismatch"
+invariant_ids = ["IEC_HIR_RESULT_FLOW_001"]
+test_ids = ["TEST_AUTO_0405AC69FDA9A33D8EC7", "TEST_AUTO_2687F2B4F5BD983D1FEC", "TEST_AUTO_3E30A5FF2E4FF97C2996", "TEST_AUTO_D254A54EF3C1DDB3A633", "TEST_AUTO_DEAB6C204895ED7E684F"]
+last_reviewed = "2026-07-25"
 
 [[mappings]]
 schema_version = 1
@@ -27334,9 +27340,11 @@ owner = "language"
 area = "compiler_iec"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_COMPILER_IEC_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_IEC_CONFIG_TASKS_001#3-validation-rules"
+invariant_ids = ["IEC_HIR_CONFIG_TASK_001"]
+test_ids = ["TEST_AUTO_4579522B74850B18E113", "TEST_AUTO_553CD15CB61A4C5EE0BC", "TEST_AUTO_8ED6C53BA67D63DC82C5", "TEST_AUTO_C64638DE898B4D38A929", "TEST_AUTO_ED48D3A6C29D0134C466"]
+last_reviewed = "2026-07-25"
 
 [[mappings]]
 schema_version = 1
@@ -28558,9 +28566,11 @@ owner = "language"
 area = "compiler_iec"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_COMPILER_IEC_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_IEC_SEMANTIC_RULES_001#2-2-type-compatibility"
+invariant_ids = ["IEC_HIR_ASSIGNMENT_BINDING_001"]
+test_ids = ["TEST_AUTO_5A99CAF69A09AC2CBBF3", "TEST_AUTO_D838E1A80019B5529AC1"]
+last_reviewed = "2026-07-25"
 
 [[mappings]]
 schema_version = 1
@@ -29188,9 +29198,11 @@ owner = "language"
 area = "compiler_iec"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_COMPILER_IEC_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_IEC_SEMANTIC_RULES_001#6-2-return-value-mismatch"
+invariant_ids = ["IEC_HIR_RESULT_FLOW_001"]
+test_ids = ["TEST_AUTO_9662CDDCC80EF91F7944"]
+last_reviewed = "2026-07-25"
 
 [[mappings]]
 schema_version = 1
@@ -31604,9 +31616,11 @@ owner = "language"
 area = "compiler_iec"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_COMPILER_IEC_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_IEC_SEMANTIC_RULES_001#2-1-valid-assignment-targets"
+invariant_ids = ["IEC_HIR_ASSIGNMENT_TARGET_001"]
+test_ids = ["TEST_AUTO_BEE3D8D8CDCAC399298F", "TEST_AUTO_D93EC5C1154A43BAAA69"]
+last_reviewed = "2026-07-25"
 
 [[mappings]]
 schema_version = 1
@@ -31765,9 +31779,11 @@ owner = "language"
 area = "compiler_iec"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_COMPILER_IEC_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_IEC_VARIABLES_001#2-variable-section-keywords-figure-7-section-6-5-2"
+invariant_ids = ["IEC_HIR_VAR_CONFIG_001"]
+test_ids = ["TEST_AUTO_521C418BB5C7591125BB", "TEST_AUTO_5C205C60F0B7B960B40B", "TEST_AUTO_7C576DDA927BE34C0078", "TEST_AUTO_7F10D036AA57DD9CA059", "TEST_AUTO_9D7A3396634285D05552", "TEST_AUTO_BE7699ECA8D48C582DAA", "TEST_AUTO_CAB6C998CEDE23859D69"]
+last_reviewed = "2026-07-25"
 
 [[mappings]]
 schema_version = 1
@@ -31871,9 +31887,11 @@ owner = "language"
 area = "compiler_iec"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_COMPILER_IEC_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_IEC_VARIABLES_001#2-variable-section-keywords-figure-7-section-6-5-2"
+invariant_ids = ["IEC_HIR_VAR_ACCESS_001"]
+test_ids = ["TEST_AUTO_BCEDF6BF0C7B94A24FE3"]
+last_reviewed = "2026-07-25"
 
 [[mappings]]
 schema_version = 1
@@ -33169,9 +33187,11 @@ owner = "language"
 area = "compiler_iec"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_COMPILER_IEC_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_IEC_VARIABLES_001#2-variable-section-keywords-figure-7-section-6-5-2"
+invariant_ids = ["IEC_HIR_VAR_ACCESS_001"]
+test_ids = ["TEST_AUTO_286D45125033A2950669", "TEST_AUTO_6009B09186D471879FE3", "TEST_AUTO_FE271CA2643E08F31F5B"]
+last_reviewed = "2026-07-25"
 
 [[mappings]]
 schema_version = 1
@@ -36046,9 +36066,11 @@ owner = "language"
 area = "compiler_iec"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_COMPILER_IEC_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_IEC_SEMANTIC_RULES_001#6-2-return-value-mismatch"
+invariant_ids = ["IEC_HIR_RESULT_FLOW_001"]
+test_ids = ["TEST_AUTO_46AC5FD9A1E8B9AD8D17", "TEST_AUTO_7D11879D4D25CE646C91", "TEST_AUTO_B21F5C37F39989E6BB2E"]
+last_reviewed = "2026-07-25"
 
 [[mappings]]
 schema_version = 1
@@ -36237,9 +36259,11 @@ owner = "language"
 area = "compiler_iec"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_COMPILER_IEC_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_IEC_SEMANTIC_RULES_001#12-1-primary-diagnostics-and-cascade-suppression"
+invariant_ids = ["IEC_HIR_DIAGNOSTIC_CASCADE_001"]
+test_ids = ["TEST_AUTO_78FDED6BD0A910665414", "TEST_AUTO_D44B1F395E7B10D63EB7", "TEST_AUTO_E13B12CDFD4026B26A05", "TEST_AUTO_F49C57548B9263F3DA63"]
+last_reviewed = "2026-07-25"
 
 [[mappings]]
 schema_version = 1
@@ -37043,9 +37067,11 @@ owner = "language"
 area = "compiler_iec"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_COMPILER_IEC_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_IEC_VARIABLES_001#persistence-qualifiers"
+invariant_ids = ["IEC_HIR_VARIABLE_QUALIFIERS_001"]
+test_ids = ["TEST_AUTO_1731BB0F53C1CE70FC56", "TEST_AUTO_890955589321461672C0", "TEST_AUTO_D95E7B21AF31C6F8F95A", "TEST_AUTO_E5E2384B651DDA5B5C7E"]
+last_reviewed = "2026-07-25"
 
 [[mappings]]
 schema_version = 1
@@ -38396,9 +38422,11 @@ owner = "language"
 area = "compiler_iec"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_COMPILER_IEC_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_IEC_DEVIATIONS_001#2026-04-11-optional-var-external-for-vendor-parity-global-access"
+invariant_ids = ["IEC_HIR_GLOBAL_RESOLUTION_001"]
+test_ids = ["TEST_AUTO_35641259617B088E7110", "TEST_AUTO_702676C840E67C86A5CF", "TEST_AUTO_80C19AA8855CBC688A50", "TEST_AUTO_839D7AD4F8CBEA3493F9", "TEST_AUTO_982FDFA05912B6129986", "TEST_AUTO_A56798A166E9CB026B2B"]
+last_reviewed = "2026-07-25"
 
 [[mappings]]
 schema_version = 1
@@ -39286,9 +39314,11 @@ visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_9652D97D09E6B4AAFCE4059BEF4A2C09DA6E7327AACCE97889785BD63AB5E509"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_COMPILER_IEC_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_IEC_VARIABLES_001#2-variable-section-keywords-figure-7-section-6-5-2"
+invariant_ids = ["IEC_HIR_VAR_CONFIG_001"]
+test_ids = ["TEST_AUTO_906D16FC0F2F6AA1C891", "TEST_AUTO_B2F352B41F805B1CFF92", "TEST_AUTO_C2284EC7ED5A57B09C4C"]
+last_reviewed = "2026-07-25"
 
 [[mappings]]
 schema_version = 1
@@ -40012,9 +40042,11 @@ owner = "language"
 area = "compiler_iec"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_COMPILER_IEC_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_IEC_SEMANTIC_RULES_001#2-2-type-compatibility"
+invariant_ids = ["IEC_HIR_ASSIGNMENT_BINDING_001"]
+test_ids = ["TEST_AUTO_58657131263ADA238CEA"]
+last_reviewed = "2026-07-25"
 
 [[mappings]]
 schema_version = 1
@@ -44340,9 +44372,11 @@ owner = "language"
 area = "compiler_iec"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_COMPILER_IEC_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_IEC_DEVIATIONS_001#2026-04-11-optional-var-external-for-vendor-parity-global-access"
+invariant_ids = ["IEC_HIR_GLOBAL_RESOLUTION_001"]
+test_ids = ["TEST_AUTO_F163E5391F5ECFDAF74C"]
+last_reviewed = "2026-07-25"
 
 [[mappings]]
 schema_version = 1
@@ -44991,9 +45025,11 @@ visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_CE4C2EC85978E76CFF2EC3E94670A5426E57C388157A1BDC908C2C1E9AE160AE"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_COMPILER_IEC_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#3-4-array-data-types-section-6-4-4-5"
+invariant_ids = ["IEC_HIR_INDEX_VALIDATION_001"]
+test_ids = ["TEST_AUTO_266BDE9C118EC67BB33F", "TEST_AUTO_916E8E1AEE73915D81C8", "TEST_AUTO_A25BB3FEB5C48857A3A0", "TEST_AUTO_A46A89E48C5A55B24EDE", "TEST_AUTO_A723C3C42DD87072CBAB", "TEST_AUTO_B0A03B1D1843D11B16EF", "TEST_AUTO_F25FF98FCAA0C51E01B4"]
+last_reviewed = "2026-07-25"
 
 [[mappings]]
 schema_version = 1
@@ -45691,9 +45727,11 @@ visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_D55B5829C713E44FDD276DE4CB30C60BE9DA0F4941B5B01CAAF09757D34DEF0C"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_COMPILER_IEC_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_IEC_VARIABLES_001#8-external-variable-declaration-figure-8-section-6-5-6"
+invariant_ids = ["IEC_HIR_VAR_EXTERNAL_001"]
+test_ids = ["TEST_AUTO_135BEAA8BE8CC2B1CEA6", "TEST_AUTO_2143CC87349EE8431CFA", "TEST_AUTO_409C18862E9FA10313E0", "TEST_AUTO_64BCE9DC108AF3F643B5", "TEST_AUTO_EE2E09D0036806381701"]
+last_reviewed = "2026-07-25"
 
 [[mappings]]
 schema_version = 1
@@ -46516,9 +46554,11 @@ visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_DD54E6CCF0D539DB325D2749FAE35E75B7A58D7F7648A8D23F13D1137C944F12"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_COMPILER_IEC_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#3-4-array-data-types-section-6-4-4-5"
+invariant_ids = ["IEC_HIR_INDEX_VALIDATION_001"]
+test_ids = ["TEST_AUTO_EA519348BF8D386CC212"]
+last_reviewed = "2026-07-25"
 
 [[mappings]]
 schema_version = 1
@@ -49233,9 +49273,11 @@ owner = "language"
 area = "compiler_iec"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_COMPILER_IEC_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_IEC_VARIABLES_001#2-variable-section-keywords-figure-7-section-6-5-2"
+invariant_ids = ["IEC_HIR_VAR_ACCESS_001"]
+test_ids = ["TEST_AUTO_BCEDF6BF0C7B94A24FE3"]
+last_reviewed = "2026-07-25"
 
 [[mappings]]
 schema_version = 1

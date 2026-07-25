@@ -76,6 +76,7 @@ from .focused_mapping_review_support import (
     validate_source_commit,
 )
 from .mapping_assertions import (
+    ASSERTION_SCHEMA_VERSION,
     validate_assertion_batch,
     validate_proposal_assertion_inventories,
 )
@@ -725,24 +726,7 @@ def _prebuilt_rust_assertion_inventories(
         }
         for fact in facts
     ]
-    request = {
-        "schema_version": 1,
-        "tests": [
-            {
-                "path": row["path"],
-                "name": row["name"],
-                "source_kind": row["source_kind"],
-            }
-            for row in sorted(
-                requested,
-                key=lambda row: (
-                    row["path"],
-                    row["name"],
-                    row["discovery_id"],
-                ),
-            )
-        ],
-    }
+    request = _rust_assertion_batch_request(requested)
     completed = subprocess.run(
         [str(binary), "test-assertions-batch"],
         cwd=root,
@@ -762,6 +746,31 @@ def _prebuilt_rust_assertion_inventories(
             "prebuilt Rust assertion extractor emitted invalid JSON"
         ) from error
     return validate_assertion_batch(root, document, requested)
+
+
+def _rust_assertion_batch_request(
+    requested: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Build the same closed request contract used by the Cargo-backed adapter."""
+
+    return {
+        "schema_version": ASSERTION_SCHEMA_VERSION,
+        "tests": [
+            {
+                "path": row["path"],
+                "name": row["name"],
+                "source_kind": row["source_kind"],
+            }
+            for row in sorted(
+                requested,
+                key=lambda row: (
+                    row["path"],
+                    row["name"],
+                    row["discovery_id"],
+                ),
+            )
+        ],
+    }
 
 
 def _accepted_invariant_ids(

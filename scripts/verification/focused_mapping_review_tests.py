@@ -20,6 +20,7 @@ from scripts.verification.focused_mapping_context import FocusedMappingContext
 from scripts.verification.focused_mapping_review import (
     DEFAULT_RECEIPT_PATH,
     FocusedMappingReviewResult,
+    _rust_assertion_batch_request,
     execute_focused_review_batch,
 )
 from scripts.verification.focused_mapping_review_support import (
@@ -56,6 +57,29 @@ SCHEMA_PATHS = (
 
 class FocusedMappingReviewTests(unittest.TestCase):
     def test_authority_backed_acceptance_closes_in_one_transaction(self) -> None:
+        request = _rust_assertion_batch_request(
+            [
+                {
+                    "discovery_id": "DISC_" + "A" * 20,
+                    "source_kind": "rust_integration_test",
+                    "path": "crates/example/tests/example.rs",
+                    "name": "example_test",
+                }
+            ]
+        )
+
+        self.assertEqual(2, request["schema_version"])
+        self.assertEqual(
+            [
+                {
+                    "path": "crates/example/tests/example.rs",
+                    "name": "example_test",
+                    "source_kind": "rust_integration_test",
+                }
+            ],
+            request["tests"],
+        )
+
         with ReviewFixture() as fixture:
             application = fixture.authority_application(
                 [fixture.proposals[0]["discovery_id"]]
