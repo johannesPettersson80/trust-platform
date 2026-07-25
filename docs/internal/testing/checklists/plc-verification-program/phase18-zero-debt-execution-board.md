@@ -841,30 +841,38 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   (2026-07-25; updated 2026-07-26):
   automatic discovery found 69 existing focused tests. Saved per-test execution
   evidence, reviewed code-spec authority, and exact assertion-to-behavior
-  review catalog-map 67 tests across 11 HIR invariants; all 67 high-risk rows
-  have two independent reviewers, 76 oracle-bound assertions, four setup-only
+  review catalog-map all 69 tests across 11 HIR invariants; all 69 high-risk
+  rows have two independent reviewers, 80 oracle-bound assertions, six setup-only
   assertions, and no unclassified assertion. The two former
   primary-diagnostic-only cases now assert both the evaluator's primary
   diagnostic and suppression of the dependent bounds/range diagnostic. The
   focused run exposed that the former subrange fixture could succeed through
   ordinary undefined-name resolution; the typed divide-by-zero fixture now
-  proves the intended constant-evaluation path. Two enum/subrange cases remain
-  explicit specification gaps; none received invented authority.
+  proves the intended constant-evaluation path. IEC 61131-3 Ed.3
+  §§6.4.4.5.1 and 6.6.1.2.4 close the enum-valued array-bound authority gap.
+  The remaining subrange case exposed a compiler false positive: a
+  nonconstant index was rejected merely because its declared subrange partly
+  exceeded the array bounds. The focused red/green fix now reserves static
+  rejection for constant out-of-range values and leaves actual computed-index
+  enforcement to the existing runtime bounds check. This is IEC-conforming
+  behavior, so no IEC decision or deviation entry was added.
   Deterministic atomic generation raises repository totals to 1,632 specified
-  code facts, leaves 13,753 `spec_gap` facts, raises the denominator to 1,140
-  `catalog_mapped` tests, and leaves 3,246 `reviewed_nonmapping` tests. The
+  code facts, leaves 13,753 `spec_gap` facts, raises the denominator to 1,142
+  `catalog_mapped` tests, and leaves 3,244 `reviewed_nonmapping` tests. The
   first atomic apply exposed and fixed a focused-review bug where the prebuilt
   assertion extractor was still sent schema v1 after the extractor contract
   advanced to v2; the existing focused transaction test now locks the shared
   schema constant. The strengthened two-test shard, its 2/2 focused trace, and
-  38 exact authority/review/transaction tests are green. The preceding
+  three focused red/green regression checks are green; the final two-test
+  trace observed 2/2 tests and the reviewed transaction accepted both rows
+  atomically. The preceding
   1,360-case focused verification-tool suite remains green; a redundant
   umbrella repeat for this two-row metadata follow-up was stopped after five
   minutes without failure and will not be repeated.
   No broad workspace test, coverage campaign, mutation campaign, or final gate
-  has run. Assertion reachability, mutation sensitivity, the two explicit
-  unresolved cases, remaining semantic domains, and final broad gates remain
-  open.
+  has run. Assertion reachability, mutation sensitivity, the final frozen
+  source-closure and broad-report refresh, remaining semantic domains, and
+  final broad gates remain open.
   <!-- generated:hir-assignments-and-variable-semantics:end -->
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
