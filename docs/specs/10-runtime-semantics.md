@@ -257,17 +257,33 @@ element model:
   scalar positions and counts, and `FIND` returns zero when no match exists;
 - indexed `STRING` reads materialize `CHAR` when the selected scalar fits
   `u8`; indexed `WSTRING` reads materialize `WCHAR` when it fits `u16`;
-- a selected scalar that does not fit the requested `CHAR` or `WCHAR` width
-  returns `RuntimeError::Overflow` without producing a replacement value;
-- an index below 1 or above the current scalar count returns
-  `RuntimeError::IndexOutOfBounds` with lower bound 1 and the current scalar
-  count as the upper bound; and
+- reads and writes apply the destination width even when the replacement
+  arrives as a one-scalar `STRING` or `WSTRING`; a scalar that does not fit
+  `CHAR` or `WCHAR` returns `RuntimeError::Overflow` without producing a
+  replacement value;
+- for an in-range index, indexed writes accept a `CHAR` or `WCHAR` encoding a
+  valid Unicode scalar, or an exactly one-scalar `STRING` or `WSTRING`; an
+  invalid scalar encoding, empty or multi-scalar string, or non-character
+  replacement returns `RuntimeError::TypeMismatch`;
+- an index below 1 returns `RuntimeError::IndexOutOfBounds` with lower bound 1
+  and the runtime's unbounded-upper sentinel `i64::MAX`; an index above the
+  current scalar count reports lower bound 1 and that count as the upper
+  bound; and
 - a successful indexed write replaces exactly one scalar and preserves all
   other scalar values.
 
-Direct VM value paths and `VariableStorage` references apply the same indexed
-read/write rules as the runtime-core helpers. A failed conversion or bounds
-check cannot mutate the referenced string.
+Indexed writes validate the index before validating replacement width or
+shape. An out-of-range write therefore returns `IndexOutOfBounds` even when
+the supplied replacement is also invalid.
+
+Runtime value paths and `VariableStorage` references apply the same indexed
+read/write rules as the runtime-core helpers. Core helpers return the exact
+`RuntimeError`; optional value-path reads translate a failure to `None`, and
+boolean reference writes translate it to `false`. Direct evaluated indexing
+preserves its `RuntimeError` in a runtime trap; VM reference materialization
+and write routes preserve failure and nonmutation but expose the existing
+null-reference trap after their `Option`/boolean translation. No failed
+conversion, shape check, or bounds check may mutate the referenced string.
 
 #### 2.4 Subrange Runtime Writes
 

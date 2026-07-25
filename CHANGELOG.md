@@ -10,6 +10,9 @@ Target release: `v0.24.55`
 
 ### Fixed
 
+- trust-runtime-core: indexed string replacement now applies the destination
+  `CHAR`/`WCHAR` width to one-scalar `STRING` and `WSTRING` values instead of
+  bypassing overflow validation.
 - trust-hir: unambiguous integer-valued enumerated constants are accepted as
   array bounds, while nonconstant integer indexes are no longer rejected
   solely because their declared subrange extends beyond those bounds; their
