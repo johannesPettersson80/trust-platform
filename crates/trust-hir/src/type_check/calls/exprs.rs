@@ -60,10 +60,9 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                             ),
                         );
                     }
-                    for ((expr, _, idx_type), (lower, upper)) in
-                        index_exprs.iter().zip(dimensions.iter())
+                    for ((expr, _, _), (lower, upper)) in index_exprs.iter().zip(dimensions.iter())
                     {
-                        self.check_array_index_bounds(expr, *idx_type, *lower, *upper);
+                        self.check_array_index_bounds(expr, *lower, *upper);
                     }
                     return SemanticOutcome::Resolved(element);
                 }
@@ -76,12 +75,7 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                         );
                     }
                     if let Some(max_len) = max_len {
-                        self.check_array_index_bounds(
-                            &index_exprs[0].0,
-                            index_exprs[0].2,
-                            1,
-                            i64::from(*max_len),
-                        );
+                        self.check_array_index_bounds(&index_exprs[0].0, 1, i64::from(*max_len));
                     }
                     return SemanticOutcome::Resolved(TypeId::CHAR);
                 }
@@ -94,12 +88,7 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                         );
                     }
                     if let Some(max_len) = max_len {
-                        self.check_array_index_bounds(
-                            &index_exprs[0].0,
-                            index_exprs[0].2,
-                            1,
-                            i64::from(*max_len),
-                        );
+                        self.check_array_index_bounds(&index_exprs[0].0, 1, i64::from(*max_len));
                     }
                     return SemanticOutcome::Resolved(TypeId::WCHAR);
                 }
@@ -342,13 +331,7 @@ impl<'a, 'b> CallChecker<'a, 'b> {
         SemanticOutcome::Resolved(self.checker.symbols.register_pointer_type(operand))
     }
 
-    fn check_array_index_bounds(
-        &mut self,
-        expr: &SyntaxNode,
-        idx_type: TypeId,
-        lower: i64,
-        upper: i64,
-    ) {
+    fn check_array_index_bounds(&mut self, expr: &SyntaxNode, lower: i64, upper: i64) {
         if let Some(value_int) = self.checker.eval_const_int_expr_or_report(expr) {
             if value_int < lower || value_int > upper {
                 self.checker.diagnostics.error(
@@ -360,19 +343,6 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                     ),
                 );
                 return;
-            }
-        }
-
-        if let Some((_, idx_lower, idx_upper)) = self.checker.subrange_bounds(idx_type) {
-            if idx_lower < lower || idx_upper > upper {
-                self.checker.diagnostics.error(
-                    DiagnosticCode::OutOfRange,
-                    expr.text_range(),
-                    format!(
-                        "array index subrange {}..{} outside bounds {}..{}",
-                        idx_lower, idx_upper, lower, upper
-                    ),
-                );
             }
         }
     }

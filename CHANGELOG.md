@@ -6,10 +6,14 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.54`
+Target release: `v0.24.55`
 
 ### Fixed
 
+- trust-hir: unambiguous integer-valued enumerated constants are accepted as
+  array bounds, while nonconstant integer indexes are no longer rejected
+  solely because their declared subrange extends beyond those bounds; their
+  actual computed value remains bounds-checked at runtime.
 - verification: focused test-catalog mapping now authenticates live Rust
   module/include topology and the complete assertion/oracle source closure,
   retaining that closure after catalog acceptance so helper or fixture changes

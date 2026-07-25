@@ -6,7 +6,7 @@ risk = "wrong_result"
 status = "mapped"
 owner = "trust-hir"
 last_reviewed = "2026-07-25"
-claim = "Array indexes must be integer expressions with exactly the declared dimension count; arithmetic constant bounds are evaluated, constant out-of-range indexes are rejected, and STRING or WSTRING character access accepts exactly one integer index."
+claim = "Array indexes must be integer expressions with exactly the declared dimension count; integer-valued constant bounds, including unambiguous enumerated values, are evaluated; constant out-of-range indexes are rejected; nonconstant integer indexes are runtime-bounds-checked; and STRING or WSTRING character access accepts exactly one integer index."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-hir/src"]
@@ -14,7 +14,7 @@ tests = ["TEST_AUTO_266BDE9C118EC67BB33F", "TEST_AUTO_916E8E1AEE73915D81C8", "TE
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_behavior_tests", "assertion_reachability", "enum_array_bound_policy_decision", "subrange_index_static_policy_decision", "broad_remote_gate"]
+missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -25,13 +25,13 @@ kind = "trust_contract"
 ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#3-4-array-data-types-section-6-4-4-5"
 
 [[behavior]]
-partition = { equals = "ARITHMETIC_CONSTANT_ARRAY_BOUNDS" }
+partition = { equals = "INTEGER_VALUED_CONSTANT_ARRAY_BOUNDS" }
 case_family = "happy_path"
 oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#3-4-array-data-types-section-6-4-4-5"
 outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
-rationale = "Arithmetic constant expressions resolve to the inclusive array bounds retained by HIR; named enumeration limits remain under review."
+rationale = "Integer-valued constant expressions, including unique and unambiguous enumerated values, resolve to the inclusive array bounds retained by HIR."
 
 [[behavior]]
 partition = { equals = "VALID_ARRAY_INDEX" }
@@ -58,7 +58,7 @@ oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001#3-7-array-index-rules"
 outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
-rationale = "Non-integer indexes, wrong dimension counts, and constant indexes outside declared bounds are rejected."
+rationale = "Non-integer indexes, wrong dimension counts, and constant indexes outside declared bounds are rejected; a nonconstant index is not rejected from its type domain alone."
 
 [[behavior]]
 partition = { equals = "INVALID_STRING_OR_WSTRING_INDEX_ARITY" }
@@ -69,12 +69,21 @@ no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
 rationale = "STRING and WSTRING character access rejects any subscript count other than one."
 
+[[behavior]]
+partition = { equals = "NONCONSTANT_INTEGER_ARRAY_INDEX" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001#3-7-array-index-rules"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A nonconstant ANY_INT index is accepted statically regardless of its declared domain; runtime bounds checking applies to its actual value."
+
 [[coverage.cells]]
 dimension = "happy_path"
 state = "gap_open"
-rationale = "Valid arithmetic-constant bound and index cases await catalog association; named enumeration limits remain under review."
+rationale = "Valid integer-valued constant-bound and nonconstant-index cases await catalog association."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
 state = "gap_open"
-rationale = "Invalid type, arity, and constant-bound cases await catalog association; the broader subrange-type policy is intentionally not claimed."
+rationale = "Invalid type, arity, and constant-bound cases await catalog association."

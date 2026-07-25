@@ -321,6 +321,7 @@ END_FUNCTION_BLOCK
 }
 
 #[test]
+// IEC 61131-3 Ed.3 §§6.4.4.5.1, 6.6.1.2.4
 fn test_array_bounds_enum_values() {
     let mut db = Database::new();
     let file = FileId(0);
@@ -337,6 +338,17 @@ PROGRAM Test
 END_PROGRAM
 "#
         .to_string(),
+    );
+
+    let errors = db
+        .diagnostics(file)
+        .iter()
+        .filter(|diagnostic| diagnostic.severity == DiagnosticSeverity::Error)
+        .map(|diagnostic| diagnostic.code)
+        .collect::<Vec<_>>();
+    assert!(
+        errors.is_empty(),
+        "enumerated constant-expression bounds must be accepted, got {errors:?}"
     );
 
     let symbols = db.file_symbols(file);
@@ -383,9 +395,9 @@ END_PROGRAM
 }
 
 #[test]
-// IEC 61131-3 Ed.3 Tables 11, 15-16 (array bounds and indexing)
+// IEC 61131-3 Ed.3 §6.4.4.5.1: computed indexes are runtime-bounds-checked
 fn test_array_index_subrange_out_of_bounds() {
-    check_has_error(
+    check_no_errors(
         r#"
 TYPE Idx : INT(0..5);
 END_TYPE
@@ -395,7 +407,6 @@ PROGRAM Test
     arr[i] := 1;
 END_PROGRAM
 "#,
-        DiagnosticCode::OutOfRange,
     );
 }
 

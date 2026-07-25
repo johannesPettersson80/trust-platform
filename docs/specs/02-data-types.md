@@ -211,9 +211,11 @@ ARRAY[0..5] OF INT := [2(1, 2, 3)]  // Results in: 1, 2, 3, 1, 2, 3
 
 **Rules**:
 - Array elements can be elementary types, user types, FBs, or classes
-- Array limits may use integer literals or arithmetic constant expressions
-  whose referenced constants have integer values. Acceptance of named
-  enumeration values as array limits remains under review.
+- Array limits may use integer literals or constant expressions whose resolved
+  values are integers. This includes unique, unambiguous enumerated values:
+  array limits may be constant expressions (IEC 61131-3 Ed.3 §6.4.4.5.1), and
+  enumerated values are operands of constant expressions (IEC 61131-3 Ed.3
+  §6.6.1.2.4).
 - Subscripts in ST must yield ANY_INT value (IEC 61131-3 Ed.3, Table 11)
 - Error if subscript is outside declared range (IEC 61131-3 Ed.3, Table 11)
 - Rightmost subscript varies most rapidly during initialization
