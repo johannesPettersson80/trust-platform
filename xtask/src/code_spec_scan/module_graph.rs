@@ -4,12 +4,116 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use quote::ToTokens;
+use serde::Serialize;
 use syn::{Attribute, Item, LitStr};
 
 use super::cfg_policy::is_test_only;
 use super::model::{ModuleGraph, RustSourceUnit};
 
 pub fn scan_module_graph(root: &Path, source_root: &Path, module: &str) -> Result<ModuleGraph> {
+    scan_module_graph_with_directory(root, source_root, module, None).map(|result| result.0)
+}
+
+pub fn scan_crate_root_module_graph(
+    root: &Path,
+    source_root: &Path,
+    module: &str,
+) -> Result<ModuleGraph> {
+    scan_module_graph_with_directory(
+        root,
+        source_root,
+        module,
+        source_root.parent().map(Path::to_path_buf),
+    )
+    .map(|result| result.0)
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+pub struct SourceTopologyBinding {
+    pub path: String,
+    pub module: String,
+    pub topology_paths: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct SourceTopologyScan {
+    pub schema_version: u32,
+    pub selected_path: String,
+    pub bindings: Vec<SourceTopologyBinding>,
+    pub diagnostics: Vec<String>,
+}
+
+#[cfg(test)]
+pub fn scan_source_topology(
+    root: &Path,
+    source_root: &Path,
+    module: &str,
+    selected_path: &Path,
+) -> Result<SourceTopologyScan> {
+    let mut scans = scan_source_topologies(root, source_root, module, &[selected_path])?;
+    Ok(scans.remove(0))
+}
+
+pub fn scan_source_topologies(
+    root: &Path,
+    source_root: &Path,
+    module: &str,
+    selected_paths: &[&Path],
+) -> Result<Vec<SourceTopologyScan>> {
+    let canonical_root = root.canonicalize().context("canonicalize code-spec root")?;
+    let mut selected_relatives = Vec::new();
+    for selected_path in selected_paths {
+        let selected = selected_path.canonicalize().with_context(|| {
+            format!(
+                "canonicalize selected Rust source {}",
+                selected_path.display()
+            )
+        })?;
+        if !selected.starts_with(&canonical_root) {
+            anyhow::bail!(
+                "selected Rust source escapes repository root: {}",
+                selected_path.display()
+            )
+        }
+        selected_relatives.push(display_path(root, &selected));
+    }
+    selected_relatives.sort();
+    selected_relatives.dedup();
+    if selected_relatives.len() != selected_paths.len() {
+        anyhow::bail!("selected Rust topology paths must be unique")
+    }
+    let (graph, topology) = scan_module_graph_with_directory(root, source_root, module, None)?;
+    Ok(selected_relatives
+        .into_iter()
+        .map(|selected_relative| {
+            let mut bindings = topology
+                .iter()
+                .filter(|binding| binding.path == selected_relative)
+                .cloned()
+                .collect::<Vec<_>>();
+            bindings.sort();
+            bindings.dedup();
+            let diagnostics = if bindings.is_empty() {
+                graph.diagnostics.clone()
+            } else {
+                Vec::new()
+            };
+            SourceTopologyScan {
+                schema_version: 1,
+                selected_path: selected_relative,
+                bindings,
+                diagnostics,
+            }
+        })
+        .collect())
+}
+
+fn scan_module_graph_with_directory(
+    root: &Path,
+    source_root: &Path,
+    module: &str,
+    module_dir: Option<PathBuf>,
+) -> Result<(ModuleGraph, Vec<SourceTopologyBinding>)> {
     let canonical_root = root.canonicalize().context("canonicalize code-spec root")?;
     let mut scanner = ModuleScanner {
         root,
@@ -18,8 +122,9 @@ pub fn scan_module_graph(root: &Path, source_root: &Path, module: &str) -> Resul
         sources: Vec::new(),
         test_only_sources: BTreeSet::new(),
         diagnostics: Vec::new(),
+        topology: Vec::new(),
     };
-    scanner.scan_file(source_root, module, None, false);
+    scanner.scan_file(source_root, module, module_dir, false, Vec::new());
     scanner
         .sources
         .sort_by(|left, right| (&left.path, &left.module).cmp(&(&right.path, &right.module)));
@@ -35,11 +140,16 @@ pub fn scan_module_graph(root: &Path, source_root: &Path, module: &str) -> Resul
         .into_iter()
         .filter(|path| !production_paths.contains(path))
         .collect();
-    Ok(ModuleGraph {
-        sources: scanner.sources,
-        test_only_sources,
-        diagnostics: scanner.diagnostics,
-    })
+    scanner.topology.sort();
+    scanner.topology.dedup();
+    Ok((
+        ModuleGraph {
+            sources: scanner.sources,
+            test_only_sources,
+            diagnostics: scanner.diagnostics,
+        },
+        scanner.topology,
+    ))
 }
 
 struct ModuleScanner<'a> {
@@ -49,6 +159,7 @@ struct ModuleScanner<'a> {
     sources: Vec<RustSourceUnit>,
     test_only_sources: BTreeSet<String>,
     diagnostics: Vec<String>,
+    topology: Vec<SourceTopologyBinding>,
 }
 
 impl ModuleScanner<'_> {
@@ -58,6 +169,7 @@ impl ModuleScanner<'_> {
         module: &str,
         inherited_module_dir: Option<PathBuf>,
         test_only: bool,
+        mut topology_paths: Vec<String>,
     ) {
         let canonical = match path.canonicalize() {
             Ok(path) => path,
@@ -78,11 +190,21 @@ impl ModuleScanner<'_> {
             ));
             return;
         }
+        let relative = display_path(self.root, &canonical);
+        if topology_paths.last() != Some(&relative) {
+            topology_paths.push(relative.clone());
+        }
+        if !test_only {
+            self.topology.push(SourceTopologyBinding {
+                path: relative.clone(),
+                module: module.to_string(),
+                topology_paths: topology_paths.clone(),
+            });
+        }
         let key = (canonical.clone(), module.to_string(), test_only);
         if !self.visited.insert(key) {
             return;
         }
-        let relative = display_path(self.root, &canonical);
         if test_only {
             self.test_only_sources.insert(relative.clone());
         } else {
@@ -112,7 +234,14 @@ impl ModuleScanner<'_> {
             }
         };
         let module_dir = inherited_module_dir.unwrap_or_else(|| module_directory(&canonical));
-        self.scan_items(&canonical, &module_dir, module, &file.items, test_only);
+        self.scan_items(
+            &canonical,
+            &module_dir,
+            module,
+            &file.items,
+            test_only,
+            &topology_paths,
+        );
     }
 
     fn scan_items(
@@ -122,6 +251,7 @@ impl ModuleScanner<'_> {
         module: &str,
         items: &[Item],
         test_only: bool,
+        topology_paths: &[String],
     ) {
         for item in items {
             let item_test_only = test_only || is_test_only(item_attrs(item));
@@ -136,6 +266,7 @@ impl ModuleScanner<'_> {
                             &child_module,
                             inline_items,
                             item_test_only,
+                            topology_paths,
                         );
                     } else {
                         self.scan_external_module(
@@ -145,11 +276,19 @@ impl ModuleScanner<'_> {
                             &item_mod.attrs,
                             &item_mod.ident.to_string(),
                             item_test_only,
+                            topology_paths,
                         );
                     }
                 }
                 Item::Macro(item_macro) if item_macro.mac.path.is_ident("include") => {
-                    self.scan_include(current_file, module_dir, module, item_macro, item_test_only);
+                    self.scan_include(
+                        current_file,
+                        module_dir,
+                        module,
+                        item_macro,
+                        item_test_only,
+                        topology_paths,
+                    );
                 }
                 _ => {}
             }
@@ -164,12 +303,19 @@ impl ModuleScanner<'_> {
         attributes: &[Attribute],
         name: &str,
         test_only: bool,
+        topology_paths: &[String],
     ) {
         if let Some(explicit) = path_attribute(attributes) {
             let explicit_base = current_file.parent().unwrap_or(module_dir);
             let explicit_path = explicit_base.join(explicit);
             let explicit_module_dir = explicit_path.parent().map(Path::to_path_buf);
-            self.scan_file(&explicit_path, child_module, explicit_module_dir, test_only);
+            self.scan_file(
+                &explicit_path,
+                child_module,
+                explicit_module_dir,
+                test_only,
+                topology_paths.to_vec(),
+            );
             return;
         }
         let candidates = [
@@ -181,7 +327,7 @@ impl ModuleScanner<'_> {
             .filter(|candidate| candidate.is_file())
             .collect::<Vec<_>>();
         match existing.as_slice() {
-            [path] => self.scan_file(path, child_module, None, test_only),
+            [path] => self.scan_file(path, child_module, None, test_only, topology_paths.to_vec()),
             [] if !test_only => self.diagnostics.push(format!(
                 "unresolved module {child_module} from {}",
                 display_path(self.root, current_file)
@@ -201,6 +347,7 @@ impl ModuleScanner<'_> {
         module: &str,
         item: &syn::ItemMacro,
         test_only: bool,
+        topology_paths: &[String],
     ) {
         match syn::parse2::<LitStr>(item.mac.tokens.clone()) {
             Ok(path) => {
@@ -216,6 +363,7 @@ impl ModuleScanner<'_> {
                     module,
                     Some(module_dir.to_path_buf()),
                     test_only,
+                    topology_paths.to_vec(),
                 );
             }
             Err(_) if !test_only => self.diagnostics.push(format!(

@@ -17,7 +17,7 @@ const ts = require(typescriptPath);
 
 const inventories = request.tests.map((test) => inventory(test));
 process.stdout.write(
-  JSON.stringify({ schema_version: 1, inventories }, null, 2)
+  JSON.stringify({ schema_version: 2, inventories }, null, 2)
 );
 
 function inventory(test) {
@@ -88,12 +88,14 @@ function inventory(test) {
       assertion_id: assertionId({
         path: relative,
         name: test.name,
+        assertionSourcePath: relative,
         functionName: callee,
         kind: `call:${callee}`,
         line,
         expressionDigest,
       }),
       kind: `call:${callee}`,
+      source_path: relative,
       function: callee,
       line,
       expression_digest: expressionDigest,
@@ -106,10 +108,11 @@ function inventory(test) {
     left.assertion_id.localeCompare(right.assertion_id)
   );
   return {
-    schema_version: 1,
+    schema_version: 2,
     path: relative,
     test_name: test.name,
     source_digest: digest(sourceText),
+    source_digests: { [relative]: digest(sourceText) },
     assertions,
     unresolved_assertion_helpers: [...helpers].sort(),
   };
@@ -159,6 +162,7 @@ function visit(rootNode, callback) {
 function assertionId({
   path: sourcePath,
   name,
+  assertionSourcePath,
   functionName,
   kind,
   line,
@@ -167,6 +171,7 @@ function assertionId({
   const identity = [
     sourcePath,
     name,
+    assertionSourcePath,
     functionName,
     kind,
     String(line),

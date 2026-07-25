@@ -1,0 +1,76 @@
+schema_version = 1
+id = "IEC_HIR_DIAGNOSTIC_CASCADE_001"
+title = "HIR preserves primary diagnostics without wrong-reason cascades"
+area = "compiler_iec"
+risk = "false_status"
+status = "mapped"
+owner = "trust-hir"
+last_reviewed = "2026-07-25"
+claim = "When semantic analysis cannot resolve or evaluate a prerequisite, it reports the primary resolution, evaluation, ambiguity, or wrong-kind diagnostic and suppresses downstream diagnostics that require the missing type, value, or arbitrarily selected target."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-hir/src"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_IEC_SEMANTIC_RULES_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_IEC_SEMANTIC_RULES_001"
+
+[[behavior]]
+partition = { equals = "UNRESOLVED_EXPRESSION_PREREQUISITE" }
+case_family = "missing_required"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001#12-1-primary-diagnostics-and-cascade-suppression"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "An unresolved assignment source, unary or binary operand, or indexed base emits its primary resolution diagnostic while dependent type, operator, index, and assignment mismatches are suppressed."
+
+[[behavior]]
+partition = { equals = "AMBIGUOUS_TARGET_PREREQUISITE" }
+case_family = "duplicate_or_collision"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001#12-1-primary-diagnostics-and-cascade-suppression"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Ambiguity is reported without selecting one target and emitting downstream wrong-type or invalid-operation cascades."
+
+[[behavior]]
+partition = { equals = "RESOLVED_WRONG_SYMBOL_KIND" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001#12-1-primary-diagnostics-and-cascade-suppression"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A declaration that resolves to the wrong symbol kind reports the owning operation diagnostic rather than an undefined-name cascade."
+
+[[behavior]]
+partition = { equals = "FAILED_CONSTANT_EVALUATION_PRIMARY" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001#12-1-primary-diagnostics-and-cascade-suppression"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A failed array-bound, index, or subrange constant evaluation reports the evaluator's primary diagnostic and suppresses dependent bounds or range diagnostics."
+
+[[coverage.cells]]
+dimension = "missing_required"
+state = "gap_open"
+rationale = "Unresolved-expression suppression awaits catalog association."
+
+[[coverage.cells]]
+dimension = "duplicate_or_collision"
+state = "gap_open"
+rationale = "Ambiguous-target suppression awaits catalog association."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Wrong-kind diagnostic ownership awaits catalog association."

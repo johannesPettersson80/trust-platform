@@ -91,6 +91,26 @@
     },
     "proposal": {
       "type": "object",
+      "oneOf": [
+        {
+          "required": ["schema_version"],
+          "properties": {
+            "schema_version": { "const": 1 }
+          }
+        },
+        {
+          "required": ["schema_version", "assertion_source_digests"],
+          "properties": {
+            "schema_version": { "const": 2 },
+            "assertions": {
+              "type": "array",
+              "items": {
+                "required": ["source_path"]
+              }
+            }
+          }
+        }
+      ],
       "required": [
         "schema_version",
         "id",
@@ -123,7 +143,7 @@
         "suggestions"
       ],
       "properties": {
-        "schema_version": { "const": 1 },
+        "schema_version": { "enum": [1, 2] },
         "id": {
           "type": "string",
           "pattern": "^MAP_CAND_[A-F0-9_]+$"
@@ -179,6 +199,15 @@
         },
         "test_source_digest": { "$ref": "#/$defs/digest" },
         "assertion_inventory_digest": { "$ref": "#/$defs/digest" },
+        "assertion_source_digests": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+$"
+          },
+          "additionalProperties": { "$ref": "#/$defs/digest" }
+        },
         "assertions": {
           "type": "array",
           "items": { "$ref": "#/$defs/assertion" }
@@ -225,6 +254,10 @@
           "pattern": "^ASSERT_[A-F0-9]{24}$"
         },
         "kind": { "type": "string", "minLength": 1 },
+        "source_path": {
+          "type": "string",
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+$"
+        },
         "function": { "type": "string", "minLength": 1 },
         "line": { "type": "integer", "minimum": 1 },
         "expression_digest": { "$ref": "#/$defs/digest" },

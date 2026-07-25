@@ -412,6 +412,48 @@ def capture_selected_source_originals(
     return dict(sorted(originals.items()))
 
 
+def capture_assertion_source_originals(
+    root: Path,
+    inventories: Mapping[str, Mapping[str, Any]],
+) -> dict[str, bytes]:
+    """Freeze every source byte authenticated by fresh assertion inventories."""
+
+    originals: dict[str, bytes] = {}
+    for discovery_id, inventory in inventories.items():
+        source_digests = inventory.get("source_digests")
+        if not isinstance(source_digests, Mapping) or not source_digests:
+            raise ValueError(
+                f"{discovery_id} assertion inventory lacks source closure"
+            )
+        for relative, expected_digest in source_digests.items():
+            if (
+                not isinstance(relative, str)
+                or not relative
+                or not isinstance(expected_digest, str)
+            ):
+                raise ValueError(
+                    f"{discovery_id} assertion source closure is malformed"
+                )
+            source = repository_file(
+                root,
+                root / relative,
+                f"{discovery_id} assertion source",
+            )
+            content = source.read_bytes()
+            live_digest = "sha256:" + hashlib.sha256(content).hexdigest()
+            if live_digest != expected_digest:
+                raise ValueError(
+                    f"{discovery_id} assertion source changed during review: "
+                    f"{relative}"
+                )
+            previous = originals.setdefault(relative, content)
+            if previous != content:
+                raise ValueError(
+                    f"assertion source closure conflicts at {relative}"
+                )
+    return dict(sorted(originals.items()))
+
+
 def selected_proposals_from_numbered_selection(
     *,
     proposal_document: Mapping[str, Any],

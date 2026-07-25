@@ -211,6 +211,9 @@ ARRAY[0..5] OF INT := [2(1, 2, 3)]  // Results in: 1, 2, 3, 1, 2, 3
 
 **Rules**:
 - Array elements can be elementary types, user types, FBs, or classes
+- Array limits may use integer literals or arithmetic constant expressions
+  whose referenced constants have integer values. Acceptance of named
+  enumeration values as array limits remains under review.
 - Subscripts in ST must yield ANY_INT value (IEC 61131-3 Ed.3, Table 11)
 - Error if subscript is outside declared range (IEC 61131-3 Ed.3, Table 11)
 - Rightmost subscript varies most rapidly during initialization
@@ -471,6 +474,7 @@ str[3] := 'X';     // str = 'ABXD'
 
 **Rules**:
 - Character indexing is 1-based.
+- Character indexing takes exactly one `ANY_INT` subscript.
 - Indexing a string yields or updates a compatible `CHAR`/`WCHAR` element.
 - String library calls are specified in `07-standard-functions.md` §8.
 

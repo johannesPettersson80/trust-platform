@@ -91,6 +91,65 @@ conflicts_with = []
 
 [[spec_sources]]
 schema_version = 2
+id = "SPEC_IEC_SEMANTIC_RULES_001"
+title = "truST HIR semantic-analysis contract"
+area = "compiler_iec"
+owner = "language"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/specs/09-semantic-rules.md"
+version = "current"
+last_reviewed = "2026-07-25"
+covers = [
+  "semantic_analysis",
+  "name_resolution",
+  "assignment_target_validation",
+  "assignment_type_compatibility",
+  "array_index_validation",
+  "property_accessor_validation",
+  "return_flow_validation",
+  "semantic_diagnostic_ownership",
+]
+known_limitations = [
+  "The static policy for a subrange-typed array index whose declared range exceeds the array bounds remains under review and is not made authoritative by this registration.",
+]
+conflicts_with = []
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_IEC_CONFIG_TASKS_001"
+title = "truST configuration, resource, task, and program-binding contract"
+area = "compiler_iec"
+owner = "language"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/specs/18-configurations-resources-tasks.md"
+version = "current"
+last_reviewed = "2026-07-25"
+covers = [
+  "configuration_resource_task_binding",
+  "configuration_declarations",
+  "resource_declarations",
+  "task_parameter_validation",
+  "program_task_binding",
+  "program_type_validation",
+  "configuration_name_resolution",
+]
+known_limitations = [
+  "Nested and cross-file VAR_CONFIG target resolution is owned by the variable contract and remains outside this source until that supported subset is reviewed.",
+]
+conflicts_with = []
+
+[[spec_sources]]
+schema_version = 2
 id = "SPEC_WEB_IDE_FULL_001"
 title = "truST Web IDE full specification"
 area = "control_security"
@@ -1889,11 +1948,14 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/specs/03-variables.md"
 version = "current"
-last_reviewed = "2026-07-24"
+last_reviewed = "2026-07-25"
 covers = [
   "variable_declarations",
   "directly_represented_variables",
   "direct_address_lexical_forms",
+  "direct_address_semantic_binding",
+  "var_access_validation",
+  "var_config_resolution",
 ]
 known_limitations = [
   "This normative product source cites IEC 61131-3 but does not replace the registered external IEC source for conformance proof.",
@@ -1914,9 +1976,11 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/specs/02-data-types.md"
 version = "current"
-last_reviewed = "2026-07-15"
+last_reviewed = "2026-07-25"
 covers = [
   "elementary_data_types",
+  "array_bounds",
+  "character_access",
   "string_assignment_binding_boundaries",
   "string_bounds",
   "subrange_types",
@@ -1925,6 +1989,7 @@ covers = [
 known_limitations = [
   "The focused assignment and POU binding contract does not claim IEC certification.",
   "This product source does not by itself establish IEC conformance.",
+  "Acceptance of named enumeration values as array limits remains under review.",
 ]
 conflicts_with = []
 

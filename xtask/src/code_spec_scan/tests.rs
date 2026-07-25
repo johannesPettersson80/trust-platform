@@ -3,8 +3,8 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use super::{
-    discover_cargo_targets, extract_rust_source, parse_rust_extract_args, scan_module_graph,
-    scan_rust_universe,
+    discover_cargo_targets, extract_rust_source, parse_rust_extract_args,
+    scan_crate_root_module_graph, scan_module_graph, scan_rust_universe, scan_source_topology,
 };
 
 static FIXTURE_COUNTER: AtomicUsize = AtomicUsize::new(0);
@@ -270,6 +270,143 @@ fn unresolved_modules_and_dynamic_includes_are_blocking_diagnostics() {
 }
 
 #[test]
+fn crate_root_scan_resolves_sibling_modules_for_integration_targets() {
+    let root = fixture_root("integration-module-graph");
+    fs::create_dir_all(root.join("tests")).unwrap();
+    fs::write(root.join("tests/contract.rs"), "mod common;\n").unwrap();
+    fs::write(root.join("tests/common.rs"), "fn check_contract() {}\n").unwrap();
+
+    let graph =
+        scan_crate_root_module_graph(&root, &root.join("tests/contract.rs"), "fixture").unwrap();
+
+    assert!(graph.diagnostics.is_empty(), "{:?}", graph.diagnostics);
+    assert!(graph
+        .sources
+        .iter()
+        .any(|source| { source.path == "tests/common.rs" && source.module == "fixture::common" }));
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn source_topology_binds_literal_include_to_all_parent_and_root_bytes() {
+    let root = fixture_root("include-topology");
+    fs::create_dir_all(root.join("src/database")).unwrap();
+    fs::write(root.join("src/lib.rs"), "mod database;\n").unwrap();
+    fs::write(
+        root.join("src/database.rs"),
+        "include!(\"database/database_part_01.rs\");\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/database/database_part_01.rs"),
+        "fn included() {}\n",
+    )
+    .unwrap();
+
+    let topology = scan_source_topology(
+        &root,
+        &root.join("src/lib.rs"),
+        "fixture",
+        &root.join("src/database/database_part_01.rs"),
+    )
+    .unwrap();
+
+    assert!(
+        topology.diagnostics.is_empty(),
+        "{:?}",
+        topology.diagnostics
+    );
+    assert_eq!(1, topology.bindings.len());
+    assert_eq!("fixture::database", topology.bindings[0].module);
+    assert_eq!(
+        vec![
+            "src/lib.rs",
+            "src/database.rs",
+            "src/database/database_part_01.rs"
+        ],
+        topology.bindings[0].topology_paths
+    );
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn source_topology_authenticates_moved_include_location() {
+    let root = fixture_root("moved-include-topology");
+    fs::create_dir_all(root.join("src/database")).unwrap();
+    fs::write(root.join("src/lib.rs"), "mod database;\n").unwrap();
+    fs::write(
+        root.join("src/database.rs"),
+        "include!(\"database/database_part_02.rs\");\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/database/database_part_02.rs"),
+        "fn moved() {}\n",
+    )
+    .unwrap();
+
+    let topology = scan_source_topology(
+        &root,
+        &root.join("src/lib.rs"),
+        "fixture",
+        &root.join("src/database/database_part_02.rs"),
+    )
+    .unwrap();
+
+    assert_eq!(1, topology.bindings.len());
+    assert_eq!(
+        "src/database/database_part_02.rs",
+        topology.bindings[0].path
+    );
+    assert_eq!(
+        "src/database/database_part_02.rs",
+        topology.bindings[0].topology_paths[2]
+    );
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn source_topology_rejects_removed_include_source() {
+    let root = fixture_root("removed-include-topology");
+    fs::write(
+        root.join("src/lib.rs"),
+        "include!(\"database_part_01.rs\");\n",
+    )
+    .unwrap();
+
+    let error = scan_source_topology(
+        &root,
+        &root.join("src/lib.rs"),
+        "fixture",
+        &root.join("src/database_part_01.rs"),
+    )
+    .unwrap_err();
+
+    assert!(error
+        .to_string()
+        .contains("canonicalize selected Rust source"));
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn source_topology_leaves_unreferenced_include_fragment_orphaned() {
+    let root = fixture_root("orphan-include-topology");
+    fs::write(root.join("src/lib.rs"), "fn live() {}\n").unwrap();
+    fs::write(root.join("src/database_part_01.rs"), "fn orphan() {}\n").unwrap();
+
+    let topology = scan_source_topology(
+        &root,
+        &root.join("src/lib.rs"),
+        "fixture",
+        &root.join("src/database_part_01.rs"),
+    )
+    .unwrap();
+
+    assert!(topology.bindings.is_empty());
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn parses_closed_rust_extract_cli_arguments() {
     let arguments = [
         "--path".to_string(),
@@ -280,6 +417,26 @@ fn parses_closed_rust_extract_cli_arguments() {
     let parsed = parse_rust_extract_args(&arguments).unwrap();
     assert_eq!("crates/trust-runtime/src/stdlib/time.rs", parsed.path);
     assert_eq!("trust_runtime::stdlib::time", parsed.module);
+    assert!(parsed.topology_for.is_empty());
+
+    let topology = parse_rust_extract_args(&[
+        "--path".to_string(),
+        "crates/trust-hir/src/lib.rs".to_string(),
+        "--module".to_string(),
+        "trust_hir".to_string(),
+        "--topology-for".to_string(),
+        "crates/trust-hir/src/db/queries/database/database_part_02.rs".to_string(),
+        "--topology-for".to_string(),
+        "crates/trust-hir/src/db/queries/database/database_part_01.rs".to_string(),
+    ])
+    .unwrap();
+    assert_eq!(
+        vec![
+            "crates/trust-hir/src/db/queries/database/database_part_01.rs",
+            "crates/trust-hir/src/db/queries/database/database_part_02.rs",
+        ],
+        topology.topology_for
+    );
 
     let error = parse_rust_extract_args(&["--unknown".to_string()]).unwrap_err();
     assert!(error

@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
-import json
 import hashlib
+import json
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
-from ..mapping_proposals import validate_mapping_quarantine
+from ..mapping_proposals import (
+    proposal_payload_digest,
+    validate_mapping_quarantine,
+    validate_source_digest_closure,
+)
 from ..mapping_review import validate_mapping_decisions
 from ..test_catalog_json_schema import validate_json_schema_instance
 
@@ -191,6 +195,25 @@ def validate_mapping_control_plane(
                 failures.append(
                     f"{test_id} {catalog_field} does not match its accepted decision"
                 )
+        snapshot = snapshots.get(str(decision.get("proposal_id")))
+        if not isinstance(snapshot, Mapping) or snapshot.get("schema_version") != 2:
+            continue
+        catalog_closure = test.get("mapping_assertion_source_digests")
+        if catalog_closure != snapshot.get("assertion_source_digests"):
+            failures.append(
+                f"{test_id} assertion source closure does not match its reviewed snapshot"
+            )
+            continue
+        try:
+            validate_source_digest_closure(
+                root=root,
+                value=catalog_closure,
+                label=f"{test_id} accepted assertion source closure",
+                required_path=str(snapshot.get("path")),
+                required_digest=str(snapshot.get("test_source_digest")),
+            )
+        except ValueError as error:
+            failures.append(str(error))
 
     for discovery_id, decision in accepted_by_discovery.items():
         test = catalog_by_discovery.get(discovery_id)
@@ -275,3 +298,19 @@ def _validate_snapshot_staleness(
     actual = "sha256:" + hashlib.sha256(resolved_source.read_bytes()).hexdigest()
     if snapshot.get("test_source_digest") != actual:
         failures.append(f"{snapshot_id} historical reviewed source digest is stale")
+    if snapshot.get("schema_version") == 2:
+        if snapshot.get("proposal_digest") != proposal_payload_digest(snapshot):
+            failures.append(
+                f"{snapshot_id} historical proposal digest does not bind "
+                "its semantic payload"
+            )
+        try:
+            validate_source_digest_closure(
+                root=root,
+                value=snapshot.get("assertion_source_digests"),
+                label=f"{snapshot_id} historical assertion source closure",
+                required_path=path,
+                required_digest=str(snapshot.get("test_source_digest")),
+            )
+        except ValueError as error:
+            failures.append(str(error))

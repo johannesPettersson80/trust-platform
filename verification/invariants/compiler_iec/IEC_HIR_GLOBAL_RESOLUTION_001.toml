@@ -1,0 +1,67 @@
+schema_version = 1
+id = "IEC_HIR_GLOBAL_RESOLUTION_001"
+title = "HIR global resolution is deterministic across POUs and files"
+area = "compiler_iec"
+risk = "silent_corruption"
+status = "mapped"
+owner = "trust-hir"
+last_reviewed = "2026-07-25"
+claim = "The documented vendor-parity mode resolves a unique global by bare name across supported POUs and merged project files, rejects missing names, and rejects cross-file global collisions instead of using file order."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-hir/src"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_IEC_VARIABLES_001", "SPEC_IEC_DEVIATIONS_001", "SPEC_IEC_SEMANTIC_RULES_001"]
+
+[oracle]
+kind = "reviewed_deviation"
+ref = "SPEC_IEC_DEVIATIONS_001#2026-04-11-optional-var-external-for-vendor-parity-global-access"
+
+[[behavior]]
+partition = { equals = "UNIQUE_BARE_GLOBAL" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_DEVIATIONS_001#2026-04-11-optional-var-external-for-vendor-parity-global-access"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "In the documented vendor-parity mode, a unique global may be read or written by bare name from supported POU kinds and merged project files."
+
+[[behavior]]
+partition = { equals = "MISSING_BARE_NAME" }
+case_family = "missing_required"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001#4-1-undefined-reference"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Vendor-parity lookup does not invent a global for a missing bare name."
+
+[[behavior]]
+partition = { equals = "CROSS_FILE_GLOBAL_COLLISION" }
+case_family = "duplicate_or_collision"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001#4-2-duplicate-declaration"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Two imported globals with one effective name are rejected as a duplicate rather than resolved by file order."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Unique bare global resolution awaits catalog association."
+
+[[coverage.cells]]
+dimension = "missing_required"
+state = "gap_open"
+rationale = "Missing-name rejection awaits catalog association."
+
+[[coverage.cells]]
+dimension = "duplicate_or_collision"
+state = "gap_open"
+rationale = "Cross-file global collision rejection awaits catalog association."

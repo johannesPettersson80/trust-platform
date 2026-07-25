@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import tomllib
 import unittest
 
@@ -17,7 +18,12 @@ from scripts.verification.mapping_catalog_updates import (
 DISCOVERY_ID = "DISC_00000000000000000001"
 
 
+def _digest(content: bytes) -> str:
+    return "sha256:" + hashlib.sha256(content).hexdigest()
+
+
 def _proposal() -> dict[str, object]:
+    source_digest = _digest(b"exact test source")
     return {
         "id": "MAP_CAND_00000000000000000001_A1B2C3D4",
         "proposal_digest": "sha256:" + "1" * 64,
@@ -25,7 +31,11 @@ def _proposal() -> dict[str, object]:
         "discovery_source_kind": "rust_unit_test",
         "path": "crates/example/src/lib.rs",
         "name": "exact_case",
-        "test_source_digest": "sha256:" + "2" * 64,
+        "test_source_digest": source_digest,
+        "assertion_source_digests": {
+            "crates/example/src/lib.rs": source_digest,
+            "conformance/expected/example.json": _digest(b"exact oracle"),
+        },
     }
 
 
@@ -83,6 +93,10 @@ class MappingCatalogUpdateTests(unittest.TestCase):
         )
         self.assertEqual("SPEC_EXAMPLE_001#exact", record.get("oracle_ref"))
         self.assertEqual(_decision()["id"], record.get("mapping_decision_id"))
+        self.assertEqual(
+            _proposal()["assertion_source_digests"],
+            record.get("mapping_assertion_source_digests"),
+        )
         self.assertEqual(
             "target/gate-artifacts/cases/TEST_AUTO_00000000000000000001.json",
             record.get("evidence_destination"),

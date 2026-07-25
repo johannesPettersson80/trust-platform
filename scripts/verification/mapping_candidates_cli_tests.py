@@ -42,40 +42,159 @@ class MappingCandidatesCliTests(unittest.TestCase):
             )
             first = "DISC_" + "1" * 20
             second = "DISC_" + "2" * 20
-            result = _selected_input_preconditions(
-                root=root,
-                requested=[first, second],
-                trace={
-                    "tests": [
-                        {
-                            "discovery_id": first,
-                            "covered_code_ids": [],
-                        },
-                        {
-                            "discovery_id": second,
-                            "covered_code_ids": [],
-                        },
-                    ]
-                },
-                metadata_preconditions={
-                    "verification/test-catalog-denominator.toml": (
-                        (
-                            "[[reviews]]\n"
-                            f'discovery_id = "{first}"\n'
-                            'path = "crates/example/src/lib.rs"\n'
-                            "[[reviews]]\n"
-                            f'discovery_id = "{second}"\n'
-                            'path = "crates/example/src/lib.rs"\n'
-                        ).encode()
-                    ),
-                    "verification/code-spec-map.toml": b"mappings = []\n",
-                },
+            source_digest = (
+                "sha256:" + hashlib.sha256(source.read_bytes()).hexdigest()
             )
+            with mock.patch(
+                "scripts.verification.focused_mapping_candidates."
+                "invoke_assertion_inventories",
+                return_value={
+                    first: {
+                        "source_digests": {
+                            "crates/example/src/lib.rs": source_digest
+                        }
+                    },
+                    second: {
+                        "source_digests": {
+                            "crates/example/src/lib.rs": source_digest
+                        }
+                    },
+                },
+            ):
+                result = _selected_input_preconditions(
+                    root=root,
+                    requested=[first, second],
+                    trace={
+                        "tests": [
+                            {
+                                "discovery_id": first,
+                                "covered_code_ids": [],
+                            },
+                            {
+                                "discovery_id": second,
+                                "covered_code_ids": [],
+                            },
+                        ]
+                    },
+                    metadata_preconditions={
+                        "verification/test-catalog-denominator.toml": (
+                            (
+                                "[[reviews]]\n"
+                                f'discovery_id = "{first}"\n'
+                                'discovery_source_kind = "rust_unit_test"\n'
+                                'path = "crates/example/src/lib.rs"\n'
+                                'name = "first"\n'
+                                "[[reviews]]\n"
+                                f'discovery_id = "{second}"\n'
+                                'discovery_source_kind = "rust_unit_test"\n'
+                                'path = "crates/example/src/lib.rs"\n'
+                                'name = "second"\n'
+                            ).encode()
+                        ),
+                        "verification/code-spec-map.toml": b"mappings = []\n",
+                    },
+                )
 
             self.assertEqual(
                 {
                     "crates/example/Cargo.toml",
                     "crates/example/src/lib.rs",
+                },
+                set(result),
+            )
+
+    def test_focused_preconditions_capture_live_rust_topology_closure(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            crate = root / "crates/example"
+            (crate / "src/database").mkdir(parents=True)
+            (crate / "tests").mkdir()
+            manifest = crate / "Cargo.toml"
+            manifest.write_text(
+                '[package]\nname = "example"\nversion = "0.1.0"\n'
+            )
+            test_relative = "crates/example/tests/check.rs"
+            test_source = root / test_relative
+            test_source.write_text("#[test]\nfn check() {}\n")
+            root_relative = "crates/example/src/lib.rs"
+            parent_relative = "crates/example/src/database.rs"
+            fragment_relative = (
+                "crates/example/src/database/database_part_01.rs"
+            )
+            (root / root_relative).write_text("mod database;\n")
+            (root / parent_relative).write_text(
+                'include!("database/database_part_01.rs");\n'
+            )
+            (root / fragment_relative).write_text("fn live() {}\n")
+            discovery_id = "DISC_" + "3" * 20
+            code_id = "CODE_" + "4" * 20
+            source_digest = (
+                "sha256:" + hashlib.sha256(test_source.read_bytes()).hexdigest()
+            )
+            topology_sources = {
+                relative: (root / relative).read_bytes()
+                for relative in (
+                    root_relative,
+                    parent_relative,
+                    fragment_relative,
+                )
+            }
+
+            with mock.patch(
+                "scripts.verification.focused_mapping_candidates."
+                "invoke_assertion_inventories",
+                return_value={
+                    discovery_id: {
+                        "source_digests": {test_relative: source_digest}
+                    }
+                },
+            ), mock.patch(
+                "scripts.verification.focused_mapping_candidates."
+                "focused_rust_topology_sources",
+                return_value=topology_sources,
+            ) as inventory:
+                result = _selected_input_preconditions(
+                    root=root,
+                    requested=[discovery_id],
+                    trace={
+                        "tests": [
+                            {
+                                "discovery_id": discovery_id,
+                                "covered_code_ids": [code_id],
+                            }
+                        ]
+                    },
+                    metadata_preconditions={
+                        "verification/test-catalog-denominator.toml": (
+                            (
+                                "[[reviews]]\n"
+                                f'discovery_id = "{discovery_id}"\n'
+                                'discovery_source_kind = "rust_integration_test"\n'
+                                f'path = "{test_relative}"\n'
+                                'name = "check"\n'
+                            ).encode()
+                        ),
+                        "verification/code-spec-map.toml": (
+                            (
+                                "[[mappings]]\n"
+                                f'code_id = "{code_id}"\n'
+                                'source_kind = "rust"\n'
+                                f'path = "{fragment_relative}"\n'
+                            ).encode()
+                        ),
+                    },
+                )
+
+            inventory.assert_called_once()
+            self.assertEqual(
+                {
+                    "crates/example/Cargo.toml",
+                    test_relative,
+                    root_relative,
+                    parent_relative,
+                    fragment_relative,
                 },
                 set(result),
             )

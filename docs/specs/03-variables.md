@@ -81,9 +81,24 @@ instance-initializer surface.
 **Rules**:
 - `VAR_ACCESS` binds a symbolic name to an access path; the declared type must match the target access path type. (IEC 61131-3 Ed.3, Table 13, 6.5.2.2)
 - `READ_ONLY` access paths are not assignable in ST code. (IEC 61131-3 Ed.3, 6.5.2.2)
+- A `VAR_ACCESS` symbolic name that collides with a global in the same effective
+  namespace is a duplicate and leaves lookup ambiguous; resolution must not
+  silently prefer the access declaration or the global.
 - `VAR_CONFIG` entries shall use the same type as the target variable. (IEC 61131-3 Ed.3, 6.5.2.2)
 - Instance-specific initialization in `VAR_CONFIG` is not allowed for `VAR_TEMP`, `VAR_EXTERNAL`, `VAR_IN_OUT`, or `VAR CONSTANT` targets. (IEC 61131-3 Ed.3, 6.5.2.2)
-- trust-hir validates simple access paths only; cross-resource/program instance mapping is out-of-scope. (IEC 61131-3 Ed.3, Tables 13-16; DEV-003)
+- Within the supported static project model, `VAR_CONFIG` resolves program
+  instances after all project files are merged. It accepts a unique program
+  instance declared directly in a configuration or inside a resource and may
+  continue through nested function-block fields to the configured variable.
+- For the supported resource subset, truST accepts that program instance by an
+  unqualified path such as `P1.field` rather than requiring the complete
+  resource-qualified IEC hierarchy. This simplified path is governed by the
+  existing normative omission recorded as DEV-003.
+- A program-instance name that resolves to more than one resource target is
+  ambiguous and is rejected before target type or initializer checks.
+- truST does not yet model every IEC communication-service topology or every
+  cross-resource access-path form; that remaining normative omission is
+  recorded as DEV-003.
 
 ## 3. Variable Qualifiers
 
@@ -234,6 +249,12 @@ VAR
   MotorSpeed  AT %QW10:  INT;      // Maps to physical output
 END_VAR
 ```
+
+The semantic symbol record preserves the complete direct-address spelling from
+the declaration, including location, size, hierarchy separators, and numeric
+components. Later lowering may normalize the address into process-image
+coordinates, but it must not silently change the source-level binding retained
+by HIR.
 
 ### Incomplete Address Specification
 

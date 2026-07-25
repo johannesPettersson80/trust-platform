@@ -19,6 +19,7 @@ from scripts.verification.metadata_validator.mapping_schema_contracts import (
 )
 from scripts.verification.metadata_validator.constants import SCHEMA_FILES
 from scripts.verification.mapping_review import build_mapping_decision
+from scripts.verification.mapping_proposals import proposal_payload_digest
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -31,8 +32,8 @@ def _proposal() -> dict[str, object]:
     source_digest = "sha256:" + hashlib.sha256(
         (ROOT / SOURCE_PATH).read_bytes()
     ).hexdigest()
-    return {
-        "schema_version": 1,
+    proposal = {
+        "schema_version": 2,
         "id": PROPOSAL_ID,
         "proposal_digest": "sha256:" + "1" * 64,
         "discovery_id": DISCOVERY_ID,
@@ -54,10 +55,14 @@ def _proposal() -> dict[str, object]:
         "mutation_kill_ids": [],
         "test_source_digest": source_digest,
         "assertion_inventory_digest": "sha256:" + "6" * 64,
+        "assertion_source_digests": {
+            SOURCE_PATH: source_digest,
+        },
         "assertions": [
             {
                 "assertion_id": "ASSERT_" + "A" * 24,
                 "kind": "macro:assert",
+                "source_path": SOURCE_PATH,
                 "function": "mapping_metadata_fixture",
                 "line": 1,
                 "expression_digest": "sha256:" + "7" * 64,
@@ -77,6 +82,8 @@ def _proposal() -> dict[str, object]:
             "source_behavior_refs": ["INV_ONE#behavior:0"],
         },
     }
+    proposal["proposal_digest"] = proposal_payload_digest(proposal)
+    return proposal
 
 
 def _proposal_document(proposals: list[dict[str, object]]) -> dict[str, object]:
@@ -199,6 +206,22 @@ class MappingMetadataTests(unittest.TestCase):
     def test_valid_pending_quarantine_is_schema_and_live_join_clean(self) -> None:
         self.assertEqual([], self.validate(proposals=[_proposal()]))
 
+    def test_version_two_proposal_schema_requires_assertion_source_closure(
+        self,
+    ) -> None:
+        proposal = _proposal()
+        proposal.pop("assertion_source_digests")
+
+        failures = self.validate(proposals=[proposal])
+
+        self.assertTrue(
+            any(
+                "exactly one schema branch" in item
+                for item in failures
+            ),
+            failures,
+        )
+
     def test_known_bad_proposal_counted_as_catalog_coverage_fails(self) -> None:
         failures = self.validate(
             proposals=[_proposal()],
@@ -279,6 +302,9 @@ class MappingMetadataTests(unittest.TestCase):
                 "mapping_proposal_id": PROPOSAL_ID,
                 "mapping_proposal_digest": proposal["proposal_digest"],
                 "mapping_decision_id": decision["id"],
+                "mapping_assertion_source_digests": proposal[
+                    "assertion_source_digests"
+                ],
             }
         }
 
@@ -292,6 +318,142 @@ class MappingMetadataTests(unittest.TestCase):
         )
 
         self.assertEqual([], failures)
+
+    def _accepted_failures(
+        self,
+        proposal: dict[str, object],
+        *,
+        include_catalog_closure: bool = True,
+    ) -> list[str]:
+        decision = build_mapping_decision(
+            proposal=proposal,
+            review_input={
+                "proposal_id": PROPOSAL_ID,
+                "outcome": "accepted",
+                "reviewer_ids": ["reviewer-a"],
+                "assertion_reviews": [
+                    {
+                        "assertion_id": "ASSERT_" + "A" * 24,
+                        "disposition": "oracle_bound",
+                        "behavior_refs": ["INV_ONE#behavior:0"],
+                        "rationale": "The assertion checks the selected behavior.",
+                    }
+                ],
+                "selected_invariant_ids": ["INV_ONE"],
+                "selected_behavior_refs": ["INV_ONE#behavior:0"],
+                "command": proposal["command"],
+                "command_authority": "verified_exact",
+                "confirmed_catalog": {
+                    "test_class": "metadata_validation",
+                    "area": "verification",
+                    "owner": "verification",
+                    "expected_result": "The exact assertion passes.",
+                    "expected_failure_mode": "A wrong value is accepted.",
+                    "suite_tiers": ["pr"],
+                    "requires_hardware": False,
+                    "requires_network": False,
+                    "duration_class": proposal["duration_class"],
+                },
+            },
+        )
+        catalog = {
+            "subject_kind": "generated_test",
+            "discovery_id": DISCOVERY_ID,
+            "mapping_proposal_id": PROPOSAL_ID,
+            "mapping_proposal_digest": proposal["proposal_digest"],
+            "mapping_decision_id": decision["id"],
+        }
+        if include_catalog_closure:
+            catalog["mapping_assertion_source_digests"] = proposal[
+                "assertion_source_digests"
+            ]
+        return self.validate(
+            decision_document=_decision_document(
+                snapshots=[proposal],
+                decisions=[decision],
+            ),
+            tests={"TEST_ACCEPTED": catalog},
+            review=_review("catalog_mapped"),
+        )
+
+    def test_accepted_version_two_catalog_requires_reviewed_closure(self) -> None:
+        failures = self._accepted_failures(
+            _proposal(),
+            include_catalog_closure=False,
+        )
+
+        self.assertTrue(
+            any("closure does not match its reviewed snapshot" in item for item in failures),
+            failures,
+        )
+
+    def test_accepted_closure_rejects_unreviewed_digest_rebinding(self) -> None:
+        extra = ROOT / "verification/schemas/catalog.schema.json"
+        proposal = _proposal()
+        proposal["assertion_source_digests"] = {
+            **proposal["assertion_source_digests"],
+            extra.relative_to(ROOT).as_posix(): (
+                "sha256:" + hashlib.sha256(extra.read_bytes()).hexdigest()
+            ),
+        }
+
+        failures = self._accepted_failures(proposal)
+
+        self.assertTrue(
+            any("proposal digest does not bind" in item for item in failures),
+            failures,
+        )
+
+    def test_accepted_closure_rejects_path_traversal(self) -> None:
+        proposal = _proposal()
+        proposal["assertion_source_digests"] = {
+            **proposal["assertion_source_digests"],
+            "../outside.json": (
+                "sha256:" + hashlib.sha256(b"outside").hexdigest()
+            ),
+        }
+        proposal["proposal_digest"] = proposal_payload_digest(proposal)
+
+        failures = self._accepted_failures(proposal)
+
+        self.assertTrue(any("not canonical" in item for item in failures), failures)
+
+    def test_accepted_closure_rejects_symlink(self) -> None:
+        with tempfile.TemporaryDirectory(dir=ROOT) as temporary:
+            link = Path(temporary) / "oracle-link.py"
+            link.symlink_to(ROOT / SOURCE_PATH)
+            proposal = _proposal()
+            proposal["assertion_source_digests"] = {
+                **proposal["assertion_source_digests"],
+                link.relative_to(ROOT).as_posix(): (
+                    "sha256:"
+                    + hashlib.sha256((ROOT / SOURCE_PATH).read_bytes()).hexdigest()
+                ),
+            }
+            proposal["proposal_digest"] = proposal_payload_digest(proposal)
+
+            failures = self._accepted_failures(proposal)
+
+        self.assertTrue(any("non-symlink" in item for item in failures), failures)
+
+    def test_accepted_closure_rejects_post_review_helper_mutation(self) -> None:
+        with tempfile.TemporaryDirectory(dir=ROOT) as temporary:
+            helper = Path(temporary) / "assertion_helper.rs"
+            helper.write_text("fn assert_contract() { assert!(true); }\n")
+            relative = helper.relative_to(ROOT).as_posix()
+            proposal = _proposal()
+            proposal["assertion_source_digests"] = {
+                **proposal["assertion_source_digests"],
+                relative: (
+                    "sha256:" + hashlib.sha256(helper.read_bytes()).hexdigest()
+                ),
+            }
+            proposal["proposal_digest"] = proposal_payload_digest(proposal)
+            helper.write_text("fn assert_contract() { assert!(false); }\n")
+
+            failures = self._accepted_failures(proposal)
+
+        self.assertTrue(any("digest is stale" in item for item in failures), failures)
 
 
 if __name__ == "__main__":

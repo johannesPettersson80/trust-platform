@@ -144,7 +144,7 @@ class MappingTomlTests(unittest.TestCase):
             "unmapped_code_demand_ranking": [],
             "proposals": [
                 {
-                    "schema_version": 1,
+                    "schema_version": 2,
                     "id": "MAP_CAND_ONE",
                     "proposal_digest": "sha256:" + "3" * 64,
                     "discovery_id": "DISC_00000000000000000001",
@@ -166,10 +166,15 @@ class MappingTomlTests(unittest.TestCase):
                     "mutation_kill_ids": [],
                     "test_source_digest": "sha256:" + "4" * 64,
                     "assertion_inventory_digest": "sha256:" + "7" * 64,
+                    "assertion_source_digests": {
+                        "crates/example/src/lib.rs": "sha256:" + "4" * 64,
+                        "conformance/expected/example.json": "sha256:" + "9" * 64,
+                    },
                     "assertions": [
                         {
                             "assertion_id": "ASSERT_" + "A" * 24,
                             "kind": "macro:assert",
+                            "source_path": "crates/example/src/lib.rs",
                             "function": "example",
                             "line": 10,
                             "expression_digest": "sha256:" + "8" * 64,

@@ -1,0 +1,71 @@
+schema_version = 1
+id = "IEC_HIR_ASSIGNMENT_BINDING_001"
+title = "HIR assignment and direct-address bindings preserve declared types"
+area = "compiler_iec"
+risk = "wrong_result"
+status = "mapped"
+owner = "trust-hir"
+last_reviewed = "2026-07-25"
+claim = "Assignment compatibility follows the written numeric and direct-address type rules, and a declared AT binding retains its exact source-level direct-address spelling in HIR."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-hir/src"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_IEC_VARIABLES_001", "SPEC_IEC_DATA_TYPES_CANDIDATE_001", "SPEC_IEC_SEMANTIC_RULES_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_IEC_VARIABLES_001"
+
+[[behavior]]
+partition = { equals = "DIRECT_ADDRESS_COMPATIBLE_TYPE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_VARIABLES_001#5-directly-represented-variables-table-16-section-6-5-5"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A directly represented value is assignable when its address size implies a type compatible with the target."
+
+[[behavior]]
+partition = { equals = "DIRECT_ADDRESS_INCOMPATIBLE_TYPE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001#2-2-type-compatibility"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A direct-address value whose implied type is incompatible with the assignment target is rejected."
+
+[[behavior]]
+partition = { equals = "ACCURACY_PRESERVING_NUMERIC_WIDENING" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#implicit-conversions"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "An accuracy-preserving widening conversion is accepted by the assignment compatibility matrix."
+
+[[behavior]]
+partition = { equals = "DECLARED_AT_SOURCE_BINDING" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_VARIABLES_001#symbolic-mapping-with-at"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "HIR retains the complete source-level direct-address spelling attached to an AT declaration."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Compatible direct-address, widening, and AT binding cases await catalog association."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Incompatible direct-address assignment awaits catalog association."

@@ -12,7 +12,7 @@ def _proposal(number: int) -> dict[str, object]:
     suffix = f"{number:020d}"
     invariant = f"INV_{number}"
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "id": f"MAP_CAND_{suffix}_A1B2C3D4",
         "proposal_digest": "sha256:" + str(number) * 64,
         "discovery_id": f"DISC_{suffix}",
@@ -34,10 +34,14 @@ def _proposal(number: int) -> dict[str, object]:
         "mutation_kill_ids": [],
         "test_source_digest": "sha256:" + "a" * 64,
         "assertion_inventory_digest": "sha256:" + "d" * 64,
+        "assertion_source_digests": {
+            f"crates/example/src/case_{number}.rs": "sha256:" + "a" * 64,
+        },
         "assertions": [
             {
                 "assertion_id": "ASSERT_" + f"{number:X}" * 24,
                 "kind": "macro:assert",
+                "source_path": f"crates/example/src/case_{number}.rs",
                 "function": f"case_{number}",
                 "line": 10,
                 "expression_digest": "sha256:" + "e" * 64,
@@ -209,8 +213,21 @@ class MappingReviewBatchTests(unittest.TestCase):
         )
 
         self.assertEqual(1, len(catalog["tests"]))
+        self.assertEqual(
+            accepted["assertion_source_digests"],
+            catalog["tests"][0]["mapping_assertion_source_digests"],
+        )
         self.assertEqual([], proposal_after["proposals"])
         self.assertEqual(2, len(decisions_after["proposal_snapshots"]))
+        accepted_snapshot = next(
+            snapshot
+            for snapshot in decisions_after["proposal_snapshots"]
+            if snapshot["id"] == accepted["id"]
+        )
+        self.assertEqual(
+            accepted["assertion_source_digests"],
+            accepted_snapshot["assertion_source_digests"],
+        )
         self.assertEqual(2, len(decisions_after["decisions"]))
         self.assertEqual(
             ["catalog_mapped", "reviewed_nonmapping"],

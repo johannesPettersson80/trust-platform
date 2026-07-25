@@ -103,8 +103,16 @@ def build_mapping_proposals(
             raise ValueError(f"{discovery_id} source path escapes repository") from error
         if not source_path.is_file() or source_path.is_symlink():
             raise ValueError(f"{discovery_id} source must be a regular non-symlink file")
+        test_source_digest = sha256_digest(source_path.read_bytes())
+        assertion_source_digests = validate_source_digest_closure(
+            root=root,
+            value=assertion_inventory.get("source_digests"),
+            label=f"{discovery_id} assertion source closure",
+            required_path=path,
+            required_digest=test_source_digest,
+        )
         semantic_payload = {
-            "schema_version": 1,
+            "schema_version": 2,
             "discovery_id": discovery_id,
             "discovery_source_kind": _required_string(
                 fact, "discovery_source_kind", discovery_id
@@ -134,12 +142,13 @@ def build_mapping_proposals(
             "mutation_kill_ids": _required_string_array(
                 candidate.get("mutation_kill_ids"), f"{discovery_id} mutation kills"
             ),
-            "test_source_digest": sha256_digest(source_path.read_bytes()),
+            "test_source_digest": test_source_digest,
             "assertion_inventory_digest": _required_string(
                 assertion_inventory,
                 "inventory_digest",
                 f"{discovery_id} assertion inventory",
             ),
+            "assertion_source_digests": assertion_source_digests,
             "assertions": _required_object_array(
                 assertion_inventory.get("assertions"),
                 f"{discovery_id} assertions",
@@ -160,7 +169,7 @@ def build_mapping_proposals(
                 "source_behavior_refs": sorted(behavior_refs),
             },
         }
-        proposal_digest = _canonical_digest(semantic_payload)
+        proposal_digest = proposal_payload_digest(semantic_payload)
         proposal_id = (
             f"MAP_CAND_{discovery_id.removeprefix('DISC_')}_"
             f"{proposal_digest.removeprefix('sha256:')[:12].upper()}"
@@ -205,8 +214,8 @@ def validate_mapping_quarantine(
         else:
             seen_ids.add(proposal_id)
             label = proposal_id
-        if proposal.get("schema_version") != 1:
-            failures.append(f"{label} must use schema_version 1")
+        if proposal.get("schema_version") != 2:
+            failures.append(f"{label} must use schema_version 2")
         if proposal.get("status") != "pending":
             failures.append(f"{label} quarantine status must equal pending")
         if proposal.get("candidate_tier") not in CANDIDATE_TIERS:
@@ -233,6 +242,11 @@ def validate_mapping_quarantine(
         ):
             if not _is_digest(proposal.get(field)):
                 failures.append(f"{label} requires a tagged SHA-256 {field}")
+        if (
+            _is_digest(proposal.get("proposal_digest"))
+            and proposal.get("proposal_digest") != proposal_payload_digest(proposal)
+        ):
+            failures.append(f"{label} proposal digest does not bind its semantic payload")
 
         discovery_id = proposal.get("discovery_id")
         if not isinstance(discovery_id, str) or not discovery_id:
@@ -268,6 +282,20 @@ def validate_mapping_quarantine(
                     resolved_source.read_bytes()
                 ):
                     failures.append(f"{label} source digest is stale")
+        try:
+            validate_source_digest_closure(
+                root=root,
+                value=proposal.get("assertion_source_digests"),
+                label=f"{label} assertion source closure",
+                required_path=proposal.get("path")
+                if isinstance(proposal.get("path"), str)
+                else None,
+                required_digest=proposal.get("test_source_digest")
+                if _is_digest(proposal.get("test_source_digest"))
+                else None,
+            )
+        except ValueError as error:
+            failures.append(str(error))
         assertions = proposal.get("assertions")
         if not isinstance(assertions, Sequence) or isinstance(
             assertions, (str, bytes)
@@ -377,6 +405,75 @@ def validate_mapping_quarantine(
 
 def _is_digest(value: Any) -> bool:
     return isinstance(value, str) and DIGEST_RE.fullmatch(value) is not None
+
+
+def validate_source_digest_closure(
+    *,
+    root: Path | None,
+    value: Any,
+    label: str,
+    required_path: str | None = None,
+    required_digest: str | None = None,
+) -> dict[str, str]:
+    """Return one canonical, optionally live-validated path-to-digest closure."""
+
+    if not isinstance(value, Mapping) or not value:
+        raise ValueError(f"{label} must be a non-empty path-to-digest table")
+    closure: dict[str, str] = {}
+    resolved_root = root.resolve() if root is not None else None
+    for raw_path, digest in sorted(value.items()):
+        if not isinstance(raw_path, str) or not raw_path:
+            raise ValueError(f"{label} contains an empty or non-string path")
+        relative = Path(raw_path)
+        if (
+            relative.is_absolute()
+            or ".." in relative.parts
+            or "\\" in raw_path
+            or relative.as_posix() != raw_path
+            or raw_path in {".", ""}
+        ):
+            raise ValueError(f"{label} path is not canonical: {raw_path}")
+        if not _is_digest(digest):
+            raise ValueError(f"{label} requires a tagged SHA-256 for {raw_path}")
+        if resolved_root is not None:
+            source = resolved_root
+            for part in relative.parts:
+                source /= part
+                if source.is_symlink():
+                    raise ValueError(
+                        f"{label} path must be a regular non-symlink file: {raw_path}"
+                    )
+            try:
+                resolved_source = source.resolve()
+                resolved_source.relative_to(resolved_root)
+            except (OSError, ValueError) as error:
+                raise ValueError(
+                    f"{label} path escapes repository: {raw_path}"
+                ) from error
+            if not resolved_source.is_file():
+                raise ValueError(
+                    f"{label} path must be a regular non-symlink file: {raw_path}"
+                )
+            if digest != sha256_digest(resolved_source.read_bytes()):
+                raise ValueError(f"{label} digest is stale: {raw_path}")
+        closure[raw_path] = digest
+    if required_path is not None:
+        if closure.get(required_path) != required_digest:
+            raise ValueError(
+                f"{label} must bind selected test {required_path} to its source digest"
+            )
+    return closure
+
+
+def proposal_payload_digest(proposal: Mapping[str, Any]) -> str:
+    """Digest every semantic proposal field, excluding only ID and its digest."""
+
+    payload = {
+        key: value
+        for key, value in proposal.items()
+        if key not in {"id", "proposal_digest"}
+    }
+    return _canonical_digest(payload)
 
 
 def duration_class(duration_ms: int) -> str:

@@ -10,6 +10,8 @@ import tomllib
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from .mapping_proposals import validate_source_digest_closure
+
 
 DATE_RE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
 CATALOG_FIELDS = (
@@ -40,6 +42,7 @@ CATALOG_FIELDS = (
     "mapping_decision_id",
     "mapping_reviewed_source_digest",
     "mapping_assertion_review_digest",
+    "mapping_assertion_source_digests",
     "mapping_behavior_refs",
     "mapping_reviewer_ids",
 )
@@ -116,6 +119,15 @@ def build_accepted_catalog_record(
         decision.get("selected_behavior_refs"), "selected behavior refs"
     )
     reviewers = _strings(decision.get("reviewer_ids"), "reviewer IDs")
+    assertion_source_digests = validate_source_digest_closure(
+        root=None,
+        value=proposal.get("assertion_source_digests"),
+        label="accepted proposal assertion source closure",
+        required_path=_required_string(proposal, "path", "proposal"),
+        required_digest=_required_string(
+            proposal, "test_source_digest", "proposal"
+        ),
+    )
     return {
         "schema_version": 2,
         "id": test_id,
@@ -162,6 +174,7 @@ def build_accepted_catalog_record(
             decision, "reviewed_source_digest", "decision"
         ),
         "mapping_assertion_review_digest": _canonical_digest(assertion_reviews),
+        "mapping_assertion_source_digests": assertion_source_digests,
         "mapping_behavior_refs": sorted(behavior_refs),
         "mapping_reviewer_ids": sorted(reviewers),
     }
@@ -313,6 +326,26 @@ def _toml_value(value: Any) -> str:
         return str(value)
     if isinstance(value, str):
         return json.dumps(value, ensure_ascii=False)
+    if isinstance(value, Mapping):
+        if any(
+            not isinstance(key, str)
+            or not key
+            or not isinstance(item, str)
+            or not item
+            for key, item in value.items()
+        ):
+            raise ValueError(
+                "generated TOML tables must contain non-empty string pairs"
+            )
+        return (
+            "{ "
+            + ", ".join(
+                f"{json.dumps(key, ensure_ascii=False)} = "
+                f"{json.dumps(value[key], ensure_ascii=False)}"
+                for key in sorted(value)
+            )
+            + " }"
+        )
     if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
         if any(not isinstance(item, str) for item in value):
             raise ValueError("generated TOML arrays must contain strings")

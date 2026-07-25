@@ -53,7 +53,7 @@ UNMAPPED_CODE_DEMAND_RANKING_FIELDS = (
     "tests_touching",
     "code_facts_touched",
 )
-PROPOSAL_FIELDS = (
+PROPOSAL_FIELDS_V2 = (
     "schema_version",
     "id",
     "proposal_digest",
@@ -76,19 +76,27 @@ PROPOSAL_FIELDS = (
     "mutation_kill_ids",
     "test_source_digest",
     "assertion_inventory_digest",
+    "assertion_source_digests",
     "unresolved_assertion_helpers",
     "trace_record_digest",
     "candidate_signal_digest",
     "oracle_refs",
     "behavior_refs",
 )
-ASSERTION_FIELDS = (
+PROPOSAL_FIELDS_V1 = tuple(
+    field for field in PROPOSAL_FIELDS_V2 if field != "assertion_source_digests"
+)
+ASSERTION_FIELDS_V2 = (
     "assertion_id",
     "kind",
+    "source_path",
     "function",
     "line",
     "expression_digest",
     "expression",
+)
+ASSERTION_FIELDS_V1 = tuple(
+    field for field in ASSERTION_FIELDS_V2 if field != "source_path"
 )
 SUGGESTION_FIELDS = (
     "authoritative",
@@ -312,11 +320,18 @@ def _append_proposal_table(
 ) -> None:
     if not isinstance(proposal, Mapping):
         raise ValueError("proposal must be a table")
-    if set(proposal) != {*PROPOSAL_FIELDS, "assertions", "suggestions"}:
+    schema_version = proposal.get("schema_version")
+    if schema_version == 1:
+        fields = PROPOSAL_FIELDS_V1
+    elif schema_version == 2:
+        fields = PROPOSAL_FIELDS_V2
+    else:
+        raise ValueError("proposal schema version is unsupported")
+    if set(proposal) != {*fields, "assertions", "suggestions"}:
         raise ValueError("proposal fields drift")
     lines.extend(["", f"[[{table_name}]]"])
     lines.extend(
-        f"{field} = {_toml_value(proposal[field])}" for field in PROPOSAL_FIELDS
+        f"{field} = {_toml_value(proposal[field])}" for field in fields
     )
     assertions = proposal.get("assertions")
     if not isinstance(assertions, Sequence) or isinstance(
@@ -325,15 +340,18 @@ def _append_proposal_table(
         raise ValueError("proposal assertions must be an array")
     if not assertions:
         lines.append("assertions = []")
+    assertion_fields = (
+        ASSERTION_FIELDS_V2 if schema_version == 2 else ASSERTION_FIELDS_V1
+    )
     for assertion in assertions:
         if not isinstance(assertion, Mapping) or set(assertion) != set(
-            ASSERTION_FIELDS
+            assertion_fields
         ):
             raise ValueError("proposal assertion fields drift")
         lines.extend(["", f"[[{table_name}.assertions]]"])
         lines.extend(
             f"{field} = {_toml_value(assertion[field])}"
-            for field in ASSERTION_FIELDS
+            for field in assertion_fields
         )
     suggestions = proposal.get("suggestions")
     if not isinstance(suggestions, Mapping) or set(suggestions) != set(
@@ -354,6 +372,26 @@ def _toml_value(value: Any) -> str:
         return str(value)
     if isinstance(value, str):
         return json.dumps(value, ensure_ascii=False)
+    if isinstance(value, Mapping):
+        if any(
+            not isinstance(key, str)
+            or not key
+            or not isinstance(item, str)
+            or not item
+            for key, item in value.items()
+        ):
+            raise ValueError(
+                "generated mapping TOML tables must contain non-empty strings"
+            )
+        return (
+            "{ "
+            + ", ".join(
+                f"{json.dumps(key, ensure_ascii=False)} = "
+                f"{json.dumps(value[key], ensure_ascii=False)}"
+                for key in sorted(value)
+            )
+            + " }"
+        )
     if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
         if any(not isinstance(item, str) for item in value):
             raise ValueError("generated mapping TOML arrays must contain strings")

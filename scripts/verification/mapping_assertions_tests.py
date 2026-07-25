@@ -18,6 +18,78 @@ from scripts.verification.mapping_assertions import (
 
 
 class MappingAssertionInventoryTests(unittest.TestCase):
+    def test_v2_inventory_binds_assertion_to_exact_source_path(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            test_path = "crates/example/tests/contract.rs"
+            helper_path = "crates/example/tests/common.rs"
+            test_source = root / test_path
+            helper_source = root / helper_path
+            test_source.parent.mkdir(parents=True)
+            test_source.write_text("#[test]\nfn contract() { check_contract(); }\n")
+            helper_source.write_text("fn check_contract() { assert!(true); }\n")
+            expression = "assert ! (true)"
+            expression_digest = (
+                "sha256:" + hashlib.sha256(expression.encode()).hexdigest()
+            )
+            identity = (
+                f"{test_path}\0contract\0{helper_path}\0"
+                f"common::check_contract\0macro:assert\0"
+                f"1\0{expression_digest}"
+            ).encode()
+            assertion_id = (
+                "ASSERT_" + hashlib.sha256(identity).hexdigest()[:24].upper()
+            )
+            document = {
+                "schema_version": 2,
+                "inventories": [
+                    {
+                        "schema_version": 2,
+                        "path": test_path,
+                        "test_name": "contract",
+                        "source_digest": "sha256:"
+                        + hashlib.sha256(test_source.read_bytes()).hexdigest(),
+                        "source_digests": {
+                            test_path: "sha256:"
+                            + hashlib.sha256(test_source.read_bytes()).hexdigest(),
+                            helper_path: "sha256:"
+                            + hashlib.sha256(helper_source.read_bytes()).hexdigest(),
+                        },
+                        "assertions": [
+                            {
+                                "assertion_id": assertion_id,
+                                "kind": "macro:assert",
+                                "source_path": helper_path,
+                                "function": "common::check_contract",
+                                "line": 1,
+                                "expression_digest": expression_digest,
+                                "expression": expression,
+                            }
+                        ],
+                        "unresolved_assertion_helpers": [],
+                    }
+                ],
+            }
+
+            inventories = validate_assertion_batch(
+                root,
+                document,
+                [
+                    {
+                        "discovery_id": "DISC_00000000000000000001",
+                        "path": test_path,
+                        "name": "contract",
+                    }
+                ],
+            )
+
+        self.assertEqual(
+            helper_path,
+            inventories["DISC_00000000000000000001"]["assertions"][0][
+                "source_path"
+            ],
+        )
+
     def test_exact_inventory_binds_generated_assertion_to_source(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -30,25 +102,30 @@ class MappingAssertionInventoryTests(unittest.TestCase):
                 "sha256:" + hashlib.sha256(expression.encode()).hexdigest()
             )
             identity = (
-                f"{path}\0contract\0contract\0macro:assert\0"
+                f"{path}\0contract\0{path}\0contract\0macro:assert\0"
                 f"2\0{expression_digest}"
             ).encode()
             assertion_id = (
                 "ASSERT_" + hashlib.sha256(identity).hexdigest()[:24].upper()
             )
             document = {
-                "schema_version": 1,
+                "schema_version": 2,
                 "inventories": [
                     {
-                        "schema_version": 1,
+                        "schema_version": 2,
                         "path": path,
                         "test_name": "contract",
                         "source_digest": "sha256:"
                         + hashlib.sha256(source.read_bytes()).hexdigest(),
+                        "source_digests": {
+                            path: "sha256:"
+                            + hashlib.sha256(source.read_bytes()).hexdigest()
+                        },
                         "assertions": [
                             {
                                 "assertion_id": assertion_id,
                                 "kind": "macro:assert",
+                                "source_path": path,
                                 "function": "contract",
                                 "line": 2,
                                 "expression_digest": expression_digest,
@@ -83,18 +160,23 @@ class MappingAssertionInventoryTests(unittest.TestCase):
             source = root / path
             source.write_text("#[test]\nfn contract() { assert!(true); }\n")
             document = {
-                "schema_version": 1,
+                "schema_version": 2,
                 "inventories": [
                     {
-                        "schema_version": 1,
+                        "schema_version": 2,
                         "path": path,
                         "test_name": "contract",
                         "source_digest": "sha256:"
                         + hashlib.sha256(source.read_bytes()).hexdigest(),
+                        "source_digests": {
+                            path: "sha256:"
+                            + hashlib.sha256(source.read_bytes()).hexdigest()
+                        },
                         "assertions": [
                             {
                                 "assertion_id": "ASSERT_" + "A" * 24,
                                 "kind": "macro:assert",
+                                "source_path": path,
                                 "function": "contract",
                                 "line": 2,
                                 "expression_digest": "sha256:" + "0" * 64,
@@ -127,6 +209,7 @@ class MappingAssertionInventoryTests(unittest.TestCase):
                 {
                     "assertion_id": "ASSERT_" + "A" * 24,
                     "kind": "macro:assert",
+                    "source_path": "contract.rs",
                     "function": "contract",
                     "line": 2,
                     "expression_digest": "sha256:" + "3" * 64,

@@ -31,7 +31,10 @@ from .focused_trace_authentication import authenticate_focused_trace
 from .mapping_assertions import invoke_assertion_inventories
 from .mapping_candidates import analyze_mapping_candidates
 from .focused_mapping_queue import merge_focused_queue
-from .mapping_live_code_facts import validated_live_code_facts
+from .mapping_live_code_facts import (
+    focused_rust_topology_sources,
+    validated_live_code_facts,
+)
 from .mapping_proposals import (
     build_mapping_proposals,
     validate_mapping_quarantine,
@@ -803,39 +806,84 @@ def _selected_input_preconditions(
     reviews = denominator.get("reviews")
     if not isinstance(reviews, list):
         raise ValueError("focused denominator reviews are malformed")
-    path_by_discovery: dict[str, str] = {}
+    fact_by_discovery: dict[str, dict[str, str]] = {}
     for review in reviews:
         if not isinstance(review, Mapping):
             continue
         discovery_id = review.get("discovery_id")
         path = review.get("path")
-        if discovery_id not in requested or not isinstance(path, str):
+        name = review.get("name")
+        source_kind = review.get("discovery_source_kind")
+        if discovery_id not in requested or not all(
+            isinstance(value, str) and value
+            for value in (path, name, source_kind)
+        ):
             continue
         if (
-            discovery_id in path_by_discovery
-            and path_by_discovery[discovery_id] != path
+            discovery_id in fact_by_discovery
+            and fact_by_discovery[discovery_id]
+            != {
+                "discovery_id": discovery_id,
+                "discovery_source_kind": source_kind,
+                "path": path,
+                "name": name,
+            }
         ):
             raise ValueError(
                 f"focused denominator duplicates {discovery_id} with "
-                "different source paths"
+                "different source identity"
             )
-        path_by_discovery[str(discovery_id)] = path
-    if set(path_by_discovery) != set(requested):
+        fact_by_discovery[str(discovery_id)] = {
+            "discovery_id": str(discovery_id),
+            "discovery_source_kind": str(source_kind),
+            "path": str(path),
+            "name": str(name),
+        }
+    if set(fact_by_discovery) != set(requested):
         raise ValueError("focused selected source paths are incomplete")
-    paths = set(path_by_discovery.values())
+    paths = {fact["path"] for fact in fact_by_discovery.values()}
+    assertion_inventories = invoke_assertion_inventories(
+        root,
+        [fact_by_discovery[discovery_id] for discovery_id in sorted(requested)],
+        environment=os.environ,
+        workspace_root=root,
+    )
+    assertion_source_digests: dict[str, str] = {}
+    for discovery_id, inventory in assertion_inventories.items():
+        raw_digests = inventory.get("source_digests")
+        if not isinstance(raw_digests, Mapping) or not raw_digests:
+            raise ValueError(
+                f"focused assertion inventory lacks source closure: {discovery_id}"
+            )
+        for source_path, digest in raw_digests.items():
+            if (
+                not isinstance(source_path, str)
+                or not source_path
+                or not isinstance(digest, str)
+            ):
+                raise ValueError(
+                    f"focused assertion source closure is malformed: {discovery_id}"
+                )
+            previous = assertion_source_digests.setdefault(source_path, digest)
+            if previous != digest:
+                raise ValueError(
+                    f"focused assertion source closure conflicts at {source_path}"
+                )
+    paths.update(assertion_source_digests)
     code_map = tomllib.loads(
         metadata_preconditions["verification/code-spec-map.toml"].decode()
     )
     mapping_rows = code_map.get("mappings")
     if not isinstance(mapping_rows, list):
         raise ValueError("focused code map mappings are malformed")
-    mapping_paths = {
-        str(row["code_id"]): str(row["path"])
+    mappings = {
+        str(row["code_id"]): row
         for row in mapping_rows
         if isinstance(row, Mapping)
         and isinstance(row.get("code_id"), str)
         and isinstance(row.get("path"), str)
     }
+    covered_rust_paths: set[str] = set()
     records = trace.get("tests")
     if isinstance(records, list):
         for record in records:
@@ -845,8 +893,21 @@ def _selected_input_preconditions(
             if not isinstance(covered, list):
                 continue
             for code_id in covered:
-                if isinstance(code_id, str) and code_id in mapping_paths:
-                    paths.add(mapping_paths[code_id])
+                if not isinstance(code_id, str) or code_id not in mappings:
+                    continue
+                mapping = mappings[code_id]
+                mapping_path = str(mapping["path"])
+                paths.add(mapping_path)
+                if mapping.get("source_kind") == "rust":
+                    covered_rust_paths.add(mapping_path)
+    topology_sources: Mapping[str, bytes] = {}
+    if covered_rust_paths:
+        topology_sources = focused_rust_topology_sources(
+            root,
+            sorted(covered_rust_paths),
+            workspace_root=root,
+        )
+        paths.update(topology_sources)
     cargo_manifests = {
         Path(*Path(path).parts[:2], "Cargo.toml").as_posix()
         for path in paths
@@ -859,7 +920,23 @@ def _selected_input_preconditions(
             root / relative,
             f"focused selected input {relative}",
         )
-        result[relative] = source.read_bytes()
+        content = source.read_bytes()
+        expected_topology_content = topology_sources.get(relative)
+        if (
+            expected_topology_content is not None
+            and expected_topology_content != content
+        ):
+            raise ValueError(
+                f"focused Rust topology source changed during capture: {relative}"
+            )
+        expected_digest = assertion_source_digests.get(relative)
+        if expected_digest is not None and expected_digest != (
+            "sha256:" + hashlib.sha256(content).hexdigest()
+        ):
+            raise ValueError(
+                f"focused assertion source changed during capture: {relative}"
+            )
+        result[relative] = content
     return result
 
 

@@ -8,8 +8,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from scripts.verification.code_spec_common import sha256_digest
 from scripts.verification.mapping_proposals import (
     build_mapping_proposals,
+    proposal_payload_digest,
     validate_mapping_quarantine,
 )
 
@@ -28,8 +30,8 @@ def _fact() -> dict[str, object]:
 
 
 def _proposal() -> dict[str, object]:
-    return {
-        "schema_version": 1,
+    proposal = {
+        "schema_version": 2,
         "id": "MAP_CAND_00000000000000000001_A1B2C3D4",
         "proposal_digest": "sha256:" + "1" * 64,
         "discovery_id": DISCOVERY_ID,
@@ -51,10 +53,14 @@ def _proposal() -> dict[str, object]:
         "mutation_kill_ids": [],
         "test_source_digest": "sha256:" + "4" * 64,
         "assertion_inventory_digest": "sha256:" + "5" * 64,
+        "assertion_source_digests": {
+            "crates/example/src/lib.rs": "sha256:" + "4" * 64,
+        },
         "assertions": [
             {
                 "assertion_id": "ASSERT_" + "A" * 24,
                 "kind": "macro:assert",
+                "source_path": "crates/example/src/lib.rs",
                 "function": "observes_contract",
                 "line": 10,
                 "expression_digest": "sha256:" + "6" * 64,
@@ -74,6 +80,8 @@ def _proposal() -> dict[str, object]:
             "source_behavior_refs": ["INV_ONE#behavior:0"],
         },
     }
+    proposal["proposal_digest"] = proposal_payload_digest(proposal)
+    return proposal
 
 
 def _review(disposition: str = "reviewed_nonmapping") -> dict[str, object]:
@@ -225,6 +233,9 @@ class MappingProposalQuarantineTests(unittest.TestCase):
             source = root / "crates/example/src/lib.rs"
             source.parent.mkdir(parents=True)
             source.write_text("#[test]\nfn observes_contract() {}\n")
+            oracle = root / "conformance/expected/example.json"
+            oracle.parent.mkdir(parents=True)
+            oracle.write_text('{"expected":true}\n')
             fact = _fact()
             invariant = {
                 "status": "implemented",
@@ -260,10 +271,17 @@ class MappingProposalQuarantineTests(unittest.TestCase):
             }
             assertion_inventory = {
                 "inventory_digest": "sha256:" + "5" * 64,
+                "source_digests": {
+                    "crates/example/src/lib.rs": sha256_digest(source.read_bytes()),
+                    "conformance/expected/example.json": sha256_digest(
+                        oracle.read_bytes()
+                    ),
+                },
                 "assertions": [
                     {
                         "assertion_id": "ASSERT_" + "A" * 24,
                         "kind": "macro:assert",
+                        "source_path": "crates/example/src/lib.rs",
                         "function": "observes_contract",
                         "line": 2,
                         "expression_digest": "sha256:" + "6" * 64,
@@ -289,9 +307,36 @@ class MappingProposalQuarantineTests(unittest.TestCase):
                 invariants={"INV_ONE": invariant},
                 assertion_inventories={DISCOVERY_ID: assertion_inventory},
             )
+            oracle.write_text('{"expected":false}\n')
+            changed_inventory = {
+                **assertion_inventory,
+                "source_digests": {
+                    **assertion_inventory["source_digests"],
+                    "conformance/expected/example.json": sha256_digest(
+                        oracle.read_bytes()
+                    ),
+                },
+            }
+            changed = build_mapping_proposals(
+                root=root,
+                candidates=[candidate],
+                trace_records={DISCOVERY_ID: trace},
+                facts={DISCOVERY_ID: fact},
+                invariants={"INV_ONE": invariant},
+                assertion_inventories={DISCOVERY_ID: changed_inventory},
+            )
 
         self.assertEqual(first, second)
         proposal = first[0]
+        self.assertEqual(2, proposal["schema_version"])
+        self.assertEqual(
+            assertion_inventory["source_digests"],
+            proposal["assertion_source_digests"],
+        )
+        self.assertNotEqual(
+            proposal["proposal_digest"],
+            changed[0]["proposal_digest"],
+        )
         self.assertRegex(proposal["id"], r"^MAP_CAND_[A-F0-9_]+$")
         for field in (
             "proposal_digest",

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 import tomllib
 import unittest
@@ -444,7 +445,7 @@ class FocusedMappingReviewTests(unittest.TestCase):
 
             with fixture.patches():
                 with self.assertRaisesRegex(
-                    ValueError, "precondition failed"
+                    ValueError, "precondition collides"
                 ):
                     execute_focused_review_batch(
                         root=fixture.root,
@@ -708,8 +709,17 @@ class ReviewFixture:
             '[package]\nname = "example"\nversion = "0.1.0"\n'
         )
         self.proposals = [_proposal(1), _proposal(2)]
+        source_digest = (
+            "sha256:" + hashlib.sha256(self.source.read_bytes()).hexdigest()
+        )
         for proposal in self.proposals:
             proposal["path"] = "crates/example/src/lib.rs"
+            proposal["test_source_digest"] = source_digest
+            proposal["assertion_source_digests"] = {
+                "crates/example/src/lib.rs": source_digest
+            }
+            for assertion in proposal["assertions"]:
+                assertion["source_path"] = "crates/example/src/lib.rs"
         authority_code_id = "CODE_" + "A" * 64
         self.proposals[0]["covered_code_ids"] = [authority_code_id]
         self.proposals[0]["specified_code_ids"] = []
@@ -929,6 +939,12 @@ class ReviewFixture:
         return {
             str(proposal["discovery_id"]): {
                 "source_digest": proposal["test_source_digest"],
+                "source_digests": {
+                    str(proposal["path"]): (
+                        "sha256:"
+                        + hashlib.sha256(self.source.read_bytes()).hexdigest()
+                    )
+                },
                 "inventory_digest": proposal["assertion_inventory_digest"],
                 "assertions": copy.deepcopy(proposal["assertions"]),
                 "unresolved_assertion_helpers": copy.deepcopy(

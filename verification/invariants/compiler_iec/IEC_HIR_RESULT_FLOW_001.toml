@@ -1,0 +1,76 @@
+schema_version = 1
+id = "IEC_HIR_RESULT_FLOW_001"
+title = "HIR result variables and accessor returns follow the written flow contract"
+area = "compiler_iec"
+risk = "wrong_result"
+status = "mapped"
+owner = "trust-hir"
+last_reviewed = "2026-07-25"
+claim = "Function, value-returning method, and property accessor results must have the declared type and be definitely supplied on every completed return path; SET accessors cannot return a value."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-hir/src"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_IEC_SEMANTIC_RULES_001", "SPEC_IEC_POU_DECLARATIONS_001", "SPEC_IEC_STATEMENTS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_IEC_SEMANTIC_RULES_001"
+
+[[behavior]]
+partition = { equals = "IMPLICIT_RESULT_VARIABLE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001#6-2-return-value-mismatch"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Inside a function or value-returning method, the declaration name is an assignable and readable implicit result variable."
+
+[[behavior]]
+partition = { equals = "RETURN_EXPRESSION_OR_DEFINITELY_ASSIGNED_BARE_RETURN" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001#6-2-return-value-mismatch"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "RETURN with a compatible expression supplies the result directly; bare RETURN is valid only after definite result assignment on that path."
+
+[[behavior]]
+partition = { equals = "MISSING_OR_WRONG_RESULT" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001#6-2-return-value-mismatch"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A missing result, a result of the wrong type, or a bare return without definite assignment is rejected."
+
+[[behavior]]
+partition = { equals = "PROPERTY_GET_AND_SET_RESULT_SHAPE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001#5-6-property-accessors"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "GET returns the declared property type, while SET has no result and rejects a returned value."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Result-variable reads and assignments await catalog association."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Wrong and missing result cases await catalog association."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "Definite-assignment return paths await catalog association."

@@ -43,6 +43,7 @@ from .focused_mapping_review_support import (
     REVIEW_SCHEMA_PATH,
     SELECTION_SCHEMA_PATH,
     build_receipt,
+    capture_assertion_source_originals,
     capture_initial_originals,
     capture_selected_source_originals,
     captured_bytes,
@@ -303,6 +304,11 @@ def execute_focused_review_batch(
     )
     if assertion_failures:
         raise ValueError("; ".join(assertion_failures))
+    _merge_preconditions(
+        original_bytes,
+        capture_assertion_source_originals(root, fresh_inventories),
+    )
+    require_unchanged_originals(root, original_bytes)
 
     invariant_sources = selected_invariant_sources_from_snapshot(
         originals=original_bytes,
@@ -711,6 +717,9 @@ def _prebuilt_rust_assertion_inventories(
             "discovery_id": required_string(
                 fact, "discovery_id", "selected Rust fact"
             ),
+            "source_kind": required_string(
+                fact, "discovery_source_kind", "selected Rust fact"
+            ),
             "path": required_string(fact, "path", "selected Rust fact"),
             "name": required_string(fact, "name", "selected Rust fact"),
         }
@@ -719,7 +728,11 @@ def _prebuilt_rust_assertion_inventories(
     request = {
         "schema_version": 1,
         "tests": [
-            {"path": row["path"], "name": row["name"]}
+            {
+                "path": row["path"],
+                "name": row["name"],
+                "source_kind": row["source_kind"],
+            }
             for row in sorted(
                 requested,
                 key=lambda row: (

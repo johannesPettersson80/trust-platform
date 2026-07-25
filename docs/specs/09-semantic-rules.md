@@ -62,6 +62,8 @@ END_FUNCTION_BLOCK
 Notes:
 - VAR_INPUT is externally supplied and not modifiable within the entity (IEC 61131-3 Ed.3 Figure 7).
 - Assignment targets must resolve to assignable variables/parameters or properties with setters; assigning to functions, methods, `THIS`/`SUPER`, or read-only properties is invalid.
+- A field or index rooted in a value returned by a function or method call is
+  not modifiable storage and is therefore not a valid assignment target.
 
 ### 2.2 Type Compatibility
 
@@ -181,8 +183,12 @@ IEC 61131-3 Ed.3 §6.4.4.5.1 requires array subscripts to be ANY_INT expressions
 | Rule | Error Condition |
 |------|-----------------|
 | Index type | Subscript is not ANY_INT |
-| Bounds | Constant index or subrange outside declared bounds |
+| Bounds | Constant index value outside declared bounds |
 | Dimensions | Subscript count doesn't match array dimensions |
+
+Whether a nonconstant subrange-typed index must have its entire declared domain
+within the array bounds remains under review. This source does not specify that
+stricter static rejection.
 
 ## 4. Reference Errors
 
@@ -200,6 +206,10 @@ VAR
   Count: REAL;  // ERROR: Duplicate declaration 'Count'
 END_VAR
 ```
+
+Project merge applies the same duplicate-name rule to globals imported from
+different source files. An imported collision is reported as a duplicate; name
+resolution must not silently select one declaration based on file order.
 
 ### 4.3 Invalid VAR_EXTERNAL
 
@@ -374,6 +384,9 @@ THIS.Something();  // ERROR: THIS only valid inside class/FB
 - Reading a PROPERTY requires a GET accessor; writing a PROPERTY requires a SET accessor.
 - A PROPERTY declaration must include at least one accessor (GET or SET).
 - Methods without a result cannot be used in expressions; PROPERTY access follows the same read/write separation (IEC 61131-3 Ed.3 §6.6.5.4.5).
+- A GET accessor has the declared property result type. A value returned from
+  GET must be compatible with that type.
+- A SET accessor has no result. Returning a value from SET is invalid.
 
 ```
 FUNCTION_BLOCK Example
@@ -413,6 +426,12 @@ END_FUNCTION
 ```
 
 Missing return value in a function with a declared result is an error. (IEC 61131-3 Ed.3, Table 19)
+
+For a function or value-returning method, the declaration name denotes the
+implicit result variable inside its own body. The body may assign and
+subsequently read that variable. A bare `RETURN` is valid only on a control-flow
+path where the result has already been definitely assigned; `RETURN <expr>`
+supplies the result directly.
 
 ### 6.3 CASE Label Errors
 
@@ -566,6 +585,25 @@ by `14-lsp.md`.
 
 Configuration/resource/task declarations and their IEC-aligned validation rules
 are owned by `18-configurations-resources-tasks.md`.
+
+### 12.1 Primary diagnostics and cascade suppression
+
+Semantic analysis continues after an error to find independent problems, but a
+failed prerequisite must not create wrong-reason secondary diagnostics:
+
+- an unresolved source expression reports its resolution error; assignment,
+  operator, unary, or index checks that require the missing type are suppressed;
+- failed constant evaluation for an array bound, index, or subrange reports the
+  evaluator's primary diagnostic, such as division by zero or an unresolved
+  constant; dependent bounds and range diagnostics are suppressed;
+- an ambiguous target reports ambiguity; the analyzer does not choose one
+  candidate and then report type or operation errors for that arbitrary choice;
+- a declaration that resolves to the wrong symbol kind reports the
+  kind/operation error rather than degrading into an undefined-name error; and
+- independent errors whose prerequisites resolved remain reportable.
+
+This is a truST diagnostic-quality contract. IEC defines source validity, but
+does not prescribe this editor-facing diagnostic cascade policy.
 
 ## Implementation Notes for trust-hir
 

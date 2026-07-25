@@ -1,0 +1,62 @@
+schema_version = 1
+id = "IEC_HIR_CONFIG_TASK_001"
+title = "HIR task and program bindings resolve within configuration scope"
+area = "compiler_iec"
+risk = "wrong_result"
+status = "mapped"
+owner = "trust-hir"
+last_reviewed = "2026-07-25"
+claim = "TASK declarations require valid priority, SINGLE, and INTERVAL parameters, while PROGRAM bindings resolve a declared task and a PROGRAM POU in the containing configuration hierarchy."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-hir/src"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_IEC_CONFIG_TASKS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_IEC_CONFIG_TASKS_001"
+
+[[behavior]]
+partition = { equals = "VALID_TASK_AND_PROGRAM_BINDING" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_CONFIG_TASKS_001#3-validation-rules"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Valid task parameters and a program binding to a declared task and PROGRAM type are accepted in the containing hierarchy."
+
+[[behavior]]
+partition = { equals = "INVALID_TASK_PARAMETER" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_CONFIG_TASKS_001#3-validation-rules"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Missing priority, non-BOOL SINGLE, and non-TIME INTERVAL values are invalid task configurations."
+
+[[behavior]]
+partition = { equals = "UNKNOWN_TASK_OR_NON_PROGRAM_TYPE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_CONFIG_TASKS_001#3-validation-rules"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A program binding to an unknown task or a declaration that is not a PROGRAM POU is rejected with the owning semantic diagnostic."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "A complete valid binding case remains to be associated."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Task parameter, unknown-task, and wrong-kind cases await catalog association."

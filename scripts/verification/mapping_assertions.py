@@ -32,6 +32,7 @@ INVENTORY_FIELDS = frozenset(
         "path",
         "test_name",
         "source_digest",
+        "source_digests",
         "assertions",
         "unresolved_assertion_helpers",
     }
@@ -40,6 +41,7 @@ ASSERTION_FIELDS = frozenset(
     {
         "assertion_id",
         "kind",
+        "source_path",
         "function",
         "line",
         "expression_digest",
@@ -48,6 +50,7 @@ ASSERTION_FIELDS = frozenset(
 )
 ASSERTION_ID_RE = re.compile(r"^ASSERT_[A-F0-9]{24}$")
 ST_ASSERTION_RE = re.compile(r"\b(ASSERT_[A-Z0-9_]+)\s*\(")
+ASSERTION_SCHEMA_VERSION = 2
 
 
 def invoke_assertion_inventories(
@@ -157,12 +160,14 @@ def invoke_st_assertion_inventory(
                     "assertion_id": _assertion_id(
                         path=path,
                         name=name,
+                        source_path=path,
                         function=function,
                         kind=kind,
                         line=line,
                         expression_digest=expression_digest,
                     ),
                     "kind": kind,
+                    "source_path": path,
                     "function": function,
                     "line": line,
                     "expression_digest": expression_digest,
@@ -181,17 +186,20 @@ def invoke_st_assertion_inventory(
         }
         inventories.append(
             {
-                "schema_version": 1,
+                "schema_version": ASSERTION_SCHEMA_VERSION,
                 "path": path,
                 "test_name": name,
                 "source_digest": sha256_digest(source_path.read_bytes()),
+                "source_digests": {
+                    path: sha256_digest(source_path.read_bytes())
+                },
                 "assertions": assertions,
                 "unresolved_assertion_helpers": sorted(helper_calls),
             }
         )
     return validate_assertion_batch(
         root,
-        {"schema_version": 1, "inventories": inventories},
+        {"schema_version": ASSERTION_SCHEMA_VERSION, "inventories": inventories},
         facts,
     )
 
@@ -266,23 +274,32 @@ def invoke_conformance_assertion_inventory(
         expression_digest = sha256_digest(expression.encode())
         kind = "golden:conformance_expected"
         function = "conformance_expected"
+        oracle_path = expected_path.relative_to(root).as_posix()
         inventories.append(
             {
-                "schema_version": 1,
+                "schema_version": ASSERTION_SCHEMA_VERSION,
                 "path": path,
                 "test_name": name,
                 "source_digest": sha256_digest(source_path.read_bytes()),
+                "source_digests": {
+                    path: sha256_digest(source_path.read_bytes()),
+                    expected_path.relative_to(root).as_posix(): sha256_digest(
+                        expected_path.read_bytes()
+                    ),
+                },
                 "assertions": [
                     {
                         "assertion_id": _assertion_id(
                             path=path,
                             name=name,
+                            source_path=oracle_path,
                             function=function,
                             kind=kind,
                             line=1,
                             expression_digest=expression_digest,
                         ),
                         "kind": kind,
+                        "source_path": oracle_path,
                         "function": function,
                         "line": 1,
                         "expression_digest": expression_digest,
@@ -294,7 +311,7 @@ def invoke_conformance_assertion_inventory(
         )
     return validate_assertion_batch(
         root,
-        {"schema_version": 1, "inventories": inventories},
+        {"schema_version": ASSERTION_SCHEMA_VERSION, "inventories": inventories},
         facts,
     )
 
@@ -321,14 +338,19 @@ def invoke_rust_assertion_inventory(
         requested.append(
             {
                 "discovery_id": discovery_id,
+                "source_kind": source_kind,
                 "path": _required_string(fact, "path", discovery_id),
                 "name": _required_string(fact, "name", discovery_id),
             }
         )
     request_document = {
-        "schema_version": 1,
+        "schema_version": ASSERTION_SCHEMA_VERSION,
         "tests": [
-            {"path": row["path"], "name": row["name"]}
+            {
+                "path": row["path"],
+                "name": row["name"],
+                "source_kind": row["source_kind"],
+            }
             for row in sorted(
                 requested,
                 key=lambda row: (row["path"], row["name"], row["discovery_id"]),
@@ -374,15 +396,19 @@ def validate_assertion_batch(
     """Validate closed extractor output and bind it to discovery identities."""
 
     _exact_fields(document, ROOT_FIELDS, "assertion batch")
-    if document.get("schema_version") != 1:
-        raise ValueError("assertion batch schema_version must equal 1")
+    if document.get("schema_version") != ASSERTION_SCHEMA_VERSION:
+        raise ValueError(
+            f"assertion batch schema_version must equal {ASSERTION_SCHEMA_VERSION}"
+        )
     inventories = _object_array(document.get("inventories"), "inventories")
     by_key: dict[tuple[str, str], Mapping[str, Any]] = {}
     for index, inventory in enumerate(inventories):
         label = f"inventories[{index}]"
         _exact_fields(inventory, INVENTORY_FIELDS, label)
-        if inventory.get("schema_version") != 1:
-            raise ValueError(f"{label} schema_version must equal 1")
+        if inventory.get("schema_version") != ASSERTION_SCHEMA_VERSION:
+            raise ValueError(
+                f"{label} schema_version must equal {ASSERTION_SCHEMA_VERSION}"
+            )
         path = _required_string(inventory, "path", label)
         name = _required_string(inventory, "test_name", label)
         key = (path, name)
@@ -423,6 +449,49 @@ def validate_assertion_batch(
         expected_source_digest = sha256_digest(source_path.read_bytes())
         if inventory.get("source_digest") != expected_source_digest:
             raise ValueError(f"assertion source digest is stale: {path}")
+        raw_source_digests = inventory.get("source_digests")
+        if (
+            not isinstance(raw_source_digests, Mapping)
+            or not raw_source_digests
+            or any(
+                not isinstance(source, str)
+                or not source
+                or not isinstance(digest, str)
+                for source, digest in raw_source_digests.items()
+            )
+        ):
+            raise ValueError(f"assertion source digests are malformed: {path}")
+        source_digests: dict[str, str] = {}
+        for context_path, digest in sorted(raw_source_digests.items()):
+            context_relative = Path(context_path)
+            if (
+                context_relative.is_absolute()
+                or ".." in context_relative.parts
+                or "\\" in context_path
+                or context_relative.as_posix() != context_path
+            ):
+                raise ValueError(
+                    f"assertion context source path is not canonical: {context_path}"
+                )
+            context_source = (root.resolve() / context_path).resolve()
+            try:
+                context_source.relative_to(root.resolve())
+            except ValueError as error:
+                raise ValueError(
+                    f"assertion context source escapes repository: {context_path}"
+                ) from error
+            if not context_source.is_file() or context_source.is_symlink():
+                raise ValueError(
+                    f"assertion context source must be a regular file: {context_path}"
+                )
+            live_digest = sha256_digest(context_source.read_bytes())
+            if digest != live_digest:
+                raise ValueError(
+                    f"assertion context source digest is stale: {context_path}"
+                )
+            source_digests[context_path] = live_digest
+        if source_digests.get(path) != expected_source_digest:
+            raise ValueError(f"assertion source closure omits selected test: {path}")
         assertions = _object_array(
             inventory.get("assertions"), f"{path}#{name} assertions"
         )
@@ -433,6 +502,9 @@ def validate_assertion_batch(
             _exact_fields(assertion, ASSERTION_FIELDS, label)
             assertion_id = _required_string(assertion, "assertion_id", label)
             kind = _required_string(assertion, "kind", label)
+            assertion_source_path = _required_string(
+                assertion, "source_path", label
+            )
             function = _required_string(assertion, "function", label)
             expression = _required_string(assertion, "expression", label)
             expression_digest = _required_string(
@@ -443,9 +515,20 @@ def validate_assertion_batch(
                 raise ValueError(f"{label} line must be positive")
             if expression_digest != sha256_digest(expression.encode()):
                 raise ValueError(f"{label} expression digest is stale")
+            assertion_source = Path(assertion_source_path)
+            if (
+                assertion_source.is_absolute()
+                or ".." in assertion_source.parts
+                or "\\" in assertion_source_path
+                or assertion_source.as_posix() != assertion_source_path
+            ):
+                raise ValueError(f"{label} source_path is not canonical")
+            if assertion_source_path not in source_digests:
+                raise ValueError(f"{label} source_path is outside source closure")
             expected_id = _assertion_id(
                 path=path,
                 name=name,
+                source_path=assertion_source_path,
                 function=function,
                 kind=kind,
                 line=line,
@@ -468,10 +551,11 @@ def validate_assertion_batch(
                 f"{path}#{name} unresolved assertion helpers must be sorted and unique"
             )
         canonical_inventory = {
-            "schema_version": 1,
+            "schema_version": ASSERTION_SCHEMA_VERSION,
             "path": path,
             "test_name": name,
             "source_digest": expected_source_digest,
+            "source_digests": source_digests,
             "assertions": validated_assertions,
             "unresolved_assertion_helpers": helpers,
         }
@@ -537,13 +621,15 @@ def _assertion_id(
     *,
     path: str,
     name: str,
+    source_path: str,
     function: str,
     kind: str,
     line: int,
     expression_digest: str,
 ) -> str:
     identity = (
-        f"{path}\0{name}\0{function}\0{kind}\0{line}\0{expression_digest}"
+        f"{path}\0{name}\0{source_path}\0{function}\0{kind}\0"
+        f"{line}\0{expression_digest}"
     ).encode()
     return "ASSERT_" + hashlib.sha256(identity).hexdigest()[:24].upper()
 
