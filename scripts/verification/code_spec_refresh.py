@@ -794,6 +794,7 @@ def _semantic_kind(detail: str) -> str | None:
     ):
         return "test_invariant_relation"
     if detail in {
+        "risk acknowledgement body digest changed",
         "risk acknowledgement names invented or stale code identity",
         "acknowledgement names a non-risk code fact",
     }:

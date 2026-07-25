@@ -71,13 +71,22 @@ delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable
 rationale = "For an in-range index, an invalid scalar encoding, empty or multi-scalar string, or non-character replacement returns RuntimeError::TypeMismatch without a replacement value."
 
 [[behavior]]
-partition = { equals = "INDEX_OUTSIDE_SCALAR_RANGE" }
+partition = { equals = "INDEX_BELOW_ONE" }
 case_family = "boundary_low"
 oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#runtime-string-elements"
 outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
-rationale = "Bounds are validated first; an index below 1 or above the scalar count returns RuntimeError::IndexOutOfBounds and cannot mutate the string even when the replacement is also invalid."
+rationale = "Bounds are validated first; an index below 1 returns RuntimeError::IndexOutOfBounds with upper sentinel i64::MAX and cannot mutate the string even when the replacement is also invalid."
+
+[[behavior]]
+partition = { equals = "INDEX_ABOVE_SCALAR_COUNT" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#runtime-string-elements"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Bounds are validated first; an index above the scalar count returns RuntimeError::IndexOutOfBounds with that count as the upper bound and cannot mutate the string even when the replacement is also invalid."
 
 [[behavior]]
 partition = { equals = "VM_AND_STORAGE_REFERENCE_ROUND_TRIP" }

@@ -355,6 +355,49 @@ class CodeSpecRefreshTests(unittest.TestCase):
             risk_group["required_reviewer_roles"],
         )
 
+    def test_standalone_risk_ack_body_drift_routes_to_explicit_review(self) -> None:
+        report = _report()
+        report["digest_rebinds"] = []
+        report["findings"] = [
+            f"{CODE_B}: risk acknowledgement body digest changed"
+        ]
+        report["facts"] = [report["facts"][1]]
+        report["facts"][0]["findings"] = [
+            "risk acknowledgement body digest changed"
+        ]
+        report["summary"]["facts_total"] = 1
+        report["summary"]["findings_total"] = 1
+        code_map = _code_map()
+        code_map["mappings"] = [code_map["mappings"][0]]
+        code_map["mappings"][0]["reviewed_body_digest"] = DIGEST_2
+
+        payload = self.build(report, code_map)
+        schema = json.loads(SCHEMA_PATH.read_text())
+
+        self.assertEqual([], payload["digest_rebind_proposals"])
+        self.assertEqual([], payload["unclassified_findings"])
+        self.assertEqual(1, len(payload["semantic_review_groups"]))
+        risk_group = payload["semantic_review_groups"][0]
+        self.assertEqual("risk_ack_review", risk_group["kind"])
+        self.assertEqual([CODE_B], risk_group["affected_code_ids"])
+        self.assertEqual(["verification"], risk_group["owners"])
+        self.assertEqual(
+            ["risk_owner", "verification_metadata_owner"],
+            risk_group["required_reviewer_roles"],
+        )
+        self.assertEqual([], validate_json_schema_instance(payload, schema))
+        self.assertEqual(
+            [],
+            validate_refresh_proposals(
+                payload,
+                source_report=report,
+                source_report_path="target/frozen/code-spec-coverage.json",
+                source_report_sha256=DIGEST_1,
+                source_code_map=code_map,
+                source_code_map_sha256=DIGEST_2,
+            ),
+        )
+
     def test_schema_rejects_proof_or_automatic_acceptance_fields(self) -> None:
         payload = self.build()
         schema = json.loads(SCHEMA_PATH.read_text())
