@@ -1,0 +1,100 @@
+schema_version = 1
+id = "VM_SEAM_STRING_ELEMENT_001"
+title = "Runtime string operations share one Unicode-scalar element model"
+area = "bytecode_vm"
+risk = "wrong_result"
+status = "implemented"
+owner = "trust-runtime-core"
+last_reviewed = "2026-07-26"
+claim = "Runtime-core string helpers, VM value paths, and VariableStorage references use 1-based Unicode-scalar positions, preserve unaffected elements on writes, and reject unrepresentable narrow or wide elements without producing a replacement value."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = [
+  "crates/trust-runtime-core/src/value/string_semantics.rs",
+  "crates/trust-runtime/src/memory",
+  "crates/trust-runtime/src/runtime/vm/dispatch_refs.rs",
+]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_VM_VALUE_SEMANTICS_001", "SPEC_IEC_DEVIATIONS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_VM_VALUE_SEMANTICS_001#runtime-string-elements"
+
+[[behavior]]
+partition = { equals = "SCALAR_COUNT_AND_LIBRARY_POSITIONS" }
+case_family = "encoding_or_unicode"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#runtime-string-elements"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Counts and standard string positions use Unicode scalar elements rather than UTF-8 bytes or UTF-16 code units."
+
+[[behavior]]
+partition = { equals = "NARROW_INDEX_IN_RANGE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#runtime-string-elements"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A 1-based STRING index reads a scalar that fits CHAR and a successful write replaces exactly the selected scalar."
+
+[[behavior]]
+partition = { equals = "WIDE_INDEX_IN_RANGE" }
+case_family = "encoding_or_unicode"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#runtime-string-elements"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A 1-based WSTRING index reads a scalar that fits WCHAR and a successful write replaces exactly the selected scalar."
+
+[[behavior]]
+partition = { equals = "ELEMENT_EXCEEDS_REQUESTED_WIDTH" }
+case_family = "overflow"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#runtime-string-elements"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A selected scalar outside the requested CHAR or WCHAR width returns RuntimeError::Overflow without a replacement value."
+
+[[behavior]]
+partition = { equals = "INDEX_OUTSIDE_SCALAR_RANGE" }
+case_family = "out_of_range"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#runtime-string-elements"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "An index below 1 or above the scalar count returns RuntimeError::IndexOutOfBounds and cannot mutate the string."
+
+[[behavior]]
+partition = { equals = "VM_AND_STORAGE_REFERENCE_ROUND_TRIP" }
+case_family = "happy_path"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#runtime-string-elements"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "VM value paths and VariableStorage references expose the same Unicode-scalar indexed read/write behavior as runtime core."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Narrow and reference-path read/write behavior awaits catalog association."
+
+[[coverage.cells]]
+dimension = "encoding_or_unicode"
+state = "gap_open"
+rationale = "Scalar counting, string-library positions, and wide read/write behavior await catalog association."
+
+[[coverage.cells]]
+dimension = "overflow"
+state = "gap_open"
+rationale = "Unrepresentable scalar rejection awaits catalog association."
+
+[[coverage.cells]]
+dimension = "out_of_range"
+state = "gap_open"
+rationale = "Indexed bounds rejection awaits catalog association."

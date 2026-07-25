@@ -244,6 +244,31 @@ unless an explicit standard conversion is used; crafted VM input with the
 wrong string-family runtime tag returns `TypeMismatch` before storage and
 reports `runtime_type_mismatch`.
 
+#### 2.3.2 Runtime String Elements
+
+This product contract makes the runtime consequences of the reviewed
+`DEV-017` IEC deviation explicit. It does not create a separate IEC deviation.
+Both `STRING` and `WSTRING` runtime values use Unicode scalar values as their
+element model:
+
+- element positions are 1-based and element counts are Unicode-scalar counts,
+  not UTF-8 byte or UTF-16 code-unit counts;
+- `LEFT`, `RIGHT`, `MID`, `INSERT`, `DELETE`, `REPLACE`, and `FIND` use those
+  scalar positions and counts, and `FIND` returns zero when no match exists;
+- indexed `STRING` reads materialize `CHAR` when the selected scalar fits
+  `u8`; indexed `WSTRING` reads materialize `WCHAR` when it fits `u16`;
+- a selected scalar that does not fit the requested `CHAR` or `WCHAR` width
+  returns `RuntimeError::Overflow` without producing a replacement value;
+- an index below 1 or above the current scalar count returns
+  `RuntimeError::IndexOutOfBounds` with lower bound 1 and the current scalar
+  count as the upper bound; and
+- a successful indexed write replaces exactly one scalar and preserves all
+  other scalar values.
+
+Direct VM value paths and `VariableStorage` references apply the same indexed
+read/write rules as the runtime-core helpers. A failed conversion or bounds
+check cannot mutate the referenced string.
+
 #### 2.4 Subrange Runtime Writes
 
 Subrange lower and upper bounds are inclusive. Constant initializers outside

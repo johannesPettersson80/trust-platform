@@ -1533,6 +1533,9 @@ covers = [
   "bounded_string_runtime_writes",
   "string_bound_write_semantics",
   "bounded_string_family_rejection",
+  "runtime_string_element_semantics",
+  "runtime_string_indexing",
+  "runtime_string_reference_propagation",
   "subrange_runtime_write_enforcement",
   "subrange_runtime_write_semantics",
   "real_binary_arithmetic_overflow",
@@ -1623,6 +1626,7 @@ last_reviewed = "2026-07-22"
 covers = [
   "iec_deviations",
   "integer_runtime_operand_normalization",
+  "runtime_string_element_semantics",
   "vendor_extensions",
   "unsigned_integer_result_materialization",
   "watchdog_output_commit",
