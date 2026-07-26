@@ -349,6 +349,147 @@ package, or end-to-end evidence.
   concise text and complete recovery help. Filter wording is neutral and
   grammatically correct.
 
+### 5.5 Graph authority, evidence, and identity
+
+- The extension MUST contribute the internal command
+  `trust-lsp.networkCanvas.open`; its user-facing title remains
+  `Open Devices & Connections`. Devices & Connections owns communication
+  setup in-canvas and MUST NOT import, invoke, or direct users to the retired
+  Communication panel.
+- Wizard-stage progression alone MUST NOT manufacture `running`,
+  `connected`, or green state. A runtime becomes running/connected only from
+  runtime lifecycle evidence. A field device becomes connected only after the
+  runtime reports real I/O values.
+- Runtime health MUST roll up raw endpoint health before any display search or
+  protocol filter. Host health represents machine reachability and MUST NOT
+  inherit a child endpoint's degraded state.
+- Search is non-destructive: nonmatching endpoints, their external
+  counterparts, and their wires are dimmed for presentation while their raw
+  health and warnings remain in the runtime rollup. Protocol filtering MAY
+  remove nodes from the visible count, but MUST report hidden endpoint,
+  attention, fault, warning, and error counts.
+- Connector state, health, confidence, and point counts MUST survive topology
+  projection into endpoint-node data. Product labels include `Ready`,
+  `Needs attention`, `OK`, `Degraded`, `Port reachable only`, and
+  `Known address`; raw values such as `port_reachable`, `tcp_connect`, and
+  `tcp-only` MUST NOT be shown. Signal summaries report good points separately
+  and combine degraded and unavailable points as `<N> need attention`, for
+  example `1 good, 2 need attention`.
+- A reachable local host is headed `This computer`; a reachable remote host is
+  headed `Computer <IP>`. The raw hostname remains supporting detail. An
+  unreachable configured peer keeps its configured label and MUST NOT be
+  relabelled `This computer`.
+
+### 5.6 Graph projection, merge, and fallback
+
+- Fleet projection MUST preserve host, runtime, endpoint, shared-system,
+  external-system, and link identities. A runtime MUST NOT also appear as an
+  external system, unrelated external systems remain visible, and every
+  emitted link endpoint MUST name an emitted node.
+- Merging fleet snapshots uses the highest input schema version, unions hosts
+  and runtimes by identity, deduplicates links and external systems by
+  identity, and unions each shared system's `used_by` set. Configured and live
+  endpoints for the same runtime remain on that runtime.
+- A configured endpoint overlaid on a running simulator retains the running
+  runtime state and explains that restart is required; it MUST NOT report the
+  runtime as stopped.
+- A configured but unreachable peer is synthesized as `unknown`, never green
+  or assumed stopped. Authentication failure is an error with distinct
+  missing-token and rejected-token recovery text. A reachable peer uses its
+  real topology instead of a synthetic node, and a target without an endpoint
+  produces no peer node.
+- Synthetic authentication-error nodes retain their control endpoint for
+  inspector actions. Peer topology failure remains an inline error while the
+  local view stays visible.
+- A new project without a configured runtime shows one neutral local
+  `Simulator` node. A stopped local control socket is a neutral stopped state,
+  leaks no socket path, and does not consume the fault channel. A running
+  local simulator is connected.
+- Live local-simulator topology replaces the matching stopped project overlay
+  rather than creating a twin. Configured endpoints waiting for restart remain
+  visible, duplicate live endpoints are removed, and raw Structured Text
+  resource names do not replace the `Simulator` product identity even when
+  runtime mode is absent.
+- Managed local runtimes share the existing `This computer` host. Selection is
+  projected as one run-target flag. A managed runtime already present in fleet
+  topology is not duplicated and retains managed ownership, lifecycle, and
+  log controls. A different live managed runtime does not erase the stopped
+  project runtime.
+
+### 5.7 Link and counterpart truth
+
+- Dashing means live topology is not yet proven. Only an established
+  `connected`, `degraded`, or `error` status proves a point-to-point link and
+  renders it solid; every other status, including an unrecognized future
+  status, fails closed and renders dashed. A proven link expresses health
+  through its distinct status tone and detail.
+- A mesh fabric remains draft and dashed unless every peer has an established
+  `connected`, `degraded`, or `error` status. Every other peer status,
+  including an unrecognized future status, fails closed as unproven. A
+  multi-peer fabric shows its shared-bus label; a single-peer fabric suppresses
+  the redundant label and centers its endpoint handle.
+- External nodes use product protocol names rather than driver identifiers.
+  Client links name the remote server (`ADS server`, `OPC UA server`); server
+  links name the remote client (`OPC UA client`). Local simulated and loopback
+  endpoint titles are `Simulated I/O` and `Loopback I/O`, leaving the I/O role
+  to the node band.
+
+### 5.8 Server configuration and evidence
+
+- Offline ADS tag import MUST enable `[runtime.ads]`, set
+  `config_path = "ads.toml"`, and use
+  `worker_tick_interval_ms = 20`.
+- Server summaries answer where the server listens and what it exposes. ADS
+  summaries include endpoint, AMS Net ID, ADS port, connected-client count,
+  and whether evidence is only self-test or independently verified.
+- Live ADS server evidence, including connected-client and verifier fields,
+  MUST survive topology, canvas, and rendered endpoint-node projection.
+- Re-applying ADS or OPC UA server configuration MUST remove topology-only and
+  secret-presence evidence such as `clients_count`, `clients_summary`, and
+  `username_set`; it preserves configured exposure and adds reviewed writable
+  names only.
+
+### 5.9 Forms and add-picker taxonomy
+
+- Editing a rejected add form hides only its stale apply fault; unrelated
+  live faults remain visible.
+- A conditional schema field is rendered, required, validated, and serialized
+  only while its `visible_when` predicate matches the selected backend.
+- Runtime discovery is a separate action, not a protocol card. Empty picker
+  groups are omitted. Unknown protocols are never dropped and appear last in
+  an advanced `Other choices` group.
+- The canonical nonempty group order is `Devices and I/O`,
+  `Read tags from another PLC or server`, `Share truST values`,
+  `Send and receive messages`, and `Advanced integrations`.
+- Within the tested canonical taxonomy, `Devices and I/O` orders Modbus TCP
+  before GPIO; client choices belong to `Read tags from another PLC or
+  server`, server choices belong to `Share truST values`, MQTT belongs to
+  `Send and receive messages`, and Mesh / Zenoh belongs to
+  `Advanced integrations`.
+- OPC UA server/client cards use `UA OUT`/`UA IN`; ADS server/client cards use
+  `ADS OUT`/`ADS IN`. Direction copy explains sharing values versus reading
+  tags.
+- Advanced entries use the product titles `Mesh / Zenoh`, `OpenOT`,
+  `Realtime T0`, and `Runtime cloud`, with badges `MESH`, `OT`, `RT`, and
+  `CLOUD`. Their purpose copy respectively explains peer networking, OpenOT
+  evidence, deterministic exchange, and federation without backend-review
+  language.
+- Canvas protocol names spell out `ADS client` and `ADS server`. Equivalent
+  benign ADS and OPC UA server endpoints share a non-alarm accent.
+
+### 5.10 Failure and recovery truth
+
+- Runtime start failure preserves the graph, marks the runtime node as error,
+  and exposes an inline retry action rather than replacing the surface with a
+  failure screen.
+- Start failures classify missing executable, address/port conflict,
+  workspace permission, stale runtime/timeout, and other spawn failure as
+  `missing_binary`, `port_conflict`, `workspace_permission`,
+  `stale_runtime`, and `failed_spawn` respectively.
+- An unreachable OPC UA client test reports that the OPC UA server is not
+  reachable and MUST NOT expose raw backend status tokens such as
+  `BadNotConnected`.
+
 ## 6. Sidebar actions, Compile, update, and authentication
 
 ### 6.1 Fixed action row
@@ -476,7 +617,9 @@ package, or end-to-end evidence.
 - Ladder contacts/coils resolve mapped variables and show symbol and address
   separately. Edit strokes are neutral; live power flow owns live wire color.
 - The EtherCAT ladder fixture maps `%MX1.0` to the symbol `Step0Active`.
-- Dashed treatment is reserved for draft/unproven topology.
+- Dashed treatment denotes missing live topology proof. Devices & Connections
+  follows section 5.7; an established degraded or error link remains solid and
+  communicates health through semantic status treatment.
 - Blockly derives workspace, toolbox, flyout, block, and category presentation
   from shared theme and counts all live workspace blocks.
 

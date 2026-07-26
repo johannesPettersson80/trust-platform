@@ -422,7 +422,10 @@ suite("Network Canvas", function () {
     }
     graph.external.forEach((x) => ids.add(x.id));
     for (const link of graph.links) {
-      assert.ok(ids.has(link.from) || ids.has(link.to), `link ${link.id} references known nodes`);
+      assert.ok(
+        ids.has(link.from) && ids.has(link.to),
+        `link ${link.id} references known nodes`
+      );
     }
   });
 
@@ -488,6 +491,42 @@ suite("Network Canvas", function () {
           status: "connected",
           secure: false,
         },
+        {
+          id: "link:degraded",
+          from: "endpoint:ads",
+          to: "external:ads",
+          protocol: "ads",
+          role: "client",
+          status: "degraded",
+          secure: false,
+        },
+        {
+          id: "link:configured",
+          from: "endpoint:ads",
+          to: "external:ads",
+          protocol: "ads",
+          role: "client",
+          status: "configured_policy",
+          secure: false,
+        },
+        {
+          id: "link:error",
+          from: "endpoint:ads",
+          to: "external:ads",
+          protocol: "ads",
+          role: "client",
+          status: "error",
+          secure: false,
+        },
+        {
+          id: "link:future-status",
+          from: "endpoint:ads",
+          to: "external:ads",
+          protocol: "ads",
+          role: "client",
+          status: "future_status",
+          secure: false,
+        },
       ],
       external: [
         { id: "external:openot", name: "openot peer", kind: "server" },
@@ -497,10 +536,22 @@ suite("Network Canvas", function () {
     });
     const draftEdge = graph.edges.find((edge) => edge.id === "link:openot");
     const liveEdge = graph.edges.find((edge) => edge.id === "link:ads");
+    const degradedEdge = graph.edges.find((edge) => edge.id === "link:degraded");
+    const configuredEdge = graph.edges.find((edge) => edge.id === "link:configured");
+    const errorEdge = graph.edges.find((edge) => edge.id === "link:error");
+    const futureStatusEdge = graph.edges.find((edge) => edge.id === "link:future-status");
     assert.ok(draftEdge, "expected the pending openot wire");
     assert.ok(liveEdge, "expected the connected ads wire");
     assert.strictEqual(draftEdge?.data?.dashed, true, "a pending link must render dashed, not as a live connection");
     assert.ok(!liveEdge?.data?.dashed, "a connected link must render solid");
+    assert.strictEqual(configuredEdge?.data?.dashed, true, "configured intent is not a proven live link");
+    assert.ok(!degradedEdge?.data?.dashed, "a proven degraded link stays solid and uses health styling");
+    assert.ok(!errorEdge?.data?.dashed, "a proven failed link stays solid and uses error styling");
+    assert.strictEqual(
+      futureStatusEdge?.data?.dashed,
+      true,
+      "an unrecognized status must fail closed as unproven"
+    );
   });
 
   test("draft/pending mesh peers drop a dashed bus wire; connected peers stay solid", () => {
@@ -541,6 +592,15 @@ suite("Network Canvas", function () {
                   health: "connected",
                   detail: "",
                 },
+                {
+                  id: "endpoint:mesh-future",
+                  kind: "field",
+                  protocol: "mesh",
+                  name: "Mesh (future status)",
+                  role: "peer",
+                  health: "future_status",
+                  detail: "",
+                },
               ],
             },
           ],
@@ -552,11 +612,13 @@ suite("Network Canvas", function () {
     });
     const draftMesh = graph.edges.find((edge) => edge.id === "mesh-endpoint:mesh-draft");
     const liveMesh = graph.edges.find((edge) => edge.id === "mesh-endpoint:mesh-live");
+    const futureMesh = graph.edges.find((edge) => edge.id === "mesh-endpoint:mesh-future");
     const meshBus = graph.nodes.find((node) => node.id === "bus:mesh");
     assert.ok(draftMesh, "expected a bus wire for the draft mesh peer");
     assert.ok(liveMesh, "expected a bus wire for the live mesh peer");
     assert.strictEqual(draftMesh?.data?.dashed, true, "a pending mesh peer must render dashed");
     assert.strictEqual(liveMesh?.data?.dashed, true, "a mixed draft/live fabric stays dashed until all peers are live");
+    assert.strictEqual(futureMesh?.data?.dashed, true, "an unrecognized mesh status must fail closed as unproven");
     assert.strictEqual(meshBus?.data?.draft, true, "mesh fabric must visibly carry the DRAFT state");
     assert.strictEqual(meshBus?.data?.showLabel, true, "a multi-peer mesh fabric needs its shared-bus label");
     assert.notStrictEqual(meshBus?.data?.color, "rgb(137,209,133)", "draft fabric must not use the live green");
@@ -968,11 +1030,12 @@ suite("Network Canvas", function () {
           secure: false,
         },
       ],
-      external: [{ id: "external:ads:server", name: "TwinCAT 5.23.91.12.1.1", kind: "server" }],
+      external: [{ id: "external:ads:server", name: "ads server", kind: "server" }],
       faults: [],
     });
     const external = graph.nodes.find((node) => node.id === "external:ads:server");
     assert.ok(external, "expected external ADS server node");
+    assert.strictEqual(external?.data.label, "ADS server");
     assert.strictEqual(external?.data.sub, "ADS server");
     assert.notStrictEqual(external?.data.sub, "ADS client server");
   });

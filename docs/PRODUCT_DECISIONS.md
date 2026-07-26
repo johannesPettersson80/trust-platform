@@ -133,3 +133,24 @@ IEC or PLCopen deviation log merely because truST owns the behavior.
 - Reason:
   - Addition is a primary workflow. Duplicate runtime panes create conflicting
     lifecycle and safety controls while adding no execution capability.
+
+## 2026-07-26 - Devices and Connections link certainty
+
+- Area: VS Code Devices & Connections graph
+- Decision:
+  - Dashing represents missing live topology proof, not connection health.
+  - Only an established connected, degraded, or error status proves topology
+    and renders solid. Every other status, including an unrecognized future
+    status, fails closed and renders dashed.
+  - A mesh fabric remains dashed until every peer has an established connected,
+    degraded, or error status. Other and unrecognized statuses are unproven.
+- Supersedes:
+  - The narrower wording in `docs/specs/25-vscode-product-contract.md` that
+    did not separate connection proof from connection health.
+  - The implementation behavior that dashed established degraded and error
+    links while rendering configured-only links as solid.
+- Reason:
+  - Line style answers whether a connection has been proven to exist. Semantic
+    status answers whether that proven connection is healthy. Keeping those
+    dimensions separate prevents a real degraded connection from looking like
+    an uncommitted draft.

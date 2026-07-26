@@ -59,12 +59,25 @@ function externalLabel(ext: NCExternal, links: readonly NCLink[]): string {
     link.protocol.replace(/_/g, " ").toLowerCase(),
   ]);
   const lower = name.toLowerCase();
+  const directional = new Set(["ads", "ads_server", "opcua", "opcua_client"]).has(
+    link.protocol
+  );
+  const renderedProtocol = directional
+    ? externalSub(ext.id, links)
+    : protocolName(link.protocol);
+  const renderedLower = renderedProtocol.toLowerCase();
+  if (directional && lower === renderedLower) {
+    return renderedProtocol;
+  }
+  if (directional && lower.startsWith(`${renderedLower} `)) {
+    return `${renderedProtocol}${name.slice(renderedProtocol.length)}`;
+  }
   for (const raw of rawProtocolNames) {
     if (lower === raw) {
-      return protocolName(link.protocol);
+      return renderedProtocol;
     }
     if (lower.startsWith(`${raw} `)) {
-      return `${protocolName(link.protocol)}${name.slice(raw.length)}`;
+      return `${renderedProtocol}${name.slice(raw.length)}`;
     }
   }
   return name;
@@ -457,6 +470,9 @@ export function buildGraph(
     extX += EXT_W + 28;
   }
 
+  const topologyIsProven = (status: string): boolean =>
+    ["connected", "degraded", "error"].includes(status);
+
   // One cased wire per link, each on its own lane (centerY).
   const edges: Edge[] = [];
   wireLinks.forEach((link, lane) => {
@@ -471,7 +487,7 @@ export function buildGraph(
       type: "cased",
       data: {
         color: stroke,
-        dashed: link.status === "error" || link.status === "degraded" || link.status === "pending" || link.status === "draft",
+        dashed: !topologyIsProven(link.status),
         centerY: channelTop + lane * LANE_GAP,
         dimmed: linkDimmed(link),
       },
@@ -482,9 +498,7 @@ export function buildGraph(
 
   // Mesh fabric: every mesh peer drops straight down onto one shared bus-bar (§0.2/§4.4).
   if (meshEndpoints.length > 0) {
-    const meshDraft = meshEndpoints.some((endpoint) =>
-      ["pending", "draft", "configured_policy", "not_configured", "unknown"].includes(endpoint.status)
-    );
+    const meshDraft = meshEndpoints.some((endpoint) => !topologyIsProven(endpoint.status));
     const meshColor = meshDraft ? t.protocolMuted : protocolColor("mesh");
     const pad = 36;
     const naturalMinX = Math.min(...meshEndpoints.map((e) => e.cx)) - pad;

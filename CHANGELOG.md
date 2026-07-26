@@ -25,6 +25,9 @@ Target release: `v0.24.55`
   debt classifications, while large accepted batches update catalog,
   denominator, and invariant links once per file instead of reparsing each
   growing ledger once per test.
+- VS Code: Devices & Connections now keeps established degraded and failed
+  links solid while using semantic health styling, and renders configured-only
+  links dashed so line style consistently represents topology proof.
 - trust-runtime: registry publish help now describes standard bundle detection
   instead of claiming a current-directory fallback.
 - trust-runtime: `hmi init`, `hmi update`, and `hmi reset` now preserve standard

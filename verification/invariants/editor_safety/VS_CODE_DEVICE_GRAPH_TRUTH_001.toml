@@ -1,0 +1,433 @@
+schema_version = 1
+id = "VS_CODE_DEVICE_GRAPH_TRUTH_001"
+title = "Devices and Connections preserves evidence, identity, and recovery truth"
+area = "editor_safety"
+risk = "usability"
+status = "mapped"
+owner = "editors-vscode"
+last_reviewed = "2026-07-26"
+claim = "The shipped Devices and Connections graph must preserve real lifecycle and connector evidence, stable topology identity, honest link certainty, user-facing configuration, and recoverable failure state."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = [
+  "editors/vscode/src/test/suite/network-canvas.test.ts",
+  "SPEC_VSCODE_PRODUCT_CONTRACT_001",
+]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = [
+  "cataloged_behavior_tests",
+  "rendered_ui_journeys",
+  "accessibility_and_contrast",
+  "broad_remote_gate",
+]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+
+[[behavior]]
+partition = { equals = "SURFACE_COMMAND" }
+case_family = "missing_required"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#55-graph-authority-evidence-and-identity"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The extension contributes the stable Devices and Connections command route."
+
+[[behavior]]
+partition = { equals = "STATE_NO_FABRICATION" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#55-graph-authority-evidence-and-identity"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }
+rationale = "Wizard stages never add running or connected state without evidence."
+
+[[behavior]]
+partition = { equals = "RUNTIME_LIFECYCLE_EVIDENCE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#55-graph-authority-evidence-and-identity"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Runtime lifecycle state becomes green only after current running evidence."
+
+[[behavior]]
+partition = { equals = "DEVICE_IO_EVIDENCE" }
+case_family = "hardware_or_network_fault"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#55-graph-authority-evidence-and-identity"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }
+rationale = "A field device remains pending until real I/O values have been observed."
+
+[[behavior]]
+partition = { equals = "HEALTH_ROLLUP_SHAPE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#55-graph-authority-evidence-and-identity"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }
+rationale = "Endpoint health rolls up to the runtime while host health remains reachability."
+
+[[behavior]]
+partition = { equals = "HOST_IDENTITY" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#55-graph-authority-evidence-and-identity"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Local, remote, and unreachable configured hosts keep truthful product headings."
+
+[[behavior]]
+partition = { equals = "SEARCH_HEALTH_PRESERVATION" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#55-graph-authority-evidence-and-identity"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }
+rationale = "Search presentation does not remove raw endpoint health from the runtime rollup."
+
+[[behavior]]
+partition = { equals = "CONNECTOR_METADATA_SHAPE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#55-graph-authority-evidence-and-identity"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }
+rationale = "Connector state, health, confidence, and point counts survive graph projection."
+
+[[behavior]]
+partition = { equals = "ADS_IMPORT_PERSISTENCE" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#58-server-configuration-and-evidence"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Offline ADS import enables the runtime subsystem with its reviewed sidecar and worker settings."
+
+[[behavior]]
+partition = { equals = "CONNECTOR_COPY_SHAPE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#55-graph-authority-evidence-and-identity"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Connector and discovery evidence is translated into exact first-user labels and signal summaries."
+
+[[behavior]]
+partition = { equals = "SEARCH_COUNTERPART_PRESERVATION" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#55-graph-authority-evidence-and-identity"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }
+rationale = "Search dims endpoints, counterparts, and wires without erasing warnings."
+
+[[behavior]]
+partition = { equals = "STALE_APPLY_FAULT" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#59-forms-and-add-picker-taxonomy"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "fault_visible" }
+rationale = "Editing clears only the stale apply fault and preserves independent live faults."
+
+[[behavior]]
+partition = { equals = "GRAPH_PROJECTION_COMPLETENESS" }
+case_family = "missing_required"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#56-graph-projection-merge-and-fallback"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Fleet projection includes required host, runtime, endpoint, external, shared, link, and fault facts."
+
+[[behavior]]
+partition = { equals = "GRAPH_RUNTIME_DEDUPLICATION" }
+case_family = "duplicate_or_collision"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#56-graph-projection-merge-and-fallback"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A logical runtime appears once and is not duplicated as an external system."
+
+[[behavior]]
+partition = { equals = "GRAPH_LINK_CLOSURE" }
+case_family = "missing_required"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#56-graph-projection-merge-and-fallback"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Every emitted link has both source and target nodes in the rendered graph."
+
+[[behavior]]
+partition = { equals = "POINT_LINK_CERTAINTY" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#57-link-and-counterpart-truth"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }
+rationale = "Point-to-point line style represents topology proof separately from connection health."
+
+[[behavior]]
+partition = { equals = "MESH_CERTAINTY" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#57-link-and-counterpart-truth"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }
+rationale = "Mesh bus and drop line style fails closed unless every peer has established topology proof."
+
+[[behavior]]
+partition = { equals = "COUNTERPART_LABEL_SHAPE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#57-link-and-counterpart-truth"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "External and local endpoint labels express product protocol and counterpart direction."
+
+[[behavior]]
+partition = { equals = "SERVER_SUMMARY_SHAPE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#58-server-configuration-and-evidence"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Server summaries expose endpoint, identity, client count, and verification truth."
+
+[[behavior]]
+partition = { equals = "SERVER_LIVE_EVIDENCE_SHAPE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#58-server-configuration-and-evidence"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "ADS live-client and verifier evidence survives every graph projection layer."
+
+[[behavior]]
+partition = { equals = "FILTER_HIDDEN_COUNTS" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#55-graph-authority-evidence-and-identity"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }
+rationale = "Protocol filtering reports hidden endpoint, attention, fault, warning, and error counts."
+
+[[behavior]]
+partition = { equals = "FLEET_IDENTITY_MERGE" }
+case_family = "duplicate_or_collision"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#56-graph-projection-merge-and-fallback"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Fleet merge unions stable identities and keeps configured endpoints beside live runtime evidence."
+
+[[behavior]]
+partition = { equals = "OFFLINE_PEER_RECOVERY" }
+case_family = "hardware_or_network_fault"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#56-graph-projection-merge-and-fallback"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }
+rationale = "Unreachable and authentication-failed peers remain honestly visible and actionable without hiding the local graph."
+
+[[behavior]]
+partition = { equals = "LOCAL_SIMULATOR_LIFECYCLE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#56-graph-projection-merge-and-fallback"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The local simulator reports stopped and running lifecycle states without inventing alarm state."
+
+[[behavior]]
+partition = { equals = "MANAGED_RUNTIME_IDENTITY" }
+case_family = "duplicate_or_collision"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#56-graph-projection-merge-and-fallback"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Managed runtimes share the local host, deduplicate against fleet identity, and preserve distinct project runtimes."
+
+[[behavior]]
+partition = { equals = "RUN_TARGET_LIFECYCLE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#56-graph-projection-merge-and-fallback"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Selection and managed lifecycle state remain attached to exactly the corresponding runtime."
+
+[[behavior]]
+partition = { equals = "RUNTIME_START_RECOVERY" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#510-failure-and-recovery-truth"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "fault_visible" }
+rationale = "Runtime start failures preserve the graph, classify actionable causes, and expose inline retry."
+
+[[behavior]]
+partition = { equals = "OPCUA_TEST_RECOVERY" }
+case_family = "hardware_or_network_fault"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#510-failure-and-recovery-truth"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }
+rationale = "OPC UA reachability failure produces product recovery text without raw status tokens."
+
+[[behavior]]
+partition = { equals = "SURFACE_OWNERSHIP" }
+case_family = "missing_required"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#55-graph-authority-evidence-and-identity"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Communication authoring remains in Devices and Connections without reviving the retired panel."
+
+[[behavior]]
+partition = { equals = "CONDITIONAL_SCHEMA_SHAPE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#59-forms-and-add-picker-taxonomy"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "fault_visible" }
+rationale = "Conditional fields participate in rendering, validation, and submission only for the selected backend."
+
+[[behavior]]
+partition = { equals = "PICKER_GROUP_ORDER" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#59-forms-and-add-picker-taxonomy"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The add picker preserves canonical intent-group and within-group order while omitting empty groups."
+
+[[behavior]]
+partition = { equals = "PICKER_FALLBACK" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#59-forms-and-add-picker-taxonomy"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Discovery is excluded from protocol cards and unknown protocols remain in a trailing Other choices group."
+
+[[behavior]]
+partition = { equals = "PICKER_COPY_SHAPE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#59-forms-and-add-picker-taxonomy"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Picker direction, titles, badges, purpose copy, and canvas protocol names use reviewed product language."
+
+[[behavior]]
+partition = { equals = "SERVER_REAPPLY_PERSISTENCE" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#58-server-configuration-and-evidence"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Server reapply preserves authored configuration while removing derived and secret-presence evidence."
+
+[[behavior]]
+partition = { equals = "MESH_SINGLE_PEER_SHAPE" }
+case_family = "boundary_low"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#57-link-and-counterpart-truth"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A one-peer mesh suppresses the redundant shared-bus label and centers its only handle."
+
+[[behavior]]
+partition = { equals = "CONFIGURED_OVERLAY_LIFECYCLE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#56-graph-projection-merge-and-fallback"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }
+rationale = "Configured endpoints merged onto a live runtime remain pending and explain that restart is required."
+
+[[behavior]]
+partition = { equals = "LOCAL_SIMULATOR_PRESENCE" }
+case_family = "missing_required"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#56-graph-projection-merge-and-fallback"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A new project projects the required local simulator instead of an empty graph."
+
+[[behavior]]
+partition = { equals = "LOCAL_SIMULATOR_OVERLAY_IDENTITY" }
+case_family = "duplicate_or_collision"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#56-graph-projection-merge-and-fallback"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Live simulator evidence replaces its stopped project overlay without duplicating the simulator or its endpoints."
+
+[[behavior]]
+partition = { equals = "LOCAL_SIMULATOR_LABEL_SHAPE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#56-graph-projection-merge-and-fallback"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The local simulator keeps its product label when live evidence lacks mode and carries a raw ST resource name."
+
+[[behavior]]
+partition = { equals = "RUNTIME_START_CLASSIFICATION_SHAPE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#510-failure-and-recovery-truth"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "fault_visible" }
+rationale = "Runtime start error strings classify into the exact actionable product failure kind."
+
+[[behavior]]
+partition = { equals = "PICKER_EMPTY_GROUPS" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#59-forms-and-add-picker-taxonomy"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The add picker omits empty intent groups while retaining a separate advanced group when it has choices."
+
+[[behavior]]
+partition = { equals = "OFFLINE_PEER_PRESENCE" }
+case_family = "missing_required"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#56-graph-projection-merge-and-fallback"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }
+rationale = "An added configured fleet peer remains present when the local simulator is stopped."
+
+[[behavior]]
+partition = { equals = "AUTH_FAILED_PEER_ACTION_SHAPE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#56-graph-projection-merge-and-fallback"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "fault_visible" }
+rationale = "An authentication-failed synthetic runtime retains the control endpoint required by inspector recovery actions."
+
+[[behavior]]
+partition = { equals = "UNRECOGNIZED_POINT_LINK_STATUS" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#57-link-and-counterpart-truth"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }
+rationale = "An unrecognized point-link status fails closed as unproven and renders dashed."
+
+[[behavior]]
+partition = { equals = "UNRECOGNIZED_MESH_STATUS" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#57-link-and-counterpart-truth"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }
+rationale = "An unrecognized mesh-peer status fails closed and keeps the fabric dashed."
+
+[[coverage.cells]]
+dimension = "missing_required"
+state = "gap_open"
+rationale = "Awaiting catalog acceptance."
+
+[[coverage.cells]]
+dimension = "extra_or_unknown"
+state = "gap_open"
+rationale = "Awaiting catalog acceptance."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "Awaiting catalog acceptance."
+
+[[coverage.cells]]
+dimension = "hardware_or_network_fault"
+state = "gap_open"
+rationale = "Awaiting catalog acceptance."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Awaiting catalog acceptance."
+
+[[coverage.cells]]
+dimension = "persistence_or_recovery"
+state = "gap_open"
+rationale = "Awaiting catalog acceptance."
+
+[[coverage.cells]]
+dimension = "duplicate_or_collision"
+state = "gap_open"
+rationale = "Awaiting catalog acceptance."
+
+[[coverage.cells]]
+dimension = "boundary_low"
+state = "gap_open"
+rationale = "Awaiting catalog acceptance."
