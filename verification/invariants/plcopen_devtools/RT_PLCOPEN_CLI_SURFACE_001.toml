@@ -1,0 +1,69 @@
+schema_version = 1
+id = "RT_PLCOPEN_CLI_SURFACE_001"
+title = "PLCopen CLI parsing preserves interchange paths and target selection"
+area = "plcopen_devtools"
+risk = "compatibility"
+status = "planned"
+owner = "trust-runtime"
+last_reviewed = "2026-07-26"
+claim = "The PLCopen CLI preserves export and import path choices, defaults omitted export targets to generic, and maps explicit vendor target selections without entering another interchange action."
+proof_level = "T1"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-runtime/src/bin/trust-runtime/cli/plcopen.rs"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = [
+  "catalog_mapping",
+  "allen_bradley_schneider_alias_parse_matrix",
+  "invalid_target_rejection",
+  "assertion_reachability",
+  "mutation_sensitivity",
+  "broad_remote_gate",
+]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#plcopen-cli-surface-contract"
+
+[[behavior]]
+partition = { equals = "EXPORT_WITH_DEFAULT_GENERIC_TARGET" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#plcopen-cli-surface-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "Export preserves the supplied project, output path, and JSON choice and selects generic when the target is omitted."
+
+[[behavior]]
+partition = { equals = "EXPORT_WITH_EXPLICIT_SIEMENS_TARGET" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#plcopen-cli-surface-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "An explicit Siemens target is preserved as the Siemens export-target variant without changing the selected action or paths."
+
+[[behavior]]
+partition = { equals = "IMPORT_WITH_EXPLICIT_INPUT" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#plcopen-cli-surface-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "Import preserves the required input XML path, optional project, and JSON choice without selecting export or another action."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Reviewed parser assignments are ready for generated catalog mapping."
+
+[[coverage.cells]]
+dimension = "extra_or_unknown"
+state = "gap_open"
+rationale = "The complete target-alias matrix and invalid-target rejection remain explicit focused-test debt."

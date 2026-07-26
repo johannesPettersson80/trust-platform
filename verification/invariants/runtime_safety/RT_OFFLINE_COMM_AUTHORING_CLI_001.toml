@@ -5,11 +5,15 @@ area = "runtime_safety"
 risk = "false_status"
 status = "mapped"
 owner = "trust-runtime"
-last_reviewed = "2026-07-23"
-claim = "Each offline communication CLI action invokes its matching operation and prints only a successful JSON result; malformed local payloads and snapshots fail before success, and a freshly rendered runtime template remains valid for offline topology and apply."
+last_reviewed = "2026-07-26"
+claim = "Each offline communication CLI action preserves its selected arguments and safe defaults, invokes its matching operation, and prints only a successful JSON result; malformed local payloads and snapshots fail before success, and a freshly rendered runtime template remains valid for offline topology and apply."
 proof_level = "T1"
 contract_kind = "protocol_trace"
-source_refs = ["crates/trust-runtime/src/bin/trust-runtime/comm.rs", "crates/trust-runtime/src/host/bundle_template.rs"]
+source_refs = [
+  "crates/trust-runtime/src/bin/trust-runtime/comm.rs",
+  "crates/trust-runtime/src/bin/trust-runtime/cli/comm.rs",
+  "crates/trust-runtime/src/host/bundle_template.rs",
+]
 tests = [
   "TEST_OFFLINE_COMM_AUTHORING_CLI_COMM_CLI_RUNS_SCHEMA_APPLY_TOPOLOGY_AND_CACHED_BROWSE_OFFLINE_001",
   "TEST_OFFLINE_COMM_AUTHORING_CLI_COMM_CLI_VALIDATES_PAYLOADS_AND_MANAGES_THE_SELECTED_OPCUA_TRUST_STORE_001",
@@ -55,10 +59,28 @@ no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
 rationale = "A newly rendered runtime template omits an unset mesh secret and remains valid when offline apply is followed by topology."
 
+[[behavior]]
+partition = { equals = "SCHEMA_OR_APPLY_CLI_ARGUMENTS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-offline-communication-authoring-client"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "Schema preserves its optional protocol filter and JSON choice; apply preserves the project, protocol, parameter object text, action, optional instance identity, and JSON choice."
+
+[[behavior]]
+partition = { equals = "DISCOVERY_OR_BROWSE_CLI_SAFE_DEFAULTS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1a-offline-communication-authoring-client"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "Discovery preserves the selected protocol, origin, supplied scope and probe fields, defaults to passive operation, and leaves omitted scopes absent; browsing defaults to symbols and preserves its supplied target and connection identity without inventing project, snapshot, or instance inputs."
+
 [[coverage.cells]]
 dimension = "happy_path"
 state = "covered"
-rationale = "The existing offline CLI integration tests execute every run_comm action family and validate representative structured results."
+rationale = "Parser and offline CLI tests cover argument binding, discovery and browse defaults, every run_comm action family, and representative structured results."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"

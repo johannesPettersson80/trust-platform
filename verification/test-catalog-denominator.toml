@@ -5550,8 +5550,8 @@ path = "crates/trust-runtime/src/bin/trust-runtime/cli/tests.rs"
 name = "parse_registry_private_init_command"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+reason_code = "not_catalogable_product_oracle"
+last_reviewed = "2026-07-26"
 
 [[reviews]]
 discovery_id = "DISC_1F649F7F3E3BCE2021D2"

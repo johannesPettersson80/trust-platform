@@ -1217,6 +1217,10 @@ successful parse, use of either `--bundle <path>` or `--bundle=<path>` emits one
 deprecation warning before dispatch. It does not change project creation or
 validation semantics.
 
+`run` and `play` accept `vm` as the sole production
+`--execution-backend` value. The retired `interpreter` value is rejected during
+argument parsing, before handler dispatch, project access, or runtime mutation.
+
 Ordinary handler failures exit with status 1. When a parsed command enables
 `--ci`, the entrypoint uses the documented CI error classification, including
 command-aware fallback codes. Known configuration and permission failures may
@@ -1467,6 +1471,11 @@ and emits that operation's JSON result:
   server certificates, while `opcua-trust clear` removes those trusted
   certificates and reports the number removed.
 
+`comm discover` defaults to passive read-only discovery when `--passive` is
+omitted and preserves omitted host, adapter, and other optional scope fields as
+absent. `comm browse-symbols` defaults `kind` to `symbols` and preserves omitted
+project, snapshot, and instance inputs as absent.
+
 Malformed JSON, a non-object `--params` or target, an unreadable or malformed
 snapshot file, and any delegated operation failure are command failures. They
 must not be printed as successful communication results. These offline CLI
@@ -1568,6 +1577,12 @@ requires a snapshot and fails visibly for missing symbols, type mismatches, or
 generated-source drift. Live validation rejects cached snapshots and obtains
 fresh symbols from every configured connection before applying the same
 compatibility check.
+
+The ADS parser preserves every selected live-client action and its explicit
+target, target Net ID, connection, configuration, guarded-write, and JSON
+options. When `--ams-port` is omitted, client discovery and Doctor select AMS
+port 851. ADS server status and symbols preserve their endpoint,
+authentication, and JSON choices without selecting another server action.
 
 Discovery, browse, Doctor, guarded route addition, live symbol import, and live
 validation require the `ads-wire` feature. A build without that feature fails
@@ -2201,6 +2216,22 @@ renders the same contract fields. Project reports separate measured cycles,
 configured cycle budget and overruns, throughput, requested watched globals,
 and optional VM/Tier-1 profile data. A missing watched global is explicit JSON
 `null`, not an omitted or fabricated value.
+
+Every benchmark subcommand defaults to table output when `--output` is omitted;
+an explicit `--output json` selects JSON without changing the selected workload
+parameters.
+
+##### PLCopen CLI surface contract
+
+`trust-runtime plcopen export` accepts an optional project, optional output
+path, optional export target, and JSON-output selection. An omitted export
+target selects `generic`. The canonical targets are `generic`, `ab`, `siemens`,
+and `schneider`; the documented Allen-Bradley/Rockwell, Siemens TIA, and
+Schneider EcoStruxure aliases map to their corresponding canonical targets.
+
+`trust-runtime plcopen import` requires an input XML path and accepts an
+optional project and JSON-output selection. Parsing preserves supplied paths
+and choices without performing import or export work.
 
 ##### 6.8.1c Runtime project-check contract
 

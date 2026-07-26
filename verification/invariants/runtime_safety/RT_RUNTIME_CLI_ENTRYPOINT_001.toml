@@ -5,11 +5,14 @@ area = "runtime_safety"
 risk = "false_status"
 status = "mapped"
 owner = "trust-runtime"
-last_reviewed = "2026-07-22"
-claim = "The runtime CLI parses and dispatches one command, bounds typo suggestions, preserves the deprecated project alias contract, and exposes actionable errors with stable ordinary or CI exit status."
+last_reviewed = "2026-07-26"
+claim = "The runtime CLI parses and dispatches one command, binds only the production VM execution backend, bounds typo suggestions, preserves the deprecated project alias contract, and exposes actionable errors with stable ordinary or CI exit status."
 proof_level = "T1"
 contract_kind = "protocol_trace"
-source_refs = ["crates/trust-runtime/src/bin/trust-runtime.rs"]
+source_refs = [
+  "crates/trust-runtime/src/bin/trust-runtime.rs",
+  "crates/trust-runtime/src/bin/trust-runtime/cli/commands.rs",
+]
 tests = [
   "TEST_RUNTIME_CLI_SUGGEST_CHECK_001",
   "TEST_RUNTIME_CLI_SUGGEST_GLOBAL_FLAGS_001",
@@ -30,7 +33,7 @@ missing = [
 
 [spec]
 status = "specified"
-source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+source_refs = ["SPEC_RUNTIME_ENGINE_001", "SPEC_RUNTIME_SEMANTICS_001"]
 
 [oracle]
 kind = "trust_contract"
@@ -72,6 +75,24 @@ no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "status_degraded" }
 rationale = "A handler failure produces one actionable error and exits with ordinary status 1 or the command-aware CI classification."
 
+[[behavior]]
+partition = { equals = "RUN_OR_PLAY_VM_EXECUTION_BACKEND" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#status-and-scope"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "The run and play parsers accept the sole production execution-backend value vm and preserve it as the explicit VM selection before dispatch."
+
+[[behavior]]
+partition = { equals = "RUN_OR_PLAY_INTERPRETER_EXECUTION_BACKEND" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#status-and-scope"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_applicable" }
+rationale = "The retired interpreter value is rejected by both run and play parsing before handler dispatch, project access, or runtime mutation."
+
 [[coverage.cells]]
 dimension = "happy_path"
 state = "covered"
@@ -86,3 +107,8 @@ rationale = "Focused binary integration tests cover close typos, global flags be
 dimension = "ordering_or_lifecycle"
 state = "covered"
 rationale = "Focused binary integration tests cover deprecation-warning order, actionable tips, and command-aware CI exit classification."
+
+[[coverage.cells]]
+dimension = "extra_or_unknown"
+state = "covered"
+rationale = "Focused parser locks reject the retired interpreter value on both run and play."

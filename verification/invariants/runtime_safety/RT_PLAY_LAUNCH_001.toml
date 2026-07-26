@@ -5,8 +5,8 @@ area = "runtime_safety"
 risk = "wrong_result"
 status = "mapped"
 owner = "trust-runtime"
-last_reviewed = "2026-07-23"
-claim = "Play validates non-filesystem options before project access, creates only missing or incomplete explicit projects, uses standard detection when project is omitted, creates cwd only for canonical not-found, preserves other detection failures before mutation, rejects non-directory paths, and delegates the selected project to runtime startup."
+last_reviewed = "2026-07-26"
+claim = "Play preserves valid simulation choices, validates non-filesystem options before project access, creates only missing or incomplete explicit projects, uses standard detection when project is omitted, creates cwd only for canonical not-found, preserves other detection failures before mutation, rejects non-directory paths, and delegates the selected project to runtime startup."
 proof_level = "T1"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-runtime/src/bin/trust-runtime/run/commands.rs", "crates/trust-runtime/src/host/bundle.rs"]
@@ -88,6 +88,15 @@ outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
 rationale = "Configuration and current-directory failures propagate before mutation."
+
+[[behavior]]
+partition = { equals = "PLAY_SIMULATION_CLI_ARGUMENTS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-startup-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The play parser preserves explicit simulation enablement and a valid nonzero time scale for startup validation and effective configuration."
 
 [[coverage.cells]]
 dimension = "happy_path"

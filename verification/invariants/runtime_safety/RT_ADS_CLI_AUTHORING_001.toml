@@ -5,11 +5,14 @@ area = "runtime_safety"
 risk = "data_loss"
 status = "mapped"
 owner = "trust-runtime"
-last_reviewed = "2026-07-22"
-claim = "Offline ADS import and validation canonicalize snapshots, generate deterministic ST, avoid unnecessary rewrites, protect changed output, and fail visibly on incompatible or drifting inputs."
+last_reviewed = "2026-07-26"
+claim = "ADS CLI argument binding preserves the selected authoring action and options; offline ADS import and validation canonicalize snapshots, generate deterministic ST, avoid unnecessary rewrites, protect changed output, and fail visibly on incompatible or drifting inputs."
 proof_level = "T1"
 contract_kind = "state_machine"
-source_refs = ["crates/trust-runtime/src/bin/trust-runtime/ads.rs"]
+source_refs = [
+  "crates/trust-runtime/src/bin/trust-runtime/ads.rs",
+  "crates/trust-runtime/src/bin/trust-runtime/cli/ads.rs",
+]
 tests = ["TEST_AUTO_1A1F998AA3DD2B019B46", "TEST_AUTO_28C45C94601F0C40AE4D", "TEST_RUNTIME_ADS_IMPORT_OUTPUT_POLICY_001", "TEST_RUNTIME_ADS_IMPORT_SYMBOLS_NO_WIRE_001", "TEST_RUNTIME_ADS_VALIDATE_LIVE_NO_WIRE_001", "TEST_RUNTIME_ADS_VALIDATE_MISSING_SYMBOL_001", "TEST_RUNTIME_ADS_VALIDATE_SOURCE_DRIFT_001", "TEST_RUNTIME_ADS_VALIDATE_TYPE_MISMATCH_001"]
 gates = ["pr"]
 evidence_refs = []
@@ -50,6 +53,42 @@ outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
 rationale = "Live validation and live symbol import fail before file reads or generated-file writes when ads-wire is unavailable."
+
+[[behavior]]
+partition = { equals = "OFFLINE_IMPORT_CLI_ARGUMENTS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-ads-cli-authoring-and-server-control-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "Offline import preserves the selected configuration, ordered snapshot paths, generated output path, force choice, and JSON-output choice without entering another ADS action."
+
+[[behavior]]
+partition = { equals = "OFFLINE_OR_LIVE_VALIDATION_CLI_MODE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-ads-cli-authoring-and-server-control-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "Offline validation preserves its cached snapshots with live disabled, while live validation preserves an empty snapshot set with offline disabled; both retain the selected configuration, generated source, and JSON choice."
+
+[[behavior]]
+partition = { equals = "LIVE_SYMBOL_IMPORT_CLI_ARGUMENTS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-ads-cli-authoring-and-server-control-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "Live symbol import preserves the target identity, connection and naming choices, ordered selection and snapshot inputs, artifact destinations, force, dry-run, and JSON choices without substituting another action."
+
+[[behavior]]
+partition = { equals = "LIVE_CLIENT_CLI_ARGUMENTS_AND_DEFAULT_PORT" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-ads-cli-authoring-and-server-control-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "Discovery, browse, and Doctor preserve their target, target Net ID, connection, configuration, guarded-write, and JSON choices; omitted discovery and Doctor AMS ports select 851."
 
 [[coverage.cells]]
 dimension = "persistence_or_recovery"

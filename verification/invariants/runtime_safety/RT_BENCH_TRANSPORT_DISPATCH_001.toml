@@ -5,11 +5,14 @@ area = "runtime_safety"
 risk = "false_status"
 status = "mapped"
 owner = "trust-runtime"
-last_reviewed = "2026-07-22"
-claim = "T0, mesh, and dispatch benchmarks validate non-empty workloads, exercise exact requested payload sizes, retain deterministic loss and reorder choices, and expose latency, overrun, fanout, and audit metrics without hidden workload caps."
+last_reviewed = "2026-07-26"
+claim = "Benchmark CLI argument binding preserves the selected workload and output format; T0, mesh, and dispatch benchmarks validate non-empty workloads, exercise exact requested payload sizes, retain deterministic loss and reorder choices, and expose latency, overrun, fanout, and audit metrics without hidden workload caps."
 proof_level = "T1"
 contract_kind = "protocol_trace"
-source_refs = ["crates/trust-runtime/src/bin/trust-runtime/bench"]
+source_refs = [
+  "crates/trust-runtime/src/bin/trust-runtime/bench",
+  "crates/trust-runtime/src/bin/trust-runtime/cli/bench.rs",
+]
 tests = [
   "TEST_RUNTIME_BENCH_T0_JSON_001",
   "TEST_RUNTIME_BENCH_MESH_JSON_001",
@@ -58,6 +61,24 @@ no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
 rationale = "Synthetic rate parameters outside zero through one fail before samples are generated."
 
+[[behavior]]
+partition = { equals = "EXPLICIT_T0_JSON_CLI_ARGUMENTS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-runtime-benchmark-measurement-and-output-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "The T0 shared-memory parser preserves the selected sample count and payload size and binds explicit JSON output without selecting another workload."
+
+[[behavior]]
+partition = { equals = "OMITTED_MESH_OUTPUT_FORMAT" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-runtime-benchmark-measurement-and-output-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "The mesh parser preserves sample, payload, loss, and reorder inputs and selects the documented table output when no output format is supplied."
+
 [[coverage.cells]]
 dimension = "boundary_high"
 state = "covered"
@@ -66,7 +87,7 @@ rationale = "Focused regressions use 513-byte mesh and dispatch payloads and ass
 [[coverage.cells]]
 dimension = "happy_path"
 state = "covered"
-rationale = "Focused tests exercise T0 counters, mesh loss/reorder fields, and dispatch fanout/audit fields."
+rationale = "Focused tests exercise CLI binding and output defaults, T0 counters, mesh loss/reorder fields, and dispatch fanout/audit fields."
 
 [[coverage.cells]]
 dimension = "below_min"
