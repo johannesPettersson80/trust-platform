@@ -3,18 +3,18 @@ id = "VM_REFERENCE_RESOLUTION_001"
 title = "VM reference routes preserve one logical storage model"
 area = "bytecode_vm"
 risk = "silent_corruption"
-status = "planned"
+status = "mapped"
 owner = "trust-runtime"
 last_reviewed = "2026-07-26"
 claim = "Direct, generic, dynamic, inherited, nested, and frame-local reference routes resolve the same logical storage and reject invalid paths without mutation."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-runtime/src/runtime/vm/dispatch_refs.rs", "crates/trust-runtime/src/runtime/vm/call/write_target.rs", "crates/trust-runtime/src/runtime/vm/local_init.rs"]
-tests = []
+tests = ["TEST_AUTO_231B58665A0477064F62", "TEST_AUTO_2D00101FB1C43F085F63", "TEST_AUTO_43B4A11BDCA200636374", "TEST_AUTO_55C34DE0597D9D5F1B55", "TEST_AUTO_6FADE7559951DE07EFB2", "TEST_AUTO_A6480B30C5B364488520", "TEST_AUTO_BC38A7D2DDC566E14F49", "TEST_AUTO_C618FB07BBB103B201F0", "TEST_AUTO_C7D15FFABDA348B42627", "TEST_AUTO_DBB7825CF82673CCDABB", "TEST_AUTO_E9436E698BCD4E02A514"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["catalog_mapping", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -62,15 +62,15 @@ rationale = "Function and method interface slots without a materialized value be
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "Reviewed direct, generic, and interface-default assertions await generated catalog mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in VM_REFERENCE_RESOLUTION_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "boundary_high"
-state = "gap_open"
-rationale = "Reviewed nested-path and extreme-bound assertions await generated catalog mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every boundary_high behavior in VM_REFERENCE_RESOLUTION_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "gap_open"
-rationale = "Reviewed invalid-reference assertions await generated catalog mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every wrong_type_or_shape behavior in VM_REFERENCE_RESOLUTION_001; dynamic proof and broad remote validation remain explicit debt."

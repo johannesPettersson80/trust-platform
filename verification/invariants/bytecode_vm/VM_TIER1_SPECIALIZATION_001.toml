@@ -3,18 +3,18 @@ id = "VM_TIER1_SPECIALIZATION_001"
 title = "Tier-1 specialization accepts only semantics-preserving blocks"
 area = "bytecode_vm"
 risk = "wrong_result"
-status = "planned"
+status = "mapped"
 owner = "trust-runtime"
 last_reviewed = "2026-07-26"
 claim = "Tier-1 compilation accepts reviewed register blocks with equivalent values, traps, branches, references, calls, and instruction costs, or declines before mutation."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-runtime/src/runtime/vm/register_ir/tier1"]
-tests = []
+tests = ["TEST_AUTO_07FBB7D506873509F989", "TEST_AUTO_0E8F1F2572E5DD79079E", "TEST_AUTO_21C1B61DB62C55B76619", "TEST_AUTO_28297EEF6C889EF7ED14", "TEST_AUTO_387301D63907D4396FD8", "TEST_AUTO_3A6CE282AD96D19AA152", "TEST_AUTO_605A00C537D72F41FA81", "TEST_AUTO_775E89618CD46526919D", "TEST_AUTO_7FE662C0F161BEA58691", "TEST_AUTO_A6504910A2B67139A825", "TEST_AUTO_ADD0FD8E22F548C5E643", "TEST_AUTO_C426CBEF307FB53860CD", "TEST_AUTO_DACDD3A6D0D36B117FEA", "TEST_AUTO_DC445C31BA17DE2A5BC0"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["catalog_mapping", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -62,15 +62,15 @@ rationale = "Accepted dynamic, self-field, inherited-super, and array reference 
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "Reviewed arithmetic, boolean, and reference specialization assertions await generated catalog mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in VM_TIER1_SPECIALIZATION_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "gap_open"
-rationale = "Reviewed guard-decline assertions await generated catalog mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every wrong_type_or_shape behavior in VM_TIER1_SPECIALIZATION_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
-state = "gap_open"
-rationale = "Reviewed call-specialization assertions await generated catalog mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in VM_TIER1_SPECIALIZATION_001; dynamic proof and broad remote validation remain explicit debt."

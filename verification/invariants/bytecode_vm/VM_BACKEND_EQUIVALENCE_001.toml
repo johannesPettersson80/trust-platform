@@ -3,18 +3,18 @@ id = "VM_BACKEND_EQUIVALENCE_001"
 title = "Optimized VM backends preserve stack-executor semantics"
 area = "bytecode_vm"
 risk = "wrong_result"
-status = "planned"
+status = "mapped"
 owner = "trust-runtime"
 last_reviewed = "2026-07-26"
 claim = "Register-IR and tier-1 execution preserve stack-executor values, types, mutations, traps, budgets, deadlines, calls, and control flow, and may fall back only before mutation."
 proof_level = "S0"
 contract_kind = "protocol_trace"
 source_refs = ["crates/trust-runtime/src/runtime/vm/register_ir", "crates/trust-runtime/src/runtime/vm/dispatch.rs", "crates/trust-runtime/src/runtime/vm/budget.rs"]
-tests = []
+tests = ["TEST_AUTO_07DB65B8436213FA048D", "TEST_AUTO_11A95B0F67F0AD60B921", "TEST_AUTO_1339C3F34D81F9037EFA", "TEST_AUTO_1D15CD11714BA5CEFA4B", "TEST_AUTO_287E423F22997ACB5D6A", "TEST_AUTO_2C9E5D4186ACD1FA970C", "TEST_AUTO_2CF4382E09B4A85E80F0", "TEST_AUTO_3F17806BDE8F610DDEC9", "TEST_AUTO_4C3F5D7171073A654EA8", "TEST_AUTO_568746B1EBFDBEB42545", "TEST_AUTO_573B089D4C9B1FFCF17D", "TEST_AUTO_5FE5A5E7AEECAD1E3875", "TEST_AUTO_620FE84AA15888BDC6AF", "TEST_AUTO_72910D0980A8D74C8153", "TEST_AUTO_769ABE73CC183605DE35", "TEST_AUTO_7E40E58CEF1BE918297B", "TEST_AUTO_8EF2B55E3EBA03FF4321", "TEST_AUTO_91B5920B6F9D0770DD5B", "TEST_AUTO_9ECC8ADE95FD125D2ECC", "TEST_AUTO_9FCB086B2BAFA238ABD3", "TEST_AUTO_B2DECE92E4F87D0C7CDB", "TEST_AUTO_DB36633EAE7190016564"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["catalog_mapping", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -63,20 +63,20 @@ rationale = "A reached deadline traps before the guarded forward workload or com
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "Reviewed cross-backend result assertions await generated catalog mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in VM_BACKEND_EQUIVALENCE_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "resource_limit"
-state = "gap_open"
-rationale = "Reviewed budget-parity assertions await generated catalog mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every resource_limit behavior in VM_BACKEND_EQUIVALENCE_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "concurrency_or_cancellation"
-state = "gap_open"
-rationale = "Reviewed deadline-before-commit assertions await generated catalog mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every concurrency_or_cancellation behavior in VM_BACKEND_EQUIVALENCE_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "extra_or_unknown"
-state = "gap_open"
-rationale = "Reviewed pre-mutation fallback assertions await generated catalog mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every extra_or_unknown behavior in VM_BACKEND_EQUIVALENCE_001; dynamic proof and broad remote validation remain explicit debt."

@@ -10,11 +10,11 @@ claim = "A VAR_ACCESS declaration must resolve one target of the declared type, 
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-hir/src"]
-tests = ["TEST_AUTO_286D45125033A2950669", "TEST_AUTO_6009B09186D471879FE3", "TEST_AUTO_BCEDF6BF0C7B94A24FE3", "TEST_AUTO_FE271CA2643E08F31F5B"]
+tests = ["TEST_AUTO_0759FB4B6E9DDFC3E864", "TEST_AUTO_286D45125033A2950669", "TEST_AUTO_6009B09186D471879FE3", "TEST_AUTO_BCEDF6BF0C7B94A24FE3", "TEST_AUTO_EA5C66EDBD8D79E5752C", "TEST_AUTO_EA6765163DC75D504506", "TEST_AUTO_FE271CA2643E08F31F5B"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+missing = ["assertion_reachability", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -58,10 +58,10 @@ rationale = "A positive target case remains to be associated."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "gap_open"
-rationale = "Missing, mismatched, and read-only cases await catalog association."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every wrong_type_or_shape behavior in IEC_HIR_VAR_ACCESS_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "duplicate_or_collision"
-state = "gap_open"
-rationale = "Collision diagnostics await catalog association."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every duplicate_or_collision behavior in IEC_HIR_VAR_ACCESS_001; dynamic proof and broad remote validation remain explicit debt."

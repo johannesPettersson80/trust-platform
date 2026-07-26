@@ -10,11 +10,11 @@ claim = "The documented vendor-parity mode resolves a unique global by bare name
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-hir/src"]
-tests = ["TEST_AUTO_35641259617B088E7110", "TEST_AUTO_702676C840E67C86A5CF", "TEST_AUTO_80C19AA8855CBC688A50", "TEST_AUTO_839D7AD4F8CBEA3493F9", "TEST_AUTO_982FDFA05912B6129986", "TEST_AUTO_A56798A166E9CB026B2B", "TEST_AUTO_F163E5391F5ECFDAF74C"]
+tests = ["TEST_AUTO_235D59FA001748508DAD", "TEST_AUTO_261CF481723D966B163B", "TEST_AUTO_35641259617B088E7110", "TEST_AUTO_45460E6E5D9F531D3608", "TEST_AUTO_702676C840E67C86A5CF", "TEST_AUTO_80C19AA8855CBC688A50", "TEST_AUTO_839D7AD4F8CBEA3493F9", "TEST_AUTO_982FDFA05912B6129986", "TEST_AUTO_A56798A166E9CB026B2B", "TEST_AUTO_F163E5391F5ECFDAF74C"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+missing = ["assertion_reachability", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -53,15 +53,15 @@ rationale = "Two imported globals with one effective name are rejected as a dupl
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "Unique bare global resolution awaits catalog association."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in IEC_HIR_GLOBAL_RESOLUTION_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "missing_required"
-state = "gap_open"
-rationale = "Missing-name rejection awaits catalog association."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every missing_required behavior in IEC_HIR_GLOBAL_RESOLUTION_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "duplicate_or_collision"
-state = "gap_open"
-rationale = "Cross-file global collision rejection awaits catalog association."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every duplicate_or_collision behavior in IEC_HIR_GLOBAL_RESOLUTION_001; dynamic proof and broad remote validation remain explicit debt."

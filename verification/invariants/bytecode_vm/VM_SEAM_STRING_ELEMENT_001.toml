@@ -14,7 +14,7 @@ source_refs = [
   "crates/trust-runtime/src/memory",
   "crates/trust-runtime/src/value/reference.rs",
 ]
-tests = ["TEST_AUTO_430AF663A79A7D319743", "TEST_AUTO_4B09734A8D1856C5E38A", "TEST_AUTO_57FB35474C4EE46899FD", "TEST_AUTO_AB054456F6E59419DEFA", "TEST_AUTO_C914D2330D1D8FD81820", "TEST_AUTO_EF1816FF5BB0935AC957"]
+tests = ["TEST_AUTO_430AF663A79A7D319743", "TEST_AUTO_4B09734A8D1856C5E38A", "TEST_AUTO_57FB35474C4EE46899FD", "TEST_AUTO_68799F0150BA51B5C348", "TEST_AUTO_AB054456F6E59419DEFA", "TEST_AUTO_C6163DD277DA618BCB8B", "TEST_AUTO_C914D2330D1D8FD81820", "TEST_AUTO_EF1816FF5BB0935AC957"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
@@ -99,13 +99,13 @@ rationale = "VM value paths and VariableStorage references expose the same Unico
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "Narrow and reference-path read/write behavior awaits catalog association."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in VM_SEAM_STRING_ELEMENT_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "encoding_or_unicode"
-state = "gap_open"
-rationale = "Scalar counting, string-library positions, and wide read/write behavior await catalog association."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every encoding_or_unicode behavior in VM_SEAM_STRING_ELEMENT_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "boundary_low"
@@ -119,5 +119,5 @@ rationale = "Indexed upper-bound rejection awaits catalog association."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "gap_open"
-rationale = "Unrepresentable scalar and invalid replacement rejection await catalog association."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every wrong_type_or_shape behavior in VM_SEAM_STRING_ELEMENT_001; dynamic proof and broad remote validation remain explicit debt."
