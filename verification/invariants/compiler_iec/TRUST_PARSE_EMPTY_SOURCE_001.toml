@@ -10,11 +10,11 @@ claim = "An empty source buffer parses successfully without diagnostics; this do
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-syntax/src/parser/parser.rs"]
-tests = []
+tests = ["TEST_AUTO_3F7FEE1079FC4DAA4C99"]
 gates = ["veryquick", "pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+missing = ["assertion_reachability", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -35,5 +35,5 @@ rationale = "Empty input produces a successful parse with no diagnostic."
 
 [[coverage.cells]]
 dimension = "boundary_low"
-state = "gap_open"
-rationale = "The exact empty-buffer boundary test is awaiting catalog acceptance."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every boundary_low behavior in TRUST_PARSE_EMPTY_SOURCE_001; dynamic proof and broad remote validation remain explicit debt."

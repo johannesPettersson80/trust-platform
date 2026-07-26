@@ -10,11 +10,11 @@ claim = "The parser accepts the exact dereference assignment with a typed based 
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-syntax/src/parser/parser.rs"]
-tests = []
+tests = ["TEST_AUTO_A0EC931ED2C6B4EB9E70"]
 gates = ["veryquick", "pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+missing = ["assertion_reachability", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -35,5 +35,5 @@ rationale = "The statement ptr^ := INT#16#FF combines a postfix dereference targ
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "The exact dereference-assignment test is awaiting catalog acceptance."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in IEC_PARSE_TYPED_DEREFERENCE_ASSIGNMENT_001; dynamic proof and broad remote validation remain explicit debt."

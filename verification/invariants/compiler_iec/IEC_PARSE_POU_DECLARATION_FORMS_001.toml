@@ -10,11 +10,11 @@ claim = "The parser accepts the exact canonical empty-body PROGRAM form and a FU
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-syntax/src/parser/parser.rs"]
-tests = []
+tests = ["TEST_AUTO_2EB16A9C2DFD62339DD6", "TEST_AUTO_D2FC7E65D38845C6F9CA"]
 gates = ["veryquick", "pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+missing = ["assertion_reachability", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -44,5 +44,5 @@ rationale = "A named FUNCTION_BLOCK with a complete VAR_INPUT declaration sectio
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "The exact PROGRAM and FUNCTION_BLOCK declaration tests are awaiting catalog acceptance."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in IEC_PARSE_POU_DECLARATION_FORMS_001; dynamic proof and broad remote validation remain explicit debt."

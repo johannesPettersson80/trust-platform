@@ -11,6 +11,7 @@ from scripts.verification.mapping_catalog_updates import (
     append_invariant_test,
     build_accepted_catalog_record,
     map_denominator_review,
+    reconcile_invariant_catalog_state,
     render_denominator_document,
 )
 
@@ -184,6 +185,83 @@ class MappingCatalogUpdateTests(unittest.TestCase):
         self.assertEqual(
             ["TEST_AUTO_00000000000000000001", "TEST_EXISTING"],
             tomllib.loads(invariant)["tests"],
+        )
+
+    def test_catalog_reconciliation_closes_only_fully_mapped_behavior_dimensions(
+        self,
+    ) -> None:
+        invariant = """
+schema_version = 1
+id = "INV_ONE"
+tests = ["TEST_ONE"]
+missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+
+[[behavior]]
+case_family = "happy_path"
+
+[[behavior]]
+case_family = "boundary_high"
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Awaiting catalog acceptance."
+
+[[coverage.cells]]
+dimension = "boundary_high"
+state = "gap_open"
+rationale = "Awaiting catalog acceptance."
+"""
+        partial_catalog = """
+[[tests]]
+id = "TEST_ONE"
+invariants = ["INV_ONE"]
+mapping_behavior_refs = ["INV_ONE#behavior:0"]
+"""
+        partial = reconcile_invariant_catalog_state(
+            invariant,
+            invariant_id="INV_ONE",
+            catalog_source=partial_catalog,
+        )
+        partial_document = tomllib.loads(partial)
+        self.assertIn("cataloged_behavior_tests", partial_document["missing"])
+        self.assertEqual(
+            ["covered", "gap_open"],
+            [
+                cell["state"]
+                for cell in partial_document["coverage"]["cells"]
+            ],
+        )
+
+        complete_catalog = partial_catalog + """
+[[tests]]
+id = "TEST_TWO"
+invariants = ["INV_ONE"]
+mapping_behavior_refs = ["INV_ONE#behavior:1"]
+"""
+        complete = reconcile_invariant_catalog_state(
+            invariant,
+            invariant_id="INV_ONE",
+            catalog_source=complete_catalog,
+        )
+        complete_document = tomllib.loads(complete)
+        self.assertNotIn(
+            "cataloged_behavior_tests",
+            complete_document["missing"],
+        )
+        self.assertEqual(
+            ["covered", "covered"],
+            [
+                cell["state"]
+                for cell in complete_document["coverage"]["cells"]
+            ],
+        )
+        self.assertTrue(
+            all(
+                "dynamic proof and broad remote validation remain explicit debt"
+                in cell["rationale"]
+                for cell in complete_document["coverage"]["cells"]
+            )
         )
 
     def test_denominator_mapping_is_generated_and_canonically_sorted(self) -> None:

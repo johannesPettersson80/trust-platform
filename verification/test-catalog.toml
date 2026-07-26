@@ -29165,3 +29165,195 @@ mapping_assertion_review_digest = "sha256:4e990630695f560991056cff09eed59e804152
 mapping_assertion_source_digests = { "crates/trust-syntax/src/parser/parser.rs" = "sha256:a680fa3c0f6b17db3653e5274f29664e31f79cc197ac4672a28d64fe23978a2d" }
 mapping_behavior_refs = ["IEC_PARSE_RECOVER_001#behavior:11"]
 mapping_reviewer_ids = ["codex-main-semantic-review", "codex-scout-parser-batch"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_06CDEF4D0691179B3E41"
+subject_kind = "generated_test"
+discovery_id = "DISC_06CDEF4D0691179B3E41"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/src/parser/parser.rs"
+name = "test_parse_call_statement"
+command = "cargo nextest run -p trust-syntax --lib -E '(binary_id(=trust-syntax) & test(=parser::parser::tests::test_parse_call_statement))'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_CALL_STATEMENT_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001#3-1-shared-call-syntax"
+expected_result = "A named standalone call with two comma-separated positional arguments and a terminating semicolon parses without diagnostics."
+expected_failure_mode = "The observed result violates the reviewed behavior: A named standalone call with two comma-separated positional arguments and a terminating semicolon parses without diagnostics."
+suite_tiers = ["pr", "veryquick"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_06CDEF4D0691179B3E41.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_06CDEF4D0691179B3E41_CF4547C0AD6B"
+mapping_proposal_digest = "sha256:cf4547c0ad6b749f1190b113813ee44030f4d7638fed91bd5bb80699c9f8c674"
+mapping_decision_id = "MAP_DEC_4492D58E21A06BC7B6913CC7"
+mapping_reviewed_source_digest = "sha256:a680fa3c0f6b17db3653e5274f29664e31f79cc197ac4672a28d64fe23978a2d"
+mapping_assertion_review_digest = "sha256:2456c85ecd2cfbd5f4908c8050effc0233378e310618d6c55eeca9fd1396d647"
+mapping_assertion_source_digests = { "crates/trust-syntax/src/parser/parser.rs" = "sha256:a680fa3c0f6b17db3653e5274f29664e31f79cc197ac4672a28d64fe23978a2d" }
+mapping_behavior_refs = ["IEC_PARSE_CALL_STATEMENT_001#behavior:0"]
+mapping_reviewer_ids = ["codex-main-semantic-review", "codex-scout-parser-batch"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_2EB16A9C2DFD62339DD6"
+subject_kind = "generated_test"
+discovery_id = "DISC_2EB16A9C2DFD62339DD6"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/src/parser/parser.rs"
+name = "test_parse_simple_program"
+command = "cargo nextest run -p trust-syntax --lib -E '(binary_id(=trust-syntax) & test(=parser::parser::tests::test_parse_simple_program))'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_POU_DECLARATION_FORMS_001"]
+oracle_ref = "SPEC_IEC_POU_DECLARATIONS_001#parser-acceptance-contract"
+expected_result = "A named PROGRAM with no declarations or statements and its matching END_PROGRAM terminator parses successfully."
+expected_failure_mode = "The observed result violates the reviewed behavior: A named PROGRAM with no declarations or statements and its matching END_PROGRAM terminator parses successfully."
+suite_tiers = ["pr", "veryquick"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_2EB16A9C2DFD62339DD6.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_2EB16A9C2DFD62339DD6_FFEF890B369A"
+mapping_proposal_digest = "sha256:ffef890b369af4a4941a445fbee88ddfc1cbe6b56a9d19a74f241aeb804b1d7d"
+mapping_decision_id = "MAP_DEC_613E16AF769CED301A60A5B0"
+mapping_reviewed_source_digest = "sha256:a680fa3c0f6b17db3653e5274f29664e31f79cc197ac4672a28d64fe23978a2d"
+mapping_assertion_review_digest = "sha256:450faba337c4b2dac885dc96324dcf2800df5855b4c8d8c72e2f80cc05d5029c"
+mapping_assertion_source_digests = { "crates/trust-syntax/src/parser/parser.rs" = "sha256:a680fa3c0f6b17db3653e5274f29664e31f79cc197ac4672a28d64fe23978a2d" }
+mapping_behavior_refs = ["IEC_PARSE_POU_DECLARATION_FORMS_001#behavior:0"]
+mapping_reviewer_ids = ["codex-main-semantic-review", "codex-scout-parser-batch"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_3F7FEE1079FC4DAA4C99"
+subject_kind = "generated_test"
+discovery_id = "DISC_3F7FEE1079FC4DAA4C99"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/src/parser/parser.rs"
+name = "test_parse_empty"
+command = "cargo nextest run -p trust-syntax --lib -E '(binary_id(=trust-syntax) & test(=parser::parser::tests::test_parse_empty))'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["TRUST_PARSE_EMPTY_SOURCE_001"]
+oracle_ref = "SPEC_IEC_POU_DECLARATIONS_001#parser-acceptance-contract"
+expected_result = "Empty input produces a successful parse with no diagnostic."
+expected_failure_mode = "The observed result violates the reviewed behavior: Empty input produces a successful parse with no diagnostic."
+suite_tiers = ["pr", "veryquick"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_3F7FEE1079FC4DAA4C99.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_3F7FEE1079FC4DAA4C99_605FD00661BB"
+mapping_proposal_digest = "sha256:605fd00661bb674a4130bd316ca991e00bf9ad0286fb8ebe4cbbba978dd81b07"
+mapping_decision_id = "MAP_DEC_B9CC6697CE5F2527A94BAC96"
+mapping_reviewed_source_digest = "sha256:a680fa3c0f6b17db3653e5274f29664e31f79cc197ac4672a28d64fe23978a2d"
+mapping_assertion_review_digest = "sha256:70106567d93fb1a19c11dfeec364d6faf34e3a516310d85c7a6b7703132c6afa"
+mapping_assertion_source_digests = { "crates/trust-syntax/src/parser/parser.rs" = "sha256:a680fa3c0f6b17db3653e5274f29664e31f79cc197ac4672a28d64fe23978a2d" }
+mapping_behavior_refs = ["TRUST_PARSE_EMPTY_SOURCE_001#behavior:0"]
+mapping_reviewer_ids = ["codex-main-semantic-review", "codex-scout-parser-batch"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_8AE7A5B056EE2E7F70DA"
+subject_kind = "generated_test"
+discovery_id = "DISC_8AE7A5B056EE2E7F70DA"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/src/parser/parser.rs"
+name = "test_parse_case_enum_labels"
+command = "cargo nextest run -p trust-syntax --lib -E '(binary_id(=trust-syntax) & test(=parser::parser::tests::test_parse_case_enum_labels))'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["TRUST_PARSE_QUALIFIED_CASE_LABEL_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001#6-case-statement-section-7-3-3-3-3"
+expected_result = "CASE branches labeled with dotted Type.Member references parse without diagnostics while semantic enum resolution and selector compatibility remain later checks."
+expected_failure_mode = "The observed result violates the reviewed behavior: CASE branches labeled with dotted Type.Member references parse without diagnostics while semantic enum resolution and selector compatibility remain later checks."
+suite_tiers = ["pr", "veryquick"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_8AE7A5B056EE2E7F70DA.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_8AE7A5B056EE2E7F70DA_B972FDA1BF27"
+mapping_proposal_digest = "sha256:b972fda1bf2767cffd3809baef362f65db476da9b8397eb0d4b8a5fa08907af2"
+mapping_decision_id = "MAP_DEC_86BFD3857A949BD21079F1FD"
+mapping_reviewed_source_digest = "sha256:a680fa3c0f6b17db3653e5274f29664e31f79cc197ac4672a28d64fe23978a2d"
+mapping_assertion_review_digest = "sha256:330d1da435cae5a2c28bee74c5b06ea048fc18baef9d2d3f9d6ed429a16e4c5b"
+mapping_assertion_source_digests = { "crates/trust-syntax/src/parser/parser.rs" = "sha256:a680fa3c0f6b17db3653e5274f29664e31f79cc197ac4672a28d64fe23978a2d" }
+mapping_behavior_refs = ["TRUST_PARSE_QUALIFIED_CASE_LABEL_001#behavior:0"]
+mapping_reviewer_ids = ["codex-main-semantic-review", "codex-scout-parser-batch"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_A0EC931ED2C6B4EB9E70"
+subject_kind = "generated_test"
+discovery_id = "DISC_A0EC931ED2C6B4EB9E70"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/src/parser/parser.rs"
+name = "test_parse_typed_literal_and_deref"
+command = "cargo nextest run -p trust-syntax --lib -E '(binary_id(=trust-syntax) & test(=parser::parser::tests::test_parse_typed_literal_and_deref))'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_TYPED_DEREFERENCE_ASSIGNMENT_001"]
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001#5-3-postfix-expressions"
+expected_result = "The statement ptr^ := INT#16#FF combines a postfix dereference target with a typed based numeric literal and parses without diagnostics."
+expected_failure_mode = "The observed result violates the reviewed behavior: The statement ptr^ := INT#16#FF combines a postfix dereference target with a typed based numeric literal and parses without diagnostics."
+suite_tiers = ["pr", "veryquick"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_A0EC931ED2C6B4EB9E70.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_A0EC931ED2C6B4EB9E70_070FBCC4BD2F"
+mapping_proposal_digest = "sha256:070fbcc4bd2fb1df294beca509e1351fa65e090edfa2c315b2cd15c9d7e4d2fd"
+mapping_decision_id = "MAP_DEC_09EBFA71C208E426602A8BD6"
+mapping_reviewed_source_digest = "sha256:a680fa3c0f6b17db3653e5274f29664e31f79cc197ac4672a28d64fe23978a2d"
+mapping_assertion_review_digest = "sha256:8dce20f337a8a11a5a2f117f69a886b48f5e91e6f68badf46ff6ed0988a2c7a5"
+mapping_assertion_source_digests = { "crates/trust-syntax/src/parser/parser.rs" = "sha256:a680fa3c0f6b17db3653e5274f29664e31f79cc197ac4672a28d64fe23978a2d" }
+mapping_behavior_refs = ["IEC_PARSE_TYPED_DEREFERENCE_ASSIGNMENT_001#behavior:0"]
+mapping_reviewer_ids = ["codex-main-semantic-review", "codex-scout-parser-batch"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_D2FC7E65D38845C6F9CA"
+subject_kind = "generated_test"
+discovery_id = "DISC_D2FC7E65D38845C6F9CA"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/src/parser/parser.rs"
+name = "test_parse_function_block"
+command = "cargo nextest run -p trust-syntax --lib -E '(binary_id(=trust-syntax) & test(=parser::parser::tests::test_parse_function_block))'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_POU_DECLARATION_FORMS_001"]
+oracle_ref = "SPEC_IEC_POU_DECLARATIONS_001#parser-acceptance-contract"
+expected_result = "A named FUNCTION_BLOCK with a complete VAR_INPUT declaration section, no statements, and its matching terminator parses successfully."
+expected_failure_mode = "The observed result violates the reviewed behavior: A named FUNCTION_BLOCK with a complete VAR_INPUT declaration section, no statements, and its matching terminator parses successfully."
+suite_tiers = ["pr", "veryquick"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_D2FC7E65D38845C6F9CA.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_D2FC7E65D38845C6F9CA_531956B1A90E"
+mapping_proposal_digest = "sha256:531956b1a90ec8424129950c89ea457925fbacf43caf1dfb819d692a817eac7a"
+mapping_decision_id = "MAP_DEC_5EF48E04AE1FADBA776D59A6"
+mapping_reviewed_source_digest = "sha256:a680fa3c0f6b17db3653e5274f29664e31f79cc197ac4672a28d64fe23978a2d"
+mapping_assertion_review_digest = "sha256:d4a77f49dd22a7deaa2eaa5d95d5774ba4eff5f094997da6c8b5e0d40753d6c2"
+mapping_assertion_source_digests = { "crates/trust-syntax/src/parser/parser.rs" = "sha256:a680fa3c0f6b17db3653e5274f29664e31f79cc197ac4672a28d64fe23978a2d" }
+mapping_behavior_refs = ["IEC_PARSE_POU_DECLARATION_FORMS_001#behavior:1"]
+mapping_reviewer_ids = ["codex-main-semantic-review", "codex-scout-parser-batch"]

@@ -10,11 +10,11 @@ claim = "The parser accepts an exact standalone call with two positional argumen
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-syntax/src/parser/parser.rs"]
-tests = []
+tests = ["TEST_AUTO_06CDEF4D0691179B3E41"]
 gates = ["veryquick", "pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+missing = ["assertion_reachability", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -35,5 +35,5 @@ rationale = "A named standalone call with two comma-separated positional argumen
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "The exact positional call-statement test is awaiting catalog acceptance."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in IEC_PARSE_CALL_STATEMENT_001; dynamic proof and broad remote validation remain explicit debt."

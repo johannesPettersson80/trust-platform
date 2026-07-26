@@ -10,11 +10,11 @@ claim = "The parser accepts dotted Type.Member references in CASE-label position
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-syntax/src/parser/parser.rs"]
-tests = []
+tests = ["TEST_AUTO_8AE7A5B056EE2E7F70DA"]
 gates = ["veryquick", "pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+missing = ["assertion_reachability", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -35,5 +35,5 @@ rationale = "CASE branches labeled with dotted Type.Member references parse with
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "The exact dotted CASE-label test is awaiting catalog acceptance."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in TRUST_PARSE_QUALIFIED_CASE_LABEL_001; dynamic proof and broad remote validation remain explicit debt."

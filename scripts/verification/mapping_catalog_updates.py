@@ -233,6 +233,86 @@ def append_invariant_test(source: str, test_id: str) -> str:
     return result
 
 
+def reconcile_invariant_catalog_state(
+    source: str,
+    *,
+    invariant_id: str,
+    catalog_source: str,
+) -> str:
+    """Close only behavior partitions backed by accepted catalog mappings."""
+
+    invariant = tomllib.loads(source)
+    if invariant.get("id") != invariant_id:
+        raise ValueError("invariant catalog reconciliation ID does not match source")
+    behaviors = invariant.get("behavior")
+    coverage = invariant.get("coverage")
+    cells = coverage.get("cells") if isinstance(coverage, Mapping) else None
+    missing = invariant.get("missing")
+    if (
+        not isinstance(behaviors, list)
+        or not behaviors
+        or not isinstance(cells, list)
+        or not isinstance(missing, list)
+    ):
+        return source
+
+    catalog = tomllib.loads(catalog_source)
+    tests = catalog.get("tests")
+    if not isinstance(tests, list):
+        raise ValueError("catalog source must contain tests array")
+    mapped_refs = {
+        behavior_ref
+        for test in tests
+        if isinstance(test, Mapping)
+        and invariant_id in test.get("invariants", [])
+        for behavior_ref in test.get("mapping_behavior_refs", [])
+        if isinstance(behavior_ref, str)
+        and behavior_ref.startswith(f"{invariant_id}#behavior:")
+    }
+    behavior_refs_by_dimension: dict[str, set[str]] = {}
+    for index, behavior in enumerate(behaviors):
+        if not isinstance(behavior, Mapping):
+            raise ValueError(f"{invariant_id} behavior[{index}] must be an object")
+        dimension = behavior.get("case_family")
+        if not isinstance(dimension, str) or not dimension:
+            raise ValueError(
+                f"{invariant_id} behavior[{index}] lacks case_family"
+            )
+        behavior_refs_by_dimension.setdefault(dimension, set()).add(
+            f"{invariant_id}#behavior:{index}"
+        )
+
+    closed_dimensions = {
+        dimension
+        for dimension, expected_refs in behavior_refs_by_dimension.items()
+        if expected_refs.issubset(mapped_refs)
+    }
+    all_behavior_refs = set().union(*behavior_refs_by_dimension.values())
+    updated_missing = list(missing)
+    if all_behavior_refs.issubset(mapped_refs):
+        updated_missing = [
+            item for item in updated_missing if item != "cataloged_behavior_tests"
+        ]
+
+    result = _replace_top_level_array(
+        source,
+        field="missing",
+        values=updated_missing,
+    )
+    result = _replace_covered_catalog_cells(
+        result,
+        invariant_id=invariant_id,
+        closed_dimensions=closed_dimensions,
+    )
+    parsed = tomllib.loads(result)
+    if parsed.get("missing") != updated_missing:
+        raise ValueError("invariant missing-state reconciliation failed")
+    for cell in parsed.get("coverage", {}).get("cells", []):
+        if cell.get("dimension") in closed_dimensions and cell.get("state") != "covered":
+            raise ValueError("invariant coverage reconciliation failed")
+    return result
+
+
 def map_denominator_review(
     *,
     document: Mapping[str, Any],
@@ -351,6 +431,61 @@ def _toml_value(value: Any) -> str:
             raise ValueError("generated TOML arrays must contain strings")
         return "[" + ", ".join(json.dumps(item, ensure_ascii=False) for item in value) + "]"
     raise ValueError(f"unsupported generated TOML value {value!r}")
+
+
+def _replace_top_level_array(
+    source: str,
+    *,
+    field: str,
+    values: Sequence[str],
+) -> str:
+    match = re.search(
+        rf"(?ms)^{re.escape(field)}\s*=\s*\[.*?\]",
+        source,
+    )
+    if match is None:
+        raise ValueError(f"invariant source lacks top-level {field} assignment")
+    rendered = f"{field} = {_toml_value(list(values))}"
+    return source[: match.start()] + rendered + source[match.end() :]
+
+
+def _replace_covered_catalog_cells(
+    source: str,
+    *,
+    invariant_id: str,
+    closed_dimensions: set[str],
+) -> str:
+    if not closed_dimensions:
+        return source
+    pattern = re.compile(
+        r"(?ms)^\[\[coverage\.cells\]\]\n.*?(?=^\[\[|^\[(?!\[)|\Z)"
+    )
+
+    def replace(match: re.Match[str]) -> str:
+        block = match.group(0)
+        cell = tomllib.loads(block).get("coverage", {}).get("cells", [{}])[0]
+        dimension = cell.get("dimension")
+        if dimension not in closed_dimensions:
+            return block
+        rationale = (
+            "Accepted catalog mappings bind reviewed assertions to every "
+            f"{dimension} behavior in {invariant_id}; dynamic proof and broad "
+            "remote validation remain explicit debt."
+        )
+        updated = re.sub(
+            r'(?m)^state\s*=\s*"[^"]*"$',
+            'state = "covered"',
+            block,
+            count=1,
+        )
+        return re.sub(
+            r'(?m)^rationale\s*=\s*".*"$',
+            f"rationale = {_toml_value(rationale)}",
+            updated,
+            count=1,
+        )
+
+    return pattern.sub(replace, source)
 
 
 def _canonical_digest(values: Sequence[Mapping[str, Any]]) -> str:

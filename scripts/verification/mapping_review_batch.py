@@ -11,6 +11,7 @@ from .mapping_catalog_updates import (
     append_invariant_test,
     build_accepted_catalog_record,
     map_denominator_review,
+    reconcile_invariant_catalog_state,
     render_denominator_document,
 )
 from .mapping_review import build_mapping_decision, validate_mapping_decisions
@@ -67,6 +68,7 @@ def build_review_batch(
     new_decisions: list[dict[str, Any]] = []
     accepted_test_ids: list[str] = []
     rejected_proposal_ids: list[str] = []
+    touched_invariant_ids: set[str] = set()
     for proposal_id in sorted(review_by_proposal):
         proposal = proposals[proposal_id]
         if proposal_id in snapshots:
@@ -107,7 +109,19 @@ def build_review_batch(
                 path,
                 append_invariant_test(source, str(catalog_record["id"])),
             )
+            touched_invariant_ids.add(str(invariant_id))
         accepted_test_ids.append(str(catalog_record["id"]))
+
+    for invariant_id in sorted(touched_invariant_ids):
+        path, source = invariant_after[invariant_id]
+        invariant_after[invariant_id] = (
+            path,
+            reconcile_invariant_catalog_state(
+                source,
+                invariant_id=invariant_id,
+                catalog_source=catalog_after,
+            ),
+        )
 
     decision_failures = validate_mapping_decisions(
         decisions=list(existing_decisions.values()),
