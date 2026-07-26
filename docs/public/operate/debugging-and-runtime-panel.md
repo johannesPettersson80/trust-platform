@@ -1,21 +1,22 @@
-# Run & Check
+# Run & Compile
 
-Check that your program is valid, then run it on the simulator — both from the **Run** card in the truST
+Compile your program, then run it on the simulator — both from the **Run** card in the truST
 view, with honest status at every step.
 
-## Check your program
+## Compile your program
 
-Running **Check program** validates the whole project. On success you get a confirmation — *"Project check
-passed — 2 sources, no errors."* — and the Run card's passive line reads **✓ No known errors**.
+Running **Compile** validates the whole project. On success you get a confirmation such as
+*"Compile passed — 2 sources, no errors."* and the Run card's passive line reads
+**✓ No known errors**.
 
 ![The Run card showing No known errors and a "Project check passed" toast](../assets/images/vscode/vscode-run-check-passed.png)
 
-*Check validates the whole project before you run — the Run card shows "No known errors", the simulator selected, and a single Start button.*
+*Compile validates the whole project before you run — the Run card shows "No known errors", the simulator selected, and a single Start button.*
 
 The **✓ No known errors** line is diagnostics-derived: it means *nothing is currently flagged*, and it
 updates live as you edit. It never claims a build is good when it isn't.
 
-### When Check fails
+### When Compile fails
 
 If the project has errors, they appear in VS Code's **Problems** panel with their IEC references (for
 example an undefined identifier on a specific line), and the Run card reflects that there are errors. Fix

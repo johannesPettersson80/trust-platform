@@ -5,24 +5,21 @@ typed form — you never hand-edit `io.toml`.
 
 ## 1. Open the add flow
 
-In Devices & Connections, click **Edit**. Each runtime and host gains **+** slots. Click the **+ Add**
-slot on the runtime you want to add a device to.
+In Devices & Connections, click the first-class **+ Add** toolbar action. You do not need to enter a
+hidden Edit mode first.
 
 ## 2. Pick a protocol
 
-A drawer opens — **Add to truST runtime** — listing every protocol with a one-line description, searchable
-at the top.
+A drawer opens — **Add device or connection** — with searchable choices grouped by what you want to do.
 
-![The protocol picker listing Modbus, MQTT, EtherCAT, GPIO, OPC UA, and more](../assets/images/vscode/vscode-add-device-picker.png)
+The top-level choices are:
 
-*Pick a protocol — each entry says what it's for, so you don't need to know the wire details up front.*
-
-The choices, grouped by what they do:
-
-- **Field devices:** Modbus TCP, MQTT, EtherCAT, GPIO, Simulated I/O, Loopback I/O.
-- **Supervisory services:** OPC UA server, ADS server, OpenOT.
-- **Peer links (runtime-to-runtime):** OPC UA client, ADS client, Discovery, Mesh / Zenoh, Realtime T0,
-  Runtime cloud / federation.
+- **Discover devices and runtimes**
+- **Devices and I/O**
+- **Read tags from another PLC or server**
+- **Share truST values**
+- **Send and receive messages**
+- **Advanced integrations**
 
 ## 3. Fill the typed form
 

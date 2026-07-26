@@ -625,6 +625,11 @@ Target release: `v0.24.55`
 
 ### Changed
 
+- vscode/docs: documented the shipped product contract for the truST sidebar,
+  Live Values, Devices & Connections, examples, libraries, HMI, and visual
+  editors; public guides now use the current Compile, Live Values, and direct
+  `+ Add` workflows instead of retired Runtime Panel, Check, and Edit-mode
+  wording.
 - branding: replaced font-dependent truST wordmarks and product icons with
   self-contained path-based assets across the public documentation, runtime Web
   IDE, and packaged VS Code extension.

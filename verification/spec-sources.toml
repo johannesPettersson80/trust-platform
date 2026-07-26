@@ -2245,3 +2245,23 @@ known_limitations = [
   "The contract validates verification metadata and evidence integrity; it does not independently prove product behavior.",
 ]
 conflicts_with = []
+
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+title = "VS Code Product Contract"
+area = "editor_safety"
+owner = "editors-vscode"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/specs/25-vscode-product-contract.md"
+version = "current"
+last_reviewed = "2026-07-26"
+covers = ["1_product_shell_and_command_exposure", "2_discover", "3_examples_project_scaffolding_and_packaged_tools", "4_live_values", "5_devices_connections", "6_sidebar_actions_compile_update_and_authentication", "7_libraries", "8_shared_hmi_and_visual_editor_contract", "9_tooling_and_example_truth", "10_proof_limits_and_remaining_authority_gaps"]
+known_limitations = []
+conflicts_with = []

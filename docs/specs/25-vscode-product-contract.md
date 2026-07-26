@@ -1,0 +1,522 @@
+# VS Code Product Contract
+
+Status: normative truST product specification for the shipped VS Code
+extension.
+
+This document owns the user-facing shell, Live Values, Devices & Connections,
+onboarding, libraries, HMI preview, and visual-editor presentation contracts.
+It is a truST product specification, not an IEC 61131-3 semantic rule.
+Reviewed choices that resolve earlier product-plan conflicts are recorded in
+`docs/PRODUCT_DECISIONS.md`.
+
+The words MUST, MUST NOT, SHOULD, and MAY are normative. Static source-contract
+tests establish behavior-lock wiring only. They do not by themselves prove
+rendered layout, keyboard operation, accessibility, contrast, a produced VSIX,
+or a live runtime journey; those claims require the corresponding rendered,
+package, or end-to-end evidence.
+
+## 1. Product shell and command exposure
+
+### 1.1 Supported surfaces
+
+- The user-facing runtime/device graph MUST be named
+  `Devices & Connections`; its command title is
+  `Open Devices & Connections`. User-facing command titles MUST NOT expose the
+  internal name `Network Canvas`.
+- The value surface and both active and compatibility HTML titles MUST be
+  `Live Values`, not `Structured Text Runtime` or `Runtime Panel`.
+- Palette-visible commands MUST use the common truST category and MUST NOT
+  embed a `Structured Text:` prefix in the title.
+- The namespace refactor MUST be named `Move Structured Text Namespace`. It
+  MUST request and apply an LSP workspace edit, create a missing target file
+  when needed, and remove an empty file it created if the operation fails.
+- The native Testing welcome area MUST explain an empty Structured Text test
+  workspace and direct the user to add a `TEST_PROGRAM` or
+  `TEST_FUNCTION_BLOCK`.
+
+### 1.2 Hidden and retired commands
+
+- Commands whose intended route is another product surface MAY remain
+  registered for internal invocation, but MUST be hidden from the command
+  palette. This applies to opening Live Values, debug start/attach/
+  configuration/reload, test execution, and raw HMI initialization/refresh.
+- The legacy Communication and ADS panel commands MUST be absent from command
+  contributions, activation events, menus, and the package manifest as a
+  whole. No visible editor-title, view-title, or view-item menu may expose
+  `Communication`, `Open Runtime Panel`, or legacy ADS panel commands.
+- The retired VS Code 3D-twin surface MUST be absent from extension activation
+  events, commands, menus, language-model tools, build inputs, compiled
+  panel/tool output, and packaged media.
+- Hiding a command MUST NOT remove the registered handler needed by F5,
+  sidebar actions, native Testing, or adaptive HMI flows.
+
+## 2. Discover
+
+- Discover MUST offer separate Modbus operations for a known host/port and a
+  caller-supplied CIDR subnet.
+- A discovered runtime card MUST show one actionable host/port value, omit a
+  visible `tcp://` prefix, and wrap long endpoints.
+- Other candidate cards MUST show human-readable protocol, discovery-source,
+  and confidence labels rather than backend identifiers.
+- Discover MUST use the shared inspector, section, field, input, button,
+  message, and disabled-control roles.
+- Empty results MUST suggest concrete checks for device power, network
+  reachability, port/firewall restrictions, and the supplied address or
+  subnet.
+- Discover copy MUST NOT use `Field devices`, `origin's local subnet`,
+  `connect-only`, `Targeted (needs a host/subnet)`, `Runtime-only`, or
+  `Discovery needs a runtime that serves it`. It MUST NOT use raw
+  editor-hover-widget colors instead of shared product roles.
+- Hardware-origin scans, including EtherCAT and GPIO, MUST remain visible but
+  disabled with a reason until the selected runtime origin is attached or has
+  `connected`, `running`, or `online` health. A disabled scan is neutral, not a
+  primary action.
+- A selected stopped runtime disables every runtime-origin scan. EtherCAT and
+  GPIO use the reason
+  `Start or connect a runtime before scanning EtherCAT or GPIO.`
+- Adopting a discovered runtime MUST retain its discovered label, refresh the
+  fleet topology, and select and focus the adopted runtime node.
+
+## 3. Examples, project scaffolding, and packaged tools
+
+### 3.1 Curated gallery
+
+- The packaged manifest MUST parse and contain: Empty simulator, Conveyor,
+  TwinCAT ADS, Raspberry Pi, HMI starter, and PLCopen Motion single axis.
+- The gallery MUST always expose search plus independent hardware and category
+  filters. Filters may be combined. When no result matches, a visible action
+  MUST clear the search and both filters.
+- Gallery cards MUST display their hardware requirement. Canonical labels are
+  `No hardware`, `Requires TwinCAT`, and `Requires Raspberry Pi`.
+- Hardware-required badges use the shared warning role. Category identity uses
+  stable internal IDs while displaying human-readable names such as `ADS` and
+  `Raspberry Pi`.
+- Card descriptions MUST contain no more than 80 characters.
+- Normal copy flows MUST use native VS Code folder and name prompts. Only
+  acceptance automation may override destination, name, and open-folder
+  answers through `TRUST_UX_EXAMPLE_*`.
+
+### 3.2 Runnable scaffold
+
+- Every bundled entry MUST contain `trust-lsp.toml`, `runtime.toml`,
+  `io.toml`, `.vscode/launch.json`, `.vscode/settings.json`, and
+  `src/Main.st`.
+- The launch file MUST contain a `structured-text` launch configuration named
+  `truST Simulator`, use request `launch`, and target an existing source below
+  `${workspaceFolder}/src/`.
+- The settings file MUST set `debug.showInStatusBar` to `never`; the truST
+  sidebar is the product's run-target surface.
+- Create Project MUST produce that native simulator launch/settings contract,
+  targeting `${workspaceFolder}/src/config.st`. The `network_canvas_demo`
+  acceptance fixture MUST provide the same native simulator launch target.
+- Each example `runtime.toml` MUST explicitly contain `[runtime.control]`,
+  `[runtime.retain]`, `[runtime.watchdog]`, and `[runtime.fault]`.
+- Each example MUST declare a `CONFIGURATION` and bind a program instance to a
+  task using `PROGRAM <instance> WITH <task>`.
+- Example fixtures MUST NOT contain populated authentication tokens,
+  passwords, secrets, private keys, or API keys.
+
+### 3.3 PLCopen Motion starter
+
+- The motion starter MUST use a project-relative vendored
+  `PLCopenMotionSingleAxis` dependency at version `0.1.0`, include that
+  library's manifest, demonstrate `MC_MoveAbsolute`, and expose motion proof
+  values.
+- The starter MUST be portable outside the repository and MUST NOT depend on an
+  unnecessary `Globals.st`.
+
+### 3.4 VSIX and acceptance evidence
+
+- Every Unix and Windows release VSIX MUST bundle `trust-lsp`, `trust-debug`,
+  and `trust-runtime` under `editors/vscode/bin`; Windows artifacts use `.exe`.
+- The acceptance-journey batch MUST remove helper-produced PNG files,
+  including diagnostic `runner-output` copies, before validating the retained
+  evidence tree.
+
+## 4. Live Values
+
+### 4.1 Ownership, placement, and capability
+
+- Live Values owns runtime values, I/O, globals/memory, controlled Write,
+  Force, Release, `Release all forces`, and operation feedback. It MUST NOT
+  render Start, Stop, Connect, Disconnect, Local/External target selection,
+  embedded compile diagnostics, pause/step controls, or another lifecycle
+  selector.
+- Opening Live Values from Devices & Connections MUST reuse the active editor
+  group. Other launch routes use column two.
+- Simulator I/O supports read, Write, Force, and Release. Attached managed or
+  remote I/O supports those operations when reported capability and
+  authorization allow them; a blanket remote-only disable gate is forbidden.
+- Runtime status MUST propagate role-derived write, force, and release
+  capabilities to the active session. Controls MUST disable before click with
+  a visible reason when denied. A forced row MUST require Release before Write.
+- Write, Force, and Release MUST use the attach-safe I/O request path for
+  remote sessions.
+
+### 4.2 Force safety and mutation feedback
+
+- A simulator Force is one deliberate action. A connected managed or remote
+  target requires an explicit first `Arm force` action; the second action may
+  pin the value. The panel MUST explain this policy.
+- Arming feedback remains in the sticky header, uses the shared quiet warning
+  treatment rather than a filled action color, and remains explicit after a
+  release.
+- Every forced row MUST display a visible `FORCED` badge. The header MUST expose
+  an accessible, pressed-state `Forced (N)` filter that shows only forced rows
+  and suppresses empty groups.
+- Row actions MUST spell out `Write`, `Force`, and `Release`; `W`, `R`, `F`,
+  and `F*` abbreviations are forbidden.
+- Program-driven outputs or memory that cannot be written MUST explain that
+  Write is disabled and that Force is the override path when Force is
+  available.
+- When forces exist, `Release all forces` MUST be visible. The webview sends
+  the forced addresses and the host processes the listed releases.
+- Write, Force, Release, and Release-all feedback MUST remain visible in the
+  sticky header. Failure uses error treatment; permission, armed force, and
+  active-force state use warning treatment. Only bounded transient startup,
+  unavailable, or success feedback may expire automatically.
+- Successful row operations use the prefixes `I/O write queued for`,
+  `I/O force active at`, and `I/O force released at`. Success feedback expires
+  after exactly 5000 milliseconds only if it is still the current message.
+  Standing active-force feedback MUST NOT auto-expire or be cleared by an
+  ordinary value refresh.
+- A mutation captures the preceding scan number and refreshes visible rows
+  only after a newer runtime scan is observed.
+
+### 4.3 Table and value presentation
+
+- Every row MUST prefer the backend value type and only then infer from an I/O
+  address. `Type` and `State` are visible columns, state uses badges, and source
+  provenance is muted context beneath the name rather than another column.
+- BOOL rows use a compact TRUE/FALSE chooser for Write and Force. A forced BOOL
+  row shows Release, hides the editable value, and explains that release is
+  required before Write. Row controls remain aligned.
+- The header identifies the selected target, current scan, and DEC/HEX/BIN
+  format. The table identifies `Name`, `Value`, `Type`, `State`, and `Actions`.
+- Standard target labels are `Simulator`, `Connected runtime`,
+  `Runtime at <endpoint>`, and `Local runtime (control socket)`. Scan labels
+  use `scan #N`, and accessible context states
+  `Rows are from runtime scan #N`.
+- BYTE, WORD, and DWORD values use uppercase IEC-style `16#…` and padded
+  `2#…` forms in hexadecimal and binary modes.
+- Safety verbs MUST not wrap. Row actions are quiet secondary controls, not
+  repeated filled-primary buttons, and the action column reserves stable
+  width and spacing.
+- The shared row grid reserves actions with `minmax(160px, max-content)`, a
+  6-pixel column gap, and compact control widths of 46 and 62 pixels.
+- Narrow panes retain identifiable columns with horizontal scrolling. Long
+  names ellipsize without collapsing adjacent columns, expose the full name
+  and address as accessible context, and allow source provenance to wrap.
+- The five columns use minimum tracks of 116, 52, 38, 64, and 160 pixels for
+  Name, Value, Type, State, and Actions respectively.
+- Active and compatibility Live Values surfaces consume shared `--trust-*`
+  roles and MUST NOT define or consume a private Live Values token layer.
+
+### 4.4 Session truth
+
+- No-session, stopped, disconnected, terminated, and cancelled-I/O paths MUST
+  clear stale values through one unavailable-state route.
+- A simulator with no session tells the user to Start. A selected unattached
+  remote tells the user to Connect. Raw adapter no-session errors are
+  normalized to those product states.
+- An attached session is `Connected`; its endpoint comes from the debug
+  session. A reachable online target without an attached session is
+  `Not connected`, not `Running`.
+- The lifecycle pill contains only lifecycle state and MUST NOT append ADS or
+  other protocol commentary.
+- Debug termination or active-session loss immediately clears stale rows,
+  capabilities, operation banners, and Connected state. Termination handling
+  MUST NOT immediately restore stale state from an older lifecycle snapshot.
+- Structured Text Stop MUST track the relevant ST session even when VS Code has
+  no active session, await its termination event, and wait the bounded UI
+  settle interval before resolving.
+- The contributed and dynamically provided debugger configurations MUST both
+  expose `truST Simulator`.
+- Live Values prefers the selected runtime's friendly label. Managed Start,
+  lifecycle attach, sidebar Connect, and canvas Connect propagate that label;
+  raw endpoint text is fallback only.
+- Live Values subscribes to the shared lifecycle model for status but MUST NOT
+  request another I/O snapshot for every lifecycle event.
+
+## 5. Devices & Connections
+
+### 5.1 Panel, target, and lifecycle
+
+- Panel and HTML titles MUST be `Devices & Connections`; `Network Canvas` is
+  permitted only as an internal identifier and MUST NOT appear in the built
+  webview or runtime-rendered strings.
+- Before React mounts or topology resolves, the webview MUST synchronously
+  paint a themed loading shell saying `Loading your devices...` and
+  `Reading the project's runtime and connections.` Refresh starts
+  asynchronously. Any acceptance-only delay is explicit and capped at ten
+  seconds.
+- The sidebar and graph share one selected-runtime store. Workspace state is
+  primary; workspace-keyed global state and an extension-global-storage file
+  are durable fallbacks across real VS Code restart. Re-selecting an existing
+  ID repairs missing fallback copies.
+- Successful Connect also selects the runtime. `Set as run target` selects
+  without connecting.
+- Managed Start/Stop uses fleet lifecycle. Successful managed Start attaches
+  through the shared helper with the reached endpoint and friendly label,
+  selects the target, and makes Live Values usable. A static fake local-runtime
+  capability flag is forbidden.
+
+### 5.2 Setup tasks and stable panes
+
+- The setup wizard offers Connect existing and local managed runtime in v1.
+  SSH install and Docker remain visible but unavailable with reasons. Wording
+  is generic to another computer/controller and avoids IPC-only jargon.
+- Setup slots read `Set up runtime`, `Add connection`, and `Add host`. Add host
+  occupies the host body row without overlapping header/setup slots.
+- Runtime setup uses shared inspector/header/section/button/help chrome and the
+  breadcrumb `Devices & Connections / Runtime setup`.
+- Connect-existing uses shared chrome, password-masked optional token input,
+  plain `Runtime address` host:port guidance, a Discover recovery hint, and
+  `Add runtime`. Host:port normalizes to a control endpoint.
+- Connect tokens go to SecretStorage; probes read them from there; settings
+  resolve against the active workspace. Legacy plaintext writes and
+  result-obscuring global success toasts are forbidden.
+- Endpoint edit breadcrumbs read
+  `Devices & Connections / Edit <user-facing protocol>`, not raw role badges.
+- Async refresh snapshots the current panel before awaiting, aborts when that
+  panel was disposed/replaced, and posts only through the stable snapshot.
+- Backend health, mode, state, detail, and schema identifiers MUST be
+  translated to product labels. `configured_policy` renders `Configured`;
+  lifecycle appears in one title-case `State` row. Schema summaries translate
+  relevant fields to `Connection file`, `Polling`, and `Enabled`.
+- Opening a new drawer or choosing a new protocol clears stale apply,
+  validation, and fault results in host and webview.
+- EtherCAT Browse remains a channel picker labelled `Add channels`, sends a
+  dedicated add-EtherCAT-channels message, and persists `selected_channels`
+  through `comm.apply`; it MUST NOT enter ADS tag import.
+
+### 5.3 Canvas and endpoint lifecycle
+
+- React Flow controls and summaries use shared low-prominence chrome.
+  Protocol, topology role, disabled state, draft state, and grid lines use
+  shared semantic roles. Draft topology has a distinct `DRAFT` marker and
+  label knockouts that keep edges out of text.
+- The graph reframes after structural topology changes, child endpoint
+  appearance, selection/focus changes, drawer-width changes, window focus/
+  resize/visibility changes, or detection of off-screen rendered nodes.
+- Edit/setup slots hide while a right-side drawer is open. Connect-existing
+  and Adopt success return to a clean graph without edit placeholders. The
+  webview content MUST NOT repeat the `Devices & Connections` page title that
+  is already present in the VS Code tab.
+- `+ Add` is a first-class toolbar action and is named by empty runtime
+  guidance. Hidden Edit mode is not a prerequisite.
+- Endpoint removal is a two-step action with explanatory confirmation and
+  Cancel.
+- Identical topology or schema refreshes MUST NOT erase an in-progress edit.
+  Reset decisions compare stable content signatures.
+- Endpoint Disable/Enable is shown only when supported by backend schema,
+  remains visible in the graph, and writes through offline `comm.apply`.
+
+### 5.4 Add, edit, browse, and recovery
+
+- Add, edit, node-summary, and protocol panes use shared inspector, section,
+  field, input, button, and message chrome.
+- Picker taxonomy is: `Add device or connection`,
+  `Discover devices and runtimes`, `Devices and I/O`,
+  `Read tags from another PLC or server`, `Share truST values`,
+  `Send and receive messages`, and `Advanced integrations`.
+- Schema `json_array` fields use list editors and serialize to arrays. Boolean
+  fields use On/Off checkboxes, acronyms retain capitalization, exposed
+  globals use product language, and secret help states saved secrets are not
+  shown.
+- Browse access labels spell out `read/write` and `read-only`.
+- Add/write actions remain visible but neutral-disabled with a reason when
+  there is no valid selection or a browse/route error blocks the operation.
+- ADS route recovery stays inline in Browse, offers `Create route`, and
+  explains TwinCAT administrator/manual PowerShell requirements without
+  referring to the retired ADS panel.
+- OPC UA authentication failures offer `Edit credentials` and reopen the form
+  with the failed target prefilled.
+- ADS and OPC UA browse each receive one configured client connection, not the
+  whole connection array.
+- ADS tag import works for a stopped project through deterministic offline
+  symbol import, refreshes the canvas, and opens generated Structured Text so
+  diagnostics can refresh.
+- Endpoint summaries use protocol-specific allowlists. ADS allowed clients use
+  a humanized summary rather than raw JSON. Notifications use user-facing
+  protocol names and correct singular/plural grammar.
+- Schema refresh does not reset an active add form unless protocol or prefill
+  changes. Successful Test feedback does not expose internal lifecycle tokens.
+- Successful Save preserves its result and selects/focuses the saved node.
+  When the backend omits an ID, topology matching is allowed only when
+  unambiguous.
+- Active form validation takes precedence in the header issue indicator, with
+  concise text and complete recovery help. Filter wording is neutral and
+  grammatically correct.
+
+## 6. Sidebar actions, Compile, update, and authentication
+
+### 6.1 Fixed action row
+
+- The fixed row contains Compile, runtime action, Debug, and Deploy. Each
+  button is projected from one typed state function.
+- Only enabled Start or Connect is filled-primary. Stop and Disconnect are
+  neutral-outline. All four use Codicons rather than emoji/text glyphs.
+- Compile state uses icon plus semantic tone: clean is check/neutral/outline,
+  dirty is warning, and failure is error/danger. Clean diagnostics MUST NOT
+  claim `Build OK`, `Build succeeded`, or equivalent.
+- At widths at or below 245 px, labels hide and controls retain a compact
+  minimum height of 32 px instead of wrapping.
+- Deploy remains visible but disabled with
+  `Deploy is not available for this target yet.` until a real backend exists.
+  No palette deploy command exists during that state, and `Send to PLC` is not
+  displayed.
+- Live Values MUST NOT retain a compile-diagnostics card or synthetic
+  `No compile run yet` state. Details stay hidden until a real result exists.
+
+### 6.2 Compile and project identity
+
+- `Compile` is a fixed sidebar action and palette escape hatch invoking
+  `trust-lsp.checkProgram`; it is not nested in a retired Project menu.
+- Success is `Compile passed — N source(s), no errors.` Failure is
+  `Compile failed — N error(s), M warning(s).` Correct singular/plural and the
+  effective diagnostic totals are required.
+- The project name is a non-interactive identity row with the open-folder
+  Codicon, `Current truST project` help, visible 600-weight name, and theme
+  roles. Project switching MUST NOT hide behind that label.
+- The truST view title exposes Settings as its sole visible navigation icon;
+  `New diagram` remains in overflow.
+- Native Settings are titled `truST`; keys use `trust.*`, not `trust-lsp.*`,
+  and every title uses product language. Executable-path titles are
+  `Runtime executable path`, `Debug adapter path`, and `Test runner path`.
+
+### 6.3 Update running simulation
+
+- Update eligibility requires simulator target, running state, and a real
+  saved Structured Text change.
+- Update invokes `trust-lsp.debug.reload`, publishes compact success/failure,
+  summarizes Problems-oriented compiler failures rather than raw paths, clears
+  pending state only after success, and leaves retry visible after failure.
+- The language-model reload tool inspects the structured command result and
+  reports `Failed to update running simulation:` when `ok=false`; invocation
+  alone is not success.
+
+### 6.4 Runtime authentication
+
+- Token reads use the per-endpoint SecretStorage-backed API. A nonblank secure
+  value wins; when absent or blank, a trimmed nonblank
+  `trust.runtime.authTokenFallback` MAY be used.
+- Runtime-target, lifecycle, and Live Values code MUST NOT directly read a raw
+  plaintext token setting.
+- Managed-runtime token import reads the runtime project's `runtime.toml` and
+  imports the value to SecretStorage before attach, never to plaintext
+  settings.
+- The retired `trust-lsp.runtime.controlAuthToken` key is not contributed.
+  The fallback key remains only with UI text that explicitly says legacy,
+  fallback, and OS secret store.
+
+## 7. Libraries
+
+- Libraries is reachable from the project sidebar and `Open Libraries`.
+- It loads and packages the shared truST theme, uses shared buttons, and MUST
+  NOT establish a private token layer.
+- OSCAT and PLCopen Motion are curated. Catalog installation remains hidden
+  until its backend exists. Empty copy is
+  `No libraries added. Add OSCAT, PLCopen Motion, or your own.`
+- Failed add remains an alert with `Fix and retry`; success clears stale error.
+- Installed/update state comes from the project's vendored copy, preferring its
+  package version over stale project information.
+- Counts use correct singular/plural grammar.
+- The symbol browser supports complete-collection search and pagination,
+  declaration detail, copy, and insertion into a visible Structured Text
+  `VAR` block.
+- Read-only files use `View source`; updates name the target version.
+
+## 8. Shared HMI and visual-editor contract
+
+### 8.1 Shared theme and runtime placement
+
+- SFC, Statechart, Ladder, and Blockly use the truST sidebar for lifecycle and
+  Live Values for values. They MUST NOT embed runtime, I/O, runtime-settings,
+  or compile-diagnostics panels.
+- They retain the shared Structured Text generation, launch, attach, and debug
+  command route from `17-visual-editors-runtime-unification.md` sections 1-4.
+- Devices & Connections and all four editors consume
+  `src/webview/theme.css`; React/inline styles consume shared
+  `src/webview/theme.ts` roles. Parallel private theme layers are forbidden.
+- Shared protocol roles are `protocolBlue`, `protocolOrange`,
+  `protocolGreen`, `protocolCyan`, `protocolRed`, `protocolPurple`, and
+  `protocolMuted`. Shared topology roles are `roleHostBg`,
+  `roleHostBorder`, `roleRuntimeBg`, `roleRuntimeBorder`, `roleEndpointBg`,
+  `roleExternalBg`, and `roleExternalBorder`. The CSS layer MUST expose the
+  corresponding `--trust-protocol-*` and `--trust-role-*` tokens.
+- Filled primary actions use VS Code button background, hover, and foreground
+  roles, never focus/accent as the fill.
+- Shared theme defines dark-high-contrast, light-high-contrast, and
+  forced-colors behavior for surfaces, inputs, borders, identity, primary
+  actions, and focus outlines.
+- Default minimap/statistics overlays MUST NOT obscure the program.
+
+### 8.2 HMI preview
+
+- HMI Preview uses shared canvas, surface, text, border, selection, input,
+  accent, card, tab, button, status, and empty-state roles.
+- With no runtime, it clears stale live presentation and directs the user to
+  Start in the truST sidebar.
+- Process bindings resolve against the complete HMI schema, not only visible
+  widgets. Embedded process SVG is normalized to shared roles.
+- BOOL displays as `TRUE`/`FALSE`; REAL/LREAL retains a decimal component.
+  Existing lowercase boolean process-map keys remain compatible.
+- Descriptor refresh is debounced after relevant text edits, saves, descriptor
+  or SVG changes, and view-file watcher events.
+
+### 8.3 Common authoring shell
+
+- All four editors share product header, workspace, canvas, inspector, section,
+  button, and input treatment. Inspectors name their actual surface.
+- Right-pane order is `Tools`, `Edit`, `View`, with one Fit View placement.
+- Preview ST does not write; Generate ST writes or offers to save the companion.
+- Invalid SFC, Statechart, and Blockly models offer `Open as text` in VS Code's
+  default text editor for the same file.
+- Ladder contacts/coils resolve mapped variables and show symbol and address
+  separately. Edit strokes are neutral; live power flow owns live wire color.
+- The EtherCAT ladder fixture maps `%MX1.0` to the symbol `Step0Active`.
+- Dashed treatment is reserved for draft/unproven topology.
+- Blockly derives workspace, toolbox, flyout, block, and category presentation
+  from shared theme and counts all live workspace blocks.
+
+### 8.4 SFC, Statechart, and visual hygiene
+
+- SFC Add Step, Split, and Join place nodes relative to the graph and reframe
+  after mutation commits.
+- SFC transitions use an IEC-style perpendicular bar and offset condition
+  label. Backward/skip routes use side handles; initial steps are distinct.
+- Statechart import, Add State, and Auto Layout reframe after mutation.
+  Spacing and side routes leave room for labels.
+- Product/semantic colors outside theme modules use shared CSS/React roles;
+  private hex/RGB colors are forbidden.
+- Network, SFC, and Statechart grids use the shared grid-line role.
+- Blockly toolbox labels use normal foreground. Generated-code actions use
+  shared buttons and no emoji; layout CSS does not override button chrome.
+- Parse failures use user-facing `Could not open…` recovery, not
+  `Editor Error`.
+
+## 9. Tooling and example truth
+
+- Extension-test and development binary resolution MUST honor
+  `CARGO_TARGET_DIR` before the repository `target` directory. This is a
+  developer-workflow contract, not a visual claim.
+- OPC UA and ADS server examples expose scan-driven globals: `TankLevel`
+  increments by `1.0` during continued ST execution. OPC UA derives
+  `PumpRunning` from `TankLevel > 50.0`; ADS derives it from
+  `TankLevel > 40.0`.
+- When optional local runners are present, they MUST prove a before/after
+  change to `TankLevel`, not merely read its static initializer. Their absence
+  is not evidence that a runner executed.
+
+## 10. Proof limits and remaining authority gaps
+
+- Source-contract tests do not prove rendered visibility, focus order,
+  keyboard accessibility, responsive behavior, or contrast ratios.
+- Workflow-copy assertions do not prove produced VSIX contents.
+- Selection among multiple configured ADS or OPC UA client connections remains
+  unspecified; this batch requires only one configured connection to browse.
+- HMI formatting outside BOOL and REAL/LREAL remains outside this batch.
+- Positive focus/invocation of shared Run and Live Values from every visual
+  editor requires a rendered journey; removal of duplicate panes is not that
+  proof.

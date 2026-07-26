@@ -6814,3 +6814,21 @@ conflict_disposition = "not_oracle_authority"
 checklist_staleness = "not_applicable"
 removed_behavior_disposition = "not_oracle_authority"
 last_reviewed = "2026-07-19"
+
+
+[[document_reviews]]
+schema_version = 1
+document_id = "SPEC_DOC_2CF07A9326310B3C94901113"
+path = "docs/specs/25-vscode-product-contract.md"
+content_sha256 = "34782279c0a1cb203fe8253f652457fa95cd76f2b8f717bba91e665fdb263a02"
+areas = ["editor_safety"]
+authority_levels = ["normative_product"]
+owners = ["editors-vscode"]
+freshness = "current"
+visibility = "public"
+oracle_usable = true
+classification_basis = "registered_metadata"
+conflict_disposition = "registered_conflicts_reviewed"
+checklist_staleness = "not_applicable"
+removed_behavior_disposition = "reviewed_current"
+last_reviewed = "2026-07-26"

@@ -1,9 +1,10 @@
-# IEC 61131-3 Specifications
+# truST Specifications
 
 This directory contains the IEC 61131-3 Structured Text language specs
 (`01-09`), the split runtime/tooling specs (`10-14`), the Ladder/profile/editor
-specs (`15-17`), the project/runtime and operational contract specs (`18-24`), and the current
-non-numbered SFC profile note (`sfc-profile`).
+specs (`15-17`), the project/runtime and operational contract specs (`18-25`), and the current
+non-numbered SFC profile note (`sfc-profile`). Product and tooling contracts in
+this directory are explicitly identified and do not become IEC requirements.
 
 ## Document Index
 
@@ -28,6 +29,7 @@ non-numbered SFC profile note (`sfc-profile`).
 | [22-developer-workflows.md](22-developer-workflows.md) | Developer source-discovery and project-scoped commit behavior | trust-dev |
 | [23-connector-status.md](23-connector-status.md) | Canonical connector state, health, confidence, and point-quality vocabulary | trust-runtime, editors/vscode |
 | [24-release-evidence.md](24-release-evidence.md) | Platform, source-build, dependency, artifact, version, hardware, and conformance evidence | release tooling, CI, docs |
+| [25-vscode-product-contract.md](25-vscode-product-contract.md) | VS Code shell, Live Values, Devices & Connections, examples, libraries, HMI preview, and visual-editor product behavior | editors/vscode |
 | [16-ladder-profile-trust.md](16-ladder-profile-trust.md) | truST LD schema/runtime/editor profile and interoperability constraints | trust-runtime, trust-lsp, editors/vscode |
 | [17-visual-editors-runtime-unification.md](17-visual-editors-runtime-unification.md) | Shared ST-backed runtime/debug command path for Ladder/Statechart/Blockly | editors/vscode, trust-debug, trust-runtime |
 | [18-configurations-resources-tasks.md](18-configurations-resources-tasks.md) | CONFIGURATION/RESOURCE/TASK declarations and program-to-task binding rules | trust-hir, trust-lsp, trust-runtime |
@@ -69,6 +71,7 @@ These specifications are based on:
 - Developer source-discovery and commit workflows (see `22-developer-workflows.md`)
 - Connector status vocabulary (see `23-connector-status.md`)
 - Release evidence contracts (see `24-release-evidence.md`)
+- VS Code product behavior (see `25-vscode-product-contract.md`)
 
 ### Not Covered (Out of Scope)
 
@@ -88,7 +91,8 @@ For configuration/resource/task declarations, use `docs/specs/18-configurations-
 For machine-facing orchestration contracts, use `docs/specs/20-agent-api-v1.md`
 and `docs/specs/21-harness-protocol.md`. For developer workflow, connector
 status, and release evidence contracts, use `docs/specs/22-developer-workflows.md`,
-`docs/specs/23-connector-status.md`, and `docs/specs/24-release-evidence.md`.
+`docs/specs/23-connector-status.md`, `docs/specs/24-release-evidence.md`, and
+`docs/specs/25-vscode-product-contract.md`.
 
 For IEC coverage tracking and spec-to-test mapping, see:
 - `docs/specs/coverage/standard-functions-coverage.md`

@@ -21,9 +21,9 @@ code examples/tutorials/12_hmi_pid_process_dashboard
 1. Install truST from the [Marketplace](installation.md).
 2. Open the shipped tutorial in VS Code.
 3. Open `src/main.st` and `src/config.st`.
-4. Run `Structured Text: Open Runtime Panel`.
-5. Start the runtime in `Local` mode.
-6. Toggle `%IX0.0` and confirm `PumpRunning` changes in the runtime panel.
+4. Choose **Simulator** in the truST sidebar and press **Start**.
+5. Open **Live Values**.
+6. Toggle `%IX0.0` and confirm `PumpRunning` changes in Live Values.
 7. Open `/hmi` from the same running project and confirm the dashboard updates.
 8. Set one breakpoint and press `F5` to verify the debugger path.
 
@@ -33,7 +33,7 @@ without guessing about project layout or missing config files.
 ## What Success Looks Like
 
 - VS Code shows truST commands and diagnostics.
-- The runtime panel connects to the local runtime.
+- Live Values connects to the simulator.
 - `%I` and `%Q` values move when you toggle tutorial inputs.
 - `/hmi` opens for the same project.
 - A breakpoint stops in the tutorial code.
