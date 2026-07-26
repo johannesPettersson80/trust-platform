@@ -1,0 +1,81 @@
+schema_version = 1
+id = "RT_CONTROL_DEBUG_IO_SURFACE_001"
+title = "Runtime control debug and I/O projections preserve temporal and size authority"
+area = "runtime_safety"
+risk = "safety_critical"
+status = "specified"
+owner = "trust-runtime"
+last_reviewed = "2026-07-26"
+claim = "Runtime control resolves project-relative breakpoints safely, preserves independent debug and I/O routing, reports force state only from its captured scan, and rejects process-image writes and forces beyond the bounded area."
+proof_level = "S1"
+contract_kind = "state_machine"
+source_refs = ["crates/trust-runtime/src/control", "crates/trust-runtime/src/io"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_behavior_tests", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_DEBUG_ADAPTER_001", "SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_DEBUG_ADAPTER_001#runtime-control-io-surface"
+
+[[behavior]]
+partition = { equals = "PROJECT_RELATIVE_BREAKPOINT_SOURCE" }
+case_family = "platform_or_filesystem_variation"
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#source-mapping"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A project-relative source resolves inside the selected root and binds to its already registered file ID."
+
+[[behavior]]
+partition = { equals = "DEBUG_AND_IO_HANDLER_DISPATCH" }
+case_family = "happy_path"
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#runtime-control-io-surface"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Pause, debug-state read, warm-restart request, and queued I/O write remain independent routed operations; the behavior lock does not claim their deeper semantics."
+
+[[behavior]]
+partition = { equals = "FORCE_MARK_CAPTURED_SCAN" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#runtime-control-io-surface"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A force accepted after scan n cannot decorate scan n and becomes visible only in a later snapshot that captured it."
+
+[[behavior]]
+partition = { above = "PROCESS_IMAGE_AREA_MAX_BYTE_OFFSET" }
+coverage_dimension = "boundary_high"
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#runtime-control-io-surface"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Control write and force reject every I, Q, or M byte offset at or above 16,777,216 before allocation or mutation."
+
+[[coverage.cells]]
+dimension = "platform_or_filesystem_variation"
+state = "gap_open"
+rationale = "Project-relative breakpoint binding awaits catalog mapping and assertion review."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "The composite debug and I/O routing behavior lock awaits catalog mapping and must not be promoted beyond handler reachability."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "Captured-scan force-mark ordering awaits catalog mapping and assertion review."
+
+[[coverage.cells]]
+dimension = "boundary_high"
+state = "gap_open"
+rationale = "Process-image write and force boundary assertions await catalog mapping and mutation proof."

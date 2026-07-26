@@ -1209,7 +1209,7 @@ last_reviewed = "2026-07-19"
 schema_version = 1
 document_id = "SPEC_DOC_2BB2F9190775BBF95827F595"
 path = "docs/specs/11-runtime-engine.md"
-content_sha256 = "bbcc2785439869d1ec708af4e1350d1ce5c5fd5b982356c9c4995a8af51e018b"
+content_sha256 = "eae050619013e5a6371060374ce4056dabc5f5e01c5a30191e964655fdd4b8dd"
 areas = ["runtime_safety"]
 authority_levels = ["normative_product"]
 owners = ["trust-runtime"]
@@ -1220,7 +1220,7 @@ classification_basis = "registered_metadata"
 conflict_disposition = "registered_conflicts_reviewed"
 checklist_staleness = "not_applicable"
 removed_behavior_disposition = "reviewed_current"
-last_reviewed = "2026-07-22"
+last_reviewed = "2026-07-26"
 
 [[document_reviews]]
 schema_version = 1
@@ -4473,7 +4473,7 @@ last_reviewed = "2026-07-19"
 schema_version = 1
 document_id = "SPEC_DOC_A02088379A554A8A7334C397"
 path = "docs/specs/13-debug-adapter.md"
-content_sha256 = "46e038b8d5f497338a7ff1d882ac696efb2948a2cc31eb19b9a20dc6f29f5924"
+content_sha256 = "6a5570783f18fbdb88c1e9f3f67c4d5d3e4bd05317c32045abc8fde1866888d7"
 areas = ["editor_safety"]
 authority_levels = ["normative_product"]
 owners = ["trust-debug"]
@@ -4484,7 +4484,7 @@ classification_basis = "registered_metadata"
 conflict_disposition = "registered_conflicts_reviewed"
 checklist_staleness = "not_applicable"
 removed_behavior_disposition = "reviewed_current"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-26"
 
 [[document_reviews]]
 schema_version = 1

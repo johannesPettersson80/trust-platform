@@ -40,6 +40,9 @@ This document is implementation-agnostic but aligns with the DAP definitions in
    adapter with its path and full text.
 3) The adapter converts runtime locations to `(line, column)` for DAP using 1-based coordinates
    when `linesStartAt1` / `columnsStartAt1` are true.
+4) A breakpoint source path relative to the selected project resolves against
+   that project root and binds to the already registered source/file ID. It
+   must not resolve outside the project root.
 
 ### Breakpoints
 
@@ -150,6 +153,18 @@ endpoint and is not covered by this managed-session rule.
 
 These are truST debugger/runtime lifecycle rules outside the IEC language
 execution model, not IEC deviations.
+
+#### Runtime control I/O surface
+
+- An I/O snapshot reports the force marks captured with that snapshot's scan.
+  A force accepted after scan `n` cannot retroactively decorate scan `n`; it
+  appears only when a later snapshot records it.
+- Each `%I`, `%Q`, and `%M` process-image area is bounded to byte offsets
+  `0..=16_777_215`. Control write and force requests at or above
+  `16_777_216` reject before allocation or mutation.
+- Pause, debug-state read, warm-restart request, and queued I/O write remain
+  independently routed operations. A composite routing behavior lock does not
+  replace their deeper state-machine, mutation-lifetime, or restart proof.
 
 ### Stepping Semantics
 

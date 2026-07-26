@@ -318,10 +318,17 @@ def reconcile_invariant_catalog_state(
     for index, behavior in enumerate(behaviors):
         if not isinstance(behavior, Mapping):
             raise ValueError(f"{invariant_id} behavior[{index}] must be an object")
+        partition = behavior.get("partition")
         dimension = behavior.get("case_family")
+        if (
+            isinstance(partition, Mapping)
+            and "equals" not in partition
+            and dimension is None
+        ):
+            dimension = behavior.get("coverage_dimension")
         if not isinstance(dimension, str) or not dimension:
             raise ValueError(
-                f"{invariant_id} behavior[{index}] lacks case_family"
+                f"{invariant_id} behavior[{index}] lacks a coverage dimension"
             )
         behavior_refs_by_dimension.setdefault(dimension, set()).add(
             f"{invariant_id}#behavior:{index}"
@@ -373,7 +380,9 @@ def reconcile_invariant_catalog_state(
     updated_missing = list(missing)
     if all_behavior_refs.issubset(mapped_refs):
         updated_missing = [
-            item for item in updated_missing if item != "cataloged_behavior_tests"
+            item
+            for item in updated_missing
+            if item not in {"cataloged_behavior_tests", "catalog_mapping"}
         ]
 
     result = _replace_top_level_array(
@@ -626,6 +635,9 @@ def _catalog_awaiting_rationale(rationale: str) -> bool:
             "await generated catalog mapping",
             "awaits generated catalog mapping",
             "ready for generated catalog mapping",
+            "await catalog mapping",
+            "awaits catalog mapping",
+            "awaiting catalog mapping",
         )
     )
 

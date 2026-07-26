@@ -1,0 +1,108 @@
+schema_version = 1
+id = "RT_CONTROL_STATE_QUERY_001"
+title = "Runtime control state and query surfaces project one honest state"
+area = "runtime_safety"
+risk = "false_status"
+status = "specified"
+owner = "trust-runtime"
+last_reviewed = "2026-07-26"
+claim = "Runtime status, health, configuration, realtime, metrics, and historian query surfaces agree on effective state, preserve fault evidence, and reject invalid live configuration atomically."
+proof_level = "S1"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-runtime/src/control"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_behavior_tests", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-request-job-and-state-surface-contract"
+
+[[behavior]]
+partition = { equals = "EFFECTIVE_BACKEND_PROJECTION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-request-job-and-state-surface-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Status, status metrics, and config.get report one backend and source; omission selects vm from default."
+
+[[behavior]]
+partition = { equals = "COMPLETE_RUNTIME_STATUS_PROJECTION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-request-job-and-state-surface-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Status preserves resource, control, simulation, metrics, profiling, realtime requested and observed state, warnings, errors, and every I/O-driver health entry."
+
+[[behavior]]
+partition = { equals = "FAULTED_IO_DRIVER_HEALTH" }
+case_family = "hardware_or_network_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-request-job-and-state-surface-contract"
+outcome = "not_safe_reported"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "fault_visible" }
+rationale = "A faulted driver makes aggregate health false and retains the driver error even while the runtime state remains ready."
+
+[[behavior]]
+partition = { malformed = "LIVE_CONFIG_KEY_TYPE_VALUE_OR_CROSS_FIELD_RULE" }
+coverage_dimension = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-request-job-and-state-surface-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Unknown keys, wrong types, invalid bounds or enums, and incomplete security combinations fail atomically with stable field ownership."
+
+[[behavior]]
+partition = { equals = "LIVE_EXECUTION_BACKEND_SWITCH" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-request-job-and-state-surface-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "The startup-only execution backend cannot be changed through live control and rejection preserves the effective backend."
+
+[[behavior]]
+partition = { equals = "DEFAULT_REALTIME_PROJECTION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-request-job-and-state-surface-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Status and config.get consistently report disabled realtime with scheduler other when no realtime policy is configured."
+
+[[behavior]]
+partition = { equals = "HISTORIAN_QUERY_OR_ALERTS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-request-job-and-state-surface-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Historian query and alert operations return an items array, honor the limit, and include matching persisted entries when present."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Backend, status, realtime, and historian assertions await catalog mapping and assertion review."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Live configuration rejection assertions await catalog mapping and mutation proof."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "Startup-only backend rejection awaits catalog mapping and assertion review."
+
+[[coverage.cells]]
+dimension = "hardware_or_network_fault"
+state = "gap_open"
+rationale = "Faulted-driver aggregate-health assertions await catalog mapping and assertion review."

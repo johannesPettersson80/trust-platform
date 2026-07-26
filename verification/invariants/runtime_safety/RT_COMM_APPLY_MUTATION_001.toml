@@ -1,0 +1,114 @@
+schema_version = 1
+id = "RT_COMM_APPLY_MUTATION_001"
+title = "Communication apply validates before mutation and preserves project policy"
+area = "runtime_safety"
+risk = "data_loss"
+status = "specified"
+owner = "trust-runtime"
+last_reviewed = "2026-07-26"
+claim = "Communication apply validates and authorizes before mutation, never echoes secrets, preserves unrelated configuration and project safe-state policy, and makes deterministic add, edit, disable, remove, migration, and dry-run transitions."
+proof_level = "S1"
+contract_kind = "state_machine"
+source_refs = [
+  "crates/trust-runtime/src/control/comm_handlers/apply.rs",
+  "crates/trust-runtime/src/control/comm_handlers/apply",
+]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_behavior_tests", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate", "crash_atomic_config_write"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#communication-apply-mutation-and-security"
+
+[[behavior]]
+partition = { equals = "AUTHORIZED_VALID_APPLY" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#communication-apply-mutation-and-security"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A complete authorized request writes one validated target configuration while preserving unrelated instances, project comments outside rewritten driver/safe-state items, and exact safe-state values."
+
+[[behavior]]
+partition = { equals = "UNTRUSTED_SECRET_BEARING_APPLY" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#communication-apply-mutation-and-security"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Server-observed untrusted transport blocks secret-bearing input before mutation and no response or audit field echoes a secret value."
+
+[[behavior]]
+partition = { equals = "INVALID_FIELD_OR_INSTANCE_ID" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#communication-apply-mutation-and-security"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Invalid fields plus missing, stale, cross-protocol, or wrong-slot instance identities return field diagnostics before any configuration write is attempted."
+
+[[behavior]]
+partition = { equals = "VALID_DRY_RUN" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#communication-apply-mutation-and-security"
+outcome = "accept_value"
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Dry-run performs complete validation and lifecycle planning without writing or deleting a file or returning a secret-bearing snippet."
+
+[[behavior]]
+partition = { equals = "ADD_EDIT_DISABLE_OR_REMOVE_INSTANCE" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#communication-apply-mutation-and-security"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Instance mutation is protocol-qualified, preserves siblings and project policy, retains disabled instances, and is byte-identical when the same edit is repeated."
+
+[[behavior]]
+partition = { equals = "SINGLE_TO_MULTI_DRIVER_MIGRATION" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#communication-apply-mutation-and-security"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Adding a second driver converts the valid single-driver form to canonical multi-driver form without losing the original driver or project policy."
+
+[[behavior]]
+partition = { equals = "INCOMPLETE_AUTHORING_BASE" }
+case_family = "missing_required"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#communication-apply-mutation-and-security"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Empty, comment-only, and safe-state-only authoring inputs may be repaired, but successful output must satisfy activation validation."
+
+[[behavior]]
+partition = { equals = "REMOVE_FINAL_PROJECT_DRIVER" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#communication-apply-mutation-and-security"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Final-driver removal retains io.toml, project comments outside rewritten driver/safe-state items, and exact safe-state values under an explicit no-driver sentinel, and a later Add replaces that sentinel without activating system-I/O fallback."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "The frozen successful apply tests are not catalog-bound to this new invariant yet."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Field and instance-identity rejection assertions await catalog mapping and assertion review."
+
+[[coverage.cells]]
+dimension = "auth_or_permission"
+state = "gap_open"
+rationale = "Credential-channel, role, redaction, and audit assertions await catalog mapping and assertion review."
+
+[[coverage.cells]]
+dimension = "persistence_or_recovery"
+state = "gap_open"
+rationale = "Preservation, migration, idempotence, disable, removal, and no-driver recovery assertions await catalog mapping and mutation proof."

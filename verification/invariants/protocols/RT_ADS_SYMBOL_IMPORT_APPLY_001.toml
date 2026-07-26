@@ -62,6 +62,15 @@ delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", pr
 rationale = "Current configuration is strict merge authority and cannot be silently discarded."
 
 [[behavior]]
+partition = { equals = "CACHED_SNAPSHOT_CONNECTION_MISMATCH" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-symbol-import-selection-and-generated-identifiers"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "A cached snapshot bound to another connection is rejected before candidate generation, artifact construction, or mutation."
+
+[[behavior]]
 partition = { equals = "STRING_ARRAY_NOTIFY_PROJECTION" }
 case_family = "boundary_high"
 oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-symbol-import-apply-and-merge"
@@ -95,8 +104,8 @@ rationale = "Focused tests cover first apply, multi-connection merge, global nam
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "covered"
-rationale = "Focused tests cover strict malformed current configuration and every supported scalar type token."
+state = "gap_open"
+rationale = "Strict malformed current configuration is covered, while the frozen cached-snapshot connection mismatch awaits catalog mapping and assertion review."
 
 [[coverage.cells]]
 dimension = "boundary_high"

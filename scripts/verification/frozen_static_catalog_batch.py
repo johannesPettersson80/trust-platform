@@ -16,6 +16,10 @@ from .mapping_proposals import (
     duration_class,
     validate_mapping_quarantine,
 )
+from .frozen_rust_nextest_batch import (
+    build_catalog_command as build_rust_catalog_command,
+    normalize_nextest_jsonl,
+)
 from .mapping_review_batch import build_review_batch
 from .mapping_transaction import apply_mapping_transaction
 
@@ -35,10 +39,10 @@ def compile_batch(
 ) -> tuple[dict[str, bytes], tuple[str, ...]]:
     root = root.resolve()
     path = _required_string(plan, "path")
-    invariant_id = _required_string(plan, "invariant_id")
+    selected_invariant_ids = _plan_invariant_ids(plan)
     reviewed_date = _required_string(plan, "reviewed_date")
     timestamp = _required_string(plan, "timestamp")
-    command = _required_string(plan, "command")
+    _required_string(plan, "command")
     reviewers = _string_array(plan.get("reviewer_ids"), "reviewer_ids")
     expected_count = plan.get("expected_count")
     if not isinstance(expected_count, int) or isinstance(expected_count, bool):
@@ -89,9 +93,15 @@ def compile_batch(
         raise ValueError("assertion inventory document lacks inventories")
     if set(inventories) != set(facts):
         raise ValueError("assertion inventory IDs do not equal the selected denominator")
-    assignments = assign_behaviors(
+    assignments = assign_behavior_refs(
         inventories=inventories,
         ranges=plan.get("ranges"),
+        default_invariant_id=(
+            selected_invariant_ids[0]
+            if len(selected_invariant_ids) == 1
+            else None
+        ),
+        allowed_invariant_ids=set(selected_invariant_ids),
     )
     validate_execution_provenance(
         root=root,
@@ -110,21 +120,39 @@ def compile_batch(
         },
     )
 
-    invariant_path, invariant = _load_selected_invariant(
-        root=root,
-        invariant_id=invariant_id,
-    )
     invariants = _load_all_invariants(root)
-    if invariants.get(invariant_id) != invariant:
-        raise ValueError("selected invariant does not match invariant registry")
+    invariant_sources: dict[str, tuple[str, str]] = {}
+    for invariant_id in selected_invariant_ids:
+        invariant_path, invariant = _load_selected_invariant(
+            root=root,
+            invariant_id=invariant_id,
+        )
+        if invariants.get(invariant_id) != invariant:
+            raise ValueError(
+                f"selected invariant {invariant_id} does not match invariant registry"
+            )
+        invariant_sources[invariant_id] = (
+            invariant_path.relative_to(root).as_posix(),
+            invariant_path.read_text(),
+        )
 
     trace_records: dict[str, dict[str, Any]] = {}
     candidates: list[dict[str, Any]] = []
     for discovery_id, fact in sorted(facts.items()):
+        catalog_command = _catalog_command(
+            plan,
+            test_name=str(fact["name"]),
+        )
+        candidate_invariant_ids = sorted(
+            {
+                invariant_id
+                for invariant_id, _behavior_index in assignments[discovery_id]
+            }
+        )
         trace_records[discovery_id] = {
             "discovery_id": discovery_id,
             "trace_status": "observed",
-            "command": command,
+            "command": catalog_command,
             "command_authority": "exact",
             "duration_ms": durations[str(fact["name"])],
         }
@@ -132,7 +160,7 @@ def compile_batch(
             {
                 "discovery_id": discovery_id,
                 "candidate_tier": "C3",
-                "candidate_invariant_ids": [invariant_id],
+                "candidate_invariant_ids": candidate_invariant_ids,
                 "covered_code_ids": [],
                 "specified_code_ids": [],
                 "spec_gap_code_ids": [],
@@ -182,29 +210,48 @@ def compile_batch(
         "last_generated": timestamp,
         "proposals": proposals,
     }
-    behavior_rows = invariant.get("behavior")
-    if not isinstance(behavior_rows, Sequence) or isinstance(
-        behavior_rows, (str, bytes)
-    ):
-        raise ValueError("selected invariant lacks behavior rows")
     review_inputs = []
     for discovery_id, proposal in sorted(proposals_by_discovery.items()):
         assertion_assignments = assignments[discovery_id]
         selected_indices = tuple(dict.fromkeys(assertion_assignments))
         selected_behaviors: list[Mapping[str, Any]] = []
-        for behavior_index in selected_indices:
+        selected_behavior_refs: list[str] = []
+        for invariant_id, behavior_index in selected_indices:
+            invariant = invariants[invariant_id]
+            behavior_rows = invariant.get("behavior")
+            if not isinstance(behavior_rows, Sequence) or isinstance(
+                behavior_rows, (str, bytes)
+            ):
+                raise ValueError(
+                    f"selected invariant {invariant_id} lacks behavior rows"
+                )
             if behavior_index >= len(behavior_rows):
                 raise ValueError(
-                    f"{discovery_id} selects absent behavior {behavior_index}"
+                    f"{discovery_id} selects absent behavior "
+                    f"{invariant_id}#{behavior_index}"
                 )
             behavior = behavior_rows[behavior_index]
             if not isinstance(behavior, Mapping):
                 raise ValueError("selected behavior row is not a table")
             selected_behaviors.append(behavior)
-        selected_behavior_refs = [
-            f"{invariant_id}#behavior:{behavior_index}"
-            for behavior_index in selected_indices
-        ]
+            selected_behavior_refs.append(
+                f"{invariant_id}#behavior:{behavior_index}"
+            )
+        proposal_invariant_ids = sorted(
+            {invariant_id for invariant_id, _ in selected_indices}
+        )
+        areas = {str(invariants[value]["area"]) for value in proposal_invariant_ids}
+        owners = {
+            str(invariants[value]["owner"]) for value in proposal_invariant_ids
+        }
+        if len(areas) != 1 or len(owners) != 1:
+            raise ValueError(
+                f"{discovery_id} crosses catalog area or owner boundaries"
+            )
+        catalog_command = _catalog_command(
+            plan,
+            test_name=str(facts[discovery_id]["name"]),
+        )
         review_inputs.append(
             {
                 "proposal_id": proposal["id"],
@@ -219,29 +266,29 @@ def compile_batch(
                         ],
                         "rationale": (
                             "The reviewed assertion locks this selected "
-                            "VS Code product-contract behavior."
+                            "product-contract behavior."
                         ),
                     }
-                    for assertion, behavior_index in zip(
+                    for assertion, (invariant_id, behavior_index) in zip(
                         proposal["assertions"],
                         assertion_assignments,
                         strict=True,
                     )
                 ],
-                "selected_invariant_ids": [invariant_id],
+                "selected_invariant_ids": proposal_invariant_ids,
                 "selected_behavior_refs": selected_behavior_refs,
-                "command": command,
+                "command": catalog_command,
                 "command_authority": "verified_exact",
                 "confirmed_catalog": {
                     "test_class": "behavior_lock",
-                    "area": invariant["area"],
-                    "owner": invariant["owner"],
+                    "area": next(iter(areas)),
+                    "owner": next(iter(owners)),
                     "expected_result": " ".join(
                         str(behavior["rationale"])
                         for behavior in selected_behaviors
                     ),
                     "expected_failure_mode": (
-                        "The static contract accepts missing, stale, "
+                        "The contract accepts missing, stale, "
                         "contradictory, or falsely successful product wiring."
                     ),
                     "suite_tiers": ["pr"],
@@ -260,12 +307,7 @@ def compile_batch(
         review_inputs=review_inputs,
         catalog_source=catalog_source,
         denominator_document=denominator,
-        invariant_sources={
-            invariant_id: (
-                invariant_path.relative_to(root).as_posix(),
-                invariant_path.read_text(),
-            )
-        },
+        invariant_sources=invariant_sources,
         invariants=invariants,
         reviewed_date=reviewed_date,
         source_commit=source_commit,
@@ -280,16 +322,53 @@ def assign_behaviors(
     inventories: Mapping[str, Any],
     ranges: Any,
 ) -> dict[str, tuple[int, ...]]:
+    assignments = assign_behavior_refs(
+        inventories=inventories,
+        ranges=ranges,
+        default_invariant_id="_single",
+        allowed_invariant_ids={"_single"},
+    )
+    return {
+        discovery_id: tuple(index for _invariant_id, index in values)
+        for discovery_id, values in assignments.items()
+    }
+
+
+def assign_behavior_refs(
+    *,
+    inventories: Mapping[str, Any],
+    ranges: Any,
+    default_invariant_id: str | None,
+    allowed_invariant_ids: set[str],
+) -> dict[str, tuple[tuple[str, int], ...]]:
     if not isinstance(ranges, Sequence) or isinstance(ranges, (str, bytes)):
         raise ValueError("plan ranges must be an array")
-    normalized: list[tuple[int, int, int]] = []
+    normalized: list[tuple[str, int, int, int]] = []
     for index, row in enumerate(ranges):
-        if not isinstance(row, Mapping) or set(row) != {
+        if not isinstance(row, Mapping):
+            raise ValueError(f"plan range {index} fields drift")
+        fields = set(row)
+        if fields == {"behavior_index", "min_line", "max_line"}:
+            if default_invariant_id is None:
+                raise ValueError(f"plan range {index} requires invariant_id")
+            invariant_id = default_invariant_id
+        elif fields == {
+            "invariant_id",
             "behavior_index",
             "min_line",
             "max_line",
         }:
+            invariant_id = row["invariant_id"]
+            if not isinstance(invariant_id, str) or not invariant_id:
+                raise ValueError(
+                    f"plan range {index} invariant_id must be non-empty"
+                )
+        else:
             raise ValueError(f"plan range {index} fields drift")
+        if invariant_id not in allowed_invariant_ids:
+            raise ValueError(
+                f"plan range {index} selects unapproved invariant {invariant_id}"
+            )
         values = (
             row["behavior_index"],
             row["min_line"],
@@ -303,9 +382,9 @@ def assign_behaviors(
         behavior_index, minimum, maximum = values
         if behavior_index < 0 or minimum < 1 or maximum < minimum:
             raise ValueError(f"plan range {index} is invalid")
-        normalized.append((behavior_index, minimum, maximum))
+        normalized.append((invariant_id, behavior_index, minimum, maximum))
 
-    assignments: dict[str, tuple[int, ...]] = {}
+    assignments: dict[str, tuple[tuple[str, int], ...]] = {}
     for discovery_id, inventory in inventories.items():
         if not isinstance(inventory, Mapping):
             raise ValueError(f"{discovery_id} assertion inventory is not an object")
@@ -327,8 +406,8 @@ def assign_behaviors(
             raise ValueError(f"{discovery_id} assertion lines are invalid")
         matched_by_line = [
             {
-                behavior_index
-                for behavior_index, minimum, maximum in normalized
+                (invariant_id, behavior_index)
+                for invariant_id, behavior_index, minimum, maximum in normalized
                 if minimum <= line <= maximum
             }
             for line in lines
@@ -356,7 +435,17 @@ def validate_execution_provenance(
     results_document: Mapping[str, Any],
 ) -> None:
     execution = results_document.get("execution")
-    if not isinstance(execution, Mapping) or set(execution) != {
+    if not isinstance(execution, Mapping):
+        raise ValueError("focused results lack closed execution provenance")
+    if execution.get("kind") == "rust_nextest_jsonl":
+        _validate_rust_execution_provenance(
+            root=root,
+            plan=plan,
+            execution=execution,
+            results_document=results_document,
+        )
+        return
+    if set(execution) != {
         "command",
         "runner_path",
         "runner_sha256",
@@ -391,6 +480,90 @@ def validate_execution_provenance(
             )
 
 
+def _validate_rust_execution_provenance(
+    *,
+    root: Path,
+    plan: Mapping[str, Any],
+    execution: Mapping[str, Any],
+    results_document: Mapping[str, Any],
+) -> None:
+    if plan.get("execution_kind") != "rust_nextest_jsonl":
+        raise ValueError("Rust focused results do not match plan execution_kind")
+    expected_fields = {
+        "kind",
+        "batch_command",
+        "runner_path",
+        "runner_sha256",
+        "source_path",
+        "source_sha256",
+        "raw_results_path",
+        "raw_results_sha256",
+        "nextest_version",
+        "package",
+        "target_kind",
+        "binary_id",
+        "test_prefix",
+    }
+    if set(execution) != expected_fields:
+        raise ValueError("Rust focused results lack closed execution provenance")
+    expected = {
+        "batch_command": _required_string(plan, "command"),
+        "runner_path": _required_string(plan, "runner_path"),
+        "source_path": _required_string(plan, "path"),
+        "raw_results_path": _required_string(plan, "raw_results_path"),
+        "package": _required_string(plan, "package"),
+        "target_kind": _required_string(plan, "target_kind"),
+        "binary_id": _required_string(plan, "binary_id"),
+        "test_prefix": _required_string(plan, "test_prefix"),
+    }
+    for field, value in expected.items():
+        if execution.get(field) != value:
+            raise ValueError(f"focused result {field} does not match plan")
+    if (
+        not isinstance(execution.get("nextest_version"), str)
+        or not execution["nextest_version"]
+    ):
+        raise ValueError("focused result nextest_version is empty")
+    for path_field, digest_field in (
+        ("runner_path", "runner_sha256"),
+        ("source_path", "source_sha256"),
+        ("raw_results_path", "raw_results_sha256"),
+    ):
+        path = root / str(execution[path_field])
+        if (
+            not path.is_file()
+            or path.is_symlink()
+            or execution.get(digest_field) != _digest_bytes(path.read_bytes())
+        ):
+            raise ValueError(
+                f"focused result {digest_field} does not match live input"
+            )
+    tests = results_document.get("tests")
+    if not isinstance(tests, Sequence) or isinstance(tests, (str, bytes)):
+        raise ValueError("Rust focused results lack normalized tests")
+    titles = [
+        row.get("title")
+        for row in tests
+        if isinstance(row, Mapping)
+    ]
+    if len(titles) != len(tests) or any(
+        not isinstance(title, str) or not title for title in titles
+    ):
+        raise ValueError("Rust focused results contain invalid titles")
+    expected_full_names = {
+        str(execution["test_prefix"]) + str(title) for title in titles
+    }
+    raw_path = root / str(execution["raw_results_path"])
+    normalized = normalize_nextest_jsonl(
+        raw_path.read_text(),
+        expected_full_names=expected_full_names,
+    )
+    if normalized != list(tests):
+        raise ValueError(
+            "Rust normalized results do not match raw nextest evidence"
+        )
+
+
 def measured_durations(
     *,
     results_document: Mapping[str, Any],
@@ -400,6 +573,10 @@ def measured_durations(
     tests = results_document.get("tests")
     failures = results_document.get("failures")
     pending = results_document.get("pending")
+    rust_results = (
+        isinstance(results_document.get("execution"), Mapping)
+        and results_document["execution"].get("kind") == "rust_nextest_jsonl"
+    )
     if not isinstance(tests, Sequence) or isinstance(tests, (str, bytes)):
         raise ValueError("focused results lack tests")
     if failures != [] or pending != []:
@@ -410,6 +587,8 @@ def measured_durations(
             raise ValueError("focused result test is not an object")
         name = row.get("title")
         duration = row.get("duration")
+        if rust_results and row.get("state") != "passed":
+            raise ValueError("Rust focused result state is not passed")
         if (
             not isinstance(name, str)
             or not name
@@ -423,6 +602,15 @@ def measured_durations(
     allowed_names = expected_names | (allowed_extra_names or set())
     if set(durations) != allowed_names:
         raise ValueError("focused result titles do not equal denominator names")
+    if rust_results:
+        expected_total = len(allowed_names)
+        if results_document.get("stats") != {
+            "tests": expected_total,
+            "passes": expected_total,
+            "failures": 0,
+            "pending": 0,
+        }:
+            raise ValueError("Rust focused result stats do not match passing tests")
     return {name: durations[name] for name in expected_names}
 
 
@@ -430,7 +618,8 @@ def validate_applied_batch(
     *,
     root: Path,
     selected_ids: set[str],
-    invariant_id: str,
+    invariant_ids: set[str],
+    invariant_test_baselines: Mapping[str, set[str]],
 ) -> list[str]:
     failures: list[str] = []
     catalog = _toml(root / CATALOG_PATH)
@@ -454,18 +643,54 @@ def validate_applied_batch(
         failures.append("denominator did not map the exact selected IDs")
     if proposals.get("proposals") != []:
         failures.append("accepted proposal queue is not empty")
-    invariant = _load_all_invariants(root).get(invariant_id)
-    expected_tests = {str(row.get("id")) for row in mapped_rows}
-    if invariant is None or set(invariant.get("tests", [])) != expected_tests:
-        failures.append("invariant test links do not equal accepted catalog rows")
-    elif any(
-        cell.get("state") != "covered"
-        for cell in invariant.get("coverage", {}).get("cells", [])
-        if isinstance(cell, Mapping)
-    ):
-        failures.append("invariant catalog-awaiting coverage did not close")
-    elif "cataloged_behavior_tests" in invariant.get("missing", []):
-        failures.append("invariant catalog debt remained after complete mapping")
+    invariants = _load_all_invariants(root)
+    if set(invariant_test_baselines) != invariant_ids:
+        failures.append("invariant test baselines do not match selected invariants")
+        return failures
+    if any(invariant_id not in invariants for invariant_id in invariant_ids):
+        failures.append("a selected invariant is missing after acceptance")
+        return failures
+    mapped_by_invariant: dict[str, set[str]] = {
+        invariant_id: set() for invariant_id in invariant_ids
+    }
+    for row in mapped_rows:
+        test_id = str(row.get("id"))
+        row_invariants = {
+            str(value)
+            for value in row.get("invariants", [])
+            if isinstance(value, str)
+        }
+        selected_row_invariants = row_invariants & invariant_ids
+        if not selected_row_invariants:
+            failures.append(f"{test_id} lacks a selected invariant link")
+            continue
+        for invariant_id in selected_row_invariants:
+            mapped_by_invariant[invariant_id].add(test_id)
+            if not any(
+                isinstance(ref, str)
+                and ref.startswith(f"{invariant_id}#behavior:")
+                for ref in row.get("mapping_behavior_refs", [])
+            ):
+                failures.append(
+                    f"{test_id} lacks a behavior link for {invariant_id}"
+                )
+    for invariant_id in sorted(invariant_ids):
+        expected = (
+            set(invariant_test_baselines[invariant_id])
+            | mapped_by_invariant[invariant_id]
+        )
+        actual = {
+            str(test_id) for test_id in invariants[invariant_id].get("tests", [])
+        }
+        if not mapped_by_invariant[invariant_id]:
+            failures.append(f"{invariant_id} accepted no selected tests")
+        if actual != expected:
+            failures.append(
+                f"{invariant_id} test links do not equal its accepted mapping"
+            )
+        remaining = set(invariants[invariant_id].get("missing", []))
+        if remaining & {"cataloged_behavior_tests", "catalog_mapping"}:
+            failures.append(f"{invariant_id} retained catalog mapping debt")
     return failures
 
 
@@ -524,6 +749,48 @@ def _string_array(value: Any, label: str) -> list[str]:
     if len(result) != len(value) or len(result) != len(set(result)) or not result:
         raise ValueError(f"plan {label} must contain distinct non-empty strings")
     return sorted(result)
+
+
+def _plan_invariant_ids(plan: Mapping[str, Any]) -> tuple[str, ...]:
+    plural = plan.get("invariant_ids")
+    singular = plan.get("invariant_id")
+    if plural is not None and singular is not None:
+        raise ValueError("plan must use invariant_id or invariant_ids, not both")
+    if plural is not None:
+        return tuple(_string_array(plural, "invariant_ids"))
+    return (_required_string(plan, "invariant_id"),)
+
+
+def _catalog_command(plan: Mapping[str, Any], *, test_name: str) -> str:
+    if plan.get("execution_kind") == "rust_nextest_jsonl":
+        for field, expected in (
+            ("package", "trust-runtime"),
+            ("target_kind", "lib"),
+            ("binary_id", "trust-runtime"),
+            ("test_prefix", "control::tests::"),
+        ):
+            if plan.get(field) != expected:
+                raise ValueError(
+                    f"Rust plan {field} must equal {expected}"
+                )
+        if plan.get("catalog_command_template") is not None:
+            raise ValueError(
+                "Rust plan catalog commands are generated canonically"
+            )
+        return build_rust_catalog_command(test_name)
+    template = plan.get("catalog_command_template")
+    if template is None:
+        return _required_string(plan, "command")
+    if not isinstance(template, str) or not template:
+        raise ValueError("plan catalog_command_template must be non-empty")
+    if template.count("{name}") != 1:
+        raise ValueError(
+            "plan catalog_command_template must contain {name} exactly once"
+        )
+    command = template.replace("{name}", test_name)
+    if "{" in command or "}" in command:
+        raise ValueError("plan catalog_command_template has unsupported fields")
+    return command
 
 
 def _digest_document(document: Mapping[str, Any]) -> str:
@@ -643,8 +910,16 @@ def main(argv: list[str] | None = None) -> int:
             inventory_document=inventory,
             results_document=results,
         )
-        invariant_id = _required_string(plan, "invariant_id")
+        invariant_ids = set(_plan_invariant_ids(plan))
         if args.apply:
+            live_invariants = _load_all_invariants(root)
+            invariant_test_baselines = {
+                invariant_id: {
+                    str(test_id)
+                    for test_id in live_invariants[invariant_id].get("tests", [])
+                }
+                for invariant_id in invariant_ids
+            }
             originals = {
                 path: (root / path).read_bytes()
                 for path in replacements
@@ -663,13 +938,15 @@ def main(argv: list[str] | None = None) -> int:
                 validate=lambda: validate_applied_batch(
                     root=root,
                     selected_ids=selected_ids,
-                    invariant_id=invariant_id,
+                    invariant_ids=invariant_ids,
+                    invariant_test_baselines=invariant_test_baselines,
                 ),
             )
         verb = "applied" if args.apply else "ready"
         print(
             f"frozen static catalog batch {verb}: "
-            f"{len(accepted_ids)} tests -> {invariant_id}"
+            f"{len(accepted_ids)} tests -> "
+            f"{','.join(sorted(invariant_ids))}"
         )
         return 0
     except (

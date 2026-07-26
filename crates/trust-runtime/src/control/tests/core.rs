@@ -793,7 +793,7 @@ END_PROGRAM
         r#"
 # existing plant I/O note must survive comm.apply edits
 [io]
-safe_state = [{ address = "%QX0.0", value = "FALSE" }]
+safe_state = [{ address = "%QW2", value = "4242" }]
 
 [[io.drivers]]
 name = "loopback"
@@ -848,6 +848,10 @@ params = {}
         "modbus instance should be written: {text}"
     );
     assert!(text.contains("127.0.0.1:1502"));
+    assert!(
+        text.contains("address = \"%QW2\"") && text.contains("value = \"4242\""),
+        "non-default safe-state policy must survive add: {text}"
+    );
     crate::config::validate_io_toml_text(&text).expect("written io.toml should validate");
 }
 
@@ -868,7 +872,7 @@ END_PROGRAM
         r#"
 # empty project I/O file created by setup
 [io]
-safe_state = [{ address = "%QX0.0", value = "FALSE" }]
+safe_state = [{ address = "%QW2", value = "4242" }]
 "#,
     );
 
@@ -907,6 +911,10 @@ safe_state = [{ address = "%QX0.0", value = "FALSE" }]
     let text = fs::read_to_string(root.join("io.toml")).expect("read io.toml");
     assert!(text.contains("empty project I/O file"));
     assert!(text.contains("modbus-tcp"));
+    assert!(
+        text.contains("address = \"%QW2\"") && text.contains("value = \"4242\""),
+        "safe-state-only authoring input must survive add: {text}"
+    );
     crate::config::validate_io_toml_text(&text).expect("safe-state-only io.toml should validate");
 }
 
@@ -1073,6 +1081,8 @@ END_PROGRAM
 
 #[test]
 fn comm_apply_remove_last_driver_deletes_io_toml() {
+    // Keep this historical name stable because the frozen catalog denominator
+    // binds test identity independently of the corrected retention contract.
     let source = r#"
 PROGRAM Main
 VAR
@@ -1086,8 +1096,9 @@ END_PROGRAM
     write_file(
         &root.join("io.toml"),
         r#"
+# final-driver removal must retain this project-owned safety note
 [io]
-safe_state = [{ address = "%QX0.0", value = "FALSE" }]
+safe_state = [{ address = "%QW2", value = "4242" }]
 
 [[io.drivers]]
 name = "loopback"
@@ -1126,6 +1137,11 @@ params = {}
         root.join("io.toml").exists(),
         "dry-run must not remove io.toml"
     );
+    let before_remove = fs::read_to_string(root.join("io.toml")).expect("read dry-run io.toml");
+    assert!(
+        before_remove.contains("address = \"%QW2\"") && before_remove.contains("value = \"4242\""),
+        "dry-run must preserve exact safe-state policy: {before_remove}"
+    );
 
     let remove = handle_request_value(
         json!({
@@ -1153,10 +1169,51 @@ params = {}
             .and_then(serde_json::Value::as_str),
         Some("restart_required")
     );
+    let text = fs::read_to_string(root.join("io.toml"))
+        .expect("last-driver removal must retain project io.toml");
     assert!(
-        !root.join("io.toml").exists(),
-        "removing the last configured driver should turn I/O config off"
+        text.contains("final-driver removal must retain this project-owned safety note"),
+        "last-driver removal must preserve comments: {text}"
     );
+    assert!(
+        text.contains("driver = \"none\"") && text.contains("params = {}"),
+        "last-driver removal must persist explicit no-driver posture: {text}"
+    );
+    assert!(
+        text.contains("address = \"%QW2\"") && text.contains("value = \"4242\""),
+        "last-driver removal must preserve exact safe-state policy: {text}"
+    );
+    assert!(
+        !text.contains("loopback"),
+        "removed driver must not remain configured: {text}"
+    );
+    crate::config::validate_io_toml_text(&text)
+        .expect("explicit no-driver io.toml should validate");
+
+    let add = handle_request_value(
+        json!({
+            "id": 492,
+            "type": "comm.apply",
+            "params": {
+                "protocol": "loopback",
+                "action": "add",
+                "params": {}
+            }
+        }),
+        &state,
+        None,
+    );
+    assert!(add.ok, "add after explicit none failed: {:?}", add.error);
+    let text = fs::read_to_string(root.join("io.toml")).expect("read reactivated io.toml");
+    assert!(
+        text.contains("name = \"loopback\"") && !text.contains("driver = \"none\""),
+        "add must replace the no-driver sentinel: {text}"
+    );
+    assert!(
+        text.contains("address = \"%QW2\"") && text.contains("value = \"4242\""),
+        "add after none must preserve exact safe-state policy: {text}"
+    );
+    crate::config::validate_io_toml_text(&text).expect("reactivated io.toml should validate");
 }
 
 #[test]
@@ -1175,7 +1232,7 @@ END_PROGRAM
         &root.join("io.toml"),
         r#"
 [io]
-safe_state = [{ address = "%QX0.0", value = "FALSE" }]
+safe_state = [{ address = "%QW2", value = "4242" }]
 
 [[io.drivers]]
 name = "modbus-tcp"
@@ -1224,6 +1281,10 @@ on_error = "warn"
     let text = fs::read_to_string(root.join("io.toml")).expect("read io.toml");
     assert!(text.contains("name = \"modbus-tcp\""), "{text}");
     assert!(text.contains("enabled = false"), "{text}");
+    assert!(
+        text.contains("address = \"%QW2\"") && text.contains("value = \"4242\""),
+        "disable must preserve exact safe-state policy: {text}"
+    );
     crate::config::validate_io_toml_text(&text).expect("disabled io.toml should validate");
 
     let topology = handle_request_value(
@@ -1275,7 +1336,7 @@ END_PROGRAM
         &root.join("io.toml"),
         r#"
 [io]
-safe_state = [{ address = "%QX0.0", value = "FALSE" }]
+safe_state = [{ address = "%QW2", value = "4242" }]
 
 [[io.drivers]]
 name = "loopback"
@@ -1321,6 +1382,10 @@ on_error = "warn"
         !text.contains("modbus-tcp"),
         "removed modbus instance should be gone: {text}"
     );
+    assert!(
+        text.contains("address = \"%QW2\"") && text.contains("value = \"4242\""),
+        "remove must preserve exact safe-state policy: {text}"
+    );
     crate::config::validate_io_toml_text(&text).expect("remaining io.toml should validate");
 }
 
@@ -1340,7 +1405,7 @@ END_PROGRAM
         &root.join("io.toml"),
         r#"
 [io]
-safe_state = [{ address = "%QX0.0", value = "FALSE" }]
+safe_state = [{ address = "%QW2", value = "4242" }]
 
 [[io.drivers]]
 name = "loopback"
@@ -1412,6 +1477,11 @@ on_error = "warn"
     assert!(
         !after_second_repeat.contains("127.0.0.1:1502"),
         "old modbus endpoint should be replaced: {after_second_repeat}"
+    );
+    assert!(
+        after_second_repeat.contains("address = \"%QW2\"")
+            && after_second_repeat.contains("value = \"4242\""),
+        "edit must preserve exact safe-state policy: {after_second_repeat}"
     );
     crate::config::validate_io_toml_text(&after_second_repeat)
         .expect("edited io.toml should validate");
@@ -2037,10 +2107,18 @@ fn offline_comm_schema_apply_and_topology_work_without_runtime() {
         remove.get("applied").and_then(serde_json::Value::as_bool),
         Some(true)
     );
+    let io_text = fs::read_to_string(root.join("io.toml"))
+        .expect("offline remove must retain explicit project no-driver state");
     assert!(
-        !root.join("io.toml").exists(),
-        "offline remove should remove the last io.toml driver"
+        io_text.contains("driver = \"none\"") && io_text.contains("params = {}"),
+        "offline remove must retain an explicit no-driver configuration: {io_text}"
     );
+    assert!(
+        !io_text.contains("modbus-tcp"),
+        "offline remove must remove the selected driver: {io_text}"
+    );
+    crate::config::validate_io_toml_text(&io_text)
+        .expect("offline explicit no-driver io.toml should validate");
 }
 
 #[test]
@@ -2659,7 +2737,9 @@ END_PROGRAM
             .iter()
             .find(|capability| capability.get("id").and_then(serde_json::Value::as_str) == Some(id))
             .unwrap_or_else(|| panic!("missing capability for default schema protocol {id}"));
-        if !capability_platform_matches_this_runtime(capability) {
+        let platform_matches = capability_platform_matches_this_runtime(capability)
+            .unwrap_or_else(|error| panic!("{error}"));
+        if !platform_matches {
             continue;
         }
         assert_eq!(
@@ -2670,15 +2750,19 @@ END_PROGRAM
     }
 }
 
-fn capability_platform_matches_this_runtime(capability: &serde_json::Value) -> bool {
+fn capability_platform_matches_this_runtime(
+    capability: &serde_json::Value,
+) -> Result<bool, String> {
     match capability
         .get("platform")
         .and_then(serde_json::Value::as_str)
     {
-        Some("linux") => cfg!(target_os = "linux"),
-        Some("unix") => cfg!(unix),
-        Some(_) => false,
-        None => true,
+        Some("linux") => Ok(cfg!(target_os = "linux")),
+        Some("unix") => Ok(cfg!(unix)),
+        Some(other) => Err(format!(
+            "unknown communication capability platform marker {other:?}"
+        )),
+        None => Ok(true),
     }
 }
 

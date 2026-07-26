@@ -358,6 +358,43 @@ rationale = "Awaiting catalog acceptance."
                         catalog_source=catalog,
                     )
 
+    def test_catalog_reconciliation_uses_reviewed_non_equals_dimension(
+        self,
+    ) -> None:
+        invariant = """
+schema_version = 1
+id = "INV_ONE"
+tests = []
+missing = ["catalog_mapping", "broad_remote_gate"]
+
+[[behavior]]
+partition = { malformed = "REQUEST_JSON" }
+coverage_dimension = "wrong_type_or_shape"
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Awaiting catalog mapping and assertion review."
+"""
+        catalog = """
+[[tests]]
+id = "TEST_ONE"
+invariants = ["INV_ONE"]
+mapping_behavior_refs = ["INV_ONE#behavior:0"]
+"""
+        reconciled = tomllib.loads(
+            reconcile_invariant_catalog_state(
+                invariant,
+                invariant_id="INV_ONE",
+                catalog_source=catalog,
+            )
+        )
+        self.assertNotIn("catalog_mapping", reconciled["missing"])
+        self.assertEqual(
+            "covered",
+            reconciled["coverage"]["cells"][0]["state"],
+        )
+
     def test_catalog_reconciliation_requires_one_cell_per_behavior_dimension(
         self,
     ) -> None:

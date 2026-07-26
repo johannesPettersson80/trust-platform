@@ -104,6 +104,15 @@ no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
 rationale = "Version-two wire names and deterministic maps remain stable while legacy client evidence receives only documented defaults."
 
+[[behavior]]
+partition = { equals = "DISABLED_CLIENT_STATUS_PROJECTION" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-diagnostic-report-and-production-readiness-truth"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_safe_reported" }
+rationale = "A disabled ADS client status retains diagnostics schema version two, client role, disabled overall state, and an empty connection set without manufacturing connectivity."
+
 [[coverage.cells]]
 dimension = "happy_path"
 state = "covered"
@@ -128,3 +137,8 @@ rationale = "Focused tests cover credential channels, secret-free schemas, evide
 dimension = "missing_required"
 state = "covered"
 rationale = "Focused tests cover empty reports, blocking and non-blocking failures, missing evidence, and runtime fault/degradation reasons."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "The frozen disabled-client control projection awaits catalog mapping and assertion review."

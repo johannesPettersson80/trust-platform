@@ -154,3 +154,47 @@ IEC or PLCopen deviation log merely because truST owns the behavior.
     status answers whether that proven connection is healthy. Keeping those
     dimensions separate prevents a real degraded connection from looking like
     an uncommitted draft.
+
+## 2026-07-26 - Final project I/O driver removal preserves safety policy
+
+- Area: Runtime communication authoring and project I/O configuration
+- Decision:
+  - Removing the final configured project I/O driver MUST keep the project
+    `io.toml`.
+  - The retained file uses explicit `driver = "none"` with empty parameters,
+    preserves safe-state values and project comments outside rewritten
+    driver/safe-state items, and contains no active driver.
+  - Deleting the last driver MUST NOT implicitly opt the project into system
+    I/O fallback. Selecting system I/O requires a separate explicit action.
+  - A later Add replaces the `none` sentinel with the selected driver while
+    preserving the retained project policy.
+- Supersedes:
+  - The control-path behavior and tests that deleted the complete `io.toml`
+    after removing its last driver.
+- Reason:
+  - `io.toml` owns both driver selection and fault safe-state policy. Deleting
+    it silently discards safety configuration and may activate machine-wide
+    fallback I/O, which is not equivalent to turning project I/O off.
+
+## 2026-07-26 - Communication and fleet status vocabularies
+
+- Area: Runtime communication capabilities, fleet topology, and connector
+  status
+- Decision:
+  - `docs/specs/23-connector-status.md` remains the canonical vocabulary for a
+    protocol connector report's `state`, `health`, discovery confidence, and
+    point quality.
+  - Communication capability `health` and fleet topology runtime, endpoint,
+    and link status are separate versioned projection vocabularies. They
+    express build availability, configured-only policy, simulation, runtime
+    reachability, live connection, degradation, and error for product
+    authoring and topology rendering.
+  - Consumers MUST NOT reinterpret communication or fleet projection values as
+    connector-report health, or promote an unknown value to healthy.
+- Supersedes:
+  - Any reading that treats every field named `health` as the connector-report
+    health vocabulary irrespective of its versioned response type.
+- Reason:
+  - The surfaces answer different questions. Connector reports normalize live
+    protocol evidence; authoring capabilities and fleet topology must also
+    represent build and configuration states that are not connector health.

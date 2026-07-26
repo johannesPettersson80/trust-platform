@@ -170,7 +170,7 @@ class SpecSourceRegistrationTests(unittest.TestCase):
                 1,
             )
             self.assertIn(
-                'covers = ["live_values", "devices_and_connections"]',
+                'covers = ["live_values"]',
                 refreshed.rendered,
             )
             self.assertIn(
@@ -197,6 +197,76 @@ class SpecSourceRegistrationTests(unittest.TestCase):
                     owner="different-owner",
                     reviewed_date="2026-07-26",
                 )
+
+    def test_refresh_preserves_reviewed_covers_for_legacy_h3_document(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            spec = root / "docs/specs/11-runtime-engine.md"
+            spec.parent.mkdir(parents=True)
+            spec.write_text("# Runtime Engine\n\n### Existing section\n")
+            registry = root / "verification/spec-sources.toml"
+            registry.parent.mkdir(parents=True)
+            registry.write_text(
+                "[[spec_sources]]\n"
+                "schema_version = 2\n"
+                'id = "SPEC_RUNTIME_ENGINE_001"\n'
+                'title = "Reviewed runtime title"\n'
+                'area = "runtime_safety"\n'
+                'owner = "trust-runtime"\n'
+                'status = "mapped"\n'
+                'authority = "normative_product"\n'
+                'source_status = "active"\n'
+                "oracle_eligible = true\n"
+                'visibility = "public"\n'
+                'locator_kind = "tracked_file"\n'
+                'path = "docs/specs/11-runtime-engine.md"\n'
+                'version = "current"\n'
+                'last_reviewed = "2026-07-25"\n'
+                'covers = ["scan_cycle_architecture", "fault_channel"]\n'
+                "known_limitations = []\n"
+                "conflicts_with = []\n"
+            )
+            reviews = root / "verification/spec-document-reviews.toml"
+            reviews.write_text("# reviews\n")
+
+            refreshed = register_spec_source(
+                root=root,
+                registry_path=registry,
+                review_registry_path=reviews,
+                path=Path("docs/specs/11-runtime-engine.md"),
+                area="runtime_safety",
+                owner="trust-runtime",
+                reviewed_date="2026-07-26",
+            )
+
+            self.assertIn(
+                'covers = ["scan_cycle_architecture", "fault_channel"]',
+                refreshed.rendered,
+            )
+            self.assertIn(
+                'title = "Reviewed runtime title"',
+                refreshed.rendered,
+            )
+            registry.write_text(refreshed.rendered)
+            reviews.write_text(refreshed.document_reviews_rendered)
+            spec.write_text(
+                "# Runtime Engine\n\n"
+                "## First modern section\n\n"
+                "### Existing section\n"
+            )
+            mixed_refresh = register_spec_source(
+                root=root,
+                registry_path=registry,
+                review_registry_path=reviews,
+                path=Path("docs/specs/11-runtime-engine.md"),
+                area="runtime_safety",
+                owner="trust-runtime",
+                reviewed_date="2026-07-27",
+            )
+            self.assertIn(
+                'covers = ["scan_cycle_architecture", "fault_channel"]',
+                mixed_refresh.rendered,
+            )
 
 
 if __name__ == "__main__":

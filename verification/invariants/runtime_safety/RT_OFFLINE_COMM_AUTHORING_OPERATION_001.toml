@@ -1,0 +1,85 @@
+schema_version = 1
+id = "RT_OFFLINE_COMM_AUTHORING_OPERATION_001"
+title = "Offline communication authoring produces valid secret-free project state"
+area = "runtime_safety"
+risk = "false_status"
+status = "specified"
+owner = "trust-runtime"
+last_reviewed = "2026-07-26"
+claim = "Offline communication schema, apply, and topology operate without a live runtime, write coordinated valid project artifacts, preserve explicit no-driver policy, and never invent live evidence or expose secrets."
+proof_level = "S1"
+contract_kind = "protocol_trace"
+source_refs = ["crates/trust-runtime/src/control"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_behavior_tests", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#offline-communication-operation-and-fleet-topology-truth"
+
+[[behavior]]
+partition = { equals = "OFFLINE_SCHEMA_APPLY_AND_TOPOLOGY" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#offline-communication-operation-and-fleet-topology-truth"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_safe_reported" }
+rationale = "Schema, apply, and topology complete without a runtime, return schema version four, and label configuration-only state without a fabricated live payload."
+
+[[behavior]]
+partition = { equals = "OFFLINE_ADS_AUTHORING" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#offline-communication-operation-and-fleet-topology-truth"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_safe_reported" }
+rationale = "ADS authoring writes coordinated validated runtime and ADS sidecar state and projects configured points without source policy secrets."
+
+[[behavior]]
+partition = { equals = "OFFLINE_OPCUA_CLIENT_AUTHORING" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#offline-communication-operation-and-fleet-topology-truth"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_safe_reported" }
+rationale = "OPC UA client authoring coordinates runtime and sidecar creation, preserves disabled configuration on disable, and removes the selected section and sidecar on remove."
+
+[[behavior]]
+partition = { equals = "OFFLINE_OPENOT_PROJECTION" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#offline-communication-operation-and-fleet-topology-truth"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_safe_reported" }
+rationale = "Configured OpenOT appears as a configured evidence endpoint with its path and without invented live state."
+
+[[behavior]]
+partition = { equals = "OFFLINE_FINAL_DRIVER_REMOVAL" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#communication-apply-mutation-and-security"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Removing the last offline-authored project driver retains an activation-valid explicit no-driver file rather than deleting project policy."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "The frozen offline operation tests are not catalog-bound to this new invariant yet."
+
+[[coverage.cells]]
+dimension = "persistence_or_recovery"
+state = "gap_open"
+rationale = "Artifact creation, disable, remove, projection, and explicit no-driver assertions await catalog mapping and mutation proof."
+
+[[coverage.cells]]
+dimension = "auth_or_permission"
+state = "gap_open"
+rationale = "Secret-exclusion assertions await catalog mapping and assertion review."

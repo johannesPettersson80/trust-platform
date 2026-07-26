@@ -1,0 +1,81 @@
+schema_version = 1
+id = "RT_COMM_SCHEMA_CAPABILITY_001"
+title = "Communication authoring schema and capabilities remain honest"
+area = "protocols"
+risk = "false_status"
+status = "specified"
+owner = "trust-runtime"
+last_reviewed = "2026-07-26"
+claim = "Communication schema, capability, and Test responses preserve their versioned field, secret, build, platform, configuration, and negative-result meaning without presenting unavailable operations as usable."
+proof_level = "S1"
+contract_kind = "protocol_trace"
+source_refs = ["crates/trust-runtime/src/control/comm_handlers"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_behavior_tests", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#communication-schema-capabilities-and-test"
+
+[[behavior]]
+partition = { equals = "VERSIONED_FILTERED_SCHEMA" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#communication-schema-capabilities-and-test"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Schema version four returns only the requested protocol and preserves stable ownership, apply-mode, multi-instance, and typed-field metadata."
+
+[[behavior]]
+partition = { equals = "SECRET_SCHEMA_FIELD" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#communication-schema-capabilities-and-test"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A secret field is identified as secret metadata without a serialized secret default or value."
+
+[[behavior]]
+partition = { equals = "CAPABILITY_BUILD_PLATFORM_CONFIGURATION_STATE" }
+case_family = "platform_or_filesystem_variation"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#communication-schema-capabilities-and-test"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "not_safe_reported" }
+rationale = "The version-four registry distinguishes build, platform, and configuration state, requires default-visible platform protocols to be built, and fails closed for an unknown platform marker."
+
+[[behavior]]
+partition = { equals = "COMPLETED_NEGATIVE_OR_UNSUPPORTED_TEST" }
+case_family = "hardware_or_network_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#communication-schema-capabilities-and-test"
+outcome = "not_safe_reported"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "not_safe_reported" }
+rationale = "A completed negative protocol test remains a structured result, while an unsupported Test operation reports supported false instead of appearing usable."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "The frozen schema and capability tests are not catalog-bound to this new invariant yet."
+
+[[coverage.cells]]
+dimension = "auth_or_permission"
+state = "gap_open"
+rationale = "Secret-metadata assertions await catalog mapping and assertion review."
+
+[[coverage.cells]]
+dimension = "platform_or_filesystem_variation"
+state = "gap_open"
+rationale = "Build and platform truth assertions await catalog mapping and assertion review."
+
+[[coverage.cells]]
+dimension = "hardware_or_network_fault"
+state = "gap_open"
+rationale = "Structured negative and unsupported Test assertions await catalog mapping and assertion review."

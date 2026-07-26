@@ -6,7 +6,7 @@ risk = "wrong_result"
 status = "mapped"
 owner = "trust-runtime"
 last_reviewed = "2026-07-22"
-claim = "ADS import selection honors exact-list precedence and complete star matching without empty-pattern broadening, while generated names remain unique Structured Text identifiers rather than keywords."
+claim = "ADS import selection honors exact-list precedence and complete star matching without empty-pattern broadening, projects cached candidates and groups deterministically, and keeps generated names as unique Structured Text identifiers rather than keywords."
 proof_level = "T1"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-runtime/src/host/ads/onboarding/import.rs"]
@@ -65,10 +65,19 @@ no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
 rationale = "The canonical ST lexer identifies the complete keyword vocabulary before generated-name emission."
 
+[[behavior]]
+partition = { equals = "CACHED_CONTROL_CANDIDATE_AND_GROUP_PROJECTION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-symbol-import-selection-and-generated-identifiers"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Cached candidates and groups have deterministic order and preserve proposed name, access, polling, selected state, and remote capabilities."
+
 [[coverage.cells]]
 dimension = "happy_path"
-state = "covered"
-rationale = "Focused tests cover exact-list precedence and a repeated-fragment anchored glob."
+state = "gap_open"
+rationale = "Exact-list and repeated-fragment selection are covered, while the frozen cached candidate and group projection awaits catalog mapping and assertion review."
 
 [[coverage.cells]]
 dimension = "missing_required"

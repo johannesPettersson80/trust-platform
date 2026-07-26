@@ -61,6 +61,15 @@ delta = { diagnostics = "none", process_image = "unchanged", retain = "unchanged
 rationale = "The runtime reports exact live listener and client state."
 
 [[behavior]]
+partition = { equals = "CONTROL_STATUS_AND_SYMBOL_PROJECTION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { diagnostics = "none", process_image = "unchanged", retain = "unchanged", siblings = "unchanged", status = "unchanged", target = "set_to_expected" }
+rationale = "Server control status reports the live role, AMS identity, exposed and writable counts, while symbols reports exactly the current exposed snapshot."
+
+[[behavior]]
 partition = { equals = "SHUTDOWN_OR_DROP" }
 case_family = "concurrency_or_cancellation"
 oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle"
@@ -71,8 +80,8 @@ rationale = "Shutdown and Drop release both listeners."
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "covered"
-rationale = "Default, scalar publication, namespace, publisher, listener, and release partitions are covered."
+state = "gap_open"
+rationale = "Existing publication partitions are covered, while the frozen server status and symbols control projections await catalog mapping and assertion review."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"

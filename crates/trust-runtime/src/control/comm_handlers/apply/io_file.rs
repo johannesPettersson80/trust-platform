@@ -12,13 +12,22 @@ pub(super) fn render_io_toml(
 ) -> Result<String, CommFieldError> {
     let mut doc = load_io_doc(path)?;
     let io = ensure_table(doc.as_table_mut(), "io")?;
-    io.remove("driver");
-    io.remove("params");
     io.insert(
         "safe_state",
         Item::Value(Value::Array(safe_state_array(safe_state))),
     );
-    io.insert("drivers", Item::ArrayOfTables(driver_tables(drivers)));
+    if drivers.is_empty() {
+        io.remove("drivers");
+        io.insert("driver", value("none"));
+        io.insert(
+            "params",
+            Item::Value(Value::InlineTable(InlineTable::new())),
+        );
+    } else {
+        io.remove("driver");
+        io.remove("params");
+        io.insert("drivers", Item::ArrayOfTables(driver_tables(drivers)));
+    }
     Ok(doc.to_string())
 }
 

@@ -10,6 +10,10 @@ Target release: `v0.24.55`
 
 ### Fixed
 
+- trust-runtime: removing the final project I/O driver now retains `io.toml`
+  with an explicit no-driver posture, preserving safe-state policy and project
+  comments outside rewritten driver/safe-state items without implicitly
+  activating machine-wide system I/O fallback.
 - trust-runtime-core: indexed string replacement now applies the destination
   `CHAR`/`WCHAR` width to one-scalar `STRING` and `WSTRING` values instead of
   bypassing overflow validation.

@@ -3,9 +3,12 @@ from __future__ import annotations
 import unittest
 
 from scripts.verification.frozen_static_catalog_batch import (
+    _catalog_command,
+    assign_behavior_refs,
     assign_behaviors,
     measured_durations,
     selection_digest,
+    validate_applied_batch,
     validate_execution_provenance,
 )
 
@@ -71,6 +74,38 @@ class FrozenStaticCatalogBatchTests(unittest.TestCase):
             ),
         )
 
+    def test_assign_behavior_refs_supports_one_atomic_multi_invariant_batch(
+        self,
+    ) -> None:
+        self.assertEqual(
+            {
+                "DISC_A": (("INV_A", 0),),
+                "DISC_B": (("INV_B", 2),),
+            },
+            assign_behavior_refs(
+                inventories={
+                    "DISC_A": {"assertions": [{"line": 10}]},
+                    "DISC_B": {"assertions": [{"line": 20}]},
+                },
+                ranges=[
+                    {
+                        "invariant_id": "INV_A",
+                        "behavior_index": 0,
+                        "min_line": 1,
+                        "max_line": 10,
+                    },
+                    {
+                        "invariant_id": "INV_B",
+                        "behavior_index": 2,
+                        "min_line": 11,
+                        "max_line": 20,
+                    },
+                ],
+                default_invariant_id=None,
+                allowed_invariant_ids={"INV_A", "INV_B"},
+            ),
+        )
+
     def test_measured_durations_require_exact_passing_title_set(self) -> None:
         results = {
             "tests": [
@@ -103,6 +138,24 @@ class FrozenStaticCatalogBatchTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "failures or pending"):
             measured_durations(
                 results_document={**results, "failures": [{"title": "one"}]},
+                expected_names={"one", "two"},
+            )
+        with self.assertRaisesRegex(ValueError, "state is not passed"):
+            measured_durations(
+                results_document={
+                    **results,
+                    "execution": {"kind": "rust_nextest_jsonl"},
+                    "tests": [
+                        {"title": "one", "duration": 0, "state": "failed"},
+                        {"title": "two", "duration": 12, "state": "passed"},
+                    ],
+                    "stats": {
+                        "tests": 2,
+                        "passes": 1,
+                        "failures": 1,
+                        "pending": 0,
+                    },
+                },
                 expected_names={"one", "two"},
             )
 
@@ -149,6 +202,168 @@ class FrozenStaticCatalogBatchTests(unittest.TestCase):
                     plan=plan,
                     results_document={"execution": execution},
                 )
+
+    def test_rust_execution_provenance_binds_raw_results(self) -> None:
+        import hashlib
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            raw_content = (
+                b'{"type":"test","event":"ok",'
+                b'"name":"control::tests::one","exec_time":0.001}\n'
+            )
+            for relative, content in (
+                ("runner.py", b"runner"),
+                ("source.rs", b"source"),
+                ("raw.jsonl", raw_content),
+            ):
+                (root / relative).write_bytes(content)
+            plan = {
+                "command": "cargo nextest run exact-filter",
+                "execution_kind": "rust_nextest_jsonl",
+                "runner_path": "runner.py",
+                "path": "source.rs",
+                "raw_results_path": "raw.jsonl",
+                "package": "trust-runtime",
+                "target_kind": "lib",
+                "binary_id": "trust-runtime",
+                "test_prefix": "control::tests::",
+            }
+            execution = {
+                "kind": "rust_nextest_jsonl",
+                "batch_command": plan["command"],
+                "runner_path": plan["runner_path"],
+                "runner_sha256": "sha256:"
+                + hashlib.sha256(b"runner").hexdigest(),
+                "source_path": plan["path"],
+                "source_sha256": "sha256:"
+                + hashlib.sha256(b"source").hexdigest(),
+                "raw_results_path": plan["raw_results_path"],
+                "raw_results_sha256": "sha256:"
+                + hashlib.sha256(raw_content).hexdigest(),
+                "nextest_version": "0.9.140",
+                "package": plan["package"],
+                "target_kind": plan["target_kind"],
+                "binary_id": plan["binary_id"],
+                "test_prefix": plan["test_prefix"],
+            }
+            validate_execution_provenance(
+                root=root,
+                plan=plan,
+                results_document={
+                    "execution": execution,
+                    "tests": [
+                        {"title": "one", "duration": 1, "state": "passed"}
+                    ],
+                },
+            )
+            with self.assertRaisesRegex(ValueError, "do not match raw"):
+                validate_execution_provenance(
+                    root=root,
+                    plan=plan,
+                    results_document={
+                        "execution": execution,
+                        "tests": [
+                            {
+                                "title": "one",
+                                "duration": 999,
+                                "state": "passed",
+                            }
+                        ],
+                    },
+                )
+
+    def test_rust_catalog_command_is_generated_canonically(self) -> None:
+        plan = {
+            "execution_kind": "rust_nextest_jsonl",
+            "package": "trust-runtime",
+            "target_kind": "lib",
+            "binary_id": "trust-runtime",
+            "test_prefix": "control::tests::",
+        }
+        command = _catalog_command(plan, test_name="one")
+        self.assertIn("binary_id(=trust-runtime)", command)
+        self.assertIn("test(=control::tests::one)", command)
+        with self.assertRaisesRegex(ValueError, "generated canonically"):
+            _catalog_command(
+                {
+                    **plan,
+                    "catalog_command_template": "cargo test {name}",
+                },
+                test_name="one",
+            )
+
+    def test_multi_invariant_post_apply_validation_rejects_cross_links(
+        self,
+    ) -> None:
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "verification/invariants/test").mkdir(parents=True)
+            (root / "verification/test-catalog.toml").write_text(
+                """
+[[tests]]
+id = "TEST_A"
+discovery_id = "DISC_A"
+invariants = ["INV_A"]
+mapping_behavior_refs = ["INV_A#behavior:0"]
+
+[[tests]]
+id = "TEST_B"
+discovery_id = "DISC_B"
+invariants = ["INV_B"]
+mapping_behavior_refs = ["INV_B#behavior:0"]
+"""
+            )
+            (root / "verification/test-catalog-denominator.toml").write_text(
+                """
+[[reviews]]
+discovery_id = "DISC_A"
+disposition = "catalog_mapped"
+
+[[reviews]]
+discovery_id = "DISC_B"
+disposition = "catalog_mapped"
+"""
+            )
+            (root / "verification/test-catalog-proposals.toml").write_text(
+                "proposals = []\n"
+            )
+
+            def write_invariant(invariant_id: str, tests: list[str]) -> None:
+                rendered_tests = ", ".join(f'"{value}"' for value in tests)
+                (root / f"verification/invariants/test/{invariant_id}.toml").write_text(
+                    f'id = "{invariant_id}"\n'
+                    f"tests = [{rendered_tests}]\n"
+                    "missing = []\n"
+                )
+
+            write_invariant("INV_A", ["TEST_A"])
+            write_invariant("INV_B", ["TEST_B"])
+            arguments = {
+                "root": root,
+                "selected_ids": {"DISC_A", "DISC_B"},
+                "invariant_ids": {"INV_A", "INV_B"},
+                "invariant_test_baselines": {
+                    "INV_A": set(),
+                    "INV_B": set(),
+                },
+            }
+            self.assertEqual([], validate_applied_batch(**arguments))
+
+            write_invariant("INV_A", ["TEST_A", "TEST_B"])
+            write_invariant("INV_B", [])
+            failures = validate_applied_batch(**arguments)
+            self.assertTrue(
+                any("INV_A test links" in failure for failure in failures)
+            )
+            self.assertTrue(
+                any("INV_B test links" in failure for failure in failures)
+            )
 
 
 if __name__ == "__main__":

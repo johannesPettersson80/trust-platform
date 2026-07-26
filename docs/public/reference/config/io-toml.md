@@ -42,6 +42,21 @@ Selection rules:
 | mixed forms | invalid |
 | empty config | invalid unless you intentionally choose `driver = "none"` |
 
+Removing the final project driver through communication authoring retains
+`io.toml` as an explicit no-driver project configuration:
+
+```toml
+[io]
+driver = "none"
+params = {}
+safe_state = [{ address = "%QX0.0", value = "FALSE" }]
+```
+
+This preserves safe-state policy and prevents the project from implicitly
+falling back to machine-wide system I/O. Adding a driver later replaces the
+`none` sentinel while retaining safe-state entries and project comments outside
+rewritten driver/safe-state items.
+
 ## Built-in Driver Names
 
 | Driver | Purpose |

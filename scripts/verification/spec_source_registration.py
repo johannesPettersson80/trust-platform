@@ -37,10 +37,11 @@ def build_spec_source_record(
     area: str,
     owner: str,
     reviewed_date: str,
+    fallback_covers: list[str] | None = None,
 ) -> dict[str, Any]:
     relative = _relative_path(root, path)
     source = (root / relative).read_text()
-    title, covers = _title_and_covers(source)
+    title, covers = _title_and_covers(source, fallback_covers=fallback_covers)
     stem = PREFIX_RE.sub("", relative.stem)
     stable_name = NON_ALNUM_RE.sub("_", stem).strip("_").upper()
     if not stable_name:
@@ -77,15 +78,28 @@ def register_spec_source(
     reviewed_date: str,
 ) -> RegistrationResult:
     root = root.resolve()
+    relative = _relative_path(root, path)
+    source_registry = registry_path.read_text()
+    source_records = _records(source_registry, "spec_sources", registry_path)
+    path_matches = [
+        row for row in source_records if row.get("path") == relative.as_posix()
+    ]
+    if len(path_matches) > 1:
+        raise ValueError(f"specification source path is duplicated: {relative}")
+    fallback_covers = path_matches[0].get("covers") if path_matches else None
+    if fallback_covers is not None and (
+        not isinstance(fallback_covers, list)
+        or any(not isinstance(value, str) or not value for value in fallback_covers)
+    ):
+        raise ValueError("existing specification source covers must be nonempty strings")
     record = build_spec_source_record(
         root=root,
-        path=path,
+        path=relative,
         area=area,
         owner=owner,
         reviewed_date=reviewed_date,
+        fallback_covers=fallback_covers,
     )
-    source_registry = registry_path.read_text()
-    source_records = _records(source_registry, "spec_sources", registry_path)
     source_match = _existing_record(
         source_records,
         id_field="id",
@@ -102,9 +116,7 @@ def register_spec_source(
                 )
         record = {
             **source_match,
-            "title": record["title"],
             "last_reviewed": record["last_reviewed"],
-            "covers": record["covers"],
         }
     rendered_sources = (
         _append_record(source_registry, "spec_sources", record)
@@ -180,7 +192,11 @@ def register_spec_source(
     )
 
 
-def _title_and_covers(source: str) -> tuple[str, list[str]]:
+def _title_and_covers(
+    source: str,
+    *,
+    fallback_covers: list[str] | None = None,
+) -> tuple[str, list[str]]:
     title: str | None = None
     covers: list[str] = []
     for line in source.splitlines():
@@ -197,6 +213,8 @@ def _title_and_covers(source: str) -> tuple[str, list[str]]:
             covers.append(slug)
     if title is None:
         raise ValueError("specification requires one H1 title")
+    if not covers and fallback_covers:
+        covers = list(fallback_covers)
     if not covers:
         raise ValueError("specification requires at least one H2 coverage section")
     return title, covers

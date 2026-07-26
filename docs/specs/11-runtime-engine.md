@@ -1237,6 +1237,53 @@ For status, health, and task summaries, a missing or wrong-typed required result
 field is a command failure; it is not rendered as raw JSON or replaced with an
 invented value.
 
+###### Runtime control request, job, and state-surface contract
+
+Each newline-delimited control request is decoded exactly once. Malformed JSON
+returns a negative response without dispatch or mutation. A request type absent
+from the registered operation set returns the stable error
+`unsupported request`; every registered type routes to its owning handler.
+Missing or malformed required parameters return a parameter error rather than
+`unsupported request`. A routing behavior lock proves only that the registered
+handler boundary was reached; it is not evidence that every operation
+succeeded or returned its complete semantic payload.
+
+Asynchronous operations return a nonempty job ID. Job status is `running`,
+`complete`, or `failed`; an unknown ID returns a stable machine-readable
+not-found error. Terminal success retains its report and terminal failure
+retains its reason. Work that cannot run because a required build feature is
+absent terminates as failed rather than remaining indefinitely `running`. ADS
+client and server Doctor use this same job contract. Synchronous and live ADS
+operations that require `ads-wire` fail explicitly when it is unavailable and
+must not synthesize discovery, Doctor, route, or import results.
+
+The status and configuration surfaces project one effective runtime state:
+
+- `status.execution_backend`, `status.execution_backend_source`,
+  `status.metrics.execution_backend`, and the corresponding `config.get`
+  values agree. Omission selects backend `vm` with source `default`.
+- Status preserves resource identity, control and simulation mode, cycle and
+  profiling metrics, realtime requested and observed state, warnings, errors,
+  and every I/O-driver health entry. The default realtime projection is
+  disabled with scheduler `other` in both status and `config.get`.
+- Aggregate health is false when any I/O driver is faulted and retains the
+  faulted driver's stable error detail; runtime readiness alone cannot hide
+  that fault.
+- `config.set` uses a closed key, type, and value contract, validates
+  cross-field security requirements, and rejects invalid input atomically.
+  `runtime.execution_backend` is startup-only and cannot be switched through
+  live control. This atomicity is validation-before-logical-mutation; crash-
+  atomic filesystem replacement is separate verification depth.
+- `historian.query` and `historian.alerts` return an `items` array, honor the
+  requested limit, and return matching persisted samples or alerts when they
+  exist.
+
+The role and transport rules in section 6.9.4 govern these handlers. A pairing
+token retains its stored role; an unauthenticated network connection receives
+Viewer authority; and a local mode-0600 Unix socket without configured
+authentication may receive Admin authority. Sufficient role permits a request
+to reach its handler but does not override a configured HMI read-only posture.
+
 ##### 6.8.1a Offline communication authoring client
 
 `trust-runtime comm` is a scriptable local authoring surface. Each accepted
@@ -1266,6 +1313,85 @@ The default runtime template consumed by offline topology and apply operations
 must itself satisfy current runtime configuration validation. An unset optional
 mesh authentication token is omitted; the template must not serialize an empty
 secret value that the parser rejects even while mesh is disabled.
+
+###### Communication schema, capabilities, and Test
+
+Communication schema and capability responses use schema version 4. Protocol
+filtering returns only the requested protocol. Every schema entry has a stable
+protocol ID, category, apply mode, configuration owner, multi-instance
+capability, and typed field definitions. Secret fields are marked as secret
+metadata, have no secret default, and never serialize a credential value.
+
+The version-4 capability registry contains exactly the 15 registered
+communication protocols. Build availability, platform availability,
+configuration state, and operational evidence are distinct. Every protocol
+shown by default on the current platform must have a built backend; an unknown
+platform marker fails closed instead of silently removing that requirement.
+
+A communication Test request may succeed at the control-envelope level while
+returning `result.ok = false` for a completed negative protocol test.
+Unsupported Test operations return `supported = false` and must not appear as
+usable controls.
+
+Communication capability `health` and fleet topology runtime, endpoint, and
+link status are versioned product-projection vocabularies, not the
+connector-report `health` vocabulary in
+[Connector Status](23-connector-status.md). Capability health is one of
+`not_in_build`, `not_configured`, `simulate`, `runtime_unreachable`,
+`connected`, `degraded`, `error`, or `configured_policy`. Consumers must
+interpret values within their response type and reject unknown values rather
+than treating them as healthy.
+
+###### Communication apply mutation and security
+
+Server-observed transport identity determines whether a credential channel is
+trusted; a caller cannot self-assert trusted status. Secret-bearing input on an
+untrusted channel is rejected before mutation. Responses, diagnostics, and
+audit records may report secret-field presence but never secret values.
+Authorization and complete request validation precede mutation. Field errors
+are stable and cause no configuration write to be attempted.
+
+Dry-run performs the same validation and lifecycle planning without writing or
+deleting files and without returning a secret-bearing snippet. Add, upsert,
+edit, remove, and disable preserve unrelated instances, project comments
+outside rewritten driver/safe-state items, and safe-state values unless an
+operation explicitly owns that data. Edit requires
+one exact selected instance. Instance IDs are protocol-qualified; missing,
+stale, cross-protocol, and wrong-slot IDs fail closed. Repeating an identical
+edit is byte-identical. Disable retains the selected instance with
+`enabled = false` so topology can show it as disabled.
+
+A valid single-driver file may migrate to canonical multi-driver form when
+another driver is added. Empty, comment-only, and safe-state-only files are
+valid authoring inputs, but successful output must satisfy runtime activation
+validation. Removing the final project driver preserves the project file,
+project comments outside rewritten driver/safe-state items, and exact
+safe-state values, writes an explicit `driver = "none"` with empty parameters,
+and must not activate system-I/O fallback. A later Add replaces that sentinel
+while preserving the retained project policy.
+
+Runtime-backed protocols update `runtime.toml` and their owned sidecars as one
+validated authoring operation. Audit records include operation, protocol,
+result, dry-run state, and secret presence without secret values.
+
+###### Offline communication operation and fleet-topology truth
+
+Offline schema, apply, and topology require no live runtime and must not invent
+live evidence. Offline responses remain schema version 4. ADS authoring writes
+coordinated `runtime.toml` and `ads.toml`; OPC UA client authoring writes
+coordinated runtime and sidecar state, retains disabled configuration on
+disable, and removes the selected section and sidecar on remove. Configured
+OpenOT appears as configured evidence without a live payload. Offline results
+exclude passwords, tokens, source allowlists, and other secret-bearing fields.
+
+Fleet topology identity and roles come from the selected project and current
+runtime evidence. Configuration determines runtime identity, endpoint roles,
+counterparts, stable link IDs, and external-node relationships. Merely enabling
+a service projects `configured_policy`, not a live connection. Live values and
+`connected` status require bound runtime evidence; degraded and faulted evidence
+retains its detail. Every link reports stable ID, source, destination, protocol,
+role, direction, and evidence-derived status. Fleet output never serializes
+MQTT, mesh, ADS, OPC UA, or other credentials.
 
 ##### 6.8.1b ADS CLI authoring and server-control contract
 
@@ -1807,6 +1933,13 @@ Apply remains read-only unless write acknowledgement is explicit. With that
 acknowledgement, a remote symbol carrying both Read and Write capabilities maps
 to `read_write`, while a Write-only symbol maps to `write`; acknowledgement
 must not manufacture a remote Read capability that the symbol does not expose.
+
+A cached snapshot is authoritative only for its exact selected connection; a
+different connection name is rejected before candidate generation or mutation.
+Cached candidate and group ordering is deterministic. Every candidate reports
+its proposed local name, access and polling disposition, and selected state
+without changing the remote symbol's capabilities. A live import is never
+replaced by cached or synthetic results when wire support is unavailable.
 
 ###### ADS symbol-import apply and merge
 
