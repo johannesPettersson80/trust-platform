@@ -120,6 +120,31 @@ and then regenerates scaffold-owned files. Each successful command prints the
 selected project `hmi/` path, the applied mode, and the deterministic scaffold
 summary; a failed command must not print a false success summary.
 
+For the same compiled metadata and value snapshot, generation is deterministic.
+Externally visible globals and program members are included; internal compiler
+or runtime symbols are excluded. If a program has only local symbols, the
+generator emits the reviewed inferred-interface fallback instead of an empty
+operator surface. Widget selection follows the declared type bucket and
+writability, and annotations may refine labels, units, limits, page placement,
+and presentation without changing the underlying binding identity. Invalid or
+incomplete annotations fall back to the ordinary inferred metadata.
+
+The generated scaffold contains the required overview, control, and process
+pages. Repeated instance prefixes form separate deterministic sections. The
+automatic process SVG uses grid-aligned instrument templates, and process
+bindings preserve their reviewed fill geometry. Generated overview size,
+configuration version, and widget count remain within the published scaffold
+budget.
+
+`update` adds missing generated signals and files without overwriting custom
+widgets or replacing an existing custom process page. It omits the default
+control page when there are no writable points. The loader discovers and sorts
+descriptor pages deterministically, promotes `process.auto.svg` to the active
+custom asset, and merges defaults, annotations, and file overrides in that
+order. Invalid descriptor TOML is not published. A legacy single-file HMI
+descriptor is used only when the `hmi/` directory is absent; the directory
+form takes precedence whenever it exists.
+
 These command, filesystem, and scaffold-lifecycle rules are truST product
 contracts. IEC 61131-3 does not define an HMI descriptor generator, so they are
 neither IEC decisions nor IEC deviations.

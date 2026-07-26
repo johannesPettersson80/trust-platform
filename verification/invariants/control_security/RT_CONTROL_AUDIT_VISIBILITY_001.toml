@@ -1,0 +1,53 @@
+schema_version = 1
+id = "RT_CONTROL_AUDIT_VISIBILITY_001"
+title = "Control audit and disabled-feature failures remain visible"
+area = "control_security"
+risk = "false_status"
+status = "planned"
+owner = "trust-runtime"
+last_reviewed = "2026-07-26"
+claim = "Control operations retain their semantic response while making an audit-sink failure or disabled-feature boundary visible through stable response fields and runtime events."
+proof_level = "S0"
+contract_kind = "protocol_trace"
+source_refs = ["crates/trust-runtime/src/control"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["catalog_mapping", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-audit-and-debug-projection"
+
+[[behavior]]
+partition = { equals = "AUDIT_RECORD_OR_DROP_VISIBLE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-audit-and-debug-projection"
+outcome = "status_degraded"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "status_degraded" }
+rationale = "A closed audit sink does not change the request result or remove its audit identity, and emits AuditDropped instead of false durability."
+
+[[behavior]]
+partition = { equals = "DISABLED_FEATURE_STRUCTURED_EVENT" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-audit-and-debug-projection"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "status_degraded" }
+rationale = "A disabled feature returns feature_disabled and emits FeatureDisabled without dispatching the unavailable operation."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "Reviewed audit-drop assertion awaits generated catalog mapping."
+
+[[coverage.cells]]
+dimension = "permission_or_policy"
+state = "gap_open"
+rationale = "Reviewed disabled-feature assertion awaits generated catalog mapping."

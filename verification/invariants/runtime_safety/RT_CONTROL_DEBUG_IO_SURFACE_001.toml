@@ -60,6 +60,24 @@ no_partial_apply = true
 delta = { target = "unchanged", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
 rationale = "Control write and force reject every I, Q, or M byte offset at or above 16,777,216 before allocation or mutation."
 
+[[behavior]]
+partition = { equals = "PUBLIC_INSTANCE_TYPE_PROJECTION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-audit-and-debug-projection"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Variables and evaluate use the declared public type and value name without leaking internal instance IDs."
+
+[[behavior]]
+partition = { equals = "STALE_OR_UNAVAILABLE_DEBUG_STATE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-audit-and-debug-projection"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "status_degraded" }
+rationale = "Stale frames, unknown references or names, and unavailable I/O snapshots fail closed instead of returning an empty successful projection."
+
 [[coverage.cells]]
 dimension = "platform_or_filesystem_variation"
 state = "covered"

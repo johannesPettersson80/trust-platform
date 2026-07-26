@@ -61,6 +61,42 @@ no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
 rationale = "Init protects existing descriptors, update preserves user files, and reset backs up before replacing scaffold-owned files."
 
+[[behavior]]
+partition = { equals = "DETERMINISTIC_SCHEMA_AND_WIDGET_MAPPING" }
+case_family = "happy_path"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#hmi-scaffold-command"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The same compiled metadata produces the same external-symbol set, widget types, writability, annotations, overview budget, and configuration version."
+
+[[behavior]]
+partition = { equals = "REQUIRED_GENERATED_PAGES" }
+case_family = "happy_path"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#hmi-scaffold-command"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Overview, control, process, repeated-instance sections, grid-aligned SVG instruments, and process fill bindings follow the documented generated layout."
+
+[[behavior]]
+partition = { equals = "UPDATE_PRESERVES_CUSTOMIZATION" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#hmi-scaffold-command"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Update adds missing signals and files without replacing custom widgets or process pages and omits an unusable default control page."
+
+[[behavior]]
+partition = { equals = "LOADER_PRECEDENCE_AND_INVALID_SOURCE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#hmi-scaffold-command"
+outcome = "not_safe_reported"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "not_applicable", status = "unchanged" }
+rationale = "The loader sorts pages, promotes process.auto.svg, merges defaults then annotations then file overrides, rejects invalid TOML, and uses legacy input only when hmi/ is absent."
+
 [[coverage.cells]]
 dimension = "happy_path"
 state = "covered"

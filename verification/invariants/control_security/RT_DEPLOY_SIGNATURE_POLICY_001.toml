@@ -1,0 +1,62 @@
+schema_version = 1
+id = "RT_DEPLOY_SIGNATURE_POLICY_001"
+title = "Deployment signature policy authenticates before installation"
+area = "control_security"
+risk = "supply_chain"
+status = "planned"
+owner = "trust-runtime"
+last_reviewed = "2026-07-26"
+claim = "Enabled deployment signature policy accepts only an intact payload signed by a current trusted key, rejects tampered, unknown, expired, malformed, or mismatched signatures before installation, and never leaks secret key material."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-runtime/src/web/deploy"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["catalog_mapping", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+
+[[behavior]]
+partition = { equals = "CURRENT_TRUSTED_SIGNATURE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "An intact payload signed by a current trusted key may proceed to ordinary bundle validation and installation."
+
+[[behavior]]
+partition = { equals = "TAMPERED_UNKNOWN_EXPIRED_OR_MALFORMED_SIGNATURE" }
+case_family = "supply_chain_or_artifact_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "status_degraded" }
+rationale = "Signature or key-policy failure rejects before copying files or changing deployment pointers."
+
+[[behavior]]
+partition = { equals = "SECRET_FREE_SIGNATURE_FAILURE" }
+case_family = "supply_chain_or_artifact_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "status_degraded" }
+rationale = "Failure may expose key identity and class but never configured key material or another secret."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Reviewed valid-signature assertion awaits generated catalog mapping."
+
+[[coverage.cells]]
+dimension = "supply_chain_or_artifact_fault"
+state = "gap_open"
+rationale = "Reviewed signature rejection and secret-free error assertions await generated catalog mapping."

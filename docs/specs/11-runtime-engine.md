@@ -1465,6 +1465,65 @@ Viewer authority; and a local mode-0600 Unix socket without configured
 authentication may receive Admin authority. Sufficient role permits a request
 to reach its handler but does not override a configured HMI read-only posture.
 
+###### Runtime HMI descriptor, live-state, and control contract
+
+The runtime HMI schema is the authority for every exposed widget and process
+binding. A schema row has a stable widget ID and path, declared type, current
+quality, writable flag, and any configured display, unit, range, alarm, or
+layout metadata. Descriptor overrides may change presentation without changing
+the stable identity of an unchanged binding. Unknown paths, unknown widgets,
+type mismatches, and invalid limits are reported as binding errors; they are not
+silently dropped or coerced.
+
+HMI values are read directly from the runtime snapshot and preserve the
+declared runtime type, timestamp, and quality. The in-process read and write
+ports use the same typed contract as the JSON control surface but do not
+serialize and parse an intermediate JSON request. A write is admitted only
+when all of the following are true:
+
+- HMI writes are enabled and the runtime is not in HMI read-only mode;
+- the target resolves by stable widget ID, canonical path, or configured alias;
+- the resolved target is in the explicit write allowlist and the schema marks
+  it writable; and
+- the value passes the same declared-type, subrange, bounded-string, and finite
+  floating-point checks as other runtime writes.
+
+An admitted write is queued for the cycle boundary and audited through the HMI
+policy path. A rejected write queues nothing and leaves runtime storage
+unchanged. The queue-processing work remains bounded by the configured cycle
+budget.
+
+Descriptor updates are atomic at the schema boundary. A valid descriptor or
+scaffold reset increments the schema revision and becomes visible without a
+runtime restart. Rapid successive file changes must not deadlock the watcher.
+An unreadable or invalid descriptor retains the last good schema and exposes
+the validation failure instead of publishing a partial schema. When descriptor
+files are absent, the runtime may publish the deterministic inferred layout.
+
+The live event stream emits changed values only, includes stable widget IDs and
+the active schema revision, and deduplicates identical alarm payloads. Trend
+downsampling preserves the requested time window and its first, last, minimum,
+and maximum bounds. Alarm state uses the configured alarm label and follows the
+ordered lifecycle raise, acknowledge, clear, and history retention. A configured
+deadband requires the value to re-enter the clear window before the alarm
+clears. HMI control failures use a structured error payload with a stable code;
+clients do not need to parse diagnostic prose.
+
+###### Runtime control audit and debug projection
+
+Every accepted or denied control operation attempts to emit its audit record.
+If the audit sink is unavailable, the request retains its normal semantic
+result and audit identity, and the runtime emits an `AuditDropped` event; it
+must not pretend durable audit succeeded. A request for a compiled-out or
+disabled feature returns the stable code `feature_disabled` and emits a
+`FeatureDisabled` event.
+
+Debug variables and evaluation expose the declared public type name and value,
+not internal instance IDs. A stale frame, unknown variable reference, unknown
+evaluation name, or unavailable/poisoned I/O snapshot fails closed with a
+negative response. These failures do not return an empty successful projection
+or mutate debug or runtime state.
+
 ##### 6.8.1a Offline communication authoring client
 
 `trust-runtime comm` is a scriptable local authoring surface. Each accepted
@@ -2310,6 +2369,58 @@ map to 11, `test` to 12, `validate` to 10, and other or absent commands to 20.
 This CLI and process-exit policy is a truST product contract rather than IEC
 61131-3 language behavior.
 
+##### 6.8.1e Standalone Web IDE contract
+
+The built-in standalone Web IDE is a local authoring surface over the selected
+project root. Its shell is served from bundled, content-hashed local assets and
+does not require a CDN. Project selection is explicit: opening another approved
+project updates the active root, while a request outside the approved base is
+rejected before filesystem access.
+
+An IDE session has a stable Viewer or Editor role. Viewer sessions are
+read-only; Editor sessions may mutate project files. Successful activity renews
+the sliding idle deadline, an idle session expires, and reaching the fixed
+session limit evicts the oldest inactive session rather than an active,
+recently renewed one. Pairing and session tokens are required by the endpoint
+contract and are never accepted as workspace paths or file contents.
+
+All source paths are relative to the active project root. Absolute paths,
+parent traversal, escaping symbolic resolution, malformed include/exclude
+globs, and oversized JSON or file content reject before mutation. File writes
+use optimistic version authority: the caller supplies the expected version, a
+successful write increments it, and a stale expected version returns a conflict
+with the current version. Create, rename, and delete preserve project
+containment, report collisions, and append the successful mutation to the
+filesystem audit log. Tree, file-list, and workspace-search results use stable
+relative paths and honor validated include/exclude globs.
+
+Diagnostics, hover, completion, and formatting use the same Structured Text
+analysis and formatting contracts as the language service. The format endpoint
+returns the affected path, changed flag, and complete formatted content.
+Build, test, and validate endpoints start an asynchronous job, return its job
+ID, and retain terminal output plus parsed source locations. Health reports
+active sessions, tracked documents, and accumulated frontend telemetry.
+Frontend telemetry updates the same health snapshot; collaborative-presence
+functionality that is not implemented is reported explicitly as out of scope,
+not as an active collaboration session.
+
+The standalone IDE resource contract is:
+
+- one source apply must remain below 250 ms, and the repeated local in-process
+  average below 40 ms;
+- the HTTP apply path must remain below 250 ms maximum and 50 ms average in the
+  focused reference fixture;
+- reference p95 bounds are 2.5 s for boot-to-ready, 150 ms for completion,
+  150 ms for hover, 300 ms for diagnostics, and 400 ms for workspace search;
+- the maximum completion request over the 2,000-line typing fixture is 800 ms;
+  and
+- content above the advertised maximum file size returns HTTP 413 or the
+  equivalent typed `too_large` error before writing.
+
+These are focused reference-environment budgets. They are regression gates for
+the shipped authoring path, not universal real-time guarantees for arbitrary
+hardware or projects.
+
 ##### 6.8.2 Versioned deployment and rollback
 
 `trust-runtime deploy` validates the source bundle before installation and the
@@ -2318,6 +2429,16 @@ must be one non-empty filesystem component: absolute paths, `.`/`..`, path
 separators, and platform prefixes are rejected. Automatically generated labels
 must be unique across consecutive deployments from one process, including
 deployments started within the same second.
+
+When deployment signature policy is enabled, validation occurs before any
+bundle file or deployment pointer is changed. A payload signed by a currently
+trusted, unexpired key is accepted. A tampered payload, unknown key, expired
+key, malformed signature, or policy mismatch rejects the deployment without a
+partial install. Failure output may identify the key ID and failure class but
+must never echo key material or another configured secret. Source paths with an
+optional leading `src/` normalize to the same contained bundle destination;
+normalization never permits an absolute path, parent traversal, or platform
+prefix.
 
 The deployment root contains `bundles/`, `current`, and optionally `previous`.
 The pointer targets are resolved relative to the link location when an older
@@ -2412,6 +2533,12 @@ the manifest and lifecycle commands need one portable explicit endpoint. This
 is distinct from the generic runtime default, which uses `unix://` on Unix-like
 platforms; a generated Unix socket is created with restrictive permissions
 (0600) to prevent accidental exposure.
+
+Managed-fleet projections are operator-facing and secret-free. ADS allowed
+clients are rendered as human-readable identity/source summaries rather than
+editable raw pin objects. Host names are trimmed, lose a trailing DNS dot, and
+prefer the operating-system host name; a blank source is ignored and the stable
+literal `local-host` is used only when no host authority exists.
 
 #### 6.9 Debug Attach (Production)
 
@@ -2641,6 +2768,14 @@ Rules:
   unchanged. The runtime does not clamp, wrap, normalize, or substitute a
   default value.
 - TOML remains the source of truth; offline edits are supported.
+
+The local terminal dashboard is a projection of the same control contract. It
+parses resource status, tasks, I/O drivers, events, simulation state, and
+settings without inventing missing health. Settings include cycle interval and
+simulation fields. Command routing preserves the beginner guard and pause
+semantics; prompt navigation cannot mutate a read-only view. The rendered
+dashboard keeps its reviewed status, task, I/O, and event regions in a stable
+layout so an operator can compare snapshots without hidden field movement.
 
 ##### Runtime Cloud action preflight and profile contract
 

@@ -91,6 +91,24 @@ no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }
 rationale = "Endpoint status overrides stale PID metadata, read-only calls do not create state, failed starts are reaped, and confirmed stop removes advisory PID state."
 
+[[behavior]]
+partition = { equals = "SECRET_FREE_OPERATOR_PROJECTION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "ADS allowed clients project as human-readable summaries without raw pin objects or source-address fields."
+
+[[behavior]]
+partition = { equals = "CANONICAL_HOST_NAME" }
+case_family = "platform_or_filesystem_variation"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Host names are trimmed, lose a trailing DNS dot, prefer OS authority, and use local-host only when no nonblank source exists."
+
 [[coverage.cells]]
 dimension = "happy_path"
 state = "covered"

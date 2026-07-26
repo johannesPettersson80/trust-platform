@@ -1,0 +1,158 @@
+schema_version = 1
+id = "RT_WEB_IDE_PRODUCT_SURFACE_001"
+title = "Standalone Web IDE sessions, workspace, analysis, tasks, and budgets are bounded"
+area = "hmi_ui"
+risk = "security"
+status = "planned"
+owner = "trust-runtime"
+last_reviewed = "2026-07-26"
+claim = "The standalone Web IDE serves local assets, confines project access, enforces role and session authority, uses optimistic file versions, exposes language analysis and asynchronous tasks, records health and audit state, and stays within focused resource budgets."
+proof_level = "S0"
+contract_kind = "protocol_trace"
+source_refs = ["crates/trust-runtime/src/web/ide", "crates/trust-runtime/src/web/ide_tasks.rs", "crates/trust-runtime/src/web/request_dispatch.rs"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["catalog_mapping", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate", "rendered_browser_ide_smoke"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001", "SPEC_LSP_CONTRACT_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#6-8-1e-standalone-web-ide-contract"
+
+[[behavior]]
+partition = { equals = "LOCAL_ASSET_AND_PROJECT_SELECTION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1e-standalone-web-ide-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The shell uses bundled hashed assets and approved project selection updates the active root without CDN or live-runtime claims."
+
+[[behavior]]
+partition = { equals = "ROLE_BOUND_SESSION_LIFECYCLE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1e-standalone-web-ide-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "not_applicable", status = "unchanged" }
+rationale = "Viewer and Editor roles, sliding idle expiry, and oldest-inactive eviction preserve session authority."
+
+[[behavior]]
+partition = { equals = "OPTIMISTIC_VERSION_CONFLICT" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1e-standalone-web-ide-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "A current expected version increments on write and a stale version returns conflict with the current version."
+
+[[behavior]]
+partition = { equals = "CONFINED_WORKSPACE_MUTATION_AND_AUDIT" }
+case_family = "platform_or_filesystem_variation"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1e-standalone-web-ide-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "unchanged", diagnostics = "not_applicable", status = "unchanged" }
+rationale = "Create, rename, and delete remain below the project root, report collisions, and append successful mutations to the filesystem audit log."
+
+[[behavior]]
+partition = { equals = "SEARCH_TREE_AND_GLOB_CONTRACT" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1e-standalone-web-ide-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Tree, list, open, and search return stable relative paths and honor validated include and exclude globs."
+
+[[behavior]]
+partition = { equals = "OVERSIZE_PATH_OR_GLOB_DENIAL" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1e-standalone-web-ide-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Absolute, parent, escaping, malformed-glob, oversized-body, and oversized-file inputs fail before mutation."
+
+[[behavior]]
+partition = { equals = "DIAGNOSTICS_HOVER_COMPLETION_AND_FORMAT" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1e-standalone-web-ide-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "not_applicable", status = "unchanged" }
+rationale = "Analysis and formatting endpoints preserve the language-service result and complete formatted content."
+
+[[behavior]]
+partition = { equals = "ASYNC_BUILD_TEST_VALIDATE_JOB" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1e-standalone-web-ide-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "not_applicable", status = "unchanged" }
+rationale = "Build, test, and validate return job identity and retain terminal output and parsed source locations."
+
+[[behavior]]
+partition = { equals = "HEALTH_TELEMETRY_AND_EXPLICIT_SCOPE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1e-standalone-web-ide-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }
+rationale = "Health preserves active sessions, tracked documents, frontend telemetry, and an explicit out-of-scope collaboration mode."
+
+[[behavior]]
+partition = { equals = "REQUEST_LANE_BOUNDS" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#browser-ui-discovery-and-mesh-operational-ux"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "not_applicable", status = "unchanged" }
+rationale = "Body-bearing and mutating requests use the bounded body lane and released permits are reusable without unbounded admission."
+
+[[behavior]]
+partition = { equals = "FOCUSED_APPLY_AND_FILE_SIZE_BUDGET" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1e-standalone-web-ide-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Focused source apply stays within the documented in-process and HTTP limits and oversize content rejects before writing."
+
+[[behavior]]
+partition = { equals = "REFERENCE_ANALYSIS_PERFORMANCE_BOUNDS" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1e-standalone-web-ide-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Boot, completion, hover, diagnostics, search, and large-document typing remain inside the documented reference-fixture bounds."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Reviewed Web IDE product assertions await generated catalog mapping."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "Reviewed session, version, job, and health assertions await generated catalog mapping."
+
+[[coverage.cells]]
+dimension = "platform_or_filesystem_variation"
+state = "gap_open"
+rationale = "Reviewed confined-filesystem assertions await generated catalog mapping."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Reviewed denial assertions await generated catalog mapping."
+
+[[coverage.cells]]
+dimension = "boundary_high"
+state = "gap_open"
+rationale = "Reviewed request and performance bounds await generated catalog mapping."

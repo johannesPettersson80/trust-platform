@@ -336,3 +336,33 @@ IEC or PLCopen deviation log merely because truST owns the behavior.
   - Optimization must not create a second language runtime. A single semantic
     authority permits safe fallback while keeping internal performance policy
     evolvable.
+
+## 2026-07-26 - Runtime operator-surface authority and focused budgets
+
+- Area: Runtime HMI, standalone Web IDE, terminal dashboard, and deployment
+- Decision:
+  - Runtime HMI schema, values, writes, descriptor reload, alarms, trends, and
+    events are one typed product contract. Read-only mode and the explicit
+    write allowlist remain authoritative across in-process and JSON routes.
+  - The standalone Web IDE is a contained project authoring surface with
+    Viewer/Editor sessions, sliding idle expiry, optimistic file versions,
+    project-relative filesystem operations, local bundled assets, and the same
+    language-analysis semantics as the LSP.
+  - Its focused regression budgets are the exact limits recorded in
+    `docs/specs/11-runtime-engine.md`; they are reference-environment gates,
+    not universal real-time guarantees.
+  - The terminal dashboard projects the runtime control state without creating
+    a second status vocabulary.
+  - Enabled deployment-signature policy validates the complete payload and
+    trusted-key lifetime before any install or pointer mutation, and failure
+    output never exposes key material.
+- Supersedes:
+  - Any interpretation that treats HMI, Web IDE, terminal UI, or deployment
+    tests as implementation-only merely because IEC 61131-3 does not define
+    those product surfaces.
+  - Any interpretation that promotes focused Web IDE timing tests to guarantees
+    for arbitrary hardware or project size.
+- Reason:
+  - These surfaces are intentionally shipped product behavior and need stable
+    authority for their existing tests. Keeping timing scope and write/security
+    boundaries explicit prevents both false proof and accidental weakening.
