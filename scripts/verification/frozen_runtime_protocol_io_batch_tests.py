@@ -136,6 +136,7 @@ fn disabled_case() {}
     def test_projection_and_normalization_require_exact_passing_set(self) -> None:
         raw = "\n".join(
             [
+                '{"type":"test","event":"started","name":"a$unselected"}',
                 '{"type":"test","event":"ignored","name":"a$unselected"}',
                 '{"type":"test","event":"started","name":"a$module::one"}',
                 '{"type":"test","event":"ok","name":"a$module::one","exec_time":0.001}',

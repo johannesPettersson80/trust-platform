@@ -707,17 +707,35 @@ def project_raw_results(
     }
     lines_by_path: dict[str, list[str]] = defaultdict(list)
     seen: set[str] = set()
+    events: list[tuple[int, str, Mapping[str, Any]]] = []
     for line_number, line in enumerate(raw.splitlines(), start=1):
         if not line.strip():
             continue
         event = json.loads(line)
         if not isinstance(event, Mapping):
             raise ValueError(f"raw nextest line {line_number} is not an object")
+        events.append((line_number, line, event))
+    unselected_terminal_events: dict[str, set[str]] = defaultdict(set)
+    for _line_number, _line, event in events:
+        encoded = event.get("name")
+        kind = event.get("event")
+        if (
+            event.get("type") == "test"
+            and encoded not in encoded_to_name
+            and kind in TERMINAL_EVENTS
+        ):
+            unselected_terminal_events[str(encoded)].add(str(kind))
+    unselected_ignored = {
+        encoded
+        for encoded, kinds in unselected_terminal_events.items()
+        if kinds == {"ignored"}
+    }
+    for _line_number, line, event in events:
         if event.get("type") != "test":
             continue
         encoded = event.get("name")
         if encoded not in encoded_to_name:
-            if event.get("event") == "ignored":
+            if encoded in unselected_ignored:
                 continue
             raise ValueError(f"unexpected runtime test event {encoded!r}")
         name = encoded_to_name[str(encoded)]
