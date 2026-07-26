@@ -52,6 +52,17 @@ behavior.
 `PROGRAM name WITH TaskName : ProgramType;` binds a program instance to a task
 declared in the same resource or configuration scope.
 
+### 2.5 Configuration parser composition
+
+A complete `CONFIGURATION ... END_CONFIGURATION` syntax tree may contain
+configuration-level `VAR_GLOBAL`, nested `RESOURCE` declarations, `TASK`
+declarations and `PROGRAM ... WITH` bindings, followed by `VAR_ACCESS` and
+`VAR_CONFIG` blocks. The parser preserves qualified access/configuration paths,
+including array indexes and bit selectors, their declared types, and
+`READ_ONLY`/`READ_WRITE` access modes. The variable-block and access-path rules
+remain owned by `03-variables.md`; this section specifies their composition
+inside one configuration declaration.
+
 ## 3. Validation Rules
 
 | Rule | Requirement |

@@ -6,6 +6,39 @@ in `IEC_DECISIONS.md`; PLCopen profile decisions belong in
 `PLCOPEN_DECISIONS.md`. Product behavior recorded here MUST NOT be copied to an
 IEC or PLCopen deviation log merely because truST owns the behavior.
 
+## 2026-07-26 - Structured Text parser compatibility boundary
+
+- Area: Structured Text type references, expression calls, declaration
+  initializers, and parser recovery
+- Decision:
+  - `STRING(<constant-expression>)` and
+    `WSTRING(<constant-expression>)` are accepted as vendor-compatible aliases
+    of the IEC bracketed length form. They have the same constant, positive,
+    and bound-validation rules as `STRING[...]` and `WSTRING[...]`.
+  - The parser accepts an `ARRAY[*]` type shape wherever a variable type
+    reference is syntactically allowed, including as the target of the
+    `POINTER TO` product extension. Semantic validation separately enforces the
+    IEC variable-length-array declaration locations.
+  - `TIME()` is retained as a zero-argument `CallExpr` for source
+    compatibility. This syntax-only acceptance does not assign conversion or
+    runtime semantics to the call.
+  - Parenthesized declaration initializers use aggregate-initializer syntax
+    only in declaration or type-default positions. Enum value assignments and
+    formal call arguments retain their own syntax.
+  - Positional and empty structure initializers are rejected. Recovery is
+    bounded at the following declaration, `END_VAR`, or end of file, and the
+    positional form uses the stable diagnostic documented in
+    `docs/specs/03-variables.md`.
+- Authority:
+  - `docs/specs/02-data-types.md`
+  - `docs/specs/03-variables.md`
+  - `docs/specs/05-expressions.md`
+- Reason:
+  - These accepted compatibility forms and recovery guarantees are observable
+    product behavior. Recording the parser-versus-semantic boundary prevents
+    syntax acceptance from being mistaken for IEC semantic acceptance or an
+    IEC deviation.
+
 ## 2026-07-26 - HIR product authority and verification-inventory boundary
 
 - Area: HIR semantic services, OpenOT authoring, diagnostics, allocation

@@ -47,6 +47,30 @@ Function-block instance aggregate initializers may target `VAR_INPUT`,
 caller-supplied references and temporary/external/private storage is not an
 instance-initializer surface.
 
+### Parser initializer classification and recovery
+
+The lossless parser recognizes a parenthesized `InitializerList` only after
+`:=` in a variable declaration or type-default position. A formal call
+argument such as `F(Input := 1)` remains an `Arg` inside a `CallExpr`, and an
+enumeration value such as `Running := 1` remains an `EnumValue`; neither is
+reclassified as a declaration initializer.
+
+Structure initializers use named members. A positional form such as `(1, 2)`
+is rejected with:
+
+```text
+positional struct initializers are not supported; use named field initializers
+```
+
+An empty structure initializer is also rejected. Missing named-member values
+diagnose `expected aggregate initializer value`. Recovery shall preserve the
+following variable declaration and shall stop at `END_VAR` or end of file
+rather than consuming an enclosing declaration. For generated positional
+shapes containing otherwise balanced expressions, recovery emits no more than
+two diagnostics and preserves the following declaration. These diagnostic and
+recovery guarantees are truST parser contracts for malformed source; they do
+not make the malformed forms valid IEC Structured Text.
+
 ## 2. Variable Section Keywords (Figure 7, Section 6.5.2)
 
 ### Input/Output Variables
@@ -298,8 +322,14 @@ END_FUNCTION
 | `UPPER_BOUND(arr, dim)` | Upper bound of dimension |
 
 **Rules**:
-- Only allowed in VAR_INPUT, VAR_OUTPUT, VAR_IN_OUT
-- Only usable in FUNCTIONs and METHODs
+- Semantically allowed as `VAR_INPUT`, `VAR_OUTPUT`, or `VAR_IN_OUT` in
+  functions and methods, and as `VAR_IN_OUT` in function blocks. (IEC
+  61131-3 Ed.3, 6.5.3)
+- The lossless parser accepts the `ARRAY[*]` type shape in any syntactically
+  valid variable type-reference position, including function-block
+  `VAR_INPUT` and the target type of the truST `POINTER TO` extension. This
+  permissive parse preserves source for tooling; semantic validation still
+  rejects declaration locations outside the allowed set above.
 - Dimensions must match at call site
 - Multiple dimensions: `ARRAY[*, *] OF INT`
 

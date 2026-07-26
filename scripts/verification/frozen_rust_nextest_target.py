@@ -19,6 +19,7 @@ MESSAGE_FORMAT_VERSION = "0.1"
 RUNTIME_CONTROL_PROFILE_KEY = "runtime-control-lib"
 HIR_SEMANTIC_CONTROL_FLOW_PROFILE_KEY = "hir-semantic-control-flow"
 HIR_REMAINING_PROFILE_KEY = "hir-remaining"
+SYNTAX_REMAINING_PROFILE_KEY = "syntax-remaining"
 TERMINAL_EVENTS = frozenset({"ok", "failed", "ignored", "timeout"})
 
 
@@ -105,6 +106,20 @@ HIR_REMAINING_PROFILE = FrozenRustTargetProfile(
     no_default_features_shard_name=None,
 )
 
+SYNTAX_REMAINING_PROFILE = FrozenRustTargetProfile(
+    key=SYNTAX_REMAINING_PROFILE_KEY,
+    package="trust-syntax",
+    target_kind="test",
+    target_name=None,
+    binary_id="trust-syntax",
+    test_prefix="",
+    encoded_test_name_prefix="trust-syntax::",
+    discovery_source_kind="rust_integration_test",
+    allowed_cfg_attributes=frozenset(),
+    no_default_features_cfg=None,
+    no_default_features_shard_name=None,
+)
+
 HIR_REMAINING_INTEGRATION_PATHS = frozenset(
     {
         "crates/trust-hir/tests/declaration_catalog.rs",
@@ -165,12 +180,25 @@ HIR_REMAINING_UNIT_PREFIXES: Mapping[str, str] = {
     "crates/trust-hir/src/types/registry.rs": "types::registry::tests::",
 }
 
+SYNTAX_REMAINING_INTEGRATION_PATHS = frozenset(
+    {
+        "crates/trust-syntax/tests/parser_complex.rs",
+        "crates/trust-syntax/tests/parser_expressions.rs",
+        "crates/trust-syntax/tests/parser_literals.rs",
+        "crates/trust-syntax/tests/parser_pous.rs",
+        "crates/trust-syntax/tests/parser_statements.rs",
+        "crates/trust-syntax/tests/parser_types.rs",
+        "crates/trust-syntax/tests/parser_variables.rs",
+    }
+)
+
 TARGET_PROFILES: Mapping[str, FrozenRustTargetProfile] = {
     profile.key: profile
     for profile in (
         RUNTIME_CONTROL_PROFILE,
         HIR_SEMANTIC_CONTROL_FLOW_PROFILE,
         HIR_REMAINING_PROFILE,
+        SYNTAX_REMAINING_PROFILE,
     )
 }
 
@@ -184,6 +212,8 @@ def get_target_profile(
 
     if key == HIR_REMAINING_PROFILE_KEY:
         return _hir_remaining_profile(path)
+    if key == SYNTAX_REMAINING_PROFILE_KEY:
+        return _syntax_remaining_profile(path)
     try:
         return TARGET_PROFILES[key]
     except KeyError as error:
@@ -257,6 +287,29 @@ def _hir_remaining_profile(path: str | None) -> FrozenRustTargetProfile:
             no_default_features_shard_name=None,
         )
     raise ValueError(f"{path!r} is outside the closed HIR remaining path set")
+
+
+def _syntax_remaining_profile(path: str | None) -> FrozenRustTargetProfile:
+    if path in SYNTAX_REMAINING_INTEGRATION_PATHS:
+        target_name = path.removeprefix(
+            "crates/trust-syntax/tests/"
+        ).removesuffix(".rs")
+        return FrozenRustTargetProfile(
+            key=SYNTAX_REMAINING_PROFILE_KEY,
+            package="trust-syntax",
+            target_kind="test",
+            target_name=target_name,
+            binary_id=f"trust-syntax::{target_name}",
+            test_prefix="",
+            encoded_test_name_prefix=f"trust-syntax::{target_name}$",
+            discovery_source_kind="rust_integration_test",
+            allowed_cfg_attributes=frozenset(),
+            no_default_features_cfg=None,
+            no_default_features_shard_name=None,
+        )
+    raise ValueError(
+        f"{path!r} is outside the closed syntax remaining path set"
+    )
 
 
 def qualify_test_names(

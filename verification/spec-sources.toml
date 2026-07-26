@@ -72,7 +72,7 @@ locator_kind = "tracked_file"
 path = "docs/specs/04-pou-declarations.md"
 version = "current"
 last_reviewed = "2026-07-26"
-covers = ["pou_declarations", "pou_terminators", "test_pou_extensions"]
+covers = ["pou_declarations", "pou_terminators", "pou_statement_list_ownership", "test_pou_extensions"]
 known_limitations = ["TEST_PROGRAM and TEST_FUNCTION_BLOCK are documented truST extensions rather than IEC POU kinds."]
 conflicts_with = []
 
@@ -109,10 +109,11 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/specs/18-configurations-resources-tasks.md"
 version = "current"
-last_reviewed = "2026-07-25"
+last_reviewed = "2026-07-26"
 covers = [
   "configuration_resource_task_binding",
   "configuration_declarations",
+  "configuration_parser_composition",
   "resource_declarations",
   "task_parameter_validation",
   "program_task_binding",
@@ -1834,7 +1835,13 @@ locator_kind = "tracked_file"
 path = "docs/specs/05-expressions.md"
 version = "current"
 last_reviewed = "2026-07-26"
-covers = ["expression_syntax", "operator_precedence", "operator_associativity"]
+covers = [
+  "expression_syntax",
+  "operator_precedence",
+  "operator_associativity",
+  "parser_sizeof_operand_classification",
+  "parser_product_call_forms",
+]
 known_limitations = ["The source records implementer-specific choices and does not replace the unavailable external IEC text as an IEC conformance oracle."]
 conflicts_with = []
 
@@ -1871,14 +1878,17 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/specs/03-variables.md"
 version = "current"
-last_reviewed = "2026-07-25"
+last_reviewed = "2026-07-26"
 covers = [
   "variable_declarations",
+  "declaration_initializer_classification",
+  "aggregate_initializer_recovery",
   "directly_represented_variables",
   "direct_address_lexical_forms",
   "direct_address_semantic_binding",
   "var_access_validation",
   "var_config_resolution",
+  "variable_length_array_parser_semantic_boundary",
 ]
 known_limitations = [
   "This normative product source cites IEC 61131-3 but does not replace the registered external IEC source for conformance proof.",
@@ -1900,7 +1910,7 @@ locator_kind = "tracked_file"
 path = "docs/specs/02-data-types.md"
 version = "current"
 last_reviewed = "2026-07-26"
-covers = ["elementary_data_types", "array_bounds", "character_access", "string_assignment_binding_boundaries", "string_bounds", "subrange_types", "accuracy_preserving_implicit_conversions", "iec_reference_operations_and_lifetime", "trust_pointer_and_indirect_write_policy"]
+covers = ["elementary_data_types", "array_bounds", "character_access", "string_assignment_binding_boundaries", "string_bounds", "parenthesized_string_length_compatibility", "subrange_types", "accuracy_preserving_implicit_conversions", "iec_reference_operations_and_lifetime", "trust_pointer_and_indirect_write_policy", "pointer_to_variable_length_array_syntax"]
 known_limitations = ["The focused assignment and POU binding contract does not claim IEC certification.", "This product source does not by itself establish IEC conformance.", "Acceptance of named enumeration values as array limits remains under review."]
 conflicts_with = []
 

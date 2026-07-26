@@ -1,0 +1,116 @@
+schema_version = 1
+id = "IEC_PARSE_VARIABLE_FORMS_001"
+title = "Parser preserves variable sections, addresses, arrays, and initializers"
+area = "compiler_iec"
+risk = "wrong_result"
+status = "specified"
+owner = "trust-syntax"
+last_reviewed = "2026-07-26"
+claim = "Documented variable sections, qualifiers, direct addresses, variable-length arrays, and declaration initializers parse without being confused with call or enumeration syntax, and malformed aggregate recovery remains bounded at declaration boundaries."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-syntax/src/parser", "docs/specs/03-variables.md"]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_IEC_VARIABLES_001", "SPEC_IEC_STATEMENTS_001", "SPEC_IEC_DATA_TYPES_CANDIDATE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_IEC_VARIABLES_001"
+
+[[behavior]]
+partition = { equals = "VARIABLE_SECTIONS_AND_QUALIFIERS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_VARIABLES_001#2-variable-section-keywords-figure-7-section-652"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Local, input, output, in-out, temporary, file-global, constant, retain, and persistent declarations remain in their declared sections with their qualifiers."
+
+[[behavior]]
+partition = { equals = "DIRECT_AND_WILDCARD_ADDRESSES" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_VARIABLES_001#5-directly-represented-variables-table-16-section-655"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Concrete and partly specified direct-address spellings remain attached to their AT declarations."
+
+[[behavior]]
+partition = { equals = "VARIABLE_LENGTH_ARRAY_DECLARATIONS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_VARIABLES_001#6-variable-length-arrays-tables-15-16-section-6545"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "ARRAY[*] remains a variable-length array type in the documented input, in-out, and pointer-to-array declaration positions."
+
+[[behavior]]
+partition = { equals = "DECLARATION_INITIALIZER_FORMS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_VARIABLES_001#initialization-table-14"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Scalar, named aggregate, partial array, repetition, nested aggregate, function-block instance, and global declaration initializers retain their initializer syntax nodes."
+
+[[behavior]]
+partition = { equals = "CALL_AND_ENUM_DISAMBIGUATION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_VARIABLES_001#parser-initializer-classification-and-recovery"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Formal call arguments and enumerated named values are not reclassified as declaration initializer lists."
+
+[[behavior]]
+partition = { equals = "BOUNDED_AGGREGATE_RECOVERY" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_VARIABLES_001#parser-initializer-classification-and-recovery"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Unsupported positional or empty aggregate shapes produce the locked targeted diagnostics without consuming following declarations or cascading without bound."
+
+[[behavior]]
+partition = { equals = "POINTER_TO_VARIABLE_LENGTH_ARRAY_EXTENSION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#42-pointer-to-non-iec-extension"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The documented POINTER TO extension composes with a variable-length ARRAY[*] referenced type without changing the array declaration form."
+
+[[behavior]]
+partition = { equals = "FILE_SCOPE_GLOBAL_BLOCK" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_VARIABLES_001#9-declaration-rules-summary"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The documented vendor-style file-scope VAR_GLOBAL form remains a root-level VarBlock."
+
+[[behavior]]
+partition = { equals = "VARIABLE_SECTION_QUALIFIERS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_VARIABLES_001#3-variable-qualifiers"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "CONSTANT, RETAIN, and documented PERSISTENT qualifiers remain attached to their declared variable sections."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "The variable declaration and initializer assertions await catalog association."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "The call/enum disambiguation and bounded recovery assertions await catalog association."

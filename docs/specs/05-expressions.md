@@ -249,6 +249,35 @@ side may be any syntactically valid expression. In particular,
 numeric literal and parses successfully. Type resolution, reference validity,
 and assignment compatibility remain semantic checks.
 
+#### 5.3.1 Parser classification for product call forms
+
+An ordinary positional call such as `F(1, 2)` and a formal call such as
+`F(A := 1, B := 2)` are both represented as a `CallExpr` with an `ArgList` and
+distinct `Arg` children. Formal `:=` tokens remain argument connections; they
+are not declaration aggregate initializers. Call binding and argument-type
+validation remain semantic checks.
+
+The parser recognizes `ADR(...)` and `SIZEOF(...)` as documented truST product
+expression forms. `SIZEOF` has a deliberately wider syntactic operand surface
+than its semantic acceptance surface:
+
+- an explicit builtin or array type is represented as a type-reference
+  operand;
+- a name, field access, array index, dereference, or call is represented as an
+  expression operand; and
+- parsing an expression operand does not make it semantically valid.
+
+The semantic `SIZEOF` contract in
+`docs/specs/29-hir-sizeof-and-allocation.md` accepts only operands with the
+documented statically known storage meaning and rejects call results and other
+non-lvalue expressions. This parser/HIR split lets diagnostics operate on the
+correct source shape without treating parse acceptance as semantic acceptance.
+
+For source compatibility, the type keyword spelling `TIME()` is also retained
+as a zero-argument call expression. This is a parser-shape contract only: name
+binding and runtime meaning remain semantic concerns, and the parser does not
+invent a callable declaration.
+
 ### 5.4 Parenthesized Expressions
 
 ```

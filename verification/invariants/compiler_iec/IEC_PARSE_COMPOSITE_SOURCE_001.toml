@@ -1,0 +1,39 @@
+schema_version = 1
+id = "IEC_PARSE_COMPOSITE_SOURCE_001"
+title = "Composite Structured Text source preserves nested declaration and statement structure"
+area = "compiler_iec"
+risk = "wrong_result"
+status = "specified"
+owner = "trust-syntax"
+last_reviewed = "2026-07-26"
+claim = "A complete documented function block containing multiple variable sections, arithmetic expressions, and assignments parses as one bounded nested lossless syntax tree."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-syntax/src/parser", "docs/specs/03-variables.md", "docs/specs/04-pou-declarations.md", "docs/specs/05-expressions.md", "docs/specs/06-statements.md"]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_IEC_VARIABLES_001", "SPEC_IEC_POU_DECLARATIONS_001", "SPEC_IEC_EXPRESSIONS_001", "SPEC_IEC_STATEMENTS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_IEC_POU_DECLARATIONS_001"
+
+[[behavior]]
+partition = { equals = "COMPLETE_FUNCTION_BLOCK_SOURCE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_POU_DECLARATIONS_001#3-function_block-declaration-table-40-section-663"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The complete function block retains its input, output, and local sections plus arithmetic assignment statements under the matching declaration terminator."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "The complete composite-source snapshot assertion awaits catalog association."

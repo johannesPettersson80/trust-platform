@@ -1,0 +1,103 @@
+schema_version = 1
+id = "IEC_PARSE_EXPRESSION_FORMS_002"
+title = "Parser preserves documented expression forms and operand roles"
+area = "compiler_iec"
+risk = "wrong_result"
+status = "specified"
+owner = "trust-syntax"
+last_reviewed = "2026-07-26"
+claim = "Documented arithmetic, comparison, logical, reference, postfix, call, and SIZEOF forms parse into the corresponding lossless syntax roles without confusing expression operands with type references."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-syntax/src/parser", "docs/specs/05-expressions.md"]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_IEC_EXPRESSIONS_001", "SPEC_HIR_SIZEOF_AND_ALLOCATION_001", "SPEC_IEC_POU_DECLARATIONS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_IEC_EXPRESSIONS_001"
+
+[[behavior]]
+partition = { equals = "PREFIX_INFIX_OPERATOR_FORMS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001#4-operator-categories"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Arithmetic, comparison, logical, unary-sign, and NOT expressions retain their documented operator nodes and operands."
+
+[[behavior]]
+partition = { equals = "POSTFIX_ACCESS_FORMS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001#53-postfix-expressions"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Field access, array indexing, and repeated pointer dereference remain distinct postfix expression forms."
+
+[[behavior]]
+partition = { equals = "CALL_AND_BUILTIN_FORMS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001#531-parser-classification-for-product-call-forms"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Positional and formal function calls plus documented ADR, SIZEOF, and TIME parser forms retain their call or product-expression structure without asserting semantic binding."
+
+[[behavior]]
+partition = { equals = "SIZEOF_OPERAND_ROLE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001#531-parser-classification-for-product-call-forms"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Explicit builtin and array types are TypeRef operands while names, fields, indexes, dereferences, and calls remain expression operands."
+
+[[behavior]]
+partition = { equals = "SIEMENS_LOCAL_REFERENCE_EXTENSION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001#522-siemens-scl-local-reference-prefix-extension"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The documented number-sign local-reference extension composes with assignment, field access, calls, and loop expressions."
+
+[[behavior]]
+partition = { equals = "THIS_AND_SUPER_FORMS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_POU_DECLARATIONS_001#this-and-super-keywords"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "THIS member access and SUPER method calls remain documented primary and postfix expression forms."
+
+[[behavior]]
+partition = { equals = "PRECEDENCE_MATRIX_STRUCTURE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001#operator-precedence"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "One lossless syntax snapshot preserves multiplicative-before-additive grouping, parenthesis override, and repeated exponentiation grouping together."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "The documented expression-form assertions await catalog association."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "The combined precedence-matrix assertion awaits catalog association."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "The exact SIZEOF operand-role assertions await catalog association."

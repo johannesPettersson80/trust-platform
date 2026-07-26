@@ -26,6 +26,7 @@ from scripts.verification.frozen_rust_nextest_batch import (
 )
 from scripts.verification.frozen_rust_nextest_target import (
     HIR_SEMANTIC_CONTROL_FLOW_PROFILE,
+    TARGET_PROFILES,
     get_target_profile,
 )
 
@@ -272,6 +273,36 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
                 "hir-remaining",
                 path="crates/trust-hir/tests/not_reviewed.rs",
             )
+
+    def test_syntax_remaining_profile_is_closed_over_reviewed_source_paths(self) -> None:
+        self.assertIn("syntax-remaining", TARGET_PROFILES)
+        integration = get_target_profile(
+            "syntax-remaining",
+            path="crates/trust-syntax/tests/parser_expressions.rs",
+        )
+
+        self.assertEqual("trust-syntax", integration.package)
+        self.assertEqual("parser_expressions", integration.target_name)
+        self.assertEqual(
+            "trust-syntax::parser_expressions",
+            integration.binary_id,
+        )
+        self.assertEqual("", integration.test_prefix)
+        self.assertEqual(
+            "trust-syntax::parser_expressions$",
+            integration.encoded_test_name_prefix,
+        )
+
+        for excluded_path in (
+            "crates/trust-syntax/src/syntax/mod.rs",
+            "crates/trust-syntax/tests/parser_project_examples.rs",
+            "crates/trust-syntax/tests/not_reviewed.rs",
+        ):
+            with self.assertRaisesRegex(ValueError, "outside the closed syntax"):
+                get_target_profile(
+                    "syntax-remaining",
+                    path=excluded_path,
+                )
 
     def test_hir_selection_requires_integration_discovery_kind(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

@@ -1,0 +1,138 @@
+schema_version = 1
+id = "IEC_PARSE_POU_FORMS_002"
+title = "Parser preserves documented POU, namespace, action, and configuration forms"
+area = "compiler_iec"
+risk = "wrong_result"
+status = "specified"
+owner = "trust-syntax"
+last_reviewed = "2026-07-26"
+claim = "The parser accepts documented IEC POU and namespace forms plus explicitly documented truST test-POU and property forms, preserving bodies, declarations, inheritance, and qualification in the lossless syntax tree."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-syntax/src/parser", "docs/specs/03-variables.md", "docs/specs/04-pou-declarations.md", "docs/specs/18-configurations-resources-tasks.md"]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_IEC_VARIABLES_001", "SPEC_IEC_POU_DECLARATIONS_001", "SPEC_IEC_CONFIG_TASKS_001", "SPEC_IEC_SEMANTIC_RULES_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_IEC_POU_DECLARATIONS_001"
+
+[[behavior]]
+partition = { equals = "FUNCTION_PROGRAM_AND_FUNCTION_BLOCK" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_POU_DECLARATIONS_001#parser-acceptance-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Functions, programs, and function blocks preserve names, return types, variable sections, body statement lists, and matching terminators."
+
+[[behavior]]
+partition = { equals = "TEST_POU_EXTENSIONS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_POU_DECLARATIONS_001#implementation-extension-test-pous"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "TEST_PROGRAM and TEST_FUNCTION_BLOCK use their documented product syntax and matching terminators."
+
+[[behavior]]
+partition = { equals = "CLASS_DECLARATION_FORMS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_POU_DECLARATIONS_001#5-class-declaration-table-48-section-665"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Class declarations retain modifiers, inheritance, interface implementation lists, qualified names, variables, methods, and matching terminators."
+
+[[behavior]]
+partition = { equals = "ACTION_DECLARATION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_POU_DECLARATIONS_001#8-action-declaration-table-56-table-72-section-674"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "An ACTION nested in its owning POU preserves its name, statement list, and terminator."
+
+[[behavior]]
+partition = { equals = "NAMESPACE_AND_USING" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_POU_DECLARATIONS_001#9-namespace-declaration-tables-64-66-section-69"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Namespaces, qualified names, USING directives, and namespace-level global variables remain attached to their documented scopes."
+
+[[behavior]]
+partition = { equals = "CONFIGURATION_RESOURCE_TASK_AND_ACCESS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_CONFIG_TASKS_001#25-configuration-parser-composition"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Configuration, resource, task, and program binding syntax retains names, processor targets, scheduling parameters, and binding structure."
+
+[[behavior]]
+partition = { equals = "PROPERTY_ACCESSOR_EXTENSION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001#56-property-accessors"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The documented truST PROPERTY extension retains its declared type plus GET and SET accessor bodies and matching terminators."
+
+[[behavior]]
+partition = { equals = "PROGRAM_VAR_ACCESS_FORM" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_CONFIG_TASKS_001#25-configuration-parser-composition"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A PROGRAM or configuration VAR_ACCESS declaration retains its qualified variable path, index and bit selectors, declared type, and access mode."
+
+[[behavior]]
+partition = { equals = "INTERFACE_DECLARATION_FORMS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_POU_DECLARATIONS_001#6-interface-declaration-table-51-section-666"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Interface declarations retain their names, method signatures, and matching terminators."
+
+[[behavior]]
+partition = { equals = "FUNCTION_BLOCK_OOP_FORMS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_POU_DECLARATIONS_001#3-function_block-declaration-table-40-section-663"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Function block declarations retain EXTENDS and one-or-more IMPLEMENTS names for the documented IEC object-oriented forms."
+
+[[behavior]]
+partition = { equals = "METHOD_DECLARATION_FORM" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_POU_DECLARATIONS_001#7-method-declaration-section-6615"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A method retains access, name, optional return type, variable sections, statement body, and matching terminator."
+
+[[behavior]]
+partition = { equals = "NAMESPACE_GLOBAL_VARIABLE_BLOCK" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_VARIABLES_001#var_global-and-var_external-relationship"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A documented vendor-style namespace-level VAR_GLOBAL block remains a VarBlock child of its namespace."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "The complete POU-form assertion family awaits catalog association."

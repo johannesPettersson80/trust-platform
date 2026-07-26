@@ -29,6 +29,11 @@ body statements parse successfully when their required names and matching
 terminators are present. Semantic declaration and project validation remain
 separate.
 
+For a POU with top-level executable statements, the parser preserves those
+statements under one `StmtList` child of the owning POU. Nested methods,
+properties, and actions own their own bodies; their statements are not folded
+into the enclosing function-block statement list.
+
 ### Implementation Extension: Test POUs
 
 truST accepts `TEST_PROGRAM` and `TEST_FUNCTION_BLOCK` as documented
@@ -231,6 +236,10 @@ END_FUNCTION_BLOCK
 4. **Can contain methods**: OOP-style methods allowed
 5. **Can inherit**: Using EXTENDS (if supported)
 6. **EXTENDS targets**: Function blocks may EXTENDS a FUNCTION_BLOCK or CLASS; extending an INTERFACE is invalid (Table 40, IEC 61131-3 Ed.3 §6.6.3.4)
+7. **Can implement interfaces**: A function block declaration may use
+   `IMPLEMENTS` with one or more interface names; the parser preserves the
+   complete ordered interface list for semantic validation (IEC 61131-3 Ed.3
+   §6.6.7.1, Table 52).
 
 ### Function Block Instance Declaration (Table 41)
 

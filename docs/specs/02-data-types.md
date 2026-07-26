@@ -360,6 +360,11 @@ END_IF;
 - `?=` may be used to initialize a pointer/reference only when the target is
   currently `NULL`
 - Pointer arithmetic is not supported
+- Because `POINTER TO` accepts any supported type reference, the parser accepts
+  compositions such as `POINTER TO ARRAY[*] OF BYTE`. This is a syntax
+  composition rule for the truST pointer extension; the semantic legality of
+  the variable-length array still follows the declaration-location rules in
+  `03-variables.md`.
 
 ### 4.3 IEC reference operations and lifetime
 
@@ -461,8 +466,22 @@ VAR
 END_VAR
 ```
 
+For vendor compatibility, truST also accepts a parenthesized spelling:
+
+```
+VAR
+  s4: STRING(MaxLen + 2);
+  s5: WSTRING(MaxLen);
+END_VAR
+```
+
 **Rules**:
 - `STRING[n]`/`WSTRING[n]` declare a maximum length of `n` characters; `n` must be a positive integer constant expression. (IEC 61131-3 Ed.3, Table 10)
+- `STRING(n)`/`WSTRING(n)` are truST vendor-compatible aliases of the bracketed
+  form. The parser preserves the enclosed expression and semantic validation
+  applies the same constant-integer, positivity, and implementation-bound
+  requirements as the bracketed form. IEC Table 10 defines the bracketed form;
+  the parenthesized spelling is product behavior, not an IEC requirement.
 - Default initial value of `STRING`/`WSTRING` is the empty string (`''` / `""`). (IEC 61131-3 Ed.3, Table 10)
 - String literals used for initialization must be compatible with `ANY_STRING` and shall not exceed the declared maximum length. (IEC 61131-3 Ed.3, Figure 6)
 - Callable string-library functions (`LEN`, `LEFT`, `RIGHT`, `MID`, `CONCAT`, `INSERT`, `DELETE`, `REPLACE`, `FIND`) are specified in `07-standard-functions.md`.

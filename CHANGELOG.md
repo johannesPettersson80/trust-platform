@@ -10,6 +10,9 @@ Target release: `v0.24.55`
 
 ### Fixed
 
+- trust-syntax: `ACTION ... END_ACTION` declarations nested in a `PROGRAM` are
+  now parsed as action nodes instead of terminating the program statement list
+  early and cascading top-level parse diagnostics.
 - PLCopen Motion: `MC_Stop` no longer reports `Busy` and `Done`
   simultaneously after reaching zero velocity, and public parameter writes to
   standard read-only Part 1 values are now limited to the documented disabled,

@@ -1,0 +1,75 @@
+schema_version = 1
+id = "IEC_PARSE_TYPE_FORMS_001"
+title = "Parser preserves documented type declaration forms and defaults"
+area = "compiler_iec"
+risk = "wrong_result"
+status = "specified"
+owner = "trust-syntax"
+last_reviewed = "2026-07-26"
+claim = "Aliases, subranges, enumerations, arrays, structures, strings, references, pointers, and type-level defaults retain their documented lossless syntax forms."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-syntax/src/parser", "docs/specs/02-data-types.md"]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_IEC_DATA_TYPES_CANDIDATE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001"
+
+[[behavior]]
+partition = { equals = "ALIAS_SUBRANGE_AND_ENUM" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#3-user-defined-data-types-table-11-section-644"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Direct aliases, subranges, enumerations, named values, base types, and enumeration defaults remain part of their TYPE declarations."
+
+[[behavior]]
+partition = { equals = "ARRAY_AND_STRUCTURE_TYPES" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#34-array-data-types-section-6445"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "One- and multidimensional arrays and structured type members retain bounds, element types, fields, and terminators."
+
+[[behavior]]
+partition = { equals = "STRING_LENGTH_FORMS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#string-length-declaration"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Bracketed literal string lengths and documented parenthesized constant expressions remain attached to STRING and WSTRING type references."
+
+[[behavior]]
+partition = { equals = "REFERENCE_AND_POINTER_TYPES" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#4-reference-types-table-12-section-64462"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "REF_TO and the documented POINTER TO extension retain their referenced type syntax."
+
+[[behavior]]
+partition = { equals = "TYPE_LEVEL_DEFAULT_SHAPES" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#3-user-defined-data-types-table-11-section-644"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Named aggregates and array defaults at TYPE level retain initializer-list and array-initializer nodes according to their declared shapes."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "The complete type-form assertion family awaits catalog association."

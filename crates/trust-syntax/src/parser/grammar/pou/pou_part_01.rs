@@ -38,7 +38,7 @@ impl Parser<'_, '_> {
         while !self.at(expected_end)
             && !self.at(alternate_end)
             && !self.at_end()
-            && !self.at_stmt_list_end()
+            && (!self.at_stmt_list_end() || self.at(TokenKind::KwAction))
         {
             if self.at(TokenKind::KwAction) {
                 self.parse_action();

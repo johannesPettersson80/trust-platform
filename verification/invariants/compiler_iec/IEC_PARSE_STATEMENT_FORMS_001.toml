@@ -1,0 +1,138 @@
+schema_version = 1
+id = "IEC_PARSE_STATEMENT_FORMS_001"
+title = "Parser preserves documented Structured Text statement forms"
+area = "compiler_iec"
+risk = "wrong_result"
+status = "specified"
+owner = "trust-syntax"
+last_reviewed = "2026-07-26"
+claim = "Assignment, call, selection, iteration, return, label, jump, exit, and continue statements retain their individually documented syntax structure and terminators."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-syntax/src/parser", "docs/specs/05-expressions.md", "docs/specs/06-statements.md"]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_IEC_EXPRESSIONS_001", "SPEC_IEC_STATEMENTS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_IEC_STATEMENTS_001"
+
+[[behavior]]
+partition = { equals = "ASSIGNMENT_ATTEMPT" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#2-assignment-statement-section-7332"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The IEC assignment-attempt operator remains an assignment statement with its left and right operands."
+
+[[behavior]]
+partition = { equals = "FORMAL_CALL_OUTPUT_CONNECTION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#3-function-and-function-block-invocation"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A formal call preserves input connections written with := and output connections written with =>."
+
+[[behavior]]
+partition = { equals = "HASH_PREFIXED_LOCAL_STATEMENT" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001#identifier-references"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The documented Siemens-compatible #identifier local reference remains a NameRef in assignments and loop expressions."
+
+[[behavior]]
+partition = { equals = "IF_SELECTION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#5-if-statement-section-73332"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "IF, ELSIF, and ELSE branches retain their conditions, bodies, order, and terminator."
+
+[[behavior]]
+partition = { equals = "CASE_SELECTION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#6-case-statement-section-73333"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "CASE retains range and list labels, branch bodies, optional ELSE, and its terminator."
+
+[[behavior]]
+partition = { equals = "FOR_ITERATION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#7-for-statement-section-73342"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "FOR retains its control assignment, final value, optional BY value, body, and terminator."
+
+[[behavior]]
+partition = { equals = "WHILE_ITERATION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#8-while-statement-section-73343"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "WHILE retains its precondition, body, and terminator."
+
+[[behavior]]
+partition = { equals = "REPEAT_ITERATION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#9-repeat-statement-section-73344"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "REPEAT retains its body, UNTIL condition, and terminator."
+
+[[behavior]]
+partition = { equals = "RETURN_TRANSFER" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#4-return-statement-section-73324"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "RETURN retains its optional expression and statement boundary."
+
+[[behavior]]
+partition = { equals = "EXIT_AND_CONTINUE_TRANSFER" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#10-exit-statement-section-73346"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "EXIT and CONTINUE remain distinct loop-transfer statements."
+
+[[behavior]]
+partition = { equals = "JUMP_TRANSFER" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#13-jmp-statement"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "JMP retains its target and statement boundary."
+
+[[behavior]]
+partition = { equals = "LABEL_STATEMENT" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#12-labelled-statements"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A label remains attached to the following statement and coexists with jumps in the same POU body."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "The complete statement-form assertion family awaits catalog association."
