@@ -553,7 +553,7 @@ def _validate_rust_execution_provenance(
         "package": _required_string(plan, "package"),
         "target_kind": _required_string(plan, "target_kind"),
         "binary_id": _required_string(plan, "binary_id"),
-        "test_prefix": _required_string(plan, "test_prefix"),
+        "test_prefix": _required_test_prefix(plan),
     }
     for field, value in expected.items():
         if execution.get(field) != value:
@@ -797,6 +797,13 @@ def _required_string(
     value = record.get(field)
     if not isinstance(value, str) or not value:
         raise ValueError(f"{label} requires non-empty {field}")
+    return value
+
+
+def _required_test_prefix(record: Mapping[str, Any]) -> str:
+    value = record.get("test_prefix")
+    if not isinstance(value, str):
+        raise ValueError("test_prefix must be a string")
     return value
 
 

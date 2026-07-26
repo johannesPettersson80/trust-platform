@@ -4,6 +4,7 @@ import unittest
 
 from scripts.verification.frozen_static_catalog_batch import (
     _catalog_command,
+    _required_test_prefix,
     assign_behavior_refs,
     assign_behaviors,
     measured_durations,
@@ -39,6 +40,12 @@ class FrozenStaticCatalogBatchTests(unittest.TestCase):
         )
 
         self.assertEqual(("one",), qualify_test_names(profile, ("one",)))
+        self.assertEqual(
+            "",
+            _required_test_prefix({"test_prefix": ""}),
+        )
+        with self.assertRaisesRegex(ValueError, "test_prefix must be a string"):
+            _required_test_prefix({"test_prefix": None})
 
     def test_selection_digest_binds_exact_frozen_rows(self) -> None:
         row = {
