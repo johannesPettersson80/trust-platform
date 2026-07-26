@@ -43,6 +43,7 @@ def run_batch(
         inventory_document=inventory_document,
         assignments_document=assignments_document,
     )
+    target_args = selected_target_args(selection)
     output_dir.mkdir(parents=True, exist_ok=True)
     list_path = output_dir / "nextest-list.json"
     raw_path = output_dir / "runtime-protocol-io.jsonl"
@@ -60,6 +61,7 @@ def run_batch(
         "list",
         "-p",
         "trust-runtime",
+        *target_args,
         "--message-format",
         "json",
     ]
@@ -81,7 +83,7 @@ def run_batch(
         listing=json.loads(listed.stdout),
         selected_names={row["name"] for row in selection},
     )
-    command = build_batch_command(resolved)
+    command = build_batch_command(resolved, target_args=target_args)
     completed = subprocess.run(
         command,
         cwd=root,
@@ -159,7 +161,11 @@ def resolve_nextest_listing(
     return {name: rows[0] for name, rows in candidates.items()}
 
 
-def build_batch_command(resolved: Mapping[str, Mapping[str, str]]) -> list[str]:
+def build_batch_command(
+    resolved: Mapping[str, Mapping[str, str]],
+    *,
+    target_args: Sequence[str] = (),
+) -> list[str]:
     clauses = []
     for name, row in sorted(resolved.items()):
         binary_id = _string(row, "binary_id", name)
@@ -175,6 +181,7 @@ def build_batch_command(resolved: Mapping[str, Mapping[str, str]]) -> list[str]:
         "run",
         "-p",
         "trust-runtime",
+        *target_args,
         "--no-fail-fast",
         "--message-format",
         "libtest-json-plus",
@@ -185,6 +192,33 @@ def build_batch_command(resolved: Mapping[str, Mapping[str, str]]) -> list[str]:
         "-E",
         " | ".join(clauses),
     ]
+
+
+def selected_target_args(
+    selection: Sequence[Mapping[str, str]],
+) -> list[str]:
+    """Select only the library and named integration targets in the batch."""
+
+    has_lib = False
+    integration_targets: set[str] = set()
+    prefix = "crates/trust-runtime/tests/"
+    for row in selection:
+        path = _string(row, "path", "selection")
+        if path.startswith(prefix):
+            relative = path.removeprefix(prefix)
+            if "/" in relative or not relative.endswith(".rs"):
+                raise ValueError(f"unsupported runtime integration path {path}")
+            integration_targets.add(relative.removesuffix(".rs"))
+        elif path.startswith("crates/trust-runtime/src/"):
+            has_lib = True
+        else:
+            raise ValueError(f"unsupported runtime test path {path}")
+    args = ["--lib"] if has_lib else []
+    for target in sorted(integration_targets):
+        args.extend(["--test", target])
+    if not args:
+        raise ValueError("runtime target selection is empty")
+    return args
 
 
 def build_outputs(

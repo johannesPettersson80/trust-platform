@@ -9,6 +9,7 @@ from scripts.verification.frozen_runtime_protocol_io_batch import (
     normalize_results,
     project_raw_results,
     resolve_nextest_listing,
+    selected_target_args,
 )
 
 
@@ -31,9 +32,26 @@ class FrozenRuntimeProtocolIoBatchTests(unittest.TestCase):
         )
         self.assertEqual("trust-runtime", resolved["one"]["binary_id"])
         self.assertEqual("io::tests::one", resolved["one"]["full_name"])
-        command = build_batch_command(resolved)
+        command = build_batch_command(
+            resolved,
+            target_args=["--lib", "--test", "contract"],
+        )
         self.assertIn("binary_id(=trust-runtime)", command[-1])
         self.assertIn("test(=two)", command[-1])
+        self.assertIn("--lib", command)
+        self.assertIn("contract", command)
+
+    def test_target_selection_excludes_unrelated_runtime_binaries(self) -> None:
+        self.assertEqual(
+            ["--lib", "--test", "connectors_status", "--test", "io_cycle"],
+            selected_target_args(
+                [
+                    {"path": "crates/trust-runtime/src/io/interface.rs"},
+                    {"path": "crates/trust-runtime/tests/io_cycle.rs"},
+                    {"path": "crates/trust-runtime/tests/connectors_status.rs"},
+                ]
+            ),
+        )
 
     def test_duplicate_bare_name_across_binaries_fails_closed(self) -> None:
         with self.assertRaisesRegex(ValueError, "ambiguous"):
