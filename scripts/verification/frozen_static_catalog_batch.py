@@ -172,6 +172,28 @@ def compile_batch(
             source=(root / path).read_text(),
             test_names=tuple(sorted(durations)),
         )
+    elif plan.get("execution_kind") == "runtime_rust_nextest_projection":
+        raw_no_default_names = plan.get("no_default_feature_names", [])
+        if (
+            not isinstance(raw_no_default_names, Sequence)
+            or isinstance(raw_no_default_names, (str, bytes))
+            or any(
+                not isinstance(name, str) or not name
+                for name in raw_no_default_names
+            )
+        ):
+            raise ValueError(
+                "runtime projection no_default_feature_names must be strings"
+            )
+        no_default_feature_names = set(raw_no_default_names)
+        if len(no_default_feature_names) != len(raw_no_default_names):
+            raise ValueError(
+                "runtime projection no_default_feature_names must be distinct"
+            )
+        if not no_default_feature_names <= set(durations):
+            raise ValueError(
+                "runtime projection no-default tests are outside the selection"
+            )
     else:
         no_default_feature_names = set()
 
@@ -985,8 +1007,17 @@ def _catalog_command(
             test_name,
             no_default_features=no_default_features,
         )
-    template = plan.get("catalog_command_template")
+    template_field = (
+        "catalog_command_template_no_default_features"
+        if no_default_features
+        else "catalog_command_template"
+    )
+    template = plan.get(template_field)
     if template is None:
+        if no_default_features:
+            raise ValueError(
+                "runtime projection lacks no-default-features catalog command"
+            )
         return _required_string(plan, "command")
     if not isinstance(template, str) or not template:
         raise ValueError("plan catalog_command_template must be non-empty")

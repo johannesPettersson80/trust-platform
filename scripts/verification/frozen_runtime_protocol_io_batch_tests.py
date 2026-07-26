@@ -6,9 +6,11 @@ import unittest
 
 from scripts.verification.frozen_runtime_protocol_io_batch import (
     build_batch_command,
+    combined_batch_command,
     normalize_results,
     project_raw_results,
     resolve_nextest_listing,
+    selected_feature_shards,
     selected_target_args,
 )
 
@@ -52,6 +54,55 @@ class FrozenRuntimeProtocolIoBatchTests(unittest.TestCase):
                 ]
             ),
         )
+
+    def test_source_cfg_splits_no_ads_wire_tests_from_default(self) -> None:
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "tests.rs"
+            source.write_text(
+                """
+#[test]
+fn default_case() {}
+
+#[cfg(not(feature = "ads-wire"))]
+#[test]
+fn disabled_case() {}
+"""
+            )
+            shards = selected_feature_shards(
+                root=root,
+                selection=[
+                    {"path": "tests.rs", "name": "default_case"},
+                    {"path": "tests.rs", "name": "disabled_case"},
+                ],
+            )
+            self.assertEqual(
+                [
+                    (
+                        "no-ads-wire",
+                        [{"path": "tests.rs", "name": "disabled_case"}],
+                        True,
+                    ),
+                    (
+                        "default",
+                        [{"path": "tests.rs", "name": "default_case"}],
+                        False,
+                    ),
+                ],
+                shards,
+            )
+            command = combined_batch_command(
+                [
+                    ["cargo", "nextest", "run", "--no-default-features"],
+                    ["cargo", "nextest", "run"],
+                ]
+            )
+            self.assertEqual(["sh", "-c"], command[:2])
+            self.assertIn("--no-default-features", command[2])
+            self.assertIn(" && ", command[2])
 
     def test_duplicate_bare_name_across_binaries_fails_closed(self) -> None:
         with self.assertRaisesRegex(ValueError, "ambiguous"):

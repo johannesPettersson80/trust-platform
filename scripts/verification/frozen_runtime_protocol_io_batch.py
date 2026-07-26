@@ -18,6 +18,12 @@ from pathlib import Path
 from typing import Any
 
 from .frozen_catalog_identity import digest_document, selection_digest
+from .frozen_rust_nextest_target import (
+    ADS_SERVER_CFG,
+    ADS_WIRE_DISABLED_CFG,
+    FrozenRustTargetProfile,
+    no_default_feature_test_names,
+)
 
 CATALOG_PATH = Path("verification/test-catalog.toml")
 DENOMINATOR_PATH = Path("verification/test-catalog-denominator.toml")
@@ -43,7 +49,7 @@ def run_batch(
         inventory_document=inventory_document,
         assignments_document=assignments_document,
     )
-    target_args = selected_target_args(selection)
+    shards = selected_feature_shards(root=root, selection=selection)
     output_dir.mkdir(parents=True, exist_ok=True)
     list_path = output_dir / "nextest-list.json"
     raw_path = output_dir / "runtime-protocol-io.jsonl"
@@ -55,35 +61,70 @@ def run_batch(
 
     environment = dict(os.environ)
     environment.update(EXPERIMENTAL_ENVIRONMENT)
-    list_command = [
-        "cargo",
-        "nextest",
-        "list",
-        "-p",
-        "trust-runtime",
-        *target_args,
-        "--message-format",
-        "json",
-    ]
-    listed = subprocess.run(
-        list_command,
-        cwd=root,
-        check=False,
-        capture_output=True,
-        text=True,
-        env=environment,
-    )
-    if listed.returncode != 0:
-        raise ValueError(
-            "runtime nextest list failed: "
-            + (listed.stderr.strip() or f"exit {listed.returncode}")
+    resolved: dict[str, dict[str, str]] = {}
+    list_records = []
+    commands = []
+    for shard_name, shard_selection, no_default_features in shards:
+        target_args = selected_target_args(shard_selection)
+        feature_args = ["--no-default-features"] if no_default_features else []
+        list_command = [
+            "cargo",
+            "nextest",
+            "list",
+            "-p",
+            "trust-runtime",
+            *target_args,
+            *feature_args,
+            "--message-format",
+            "json",
+        ]
+        listed = subprocess.run(
+            list_command,
+            cwd=root,
+            check=False,
+            capture_output=True,
+            text=True,
+            env=environment,
         )
-    _write_text(list_path, listed.stdout)
-    resolved = resolve_nextest_listing(
-        listing=json.loads(listed.stdout),
-        selected_names={row["name"] for row in selection},
+        if listed.returncode != 0:
+            raise ValueError(
+                f"runtime nextest list failed for {shard_name}: "
+                + (listed.stderr.strip() or f"exit {listed.returncode}")
+            )
+        listing = json.loads(listed.stdout)
+        shard_resolved = resolve_nextest_listing(
+            listing=listing,
+            selected_names={row["name"] for row in shard_selection},
+        )
+        overlap = set(resolved) & set(shard_resolved)
+        if overlap:
+            raise ValueError(
+                "runtime feature shards overlap: " + ", ".join(sorted(overlap))
+            )
+        resolved.update(shard_resolved)
+        list_records.append(
+            {
+                "name": shard_name,
+                "command": list_command,
+                "no_default_features": no_default_features,
+                "selected_test_count": len(shard_selection),
+                "listing": listing,
+            }
+        )
+        commands.append(
+            build_batch_command(
+                shard_resolved,
+                target_args=(*target_args, *feature_args),
+            )
+        )
+    _write_json(
+        list_path,
+        {
+            "schema_version": 1,
+            "shards": list_records,
+        },
     )
-    command = build_batch_command(resolved, target_args=target_args)
+    command = combined_batch_command(commands)
     completed = subprocess.run(
         command,
         cwd=root,
@@ -119,6 +160,12 @@ def run_batch(
         results_dir=results_dir,
         nextest_version=version,
         reviewed_date=reviewed_date,
+        no_default_feature_names={
+            row["name"]
+            for _shard_name, rows, disabled in shards
+            if disabled
+            for row in rows
+        },
     )
 
 
@@ -194,6 +241,71 @@ def build_batch_command(
     ]
 
 
+def combined_batch_command(commands: Sequence[Sequence[str]]) -> list[str]:
+    """Return the exact shell command used to execute all feature shards."""
+
+    if not commands:
+        raise ValueError("runtime protocol/I/O execution has no feature shards")
+    if len(commands) == 1:
+        return list(commands[0])
+    return ["sh", "-c", " && ".join(shlex.join(command) for command in commands)]
+
+
+def selected_feature_shards(
+    *,
+    root: Path,
+    selection: Sequence[Mapping[str, str]],
+) -> list[tuple[str, list[dict[str, str]], bool]]:
+    """Split selected tests using their exact source cfg attributes."""
+
+    disabled_names: set[str] = set()
+    rows_by_path: dict[str, list[Mapping[str, str]]] = defaultdict(list)
+    for row in selection:
+        rows_by_path[_string(row, "path", "selection")].append(row)
+    for path, rows in rows_by_path.items():
+        profile = FrozenRustTargetProfile(
+            key="runtime-protocol-io-source",
+            package="trust-runtime",
+            target_kind="test",
+            target_name=None,
+            binary_id="source-classification-only",
+            test_prefix="",
+            encoded_test_name_prefix="",
+            discovery_source_kind="rust_integration_test",
+            allowed_cfg_attributes=frozenset(
+                {
+                    ADS_WIRE_DISABLED_CFG,
+                    ADS_SERVER_CFG,
+                    '#[cfg(feature = "ads-wire")]',
+                    '#[cfg(all(feature = "ethercat-wire", unix))]',
+                }
+            ),
+            no_default_features_cfg=ADS_WIRE_DISABLED_CFG,
+            no_default_features_shard_name="no-ads-wire",
+        )
+        disabled_names.update(
+            no_default_feature_test_names(
+                profile=profile,
+                source=(root / path).read_text(),
+                test_names=tuple(
+                    sorted(_string(row, "name", path) for row in rows)
+                ),
+            )
+        )
+    default_rows = [
+        dict(row) for row in selection if row["name"] not in disabled_names
+    ]
+    disabled_rows = [
+        dict(row) for row in selection if row["name"] in disabled_names
+    ]
+    shards = []
+    if disabled_rows:
+        shards.append(("no-ads-wire", disabled_rows, True))
+    if default_rows:
+        shards.append(("default", default_rows, False))
+    return shards
+
+
 def selected_target_args(
     selection: Sequence[Mapping[str, str]],
 ) -> list[str]:
@@ -236,6 +348,7 @@ def build_outputs(
     results_dir: Path,
     nextest_version: str,
     reviewed_date: str,
+    no_default_feature_names: set[str],
 ) -> dict[str, Any]:
     raw = raw_path.read_text()
     assignments = {
@@ -323,6 +436,9 @@ def build_outputs(
             "resolved_tests": {
                 name: dict(resolved[name]) for name in sorted(names)
             },
+            "no_default_feature_names": sorted(
+                names & no_default_feature_names
+            ),
         }
         plan_path = plans_dir / f"{path_key(path)}-plan.json"
         inventory_path = plans_dir / f"{path_key(path)}-assertions.json"
@@ -331,13 +447,43 @@ def build_outputs(
         if len(binary_ids) != 1:
             raise ValueError(f"{path} resolves to multiple nextest binaries")
         binary_id = next(iter(binary_ids))
+        catalog_target_args = selected_target_args(rows)
         plan["catalog_command_template"] = (
-            "cargo nextest run -p trust-runtime --no-fail-fast "
+            shlex.join(
+                [
+                    "cargo",
+                    "nextest",
+                    "run",
+                    "-p",
+                    "trust-runtime",
+                    *catalog_target_args,
+                ]
+            )
+            + " --no-fail-fast "
             "--user-config-file none -E "
             + shlex.quote(
                 f"binary_id(={binary_id}) & test(~{{name}})"
             )
         )
+        if names & no_default_feature_names:
+            plan["catalog_command_template_no_default_features"] = (
+                shlex.join(
+                    [
+                        "cargo",
+                        "nextest",
+                        "run",
+                        "-p",
+                        "trust-runtime",
+                        *catalog_target_args,
+                        "--no-default-features",
+                    ]
+                )
+                + " "
+                "--no-fail-fast --user-config-file none -E "
+                + shlex.quote(
+                    f"binary_id(={binary_id}) & test(~{{name}})"
+                )
+            )
         _write_json(plan_path, plan)
         _write_json(
             inventory_path,

@@ -712,6 +712,28 @@ class FrozenStaticCatalogBatchTests(unittest.TestCase):
                 test_name="one",
             )
 
+    def test_runtime_projection_uses_no_default_feature_template(self) -> None:
+        plan = {
+            "execution_kind": "runtime_rust_nextest_projection",
+            "command": "combined proof",
+            "catalog_command_template": "cargo nextest run -E 'test(~{name})'",
+            "catalog_command_template_no_default_features": (
+                "cargo nextest run --no-default-features -E 'test(~{name})'"
+            ),
+        }
+        self.assertNotIn(
+            "--no-default-features",
+            _catalog_command(plan, test_name="default_case"),
+        )
+        self.assertIn(
+            "--no-default-features",
+            _catalog_command(
+                plan,
+                test_name="without_wire",
+                no_default_features=True,
+            ),
+        )
+
     def test_runtime_cfg_source_selects_per_test_catalog_feature_flag(
         self,
     ) -> None:
