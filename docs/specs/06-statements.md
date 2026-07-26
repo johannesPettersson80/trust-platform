@@ -647,6 +647,14 @@ product recovery contract whenever these accepted source forms are malformed:
 - unclosed expression delimiters and excessive nesting terminate through
   bounded recovery with a diagnostic.
 
+Within a bounded expression-recovery scan, a comma or closing delimiter is a
+top-level synchronization token only when no nested parenthesis or bracket is
+open. Balanced nested parentheses and brackets therefore leave the owning
+closing delimiter available to close the outer construct. If a nested bracket
+remains open, an encountered parenthesis cannot close the outer construct; the
+scan stops at the next configured statement boundary and leaves that boundary
+available to its owner.
+
 Recovery may retain an incomplete syntax node so editor features can continue,
 but any such diagnostic makes the parse unsuccessful. The partial tree is not
 an accepted program and cannot be compiled as one.

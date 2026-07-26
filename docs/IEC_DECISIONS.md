@@ -85,6 +85,12 @@ This file tracks implementation decisions made where IEC 61131-3 leaves room for
     construct. Statements following that outer construct remain parseable.
   - Missing POU and expression delimiters diagnose at the nearest bounded
     boundary. Expression nesting and recovery scans remain explicitly bounded.
+  - A bounded expression-recovery scan treats commas and closing delimiters as
+    top-level synchronization tokens only outside nested parentheses and
+    brackets. Balanced nested delimiters do not hide the owning closer, while
+    an unclosed nested bracket prevents a parenthesis from closing the outer
+    construct and makes recovery stop before the next configured statement
+    boundary.
 - Reason:
   - Silent acceptance can turn malformed control flow into a different valid
     program, which is unsafe for both compilation and editor diagnostics.
