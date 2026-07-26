@@ -20,7 +20,9 @@ Target release: `v0.24.55`
 - verification: focused test-catalog mapping now authenticates live Rust
   module/include topology and the complete assertion/oracle source closure,
   retaining that closure after catalog acceptance so helper or fixture changes
-  cannot leave a stale mapping marked fresh.
+  cannot leave a stale mapping marked fresh; acceptance closes only
+  catalog-awaiting coverage cells and preserves existing proof or non-catalog
+  debt classifications.
 - trust-runtime: registry publish help now describes standard bundle detection
   instead of claiming a current-directory fallback.
 - trust-runtime: `hmi init`, `hmi update`, and `hmi reset` now preserve standard

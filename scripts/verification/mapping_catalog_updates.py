@@ -248,13 +248,18 @@ def reconcile_invariant_catalog_state(
     coverage = invariant.get("coverage")
     cells = coverage.get("cells") if isinstance(coverage, Mapping) else None
     missing = invariant.get("missing")
-    if (
-        not isinstance(behaviors, list)
-        or not behaviors
-        or not isinstance(cells, list)
-        or not isinstance(missing, list)
-    ):
-        return source
+    if not isinstance(behaviors, list) or not behaviors:
+        raise ValueError(
+            f"{invariant_id} catalog reconciliation requires non-empty behavior"
+        )
+    if not isinstance(cells, list) or not cells:
+        raise ValueError(
+            f"{invariant_id} catalog reconciliation requires non-empty coverage cells"
+        )
+    if not isinstance(missing, list):
+        raise ValueError(
+            f"{invariant_id} catalog reconciliation requires a missing array"
+        )
 
     catalog = tomllib.loads(catalog_source)
     tests = catalog.get("tests")
@@ -282,11 +287,48 @@ def reconcile_invariant_catalog_state(
             f"{invariant_id}#behavior:{index}"
         )
 
+    cells_by_dimension: dict[str, list[Mapping[str, Any]]] = {}
+    for index, cell in enumerate(cells):
+        if not isinstance(cell, Mapping):
+            raise ValueError(
+                f"{invariant_id} coverage cell[{index}] must be an object"
+            )
+        dimension = cell.get("dimension")
+        if isinstance(dimension, str):
+            cells_by_dimension.setdefault(dimension, []).append(cell)
+    for dimension in behavior_refs_by_dimension:
+        dimension_cells = cells_by_dimension.get(dimension, [])
+        if len(dimension_cells) != 1:
+            raise ValueError(
+                f"{invariant_id} requires exactly one coverage cell for "
+                f"behavior dimension {dimension}; found {len(dimension_cells)}"
+            )
+
     closed_dimensions = {
         dimension
         for dimension, expected_refs in behavior_refs_by_dimension.items()
         if expected_refs.issubset(mapped_refs)
     }
+    transition_dimensions: set[str] = set()
+    preserved_cells: dict[str, tuple[str, str]] = {}
+    for dimension in closed_dimensions:
+        cell = cells_by_dimension[dimension][0]
+        state = cell.get("state")
+        rationale = cell.get("rationale")
+        if not isinstance(rationale, str) or not rationale:
+            raise ValueError(
+                f"{invariant_id} coverage dimension {dimension} lacks rationale"
+            )
+        if state in {"covered", "covered_by_fuzz"}:
+            preserved_cells[dimension] = (state, rationale)
+            continue
+        if state != "gap_open" or not _catalog_awaiting_rationale(rationale):
+            raise ValueError(
+                f"{invariant_id} cannot close behavior dimension {dimension} "
+                f"from coverage state {state!r} and rationale {rationale!r}"
+            )
+        transition_dimensions.add(dimension)
+
     all_behavior_refs = set().union(*behavior_refs_by_dimension.values())
     updated_missing = list(missing)
     if all_behavior_refs.issubset(mapped_refs):
@@ -302,14 +344,32 @@ def reconcile_invariant_catalog_state(
     result = _replace_covered_catalog_cells(
         result,
         invariant_id=invariant_id,
-        closed_dimensions=closed_dimensions,
+        closed_dimensions=transition_dimensions,
     )
     parsed = tomllib.loads(result)
     if parsed.get("missing") != updated_missing:
         raise ValueError("invariant missing-state reconciliation failed")
-    for cell in parsed.get("coverage", {}).get("cells", []):
-        if cell.get("dimension") in closed_dimensions and cell.get("state") != "covered":
+    parsed_cells = parsed.get("coverage", {}).get("cells", [])
+    for dimension in closed_dimensions:
+        dimension_cells = [
+            cell
+            for cell in parsed_cells
+            if isinstance(cell, Mapping) and cell.get("dimension") == dimension
+        ]
+        if len(dimension_cells) != 1:
+            raise ValueError("invariant coverage reconciliation changed cell identity")
+        cell = dimension_cells[0]
+        if dimension in transition_dimensions and cell.get("state") != "covered":
             raise ValueError("invariant coverage reconciliation failed")
+        if dimension in preserved_cells:
+            expected_state, expected_rationale = preserved_cells[dimension]
+            if (
+                cell.get("state") != expected_state
+                or cell.get("rationale") != expected_rationale
+            ):
+                raise ValueError(
+                    "invariant coverage reconciliation overwrote existing proof"
+                )
     return result
 
 
@@ -486,6 +546,21 @@ def _replace_covered_catalog_cells(
         )
 
     return pattern.sub(replace, source)
+
+
+def _catalog_awaiting_rationale(rationale: str) -> bool:
+    normalized = " ".join(rationale.casefold().split())
+    return any(
+        marker in normalized
+        for marker in (
+            "await catalog association",
+            "awaits catalog association",
+            "awaiting catalog acceptance",
+            "await generated catalog mapping",
+            "awaits generated catalog mapping",
+            "ready for generated catalog mapping",
+        )
+    )
 
 
 def _canonical_digest(values: Sequence[Mapping[str, Any]]) -> str:

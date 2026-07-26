@@ -264,6 +264,169 @@ mapping_behavior_refs = ["INV_ONE#behavior:1"]
             )
         )
 
+    def test_catalog_reconciliation_requires_complete_invariant_partitions(
+        self,
+    ) -> None:
+        catalog = """
+[[tests]]
+id = "TEST_ONE"
+invariants = ["INV_ONE"]
+mapping_behavior_refs = ["INV_ONE#behavior:0"]
+"""
+        sources = {
+            "behavior": """
+schema_version = 1
+id = "INV_ONE"
+missing = ["cataloged_behavior_tests"]
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Awaiting catalog acceptance."
+""",
+            "coverage": """
+schema_version = 1
+id = "INV_ONE"
+missing = ["cataloged_behavior_tests"]
+[[behavior]]
+case_family = "happy_path"
+""",
+            "missing": """
+schema_version = 1
+id = "INV_ONE"
+[[behavior]]
+case_family = "happy_path"
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Awaiting catalog acceptance."
+""",
+        }
+        for partition, source in sources.items():
+            with self.subTest(partition=partition):
+                with self.assertRaisesRegex(
+                    ValueError,
+                    f"requires .*{partition}",
+                ):
+                    reconcile_invariant_catalog_state(
+                        source,
+                        invariant_id="INV_ONE",
+                        catalog_source=catalog,
+                    )
+
+    def test_catalog_reconciliation_requires_one_cell_per_behavior_dimension(
+        self,
+    ) -> None:
+        invariant = """
+schema_version = 1
+id = "INV_ONE"
+missing = ["cataloged_behavior_tests"]
+[[behavior]]
+case_family = "happy_path"
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Awaiting catalog acceptance."
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Awaiting catalog acceptance."
+"""
+        with self.assertRaisesRegex(
+            ValueError,
+            "exactly one coverage cell for behavior dimension happy_path",
+        ):
+            reconcile_invariant_catalog_state(
+                invariant,
+                invariant_id="INV_ONE",
+                catalog_source="tests = []\n",
+            )
+
+    def test_catalog_reconciliation_preserves_existing_covered_states(
+        self,
+    ) -> None:
+        invariant = """
+schema_version = 1
+id = "INV_ONE"
+missing = ["cataloged_behavior_tests"]
+[[behavior]]
+case_family = "happy_path"
+[[behavior]]
+case_family = "boundary_high"
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "Existing behavior proof remains authoritative."
+[[coverage.cells]]
+dimension = "boundary_high"
+state = "covered_by_fuzz"
+rationale = "Existing fuzz proof remains authoritative."
+"""
+        catalog = """
+[[tests]]
+id = "TEST_ONE"
+invariants = ["INV_ONE"]
+mapping_behavior_refs = [
+  "INV_ONE#behavior:0",
+  "INV_ONE#behavior:1",
+]
+"""
+        reconciled = tomllib.loads(
+            reconcile_invariant_catalog_state(
+                invariant,
+                invariant_id="INV_ONE",
+                catalog_source=catalog,
+            )
+        )
+        self.assertEqual(
+            ["covered", "covered_by_fuzz"],
+            [cell["state"] for cell in reconciled["coverage"]["cells"]],
+        )
+        self.assertEqual(
+            [
+                "Existing behavior proof remains authoritative.",
+                "Existing fuzz proof remains authoritative.",
+            ],
+            [cell["rationale"] for cell in reconciled["coverage"]["cells"]],
+        )
+
+    def test_catalog_reconciliation_rejects_non_catalog_coverage_debt(
+        self,
+    ) -> None:
+        catalog = """
+[[tests]]
+id = "TEST_ONE"
+invariants = ["INV_ONE"]
+mapping_behavior_refs = ["INV_ONE#behavior:0"]
+"""
+        for state, rationale in (
+            ("gap_open", "External target proof remains open."),
+            ("spec_gap", "Normative behavior is unresolved."),
+            ("blocked", "Hardware is unavailable."),
+            ("deferred", "Reserved for a later release."),
+            ("not_applicable", "Reviewed as outside this product."),
+        ):
+            invariant = f"""
+schema_version = 1
+id = "INV_ONE"
+missing = ["cataloged_behavior_tests"]
+[[behavior]]
+case_family = "happy_path"
+[[coverage.cells]]
+dimension = "happy_path"
+state = "{state}"
+rationale = "{rationale}"
+"""
+            with self.subTest(state=state):
+                with self.assertRaisesRegex(
+                    ValueError,
+                    "cannot close behavior dimension happy_path",
+                ):
+                    reconcile_invariant_catalog_state(
+                        invariant,
+                        invariant_id="INV_ONE",
+                        catalog_source=catalog,
+                    )
+
     def test_denominator_mapping_is_generated_and_canonically_sorted(self) -> None:
         document = {
             "schema_version": 1,

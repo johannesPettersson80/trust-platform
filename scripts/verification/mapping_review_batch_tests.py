@@ -180,7 +180,18 @@ class MappingReviewBatchTests(unittest.TestCase):
             invariant_sources={
                 "INV_1": (
                     "verification/invariants/verification/INV_1.toml",
-                    'schema_version = 1\nid = "INV_1"\ntests = []\n',
+                    """
+schema_version = 1
+id = "INV_1"
+tests = []
+missing = ["cataloged_behavior_tests"]
+[[behavior]]
+case_family = "happy_path"
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Awaiting catalog acceptance."
+""",
                 ),
                 "INV_2": (
                     "verification/invariants/verification/INV_2.toml",
