@@ -13,24 +13,11 @@ source_refs = [
   "crates/trust-runtime/src/bin/trust-runtime/ads.rs",
   "crates/trust-runtime/src/bin/trust-runtime/cli/ads.rs",
 ]
-tests = [
-  "TEST_RUNTIME_ADS_SERVER_JSON_REJECTION_001",
-  "TEST_RUNTIME_ADS_DISCOVER_NO_WIRE_001",
-  "TEST_RUNTIME_ADS_BROWSE_NO_WIRE_001",
-  "TEST_RUNTIME_ADS_DOCTOR_NO_WIRE_001",
-  "TEST_RUNTIME_ADS_VALIDATE_LIVE_NO_WIRE_001",
-  "TEST_RUNTIME_ADS_IMPORT_SYMBOLS_NO_WIRE_001",
-]
+tests = ["TEST_AUTO_5E4438BEDD75DD2138F5", "TEST_AUTO_B9A5F7EE8D91C3695562", "TEST_RUNTIME_ADS_BROWSE_NO_WIRE_001", "TEST_RUNTIME_ADS_DISCOVER_NO_WIRE_001", "TEST_RUNTIME_ADS_DOCTOR_NO_WIRE_001", "TEST_RUNTIME_ADS_IMPORT_SYMBOLS_NO_WIRE_001", "TEST_RUNTIME_ADS_SERVER_JSON_REJECTION_001", "TEST_RUNTIME_ADS_VALIDATE_LIVE_NO_WIRE_001"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = [
-  "assertion_reachability",
-  "live_target_validation",
-  "hardware_target_proof",
-  "mutation_sensitivity",
-  "broad_remote_gate",
-]
+missing = ["assertion_reachability", "live_target_validation", "hardware_target_proof", "mutation_sensitivity", "broad_remote_gate"]
 
 [spec]
 status = "specified"

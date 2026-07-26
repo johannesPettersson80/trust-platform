@@ -13,23 +13,11 @@ source_refs = [
   "crates/trust-runtime/src/bin/trust-runtime.rs",
   "crates/trust-runtime/src/bin/trust-runtime/cli/commands.rs",
 ]
-tests = [
-  "TEST_RUNTIME_CLI_SUGGEST_CHECK_001",
-  "TEST_RUNTIME_CLI_SUGGEST_GLOBAL_FLAGS_001",
-  "TEST_RUNTIME_CLI_SUGGEST_THRESHOLD_001",
-  "TEST_RUNTIME_CLI_BUNDLE_ALIAS_TIP_001",
-  "TEST_RUNTIME_CLI_CI_EXIT_CLASSIFICATION_001",
-  "TEST_RUNTIME_CLI_PREVALIDATION_001",
-  "TEST_RUNTIME_CLI_IDE_DISPATCH_001",
-]
+tests = ["TEST_AUTO_93C2C9528A08F43AB52D", "TEST_AUTO_BF7B13205AB37D264FBA", "TEST_AUTO_C31ECFAB52CC964E85A2", "TEST_AUTO_F58BCD751504115571EB", "TEST_RUNTIME_CLI_BUNDLE_ALIAS_TIP_001", "TEST_RUNTIME_CLI_CI_EXIT_CLASSIFICATION_001", "TEST_RUNTIME_CLI_IDE_DISPATCH_001", "TEST_RUNTIME_CLI_PREVALIDATION_001", "TEST_RUNTIME_CLI_SUGGEST_CHECK_001", "TEST_RUNTIME_CLI_SUGGEST_GLOBAL_FLAGS_001", "TEST_RUNTIME_CLI_SUGGEST_THRESHOLD_001"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = [
-  "assertion_reachability",
-  "mutation_sensitivity",
-  "broad_remote_gate",
-]
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
 
 [spec]
 status = "specified"

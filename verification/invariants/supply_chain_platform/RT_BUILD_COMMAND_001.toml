@@ -10,11 +10,7 @@ claim = "The runtime build command resolves project, source, and dependency inpu
 proof_level = "T1"
 contract_kind = "protocol_trace"
 source_refs = ["crates/trust-runtime/src/bin/trust-runtime/build.rs"]
-tests = [
-  "TEST_RUNTIME_BUILD_CI_DEPENDENCIES_001",
-  "TEST_RUNTIME_BUILD_FAILURE_PRESERVES_ARTIFACT_001",
-  "TEST_RUNTIME_BUILD_HUMAN_DISCOVERY_001",
-]
+tests = ["TEST_AUTO_3E24745EDD37F61AE492", "TEST_RUNTIME_BUILD_CI_DEPENDENCIES_001", "TEST_RUNTIME_BUILD_FAILURE_PRESERVES_ARTIFACT_001", "TEST_RUNTIME_BUILD_HUMAN_DISCOVERY_001"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []

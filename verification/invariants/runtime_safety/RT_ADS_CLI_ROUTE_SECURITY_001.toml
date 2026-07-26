@@ -10,27 +10,11 @@ claim = "ADS route artifacts are deterministic and credential-free, direct route
 proof_level = "T1"
 contract_kind = "security_policy"
 source_refs = ["crates/trust-runtime/src/bin/trust-runtime/ads.rs"]
-tests = [
-  "TEST_RUNTIME_ADS_CLIENT_ROUTE_ARTIFACT_001",
-  "TEST_RUNTIME_ADS_SERVER_ROUTE_ARTIFACT_001",
-  "TEST_RUNTIME_ADS_SERVER_ROUTE_HUMAN_001",
-  "TEST_RUNTIME_ADS_SERVER_DOCTOR_PROOF_PAIR_001",
-  "TEST_RUNTIME_ADS_DOCTOR_WRITE_PROBE_GROUP_001",
-  "TEST_RUNTIME_ADS_DOCTOR_WRITE_VALUE_001",
-  "TEST_RUNTIME_ADS_ROUTE_REMOVE_ARTIFACT_001",
-  "TEST_RUNTIME_ADS_PASSWORD_ARG_REJECTED_001",
-  "TEST_RUNTIME_ADS_PASSWORD_NOT_ECHOED_001",
-]
+tests = ["TEST_AUTO_1691B3B84A0BBDCA3614", "TEST_AUTO_2E0A7F7A097414C587CD", "TEST_AUTO_46DACC7E48BBDC5C531F", "TEST_AUTO_720B6B368E697E6B906C", "TEST_AUTO_815A8962E2B241E7D833", "TEST_AUTO_A95D4B4BCB8D35800A86", "TEST_RUNTIME_ADS_CLIENT_ROUTE_ARTIFACT_001", "TEST_RUNTIME_ADS_DOCTOR_WRITE_PROBE_GROUP_001", "TEST_RUNTIME_ADS_DOCTOR_WRITE_VALUE_001", "TEST_RUNTIME_ADS_PASSWORD_ARG_REJECTED_001", "TEST_RUNTIME_ADS_PASSWORD_NOT_ECHOED_001", "TEST_RUNTIME_ADS_ROUTE_REMOVE_ARTIFACT_001", "TEST_RUNTIME_ADS_SERVER_DOCTOR_PROOF_PAIR_001", "TEST_RUNTIME_ADS_SERVER_ROUTE_ARTIFACT_001", "TEST_RUNTIME_ADS_SERVER_ROUTE_HUMAN_001"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = [
-  "assertion_reachability",
-  "hardware_route_add_proof",
-  "guarded_write_restore_hardware_proof",
-  "mutation_sensitivity",
-  "broad_remote_gate",
-]
+missing = ["assertion_reachability", "hardware_route_add_proof", "guarded_write_restore_hardware_proof", "mutation_sensitivity", "broad_remote_gate"]
 
 [spec]
 status = "specified"
