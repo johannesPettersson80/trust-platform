@@ -124,6 +124,7 @@ fn disabled_case() {}
     def test_projection_and_normalization_require_exact_passing_set(self) -> None:
         raw = "\n".join(
             [
+                '{"type":"test","event":"ignored","name":"a$unselected"}',
                 '{"type":"test","event":"started","name":"a$module::one"}',
                 '{"type":"test","event":"ok","name":"a$module::one","exec_time":0.001}',
                 '{"type":"test","event":"started","name":"b$two"}',
@@ -154,6 +155,17 @@ fn disabled_case() {}
                 expected={"one": "a$module::one"},
             ),
         )
+        with self.assertRaisesRegex(ValueError, "unexpected runtime test event"):
+            project_raw_results(
+                raw=raw
+                + '\n{"type":"test","event":"ok","name":"a$unselected",'
+                + '"exec_time":0.001}',
+                resolved=resolved,
+                path_by_name={
+                    "one": "src/lib.rs",
+                    "two": "tests/two.rs",
+                },
+            )
 
 
 if __name__ == "__main__":

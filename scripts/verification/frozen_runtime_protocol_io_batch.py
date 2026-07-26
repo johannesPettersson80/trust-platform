@@ -40,6 +40,7 @@ def run_batch(
     assignments_path: Path,
     output_dir: Path,
     reviewed_date: str,
+    normalize_only: bool = False,
 ) -> dict[str, Any]:
     _require_clean_checkout(root)
     inventory_document = _json(inventory_path)
@@ -56,7 +57,16 @@ def run_batch(
     metadata_path = output_dir / "execution.json"
     plans_dir = output_dir / "plans"
     results_dir = output_dir / "results"
-    if any(path.exists() for path in (list_path, raw_path, metadata_path)):
+    if normalize_only:
+        if not list_path.is_file() or not raw_path.is_file():
+            raise ValueError(
+                "normalize-only requires existing nextest list and raw results"
+            )
+        if any(path.exists() for path in (metadata_path, plans_dir, results_dir)):
+            raise ValueError(
+                "normalize-only refuses partially generated projected outputs"
+            )
+    elif any(path.exists() for path in (list_path, raw_path, metadata_path)):
         raise ValueError("runtime protocol/I/O execution outputs already exist")
 
     environment = dict(os.environ)
@@ -64,6 +74,22 @@ def run_batch(
     resolved: dict[str, dict[str, str]] = {}
     list_records = []
     commands = []
+    recorded_shards: dict[str, Mapping[str, Any]] = {}
+    if normalize_only:
+        recorded_document = _json(list_path)
+        raw_recorded_shards = recorded_document.get("shards")
+        if (
+            not isinstance(raw_recorded_shards, Sequence)
+            or isinstance(raw_recorded_shards, (str, bytes))
+        ):
+            raise ValueError("recorded nextest list lacks feature shards")
+        recorded_shards = {
+            _string(row, "name", "recorded feature shard"): row
+            for row in raw_recorded_shards
+            if isinstance(row, Mapping)
+        }
+        if len(recorded_shards) != len(raw_recorded_shards):
+            raise ValueError("recorded nextest feature shard names are invalid")
     for shard_name, shard_selection, no_default_features in shards:
         target_args = selected_target_args(shard_selection)
         feature_args = ["--no-default-features"] if no_default_features else []
@@ -78,20 +104,40 @@ def run_batch(
             "--message-format",
             "json",
         ]
-        listed = subprocess.run(
-            list_command,
-            cwd=root,
-            check=False,
-            capture_output=True,
-            text=True,
-            env=environment,
-        )
-        if listed.returncode != 0:
-            raise ValueError(
-                f"runtime nextest list failed for {shard_name}: "
-                + (listed.stderr.strip() or f"exit {listed.returncode}")
+        if normalize_only:
+            record = recorded_shards.get(shard_name)
+            if not isinstance(record, Mapping):
+                raise ValueError(
+                    f"recorded nextest list lacks {shard_name} shard"
+                )
+            if (
+                record.get("command") != list_command
+                or record.get("no_default_features") is not no_default_features
+                or record.get("selected_test_count") != len(shard_selection)
+            ):
+                raise ValueError(
+                    f"recorded nextest {shard_name} shard selection drifted"
+                )
+            listing = record.get("listing")
+            if not isinstance(listing, Mapping):
+                raise ValueError(
+                    f"recorded nextest {shard_name} listing is invalid"
+                )
+        else:
+            listed = subprocess.run(
+                list_command,
+                cwd=root,
+                check=False,
+                capture_output=True,
+                text=True,
+                env=environment,
             )
-        listing = json.loads(listed.stdout)
+            if listed.returncode != 0:
+                raise ValueError(
+                    f"runtime nextest list failed for {shard_name}: "
+                    + (listed.stderr.strip() or f"exit {listed.returncode}")
+                )
+            listing = json.loads(listed.stdout)
         shard_resolved = resolve_nextest_listing(
             listing=listing,
             selected_names={row["name"] for row in shard_selection},
@@ -102,43 +148,49 @@ def run_batch(
                 "runtime feature shards overlap: " + ", ".join(sorted(overlap))
             )
         resolved.update(shard_resolved)
-        list_records.append(
-            {
-                "name": shard_name,
-                "command": list_command,
-                "no_default_features": no_default_features,
-                "selected_test_count": len(shard_selection),
-                "listing": listing,
-            }
-        )
+        if not normalize_only:
+            list_records.append(
+                {
+                    "name": shard_name,
+                    "command": list_command,
+                    "no_default_features": no_default_features,
+                    "selected_test_count": len(shard_selection),
+                    "listing": listing,
+                }
+            )
         commands.append(
             build_batch_command(
                 shard_resolved,
                 target_args=(*target_args, *feature_args),
             )
         )
-    _write_json(
-        list_path,
-        {
-            "schema_version": 1,
-            "shards": list_records,
-        },
-    )
-    command = combined_batch_command(commands)
-    completed = subprocess.run(
-        command,
-        cwd=root,
-        check=False,
-        capture_output=True,
-        text=True,
-        env=environment,
-    )
-    _write_text(raw_path, completed.stdout)
-    if completed.returncode != 0:
-        raise ValueError(
-            "runtime protocol/I/O nextest failed: "
-            + (completed.stderr.strip() or f"exit {completed.returncode}")
+    if normalize_only:
+        if set(recorded_shards) != {name for name, _rows, _flag in shards}:
+            raise ValueError("recorded nextest feature shard set drifted")
+    else:
+        _write_json(
+            list_path,
+            {
+                "schema_version": 1,
+                "shards": list_records,
+            },
         )
+    command = combined_batch_command(commands)
+    if not normalize_only:
+        completed = subprocess.run(
+            command,
+            cwd=root,
+            check=False,
+            capture_output=True,
+            text=True,
+            env=environment,
+        )
+        _write_text(raw_path, completed.stdout)
+        if completed.returncode != 0:
+            raise ValueError(
+                "runtime protocol/I/O nextest failed: "
+                + (completed.stderr.strip() or f"exit {completed.returncode}")
+            )
     version = subprocess.run(
         ["cargo", "nextest", "--version"],
         cwd=root,
@@ -653,6 +705,8 @@ def project_raw_results(
             continue
         encoded = event.get("name")
         if encoded not in encoded_to_name:
+            if event.get("event") == "ignored":
+                continue
             raise ValueError(f"unexpected runtime test event {encoded!r}")
         name = encoded_to_name[str(encoded)]
         lines_by_path[path_by_name[name]].append(line)
@@ -765,6 +819,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--assignments", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--reviewed-date", required=True)
+    parser.add_argument(
+        "--normalize-only",
+        action="store_true",
+        help="reuse existing list and raw evidence without executing tests",
+    )
     return parser
 
 
@@ -778,6 +837,7 @@ def main(argv: list[str] | None = None) -> int:
             assignments_path=_root_path(root, args.assignments),
             output_dir=_root_path(root, args.output_dir),
             reviewed_date=args.reviewed_date,
+            normalize_only=args.normalize_only,
         )
         print(
             "frozen runtime protocol/I/O batch recorded: "
