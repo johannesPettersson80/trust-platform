@@ -8,6 +8,7 @@ import unittest
 from pathlib import Path
 
 from scripts.verification.frozen_rust_nextest_batch import (
+    ADS_WIRE_DISABLED_CFG,
     BINARY_ID,
     CATALOG_PATH,
     DENOMINATOR_PATH,
@@ -19,6 +20,7 @@ from scripts.verification.frozen_rust_nextest_batch import (
     build_normalized_document,
     derive_frozen_selection,
     normalize_nextest_jsonl,
+    split_feature_shards,
 )
 
 
@@ -170,7 +172,6 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
                 f"{TEST_NAME_PREFIX}first",
             )
         )
-
         self.assertEqual(
             [
                 "cargo",
@@ -196,6 +197,63 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
             ],
             command,
         )
+
+    def test_feature_shards_are_derived_from_exact_source_attributes(self) -> None:
+        names = (
+            f"{TEST_NAME_PREFIX}default_case",
+            f"{TEST_NAME_PREFIX}without_wire",
+            f"{TEST_NAME_PREFIX}server_case",
+        )
+        shards = split_feature_shards(
+            source=f"""
+            #[test]
+            fn default_case() {{}}
+
+            {ADS_WIRE_DISABLED_CFG}
+            #[test]
+            fn without_wire() {{}}
+
+            #[cfg(feature = "ads-server")]
+            #[test]
+            fn server_case() {{}}
+            """,
+            expected_full_names=names,
+        )
+
+        self.assertEqual(
+            ("default", "no-ads-wire"),
+            tuple(shard.name for shard in shards),
+        )
+        self.assertEqual(
+            (
+                f"{TEST_NAME_PREFIX}default_case",
+                f"{TEST_NAME_PREFIX}server_case",
+            ),
+            shards[0].full_names,
+        )
+        self.assertEqual(
+            (f"{TEST_NAME_PREFIX}without_wire",),
+            shards[1].full_names,
+        )
+        self.assertTrue(shards[1].no_default_features)
+        self.assertIn(
+            "--no-default-features",
+            build_nextest_command(
+                shards[1].full_names,
+                no_default_features=shards[1].no_default_features,
+            ),
+        )
+
+    def test_feature_shards_fail_closed_on_unknown_cfg(self) -> None:
+        with self.assertRaisesRegex(ValueError, "unsupported cfg attributes"):
+            split_feature_shards(
+                source="""
+                #[cfg(unix)]
+                #[test]
+                fn platform_case() {}
+                """,
+                expected_full_names=(f"{TEST_NAME_PREFIX}platform_case",),
+            )
 
     def test_normalizer_records_exact_passing_set_and_milliseconds(self) -> None:
         raw = "\n".join(
@@ -229,7 +287,6 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
                 json.dumps({"type": "suite", "event": "ok"}),
             ]
         )
-
         tests = normalize_nextest_jsonl(
             raw,
             expected_full_names={
@@ -244,6 +301,27 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
                 {"title": "second", "duration": 0, "state": "passed"},
             ],
             tests,
+        )
+
+    def test_normalizer_accepts_nextest_encoded_library_name(self) -> None:
+        raw = json.dumps(
+            {
+                "type": "test",
+                "event": "ok",
+                "name": (
+                    "trust-runtime::trust_runtime$"
+                    f"{TEST_NAME_PREFIX}encoded"
+                ),
+                "exec_time": 0.001,
+            }
+        )
+
+        self.assertEqual(
+            [{"title": "encoded", "duration": 1, "state": "passed"}],
+            normalize_nextest_jsonl(
+                raw,
+                expected_full_names={f"{TEST_NAME_PREFIX}encoded"},
+            ),
         )
 
     def test_normalizer_rejects_missing_unexpected_duplicate_and_nonpass(self) -> None:

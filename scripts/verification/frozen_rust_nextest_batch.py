@@ -7,6 +7,7 @@ import hashlib
 import json
 import math
 import os
+import re
 import shlex
 import subprocess
 import sys
@@ -29,6 +30,9 @@ SHIM_PATH = Path("scripts/run_frozen_rust_nextest_batch.py")
 PACKAGE = "trust-runtime"
 BINARY_ID = "trust-runtime"
 TEST_NAME_PREFIX = "control::tests::"
+ENCODED_TEST_NAME_PREFIX = "trust-runtime::trust_runtime$"
+ADS_WIRE_DISABLED_CFG = '#[cfg(not(feature = "ads-wire"))]'
+DEFAULT_FEATURE_CFG = '#[cfg(feature = "ads-server")]'
 MESSAGE_FORMAT_VERSION = "0.1"
 EXPECTED_REVIEWED_NONMAPPING = 69
 EXPECTED_CATALOG_MAPPED = 2
@@ -43,6 +47,13 @@ class FrozenSelection:
     catalog_mapped_count: int
     names: tuple[str, ...]
     full_names: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class TestShard:
+    name: str
+    full_names: tuple[str, ...]
+    no_default_features: bool
 
 
 def derive_frozen_selection(
@@ -136,7 +147,89 @@ def derive_frozen_selection(
     )
 
 
-def build_nextest_command(full_names: Sequence[str]) -> list[str]:
+def split_feature_shards(
+    *,
+    source: str,
+    expected_full_names: Sequence[str],
+) -> tuple[TestShard, ...]:
+    """Derive the exact default/no-ads-wire split from source attributes."""
+
+    expected = set(expected_full_names)
+    if not expected or len(expected) != len(expected_full_names):
+        raise ValueError("feature shard selection must be nonempty and unique")
+    if any(not name.startswith(TEST_NAME_PREFIX) for name in expected):
+        raise ValueError("feature shard test name is outside required prefix")
+
+    attributes: list[str] = []
+    classified: dict[str, bool] = {}
+    function_pattern = re.compile(
+        r"^(?:pub(?:\([^)]*\))?\s+)?(?:async\s+)?fn\s+([A-Za-z_][A-Za-z0-9_]*)"
+    )
+    for raw_line in source.splitlines():
+        line = raw_line.strip()
+        if line.startswith("#[") and line.endswith("]"):
+            attributes.append(line)
+            continue
+        match = function_pattern.match(line)
+        if match:
+            full_name = TEST_NAME_PREFIX + match.group(1)
+            if full_name in expected:
+                cfg_attributes = [
+                    attribute
+                    for attribute in attributes
+                    if attribute.startswith("#[cfg")
+                ]
+                unsupported = [
+                    attribute
+                    for attribute in cfg_attributes
+                    if attribute
+                    not in {ADS_WIRE_DISABLED_CFG, DEFAULT_FEATURE_CFG}
+                ]
+                if unsupported:
+                    raise ValueError(
+                        f"{full_name} has unsupported cfg attributes: "
+                        + ", ".join(unsupported)
+                    )
+                if full_name in classified:
+                    raise ValueError(f"duplicate selected source test {full_name}")
+                if (
+                    ADS_WIRE_DISABLED_CFG in cfg_attributes
+                    and DEFAULT_FEATURE_CFG in cfg_attributes
+                ):
+                    raise ValueError(
+                        f"{full_name} combines incompatible supported cfg attributes"
+                    )
+                classified[full_name] = ADS_WIRE_DISABLED_CFG in cfg_attributes
+            attributes.clear()
+            continue
+        if line and not line.startswith("//"):
+            attributes.clear()
+
+    missing = sorted(expected - set(classified))
+    if missing:
+        raise ValueError(
+            "selected tests missing from source classification: "
+            + ", ".join(missing)
+        )
+    default_names = tuple(
+        sorted(name for name, disabled in classified.items() if not disabled)
+    )
+    disabled_names = tuple(
+        sorted(name for name, disabled in classified.items() if disabled)
+    )
+    shards = []
+    if default_names:
+        shards.append(TestShard("default", default_names, False))
+    if disabled_names:
+        shards.append(TestShard("no-ads-wire", disabled_names, True))
+    return tuple(shards)
+
+
+def build_nextest_command(
+    full_names: Sequence[str],
+    *,
+    no_default_features: bool = False,
+) -> list[str]:
     """Build one shell-free exact-name filter for the selected library tests."""
 
     ordered = tuple(sorted(full_names))
@@ -154,23 +247,30 @@ def build_nextest_command(full_names: Sequence[str]) -> list[str]:
             f"(binary_id({exact_name_matcher(BINARY_ID)}) & "
             f"test({exact_name_matcher(name)}))"
         )
-    return [
+    command = [
         "cargo",
         "nextest",
         "run",
         "-p",
         PACKAGE,
         "--lib",
-        "--no-fail-fast",
-        "--message-format",
-        "libtest-json-plus",
-        "--message-format-version",
-        MESSAGE_FORMAT_VERSION,
-        "--user-config-file",
-        "none",
-        "-E",
-        " | ".join(clauses),
     ]
+    if no_default_features:
+        command.append("--no-default-features")
+    command.extend(
+        [
+            "--no-fail-fast",
+            "--message-format",
+            "libtest-json-plus",
+            "--message-format-version",
+            MESSAGE_FORMAT_VERSION,
+            "--user-config-file",
+            "none",
+            "-E",
+            " | ".join(clauses),
+        ]
+    )
+    return command
 
 
 def build_catalog_command(test_name: str) -> str:
@@ -231,13 +331,16 @@ def normalize_nextest_jsonl(
             raise ValueError(f"raw nextest line {line_number} is not an object")
         if event.get("type") != "test":
             continue
-        name = event.get("name")
+        raw_name = event.get("name")
         event_name = event.get("event")
-        if not isinstance(name, str) or not name:
+        if not isinstance(raw_name, str) or not raw_name:
             raise ValueError(f"test event on line {line_number} lacks a name")
+        name = raw_name
+        if name.startswith(ENCODED_TEST_NAME_PREFIX):
+            name = name.removeprefix(ENCODED_TEST_NAME_PREFIX)
         if not name.startswith(TEST_NAME_PREFIX):
             raise ValueError(
-                f"test result {name!r} is outside required prefix "
+                f"test result {raw_name!r} is outside required prefix "
                 f"{TEST_NAME_PREFIX}"
             )
         if name not in expected_full_names:
@@ -279,13 +382,24 @@ def build_normalized_document(
     raw_path: Path,
     metadata: Mapping[str, Any],
 ) -> dict[str, Any]:
-    command = build_nextest_command(selection.full_names)
+    shards = split_feature_shards(
+        source=(root / selection.path).read_text(),
+        expected_full_names=selection.full_names,
+    )
+    commands = [
+        build_nextest_command(
+            shard.full_names,
+            no_default_features=shard.no_default_features,
+        )
+        for shard in shards
+    ]
     _validate_execution_metadata(
         root=root,
         selection=selection,
         raw_path=raw_path,
         metadata=metadata,
-        command=command,
+        shards=shards,
+        commands=commands,
     )
     raw = raw_path.read_text()
     tests = normalize_nextest_jsonl(
@@ -327,8 +441,10 @@ def execute_nextest_batch(
     selection: FrozenSelection,
     raw_path: Path,
     metadata_path: Path,
+    reuse_default_raw_path: Path | None = None,
+    reuse_default_metadata_path: Path | None = None,
 ) -> Mapping[str, Any]:
-    """Execute once, retaining raw JSONL and immutable execution metadata."""
+    """Execute exact source-derived shards, optionally reusing a default shard."""
 
     if raw_path.exists() or metadata_path.exists():
         raise ValueError(
@@ -337,7 +453,17 @@ def execute_nextest_batch(
         )
     raw_path.parent.mkdir(parents=True, exist_ok=True)
     metadata_path.parent.mkdir(parents=True, exist_ok=True)
-    command = build_nextest_command(selection.full_names)
+    shards = split_feature_shards(
+        source=(root / selection.path).read_text(),
+        expected_full_names=selection.full_names,
+    )
+    commands = [
+        build_nextest_command(
+            shard.full_names,
+            no_default_features=shard.no_default_features,
+        )
+        for shard in shards
+    ]
     version = subprocess.run(
         ["cargo", "nextest", "--version"],
         cwd=root,
@@ -351,30 +477,107 @@ def execute_nextest_batch(
     started_at = _utc_now()
     environment = dict(os.environ)
     environment.update(EXPERIMENTAL_ENVIRONMENT)
-    try:
-        with raw_path.open("xb") as raw_file:
-            completed = subprocess.run(
-                command,
-                cwd=root,
-                env=environment,
-                stdout=raw_file,
-                stderr=subprocess.PIPE,
+    shard_metadata: list[dict[str, Any]] = []
+    shard_paths: list[Path] = []
+    reused = (reuse_default_raw_path, reuse_default_metadata_path)
+    if (reused[0] is None) != (reused[1] is None):
+        raise ValueError(
+            "reused default raw results and metadata must be provided together"
+        )
+    for index, (shard, command) in enumerate(
+        zip(shards, commands, strict=True)
+    ):
+        shard_path = raw_path.with_name(
+            f"{raw_path.stem}.{shard.name}{raw_path.suffix}"
+        )
+        if shard_path.exists():
+            raise ValueError(f"shard raw results already exist: {shard_path}")
+        if index == 0 and reused[0] is not None:
+            if shard.name != "default":
+                raise ValueError("only the default feature shard can be reused")
+            legacy_metadata = json.loads(reused[1].read_text())
+            if not isinstance(legacy_metadata, Mapping):
+                raise ValueError("reused execution metadata is not an object")
+            _validate_legacy_execution_metadata(
+                root=root,
+                selection=selection,
+                raw_path=reused[0],
+                metadata=legacy_metadata,
+                command=build_nextest_command(selection.full_names),
             )
-    except OSError:
-        if raw_path.exists() and raw_path.stat().st_size == 0:
-            raw_path.unlink()
-        raise
-    finished_at = _utc_now()
-    if completed.stderr:
-        sys.stderr.buffer.write(completed.stderr)
+            normalize_nextest_jsonl(
+                reused[0].read_text(),
+                expected_full_names=set(shard.full_names),
+            )
+            shard_path.write_bytes(reused[0].read_bytes())
+            shard_record = {
+                "name": shard.name,
+                "command": legacy_metadata["command"],
+                "argv": legacy_metadata["argv"],
+                "selected_test_count": len(shard.full_names),
+                "selected_names_sha256": _selected_names_digest(
+                    shard.full_names
+                ),
+                "raw_results_path": _repo_relative(root, shard_path),
+                "raw_results_sha256": _digest_file(shard_path),
+                "exit_code": 0,
+                "started_at": legacy_metadata["started_at"],
+                "finished_at": legacy_metadata["finished_at"],
+                "reused_from": _repo_relative(root, reused[0]),
+                "reused_from_sha256": _digest_file(reused[0]),
+            }
+        else:
+            shard_started_at = _utc_now()
+            try:
+                with shard_path.open("xb") as raw_file:
+                    completed = subprocess.run(
+                        command,
+                        cwd=root,
+                        env=environment,
+                        stdout=raw_file,
+                        stderr=subprocess.PIPE,
+                    )
+            except OSError:
+                if shard_path.exists() and shard_path.stat().st_size == 0:
+                    shard_path.unlink()
+                raise
+            shard_finished_at = _utc_now()
+            if completed.stderr:
+                sys.stderr.buffer.write(completed.stderr)
+            shard_record = {
+                "name": shard.name,
+                "command": shlex.join(command),
+                "argv": command,
+                "selected_test_count": len(shard.full_names),
+                "selected_names_sha256": _selected_names_digest(
+                    shard.full_names
+                ),
+                "raw_results_path": _repo_relative(root, shard_path),
+                "raw_results_sha256": _digest_file(shard_path),
+                "exit_code": completed.returncode,
+                "started_at": shard_started_at,
+                "finished_at": shard_finished_at,
+            }
+        shard_paths.append(shard_path)
+        shard_metadata.append(shard_record)
 
+    with raw_path.open("xb") as combined:
+        for shard_path in shard_paths:
+            content = shard_path.read_bytes()
+            combined.write(content)
+            if content and not content.endswith(b"\n"):
+                combined.write(b"\n")
+    finished_at = _utc_now()
+    exit_code = max(int(record["exit_code"]) for record in shard_metadata)
     metadata = {
-        "schema_version": 1,
-        "command": shlex.join(command),
-        "argv": command,
+        "schema_version": 2,
+        "command": " && ".join(
+            str(record["command"]) for record in shard_metadata
+        ),
+        "argv": [record["argv"] for record in shard_metadata],
         "environment": dict(EXPERIMENTAL_ENVIRONMENT),
         "nextest_version": version,
-        "exit_code": completed.returncode,
+        "exit_code": exit_code,
         "started_at": started_at,
         "finished_at": finished_at,
         "path": selection.path,
@@ -391,6 +594,7 @@ def execute_nextest_batch(
         "shim_sha256": _digest_file(root / SHIM_PATH),
         "raw_results_path": _repo_relative(root, raw_path),
         "raw_results_sha256": _digest_file(raw_path),
+        "shards": shard_metadata,
     }
     _write_json_atomic(metadata_path, metadata)
     return metadata
@@ -402,8 +606,18 @@ def _validate_execution_metadata(
     selection: FrozenSelection,
     raw_path: Path,
     metadata: Mapping[str, Any],
-    command: Sequence[str],
+    shards: Sequence[TestShard],
+    commands: Sequence[Sequence[str]],
 ) -> None:
+    if metadata.get("schema_version") == 1:
+        _validate_legacy_execution_metadata(
+            root=root,
+            selection=selection,
+            raw_path=raw_path,
+            metadata=metadata,
+            command=build_nextest_command(selection.full_names),
+        )
+        return
     required_fields = {
         "schema_version",
         "command",
@@ -427,13 +641,24 @@ def _validate_execution_metadata(
         "shim_sha256",
         "raw_results_path",
         "raw_results_sha256",
+        "shards",
     }
     if set(metadata) != required_fields:
         raise ValueError("execution metadata does not have the closed field set")
+    records = metadata.get("shards")
+    if (
+        not isinstance(records, Sequence)
+        or isinstance(records, (str, bytes))
+        or len(records) != len(shards)
+        or any(not isinstance(record, Mapping) for record in records)
+    ):
+        raise ValueError("execution metadata shards do not match feature split")
     expected = {
-        "schema_version": 1,
-        "command": shlex.join(command),
-        "argv": list(command),
+        "schema_version": 2,
+        "command": " && ".join(
+            str(record.get("command")) for record in records
+        ),
+        "argv": [record.get("argv") for record in records],
         "environment": dict(EXPERIMENTAL_ENVIRONMENT),
         "exit_code": 0,
         "path": selection.path,
@@ -466,6 +691,130 @@ def _validate_execution_metadata(
     for field in ("module_sha256", "shim_sha256"):
         if not str(metadata[field]).startswith("sha256:"):
             raise ValueError(f"execution metadata {field} is not a SHA-256 digest")
+    for shard, command, record in zip(shards, commands, records, strict=True):
+        required = {
+            "name",
+            "command",
+            "argv",
+            "selected_test_count",
+            "selected_names_sha256",
+            "raw_results_path",
+            "raw_results_sha256",
+            "exit_code",
+            "started_at",
+            "finished_at",
+        }
+        allowed = required | {"reused_from", "reused_from_sha256"}
+        if not required <= set(record) <= allowed:
+            raise ValueError("execution metadata shard has an invalid field set")
+        shard_path = root / _required_string(
+            record, "raw_results_path", "execution shard"
+        )
+        expected_shard = {
+            "name": shard.name,
+            "selected_test_count": len(shard.full_names),
+            "selected_names_sha256": _selected_names_digest(shard.full_names),
+            "raw_results_sha256": _digest_file(shard_path),
+            "exit_code": 0,
+        }
+        if record.get("reused_from") is None:
+            expected_shard.update(
+                {"command": shlex.join(command), "argv": list(command)}
+            )
+        for field, value in expected_shard.items():
+            if record.get(field) != value:
+                raise ValueError(
+                    f"execution metadata shard {shard.name} {field} mismatch"
+                )
+        normalize_nextest_jsonl(
+            shard_path.read_text(),
+            expected_full_names=set(shard.full_names),
+        )
+        if record.get("reused_from") is not None:
+            reused_path = root / _required_string(
+                record, "reused_from", "execution shard"
+            )
+            if record.get("reused_from_sha256") != _digest_file(reused_path):
+                raise ValueError("reused shard digest does not match source")
+
+
+def _validate_legacy_execution_metadata(
+    *,
+    root: Path,
+    selection: FrozenSelection,
+    raw_path: Path,
+    metadata: Mapping[str, Any],
+    command: Sequence[str],
+) -> None:
+    required_fields = {
+        "schema_version",
+        "command",
+        "argv",
+        "environment",
+        "nextest_version",
+        "exit_code",
+        "started_at",
+        "finished_at",
+        "path",
+        "reviewed_nonmapping_count",
+        "catalog_mapped_count",
+        "selected_test_count",
+        "selected_names_sha256",
+        "source_sha256",
+        "denominator_sha256",
+        "catalog_sha256",
+        "module_path",
+        "module_sha256",
+        "shim_path",
+        "shim_sha256",
+        "raw_results_path",
+        "raw_results_sha256",
+    }
+    if set(metadata) != required_fields:
+        raise ValueError(
+            "legacy execution metadata does not have the closed field set"
+        )
+    expected = {
+        "schema_version": 1,
+        "command": shlex.join(command),
+        "argv": list(command),
+        "environment": dict(EXPERIMENTAL_ENVIRONMENT),
+        "exit_code": 0,
+        "path": selection.path,
+        "reviewed_nonmapping_count": selection.reviewed_nonmapping_count,
+        "catalog_mapped_count": selection.catalog_mapped_count,
+        "selected_test_count": len(selection.full_names),
+        "selected_names_sha256": _selected_names_digest(selection.full_names),
+        "source_sha256": _digest_file(root / selection.path),
+        "denominator_sha256": _digest_file(root / DENOMINATOR_PATH),
+        "catalog_sha256": _digest_file(root / CATALOG_PATH),
+        "raw_results_path": _repo_relative(root, raw_path),
+        "raw_results_sha256": _digest_file(raw_path),
+        "module_path": RUNNER_PATH.as_posix(),
+        "shim_path": SHIM_PATH.as_posix(),
+    }
+    for field, value in expected.items():
+        if metadata.get(field) != value:
+            raise ValueError(
+                f"legacy execution metadata {field} does not match "
+                "the frozen batch"
+            )
+    for field in (
+        "nextest_version",
+        "started_at",
+        "finished_at",
+        "module_sha256",
+        "shim_sha256",
+    ):
+        if not isinstance(metadata.get(field), str) or not metadata[field]:
+            raise ValueError(
+                f"legacy execution metadata requires non-empty {field}"
+            )
+    for field in ("module_sha256", "shim_sha256"):
+        if not str(metadata[field]).startswith("sha256:"):
+            raise ValueError(
+                f"legacy execution metadata {field} is not a SHA-256 digest"
+            )
 
 
 def _review_identities(
@@ -650,6 +999,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--raw-results", type=Path, required=True)
     parser.add_argument("--execution-metadata", type=Path)
+    parser.add_argument(
+        "--reuse-default-raw-results",
+        type=Path,
+        help="reuse a previously completed default-feature raw JSONL shard",
+    )
+    parser.add_argument(
+        "--reuse-default-execution-metadata",
+        type=Path,
+        help="execution metadata for --reuse-default-raw-results",
+    )
     parser.add_argument("--results", type=Path, required=True)
     parser.add_argument(
         "--normalize-only",
@@ -677,6 +1036,24 @@ def main(argv: list[str] | None = None) -> int:
         metadata_path = _checked_output_path(
             root, metadata_value, "execution metadata"
         )
+        reuse_raw_path = (
+            _checked_output_path(
+                root,
+                args.reuse_default_raw_results,
+                "reused default raw results",
+            )
+            if args.reuse_default_raw_results is not None
+            else None
+        )
+        reuse_metadata_path = (
+            _checked_output_path(
+                root,
+                args.reuse_default_execution_metadata,
+                "reused default execution metadata",
+            )
+            if args.reuse_default_execution_metadata is not None
+            else None
+        )
         if len({raw_path, metadata_path, results_path}) != 3:
             raise ValueError(
                 "raw results, execution metadata, and results paths must differ"
@@ -688,6 +1065,10 @@ def main(argv: list[str] | None = None) -> int:
             expected_catalog_mapped=args.expected_catalog_mapped,
         )
         if args.normalize_only:
+            if reuse_raw_path is not None or reuse_metadata_path is not None:
+                raise ValueError(
+                    "--normalize-only cannot be combined with reused shard inputs"
+                )
             _checked_repo_file(
                 root,
                 Path(_repo_relative(root, raw_path)),
@@ -702,11 +1083,28 @@ def main(argv: list[str] | None = None) -> int:
             if not isinstance(metadata, Mapping):
                 raise ValueError("execution metadata is not a JSON object")
         else:
+            if (reuse_raw_path is None) != (reuse_metadata_path is None):
+                raise ValueError(
+                    "both reused default shard arguments are required"
+                )
+            if reuse_raw_path is not None:
+                _checked_repo_file(
+                    root,
+                    Path(_repo_relative(root, reuse_raw_path)),
+                    "reused default raw results",
+                )
+                _checked_repo_file(
+                    root,
+                    Path(_repo_relative(root, reuse_metadata_path)),
+                    "reused default execution metadata",
+                )
             metadata = execute_nextest_batch(
                 root=root,
                 selection=selection,
                 raw_path=raw_path,
                 metadata_path=metadata_path,
+                reuse_default_raw_path=reuse_raw_path,
+                reuse_default_metadata_path=reuse_metadata_path,
             )
         document = build_normalized_document(
             root=root,
