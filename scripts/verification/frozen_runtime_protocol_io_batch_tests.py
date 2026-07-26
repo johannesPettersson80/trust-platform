@@ -64,6 +64,21 @@ class FrozenRuntimeProtocolIoBatchTests(unittest.TestCase):
             ),
         )
 
+    def test_target_selection_includes_runtime_binary_unit_tests(self) -> None:
+        self.assertEqual(
+            ["--bin", "trust-runtime"],
+            selected_target_args(
+                [
+                    {
+                        "path": (
+                            "crates/trust-runtime/src/bin/trust-runtime/"
+                            "cli/tests.rs"
+                        )
+                    }
+                ]
+            ),
+        )
+
     def test_source_cfg_splits_no_ads_wire_tests_from_default(self) -> None:
         import tempfile
         from pathlib import Path

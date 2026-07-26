@@ -376,6 +376,7 @@ def selected_target_args(
     """Select only the library and named integration targets in the batch."""
 
     has_lib = False
+    has_runtime_bin = False
     integration_targets: set[str] = set()
     prefix = "crates/trust-runtime/tests/"
     for row in selection:
@@ -385,11 +386,17 @@ def selected_target_args(
             if "/" in relative or not relative.endswith(".rs"):
                 raise ValueError(f"unsupported runtime integration path {path}")
             integration_targets.add(relative.removesuffix(".rs"))
+        elif path.startswith(
+            "crates/trust-runtime/src/bin/trust-runtime/"
+        ):
+            has_runtime_bin = True
         elif path.startswith("crates/trust-runtime/src/"):
             has_lib = True
         else:
             raise ValueError(f"unsupported runtime test path {path}")
     args = ["--lib"] if has_lib else []
+    if has_runtime_bin:
+        args.extend(["--bin", "trust-runtime"])
     for target in sorted(integration_targets):
         args.extend(["--test", target])
     if not args:
