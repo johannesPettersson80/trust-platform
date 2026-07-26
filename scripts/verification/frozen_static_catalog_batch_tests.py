@@ -15,6 +15,9 @@ from scripts.verification.frozen_rust_nextest_target import (
     RUNTIME_CONTROL_PROFILE,
     no_default_feature_test_names,
 )
+from scripts.verification.frozen_static_semantic_assignments import (
+    resolve_behavior_assignments,
+)
 
 
 class FrozenStaticCatalogBatchTests(unittest.TestCase):
@@ -109,6 +112,176 @@ class FrozenStaticCatalogBatchTests(unittest.TestCase):
                 allowed_invariant_ids={"INV_A", "INV_B"},
             ),
         )
+
+    def test_name_scoped_assignments_disambiguate_shared_helper_lines(
+        self,
+    ) -> None:
+        inventories = {
+            "DISC_A": {
+                "test_name": "case_a",
+                "assertions": [{"line": 33}],
+            },
+            "DISC_B": {
+                "test_name": "case_b",
+                "assertions": [{"line": 33}],
+            },
+        }
+        base = {
+            "inventories": inventories,
+            "default_invariant_id": None,
+            "allowed_invariant_ids": {"INV_A", "INV_B"},
+        }
+
+        self.assertEqual(
+            {
+                "DISC_A": (("INV_A", 0),),
+                "DISC_B": (("INV_B", 2),),
+            },
+            resolve_behavior_assignments(
+                **base,
+                plan={
+                    "test_assignments": [
+                        {
+                            "name": "case_a",
+                            "invariant_id": "INV_A",
+                            "behavior_index": 0,
+                        },
+                        {
+                            "name": "case_b",
+                            "invariant_id": "INV_B",
+                            "behavior_index": 2,
+                        },
+                    ]
+                },
+            ),
+        )
+
+        invalid_plans = (
+            (
+                {
+                    "test_assignments": [
+                        {
+                            "name": "case_a",
+                            "invariant_id": "INV_A",
+                            "behavior_index": 0,
+                        }
+                    ]
+                },
+                "missing names",
+            ),
+            (
+                {
+                    "test_assignments": [
+                        {
+                            "name": "case_a",
+                            "invariant_id": "INV_A",
+                            "behavior_index": 0,
+                        },
+                        {
+                            "name": "case_a",
+                            "invariant_id": "INV_A",
+                            "behavior_index": 1,
+                        },
+                    ]
+                },
+                "duplicate name",
+            ),
+            (
+                {
+                    "test_assignments": [
+                        {
+                            "name": "case_a",
+                            "invariant_id": "INV_A",
+                            "behavior_index": 0,
+                        },
+                        {
+                            "name": "case_b",
+                            "invariant_id": "INV_B",
+                            "behavior_index": 2,
+                        },
+                        {
+                            "name": "case_c",
+                            "invariant_id": "INV_A",
+                            "behavior_index": 0,
+                        },
+                    ]
+                },
+                "extra names",
+            ),
+            (
+                {
+                    "test_assignments": [
+                        {
+                            "name": "case_a",
+                            "invariant_id": "INV_UNAPPROVED",
+                            "behavior_index": 0,
+                        },
+                        {
+                            "name": "case_b",
+                            "invariant_id": "INV_B",
+                            "behavior_index": 2,
+                        },
+                    ]
+                },
+                "unapproved invariant",
+            ),
+            (
+                {
+                    "test_assignments": [
+                        {
+                            "name": "case_a",
+                            "invariant_id": "INV_A",
+                            "behavior_index": -1,
+                        },
+                        {
+                            "name": "case_b",
+                            "invariant_id": "INV_B",
+                            "behavior_index": 2,
+                        },
+                    ]
+                },
+                "behavior_index",
+            ),
+            (
+                {
+                    "test_assignments": [
+                        {
+                            "name": "case_a",
+                            "invariant_id": "INV_A",
+                            "behavior_index": True,
+                        },
+                        {
+                            "name": "case_b",
+                            "invariant_id": "INV_B",
+                            "behavior_index": 2,
+                        },
+                    ]
+                },
+                "behavior_index",
+            ),
+            (
+                {
+                    "ranges": [],
+                    "test_assignments": [
+                        {
+                            "name": "case_a",
+                            "invariant_id": "INV_A",
+                            "behavior_index": 0,
+                        },
+                        {
+                            "name": "case_b",
+                            "invariant_id": "INV_B",
+                            "behavior_index": 2,
+                        },
+                    ],
+                },
+                "cannot combine",
+            ),
+        )
+        for plan, message in invalid_plans:
+            with self.subTest(message=message):
+                with self.assertRaisesRegex(ValueError, message):
+                    resolve_behavior_assignments(**base, plan=plan)
 
     def test_measured_durations_require_exact_passing_title_set(self) -> None:
         results = {
@@ -408,12 +581,19 @@ disposition = "catalog_mapped"
                 "proposals = []\n"
             )
 
-            def write_invariant(invariant_id: str, tests: list[str]) -> None:
+            def write_invariant(
+                invariant_id: str,
+                tests: list[str],
+                missing: list[str] | None = None,
+            ) -> None:
                 rendered_tests = ", ".join(f'"{value}"' for value in tests)
+                rendered_missing = ", ".join(
+                    f'"{value}"' for value in (missing or [])
+                )
                 (root / f"verification/invariants/test/{invariant_id}.toml").write_text(
                     f'id = "{invariant_id}"\n'
                     f"tests = [{rendered_tests}]\n"
-                    "missing = []\n"
+                    f"missing = [{rendered_missing}]\n"
                 )
 
             write_invariant("INV_A", ["TEST_A"])
@@ -426,9 +606,31 @@ disposition = "catalog_mapped"
                     "INV_A": set(),
                     "INV_B": set(),
                 },
+                "invariant_missing_baselines": {
+                    "INV_A": set(),
+                    "INV_B": set(),
+                },
             }
             self.assertEqual([], validate_applied_batch(**arguments))
 
+            write_invariant(
+                "INV_A",
+                ["TEST_A"],
+                ["cataloged_behavior_tests"],
+            )
+            arguments["invariant_missing_baselines"]["INV_A"] = {
+                "cataloged_behavior_tests"
+            }
+            self.assertEqual([], validate_applied_batch(**arguments))
+
+            arguments["invariant_missing_baselines"]["INV_A"] = set()
+            failures = validate_applied_batch(**arguments)
+            self.assertTrue(
+                any("introduced catalog mapping debt" in failure for failure in failures)
+            )
+
+            write_invariant("INV_A", ["TEST_A"])
+            arguments["invariant_missing_baselines"]["INV_A"] = set()
             write_invariant("INV_A", ["TEST_A", "TEST_B"])
             write_invariant("INV_B", [])
             failures = validate_applied_batch(**arguments)

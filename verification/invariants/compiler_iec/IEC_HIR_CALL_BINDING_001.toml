@@ -10,11 +10,11 @@ claim = "Call binding enforces parameter direction, name, uniqueness, completene
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-hir/src"]
-tests = []
+tests = ["TEST_AUTO_11368D137023990F666F", "TEST_AUTO_1E6661FF05BEC9165CB9", "TEST_AUTO_2F419A3897A77158E368", "TEST_AUTO_372666A5A2ECF4DCFF6D", "TEST_AUTO_8A34998BB82A7BE12F75", "TEST_AUTO_9AD3A0A5801D87347F2A", "TEST_AUTO_A25C195E057B8A779695", "TEST_AUTO_B0D122E021CDE47BCF10", "TEST_AUTO_CCF2E71745750928E44A", "TEST_AUTO_D0C160614872004F05DB", "TEST_AUTO_D2291154CC389C0542E7", "TEST_AUTO_E32C0305FC5026249B23", "TEST_AUTO_E759EBA0E631D4B62400", "TEST_AUTO_F60D99D8E46622A7C966", "TEST_AUTO_FA2E0A43EF999F848775"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+missing = ["assertion_reachability", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -161,30 +161,30 @@ rationale = "A resolved function-block instance accepts a direction-correct form
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "Accepted formal, non-formal, function-block, and mixed-extension calls await catalog association."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in IEC_HIR_CALL_BINDING_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "gap_open"
-rationale = "Direction and argument-shape rejection awaits catalog association."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every wrong_type_or_shape behavior in IEC_HIR_CALL_BINDING_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "missing_required"
-state = "gap_open"
-rationale = "Required IN_OUT and complete positional-list rejection awaits catalog association."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every missing_required behavior in IEC_HIR_CALL_BINDING_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "duplicate_or_collision"
-state = "gap_open"
-rationale = "Duplicate formal binding rejection awaits catalog association."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every duplicate_or_collision behavior in IEC_HIR_CALL_BINDING_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "extra_or_unknown"
-state = "gap_open"
-rationale = "Unknown formal names and explicit positional EN/ENO rejection await catalog association."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every extra_or_unknown behavior in IEC_HIR_CALL_BINDING_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
-state = "gap_open"
-rationale = "Formal-then-positional ordering rejection awaits catalog association."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in IEC_HIR_CALL_BINDING_001; dynamic proof and broad remote validation remain explicit debt."

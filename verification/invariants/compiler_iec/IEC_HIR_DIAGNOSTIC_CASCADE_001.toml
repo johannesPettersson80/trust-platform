@@ -10,7 +10,7 @@ claim = "When semantic analysis cannot resolve or evaluate a prerequisite, it re
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-hir/src"]
-tests = ["TEST_AUTO_676E12E0C907FAD3DC06", "TEST_AUTO_78FDED6BD0A910665414", "TEST_AUTO_933D6414381B36343249", "TEST_AUTO_D44B1F395E7B10D63EB7", "TEST_AUTO_E13B12CDFD4026B26A05", "TEST_AUTO_F49C57548B9263F3DA63"]
+tests = ["TEST_AUTO_47691F18637E26462AFB", "TEST_AUTO_676E12E0C907FAD3DC06", "TEST_AUTO_78FDED6BD0A910665414", "TEST_AUTO_910A76F9F6474D5CB95C", "TEST_AUTO_933D6414381B36343249", "TEST_AUTO_C3770F55FA1E6C13D79A", "TEST_AUTO_C7F60E89EA6FB5139963", "TEST_AUTO_D44B1F395E7B10D63EB7", "TEST_AUTO_E13B12CDFD4026B26A05", "TEST_AUTO_F49C57548B9263F3DA63", "TEST_AUTO_F520633EBC36610C0EEF", "TEST_AUTO_FE0EFFB9BFAD7E7C4A1D"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
@@ -62,8 +62,8 @@ rationale = "A failed array-bound, index, or subrange constant evaluation report
 
 [[coverage.cells]]
 dimension = "missing_required"
-state = "gap_open"
-rationale = "Unresolved-expression suppression awaits catalog association."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every missing_required behavior in IEC_HIR_DIAGNOSTIC_CASCADE_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "duplicate_or_collision"
@@ -72,5 +72,5 @@ rationale = "Ambiguous-target suppression awaits catalog association."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "gap_open"
-rationale = "Wrong-kind diagnostic ownership awaits catalog association."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every wrong_type_or_shape behavior in IEC_HIR_DIAGNOSTIC_CASCADE_001; dynamic proof and broad remote validation remain explicit debt."

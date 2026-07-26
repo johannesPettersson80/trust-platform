@@ -10,7 +10,7 @@ claim = "Standard timer, bistable, edge, and counter function blocks expose the 
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-hir/src"]
-tests = []
+tests = ["TEST_AUTO_08EE2DE5F62843CCF172", "TEST_AUTO_2B94DB972E5F92A17B67", "TEST_AUTO_2C6F30D796182B3FDC95", "TEST_AUTO_56E8298D65AF7EFA2521", "TEST_AUTO_62EE1C62EF5E3188BDF8", "TEST_AUTO_7B978F576B59F641A0D8", "TEST_AUTO_9E6E418E8BE3CA167421", "TEST_AUTO_B38C4517332CE2B52F72", "TEST_AUTO_B763F04D6AE6F8361438"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
@@ -121,5 +121,5 @@ rationale = "Accepted timer, bistable, edge, and counter signatures await catalo
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "gap_open"
-rationale = "Timer, bistable, and counter type rejection awaits catalog association."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every wrong_type_or_shape behavior in IEC_HIR_STANDARD_FB_SIGNATURE_001; dynamic proof and broad remote validation remain explicit debt."

@@ -10,7 +10,7 @@ claim = "Expression parsing and evaluation must preserve the documented operator
 proof_level = "G1"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-syntax/src", "crates/trust-hir/src"]
-tests = ["TEST_IEC_PRECEDENCE_TRACE_001"]
+tests = ["TEST_AUTO_FC37E5CDDECDA03F76F4", "TEST_IEC_PRECEDENCE_TRACE_001"]
 gates = ["pr"]
 evidence_refs = [
   "EVID_TEST_IEC_PRECEDENCE_TRACE_001_LOCK_BASELINE",

@@ -10,11 +10,11 @@ claim = "DIFU and DIFD are accepted product aliases for the R_TRIG and F_TRIG fu
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-hir/src"]
-tests = []
+tests = ["TEST_AUTO_C52DB304C3322CDCC99C"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+missing = ["assertion_reachability", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -35,5 +35,5 @@ rationale = "DIFU exposes the R_TRIG CLK/Q interface and DIFD exposes the F_TRIG
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "Mitsubishi alias signature acceptance awaits catalog association."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in TRUST_MITSUBISHI_EDGE_ALIAS_001; dynamic proof and broad remote validation remain explicit debt."

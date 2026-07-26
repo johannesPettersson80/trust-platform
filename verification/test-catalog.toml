@@ -38693,3 +38693,1586 @@ mapping_assertion_review_digest = "sha256:8af21c0143d0c6f25a5d18621f05e80b83a0db
 mapping_assertion_source_digests = { "crates/trust-runtime/src/control/tests/core.rs" = "sha256:e63d08d9c8232617111cc4676b93566291a7f01628292fc433b902665fe86879" }
 mapping_behavior_refs = ["RT_CONTROL_STATE_QUERY_001#behavior:6"]
 mapping_reviewer_ids = ["codex-implement-focused-mapping-mode", "codex-main", "codex-scout-parser-batch"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_08EE2DE5F62843CCF172"
+subject_kind = "generated_test"
+discovery_id = "DISC_08EE2DE5F62843CCF172"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
+name = "test_standard_counter_function_blocks"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --user-config-file none -E 'binary_id(=trust-hir::semantic_type_checking) & test(=control_flow_and_calls::test_standard_counter_function_blocks)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_STANDARD_FB_SIGNATURE_001"]
+oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#5-timer-function-blocks-table-46-figure-15"
+expected_result = "Standard and typed counter names bind PV and CV within one supported integer family."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_08EE2DE5F62843CCF172.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_08EE2DE5F62843CCF172_C7F7BE706B4B"
+mapping_proposal_digest = "sha256:c7f7be706b4b660f52f390c81658357d97e714d3a28564f92f5b3fd08f29c0be"
+mapping_decision_id = "MAP_DEC_67B3B389BF1F0EE5E753B0DC"
+mapping_reviewed_source_digest = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645"
+mapping_assertion_review_digest = "sha256:6ec0797940d0804420884fc1462c86724c9178bff9b8f1c1e1ed7fdc298248f2"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_STANDARD_FB_SIGNATURE_001#behavior:8"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf", "codex-scout-parser-batch"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_0F4E67F7778399AB29C5"
+subject_kind = "generated_test"
+discovery_id = "DISC_0F4E67F7778399AB29C5"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
+name = "test_infix_bitwise_any_bit_expressions_are_allowed"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --user-config-file none -E 'binary_id(=trust-hir::semantic_type_checking) & test(=control_flow_and_calls::test_infix_bitwise_any_bit_expressions_are_allowed)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_BITWISE_TYPING_001"]
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001#4-3-logical-boolean-operators"
+expected_result = "The infix bitwise operator family accepts operands from the IEC ANY_BIT category."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_0F4E67F7778399AB29C5.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_0F4E67F7778399AB29C5_09AA50E01729"
+mapping_proposal_digest = "sha256:09aa50e017292f3f443dce24008aab8174c1d3355b3d31a3cb16cdd3005aae14"
+mapping_decision_id = "MAP_DEC_DC7246CA356256D5BD0F94EE"
+mapping_reviewed_source_digest = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645"
+mapping_assertion_review_digest = "sha256:9232d7e0b17410ab1ce79105c6e0428006ac00cf056d1b88c1fb565d670c6c8f"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_BITWISE_TYPING_001#behavior:0"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf", "codex-scout-parser-batch"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_11368D137023990F666F"
+subject_kind = "generated_test"
+discovery_id = "DISC_11368D137023990F666F"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
+name = "test_formal_call_duplicate_parameter_error"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --user-config-file none -E 'binary_id(=trust-hir::semantic_type_checking) & test(=control_flow_and_calls::test_formal_call_duplicate_parameter_error)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_CALL_BINDING_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001#3-1-shared-call-syntax"
+expected_result = "One formal parameter cannot be bound more than once."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_11368D137023990F666F.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_11368D137023990F666F_2BDEA654071A"
+mapping_proposal_digest = "sha256:2bdea654071a8a88d0946f4f3d8e827a4c446ffe3d9621a3fdcc51934fcf4098"
+mapping_decision_id = "MAP_DEC_ADEBA584B6B691AC6C02AB09"
+mapping_reviewed_source_digest = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645"
+mapping_assertion_review_digest = "sha256:06e7b679048e984248e07f04d12f9b050f4ddd4850957fa109b363f653aa6067"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_CALL_BINDING_001#behavior:7"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf", "codex-scout-parser-batch"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_12FBBA867087892C33D8"
+subject_kind = "generated_test"
+discovery_id = "DISC_12FBBA867087892C33D8"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
+name = "test_for_loop_bounds_integer"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --user-config-file none -E 'binary_id(=trust-hir::semantic_type_checking) & test(=control_flow_and_calls::test_for_loop_bounds_integer)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_FOR_TYPES_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001#7-for-statement-section-7-3-3-4-2"
+expected_result = "The control variable and each bound or step expression must belong to the integer iteration domain."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_12FBBA867087892C33D8.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_12FBBA867087892C33D8_E9D25487A8B0"
+mapping_proposal_digest = "sha256:e9d25487a8b0201f0022a33b4bdb6abd5a5a5490db09f4f8b6ea3c1623fcee94"
+mapping_decision_id = "MAP_DEC_71414ED3F148C75DE04B37A6"
+mapping_reviewed_source_digest = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645"
+mapping_assertion_review_digest = "sha256:0ebc68b5f31c1c834d442af5e88b5fccee0e32bfb18dde1911d41d88e714a0eb"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_FOR_TYPES_001#behavior:1"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf", "codex-scout-parser-batch"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_1E6661FF05BEC9165CB9"
+subject_kind = "generated_test"
+discovery_id = "DISC_1E6661FF05BEC9165CB9"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
+name = "test_non_formal_call_skips_en_eno"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --user-config-file none -E 'binary_id(=trust-hir::semantic_type_checking) & test(=control_flow_and_calls::test_non_formal_call_skips_en_eno)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_CALL_BINDING_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001#3-1-shared-call-syntax"
+expected_result = "EN and ENO are omitted from positional arity and declaration-order matching."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_1E6661FF05BEC9165CB9.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_1E6661FF05BEC9165CB9_204B9A3897DF"
+mapping_proposal_digest = "sha256:204b9a3897dfa4819b99ebde4abb26cd979e62e8b657444ac22939067a3f6823"
+mapping_decision_id = "MAP_DEC_BC2B8BFCF71D801FB2550D2A"
+mapping_reviewed_source_digest = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645"
+mapping_assertion_review_digest = "sha256:ab09bef32990d822171bc6620602f5980e3642751c5c1232e1ffe3e9b6bb2eee"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_CALL_BINDING_001#behavior:10"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf", "codex-scout-parser-batch"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_2B94DB972E5F92A17B67"
+subject_kind = "generated_test"
+discovery_id = "DISC_2B94DB972E5F92A17B67"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
+name = "test_standard_bistable_function_blocks"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --user-config-file none -E 'binary_id(=trust-hir::semantic_type_checking) & test(=control_flow_and_calls::test_standard_bistable_function_blocks)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_STANDARD_FB_SIGNATURE_001"]
+oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#5-timer-function-blocks-table-46-figure-15"
+expected_result = "RS and SR accept both their short parameter names and the Table 43 long aliases."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_2B94DB972E5F92A17B67.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_2B94DB972E5F92A17B67_B9054CE32628"
+mapping_proposal_digest = "sha256:b9054ce32628e4f2197ff96aa86f60b09ca97b790fdf673f76897390335a53e5"
+mapping_decision_id = "MAP_DEC_EDFB77E6300372BC22B0A7EC"
+mapping_reviewed_source_digest = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645"
+mapping_assertion_review_digest = "sha256:b828b3b06edb98aaf84faba294b8b2f74e9bd9704b6270e359169fc608351b9b"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_STANDARD_FB_SIGNATURE_001#behavior:5"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf", "codex-scout-parser-batch"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_2C6F30D796182B3FDC95"
+subject_kind = "generated_test"
+discovery_id = "DISC_2C6F30D796182B3FDC95"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
+name = "test_standard_timer_function_block_ltime_overload"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --user-config-file none -E 'binary_id(=trust-hir::semantic_type_checking) & test(=control_flow_and_calls::test_standard_timer_function_block_ltime_overload)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_STANDARD_FB_SIGNATURE_001"]
+oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#5-timer-function-blocks-table-46-figure-15"
+expected_result = "An overloaded base timer accepts a consistent LTIME PT/ET interface."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_2C6F30D796182B3FDC95.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_2C6F30D796182B3FDC95_EBE7683982B9"
+mapping_proposal_digest = "sha256:ebe7683982b9c0d32174cde6ca4249866c9ab8c3530a99761be8c803ffb519b9"
+mapping_decision_id = "MAP_DEC_11CA64DE29E70D42EE18B520"
+mapping_reviewed_source_digest = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645"
+mapping_assertion_review_digest = "sha256:63cebc8ae36bfff4859b7da6ad9c616cc691258ef56353f80c33d991bfed5128"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_STANDARD_FB_SIGNATURE_001#behavior:1"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf", "codex-scout-parser-batch"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_2F419A3897A77158E368"
+subject_kind = "generated_test"
+discovery_id = "DISC_2F419A3897A77158E368"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
+name = "test_named_argument_order"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --user-config-file none -E 'binary_id(=trust-hir::semantic_type_checking) & test(=control_flow_and_calls::test_named_argument_order)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_CALL_BINDING_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001#3-1-shared-call-syntax"
+expected_result = "Once a formal assignment begins, a later positional argument is rejected."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_2F419A3897A77158E368.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_2F419A3897A77158E368_54FD88BEC4DC"
+mapping_proposal_digest = "sha256:54fd88bec4dc61013108cc7c516de2ab7ae92bfc9ece937cc4dca7ad3940262a"
+mapping_decision_id = "MAP_DEC_A4F470421D648EDC839AABE2"
+mapping_reviewed_source_digest = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645"
+mapping_assertion_review_digest = "sha256:e492d48401588537def6856979f392094ab06158431c99aa9105e20ecedb47f4"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_CALL_BINDING_001#behavior:0"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf", "codex-scout-parser-batch"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_31A7A59BD2089A29CC68"
+subject_kind = "generated_test"
+discovery_id = "DISC_31A7A59BD2089A29CC68"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
+name = "test_case_enum_exhaustive_no_warning"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --user-config-file none -E 'binary_id(=trust-hir::semantic_type_checking) & test(=control_flow_and_calls::test_case_enum_exhaustive_no_warning)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_CASE_SELECTION_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001#6-case-statement-section-7-3-3-3-3"
+expected_result = "A CASE that covers every value of an enumeration does not require an ELSE warning."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_31A7A59BD2089A29CC68.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_31A7A59BD2089A29CC68_A416196B5913"
+mapping_proposal_digest = "sha256:a416196b591319c6a7fd6b603e936957a357f04689bc370ba968e5950d430336"
+mapping_decision_id = "MAP_DEC_3261597EE3B7C3D2FFFF5A94"
+mapping_reviewed_source_digest = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645"
+mapping_assertion_review_digest = "sha256:4335edc63f86c7b63cb8d17bc1df9cf08b11b27327cbbac16a7923b4ae45c11d"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_CASE_SELECTION_001#behavior:8"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf", "codex-scout-parser-batch"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_3722DEE9DEC0CF960DCD"
+subject_kind = "generated_test"
+discovery_id = "DISC_3722DEE9DEC0CF960DCD"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
+name = "test_case_missing_else_warning"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --user-config-file none -E 'binary_id(=trust-hir::semantic_type_checking) & test(=control_flow_and_calls::test_case_missing_else_warning)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_CASE_SELECTION_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001#6-case-statement-section-7-3-3-3-3"
+expected_result = "A non-exhaustive CASE without ELSE remains analyzable but emits the documented warning."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_3722DEE9DEC0CF960DCD.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_3722DEE9DEC0CF960DCD_9E1DF30C4E0B"
+mapping_proposal_digest = "sha256:9e1df30c4e0b2d83dc37740f46efc4dded1d2464fc9912e222fa31eecef85d1a"
+mapping_decision_id = "MAP_DEC_33E4A8A55D6FFB1E3B454376"
+mapping_reviewed_source_digest = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645"
+mapping_assertion_review_digest = "sha256:c27558ec5b9bf3dff93b30d59ae810b3a1446d20ca768f5d4e52185d076141d5"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_CASE_SELECTION_001#behavior:7"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf", "codex-scout-parser-batch"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_372666A5A2ECF4DCFF6D"
+subject_kind = "generated_test"
+discovery_id = "DISC_372666A5A2ECF4DCFF6D"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
+name = "test_non_formal_call_rejects_en_eno_positional"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --user-config-file none -E 'binary_id(=trust-hir::semantic_type_checking) & test(=control_flow_and_calls::test_non_formal_call_rejects_en_eno_positional)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_CALL_BINDING_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001#3-1-shared-call-syntax"
+expected_result = "Execution-control parameters are not part of the non-formal positional list."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_372666A5A2ECF4DCFF6D.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_372666A5A2ECF4DCFF6D_6D6A549078A9"
+mapping_proposal_digest = "sha256:6d6a549078a940a468aec3083014317a99d6ac99b7ce0dfa35ebbad7405b7ca3"
+mapping_decision_id = "MAP_DEC_F715A4575D42D00038DB6B1B"
+mapping_reviewed_source_digest = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645"
+mapping_assertion_review_digest = "sha256:1720bdd48806ca9be534d5ac71677dbb1cd714b70f41b5563c630255f0914f5a"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_CALL_BINDING_001#behavior:11"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf", "codex-scout-parser-batch"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_47691F18637E26462AFB"
+subject_kind = "generated_test"
+discovery_id = "DISC_47691F18637E26462AFB"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
+name = "test_standard_bit_unknown_argument_suppression_has_primary_diagnostic"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --user-config-file none -E 'binary_id(=trust-hir::semantic_type_checking) & test(=control_flow_and_calls::test_standard_bit_unknown_argument_suppression_has_primary_diagnostic)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_DIAGNOSTIC_CASCADE_001"]
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001#12-1-primary-diagnostics-and-cascade-suppression"
+expected_result = "An unresolved assignment source, unary or binary operand, or indexed base emits its primary resolution diagnostic while dependent type, operator, index, and assignment mismatches are suppressed."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_47691F18637E26462AFB.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_47691F18637E26462AFB_C5E0D9700C42"
+mapping_proposal_digest = "sha256:c5e0d9700c42d2f5f8c03c5811a1d71fc5a18a3822efd90bc8904bc747c3fa00"
+mapping_decision_id = "MAP_DEC_46FE535ECEC22C4AACE136C4"
+mapping_reviewed_source_digest = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645"
+mapping_assertion_review_digest = "sha256:3f4cc5c431a1c79a5500ea46ab9b919b9286f148a537ce3cbd72408fad9bc6f8"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_DIAGNOSTIC_CASCADE_001#behavior:0"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf", "codex-scout-parser-batch"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_5620EB02D5DB2632E895"
+subject_kind = "generated_test"
+discovery_id = "DISC_5620EB02D5DB2632E895"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
+name = "test_infix_bitwise_mixed_width_results_cannot_shrink_silently"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --user-config-file none -E 'binary_id(=trust-hir::semantic_type_checking) & test(=control_flow_and_calls::test_infix_bitwise_mixed_width_results_cannot_shrink_silently)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_BITWISE_TYPING_001"]
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001#4-3-logical-boolean-operators"
+expected_result = "A mixed-width bitwise expression has the wider operand type and cannot silently shrink on assignment."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_5620EB02D5DB2632E895.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_5620EB02D5DB2632E895_A8AB0BF16A01"
+mapping_proposal_digest = "sha256:a8ab0bf16a014a5496d84271c2adcfcfdf6b21abc95a0a97b46035636e4bbd8b"
+mapping_decision_id = "MAP_DEC_C2C6AEB650CDF1E519881E2C"
+mapping_reviewed_source_digest = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645"
+mapping_assertion_review_digest = "sha256:07f40b463387fcde807f7a885d92a9751fea7a92c16c42bbcbc96719632bf252"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_BITWISE_TYPING_001#behavior:2"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf", "codex-scout-parser-batch"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_56E8298D65AF7EFA2521"
+subject_kind = "generated_test"
+discovery_id = "DISC_56E8298D65AF7EFA2521"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
+name = "test_standard_bistable_function_block_type_error"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --user-config-file none -E 'binary_id(=trust-hir::semantic_type_checking) & test(=control_flow_and_calls::test_standard_bistable_function_block_type_error)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_STANDARD_FB_SIGNATURE_001"]
+oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#5-timer-function-blocks-table-46-figure-15"
+expected_result = "Bistable input and output parameters require BOOL-compatible bindings."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_56E8298D65AF7EFA2521.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_56E8298D65AF7EFA2521_7A3E00E55D69"
+mapping_proposal_digest = "sha256:7a3e00e55d6984604b84451b81512b0c2a604378b0a702a4b8fd83797e6af3f3"
+mapping_decision_id = "MAP_DEC_89D1D2C2E230C09258DA639B"
+mapping_reviewed_source_digest = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645"
+mapping_assertion_review_digest = "sha256:fbcb23f7ee63338bb222efd406732f66220de4557495a62d3e85b0291b0e76a9"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_STANDARD_FB_SIGNATURE_001#behavior:6"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf", "codex-scout-parser-batch"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_62EE1C62EF5E3188BDF8"
+subject_kind = "generated_test"
+discovery_id = "DISC_62EE1C62EF5E3188BDF8"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
+name = "test_standard_timer_function_block_call"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --user-config-file none -E 'binary_id(=trust-hir::semantic_type_checking) & test(=control_flow_and_calls::test_standard_timer_function_block_call)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_STANDARD_FB_SIGNATURE_001"]
+oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#5-timer-function-blocks-table-46-figure-15"
+expected_result = "An overloaded base timer accepts a consistent TIME PT/ET interface."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_62EE1C62EF5E3188BDF8.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_62EE1C62EF5E3188BDF8_D5F4DBE6F048"
+mapping_proposal_digest = "sha256:d5f4dbe6f0486d0df1bc44547ff4b5d4cdee03e3a49fea631343dca9bc1ffb42"
+mapping_decision_id = "MAP_DEC_7710ADEEE85FBB001EA78464"
+mapping_reviewed_source_digest = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645"
+mapping_assertion_review_digest = "sha256:e74e3e9a23d7729f88977cdca1c6bd95377c171014885333a7fc0c4fe494f162"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_STANDARD_FB_SIGNATURE_001#behavior:0"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf", "codex-scout-parser-batch"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_6A13B0BA6CB4B05BAA6D"
+subject_kind = "generated_test"
+discovery_id = "DISC_6A13B0BA6CB4B05BAA6D"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
+name = "test_case_wstring_label_ok"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --user-config-file none -E 'binary_id(=trust-hir::semantic_type_checking) & test(=control_flow_and_calls::test_case_wstring_label_ok)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_CASE_SELECTION_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001#6-case-statement-section-7-3-3-3-3"
+expected_result = "A WSTRING selector accepts compatible constant WSTRING labels."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_6A13B0BA6CB4B05BAA6D.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_6A13B0BA6CB4B05BAA6D_22D8A1EC288C"
+mapping_proposal_digest = "sha256:22d8a1ec288c5f0f570f1b629e2ec1c3026f5951c3cf9be2a6317f37a36f456b"
+mapping_decision_id = "MAP_DEC_CA068A0EC22327C46573658E"
+mapping_reviewed_source_digest = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645"
+mapping_assertion_review_digest = "sha256:7035725c39d43ba7ca81fdae07369247e2a2782db8caba9eaa0adf61d20c30d8"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_CASE_SELECTION_001#behavior:5"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf", "codex-scout-parser-batch"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_6A9CD62A4367A22AA671"
+subject_kind = "generated_test"
+discovery_id = "DISC_6A9CD62A4367A22AA671"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
+name = "test_case_subrange_requires_literal_bounds"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --user-config-file none -E 'binary_id(=trust-hir::semantic_type_checking) & test(=control_flow_and_calls::test_case_subrange_requires_literal_bounds)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_CASE_SELECTION_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001#6-case-statement-section-7-3-3-3-3"
+expected_result = "Both bounds of a CASE subrange must be constant values."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_6A9CD62A4367A22AA671.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_6A9CD62A4367A22AA671_5E05477D423A"
+mapping_proposal_digest = "sha256:5e05477d423af2661b3e46e89b372dcdee9f46184c0cd92966faefc336b62847"
+mapping_decision_id = "MAP_DEC_94B1AE3BF79867967FB23694"
+mapping_reviewed_source_digest = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645"
+mapping_assertion_review_digest = "sha256:9b66eea2c3e02a7b5b0520ed0142010c26ebf1f54d90bac9eab6081bd1c8fd9b"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_CASE_SELECTION_001#behavior:2"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf", "codex-scout-parser-batch"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_7A3D0E16B75B231CBC47"
+subject_kind = "generated_test"
+discovery_id = "DISC_7A3D0E16B75B231CBC47"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
+name = "test_case_selector_requires_elementary"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --user-config-file none -E 'binary_id(=trust-hir::semantic_type_checking) & test(=control_flow_and_calls::test_case_selector_requires_elementary)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_CASE_SELECTION_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001#6-case-statement-section-7-3-3-3-3"
+expected_result = "The selector expression must have an elementary type."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_7A3D0E16B75B231CBC47.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_7A3D0E16B75B231CBC47_F08BED1C7241"
+mapping_proposal_digest = "sha256:f08bed1c72418ec694e25ff58c22ec720b2dbb001a11552d10bb7583ecaee2eb"
+mapping_decision_id = "MAP_DEC_5095D8D340F2AAB4A9900952"
+mapping_reviewed_source_digest = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645"
+mapping_assertion_review_digest = "sha256:281e7ea4e435687d329c05bec257c99a48bbfb7bf1f1b0b809d7073b024386eb"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_CASE_SELECTION_001#behavior:0"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf", "codex-scout-parser-batch"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_7B978F576B59F641A0D8"
+subject_kind = "generated_test"
+discovery_id = "DISC_7B978F576B59F641A0D8"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
+name = "test_standard_counter_function_block_type_error"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --user-config-file none -E 'binary_id(=trust-hir::semantic_type_checking) & test(=control_flow_and_calls::test_standard_counter_function_block_type_error)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_STANDARD_FB_SIGNATURE_001"]
+oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#5-timer-function-blocks-table-46-figure-15"
+expected_result = "Counter PV and CV bindings reject values outside the supported integer categories."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_7B978F576B59F641A0D8.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_7B978F576B59F641A0D8_93C695EF0020"
+mapping_proposal_digest = "sha256:93c695ef0020129ec77ba70edcf662a19716013c67591acd3a800ce7a0b24e1a"
+mapping_decision_id = "MAP_DEC_E3FAF616E2F3CB8FD8EAA08F"
+mapping_reviewed_source_digest = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645"
+mapping_assertion_review_digest = "sha256:c9eb593ecd63669a4da858ecf7e9a462453578d65ee45f1b5a1b8d29bad0bbe1"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_STANDARD_FB_SIGNATURE_001#behavior:9"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf", "codex-scout-parser-batch"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_8675DBEE39BD40CD94D0"
+subject_kind = "generated_test"
+discovery_id = "DISC_8675DBEE39BD40CD94D0"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
+name = "test_case_label_requires_literal_or_constant"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --user-config-file none -E 'binary_id(=trust-hir::semantic_type_checking) & test(=control_flow_and_calls::test_case_label_requires_literal_or_constant)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_CASE_SELECTION_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001#6-case-statement-section-7-3-3-3-3"
+expected_result = "Each label must be a literal or a constant expression."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_8675DBEE39BD40CD94D0.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_8675DBEE39BD40CD94D0_6FA10213E932"
+mapping_proposal_digest = "sha256:6fa10213e932473f6841406418a904d53bcac6dcb4697db12295c2b001fd5653"
+mapping_decision_id = "MAP_DEC_B70C55FD205209EE80535F3E"
+mapping_reviewed_source_digest = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645"
+mapping_assertion_review_digest = "sha256:2989ff8f16e36d6bde5b9156dfc2fca716ce3293651fbfa7e6012e2c06654711"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_CASE_SELECTION_001#behavior:1"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf", "codex-scout-parser-batch"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_8A34998BB82A7BE12F75"
+subject_kind = "generated_test"
+discovery_id = "DISC_8A34998BB82A7BE12F75"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
+name = "test_call_rejects_ref_assign_argument"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --user-config-file none -E 'binary_id(=trust-hir::semantic_type_checking) & test(=control_flow_and_calls::test_call_rejects_ref_assign_argument)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_CALL_BINDING_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001#3-1-shared-call-syntax"
+expected_result = "An assignment-attempt expression is not accepted as an ordinary call argument binding."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_8A34998BB82A7BE12F75.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_8A34998BB82A7BE12F75_F2D221715AF9"
+mapping_proposal_digest = "sha256:f2d221715af9b0959bbe519f8f2ce128a9f64baafeda8e3a77e0ac959959d9af"
+mapping_decision_id = "MAP_DEC_DF81D2C60003DC958CB95262"
+mapping_reviewed_source_digest = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645"
+mapping_assertion_review_digest = "sha256:2c092082de4d2bd73e5bd363042f92208270479b88dced7cfb3fb32cb32f7f20"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_CALL_BINDING_001#behavior:13"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf", "codex-scout-parser-batch"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_910A76F9F6474D5CB95C"
+subject_kind = "generated_test"
+discovery_id = "DISC_910A76F9F6474D5CB95C"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
+name = "test_call_argument_unknown_type_suppression_has_primary_diagnostic"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --user-config-file none -E 'binary_id(=trust-hir::semantic_type_checking) & test(=control_flow_and_calls::test_call_argument_unknown_type_suppression_has_primary_diagnostic)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_DIAGNOSTIC_CASCADE_001"]
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001#12-1-primary-diagnostics-and-cascade-suppression"
+expected_result = "An unresolved assignment source, unary or binary operand, or indexed base emits its primary resolution diagnostic while dependent type, operator, index, and assignment mismatches are suppressed."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_910A76F9F6474D5CB95C.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_910A76F9F6474D5CB95C_9D6E95117071"
+mapping_proposal_digest = "sha256:9d6e9511707195d4973d90ffd54575f3d49169385f8d78e1e9d080ce12a8d4cf"
+mapping_decision_id = "MAP_DEC_2BE332E1EE21754BA2B51CB5"
+mapping_reviewed_source_digest = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645"
+mapping_assertion_review_digest = "sha256:2063cd5e85484be7c957743a1ecd6ea978c2eae877a130a6c16406a4b66feb40"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_DIAGNOSTIC_CASCADE_001#behavior:0"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf", "codex-scout-parser-batch"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_94DC77ECFCD32D9460D1"
+subject_kind = "generated_test"
+discovery_id = "DISC_94DC77ECFCD32D9460D1"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
+name = "test_case_enum_label_ok"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --user-config-file none -E 'binary_id(=trust-hir::semantic_type_checking) & test(=control_flow_and_calls::test_case_enum_label_ok)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_CASE_SELECTION_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001#6-case-statement-section-7-3-3-3-3"
+expected_result = "A label from the selector's enumeration domain is accepted."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_94DC77ECFCD32D9460D1.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_94DC77ECFCD32D9460D1_C1A8233D1FBC"
+mapping_proposal_digest = "sha256:c1a8233d1fbc0780b35fce3a132e88b8c7cf497a016ca314eafeaf13d6fe6c2f"
+mapping_decision_id = "MAP_DEC_85A36E6E730D6EC0854D6595"
+mapping_reviewed_source_digest = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645"
+mapping_assertion_review_digest = "sha256:4f5365b27f8af19e1e590005dab9d32bd42831e2f3a7928c379897d0cfe22497"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_CASE_SELECTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf", "codex-scout-parser-batch"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_9AD3A0A5801D87347F2A"
+subject_kind = "generated_test"
+discovery_id = "DISC_9AD3A0A5801D87347F2A"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
+name = "test_formal_call_allows_missing_arguments"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --user-config-file none -E 'binary_id(=trust-hir::semantic_type_checking) & test(=control_flow_and_calls::test_formal_call_allows_missing_arguments)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_CALL_BINDING_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001#3-1-shared-call-syntax"
+expected_result = "An incomplete formal list may omit ordinary input and output parameters, which retain their declared initial or default values."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_9AD3A0A5801D87347F2A.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_9AD3A0A5801D87347F2A_64F49CB06583"
+mapping_proposal_digest = "sha256:64f49cb065832a0fd170880f171b49c36fe3db132cfc2b2a565ed62bd86a4fae"
+mapping_decision_id = "MAP_DEC_D495712ED9162118028CC05D"
+mapping_reviewed_source_digest = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645"
+mapping_assertion_review_digest = "sha256:5861e0287bc909bdb255b2c5cad604e8224163a44e21dfcd762a2d68da76809f"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_CALL_BINDING_001#behavior:5"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf", "codex-scout-parser-batch"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_9E6E418E8BE3CA167421"
+subject_kind = "generated_test"
+discovery_id = "DISC_9E6E418E8BE3CA167421"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
+name = "test_standard_timer_function_block_ltime_type_error"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --user-config-file none -E 'binary_id(=trust-hir::semantic_type_checking) & test(=control_flow_and_calls::test_standard_timer_function_block_ltime_type_error)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_STANDARD_FB_SIGNATURE_001"]
+oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#5-timer-function-blocks-table-46-figure-15"
+expected_result = "An explicit *_LTIME timer rejects TIME PT or ET bindings."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_9E6E418E8BE3CA167421.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_9E6E418E8BE3CA167421_4A749B165571"
+mapping_proposal_digest = "sha256:4a749b1655718bdb96b549d08a90f6a29daba13b2919c1c5a1de3f4e20d734f5"
+mapping_decision_id = "MAP_DEC_46DA11C60A64A7E523EBF455"
+mapping_reviewed_source_digest = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645"
+mapping_assertion_review_digest = "sha256:5425cd335d9d9049ed1c93b2e758129fa3f07d1f6ccb11ca0c655728da47fa8f"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_STANDARD_FB_SIGNATURE_001#behavior:3"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf", "codex-scout-parser-batch"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_A0B21B49B9F11C8B6276"
+subject_kind = "generated_test"
+discovery_id = "DISC_A0B21B49B9F11C8B6276"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
+name = "test_case_string_label_ok"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --user-config-file none -E 'binary_id(=trust-hir::semantic_type_checking) & test(=control_flow_and_calls::test_case_string_label_ok)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_CASE_SELECTION_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001#6-case-statement-section-7-3-3-3-3"
+expected_result = "A STRING selector accepts compatible constant STRING labels."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_A0B21B49B9F11C8B6276.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_A0B21B49B9F11C8B6276_4D195AFDEABF"
+mapping_proposal_digest = "sha256:4d195afdeabf8fb3eedf1fa58750f8ce6e4de64ce769adfee965617f7e94fb4d"
+mapping_decision_id = "MAP_DEC_5098E6D6D1E4F2F64248DB12"
+mapping_reviewed_source_digest = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645"
+mapping_assertion_review_digest = "sha256:8801338f8fecae6b6a355550947084db7dd09279a68ab19c8d21c67057c6b2f8"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_CASE_SELECTION_001#behavior:4"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf", "codex-scout-parser-batch"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_A25C195E057B8A779695"
+subject_kind = "generated_test"
+discovery_id = "DISC_A25C195E057B8A779695"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
+name = "test_formal_call_requires_in_out_binding"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --user-config-file none -E 'binary_id(=trust-hir::semantic_type_checking) & test(=control_flow_and_calls::test_formal_call_requires_in_out_binding)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_CALL_BINDING_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001#3-1-shared-call-syntax"
+expected_result = "A VAR_IN_OUT parameter must be properly mapped even in an incomplete formal call."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_A25C195E057B8A779695.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_A25C195E057B8A779695_81144CDF9917"
+mapping_proposal_digest = "sha256:81144cdf9917f3ebe606cbd0871bf3bb928709cf3984ad70227d71481fda7a67"
+mapping_decision_id = "MAP_DEC_D17AA925B47144E6D260144F"
+mapping_reviewed_source_digest = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645"
+mapping_assertion_review_digest = "sha256:a263614e20840e13809d395c66dfe3abba54f3b61df4ff77be711355c2c5d40b"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_CALL_BINDING_001#behavior:6"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf", "codex-scout-parser-batch"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_B0D122E021CDE47BCF10"
+subject_kind = "generated_test"
+discovery_id = "DISC_B0D122E021CDE47BCF10"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
+name = "test_output_connection_rejects_input_parameter"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --user-config-file none -E 'binary_id(=trust-hir::semantic_type_checking) & test(=control_flow_and_calls::test_output_connection_rejects_input_parameter)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_CALL_BINDING_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001#3-1-shared-call-syntax"
+expected_result = "The output arrow cannot bind a VAR_INPUT parameter."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_B0D122E021CDE47BCF10.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_B0D122E021CDE47BCF10_A218934E597C"
+mapping_proposal_digest = "sha256:a218934e597ca1cdcc44ba8d37807e7a97eaa32d10869751da1ce9650c044f80"
+mapping_decision_id = "MAP_DEC_3090C6FD1E182CEBC866FD35"
+mapping_reviewed_source_digest = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645"
+mapping_assertion_review_digest = "sha256:bb7f3d1aa7890c7c07b8053ea31f84e3f4689daedaf4b4a6abb00689847579ad"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_CALL_BINDING_001#behavior:4"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf", "codex-scout-parser-batch"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_B38C4517332CE2B52F72"
+subject_kind = "generated_test"
+discovery_id = "DISC_B38C4517332CE2B52F72"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
+name = "test_standard_timer_function_block_ltime_variant"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --user-config-file none -E 'binary_id(=trust-hir::semantic_type_checking) & test(=control_flow_and_calls::test_standard_timer_function_block_ltime_variant)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_STANDARD_FB_SIGNATURE_001"]
+oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#5-timer-function-blocks-table-46-figure-15"
+expected_result = "An explicit *_LTIME timer accepts LTIME PT and ET bindings."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_B38C4517332CE2B52F72.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_B38C4517332CE2B52F72_EDADAC17FBC6"
+mapping_proposal_digest = "sha256:edadac17fbc621937cdb25290b5e6f31d74a03f17dfbad74b673db0371546021"
+mapping_decision_id = "MAP_DEC_CBB96CEEB83FD4007427337E"
+mapping_reviewed_source_digest = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645"
+mapping_assertion_review_digest = "sha256:fcfcacddec612a9c09d2947375f638c07987d2e33d966961f9031eeb61c4bd9d"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_STANDARD_FB_SIGNATURE_001#behavior:2"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf", "codex-scout-parser-batch"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_B63F829A04E4F7623FF5"
+subject_kind = "generated_test"
+discovery_id = "DISC_B63F829A04E4F7623FF5"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
+name = "test_case_string_subrange_rejected"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --user-config-file none -E 'binary_id(=trust-hir::semantic_type_checking) & test(=control_flow_and_calls::test_case_string_subrange_rejected)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_CASE_SELECTION_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001#6-case-statement-section-7-3-3-3-3"
+expected_result = "CASE subranges belong to integer domains and are not applicable to STRING or WSTRING selectors."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_B63F829A04E4F7623FF5.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_B63F829A04E4F7623FF5_EFC2794A5D42"
+mapping_proposal_digest = "sha256:efc2794a5d426c3709fed14391e3229ecea082964f1c3d3559d717bb20fee2d2"
+mapping_decision_id = "MAP_DEC_FD10DDFDB215B8EA6E30E847"
+mapping_reviewed_source_digest = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645"
+mapping_assertion_review_digest = "sha256:96a54ac93a221967d098bea2ab077e746c4f8d4a28f39796c57a56dfe283f328"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_CASE_SELECTION_001#behavior:6"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf", "codex-scout-parser-batch"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_B763F04D6AE6F8361438"
+subject_kind = "generated_test"
+discovery_id = "DISC_B763F04D6AE6F8361438"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
+name = "test_standard_edge_function_blocks"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --user-config-file none -E 'binary_id(=trust-hir::semantic_type_checking) & test(=control_flow_and_calls::test_standard_edge_function_blocks)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_STANDARD_FB_SIGNATURE_001"]
+oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#5-timer-function-blocks-table-46-figure-15"
+expected_result = "R_TRIG and F_TRIG accept BOOL CLK input and BOOL Q output bindings."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_B763F04D6AE6F8361438.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_B763F04D6AE6F8361438_3798756B1F83"
+mapping_proposal_digest = "sha256:3798756b1f839dd247391985664309ad32e2aa45b99d9e1c73b2a457791549d4"
+mapping_decision_id = "MAP_DEC_DB1654C34AD5D7EF27FD8AD3"
+mapping_reviewed_source_digest = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645"
+mapping_assertion_review_digest = "sha256:66f0f1caa51e8ae3d0ca7f096d5affdd78acc0f3cf2ebcba6b57954a64272bf3"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_STANDARD_FB_SIGNATURE_001#behavior:7"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf", "codex-scout-parser-batch"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_C3770F55FA1E6C13D79A"
+subject_kind = "generated_test"
+discovery_id = "DISC_C3770F55FA1E6C13D79A"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
+name = "test_standard_numeric_unknown_argument_suppression_has_primary_diagnostic"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --user-config-file none -E 'binary_id(=trust-hir::semantic_type_checking) & test(=control_flow_and_calls::test_standard_numeric_unknown_argument_suppression_has_primary_diagnostic)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_DIAGNOSTIC_CASCADE_001"]
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001#12-1-primary-diagnostics-and-cascade-suppression"
+expected_result = "An unresolved assignment source, unary or binary operand, or indexed base emits its primary resolution diagnostic while dependent type, operator, index, and assignment mismatches are suppressed."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_C3770F55FA1E6C13D79A.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_C3770F55FA1E6C13D79A_1F1F32621466"
+mapping_proposal_digest = "sha256:1f1f326214664e5cbe6b232a76d65a1e1b639a7fea506c8232fa159904b7c5b4"
+mapping_decision_id = "MAP_DEC_C4AB830594A9AC0EA1307B64"
+mapping_reviewed_source_digest = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645"
+mapping_assertion_review_digest = "sha256:a6d7001dee44b526128cf421d33e40aa6e605158b2bdc435774a7877c5cb6f7f"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_DIAGNOSTIC_CASCADE_001#behavior:0"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf", "codex-scout-parser-batch"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_C52DB304C3322CDCC99C"
+subject_kind = "generated_test"
+discovery_id = "DISC_C52DB304C3322CDCC99C"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
+name = "test_mitsubishi_edge_alias_function_blocks"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --user-config-file none -E 'binary_id(=trust-hir::semantic_type_checking) & test(=control_flow_and_calls::test_mitsubishi_edge_alias_function_blocks)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["TRUST_MITSUBISHI_EDGE_ALIAS_001"]
+oracle_ref = "SPEC_MITSUBISHI_GXWORKS3_COMPATIBILITY_001#1-mitsubishi-edge-aliases-difu-difd"
+expected_result = "DIFU exposes the R_TRIG CLK/Q interface and DIFD exposes the F_TRIG CLK/Q interface."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_C52DB304C3322CDCC99C.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_C52DB304C3322CDCC99C_4D8DE6D144F3"
+mapping_proposal_digest = "sha256:4d8de6d144f369f02bac05d3e36f56da8cc7cc7a03c74d77a598a7b092f161cf"
+mapping_decision_id = "MAP_DEC_3053567C1FDB0DBF945AEA2D"
+mapping_reviewed_source_digest = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645"
+mapping_assertion_review_digest = "sha256:903e00b9c0c84875cd36ac38f1f7ecaae4df51e45b6b3bae158f2e82d5e30dd0"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["TRUST_MITSUBISHI_EDGE_ALIAS_001#behavior:0"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf", "codex-scout-parser-batch"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_C7F60E89EA6FB5139963"
+subject_kind = "generated_test"
+discovery_id = "DISC_C7F60E89EA6FB5139963"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
+name = "test_struct_field_in_callee_position_is_not_callable"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --user-config-file none -E 'binary_id(=trust-hir::semantic_type_checking) & test(=control_flow_and_calls::test_struct_field_in_callee_position_is_not_callable)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_DIAGNOSTIC_CASCADE_001"]
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001#12-1-primary-diagnostics-and-cascade-suppression"
+expected_result = "A declaration that resolves to the wrong symbol kind reports the owning operation diagnostic rather than an undefined-name cascade."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_C7F60E89EA6FB5139963.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_C7F60E89EA6FB5139963_7E443E0D8015"
+mapping_proposal_digest = "sha256:7e443e0d801501d484a26754c201ffe4045449debb02e42eaf2529915668e8fd"
+mapping_decision_id = "MAP_DEC_16FCE2073B223EE2AE2E3D6E"
+mapping_reviewed_source_digest = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645"
+mapping_assertion_review_digest = "sha256:27fbdd737da6a9fb34d7b869a55936cea2cd15f8b7bd830b1d4026018f2ce8c1"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_DIAGNOSTIC_CASCADE_001#behavior:2"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf", "codex-scout-parser-batch"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_CCF2E71745750928E44A"
+subject_kind = "generated_test"
+discovery_id = "DISC_CCF2E71745750928E44A"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
+name = "test_formal_call_unknown_parameter_error"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --user-config-file none -E 'binary_id(=trust-hir::semantic_type_checking) & test(=control_flow_and_calls::test_formal_call_unknown_parameter_error)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_CALL_BINDING_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001#3-1-shared-call-syntax"
+expected_result = "A formal name absent from the callable signature is rejected."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_CCF2E71745750928E44A.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_CCF2E71745750928E44A_C6CF29856BDA"
+mapping_proposal_digest = "sha256:c6cf29856bda2d97af21106607c6e4eac2a41e544957fbeaa6a236185e237877"
+mapping_decision_id = "MAP_DEC_3D6723C3CC400458F08FF8AE"
+mapping_reviewed_source_digest = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645"
+mapping_assertion_review_digest = "sha256:34f90e2119f45306a494f5f5ab57ba5fd6d58f12e6d37c6c9356aaf6d832ae2d"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_CALL_BINDING_001#behavior:8"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf", "codex-scout-parser-batch"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_D0C160614872004F05DB"
+subject_kind = "generated_test"
+discovery_id = "DISC_D0C160614872004F05DB"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
+name = "test_non_formal_call_allows_output_positional"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --user-config-file none -E 'binary_id(=trust-hir::semantic_type_checking) & test(=control_flow_and_calls::test_non_formal_call_allows_output_positional)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_CALL_BINDING_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001#3-1-shared-call-syntax"
+expected_result = "A complete non-formal list binds an output parameter positionally in declaration order."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_D0C160614872004F05DB.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_D0C160614872004F05DB_BC102D166240"
+mapping_proposal_digest = "sha256:bc102d16624041386dffc588b509f0a4da3f24306689c5b42b1ac41723c58e70"
+mapping_decision_id = "MAP_DEC_338A4444F2D3665B5DBBA0E3"
+mapping_reviewed_source_digest = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645"
+mapping_assertion_review_digest = "sha256:f2796d4afcacb2871892a66a2cf13725428acfbef0e263b8aee468a8d0f124df"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_CALL_BINDING_001#behavior:12"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf", "codex-scout-parser-batch"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_D2291154CC389C0542E7"
+subject_kind = "generated_test"
+discovery_id = "DISC_D2291154CC389C0542E7"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
+name = "test_output_parameter_requires_arrow"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --user-config-file none -E 'binary_id(=trust-hir::semantic_type_checking) & test(=control_flow_and_calls::test_output_parameter_requires_arrow)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_CALL_BINDING_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001#3-1-shared-call-syntax"
+expected_result = "A VAR_OUTPUT formal connection cannot use the input assignment operator."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_D2291154CC389C0542E7.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_D2291154CC389C0542E7_C7CF46F034D5"
+mapping_proposal_digest = "sha256:c7cf46f034d575392a7d097970320a29c5bf19115006b590e39de1eac6124da8"
+mapping_decision_id = "MAP_DEC_DBD4AF415796A7BFB7975CA4"
+mapping_reviewed_source_digest = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645"
+mapping_assertion_review_digest = "sha256:176f91769f84fa807797528b9a0f21b34a4749e0be38988b72aca86d385c4e2b"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_CALL_BINDING_001#behavior:3"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf", "codex-scout-parser-batch"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_DA1C5558573916A12D99"
+subject_kind = "generated_test"
+discovery_id = "DISC_DA1C5558573916A12D99"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
+name = "test_string_comparison_operators_ok"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --user-config-file none -E 'binary_id(=trust-hir::semantic_type_checking) & test(=control_flow_and_calls::test_string_comparison_operators_ok)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_STRING_COMPARISON_001"]
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001#4-2-comparison-operators"
+expected_result = "STRING values compare with STRING values and WSTRING values compare with WSTRING values using the documented comparison operators."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_DA1C5558573916A12D99.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_DA1C5558573916A12D99_7E3C8B1CDA43"
+mapping_proposal_digest = "sha256:7e3c8b1cda43749e9db033e463fbe9d29bf4f31e6cc6f363cdfa44ed529c8eae"
+mapping_decision_id = "MAP_DEC_5601F106AF8E1AA120DB5C8F"
+mapping_reviewed_source_digest = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645"
+mapping_assertion_review_digest = "sha256:15e002a0696a83a313fc3eb1c5641c22bf7133d61e53c20fe50a9dd83fe4bc89"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_STRING_COMPARISON_001#behavior:0"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf", "codex-scout-parser-batch"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_DFF7EBFC812B52E29D88"
+subject_kind = "generated_test"
+discovery_id = "DISC_DFF7EBFC812B52E29D88"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
+name = "test_infix_ampersand_matches_and_for_bit_strings"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --user-config-file none -E 'binary_id(=trust-hir::semantic_type_checking) & test(=control_flow_and_calls::test_infix_ampersand_matches_and_for_bit_strings)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_BITWISE_TYPING_001"]
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001#4-3-logical-boolean-operators"
+expected_result = "The ampersand spelling has the same result-type widening rule as AND."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_DFF7EBFC812B52E29D88.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_DFF7EBFC812B52E29D88_E677347ABB99"
+mapping_proposal_digest = "sha256:e677347abb99e6dc82084e6ae83bb87712fddc732bdb6ca486b716a7781145ba"
+mapping_decision_id = "MAP_DEC_1B5EFFEA9BC332AB7099AA8F"
+mapping_reviewed_source_digest = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645"
+mapping_assertion_review_digest = "sha256:39a6bde515466d63a83af371e14f6ad578726e8637a767a00349f0a292bc5e91"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_BITWISE_TYPING_001#behavior:1"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf", "codex-scout-parser-batch"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_E32C0305FC5026249B23"
+subject_kind = "generated_test"
+discovery_id = "DISC_E32C0305FC5026249B23"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
+name = "test_function_block_instance_call"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --user-config-file none -E 'binary_id(=trust-hir::semantic_type_checking) & test(=control_flow_and_calls::test_function_block_instance_call)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_CALL_BINDING_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001#3-1-shared-call-syntax"
+expected_result = "A resolved function-block instance accepts a direction-correct formal parameter list."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_E32C0305FC5026249B23.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_E32C0305FC5026249B23_AD7E4BF36252"
+mapping_proposal_digest = "sha256:ad7e4bf36252973c558f61eb705868fdd599348f75a16169d1de86861e9288a4"
+mapping_decision_id = "MAP_DEC_318E0A253C7405446FE8F46E"
+mapping_reviewed_source_digest = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645"
+mapping_assertion_review_digest = "sha256:b27fae78f9bb971437ceae0f832e7dd0c3cb1a4f145a8f388bf5322a341e48ab"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_CALL_BINDING_001#behavior:14"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf", "codex-scout-parser-batch"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_E34583F8A8710C3004C3"
+subject_kind = "generated_test"
+discovery_id = "DISC_E34583F8A8710C3004C3"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
+name = "test_fixed_length_string_comparison_operators_ok"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --user-config-file none -E 'binary_id(=trust-hir::semantic_type_checking) & test(=control_flow_and_calls::test_fixed_length_string_comparison_operators_ok)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_STRING_COMPARISON_001"]
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001#4-2-comparison-operators"
+expected_result = "A declared string capacity constrains storage but does not remove comparison-operator eligibility."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_E34583F8A8710C3004C3.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_E34583F8A8710C3004C3_27F871CE8FCC"
+mapping_proposal_digest = "sha256:27f871ce8fcc04f6680abb44822f68521f94ae8d38d66725fef221190e3f0615"
+mapping_decision_id = "MAP_DEC_5A6B94DA6124F3FA5B281D66"
+mapping_reviewed_source_digest = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645"
+mapping_assertion_review_digest = "sha256:501919d39ffef6e4b707a0516231342cf6b09988b8f7a6252415ee8ee40244d1"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_STRING_COMPARISON_001#behavior:1"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf", "codex-scout-parser-batch"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_E759EBA0E631D4B62400"
+subject_kind = "generated_test"
+discovery_id = "DISC_E759EBA0E631D4B62400"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
+name = "test_non_formal_call_requires_complete_arguments"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --user-config-file none -E 'binary_id(=trust-hir::semantic_type_checking) & test(=control_flow_and_calls::test_non_formal_call_requires_complete_arguments)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_CALL_BINDING_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001#3-1-shared-call-syntax"
+expected_result = "A non-formal list must contain the complete positional signature after excluding EN and ENO."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_E759EBA0E631D4B62400.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_E759EBA0E631D4B62400_913D98722FF8"
+mapping_proposal_digest = "sha256:913d98722ff8c7bedf44583fe0dc7b3378d1ea00463f9f22ab2b2c20f597bf57"
+mapping_decision_id = "MAP_DEC_1E9B19FD7205609D9B851090"
+mapping_reviewed_source_digest = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645"
+mapping_assertion_review_digest = "sha256:c61946ca8ef4884da7aa8a1d18b78454d51deff6e7ca5a06f29efba1d4d87245"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_CALL_BINDING_001#behavior:9"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf", "codex-scout-parser-batch"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_F4BCD3E53C09C579146A"
+subject_kind = "generated_test"
+discovery_id = "DISC_F4BCD3E53C09C579146A"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
+name = "test_typed_literal_prefix"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --user-config-file none -E 'binary_id(=trust-hir::semantic_type_checking) & test(=control_flow_and_calls::test_typed_literal_prefix)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_TYPED_LITERAL_TYPING_001"]
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#7-numeric-literals-table-5-section-6-3-2"
+expected_result = "A valid integer type prefix and literal body form a semantically accepted typed value."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_F4BCD3E53C09C579146A.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_F4BCD3E53C09C579146A_56EE49999A47"
+mapping_proposal_digest = "sha256:56ee49999a47ab0274433a80420a9a0158f7f1c3180815026e62604238beb79c"
+mapping_decision_id = "MAP_DEC_4337EACADB80FAEDDAEADC7E"
+mapping_reviewed_source_digest = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645"
+mapping_assertion_review_digest = "sha256:03f95932244bc1490ec52d93b70be1dea68dc10d7f77de1143d2a7f49f7ad767"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_TYPED_LITERAL_TYPING_001#behavior:0"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf", "codex-scout-parser-batch"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_F520633EBC36610C0EEF"
+subject_kind = "generated_test"
+discovery_id = "DISC_F520633EBC36610C0EEF"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
+name = "test_standard_unary_unknown_argument_suppression_has_primary_diagnostic"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --user-config-file none -E 'binary_id(=trust-hir::semantic_type_checking) & test(=control_flow_and_calls::test_standard_unary_unknown_argument_suppression_has_primary_diagnostic)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_DIAGNOSTIC_CASCADE_001"]
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001#12-1-primary-diagnostics-and-cascade-suppression"
+expected_result = "An unresolved assignment source, unary or binary operand, or indexed base emits its primary resolution diagnostic while dependent type, operator, index, and assignment mismatches are suppressed."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_F520633EBC36610C0EEF.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_F520633EBC36610C0EEF_25DC74D69119"
+mapping_proposal_digest = "sha256:25dc74d691191ec3b32bc39c1eed7a361a3b25b499ae8379c5baed5988944e61"
+mapping_decision_id = "MAP_DEC_70FCEB74F1F29463B0A0D661"
+mapping_reviewed_source_digest = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645"
+mapping_assertion_review_digest = "sha256:39636bb67c777ad067b28c920cb23cde9d665cb30c172b407d6a8d3a29a634c0"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_DIAGNOSTIC_CASCADE_001#behavior:0"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf", "codex-scout-parser-batch"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_F60D99D8E46622A7C966"
+subject_kind = "generated_test"
+discovery_id = "DISC_F60D99D8E46622A7C966"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
+name = "test_output_parameter_connection_ok"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --user-config-file none -E 'binary_id(=trust-hir::semantic_type_checking) & test(=control_flow_and_calls::test_output_parameter_connection_ok)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_CALL_BINDING_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001#3-1-shared-call-syntax"
+expected_result = "A formal VAR_OUTPUT connection uses the output arrow and an assignable target."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_F60D99D8E46622A7C966.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_F60D99D8E46622A7C966_3554AE118962"
+mapping_proposal_digest = "sha256:3554ae1189622b12430bd1bb215c14a57f4a4ec4ee28da845d81392bc8c79f45"
+mapping_decision_id = "MAP_DEC_EF47BED8E073CECFF5405DB9"
+mapping_reviewed_source_digest = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645"
+mapping_assertion_review_digest = "sha256:857e28c9461e0962a136d49c8b8692636ca5d195b00bbf894589e600701cecab"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_CALL_BINDING_001#behavior:2"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf", "codex-scout-parser-batch"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_FA2E0A43EF999F848775"
+subject_kind = "generated_test"
+discovery_id = "DISC_FA2E0A43EF999F848775"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
+name = "test_named_argument_order_allows_positional_first"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --user-config-file none -E 'binary_id(=trust-hir::semantic_type_checking) & test(=control_flow_and_calls::test_named_argument_order_allows_positional_first)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_CALL_BINDING_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001#3-1-shared-call-syntax"
+expected_result = "truST intentionally accepts a positional prefix followed by formal assignments as DEV-018."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_FA2E0A43EF999F848775.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_FA2E0A43EF999F848775_02C8F3FB1089"
+mapping_proposal_digest = "sha256:02c8f3fb1089b5a7bbfe92ebe8405cc55762e8d7b57154d08b17ccce047d88a3"
+mapping_decision_id = "MAP_DEC_7C32CA3FF11380106EB865CC"
+mapping_reviewed_source_digest = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645"
+mapping_assertion_review_digest = "sha256:56e0877c5ea93e7d950b9d00885963e68b02ff1674c6dd21d1e053895225b0fc"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_CALL_BINDING_001#behavior:1"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf", "codex-scout-parser-batch"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_FC37E5CDDECDA03F76F4"
+subject_kind = "generated_test"
+discovery_id = "DISC_FC37E5CDDECDA03F76F4"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
+name = "test_binary_operator_precedence"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --user-config-file none -E 'binary_id(=trust-hir::semantic_type_checking) & test(=control_flow_and_calls::test_binary_operator_precedence)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_PREC_001"]
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001"
+expected_result = "Multiplicative expressions are formed before comparison operators are applied."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_FC37E5CDDECDA03F76F4.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_FC37E5CDDECDA03F76F4_53A53976FD4C"
+mapping_proposal_digest = "sha256:53a53976fd4cc0599f903efd55b58ca822cb064396458fa6b6d4f223bba0674e"
+mapping_decision_id = "MAP_DEC_1F44B6B3BB3E0AAD14ED10A0"
+mapping_reviewed_source_digest = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645"
+mapping_assertion_review_digest = "sha256:84412d499f43347956db0f32cf4fc95fb04a36af7edfd141cfe09d42058861b7"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_PREC_001#behavior:7"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf", "codex-scout-parser-batch"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_FE0EFFB9BFAD7E7C4A1D"
+subject_kind = "generated_test"
+discovery_id = "DISC_FE0EFFB9BFAD7E7C4A1D"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"
+name = "test_standard_string_unknown_argument_suppression_has_primary_diagnostic"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --user-config-file none -E 'binary_id(=trust-hir::semantic_type_checking) & test(=control_flow_and_calls::test_standard_string_unknown_argument_suppression_has_primary_diagnostic)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_DIAGNOSTIC_CASCADE_001"]
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001#12-1-primary-diagnostics-and-cascade-suppression"
+expected_result = "An unresolved assignment source, unary or binary operand, or indexed base emits its primary resolution diagnostic while dependent type, operator, index, and assignment mismatches are suppressed."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_FE0EFFB9BFAD7E7C4A1D.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_FE0EFFB9BFAD7E7C4A1D_6081F135432F"
+mapping_proposal_digest = "sha256:6081f135432fcf3b2b037fdfebe4edb10532e526fd58d1599a589ef78ef54177"
+mapping_decision_id = "MAP_DEC_AAA43C6CEA5D05669D868E02"
+mapping_reviewed_source_digest = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645"
+mapping_assertion_review_digest = "sha256:f8e6aa086a859c03298b95df21dd10561f616c7f3bb6418294219dc1875d4a7e"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_DIAGNOSTIC_CASCADE_001#behavior:0"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf", "codex-scout-parser-batch"]

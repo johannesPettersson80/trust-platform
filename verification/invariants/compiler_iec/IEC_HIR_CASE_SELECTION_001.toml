@@ -10,11 +10,11 @@ claim = "CASE accepts elementary selectors and compatible constant labels, restr
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-hir/src"]
-tests = []
+tests = ["TEST_AUTO_31A7A59BD2089A29CC68", "TEST_AUTO_3722DEE9DEC0CF960DCD", "TEST_AUTO_6A13B0BA6CB4B05BAA6D", "TEST_AUTO_6A9CD62A4367A22AA671", "TEST_AUTO_7A3D0E16B75B231CBC47", "TEST_AUTO_8675DBEE39BD40CD94D0", "TEST_AUTO_94DC77ECFCD32D9460D1", "TEST_AUTO_A0B21B49B9F11C8B6276", "TEST_AUTO_B63F829A04E4F7623FF5"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+missing = ["assertion_reachability", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -107,15 +107,15 @@ rationale = "A CASE that covers every value of an enumeration does not require a
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "Compatible label and exhaustive-enum acceptance awaits catalog association."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in IEC_HIR_CASE_SELECTION_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "gap_open"
-rationale = "Selector, label, and range rejection awaits catalog association."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every wrong_type_or_shape behavior in IEC_HIR_CASE_SELECTION_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "missing_required"
-state = "gap_open"
-rationale = "Missing-ELSE warning behavior awaits catalog association."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every missing_required behavior in IEC_HIR_CASE_SELECTION_001; dynamic proof and broad remote validation remain explicit debt."

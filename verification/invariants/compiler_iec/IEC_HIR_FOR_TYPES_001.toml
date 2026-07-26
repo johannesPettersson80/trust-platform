@@ -10,7 +10,7 @@ claim = "A FOR statement uses an integer control variable and integer-compatible
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-hir/src"]
-tests = []
+tests = ["TEST_AUTO_12FBBA867087892C33D8"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
@@ -49,5 +49,5 @@ rationale = "Accepted integer FOR typing awaits catalog association."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "gap_open"
-rationale = "FOR type rejection awaits catalog association."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every wrong_type_or_shape behavior in IEC_HIR_FOR_TYPES_001; dynamic proof and broad remote validation remain explicit debt."

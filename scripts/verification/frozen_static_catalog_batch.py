@@ -22,6 +22,11 @@ from .frozen_rust_nextest_target import (
     no_default_feature_test_names,
     resolve_plan_target_profile,
 )
+from .frozen_static_semantic_assignments import (
+    assign_behavior_refs,
+    assign_behaviors,
+    resolve_behavior_assignments,
+)
 from .mapping_review_batch import build_review_batch
 from .mapping_transaction import apply_mapping_transaction
 
@@ -30,6 +35,9 @@ CATALOG_PATH = Path("verification/test-catalog.toml")
 DENOMINATOR_PATH = Path("verification/test-catalog-denominator.toml")
 PROPOSALS_PATH = Path("verification/test-catalog-proposals.toml")
 DECISIONS_PATH = Path("verification/test-catalog-mapping-decisions.toml")
+CATALOG_MAPPING_DEBT = frozenset(
+    {"cataloged_behavior_tests", "catalog_mapping"}
+)
 
 
 def compile_batch(
@@ -95,9 +103,9 @@ def compile_batch(
         raise ValueError("assertion inventory document lacks inventories")
     if set(inventories) != set(facts):
         raise ValueError("assertion inventory IDs do not equal the selected denominator")
-    assignments = assign_behavior_refs(
+    assignments = resolve_behavior_assignments(
         inventories=inventories,
-        ranges=plan.get("ranges"),
+        plan=plan,
         default_invariant_id=(
             selected_invariant_ids[0]
             if len(selected_invariant_ids) == 1
@@ -335,117 +343,6 @@ def compile_batch(
     return dict(batch.replacements), batch.accepted_test_ids
 
 
-def assign_behaviors(
-    *,
-    inventories: Mapping[str, Any],
-    ranges: Any,
-) -> dict[str, tuple[int, ...]]:
-    assignments = assign_behavior_refs(
-        inventories=inventories,
-        ranges=ranges,
-        default_invariant_id="_single",
-        allowed_invariant_ids={"_single"},
-    )
-    return {
-        discovery_id: tuple(index for _invariant_id, index in values)
-        for discovery_id, values in assignments.items()
-    }
-
-
-def assign_behavior_refs(
-    *,
-    inventories: Mapping[str, Any],
-    ranges: Any,
-    default_invariant_id: str | None,
-    allowed_invariant_ids: set[str],
-) -> dict[str, tuple[tuple[str, int], ...]]:
-    if not isinstance(ranges, Sequence) or isinstance(ranges, (str, bytes)):
-        raise ValueError("plan ranges must be an array")
-    normalized: list[tuple[str, int, int, int]] = []
-    for index, row in enumerate(ranges):
-        if not isinstance(row, Mapping):
-            raise ValueError(f"plan range {index} fields drift")
-        fields = set(row)
-        if fields == {"behavior_index", "min_line", "max_line"}:
-            if default_invariant_id is None:
-                raise ValueError(f"plan range {index} requires invariant_id")
-            invariant_id = default_invariant_id
-        elif fields == {
-            "invariant_id",
-            "behavior_index",
-            "min_line",
-            "max_line",
-        }:
-            invariant_id = row["invariant_id"]
-            if not isinstance(invariant_id, str) or not invariant_id:
-                raise ValueError(
-                    f"plan range {index} invariant_id must be non-empty"
-                )
-        else:
-            raise ValueError(f"plan range {index} fields drift")
-        if invariant_id not in allowed_invariant_ids:
-            raise ValueError(
-                f"plan range {index} selects unapproved invariant {invariant_id}"
-            )
-        values = (
-            row["behavior_index"],
-            row["min_line"],
-            row["max_line"],
-        )
-        if any(
-            not isinstance(value, int) or isinstance(value, bool)
-            for value in values
-        ):
-            raise ValueError(f"plan range {index} values must be integers")
-        behavior_index, minimum, maximum = values
-        if behavior_index < 0 or minimum < 1 or maximum < minimum:
-            raise ValueError(f"plan range {index} is invalid")
-        normalized.append((invariant_id, behavior_index, minimum, maximum))
-
-    assignments: dict[str, tuple[tuple[str, int], ...]] = {}
-    for discovery_id, inventory in inventories.items():
-        if not isinstance(inventory, Mapping):
-            raise ValueError(f"{discovery_id} assertion inventory is not an object")
-        assertions = inventory.get("assertions")
-        if (
-            not isinstance(assertions, Sequence)
-            or isinstance(assertions, (str, bytes))
-            or not assertions
-        ):
-            raise ValueError(f"{discovery_id} lacks reviewed assertions")
-        lines = [
-            assertion.get("line")
-            for assertion in assertions
-            if isinstance(assertion, Mapping)
-        ]
-        if len(lines) != len(assertions) or any(
-            not isinstance(line, int) or isinstance(line, bool) for line in lines
-        ):
-            raise ValueError(f"{discovery_id} assertion lines are invalid")
-        matched_by_line = [
-            {
-                (invariant_id, behavior_index)
-                for invariant_id, behavior_index, minimum, maximum in normalized
-                if minimum <= line <= maximum
-            }
-            for line in lines
-        ]
-        if any(len(matches) != 1 for matches in matched_by_line):
-            bad_line, matches = next(
-                (line, matches)
-                for line, matches in zip(lines, matched_by_line, strict=True)
-                if len(matches) != 1
-            )
-            raise ValueError(
-                f"{discovery_id} line {bad_line} has {len(matches)} "
-                "behavior assignments"
-            )
-        assignments[str(discovery_id)] = tuple(
-            next(iter(matches)) for matches in matched_by_line
-        )
-    return assignments
-
-
 def validate_execution_provenance(
     *,
     root: Path,
@@ -640,6 +537,7 @@ def validate_applied_batch(
     selected_ids: set[str],
     invariant_ids: set[str],
     invariant_test_baselines: Mapping[str, set[str]],
+    invariant_missing_baselines: Mapping[str, set[str]],
 ) -> list[str]:
     failures: list[str] = []
     catalog = _toml(root / CATALOG_PATH)
@@ -664,8 +562,11 @@ def validate_applied_batch(
     if proposals.get("proposals") != []:
         failures.append("accepted proposal queue is not empty")
     invariants = _load_all_invariants(root)
-    if set(invariant_test_baselines) != invariant_ids:
-        failures.append("invariant test baselines do not match selected invariants")
+    if (
+        set(invariant_test_baselines) != invariant_ids
+        or set(invariant_missing_baselines) != invariant_ids
+    ):
+        failures.append("invariant baselines do not match selected invariants")
         return failures
     if any(invariant_id not in invariants for invariant_id in invariant_ids):
         failures.append("a selected invariant is missing after acceptance")
@@ -708,9 +609,18 @@ def validate_applied_batch(
             failures.append(
                 f"{invariant_id} test links do not equal its accepted mapping"
             )
-        remaining = set(invariants[invariant_id].get("missing", []))
-        if remaining & {"cataloged_behavior_tests", "catalog_mapping"}:
-            failures.append(f"{invariant_id} retained catalog mapping debt")
+        remaining_debt = (
+            set(invariants[invariant_id].get("missing", []))
+            & CATALOG_MAPPING_DEBT
+        )
+        baseline_debt = (
+            set(invariant_missing_baselines[invariant_id])
+            & CATALOG_MAPPING_DEBT
+        )
+        if remaining_debt and not baseline_debt:
+            failures.append(
+                f"{invariant_id} introduced catalog mapping debt"
+            )
     return failures
 
 
@@ -940,6 +850,15 @@ def main(argv: list[str] | None = None) -> int:
                 }
                 for invariant_id in invariant_ids
             }
+            invariant_missing_baselines = {
+                invariant_id: {
+                    str(obligation)
+                    for obligation in live_invariants[invariant_id].get(
+                        "missing", []
+                    )
+                }
+                for invariant_id in invariant_ids
+            }
             originals = {
                 path: (root / path).read_bytes()
                 for path in replacements
@@ -960,6 +879,7 @@ def main(argv: list[str] | None = None) -> int:
                     selected_ids=selected_ids,
                     invariant_ids=invariant_ids,
                     invariant_test_baselines=invariant_test_baselines,
+                    invariant_missing_baselines=invariant_missing_baselines,
                 ),
             )
         verb = "applied" if args.apply else "ready"

@@ -10,11 +10,11 @@ claim = "A valid integer typed literal is accepted as a semantic expression of i
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-hir/src"]
-tests = []
+tests = ["TEST_AUTO_F4BCD3E53C09C579146A"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+missing = ["assertion_reachability", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -35,5 +35,5 @@ rationale = "A valid integer type prefix and literal body form a semantically ac
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "Typed-literal semantic acceptance awaits catalog association."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in IEC_HIR_TYPED_LITERAL_TYPING_001; dynamic proof and broad remote validation remain explicit debt."
