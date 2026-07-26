@@ -3,18 +3,18 @@ id = "PLCO_MOTION_SINGLE_AXIS_EXECUTION_001"
 title = "PLCopen Motion Phase A latches and resolves deterministic commands"
 area = "plcopen_devtools"
 risk = "wrong_result"
-status = "gap_open"
+status = "specified"
 owner = "trust-runtime"
 last_reviewed = "2026-07-26"
 claim = "Execute latching, missing inputs, references, signs, dynamic defaults, continuous updates, and final position follow the selected Phase A deterministic-kernel contract."
 proof_level = "S0"
 contract_kind = "state_machine"
 source_refs = ["libraries/plcopen_motion/single_axis_core/src"]
-tests = []
+tests = ["TEST_AUTO_26506956BA6A5C2DD450", "TEST_AUTO_6746AE13B165243A8AF1", "TEST_AUTO_A5E1F0D51EB269BCB991", "TEST_AUTO_B4F8882DBD25B293A821", "TEST_AUTO_C08DC15CE5C5CF7C173D", "TEST_AUTO_D1C0F9925AAEBA3FF48C", "TEST_AUTO_D36125015BFB257EC03F", "TEST_AUTO_F13AC6997A7FD60EED83"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+missing = ["assertion_reachability", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -98,20 +98,20 @@ rationale = "The deterministic kernel applies the accepted absolute target on si
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
-state = "gap_open"
-rationale = "The exact frozen latching and continuous-update tests await catalog acceptance."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in PLCO_MOTION_SINGLE_AXIS_EXECUTION_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "missing_required"
-state = "gap_open"
-rationale = "The omitted-input behavior test awaits catalog acceptance."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every missing_required behavior in PLCO_MOTION_SINGLE_AXIS_EXECUTION_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "The reference and final-position tests await catalog acceptance."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in PLCO_MOTION_SINGLE_AXIS_EXECUTION_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "boundary_low"
-state = "gap_open"
-rationale = "The sign and zero-dynamics boundary tests await catalog acceptance."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every boundary_low behavior in PLCO_MOTION_SINGLE_AXIS_EXECUTION_001; dynamic proof and broad remote validation remain explicit debt."

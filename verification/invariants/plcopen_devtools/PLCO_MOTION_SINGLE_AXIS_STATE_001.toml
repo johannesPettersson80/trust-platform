@@ -3,18 +3,18 @@ id = "PLCO_MOTION_SINGLE_AXIS_STATE_001"
 title = "PLCopen Motion Phase A preserves axis state and ownership rules"
 area = "plcopen_devtools"
 risk = "wrong_result"
-status = "gap_open"
+status = "specified"
 owner = "trust-runtime"
 last_reviewed = "2026-07-26"
 claim = "Power, command, administrative, fault, home, halt, stop, and continuous-motion paths produce the selected deterministic Phase A state transitions."
 proof_level = "S0"
 contract_kind = "state_machine"
 source_refs = ["libraries/plcopen_motion/single_axis_core/src"]
-tests = []
+tests = ["TEST_AUTO_2D91146D7B8C1DFE6786", "TEST_AUTO_4D61628552F9B9D9FA31", "TEST_AUTO_7BBC6F59F62478AC8BA5", "TEST_AUTO_9A22078FFE3F42C6CF75", "TEST_AUTO_A948EFE3FEB92F48BCD6", "TEST_AUTO_BA399D90E1A53BEC70E5", "TEST_AUTO_C48C8C54CA91253D82E5", "TEST_AUTO_D72F60AAC882E0BC8FD8", "TEST_AUTO_FF9F0E89FCE6915EF65F"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+missing = ["assertion_reachability", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -107,15 +107,15 @@ rationale = "The complete Phase A scenario composes power, limits, motion, halt,
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
-state = "gap_open"
-rationale = "The exact frozen state-transition tests await catalog acceptance."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in PLCO_MOTION_SINGLE_AXIS_STATE_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "auth_or_permission"
-state = "gap_open"
-rationale = "The grouped-axis rejection test awaits catalog acceptance."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every auth_or_permission behavior in PLCO_MOTION_SINGLE_AXIS_STATE_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "hardware_or_network_fault"
-state = "gap_open"
-rationale = "The backend-fault transition test awaits catalog acceptance."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every hardware_or_network_fault behavior in PLCO_MOTION_SINGLE_AXIS_STATE_001; dynamic proof and broad remote validation remain explicit debt."

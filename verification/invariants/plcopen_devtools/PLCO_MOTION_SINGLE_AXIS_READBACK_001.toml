@@ -3,18 +3,18 @@ id = "PLCO_MOTION_SINGLE_AXIS_READBACK_001"
 title = "PLCopen Motion Phase A readback projects the selected axis slot"
 area = "plcopen_devtools"
 risk = "wrong_result"
-status = "gap_open"
+status = "specified"
 owner = "trust-runtime"
 last_reviewed = "2026-07-26"
 claim = "Motion-state, axis-info, error, actual-value, Valid, and Error outputs project one axis slot without changing motion state."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["libraries/plcopen_motion/single_axis_core/src"]
-tests = []
+tests = ["TEST_AUTO_0B84404FD879231032CC", "TEST_AUTO_217BC237A6362811819A", "TEST_AUTO_3BB5A966082B336822FB", "TEST_AUTO_C68BFCBDBFD459D1C49E"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+missing = ["assertion_reachability", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -62,10 +62,10 @@ rationale = "Enable-style readback exposes Valid or Error, never both."
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "The exact frozen readback projection tests await catalog acceptance."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in PLCO_MOTION_SINGLE_AXIS_READBACK_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
-state = "gap_open"
-rationale = "The Valid/Error lifecycle test awaits catalog acceptance."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in PLCO_MOTION_SINGLE_AXIS_READBACK_001; dynamic proof and broad remote validation remain explicit debt."

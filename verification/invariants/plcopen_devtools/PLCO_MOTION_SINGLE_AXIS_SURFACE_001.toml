@@ -3,18 +3,18 @@ id = "PLCO_MOTION_SINGLE_AXIS_SURFACE_001"
 title = "PLCopen Motion Phase A publishes the selected single-axis surface"
 area = "plcopen_devtools"
 risk = "wrong_result"
-status = "gap_open"
+status = "specified"
 owner = "trust-runtime"
 last_reviewed = "2026-07-26"
 claim = "The Phase A package publishes its supported axis handle, enums, constants, and classic command, motion, administrative, and parameter FB signatures."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["libraries/plcopen_motion/single_axis_core/src"]
-tests = []
+tests = ["TEST_AUTO_0E3779AB9BF08FFFF3D0", "TEST_AUTO_19E87247417B85193F74", "TEST_AUTO_1A8EDE0EA215A7A6E8AE", "TEST_AUTO_5114A7582A357DA76CD7", "TEST_AUTO_5F524D693DA68977C204", "TEST_AUTO_701897B8679138A4D7E5", "TEST_AUTO_74B6CD51B9D679A9EC81", "TEST_AUTO_7C6E5EAD412F880FA7A8", "TEST_AUTO_AB6C7653376755D50F68", "TEST_AUTO_B3E4695231E3FBFE69DC", "TEST_AUTO_C4CB455123D877A5A038", "TEST_AUTO_EE4638ED07D6E87C55CD"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+missing = ["assertion_reachability", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -134,5 +134,5 @@ rationale = "MC_Constants publishes the stable truST motion error namespace."
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "The exact frozen Phase A surface tests await catalog acceptance."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in PLCO_MOTION_SINGLE_AXIS_SURFACE_001; dynamic proof and broad remote validation remain explicit debt."

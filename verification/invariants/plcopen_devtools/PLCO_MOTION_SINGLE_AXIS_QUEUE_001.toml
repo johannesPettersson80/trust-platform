@@ -3,18 +3,18 @@ id = "PLCO_MOTION_SINGLE_AXIS_QUEUE_001"
 title = "PLCopen Motion Phase A queues, promotes, aborts, and flushes deterministically"
 area = "plcopen_devtools"
 risk = "wrong_result"
-status = "gap_open"
+status = "specified"
 owner = "trust-runtime"
 last_reviewed = "2026-07-26"
 claim = "One active command and two buffered slots preserve FIFO ownership, fail closed on overflow or unsupported blending, and expose deterministic abort and fault cleanup."
 proof_level = "S0"
 contract_kind = "state_machine"
 source_refs = ["libraries/plcopen_motion/single_axis_core/src"]
-tests = []
+tests = ["TEST_AUTO_4CCCDEB5FA8584377F51", "TEST_AUTO_52A80BCD49F3C1847B01", "TEST_AUTO_5DF00898127CB8AB178F", "TEST_AUTO_6F92A39D9A99760BACBF", "TEST_AUTO_B36FA3D4E189B57BF8E5", "TEST_AUTO_C4454E17A90BBBE1C607", "TEST_AUTO_D2D27C18BFA8A70AC7E4", "TEST_AUTO_DE7941EA23FB8E9BFE1E"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+missing = ["assertion_reachability", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -98,20 +98,20 @@ rationale = "MoveVelocity participates in immediate abort and buffered FIFO owne
 
 [[coverage.cells]]
 dimension = "resource_limit"
-state = "gap_open"
-rationale = "The two-slot capacity and overflow test awaits catalog acceptance."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every resource_limit behavior in PLCO_MOTION_SINGLE_AXIS_QUEUE_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "hardware_or_network_fault"
-state = "gap_open"
-rationale = "The active and buffered fault-cleanup tests await catalog acceptance."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every hardware_or_network_fault behavior in PLCO_MOTION_SINGLE_AXIS_QUEUE_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
-state = "gap_open"
-rationale = "The exact frozen queue ownership and abort tests await catalog acceptance."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in PLCO_MOTION_SINGLE_AXIS_QUEUE_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "gap_open"
-rationale = "The documented blending-rejection matrix test awaits catalog acceptance."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every wrong_type_or_shape behavior in PLCO_MOTION_SINGLE_AXIS_QUEUE_001; dynamic proof and broad remote validation remain explicit debt."

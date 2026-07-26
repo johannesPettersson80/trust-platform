@@ -40276,3 +40276,1652 @@ mapping_assertion_review_digest = "sha256:f8e6aa086a859c03298b95df21dd10561f616c
 mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:8e9e3a40864353b70af5aee94d01fa24b91dd1271038f6363948232fa5b087b1", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:98f1d137b85c314dbe65b384c8e3d2de2723a0c96d5859839a3ddf60a8d37bc4", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
 mapping_behavior_refs = ["IEC_HIR_DIAGNOSTIC_CASCADE_001#behavior:0"]
 mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf", "codex-scout-parser-batch"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_0B84404FD879231032CC"
+subject_kind = "generated_test"
+discovery_id = "DISC_0B84404FD879231032CC"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_read_motion_state_source_and_flags"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_read_motion_state_source_and_flags --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_READBACK_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#11-output-semantics"
+expected_result = "MC_ReadMotionState selects commanded, set, or actual velocity and derives exclusive direction flags."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_0B84404FD879231032CC.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_0B84404FD879231032CC_E1A316051C2F"
+mapping_proposal_digest = "sha256:e1a316051c2f7d6d793927601a41f26b34577c5f03f498532de0f286494d1101"
+mapping_decision_id = "MAP_DEC_1190B2A620A87EB7F4855873"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:558c3931a28a2c7aca72ee6e5ade517cbfc157ae3bd46be46b5c4b2134c73b73"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_READBACK_001#behavior:0"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_0E3779AB9BF08FFFF3D0"
+subject_kind = "generated_test"
+discovery_id = "DISC_0E3779AB9BF08FFFF3D0"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_administrative_readback_fbs_resolve"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_administrative_readback_fbs_resolve --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_SURFACE_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#19-public-fb-profiles"
+expected_result = "Status, state, actual-value, override, and reset surfaces resolve."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_0E3779AB9BF08FFFF3D0.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_0E3779AB9BF08FFFF3D0_F0CD836BDBDB"
+mapping_proposal_digest = "sha256:f0cd836bdbdb26a6b1eee32d6635f519110902eda2d2d2ed1c28d44df0283e3c"
+mapping_decision_id = "MAP_DEC_88D7093575D56D701F6DA706"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:be2616d643e46d6eaa1dad6eee8883aa89b1735b739cf236069243614d70c4ba"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_SURFACE_001#behavior:8"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_19E87247417B85193F74"
+subject_kind = "generated_test"
+discovery_id = "DISC_19E87247417B85193F74"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_axis_ref_fields_resolve"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_axis_ref_fields_resolve --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_SURFACE_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#19-public-fb-profiles"
+expected_result = "AxisId and InternalIndex are supported vendor binding fields before FB use."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_19E87247417B85193F74.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_19E87247417B85193F74_A2CF43062270"
+mapping_proposal_digest = "sha256:a2cf43062270f5177b363c697d10ee6c341f3b3dbd8f2248288417a9434e2031"
+mapping_decision_id = "MAP_DEC_C58FBCA03491AEFFFFDB0C3E"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:3ff6e621c7a8aacbdc02ce9ff117c5ca95d0aab366c0ebf2e5524c599908e47e"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_SURFACE_001#behavior:0"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_1A8EDE0EA215A7A6E8AE"
+subject_kind = "generated_test"
+discovery_id = "DISC_1A8EDE0EA215A7A6E8AE"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_buffer_mode_literals_resolve"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_buffer_mode_literals_resolve --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_SURFACE_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#19-public-fb-profiles"
+expected_result = "The complete standard MC_BUFFER_MODE enum surface resolves."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_1A8EDE0EA215A7A6E8AE.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_1A8EDE0EA215A7A6E8AE_93221BD5C407"
+mapping_proposal_digest = "sha256:93221bd5c40780028abb1d7bb81bdff3155e0a8abe9f24d65a724eee14b415f6"
+mapping_decision_id = "MAP_DEC_4705AF83F9AD5683A26FCC11"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:9e2f2b8afa3634fb1de739575ae9a32f3578c5dcea4750045bb681a1101f1cd9"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_SURFACE_001#behavior:1"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_217BC237A6362811819A"
+subject_kind = "generated_test"
+discovery_id = "DISC_217BC237A6362811819A"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_read_axis_info_and_axis_error"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_read_axis_info_and_axis_error --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_READBACK_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#11-output-semantics"
+expected_result = "Axis information and axis error are distinct readback planes."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_217BC237A6362811819A.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_217BC237A6362811819A_104B49DC2D67"
+mapping_proposal_digest = "sha256:104b49dc2d67d54d7618858601dd3e9a565564f461e58844e2bc55a1f1ccd0f0"
+mapping_decision_id = "MAP_DEC_ADCFEAAEF5D078C4D75A694B"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:87af83093e6daa26302d72ec34d0988427cf58c71d8adab4abcf58182bd1d79f"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_READBACK_001#behavior:1"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_26506956BA6A5C2DD450"
+subject_kind = "generated_test"
+discovery_id = "DISC_26506956BA6A5C2DD450"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_move_relative_continuous_update_uses_command_start_reference"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_move_relative_continuous_update_uses_command_start_reference --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_EXECUTION_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#10-execution-semantics"
+expected_result = "Relative ContinuousUpdate keeps the original command-start reference."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_26506956BA6A5C2DD450.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_26506956BA6A5C2DD450_39C64C7A5FB9"
+mapping_proposal_digest = "sha256:39c64c7a5fb9193d6d1eef4ea6ce474a2fe67ba76f1483ba097e11b6cb8bcfb4"
+mapping_decision_id = "MAP_DEC_55630F06D4399DDB6684D1B8"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:d90692c2e6e27e66698eb676c6a7904507d03729a0c5c282a8ec1c9acb12609f"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_EXECUTION_001#behavior:5"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_2D91146D7B8C1DFE6786"
+subject_kind = "generated_test"
+discovery_id = "DISC_2D91146D7B8C1DFE6786"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_home_backend_fault_enters_errorstop"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_home_backend_fault_enters_errorstop --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_STATE_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#13-axis-state-model"
+expected_result = "After home has been accepted and entered Homing, a backend fault exposes the stable axis error, flushes work, and enters ErrorStop."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_2D91146D7B8C1DFE6786.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_2D91146D7B8C1DFE6786_996D9F915289"
+mapping_proposal_digest = "sha256:996d9f915289150e432e684b3d1d5ca18340a52872ea97cfcfb3299bd9447021"
+mapping_decision_id = "MAP_DEC_D4505E8358962C46BF0C38C8"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:a16150b021c20fb85b1d2620528acff3d1fd5a2810c6e2abe296f206c57f7499"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_STATE_001#behavior:4"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_3BB5A966082B336822FB"
+subject_kind = "generated_test"
+discovery_id = "DISC_3BB5A966082B336822FB"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_actual_value_readbacks_follow_seeded_values"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_actual_value_readbacks_follow_seeded_values --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_READBACK_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#11-output-semantics"
+expected_result = "Actual-value FBs return the selected slot's current position, velocity, and torque."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_3BB5A966082B336822FB.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_3BB5A966082B336822FB_71CE22AED047"
+mapping_proposal_digest = "sha256:71ce22aed04785291a71e036946db81582cd05e13e9ebb41f66ccef479625f32"
+mapping_decision_id = "MAP_DEC_4C25662DC245DAC000465CF8"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:30630cb6ff348c5b11ae1d98de19ec4b06bf446fdd6bafef82165797814081bf"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_READBACK_001#behavior:2"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_4CCCDEB5FA8584377F51"
+subject_kind = "generated_test"
+discovery_id = "DISC_4CCCDEB5FA8584377F51"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_buffered_queued_updates_are_ignored_until_new_execute"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_buffered_queued_updates_are_ignored_until_new_execute --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_QUEUE_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#16-buffering-and-command-queue-semantics"
+expected_result = "ContinuousUpdate cannot rewrite the captured inputs of a command that is still queued."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_4CCCDEB5FA8584377F51.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_4CCCDEB5FA8584377F51_8FBE5A2D2823"
+mapping_proposal_digest = "sha256:8fbe5a2d28235740d8b828e14a6663ba12f86b2dda948ff1797bc61249bb0853"
+mapping_decision_id = "MAP_DEC_9FDAACDA8F27A3E6C5BC148F"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:34992f4b35eca8417fe6e1cf00242366ba9982fda0f9b8428d80d39db9595053"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_QUEUE_001#behavior:3"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_4D61628552F9B9D9FA31"
+subject_kind = "generated_test"
+discovery_id = "DISC_4D61628552F9B9D9FA31"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_end_to_end_conformance_scenario"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_end_to_end_conformance_scenario --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_STATE_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#13-axis-state-model"
+expected_result = "The complete Phase A scenario composes power, limits, motion, halt, stop, fault, and reset without state leakage."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_4D61628552F9B9D9FA31.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_4D61628552F9B9D9FA31_A07930A221CE"
+mapping_proposal_digest = "sha256:a07930a221ce983575e5e21adeff426f2807c4ad33f76b5f281afc5d4805e2a3"
+mapping_decision_id = "MAP_DEC_9186B0F4D67A28DCE3BEB5CA"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:6ddc453239259bcddc84c24fcc808f6afff6869355193e54c6c068a2e0e98f3e"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_STATE_001#behavior:8"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_5114A7582A357DA76CD7"
+subject_kind = "generated_test"
+discovery_id = "DISC_5114A7582A357DA76CD7"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_parameter_fbs_resolve"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_parameter_fbs_resolve --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_SURFACE_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#19-public-fb-profiles"
+expected_result = "Numeric and BOOL parameter read/write FB signatures resolve."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_5114A7582A357DA76CD7.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_5114A7582A357DA76CD7_1F414A7D8CC6"
+mapping_proposal_digest = "sha256:1f414a7d8cc664268e9a1e93103385b9168db8b7ca1ee67636e729a260d6d5a5"
+mapping_decision_id = "MAP_DEC_B96D021C61AE2226AD408B73"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:15f3ff98aa830a27209f63abc82afda06edb1a57d64570d961cab4b8a63e2fc4"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_SURFACE_001#behavior:9"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_52A80BCD49F3C1847B01"
+subject_kind = "generated_test"
+discovery_id = "DISC_52A80BCD49F3C1847B01"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_move_velocity_participates_in_abort_and_buffer_queue"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_move_velocity_participates_in_abort_and_buffer_queue --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_QUEUE_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#16-buffering-and-command-queue-semantics"
+expected_result = "MoveVelocity participates in immediate abort and buffered FIFO ownership."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_52A80BCD49F3C1847B01.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_52A80BCD49F3C1847B01_FB6018A47D75"
+mapping_proposal_digest = "sha256:fb6018a47d75d256dfe43d4d4261b9a1d368947f1b0b9c806c3568f71b9f9a97"
+mapping_decision_id = "MAP_DEC_93400989C40E1B2EC41ED691"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:64cbc027857cdcd93dc66ce61ab372c18357b591f57379e373ebe0856ef277e4"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_QUEUE_001#behavior:7"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_5DF00898127CB8AB178F"
+subject_kind = "generated_test"
+discovery_id = "DISC_5DF00898127CB8AB178F"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_buffer_mode_support_rules_by_fb_family"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_buffer_mode_support_rules_by_fb_family --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_QUEUE_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#16-buffering-and-command-queue-semantics"
+expected_result = "Phase A supports mcAborting and mcBuffered and rejects every mcBlending mode before admission."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_5DF00898127CB8AB178F.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_5DF00898127CB8AB178F_50648F6E5E3B"
+mapping_proposal_digest = "sha256:50648f6e5e3b3e61d5686956c6ce67bd12697021e1a8bdb55939310637b1f0c5"
+mapping_decision_id = "MAP_DEC_79F20557F6302C9AA456FDBF"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:9301019e82bff877343e06b092e05eef776da5475d88c10c8c6038323d807e4e"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_QUEUE_001#behavior:4"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_5F524D693DA68977C204"
+subject_kind = "generated_test"
+discovery_id = "DISC_5F524D693DA68977C204"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_direction_literals_resolve"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_direction_literals_resolve --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_SURFACE_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#19-public-fb-profiles"
+expected_result = "The selected MC_DIRECTION literals resolve distinctly."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_5F524D693DA68977C204.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_5F524D693DA68977C204_94AF528BC291"
+mapping_proposal_digest = "sha256:94af528bc291cd118e53949a9e5e0b7409ee93cde25fc41d5bd222120490e775"
+mapping_decision_id = "MAP_DEC_661E5BA6C82CABFDA39ECE96"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:0297dee1165e708289f18a779477ab5c739c2035ccde5c685b7c2a235c78c5ac"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_SURFACE_001#behavior:2"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_6746AE13B165243A8AF1"
+subject_kind = "generated_test"
+discovery_id = "DISC_6746AE13B165243A8AF1"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_sign_rules_for_motion_inputs"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_sign_rules_for_motion_inputs --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_EXECUTION_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#10-execution-semantics"
+expected_result = "Signed position, distance, and velocity inputs are accepted where defined while negative dynamics fail."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_6746AE13B165243A8AF1.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_6746AE13B165243A8AF1_DA1C9FE5A4C2"
+mapping_proposal_digest = "sha256:da1c9fe5a4c21578238286f6d5a2f0985f15ef6e2f3ee3f03b534a4ae2cd9762"
+mapping_decision_id = "MAP_DEC_39FF71559F605BD9EBA592B7"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:61e9e523304150f86d2f68de8efbc274477373e4576d6e915593007eaf4d9beb"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_6F92A39D9A99760BACBF"
+subject_kind = "generated_test"
+discovery_id = "DISC_6F92A39D9A99760BACBF"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_buffered_activation_and_fifo_queue"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_buffered_activation_and_fifo_queue --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_QUEUE_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#16-buffering-and-command-queue-semantics"
+expected_result = "Two buffered slots preserve FIFO order and a third request fails with mcERR_QueueFull."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_6F92A39D9A99760BACBF.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_6F92A39D9A99760BACBF_3982BE537690"
+mapping_proposal_digest = "sha256:3982be5376908e0919c1c971185c68ba92c0d796876c9c991170a0d8635211c0"
+mapping_decision_id = "MAP_DEC_5DB25E5A07C96A01BBDCBEE5"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:8c677afc486af9caafb225c9b9a1d48a36aa68f421d5695cbf4629d94e6b032b"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_QUEUE_001#behavior:0"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_701897B8679138A4D7E5"
+subject_kind = "generated_test"
+discovery_id = "DISC_701897B8679138A4D7E5"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_core_command_fbs_resolve"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_core_command_fbs_resolve --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_SURFACE_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#19-public-fb-profiles"
+expected_result = "Power, home, stop, halt, and reset FB signatures resolve with their selected outputs."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_701897B8679138A4D7E5.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_701897B8679138A4D7E5_FD8CFB1F5D3D"
+mapping_proposal_digest = "sha256:fd8cfb1f5d3d6a882322964dd291ff03dc7725cd30fca814b32577465cebe6e9"
+mapping_decision_id = "MAP_DEC_5473EB9138AB438FE98EDF6E"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:c770962b4ae948153ede613c9af498d1ac02b99c9a2b27238fa5ba4eec117155"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_SURFACE_001#behavior:6"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_74B6CD51B9D679A9EC81"
+subject_kind = "generated_test"
+discovery_id = "DISC_74B6CD51B9D679A9EC81"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_motion_fbs_resolve"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_motion_fbs_resolve --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_SURFACE_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#19-public-fb-profiles"
+expected_result = "Absolute, relative, additive, velocity, and continuous motion FB signatures resolve."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_74B6CD51B9D679A9EC81.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_74B6CD51B9D679A9EC81_46EC424B53A5"
+mapping_proposal_digest = "sha256:46ec424b53a5897fe66ce5e77f38568504aaf5a2dee335a02d6d3e8b936bd810"
+mapping_decision_id = "MAP_DEC_ED94B1C5C0E14E902BABB0C9"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:1c8d73f01631661d65241da1cde278a3827aab840f4a07a40dcd235e52b4f6a4"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_SURFACE_001#behavior:7"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_7BBC6F59F62478AC8BA5"
+subject_kind = "generated_test"
+discovery_id = "DISC_7BBC6F59F62478AC8BA5"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_move_velocity_direction_and_state"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_move_velocity_direction_and_state --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_STATE_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#13-axis-state-model"
+expected_result = "Velocity commands select direction and ContinuousMotion state consistently."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_7BBC6F59F62478AC8BA5.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_7BBC6F59F62478AC8BA5_68B434016462"
+mapping_proposal_digest = "sha256:68b4340164629ef5e5387f55c69e02255aa52bfc1ef04576457fa1cbc5997ff3"
+mapping_decision_id = "MAP_DEC_5DA765E58D779CD263BD9945"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:831e3cfadfc3df1f3158b6abea1658e820ba17f83d7b4796a59794026352e16a"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_STATE_001#behavior:5"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_7C6E5EAD412F880FA7A8"
+subject_kind = "generated_test"
+discovery_id = "DISC_7C6E5EAD412F880FA7A8"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_parameter_number_constants_resolve"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_parameter_number_constants_resolve --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_SURFACE_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#19-public-fb-profiles"
+expected_result = "MC_Constants publishes the standard Part 1 parameter values and PN_TRUST_VendorBool0."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_7C6E5EAD412F880FA7A8.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_7C6E5EAD412F880FA7A8_B60242A218D1"
+mapping_proposal_digest = "sha256:b60242a218d1b89f5b7930f08a2cb923320ef47b91d84e3a58e0633f55b61acf"
+mapping_decision_id = "MAP_DEC_F564633F53CD0D0E2872C0D3"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:3841664941638663343bd5adb0cfd37ac75cd6861bfd55b4c3abc13f3c5b68aa"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_SURFACE_001#behavior:10"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_8F5D2471DE1C136226B1"
+subject_kind = "generated_test"
+discovery_id = "DISC_8F5D2471DE1C136226B1"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_queued_parameter_writes_follow_motion_queue_order"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_queued_parameter_writes_follow_motion_queue_order --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_PARAMETER_PLANE_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#8-public-enums-and-canonical-data-types"
+expected_result = "Queued numeric and BOOL writes share the axis FIFO and apply only after earlier work."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_8F5D2471DE1C136226B1.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_8F5D2471DE1C136226B1_32193DD61571"
+mapping_proposal_digest = "sha256:32193dd615718bc65701c662b2875dc8d2364f74ba50183958c5b1fa18a3b3c2"
+mapping_decision_id = "MAP_DEC_60ED0C34A2D2C63328F9BC82"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:4eb02c4353e6a740694393e1b13e8b1ab0d6fd68f2d65b5f7d893316ea91d84a"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_PARAMETER_PLANE_001#behavior:5"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_9A22078FFE3F42C6CF75"
+subject_kind = "generated_test"
+discovery_id = "DISC_9A22078FFE3F42C6CF75"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_read_status_and_reset_state_paths"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_read_status_and_reset_state_paths --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_STATE_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#13-axis-state-model"
+expected_result = "Stop hold and powered, unpowered, and no-op reset paths preserve the selected state machine."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_9A22078FFE3F42C6CF75.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_9A22078FFE3F42C6CF75_95BF8361E455"
+mapping_proposal_digest = "sha256:95bf8361e45599f7bf0d0670e3224610cfda01de6a45856f8d6b92160304426f"
+mapping_decision_id = "MAP_DEC_A4776D7979DF47BE3CAFF96F"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:5d9e521a35b8e92725263de38718bbc630eed3ed06fb252f1a6266ca210b7a4f"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_STATE_001#behavior:1"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_A5E1F0D51EB269BCB991"
+subject_kind = "generated_test"
+discovery_id = "DISC_A5E1F0D51EB269BCB991"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_move_absolute_final_position_semantics"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_move_absolute_final_position_semantics --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_EXECUTION_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#10-execution-semantics"
+expected_result = "The deterministic kernel applies the accepted absolute target on simulated completion."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_A5E1F0D51EB269BCB991.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_A5E1F0D51EB269BCB991_634A04ED0AC5"
+mapping_proposal_digest = "sha256:634a04ed0ac5e53ca143ba8604ed9fe0d3750cfcb4b06b4fc4d26f911ed5f879"
+mapping_decision_id = "MAP_DEC_A7EDD09430401880E78A8A30"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:e1c3704cd5386528ab5556fbc49a7a21e58a3882173cd94a668f1cb5132c8ab6"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_EXECUTION_001#behavior:7"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_A6B1E44DB2C9E0375D16"
+subject_kind = "generated_test"
+discovery_id = "DISC_A6B1E44DB2C9E0375D16"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_bool_parameter_roundtrip"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_bool_parameter_roundtrip --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_PARAMETER_PLANE_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#8-public-enums-and-canonical-data-types"
+expected_result = "Standard BOOL parameters and PN_TRUST_VendorBool0 retain immediate and queued writes."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_A6B1E44DB2C9E0375D16.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_A6B1E44DB2C9E0375D16_EE1F8FD3BA05"
+mapping_proposal_digest = "sha256:ee1f8fd3ba058b20fe70e7ff55968447d646f4d777e10b362ea2a5a660ccb63b"
+mapping_decision_id = "MAP_DEC_5E06D7730C7CDF72EE5C9725"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:3dfdc9271afebcb1ce9b3c5f66da169d43c570c616af687645a026409c5cc727"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_PARAMETER_PLANE_001#behavior:3"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_A8A74B3AAC5976147216"
+subject_kind = "generated_test"
+discovery_id = "DISC_A8A74B3AAC5976147216"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_software_limits_clamp_position_target_commands"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_software_limits_clamp_position_target_commands --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_PROFILE_CHOICES_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#9-units-and-scaling"
+expected_result = "Enabled positive and negative software limits clamp accepted position targets; disabled limits do not."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_A8A74B3AAC5976147216.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_A8A74B3AAC5976147216_2E047E445E49"
+mapping_proposal_digest = "sha256:2e047e445e49e4ec09f94a21de922a4eb5828244aa847905894fe2012d1daec8"
+mapping_decision_id = "MAP_DEC_BD47CFFCB287CE8F94D245F0"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:7ca610a050cd8f94d6aef71bd154d50fd6c14f199ea023e794055b24e34d3956"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_PROFILE_CHOICES_001#behavior:1"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_A948EFE3FEB92F48BCD6"
+subject_kind = "generated_test"
+discovery_id = "DISC_A948EFE3FEB92F48BCD6"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_grouped_axis_motion_rejection_and_readonly_allowance"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_grouped_axis_motion_rejection_and_readonly_allowance --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_STATE_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#13-axis-state-model"
+expected_result = "Grouped axes reject single-axis motion with mcERR_AxisGrouped while readback remains available."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_A948EFE3FEB92F48BCD6.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_A948EFE3FEB92F48BCD6_FB18C49EF7B2"
+mapping_proposal_digest = "sha256:fb18c49ef7b296a6cd830ddb6c1c407f6294b278052cfabf0cf54937d60a2010"
+mapping_decision_id = "MAP_DEC_B21B665D69081E22A0627D94"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:3a8934ccd768ce014418a3c5e2db9a6df5e7dbcc52939ccdafbffc67b82178e3"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_STATE_001#behavior:3"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_AB6C7653376755D50F68"
+subject_kind = "generated_test"
+discovery_id = "DISC_AB6C7653376755D50F68"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_source_literals_resolve"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_source_literals_resolve --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_SURFACE_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#19-public-fb-profiles"
+expected_result = "Commanded, set, and actual source literals resolve distinctly."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_AB6C7653376755D50F68.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_AB6C7653376755D50F68_713F7CD8FE80"
+mapping_proposal_digest = "sha256:713f7cd8fe80b9c48efb91e84a4391fd15a8c96366bd3cf5a46e5384002b3fe7"
+mapping_decision_id = "MAP_DEC_9298B8A516C273B5DE1570F5"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:82303e2012605cf4dc6256b18dc7e1f35ddc11e4f9279b4c0ef1ac773c7567d9"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_SURFACE_001#behavior:4"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_B36FA3D4E189B57BF8E5"
+subject_kind = "generated_test"
+discovery_id = "DISC_B36FA3D4E189B57BF8E5"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_buffered_commands_report_error_after_active_fault"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_buffered_commands_report_error_after_active_fault --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_QUEUE_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#16-buffering-and-command-queue-semantics"
+expected_result = "Buffered owners retain and expose Error with the stable axis fault code, not CommandAborted, after an earlier active fault flushes the queue, even if MC_Reset clears the live axis fault first."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_B36FA3D4E189B57BF8E5.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_B36FA3D4E189B57BF8E5_6BA28A7B2B90"
+mapping_proposal_digest = "sha256:6ba28a7b2b901fc067e5178150a67ef4662d1aadacaa0d0be7a8ef0db4f89bfa"
+mapping_decision_id = "MAP_DEC_D9A665EF8A450A62B0B40685"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:2cca557acf35839da85e20d4c1eda2f80e746401d6168dfb9af7302907724697"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_QUEUE_001#behavior:2"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_B3E4695231E3FBFE69DC"
+subject_kind = "generated_test"
+discovery_id = "DISC_B3E4695231E3FBFE69DC"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_execution_mode_literals_resolve"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_execution_mode_literals_resolve --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_SURFACE_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#19-public-fb-profiles"
+expected_result = "The selected MC_EXECUTION_MODE literals resolve distinctly."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_B3E4695231E3FBFE69DC.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_B3E4695231E3FBFE69DC_1AF2D93CC96D"
+mapping_proposal_digest = "sha256:1af2d93cc96dcfcf2c2e138d8b3536790ee5170fd183b338fb3ad1547112edb5"
+mapping_decision_id = "MAP_DEC_5DD483549344085C042A20EF"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:2824056f751c5b60320d871831a0fe3e9cd8394441f4316da6ca976371b02a87"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_SURFACE_001#behavior:3"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_B4F8882DBD25B293A821"
+subject_kind = "generated_test"
+discovery_id = "DISC_B4F8882DBD25B293A821"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_zero_dynamics_use_configured_axis_maxima"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_zero_dynamics_use_configured_axis_maxima --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_EXECUTION_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#10-execution-semantics"
+expected_result = "Zero acceleration, deceleration, and jerk resolve to configured application maxima."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_B4F8882DBD25B293A821.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_B4F8882DBD25B293A821_3BB177093D3B"
+mapping_proposal_digest = "sha256:3bb177093d3b7a14387f6662e220bfbdfee8dfbc14e7e3dcc113e79835d11f51"
+mapping_decision_id = "MAP_DEC_BAA382CCEC66ACDBFBC7F416"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:ca31570d313fadacd195ce946daa4cd580448d1879baecc685ee93ea888869f5"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_EXECUTION_001#behavior:4"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_BA399D90E1A53BEC70E5"
+subject_kind = "generated_test"
+discovery_id = "DISC_BA399D90E1A53BEC70E5"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_home_halt_stop_and_continuous_end_velocity_behaviors"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_home_halt_stop_and_continuous_end_velocity_behaviors --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_STATE_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#13-axis-state-model"
+expected_result = "Home, halt, stop, and continuous commands expose their documented state and terminal outputs."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_BA399D90E1A53BEC70E5.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_BA399D90E1A53BEC70E5_BACB9229893A"
+mapping_proposal_digest = "sha256:bacb9229893aeb542c98ed6fed8351fa0b224f7b888b60661e941e194140b12b"
+mapping_decision_id = "MAP_DEC_886BC9C73E0821BC8A456851"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:640720a5876064015aa1f73a2585349c1f954c14fdb62a4d37da16208a77e11c"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_STATE_001#behavior:6"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_BE9612BC1CA820BEA06F"
+subject_kind = "generated_test"
+discovery_id = "DISC_BE9612BC1CA820BEA06F"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_set_override_validates_factors_and_vel_zero_behavior"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_set_override_validates_factors_and_vel_zero_behavior --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_PROFILE_CHOICES_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#9-units-and-scaling"
+expected_result = "This composite boundary scenario moves a ContinuousMotion axis to Stopping for a zero velocity factor and separately rejects invalid factors with stable errors."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_BE9612BC1CA820BEA06F.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_BE9612BC1CA820BEA06F_6B2457B74B1F"
+mapping_proposal_digest = "sha256:6b2457b74b1fff1004a7b3a69de53fb5a11d95457c52f38f381e4cd34e687e17"
+mapping_decision_id = "MAP_DEC_24A12CB9D96AB44791D51FDC"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:d86da62cb773bba3e8577464d0007e3986849ff6de955b3bf775b5cee08d1a07"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_PROFILE_CHOICES_001#behavior:0"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_C08DC15CE5C5CF7C173D"
+subject_kind = "generated_test"
+discovery_id = "DISC_C08DC15CE5C5CF7C173D"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_missing_inputs_reuse_previous_invocation_values"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_missing_inputs_reuse_previous_invocation_values --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_EXECUTION_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#10-execution-semantics"
+expected_result = "An omitted input reuses the instance's previous value or its first-call initial value."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_C08DC15CE5C5CF7C173D.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_C08DC15CE5C5CF7C173D_414C81DB8844"
+mapping_proposal_digest = "sha256:414c81db8844866a96a8487e0110bef8990ef3e540c89dc60ac5bd7e0a0bba23"
+mapping_decision_id = "MAP_DEC_9B501B05EDC998A17FD1EDDA"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:f6504b022baec5d4e8f6cde87a46d16b9f20ab3d34356b1ce0efb4662ad97d77"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_EXECUTION_001#behavior:1"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_C4454E17A90BBBE1C607"
+subject_kind = "generated_test"
+discovery_id = "DISC_C4454E17A90BBBE1C607"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_continuous_commandaborted_resets_in_end_velocity"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_continuous_commandaborted_resets_in_end_velocity --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_QUEUE_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#16-buffering-and-command-queue-semantics"
+expected_result = "Aborting a continuous owner sets CommandAborted and resets InEndVelocity, Busy, and Active consistently."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_C4454E17A90BBBE1C607.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_C4454E17A90BBBE1C607_E1936554289D"
+mapping_proposal_digest = "sha256:e1936554289da54b8ace113b540ced0b979270d53838d5c33b83e9071af3fbae"
+mapping_decision_id = "MAP_DEC_9252E0F022F8BF7D50ABDB31"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:5e352bb370f4bd39f13627594fdf04b7e47bce06987fbe9070d2063cbb6567db"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_QUEUE_001#behavior:5"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_C48C8C54CA91253D82E5"
+subject_kind = "generated_test"
+discovery_id = "DISC_C48C8C54CA91253D82E5"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_mc_power_status_tracks_stage_not_enable"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_mc_power_status_tracks_stage_not_enable --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_STATE_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#13-axis-state-model"
+expected_result = "MC_Power.Status follows effective stage state independently from Enable-edge output reset."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_C48C8C54CA91253D82E5.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_C48C8C54CA91253D82E5_CD92F330DD54"
+mapping_proposal_digest = "sha256:cd92f330dd540585b4a9f898762fc6920291f97025a3be5a6c9116a08219a8e2"
+mapping_decision_id = "MAP_DEC_D013A473D2AE9ABE8670C439"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:661c8ab4fec540b7a08bd57318bade44c62b82ec05eed3ab86fd44fa5178390a"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_STATE_001#behavior:0"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_C4CB455123D877A5A038"
+subject_kind = "generated_test"
+discovery_id = "DISC_C4CB455123D877A5A038"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_error_constants_resolve"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_error_constants_resolve --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_SURFACE_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#19-public-fb-profiles"
+expected_result = "MC_Constants publishes the stable truST motion error namespace."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_C4CB455123D877A5A038.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_C4CB455123D877A5A038_603063EBF8EE"
+mapping_proposal_digest = "sha256:603063ebf8eea4e1b3d64a0b5d34eb2e109acac89126d608ea05e9c1e298b3a8"
+mapping_decision_id = "MAP_DEC_8C9287D1B2E22E082FCF59FB"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:56459af3e40bca608f62ac4ed7a8ca584fa8bb7b8d7815e9c065a396f16e69ff"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_SURFACE_001#behavior:11"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_C68BFCBDBFD459D1C49E"
+subject_kind = "generated_test"
+discovery_id = "DISC_C68BFCBDBFD459D1C49E"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_enable_style_valid_error_exclusivity"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_enable_style_valid_error_exclusivity --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_READBACK_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#11-output-semantics"
+expected_result = "Enable-style readback exposes Valid or Error, never both."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_C68BFCBDBFD459D1C49E.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_C68BFCBDBFD459D1C49E_202C64DAC3DC"
+mapping_proposal_digest = "sha256:202c64dac3dc838bbc745af423fdeeb4b2aa55cf67df862ec73343240ed00cc1"
+mapping_decision_id = "MAP_DEC_7AB584D5734805076358338A"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:931ed2834dc192083edf4bcc512dd929702fbf951e4b047e887599c0f7199691"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_READBACK_001#behavior:3"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_CCC9A9488C1BB3CD78B2"
+subject_kind = "generated_test"
+discovery_id = "DISC_CCC9A9488C1BB3CD78B2"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_numeric_parameter_dynamics_roundtrip"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_numeric_parameter_dynamics_roundtrip --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_PARAMETER_PLANE_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#8-public-enums-and-canonical-data-types"
+expected_result = "Initialization-only system values and writable application maxima round-trip through the numeric plane."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_CCC9A9488C1BB3CD78B2.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_CCC9A9488C1BB3CD78B2_A516824A2248"
+mapping_proposal_digest = "sha256:a516824a2248f098db129c319bc245acdcaa945c99ad49f5624dd9119670a1d4"
+mapping_decision_id = "MAP_DEC_D21793ED6D414CC9B16480F8"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:e157c109e6686e95a55fa3ab5c5dae8c46196c7eb59175ad737f78761d9d9b6c"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_PARAMETER_PLANE_001#behavior:2"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_CCEA4C9F475B0C110A96"
+subject_kind = "generated_test"
+discovery_id = "DISC_CCEA4C9F475B0C110A96"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_set_position_updates_actual_and_commanded_values"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_set_position_updates_actual_and_commanded_values --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_PARAMETER_PLANE_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#8-public-enums-and-canonical-data-types"
+expected_result = "Absolute and relative MC_SetPosition update actual, set, and commanded position coherently."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_CCEA4C9F475B0C110A96.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_CCEA4C9F475B0C110A96_4FF178D9933B"
+mapping_proposal_digest = "sha256:4ff178d9933bda6e98bb09acf79a70512d352c6b1a3375527a416acfc7650f3b"
+mapping_decision_id = "MAP_DEC_229F24DA0855CAE01C22D736"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:1723e125d57954aff46b099b226925e60486a921739a4f3b6fd61060d498fac8"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_PARAMETER_PLANE_001#behavior:0"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_D1C0F9925AAEBA3FF48C"
+subject_kind = "generated_test"
+discovery_id = "DISC_D1C0F9925AAEBA3FF48C"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_execute_edge_and_continuous_update_semantics"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_execute_edge_and_continuous_update_semantics --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_EXECUTION_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#10-execution-semantics"
+expected_result = "The rising edge latches inputs and ContinuousUpdate alone changes an active target."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_D1C0F9925AAEBA3FF48C.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_D1C0F9925AAEBA3FF48C_AEB976A91244"
+mapping_proposal_digest = "sha256:aeb976a91244a25866aa35db12459f34960a466c7d62bd6fa5a814250e9e3a71"
+mapping_decision_id = "MAP_DEC_7F4B0876CE1D43EE1C181E2E"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:a60ff30fedde9af521d324090cf1fb1ec715df6070eed4676ad20e3b9d9bc5f5"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_EXECUTION_001#behavior:0"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_D2D27C18BFA8A70AC7E4"
+subject_kind = "generated_test"
+discovery_id = "DISC_D2D27C18BFA8A70AC7E4"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_buffered_home_halt_and_additive_take_ownership_after_active_motion"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_buffered_home_halt_and_additive_take_ownership_after_active_motion --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_QUEUE_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#16-buffering-and-command-queue-semantics"
+expected_result = "Buffered home, halt, and additive commands take ownership in FIFO order."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_D2D27C18BFA8A70AC7E4.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_D2D27C18BFA8A70AC7E4_30D0E6A18F8F"
+mapping_proposal_digest = "sha256:30d0e6a18f8f22abfd396664f64fd85348820db3db061b97c0a568cef62217ab"
+mapping_decision_id = "MAP_DEC_1CCE06B5889CA529A39DD4DF"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:53cf087351c8a4bd4b168e90b74fa7a2c07e7fd413b2342794899578fc98584a"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_QUEUE_001#behavior:6"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_D36125015BFB257EC03F"
+subject_kind = "generated_test"
+discovery_id = "DISC_D36125015BFB257EC03F"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_relative_and_additive_distinction"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_relative_and_additive_distinction --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_EXECUTION_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#10-execution-semantics"
+expected_result = "Relative uses command-start actual position while additive uses current commanded position."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_D36125015BFB257EC03F.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_D36125015BFB257EC03F_4DCA0DE42C2A"
+mapping_proposal_digest = "sha256:4dca0de42c2a9405c3130cd274da875df69166c5d81d0f1b7c220b12b5dd1b02"
+mapping_decision_id = "MAP_DEC_BBF83F7B2F2A66877FEA989B"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:ac3f8f1b3054772f5e94fc1ba2ea4c2b2180604bc3b88fb0e077730467e32250"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_EXECUTION_001#behavior:2"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_D72F60AAC882E0BC8FD8"
+subject_kind = "generated_test"
+discovery_id = "DISC_D72F60AAC882E0BC8FD8"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_administrative_fbs_preserve_state"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_administrative_fbs_preserve_state --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_STATE_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#13-axis-state-model"
+expected_result = "Administrative and readback FBs do not become motion-state owners."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_D72F60AAC882E0BC8FD8.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_D72F60AAC882E0BC8FD8_62E6A79C665E"
+mapping_proposal_digest = "sha256:62e6a79c665ecd509f5351194eaad5cbc9c34d0f3062effd47169eb751b6536c"
+mapping_decision_id = "MAP_DEC_3AFE8348AAFEACFAA3A8B9C1"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:c76ebc9484933dba009a572b411ec01c667ff5b91bf7df4af578a700da2bc2ba"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_STATE_001#behavior:2"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_D77425946527D9920334"
+subject_kind = "generated_test"
+discovery_id = "DISC_D77425946527D9920334"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_parameter_plane_rejections_and_mcDelayed"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_parameter_plane_rejections_and_mcDelayed --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_PARAMETER_PLANE_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#8-public-enums-and-canonical-data-types"
+expected_result = "Wrong parameter plane, nonpositive maxima, post-initialization read-only writes, and mcDelayed fail without mutation."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_D77425946527D9920334.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_D77425946527D9920334_2D0A98E5A38D"
+mapping_proposal_digest = "sha256:2d0a98e5a38dc85b472000fcb88ee8da7d3c2419899dcdad188586472797e616"
+mapping_decision_id = "MAP_DEC_51E70698D74127B98CB3F65F"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:a13fdbaa9126c2714e94ddb139576b0e1d1d1a4ac37e7ddeb0fb46f5b395d4dd"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_PARAMETER_PLANE_001#behavior:4"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_DE7941EA23FB8E9BFE1E"
+subject_kind = "generated_test"
+discovery_id = "DISC_DE7941EA23FB8E9BFE1E"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_active_fault_drives_errorstop_and_clears_queue"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_active_fault_drives_errorstop_and_clears_queue --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_QUEUE_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#16-buffering-and-command-queue-semantics"
+expected_result = "After active and queued commands have been accepted, a backend fault exposes the stable axis error, enters ErrorStop, and clears the active and queued slots."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_DE7941EA23FB8E9BFE1E.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_DE7941EA23FB8E9BFE1E_5D522FEA0DEE"
+mapping_proposal_digest = "sha256:5d522fea0dee179faa68bddee4de6b10d619ad42fcfe12ce15ea512e0d6b44d0"
+mapping_decision_id = "MAP_DEC_1502A9465ACE79194C5606A7"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:32ae145b188bebf5e83f0bbe9608a8a7e5c92d7947d27367a770b0f401824828"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_QUEUE_001#behavior:1"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_DE8C7AADD749CFBC1C51"
+subject_kind = "generated_test"
+discovery_id = "DISC_DE8C7AADD749CFBC1C51"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_numeric_parameter_position_and_limit_roundtrip"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_numeric_parameter_position_and_limit_roundtrip --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_PARAMETER_PLANE_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#8-public-enums-and-canonical-data-types"
+expected_result = "Initialization-only commanded position plus writable limits and lag round-trip through their numeric parameter IDs."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_DE8C7AADD749CFBC1C51.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_DE8C7AADD749CFBC1C51_E3D3CBA248FC"
+mapping_proposal_digest = "sha256:e3d3cba248fc139f3ec5d018dca73bf02237b2be2429453e4137316ad7289dc5"
+mapping_decision_id = "MAP_DEC_46B577C85DFCD66BFA76B887"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:72b8e7419ba77491cc6846975fad739d66637fcaaea5dbd4d79a55da7df93649"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_PARAMETER_PLANE_001#behavior:1"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_E8318B8E5430E79C7F9D"
+subject_kind = "generated_test"
+discovery_id = "DISC_E8318B8E5430E79C7F9D"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_dynamic_max_parameter_rejections"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_dynamic_max_parameter_rejections --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_PARAMETER_PLANE_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#8-public-enums-and-canonical-data-types"
+expected_result = "Application maxima reject zero and negative values with mcERR_InvalidParameter."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_E8318B8E5430E79C7F9D.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_E8318B8E5430E79C7F9D_25DF3CB84946"
+mapping_proposal_digest = "sha256:25df3cb849461cf793df3b664e8ff324867c99cfb22ef65d392834171e990fe8"
+mapping_decision_id = "MAP_DEC_8A44E78AC109872EF90BB66D"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:1ee311241dca162a5ef818c4b07a5d30a14b3e85c4891ce5f22961ff040e2691"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_PARAMETER_PLANE_001#behavior:6"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_EE4638ED07D6E87C55CD"
+subject_kind = "generated_test"
+discovery_id = "DISC_EE4638ED07D6E87C55CD"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_axis_status_literals_resolve"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_axis_status_literals_resolve --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_SURFACE_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#19-public-fb-profiles"
+expected_result = "The documented truST MC_AXIS_STATUS extension publishes each Phase A state."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_EE4638ED07D6E87C55CD.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_EE4638ED07D6E87C55CD_DEDCD3F48200"
+mapping_proposal_digest = "sha256:dedcd3f48200f330e05e2c8585563468e8549ace40570290a07a648e5ffffc65"
+mapping_decision_id = "MAP_DEC_D40030801EDEA05918029D86"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:7bfe34c87ae96efa2d8dbacf8409640a15cc90dd74715eab41b2e72384fcd077"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_SURFACE_001#behavior:5"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_F13AC6997A7FD60EED83"
+subject_kind = "generated_test"
+discovery_id = "DISC_F13AC6997A7FD60EED83"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_continuous_update_changes_target_and_end_velocity"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_continuous_update_changes_target_and_end_velocity --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_EXECUTION_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#10-execution-semantics"
+expected_result = "Continuous position commands update the target and in-end-velocity projection while active."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_F13AC6997A7FD60EED83.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_F13AC6997A7FD60EED83_6CE1D9D3BE19"
+mapping_proposal_digest = "sha256:6ce1d9d3be199d326816bfdad64bbc807d85e43f7ea0f5bb5b9ebeedfac992fe"
+mapping_decision_id = "MAP_DEC_AA6CF81B2AB4BAC080461D24"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:23f68c270a7c0a26e6b82ff6cbdeedf2f98de09bbc6f2bdf2e9a848334f042b1"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_EXECUTION_001#behavior:6"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_FF9F0E89FCE6915EF65F"
+subject_kind = "generated_test"
+discovery_id = "DISC_FF9F0E89FCE6915EF65F"
+discovery_source_kind = "structured_text_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_home_from_nonstandstill_entry_state"
+command = "cargo run -p trust-dev -- test --project crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core --filter plcopen_motion_single_axis_home_from_nonstandstill_entry_state --output json"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PLCO_MOTION_SINGLE_AXIS_STATE_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#13-axis-state-model"
+expected_result = "An aborting home from DiscreteMotion takes ownership, clears queued work, and completes in Standstill."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_FF9F0E89FCE6915EF65F.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_FF9F0E89FCE6915EF65F_36BD4842E1B8"
+mapping_proposal_digest = "sha256:36bd4842e1b81f6a9c4d4e7706635a757def974e6dd4f38c5797830ef1ab5d73"
+mapping_decision_id = "MAP_DEC_822943327526F4A4C3723889"
+mapping_reviewed_source_digest = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642"
+mapping_assertion_review_digest = "sha256:1a086d69f8bb80984b6770cd22722d1df40f2e3dca368555d929a051a61569a8"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st" = "sha256:a688801ae15b30e3b1f12fcf0541d0e40096f996ee800c1927aab9b43912e642" }
+mapping_behavior_refs = ["PLCO_MOTION_SINGLE_AXIS_STATE_001#behavior:7"]
+mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
