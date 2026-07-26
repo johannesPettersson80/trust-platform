@@ -852,12 +852,23 @@ must be writable and compatible with the declared parameter type.
 `VAR_IN_OUT` copy-in and copy-back preserve the same caller target and require
 exact family and bounded-string capacity compatibility. A rejected binding or
 copy-back leaves the caller target and unaffected instance fields unchanged.
+The complete binding set is validated before any copy-in or field mutation, so
+a failure on a later argument also leaves earlier inputs and fields unchanged.
 
 Standard-function fixed and variadic parameters use the same declaration-order,
 duplicate-name, arity, and variadic-hole rules. Native split functions write
-each declared output once and return `NULL`; runtime clock functions accept
-exactly zero arguments. Integer output helpers preserve the target's declared
-integer width and reject a negative value for unsigned storage before writing.
+each declared output once and return `NULL`; `SPLIT_DATE` requires one input and
+three writable outputs, and named split outputs match formal names
+case-insensitively. Runtime clock functions accept exactly zero arguments.
+Integer output helpers preserve the target's declared integer width and reject
+a negative value for unsigned storage before writing.
+
+A native-call symbol descriptor contains the target followed by ordered `E`
+expression and `T` writable-target descriptors, each optionally carrying a
+formal name. Payload decoding preserves descriptor and argument order,
+distinguishes values from writable references, and removes the declared
+receiver separately. An unknown descriptor kind rejects as
+`vm_invalid_native_call`.
 
 #### 7.8 VM Reference Resolution
 

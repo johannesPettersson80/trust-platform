@@ -69,6 +69,15 @@ no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
 rationale = "Runtime clock functions accept zero arguments, split functions write their declared outputs once, and integer outputs preserve target width."
 
+[[behavior]]
+partition = { equals = "NATIVE_CALL_PAYLOAD_ORDER" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#vm-call-binding-and-copy-back"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "Native-call descriptors and payload decoding preserve target, receiver, expression, writable-reference, name, and argument order."
+
 [[coverage.cells]]
 dimension = "happy_path"
 state = "gap_open"

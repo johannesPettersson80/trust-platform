@@ -325,6 +325,9 @@ IEC or PLCopen deviation log merely because truST owns the behavior.
   - Cache policy, allocation reuse, profiling counters, polling stride, and
     diagnostic prose remain implementation details rather than product
     semantics.
+  - An uninitialized interface-typed local or function return slot
+    materializes as `Value::Null`; it does not manufacture an interface
+    instance or a distinct empty-interface value.
 - Supersedes:
   - Any interpretation that treats successful optimized execution as
     sufficient without parity to the stack executor, or treats exact internal
