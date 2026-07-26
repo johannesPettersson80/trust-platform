@@ -34,6 +34,9 @@ from .frozen_rust_nextest_target import (
     no_default_feature_test_names,
     resolve_plan_target_profile,
 )
+from .frozen_runtime_protocol_io_batch import (
+    validate_projection_execution as validate_runtime_projection_execution,
+)
 from .frozen_static_semantic_assignments import (
     assign_behavior_refs,
     assign_behaviors,
@@ -118,6 +121,12 @@ def compile_batch(
     if set(inventories) != set(facts):
         raise ValueError("assertion inventory IDs do not equal the selected denominator")
     if plan.get("execution_kind") == "rust_nextest_jsonl_projection":
+        validate_projection_inventories(
+            root=root,
+            facts=facts,
+            inventories=inventories,
+        )
+    if plan.get("execution_kind") == "runtime_rust_nextest_projection":
         validate_projection_inventories(
             root=root,
             facts=facts,
@@ -452,6 +461,14 @@ def validate_execution_provenance(
             results_document=results_document,
         )
         return
+    if execution.get("kind") == "runtime_rust_nextest_projection":
+        validate_runtime_projection_execution(
+            root=root,
+            plan=plan,
+            execution=execution,
+            results_document=results_document,
+        )
+        return
     if execution.get("kind") == "st_json":
         _validate_st_execution_provenance(
             root=root,
@@ -677,6 +694,7 @@ def measured_durations(
         in {
             "rust_nextest_jsonl",
             "rust_nextest_jsonl_projection",
+            "runtime_rust_nextest_projection",
             "st_json",
         }
     )
