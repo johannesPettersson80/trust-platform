@@ -34570,3 +34570,1850 @@ mapping_assertion_review_digest = "sha256:3904357aba32e4bc6626795f22ae0a3517feef
 mapping_assertion_source_digests = { "editors/vscode/src/test/suite/ux-shell-contract.test.ts" = "sha256:ea7230af13e40117ecad12691545a09c4fd27142f7ad68a70598309fcd981487" }
 mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:3"]
 mapping_reviewer_ids = ["codex-main", "codex-review-attribution-perf"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_068E48931FB2B7412656"
+subject_kind = "generated_test"
+discovery_id = "DISC_068E48931FB2B7412656"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "local I/O endpoint titles leave the I/O role to the node band"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "Picker direction, titles, badges, purpose copy, and canvas protocol names use reviewed product language."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_068E48931FB2B7412656.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_068E48931FB2B7412656_9E3FA84B16F6"
+mapping_proposal_digest = "sha256:9e3fa84b16f62c701c1eb751d8f54d07a66cc7e6259ef1425696d52865cf5435"
+mapping_decision_id = "MAP_DEC_FCBB4CFFE2B2A46046D9F198"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:b6f02a9a79c3bae8d1d32339eafcf6df71abf966671d4848f64ede80ca0a69d1"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:32"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_0D809E233BF48774356B"
+subject_kind = "generated_test"
+discovery_id = "DISC_0D809E233BF48774356B"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "OPC UA client test failures render user-facing recovery text, not raw backend tokens"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "OPC UA reachability failure produces product recovery text without raw status tokens."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_0D809E233BF48774356B.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_0D809E233BF48774356B_813A0D8C8117"
+mapping_proposal_digest = "sha256:813a0d8c8117bfb0f330f2d3ee4937f0000b60cdf18ea39dcad2322a1954cc93"
+mapping_decision_id = "MAP_DEC_24FD77F82B18F20834B45EC0"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:c2cd112a5199bec1e600c92ff233cc4d0844d8147e64aa18b4b9e5a5af7eb061"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:27"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_0DCEC002FD93F473483F"
+subject_kind = "generated_test"
+discovery_id = "DISC_0DCEC002FD93F473483F"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "a stopped local control socket renders neutral stopped state, not an alarm fault"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "The local simulator reports stopped and running lifecycle states without inventing alarm state."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_0DCEC002FD93F473483F.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_0DCEC002FD93F473483F_A15DF286E5EE"
+mapping_proposal_digest = "sha256:a15df286e5ee33710993311d7fcab502f5f67a8b1b5a722df48aa51a93a68abd"
+mapping_decision_id = "MAP_DEC_E00396FA37B4B1214B774BA9"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:10b04d010e9021b9e2ab5e2c6b077a1d8a4b630706bfbea866d4f9c05c02cdae"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:23"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_0DE2CE24974724ED73D7"
+subject_kind = "generated_test"
+discovery_id = "DISC_0DE2CE24974724ED73D7"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "fleet host headlines are user-facing, not raw lab machine names"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "Local, remote, and unreachable configured hosts keep truthful product headings."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_0DE2CE24974724ED73D7.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_0DE2CE24974724ED73D7_F0837464ABBD"
+mapping_proposal_digest = "sha256:f0837464abbdc187ed33b3f8293172601514d4b789fc9498cf199970c071d21c"
+mapping_decision_id = "MAP_DEC_938BA7917FF4B1BBCD3F7ADD"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:a3126ddbafc0a03426ff36b889eeebef9be5d165bc39ae1c3c521cbba30ac9ad"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:5"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_0E8D300F6DFE48A05692"
+subject_kind = "generated_test"
+discovery_id = "DISC_0E8D300F6DFE48A05692"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "auth-failed synthetic runtime nodes keep control endpoint for inspector actions"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "An authentication-failed synthetic runtime retains the control endpoint required by inspector recovery actions."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_0E8D300F6DFE48A05692.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_0E8D300F6DFE48A05692_A7E67C297356"
+mapping_proposal_digest = "sha256:a7e67c297356e599abe8e286c12627d3293f634671d7ba6451c22fb20e959e76"
+mapping_decision_id = "MAP_DEC_1F0A6865CF31FBA1041A38A5"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:f2e9ef88ebaa2fac151548a4398ba676718c488497dec646d885a80782ca8808"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:42"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_12717D8B241409AF09E2"
+subject_kind = "generated_test"
+discovery_id = "DISC_12717D8B241409AF09E2"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "a managed runtime already shown via fleet.topology is NOT doubled, and the surviving node stays OWNED (managed)"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "Managed runtimes share the local host, deduplicate against fleet identity, and preserve distinct project runtimes."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_12717D8B241409AF09E2.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_12717D8B241409AF09E2_A654360633C3"
+mapping_proposal_digest = "sha256:a654360633c3eed057fa5adfd2253f0aa52a532abc0ef56c0ef03de073cf62e7"
+mapping_decision_id = "MAP_DEC_1A09DF4683196985FACDF140"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:e57d864de31eec2217867739801447d04b8b7405c1c7ca4dd5ef7f748a5572e5"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:24"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_17AB49919A3EAEDECF4A"
+subject_kind = "generated_test"
+discovery_id = "DISC_17AB49919A3EAEDECF4A"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "groups protocols by user intent in the S-09 order"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "The add picker preserves canonical intent-group and within-group order while omitting empty groups."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_17AB49919A3EAEDECF4A.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_17AB49919A3EAEDECF4A_086CD76C6A4F"
+mapping_proposal_digest = "sha256:086cd76c6a4fdd7088f2ff6f17281651bb664328ba6529fb45de23043a74d9e6"
+mapping_decision_id = "MAP_DEC_8B8FAC36A9C69111E5DBF70D"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:62a42742f0a75ec006d82ead64c221a7e486a4d50cdb66bf5967c52eb8c5b0a6"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:30"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_1E1DEF1B911118F30BCE"
+subject_kind = "generated_test"
+discovery_id = "DISC_1E1DEF1B911118F30BCE"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "ADS tag import enables the runtime ADS subsystem"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "Offline ADS import enables the runtime subsystem with its reviewed sidecar and worker settings."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_1E1DEF1B911118F30BCE.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_1E1DEF1B911118F30BCE_BA7CCABF9B2E"
+mapping_proposal_digest = "sha256:ba7ccabf9b2e831c6e578fbdb87fff4691942f840cf4f3b8c9f6aad03d48fb7e"
+mapping_decision_id = "MAP_DEC_89DD924749549B265FC967D7"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:15718c2d5ec446775dc64a40944b63f5f819bb2fa03c1eb29944c8c73d1d7eeb"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:8"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_1E9A10F11AB488DC37C2"
+subject_kind = "generated_test"
+discovery_id = "DISC_1E9A10F11AB488DC37C2"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "unreachable configured peers keep their configured label, not 'This computer'"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "Local, remote, and unreachable configured hosts keep truthful product headings."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_1E9A10F11AB488DC37C2.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_1E9A10F11AB488DC37C2_6C9335F502A2"
+mapping_proposal_digest = "sha256:6c9335f502a22bd1332f6f321d7cc83910c91e38bb1bbb98904848397a24e710"
+mapping_decision_id = "MAP_DEC_98976463D5F1BC73F1C0D70D"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:5628dbeda8b3cc4f96223b8e47f7be3aacdccf3e187095eb8c94ddfa11d522f6"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:5"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_1FD0BC2C949021DCF273"
+subject_kind = "generated_test"
+discovery_id = "DISC_1FD0BC2C949021DCF273"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "buildCanvasGraph maps a real fleet to host/runtime/endpoint nodes + links"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "Fleet projection includes required host, runtime, endpoint, external, shared, link, and fault facts."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_1FD0BC2C949021DCF273.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_1FD0BC2C949021DCF273_8B8944D3EDF4"
+mapping_proposal_digest = "sha256:8b8944d3edf45d231ccffe692116f8fa8a610370d1900baa4f1183c141b43e35"
+mapping_decision_id = "MAP_DEC_735DE332A694B742AE17622F"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:83b82c66622a7166d4ce87b123a800fb3b51b1c70508d095b44c8be3b312e9e3"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:12"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_226CFA302E7FA001B2D3"
+subject_kind = "generated_test"
+discovery_id = "DISC_226CFA302E7FA001B2D3"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "OPC UA server links label the external counterpart as an OPC UA client"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "External and local endpoint labels express product protocol and counterpart direction."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_226CFA302E7FA001B2D3.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_226CFA302E7FA001B2D3_358FB19CA6A9"
+mapping_proposal_digest = "sha256:358fb19ca6a982738cdea5506d3ef09179d92ad97d9bfae6dad51089418c14df"
+mapping_decision_id = "MAP_DEC_72FEF079726C4324FDDF7E5F"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:2f7e0062f31e9546eb05127842f0e5639898deef9d95f05d0c72f79e865fd12b"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:17"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_23F2A8721296F667FE0C"
+subject_kind = "generated_test"
+discovery_id = "DISC_23F2A8721296F667FE0C"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "editing a rejected add form hides stale apply faults without hiding real faults"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "Editing clears only the stale apply fault and preserves independent live faults."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_23F2A8721296F667FE0C.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_23F2A8721296F667FE0C_1BB92C829F19"
+mapping_proposal_digest = "sha256:1bb92c829f19f72bff1d9d0087b7cc09615493bf2f07b8efcbabb320596c96dd"
+mapping_decision_id = "MAP_DEC_DCDAB2CD33FB72948C2CFF21"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:0002b44463405abe43159060229f6031fd87cf560e3447081fc970d2996e1ad8"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:11"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_2A0B29F34861721CB3BA"
+subject_kind = "generated_test"
+discovery_id = "DISC_2A0B29F34861721CB3BA"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "connector status presentation uses first-user vocabulary"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "Connector and discovery evidence is translated into exact first-user labels and signal summaries."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_2A0B29F34861721CB3BA.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_2A0B29F34861721CB3BA_4440CE016732"
+mapping_proposal_digest = "sha256:4440ce016732fb7dea43e4644ef524bf8ef9b18c3a8de112349aa713d3cb0b56"
+mapping_decision_id = "MAP_DEC_3461F4B2ED4008148C9E8409"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:6c4fa339d7e21db03de909911fd24696ac4f42a5ba98772db1767a13dc5387b5"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:9"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_2DE32D7921A10E279840"
+subject_kind = "generated_test"
+discovery_id = "DISC_2DE32D7921A10E279840"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "protocol filtering reports hidden degraded/faulted endpoints instead of silently losing them"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "Protocol filtering reports hidden endpoint, attention, fault, warning, and error counts."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_2DE32D7921A10E279840.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_2DE32D7921A10E279840_B1E74BE556C7"
+mapping_proposal_digest = "sha256:b1e74be556c72199d128e4dcc853c2677c9b7577df8ba390b36dca5805efda2e"
+mapping_decision_id = "MAP_DEC_BD9AA8C5D5EA24B92B3B65FF"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:81cde37f46efb93adb47b17c3bb98edf260a0c6362ef8fc22ef6db0dd19a3b9c"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:20"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_2EAF4AB744C42E1A7A45"
+subject_kind = "generated_test"
+discovery_id = "DISC_2EAF4AB744C42E1A7A45"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "Network Canvas owns comms in-canvas — no Communication-panel command, import, or copy"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "Communication authoring remains in Devices and Connections without reviving the retired panel."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_2EAF4AB744C42E1A7A45.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_2EAF4AB744C42E1A7A45_DC52A3628EBE"
+mapping_proposal_digest = "sha256:dc52a3628ebee21905060d0aabb77d84940f7747e2af8320c706e855bb771338"
+mapping_decision_id = "MAP_DEC_FE4D63ADB7EAAB1E7692E408"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:c74178f3923591bd0bb32bd6d43910ad3d8b3bdbd6a3a96119d4dd0174019171"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:28"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_2FDB6B44C3ADF33D8F12"
+subject_kind = "generated_test"
+discovery_id = "DISC_2FDB6B44C3ADF33D8F12"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "does not render runtime discovery as a protocol card"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "Discovery is excluded from protocol cards and unknown protocols remain in a trailing Other choices group."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_2FDB6B44C3ADF33D8F12.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_2FDB6B44C3ADF33D8F12_93FBBF2A6443"
+mapping_proposal_digest = "sha256:93fbbf2a6443b3e95eb82be950882e79e92bc8c0e8e5c3fa665f4064274afe38"
+mapping_decision_id = "MAP_DEC_E5FA21D53EF0DF2FD1651C17"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:89dae0b0725f04b18fc9ac29071d178069a93bf6916fc6b357ac2e30000ce351"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:31"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_33D8B26A40A6BF79BA14"
+subject_kind = "generated_test"
+discovery_id = "DISC_33D8B26A40A6BF79BA14"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "ADS client links label the external counterpart as an ADS server"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "External and local endpoint labels express product protocol and counterpart direction."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_33D8B26A40A6BF79BA14.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_33D8B26A40A6BF79BA14_2DC45FB0E8B8"
+mapping_proposal_digest = "sha256:2dc45fb0e8b8fd98de4832959e7f651327aa0096eb0ae538d555dceb0f8cb0ac"
+mapping_decision_id = "MAP_DEC_A25721C53BC21268811BA2FC"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:5db96f443e8a114a06669f532f22f0f6a15fdd285bd650269e651c0e598f05a0"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:17"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_405A44F5D3232C0EBBA5"
+subject_kind = "generated_test"
+discovery_id = "DISC_405A44F5D3232C0EBBA5"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "a live local simulator topology replaces the stopped project overlay instead of twinning"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "Live simulator evidence replaces its stopped project overlay without duplicating the simulator or its endpoints."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_405A44F5D3232C0EBBA5.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_405A44F5D3232C0EBBA5_907F160AD0C3"
+mapping_proposal_digest = "sha256:907f160ad0c375515f9dcaec1ed504fab1ff350db0793d943e64405ff85064f8"
+mapping_decision_id = "MAP_DEC_B6D02A05F3DD54CC3B3D877E"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:3747956e08b195339de52ae31942365f57a2320edd1281cb2efac5d451ef4e23"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:37"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_43F5EE94505FE33A1D90"
+subject_kind = "generated_test"
+discovery_id = "DISC_43F5EE94505FE33A1D90"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "draft/pending mesh peers drop a dashed bus wire; connected peers stay solid"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "Mesh bus and drop line style fails closed unless every peer has established topology proof. An unrecognized mesh-peer status fails closed and keeps the fabric dashed."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_43F5EE94505FE33A1D90.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_43F5EE94505FE33A1D90_FCCFADF4E993"
+mapping_proposal_digest = "sha256:fccfadf4e993b03ce1442b184dd3e0fe89a8e8b1c36758a3f45b5b2e044941dd"
+mapping_decision_id = "MAP_DEC_24055E92F31F7F21EF80699E"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:6617b43d61e8778471af66dd6877cce48f5379b067b75357c4f81562d020d2f8"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:16", "VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:44"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_4EC5E972D8211E2A93A1"
+subject_kind = "generated_test"
+discovery_id = "DISC_4EC5E972D8211E2A93A1"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "draft/pending wire links render dashed, connected links stay solid (honest: not yet a live link)"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "Point-to-point line style represents topology proof separately from connection health. An unrecognized point-link status fails closed as unproven and renders dashed."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_4EC5E972D8211E2A93A1.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_4EC5E972D8211E2A93A1_C2198B10E6F0"
+mapping_proposal_digest = "sha256:c2198b10e6f00d4307d484bd29fada51438c45d8b175e60c2af529f61c8165ce"
+mapping_decision_id = "MAP_DEC_EF7B033706C2E94CBF534C24"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:1e906344125b7c28e929a35cdec68303e8219d0f48e123ccca6c60aa4435d850"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:15", "VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:43"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_5B8BA330CD45E51DAB5E"
+subject_kind = "generated_test"
+discovery_id = "DISC_5B8BA330CD45E51DAB5E"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "buildCanvasGraph does not duplicate a runtime as an external system"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "A logical runtime appears once and is not duplicated as an external system."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_5B8BA330CD45E51DAB5E.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_5B8BA330CD45E51DAB5E_E8694F92B68A"
+mapping_proposal_digest = "sha256:e8694f92b68a76d971c123301a6a5c97f1f8e127f34b1217ea54e4e042f53cf9"
+mapping_decision_id = "MAP_DEC_B7C3FF32E7E97976ACDB2161"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:cd35403f6d546e2df9babe1c390c53f9f8b93e695b84e68dd922705daff69bd0"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:13"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_5CA934F017401A2C8D01"
+subject_kind = "generated_test"
+discovery_id = "DISC_5CA934F017401A2C8D01"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "selected run target is projected onto the graph node and rendered node data"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "Selection and managed lifecycle state remain attached to exactly the corresponding runtime."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_5CA934F017401A2C8D01.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_5CA934F017401A2C8D01_B95F92D49EFC"
+mapping_proposal_digest = "sha256:b95f92d49efca3999d90b01e64d20752aff33a022af84f06d7c06689b9290c7c"
+mapping_decision_id = "MAP_DEC_031F72620D6538092DC3C361"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:10febc4f3bc34c840fb24bb304ae3d2494ad6b5a6546a488a53a67ccd7541778"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:25"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_6849941EF510D0146E25"
+subject_kind = "generated_test"
+discovery_id = "DISC_6849941EF510D0146E25"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "server and client pairs have distinct badges and direction copy"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "Picker direction, titles, badges, purpose copy, and canvas protocol names use reviewed product language."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_6849941EF510D0146E25.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_6849941EF510D0146E25_380D267BFA63"
+mapping_proposal_digest = "sha256:380d267bfa639fbe4e2d70f717c3e554c7eaf920109b875d79af322a8f091c91"
+mapping_decision_id = "MAP_DEC_529D18E4CD63DD9ECFA941F8"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:9091d101619eeb719b7a42e75ef96b6ab1c44cea089220dd1003154ffdc4f356"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:32"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_7170BF00B718605FC49B"
+subject_kind = "generated_test"
+discovery_id = "DISC_7170BF00B718605FC49B"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "runtime rolls health up from raw endpoint evidence; host stays reachability"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "Endpoint health rolls up to the runtime while host health remains reachability."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_7170BF00B718605FC49B.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_7170BF00B718605FC49B_1AE01A78D6B2"
+mapping_proposal_digest = "sha256:1ae01a78d6b2cfac51391cc6235ae198a7315fa140171e27284bb414b1396e8a"
+mapping_decision_id = "MAP_DEC_10135AD7C6A80189118E0D5E"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:9ccbe0096b0720712a6367b888d1866c8a7b6784de8f54c638adabd65f62264f"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:4"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_7BC1DF86B7EFCF27106D"
+subject_kind = "generated_test"
+discovery_id = "DISC_7BC1DF86B7EFCF27106D"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "advanced picker copy is user-facing and not backend review prose"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "Picker direction, titles, badges, purpose copy, and canvas protocol names use reviewed product language."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_7BC1DF86B7EFCF27106D.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_7BC1DF86B7EFCF27106D_644D2C91E21D"
+mapping_proposal_digest = "sha256:644d2c91e21dd6874ec1b00a98e52c3242c6241cbb634d6a45155aacc3da9706"
+mapping_decision_id = "MAP_DEC_94DBAC37D76635080A3668B3"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:e838020aac5073da807c634bf36a0223e98a92e0f3a35699d865fad72eb8772a"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:32"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_835787AD3E3209CDB992"
+subject_kind = "generated_test"
+discovery_id = "DISC_835787AD3E3209CDB992"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "server endpoint summaries answer where the server is and what it exposes"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "Server summaries expose endpoint, identity, client count, and verification truth."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_835787AD3E3209CDB992.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_835787AD3E3209CDB992_78574922FF74"
+mapping_proposal_digest = "sha256:78574922ff749d8d5f27d4e41cd96ef8ca8640bc914f6f28600f080d21aca4d6"
+mapping_decision_id = "MAP_DEC_5ADC968C9E865459D2F61B29"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:bdfd5452573d97317ca76a1ab3eb28daf12432766d200d0108768e62f3d9c3f6"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:18"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_8A4998901CB34C8FC5C8"
+subject_kind = "generated_test"
+discovery_id = "DISC_8A4998901CB34C8FC5C8"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "fleet search never hides degraded endpoints from the runtime rollup"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "Search presentation does not remove raw endpoint health from the runtime rollup."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_8A4998901CB34C8FC5C8.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_8A4998901CB34C8FC5C8_90ECDF983A9A"
+mapping_proposal_digest = "sha256:90ecdf983a9a77bca359a87a0ed39c30a371018bc46f7c455573723e7e3989f3"
+mapping_decision_id = "MAP_DEC_E0EDA3D7DEEA1D19FC026F37"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:fdaf2c0194b939088bfa2d55a557b2e0473edaeae06b1c338402cbc3fed2327f"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:6"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_8C1803B0FB55F1394443"
+subject_kind = "generated_test"
+discovery_id = "DISC_8C1803B0FB55F1394443"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "routes unknown protocols to a trailing advanced Other choices group and never drops anything"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "Discovery is excluded from protocol cards and unknown protocols remain in a trailing Other choices group."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_8C1803B0FB55F1394443.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_8C1803B0FB55F1394443_4D622E586616"
+mapping_proposal_digest = "sha256:4d622e586616f69027322c58456542928c6fd55695ba4bb078603dcceaee839c"
+mapping_decision_id = "MAP_DEC_BF883C63F1ABA3BB065BB7E5"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:bfbc90ec6bbe38dc6a4e70eb03df11f5d81506a03a4b1e46ab53cf96768795d1"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:31"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_90BAEA4AAE83469926B4"
+subject_kind = "generated_test"
+discovery_id = "DISC_90BAEA4AAE83469926B4"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "ADD_PICKER_GROUPS is the canonical S-09 group order"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "The add picker preserves canonical intent-group and within-group order while omitting empty groups."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_90BAEA4AAE83469926B4.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_90BAEA4AAE83469926B4_17A2CA91405A"
+mapping_proposal_digest = "sha256:17a2ca91405aa87149ff5feb68c1188139c2e495625799a4f052bb9c7db0aeeb"
+mapping_decision_id = "MAP_DEC_2342C8F0046E39AECEC3A8EE"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:9bc6a7fe4bdc3f6a386d49f9a381b4565bf865b399ebf66b95fec422e8656a6f"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:30"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_950A2C69B282CE278663"
+subject_kind = "generated_test"
+discovery_id = "DISC_950A2C69B282CE278663"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "runtime goes green only from runtime lifecycle evidence"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "Runtime lifecycle state becomes green only after current running evidence."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_950A2C69B282CE278663.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_950A2C69B282CE278663_122EAE47EE1E"
+mapping_proposal_digest = "sha256:122eae47ee1eab780b0bdc74299a8a6df04ed20cad277e9c1435e63d34b42157"
+mapping_decision_id = "MAP_DEC_A20AC9C5136E9227F0202D23"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:79fa0ab2a9a32d90c1f8cb0d1d102cb6aec172ddb373723337ecfcb5cd9bd2b6"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:2"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_A029791189004BCC1B61"
+subject_kind = "generated_test"
+discovery_id = "DISC_A029791189004BCC1B61"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "stage progression alone never fabricates a running runtime or connected device"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "Wizard stages never add running or connected state without evidence."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_A029791189004BCC1B61.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_A029791189004BCC1B61_DEB7B1FD13AF"
+mapping_proposal_digest = "sha256:deb7b1fd13afefe050d24f54f5a411dcc579bf7371cce71c5a9c7e979976799a"
+mapping_decision_id = "MAP_DEC_B56BB139DBA8C5974D1B3B2B"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:46e284e0d4397289b4e4d4c85eb2bd35855ff9e2ebe08d72615b4225aeb06295"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:1"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_A209ED1B25924C1DCFE9"
+subject_kind = "generated_test"
+discovery_id = "DISC_A209ED1B25924C1DCFE9"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "mergeFleetTopologies aggregates multiple runtimes: a host appears once with unioned runtimes"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "Fleet merge unions stable identities and keeps configured endpoints beside live runtime evidence."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_A209ED1B25924C1DCFE9.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_A209ED1B25924C1DCFE9_DD376124231A"
+mapping_proposal_digest = "sha256:dd376124231a8fcdc46c0b78f02839055490b0f0de544868c29eea5d6c82231d"
+mapping_decision_id = "MAP_DEC_DB591E9EF4D1B513B806E76D"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:37654cdcec9299de7d7afa2309c17b44673bc4105f1ee5cfa2fa40b43490f292"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:21"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_A66A27154365367DB516"
+subject_kind = "generated_test"
+discovery_id = "DISC_A66A27154365367DB516"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "a new project with no configured runtime shows the local simulator node, not an empty screen"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "A new project projects the required local simulator instead of an empty graph."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_A66A27154365367DB516.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_A66A27154365367DB516_40C3348F0939"
+mapping_proposal_digest = "sha256:40c3348f093917adff2eb6156845f560dd9ba8e82069f4fdb623130fe3825e80"
+mapping_decision_id = "MAP_DEC_7BEE79808BE2BFD6D1B92070"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:eeb66fe4ac892dce6aae5b8bd36efa885d082723094ac364d4f9800747dec733"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:36"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_A6B6F73C6E5ADDED9782"
+subject_kind = "generated_test"
+discovery_id = "DISC_A6B6F73C6E5ADDED9782"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "a live local simulator topology hides raw ST resource names even when mode is missing"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "The local simulator keeps its product label when live evidence lacks mode and carries a raw ST resource name."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_A6B6F73C6E5ADDED9782.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_A6B6F73C6E5ADDED9782_A0CCA758F85C"
+mapping_proposal_digest = "sha256:a0cca758f85c8e748526ee84e6f412a781dad79bb55843ea2131a0a3c295bfa7"
+mapping_decision_id = "MAP_DEC_B75B95D4F7A1C1EA8A6B49E7"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:5bc095383dd03c1e5bed0674c6ad29677c62a1c773c957cba94befc688bd9ced"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:38"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_A8FAE8189430088CF4E9"
+subject_kind = "generated_test"
+discovery_id = "DISC_A8FAE8189430088CF4E9"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "buildCanvasGraph never emits an edge to a node that does not exist"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "Every emitted link has both source and target nodes in the rendered graph."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_A8FAE8189430088CF4E9.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_A8FAE8189430088CF4E9_CBE8871EE8D4"
+mapping_proposal_digest = "sha256:cbe8871ee8d48f770967ec753cfdbfd7180f929b38115a30eb8f4a9e2c366d28"
+mapping_decision_id = "MAP_DEC_108426ED5DB7B7EA4EC3764D"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:73b044820ff3138f53f1c768bb4cd452ac32e5d9e1fb211acfcbefae51f755e8"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:14"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_AA87181C9C979EBC1620"
+subject_kind = "generated_test"
+discovery_id = "DISC_AA87181C9C979EBC1620"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "classifyRuntimeStartFailure maps real error strings to actionable kinds"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "Runtime start error strings classify into the exact actionable product failure kind."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_AA87181C9C979EBC1620.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_AA87181C9C979EBC1620_CE60666FE279"
+mapping_proposal_digest = "sha256:ce60666fe279535be2cba50ef7ba3eed6546b2979790f1d558aea925c546acb2"
+mapping_decision_id = "MAP_DEC_D70C3CB62EE49A2A0FFFCCD2"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:317091540423f428d4b1046ed6b23449a4417f945aed9203418336a028d1f1a6"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:39"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_AF254B63B201F1A10FB4"
+subject_kind = "generated_test"
+discovery_id = "DISC_AF254B63B201F1A10FB4"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "live managed topology preserves the stopped project runtime instead of morphing the canvas"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "Managed runtimes share the local host, deduplicate against fleet identity, and preserve distinct project runtimes."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_AF254B63B201F1A10FB4.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_AF254B63B201F1A10FB4_8151BADF5877"
+mapping_proposal_digest = "sha256:8151badf5877331fa62d4752daf3af488883b2acee37739db1b31ee18db581e2"
+mapping_decision_id = "MAP_DEC_278537FCB84A0EDBA665EC6F"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:c271bfb9d7246c278b1a0b2ae238e802e1a36435abf6eb2c2405c3e987f5c5cc"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:24"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_B9C36FFCC93EDBF29640"
+subject_kind = "generated_test"
+discovery_id = "DISC_B9C36FFCC93EDBF29640"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "fleet search dims external counterparts and wires without hiding warnings"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "Search dims endpoints, counterparts, and wires without erasing warnings."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_B9C36FFCC93EDBF29640.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_B9C36FFCC93EDBF29640_91BE148A9F58"
+mapping_proposal_digest = "sha256:91be148a9f588d5f9175a3fbb1dd280bffd6dff76c230f8c7c4a4cf9307713af"
+mapping_decision_id = "MAP_DEC_02D3A2D6AF9A4A42E04056B1"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:7b83a1c3074192b1df426e1e7766e91c87bd077c3f3bd06baadbb66f8dd9fb3e"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:10"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_BE2C7D87B3B90930889A"
+subject_kind = "generated_test"
+discovery_id = "DISC_BE2C7D87B3B90930889A"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "connector status surface flows into endpoint graph metadata"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "Connector state, health, confidence, and point counts survive graph projection."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_BE2C7D87B3B90930889A.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_BE2C7D87B3B90930889A_EA1B4D1AB91C"
+mapping_proposal_digest = "sha256:ea1b4d1ab91c622fd373148263cbd87ee4469e2711e1d3f1930de1e3dc84debd"
+mapping_decision_id = "MAP_DEC_4BDA7A0E6677E0363B58559D"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:1925903e8abf8c07ccfd483d74a657149f5540d7ef4e5775161aac7d2a5351f3"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:7"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_BF68B6908A5FA1711EF0"
+subject_kind = "generated_test"
+discovery_id = "DISC_BF68B6908A5FA1711EF0"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "omits empty groups and keeps advanced choices separate"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "The add picker omits empty intent groups while retaining a separate advanced group when it has choices."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_BF68B6908A5FA1711EF0.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_BF68B6908A5FA1711EF0_DCAB52071517"
+mapping_proposal_digest = "sha256:dcab52071517c9e9a652cb344b7aaa86952d52adda31d43e4bd7b02d13cb4ab1"
+mapping_decision_id = "MAP_DEC_EF741521613A7E5A1AB39A66"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:9d6ad4bfc58e3b1258eac68ca866240b2235331f2c1800d7b41e0c56ab548d4f"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:40"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_C112E4BBB5956E461FC0"
+subject_kind = "generated_test"
+discovery_id = "DISC_C112E4BBB5956E461FC0"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "a runtime start failure renders an error node + retry banner, not a failure screen"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "Runtime start failures preserve the graph, classify actionable causes, and expose inline retry."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_C112E4BBB5956E461FC0.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_C112E4BBB5956E461FC0_CBAB13A63CFF"
+mapping_proposal_digest = "sha256:cbab13a63cff6fc4041b1b971c5b88ae1cae36038031bb57d327952c3ae8a8ce"
+mapping_decision_id = "MAP_DEC_F1D0E745444284CF2E10F5FC"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:e7024abccbc5e7e59629054ef1978e950d24adf51ce45e96f181a53bf82c9193"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:26"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_C1F8AA75F655057CEADF"
+subject_kind = "generated_test"
+discovery_id = "DISC_C1F8AA75F655057CEADF"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "a configured-but-unreachable fleet peer synthesizes an UNKNOWN node (not 'stopped'), never green"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "Unreachable and authentication-failed peers remain honestly visible and actionable without hiding the local graph."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_C1F8AA75F655057CEADF.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_C1F8AA75F655057CEADF_537BDB691A05"
+mapping_proposal_digest = "sha256:537bdb691a05c51e8bf7dc74040f3465a409c2564f5173d9d75d7d393fb1c8aa"
+mapping_decision_id = "MAP_DEC_60E5B15E1632551D3ED7804F"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:40994783e73d1ae81896af7bf95b7fab3d21fa5b33b8dadf5724fbb91ffd6ab8"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:22"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_C8A4FF4AFC74089E95CA"
+subject_kind = "generated_test"
+discovery_id = "DISC_C8A4FF4AFC74089E95CA"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "device goes connected only after real I/O values are reported"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "A field device remains pending until real I/O values have been observed."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_C8A4FF4AFC74089E95CA.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_C8A4FF4AFC74089E95CA_C00545FE1A66"
+mapping_proposal_digest = "sha256:c00545fe1a669782375af620518f81ca20f61358cf55a2e2c598e21e555ebf0a"
+mapping_decision_id = "MAP_DEC_B8167AAA5B8A70142A306842"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:0f4fcf72d966bdfed64ebce208ff1fbe881416ac330db5a85693b4cf1a6d5fdd"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:3"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_CD7E2EE558BA0DABA256"
+subject_kind = "generated_test"
+discovery_id = "DISC_CD7E2EE558BA0DABA256"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "OPC UA client links label the external counterpart as an OPC UA server"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "External and local endpoint labels express product protocol and counterpart direction."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_CD7E2EE558BA0DABA256.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_CD7E2EE558BA0DABA256_113E2C29CA02"
+mapping_proposal_digest = "sha256:113e2c29ca021e8d555e7544b6fef39d2a9057f425ca89768fc5933a433c9273"
+mapping_decision_id = "MAP_DEC_88BD7DA8D3EBD2957159838D"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:500ec9d932cc9226807816788b088bd2b318d1d99982f5fb48fd0b4374c6dd18"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:17"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_D61A79F526EF6A0C1B27"
+subject_kind = "generated_test"
+discovery_id = "DISC_D61A79F526EF6A0C1B27"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "configured ADS overlay on a live simulator says restart required, not stopped"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "Configured endpoints merged onto a live runtime remain pending and explain that restart is required."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_D61A79F526EF6A0C1B27.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_D61A79F526EF6A0C1B27_DEDC8AF593B4"
+mapping_proposal_digest = "sha256:dedc8af593b43fd2c7ae6927f6fb7b5aefa1b6e5409b5bf434a1630aa26b48be"
+mapping_decision_id = "MAP_DEC_FF21A0FA64EE5D89284990E9"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:2c514dc7d69097d2a7176fd3587bc68c3e1c1a31fed37a9da4ec58baf4e0dc9d"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:35"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_DB99796951016467844E"
+subject_kind = "generated_test"
+discovery_id = "DISC_DB99796951016467844E"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "mergeFleetTopologies keeps configured endpoints on the same live runtime"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "Fleet merge unions stable identities and keeps configured endpoints beside live runtime evidence."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_DB99796951016467844E.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_DB99796951016467844E_26551365D7C8"
+mapping_proposal_digest = "sha256:26551365d7c83eb3e38a94a290f4c25039c5b562677620be71510b68419a07ad"
+mapping_decision_id = "MAP_DEC_808A75553DEBE42737BD1E3C"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:0464ac72b24e8682aafa363729a571144dfa8c6dd38d939bf4b8917d390df9e8"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:21"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_DD3598DBD8291916D08E"
+subject_kind = "generated_test"
+discovery_id = "DISC_DD3598DBD8291916D08E"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "external protocol nodes render display names, not raw driver ids"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "External and local endpoint labels express product protocol and counterpart direction."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_DD3598DBD8291916D08E.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_DD3598DBD8291916D08E_C59EE58C2449"
+mapping_proposal_digest = "sha256:c59ee58c2449b5c8815e47d5953adf41bb0b04f780e80c1136b751b3c3b66898"
+mapping_decision_id = "MAP_DEC_FFEDE437C49436816C4E21F0"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:8f9ba684c3a71829b5657bc617b73b4c35d53534b9d2c05db23c6038c75a7aac"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:17"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_E211B66071E114C122CD"
+subject_kind = "generated_test"
+discovery_id = "DISC_E211B66071E114C122CD"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "ADS server live client count survives topology to endpoint node data"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "ADS live-client and verifier evidence survives every graph projection layer."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_E211B66071E114C122CD.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_E211B66071E114C122CD_A3607CAB0007"
+mapping_proposal_digest = "sha256:a3607cab000794dbb829da69b713cc78fbeb8d64984d5ca5edc2f00e86793771"
+mapping_decision_id = "MAP_DEC_A248A3603D0FF213AD33F164"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:252d982a3e5e18c1c4968b76351d190b6c47a1c2dad75ef1ed8ef8f4b8fa58e6"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:19"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_E528A4C2F3198956CA71"
+subject_kind = "generated_test"
+discovery_id = "DISC_E528A4C2F3198956CA71"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "canvas protocol names spell ADS direction instead of relying on the role band"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "Picker direction, titles, badges, purpose copy, and canvas protocol names use reviewed product language."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_E528A4C2F3198956CA71.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_E528A4C2F3198956CA71_EA3905AF3723"
+mapping_proposal_digest = "sha256:ea3905af372395767460a867abdb708aced9d2bb86a17901aa6e004bb5c993c6"
+mapping_decision_id = "MAP_DEC_FA853A27B5A3D81E7D6A4122"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:edf907524d3ec65dc23ed3ef9e079226894b7c0599e59cad566f5316752d1218"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:32"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_E7AF3FFC18B3C256B411"
+subject_kind = "generated_test"
+discovery_id = "DISC_E7AF3FFC18B3C256B411"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "single-peer mesh fabric suppresses redundant bus label"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "A one-peer mesh suppresses the redundant shared-bus label and centers its only handle."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_E7AF3FFC18B3C256B411.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_E7AF3FFC18B3C256B411_E2A33D67C318"
+mapping_proposal_digest = "sha256:e2a33d67c318c0bd899261f82d844c12592e000cf1f78f667631050a792ad4c6"
+mapping_decision_id = "MAP_DEC_91F4A9396048566765FCF9A9"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:5b655930504d567612d6e155e95a0b369663925b0426e7f4066da3fec3cfb7b5"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:34"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_E8833149FE742FE82266"
+subject_kind = "generated_test"
+discovery_id = "DISC_E8833149FE742FE82266"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "managed local runtimes are injected under the existing This computer host"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "Managed runtimes share the local host, deduplicate against fleet identity, and preserve distinct project runtimes."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_E8833149FE742FE82266.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_E8833149FE742FE82266_0D0FA95DDD7A"
+mapping_proposal_digest = "sha256:0d0fa95ddd7a7ac021c401bef95fd9a4bd99c27494ffd09d5b2b88a56cb1664c"
+mapping_decision_id = "MAP_DEC_8E5AFEBFDB8E4091A62FF62F"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:e8c289b643011aa901c20838cc105e4e4417b764b70845f2cad1ee5e84f24fd3"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:24"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_EC00DFC397E9AC057FAC"
+subject_kind = "generated_test"
+discovery_id = "DISC_EC00DFC397E9AC057FAC"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "a running local simulator renders as a connected runtime node"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "The local simulator reports stopped and running lifecycle states without inventing alarm state."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_EC00DFC397E9AC057FAC.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_EC00DFC397E9AC057FAC_9228492759FE"
+mapping_proposal_digest = "sha256:9228492759fe8de2dae7585b6ba8c7e170c915b23b3614c3e68466002405403d"
+mapping_decision_id = "MAP_DEC_5B7E4E281B1FCC7E6D685BB2"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:31b2de5723039d45e9f3d75c6719152f878e8ef2876a12f02cf89fe2f62aa8c6"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:23"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_EF8E811C426BB7C83243"
+subject_kind = "generated_test"
+discovery_id = "DISC_EF8E811C426BB7C83243"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "buildCanvasGraph shows added fleet peers even on the stopped local-simulator view"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "An added configured fleet peer remains present when the local simulator is stopped."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_EF8E811C426BB7C83243.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_EF8E811C426BB7C83243_D0823DBE9669"
+mapping_proposal_digest = "sha256:d0823dbe966941d8c1137c0abfb356c1da85b1ae1895208b9c8edc1c0919cb59"
+mapping_decision_id = "MAP_DEC_E69B2362766FEF1D581A5EAD"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:f71f9f80f8770b8f209e7ce95219a1aed67813c6f73eed1193250456405c1fff"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:41"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_EFD3D72BF8E066863354"
+subject_kind = "generated_test"
+discovery_id = "DISC_EFD3D72BF8E066863354"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "drops topology-only evidence fields before re-applying ADS/OPC UA server config"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "Server reapply preserves authored configuration while removing derived and secret-presence evidence."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_EFD3D72BF8E066863354.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_EFD3D72BF8E066863354_A9E21AB44288"
+mapping_proposal_digest = "sha256:a9e21ab4428855ea333e9233f4514256c13dea822c868e647f30b4d6083a0706"
+mapping_decision_id = "MAP_DEC_2D3ECB71A70FB7D936ED4D32"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:2d3ba5aa3ac2bdc79488fb31718b04d8ba123f5a79dddf960ca629fdeba59333"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:33"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_F479F7DFFB964F434556"
+subject_kind = "generated_test"
+discovery_id = "DISC_F479F7DFFB964F434556"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "package contributes the Network Canvas command"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "The extension contributes the stable Devices and Connections command route."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_F479F7DFFB964F434556.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_F479F7DFFB964F434556_16F876652C43"
+mapping_proposal_digest = "sha256:16f876652c435354a3f8eb170b6704c9924165032e05dccbea5be3aef6123cdd"
+mapping_decision_id = "MAP_DEC_B5C993CDB31F39332968D68B"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:5ab05614359cd3a29e281d48467bc244b373fbd2cbc250abf12bfcb63e86ac64"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:0"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_FA804B633AA0D28D50D0"
+subject_kind = "generated_test"
+discovery_id = "DISC_FA804B633AA0D28D50D0"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/network-canvas.test.ts"
+name = "conditional schema fields render and validate only for the selected backend"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/network-canvas.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_DEVICE_GRAPH_TRUTH_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+expected_result = "Conditional fields participate in rendering, validation, and submission only for the selected backend."
+expected_failure_mode = "The static contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_FA804B633AA0D28D50D0.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_FA804B633AA0D28D50D0_3A7C0DF07101"
+mapping_proposal_digest = "sha256:3a7c0df071012404bdb77712f4b106e1b55ffd8065d2c395ee9205b26f717d9d"
+mapping_decision_id = "MAP_DEC_D3AAB0F200AB54579FDA3644"
+mapping_reviewed_source_digest = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0"
+mapping_assertion_review_digest = "sha256:a654becdb2572c9fa0da656d61ed5351c78242f581365cfe61e2a1af2a9f6dbc"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/network-canvas.test.ts" = "sha256:2f1edae07ec221a1e04829b02beb26103f6f1487b6257b638131d031e3ce26c0" }
+mapping_behavior_refs = ["VS_CODE_DEVICE_GRAPH_TRUTH_001#behavior:29"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-network-canvas"]

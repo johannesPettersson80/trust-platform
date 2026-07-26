@@ -13,16 +13,11 @@ source_refs = [
   "editors/vscode/src/test/suite/network-canvas.test.ts",
   "SPEC_VSCODE_PRODUCT_CONTRACT_001",
 ]
-tests = []
+tests = ["TEST_AUTO_068E48931FB2B7412656", "TEST_AUTO_0D809E233BF48774356B", "TEST_AUTO_0DCEC002FD93F473483F", "TEST_AUTO_0DE2CE24974724ED73D7", "TEST_AUTO_0E8D300F6DFE48A05692", "TEST_AUTO_12717D8B241409AF09E2", "TEST_AUTO_17AB49919A3EAEDECF4A", "TEST_AUTO_1E1DEF1B911118F30BCE", "TEST_AUTO_1E9A10F11AB488DC37C2", "TEST_AUTO_1FD0BC2C949021DCF273", "TEST_AUTO_226CFA302E7FA001B2D3", "TEST_AUTO_23F2A8721296F667FE0C", "TEST_AUTO_2A0B29F34861721CB3BA", "TEST_AUTO_2DE32D7921A10E279840", "TEST_AUTO_2EAF4AB744C42E1A7A45", "TEST_AUTO_2FDB6B44C3ADF33D8F12", "TEST_AUTO_33D8B26A40A6BF79BA14", "TEST_AUTO_405A44F5D3232C0EBBA5", "TEST_AUTO_43F5EE94505FE33A1D90", "TEST_AUTO_4EC5E972D8211E2A93A1", "TEST_AUTO_5B8BA330CD45E51DAB5E", "TEST_AUTO_5CA934F017401A2C8D01", "TEST_AUTO_6849941EF510D0146E25", "TEST_AUTO_7170BF00B718605FC49B", "TEST_AUTO_7BC1DF86B7EFCF27106D", "TEST_AUTO_835787AD3E3209CDB992", "TEST_AUTO_8A4998901CB34C8FC5C8", "TEST_AUTO_8C1803B0FB55F1394443", "TEST_AUTO_90BAEA4AAE83469926B4", "TEST_AUTO_950A2C69B282CE278663", "TEST_AUTO_A029791189004BCC1B61", "TEST_AUTO_A209ED1B25924C1DCFE9", "TEST_AUTO_A66A27154365367DB516", "TEST_AUTO_A6B6F73C6E5ADDED9782", "TEST_AUTO_A8FAE8189430088CF4E9", "TEST_AUTO_AA87181C9C979EBC1620", "TEST_AUTO_AF254B63B201F1A10FB4", "TEST_AUTO_B9C36FFCC93EDBF29640", "TEST_AUTO_BE2C7D87B3B90930889A", "TEST_AUTO_BF68B6908A5FA1711EF0", "TEST_AUTO_C112E4BBB5956E461FC0", "TEST_AUTO_C1F8AA75F655057CEADF", "TEST_AUTO_C8A4FF4AFC74089E95CA", "TEST_AUTO_CD7E2EE558BA0DABA256", "TEST_AUTO_D61A79F526EF6A0C1B27", "TEST_AUTO_DB99796951016467844E", "TEST_AUTO_DD3598DBD8291916D08E", "TEST_AUTO_E211B66071E114C122CD", "TEST_AUTO_E528A4C2F3198956CA71", "TEST_AUTO_E7AF3FFC18B3C256B411", "TEST_AUTO_E8833149FE742FE82266", "TEST_AUTO_EC00DFC397E9AC057FAC", "TEST_AUTO_EF8E811C426BB7C83243", "TEST_AUTO_EFD3D72BF8E066863354", "TEST_AUTO_F479F7DFFB964F434556", "TEST_AUTO_FA804B633AA0D28D50D0"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = [
-  "cataloged_behavior_tests",
-  "rendered_ui_journeys",
-  "accessibility_and_contrast",
-  "broad_remote_gate",
-]
+missing = ["rendered_ui_journeys", "accessibility_and_contrast", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -394,40 +389,40 @@ rationale = "An unrecognized mesh-peer status fails closed and keeps the fabric 
 
 [[coverage.cells]]
 dimension = "missing_required"
-state = "gap_open"
-rationale = "Awaiting catalog acceptance."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every missing_required behavior in VS_CODE_DEVICE_GRAPH_TRUTH_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "extra_or_unknown"
-state = "gap_open"
-rationale = "Awaiting catalog acceptance."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every extra_or_unknown behavior in VS_CODE_DEVICE_GRAPH_TRUTH_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
-state = "gap_open"
-rationale = "Awaiting catalog acceptance."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in VS_CODE_DEVICE_GRAPH_TRUTH_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "hardware_or_network_fault"
-state = "gap_open"
-rationale = "Awaiting catalog acceptance."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every hardware_or_network_fault behavior in VS_CODE_DEVICE_GRAPH_TRUTH_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "gap_open"
-rationale = "Awaiting catalog acceptance."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every wrong_type_or_shape behavior in VS_CODE_DEVICE_GRAPH_TRUTH_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "persistence_or_recovery"
-state = "gap_open"
-rationale = "Awaiting catalog acceptance."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every persistence_or_recovery behavior in VS_CODE_DEVICE_GRAPH_TRUTH_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "duplicate_or_collision"
-state = "gap_open"
-rationale = "Awaiting catalog acceptance."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every duplicate_or_collision behavior in VS_CODE_DEVICE_GRAPH_TRUTH_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "boundary_low"
-state = "gap_open"
-rationale = "Awaiting catalog acceptance."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every boundary_low behavior in VS_CODE_DEVICE_GRAPH_TRUTH_001; dynamic proof and broad remote validation remain explicit debt."
