@@ -77,6 +77,14 @@ class FrozenStaticCatalogBatchTests(unittest.TestCase):
                 results_document=results,
                 expected_names={"one"},
             )
+        self.assertEqual(
+            {"one": 0},
+            measured_durations(
+                results_document=results,
+                expected_names={"one"},
+                allowed_extra_names={"two"},
+            ),
+        )
         with self.assertRaisesRegex(ValueError, "failures or pending"):
             measured_durations(
                 results_document={**results, "failures": [{"title": "one"}]},

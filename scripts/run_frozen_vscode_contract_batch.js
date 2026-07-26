@@ -9,11 +9,35 @@ const { spawnSync } = require("child_process");
 
 const repoRoot = path.resolve(__dirname, "..");
 const vscodeRoot = path.join(repoRoot, "editors", "vscode");
-const sourcePath = "editors/vscode/src/test/suite/ux-shell-contract.test.ts";
-const compiledPath =
-  "editors/vscode/out/test/suite/ux-shell-contract.test.js";
 const runnerPath = "scripts/run_frozen_vscode_contract_batch.js";
-const command = `node ${runnerPath}`;
+const defaultSourcePath =
+  "editors/vscode/src/test/suite/ux-shell-contract.test.ts";
+if (process.argv.length > 3) {
+  process.stderr.write("usage: run_frozen_vscode_contract_batch.js [test-source]\n");
+  process.exit(2);
+}
+const sourcePath = process.argv[2] || defaultSourcePath;
+if (
+  !sourcePath.startsWith("editors/vscode/src/test/suite/") ||
+  !sourcePath.endsWith(".test.ts") ||
+  sourcePath.split("/").includes("..") ||
+  path.resolve(repoRoot, sourcePath) !==
+    path.join(repoRoot, ...sourcePath.split("/"))
+) {
+  process.stderr.write("test-source must be a VS Code suite path\n");
+  process.exit(2);
+}
+const sourceStat = fs.lstatSync(path.join(repoRoot, sourcePath));
+if (!sourceStat.isFile() || sourceStat.isSymbolicLink()) {
+  process.stderr.write("test-source must be a regular non-symlink file\n");
+  process.exit(2);
+}
+const compiledPath = sourcePath
+  .replace("editors/vscode/src/", "editors/vscode/out/")
+  .replace(/\.ts$/, ".js");
+const command = `node ${runnerPath}${
+  process.argv[2] ? ` ${sourcePath}` : ""
+}`;
 
 const compile = spawnSync("npm", ["run", "compile"], {
   cwd: vscodeRoot,

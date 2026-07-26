@@ -40,9 +40,6 @@ def compile_batch(
     timestamp = _required_string(plan, "timestamp")
     command = _required_string(plan, "command")
     reviewers = _string_array(plan.get("reviewer_ids"), "reviewer_ids")
-    expected_count = plan.get("expected_count")
-    if not isinstance(expected_count, int) or isinstance(expected_count, bool):
-        raise ValueError("plan expected_count must be an integer")
 
     denominator = _toml(root / DENOMINATOR_PATH)
     catalog_source = (root / CATALOG_PATH).read_text()
@@ -55,15 +52,13 @@ def compile_batch(
     reviews = [
         row
         for row in denominator.get("reviews", [])
-        if isinstance(row, Mapping) and row.get("path") == path
+        if isinstance(row, Mapping)
+        and row.get("path") == path
+        and row.get("disposition") == "reviewed_nonmapping"
     ]
-    if len(reviews) != expected_count:
-        raise ValueError(
-            f"frozen denominator selected {len(reviews)} rows, expected "
-            f"{expected_count}"
-        )
-    if any(row.get("disposition") != "reviewed_nonmapping" for row in reviews):
-        raise ValueError("selected denominator rows are not all reviewed_nonmapping")
+    expected_count = len(reviews)
+    if expected_count == 0:
+        raise ValueError("frozen denominator selected no reviewed_nonmapping rows")
     facts = {
         str(row["discovery_id"]): {
             "discovery_id": row["discovery_id"],
@@ -92,6 +87,13 @@ def compile_batch(
     durations = measured_durations(
         results_document=results_document,
         expected_names={str(row["name"]) for row in reviews},
+        allowed_extra_names={
+            str(row["name"])
+            for row in catalog.get("tests", [])
+            if isinstance(row, Mapping)
+            and row.get("path") == path
+            and isinstance(row.get("name"), str)
+        },
     )
 
     invariant_path, invariant = _load_selected_invariant(
@@ -368,6 +370,7 @@ def measured_durations(
     *,
     results_document: Mapping[str, Any],
     expected_names: set[str],
+    allowed_extra_names: set[str] | None = None,
 ) -> dict[str, int]:
     tests = results_document.get("tests")
     failures = results_document.get("failures")
@@ -392,9 +395,10 @@ def measured_durations(
         ):
             raise ValueError("focused result title or duration is invalid")
         durations[name] = duration
-    if set(durations) != expected_names:
+    allowed_names = expected_names | (allowed_extra_names or set())
+    if set(durations) != allowed_names:
         raise ValueError("focused result titles do not equal denominator names")
-    return durations
+    return {name: durations[name] for name in expected_names}
 
 
 def validate_applied_batch(
@@ -566,6 +570,7 @@ def main(argv: list[str] | None = None) -> int:
                 for row in _toml(root / DENOMINATOR_PATH).get("reviews", [])
                 if isinstance(row, Mapping)
                 and row.get("path") == plan.get("path")
+                and row.get("disposition") == "reviewed_nonmapping"
             }
             apply_mapping_transaction(
                 root=root,

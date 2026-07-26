@@ -93,14 +93,19 @@ def register_spec_source(
         path=record["path"],
         label="specification source",
     )
-    if source_match is not None and source_match != record:
-        raise ValueError(
-            f"specification source {record['id']} already exists with different metadata"
-        )
     rendered_sources = (
-        source_registry
-        if source_match is not None
-        else _append_record(source_registry, "spec_sources", record)
+        _append_record(source_registry, "spec_sources", record)
+        if source_match is None
+        else (
+            source_registry
+            if source_match == record
+            else _replace_record(
+                source_registry,
+                table="spec_sources",
+                index=source_records.index(source_match),
+                record=record,
+            )
+        )
     )
 
     relative = Path(record["path"])
@@ -133,17 +138,22 @@ def register_spec_source(
         path=review["path"],
         label="document review",
     )
-    if review_match is not None and review_match != review:
-        raise ValueError(
-            f"document review {review['document_id']} already exists with different metadata"
-        )
     rendered_reviews = (
-        review_registry
-        if review_match is not None
-        else _append_record(review_registry, "document_reviews", review)
+        _append_record(review_registry, "document_reviews", review)
+        if review_match is None
+        else (
+            review_registry
+            if review_match == review
+            else _replace_record(
+                review_registry,
+                table="document_reviews",
+                index=review_records.index(review_match),
+                record=review,
+            )
+        )
     )
     return RegistrationResult(
-        changed=source_match is None or review_match is None,
+        changed=source_match != record or review_match != review,
         record=record,
         rendered=rendered_sources,
         document_reviews_rendered=rendered_reviews,
@@ -213,6 +223,37 @@ def _append_record(source: str, table: str, record: dict[str, Any]) -> str:
     parsed = tomllib.loads(rendered)
     if parsed.get(table, [])[-1] != record:
         raise ValueError(f"generated [[{table}]] record failed round-trip")
+    return rendered
+
+
+def _replace_record(
+    source: str,
+    *,
+    table: str,
+    index: int,
+    record: dict[str, Any],
+) -> str:
+    header = re.compile(rf"(?m)^\[\[{re.escape(table)}\]\]\s*$")
+    matches = list(header.finditer(source))
+    if index < 0 or index >= len(matches):
+        raise ValueError(f"generated [[{table}]] replacement index is invalid")
+    start = matches[index].start()
+    next_table = re.search(r"(?m)^\[\[[^\]]+\]\]\s*$", source[matches[index].end() :])
+    end = (
+        matches[index].end() + next_table.start()
+        if next_table is not None
+        else len(source)
+    )
+    block = "\n".join(
+        [f"[[{table}]]"]
+        + [f"{key} = {_toml_value(value)}" for key, value in record.items()]
+    )
+    suffix = source[end:]
+    separator = "\n\n" if suffix else "\n"
+    rendered = source[:start].rstrip() + "\n\n" + block + separator + suffix.lstrip()
+    parsed = tomllib.loads(rendered)
+    if parsed.get(table, [])[index] != record:
+        raise ValueError(f"generated [[{table}]] replacement failed round-trip")
     return rendered
 
 

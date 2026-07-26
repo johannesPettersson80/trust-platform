@@ -103,6 +103,70 @@ class SpecSourceRegistrationTests(unittest.TestCase):
                     reviewed_date="2026-07-26",
                 )
 
+    def test_registration_refreshes_existing_document_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            spec = root / "docs/specs/25-vscode-product-contract.md"
+            spec.parent.mkdir(parents=True)
+            spec.write_text("# VS Code Product Contract\n\n## Live Values\n")
+            registry = root / "verification/spec-sources.toml"
+            registry.parent.mkdir(parents=True)
+            registry.write_text("# registry\n")
+            reviews = root / "verification/spec-document-reviews.toml"
+            reviews.write_text("# reviews\n")
+
+            first = register_spec_source(
+                root=root,
+                registry_path=registry,
+                review_registry_path=reviews,
+                path=Path("docs/specs/25-vscode-product-contract.md"),
+                area="editor_safety",
+                owner="editors-vscode",
+                reviewed_date="2026-07-25",
+            )
+            registry.write_text(first.rendered)
+            reviews.write_text(first.document_reviews_rendered)
+            old_digest = first.document_reviews_rendered.split(
+                'content_sha256 = "',
+                1,
+            )[1].split('"', 1)[0]
+
+            spec.write_text(
+                "# VS Code Product Contract\n\n"
+                "## Live Values\n\n"
+                "## Devices and Connections\n"
+            )
+            refreshed = register_spec_source(
+                root=root,
+                registry_path=registry,
+                review_registry_path=reviews,
+                path=Path("docs/specs/25-vscode-product-contract.md"),
+                area="editor_safety",
+                owner="editors-vscode",
+                reviewed_date="2026-07-26",
+            )
+
+            self.assertTrue(refreshed.changed)
+            self.assertEqual(
+                refreshed.rendered.count("[[spec_sources]]"),
+                1,
+            )
+            self.assertEqual(
+                refreshed.document_reviews_rendered.count(
+                    "[[document_reviews]]"
+                ),
+                1,
+            )
+            self.assertIn(
+                'covers = ["live_values", "devices_and_connections"]',
+                refreshed.rendered,
+            )
+            self.assertIn(
+                'last_reviewed = "2026-07-26"',
+                refreshed.rendered,
+            )
+            self.assertNotIn(old_digest, refreshed.document_reviews_rendered)
+
 
 if __name__ == "__main__":
     unittest.main()
