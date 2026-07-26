@@ -6,10 +6,14 @@ risk = "silent_corruption"
 status = "mapped"
 owner = "trust-runtime"
 last_reviewed = "2026-07-26"
-claim = "Modbus configuration and execution must preserve function, typed point-map, error-policy, exception, reconnect, and shutdown authority."
+claim = "Modbus configuration, execution, and operator provenance must preserve function, typed point-map, direction-specific source labels, error-policy, exception, reconnect, and shutdown authority."
 proof_level = "S0"
 contract_kind = "protocol_trace"
-source_refs = ["crates/trust-runtime/src/io/modbus", "docs/specs/11-runtime-engine.md"]
+source_refs = [
+  "crates/trust-runtime/src/io/modbus",
+  "crates/trust-runtime/src/io/provenance.rs",
+  "docs/specs/11-runtime-engine.md",
+]
 tests = ["TEST_AUTO_115B36B27D6276F2E2C0", "TEST_AUTO_22FFF435A5C79CFB4226", "TEST_AUTO_2CE088F1926B33175423", "TEST_AUTO_456E5DFC92F78865CD94", "TEST_AUTO_6E23CF19296BECF5CAB1", "TEST_AUTO_788265591A86ECBA1247", "TEST_AUTO_7CCA5C983F3BC05339EC", "TEST_AUTO_84211DB0157DDFA2DAD8", "TEST_AUTO_859C42B742CE618E4C76", "TEST_AUTO_A3BEFC6AEFD5123C849D", "TEST_AUTO_A89C5FA2356D682836D2", "TEST_AUTO_F8896C1E5734037D4BF4"]
 gates = ["veryquick", "pr"]
 evidence_refs = []
@@ -113,6 +117,20 @@ outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
 rationale = "Drop signals shutdown and returns within its deadline without claiming the detached worker has joined."
+
+[[behavior]]
+partition = { equals = "DIRECTIONAL_OPERATOR_SOURCE_LABEL" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-startup-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Input provenance uses the configured input-register base and output provenance uses the configured output-register base, each with the addressed word offset."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Direction-specific operator provenance is ready for generated catalog mapping."
 
 [[coverage.cells]]
 dimension = "hardware_or_network_fault"

@@ -1,0 +1,62 @@
+schema_version = 1
+id = "RT_PROJECT_RUNTIME_SOURCE_LOAD_001"
+title = "Runtime source loading preserves project dependencies and literal roots"
+area = "runtime_safety"
+risk = "compatibility"
+status = "planned"
+owner = "trust-runtime"
+last_reviewed = "2026-07-26"
+claim = "Project startup includes resolved local dependency sources, while legacy runtime-root loading treats paths literally, discovers ST and POU files recursively, and orders them deterministically."
+proof_level = "S0"
+contract_kind = "protocol_trace"
+source_refs = [
+  "crates/trust-runtime/src/bin/trust-runtime/run.rs",
+  "crates/trust-runtime/src/bin/trust-runtime/run/runtime.rs",
+]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = [
+  "catalog_mapping",
+  "assertion_reachability",
+  "mutation_sensitivity",
+  "windows_path_evidence",
+  "broad_remote_gate",
+]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-startup-contract"
+
+[[behavior]]
+partition = { equals = "PROJECT_WITH_LOCAL_DEPENDENCY_SOURCES" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-startup-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Project-mode source compilation includes the selected source root and every resolved local project dependency source."
+
+[[behavior]]
+partition = { equals = "LEGACY_LITERAL_RUNTIME_ROOT" }
+case_family = "platform_or_filesystem_variation"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-startup-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Legacy runtime-root loading treats metacharacters literally, finds ST and POU files recursively and case-insensitively, and returns deterministic path order."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Reviewed project dependency-source assertions are ready for generated catalog mapping."
+
+[[coverage.cells]]
+dimension = "platform_or_filesystem_variation"
+state = "gap_open"
+rationale = "Reviewed literal-root and deterministic-order assertions are ready for generated catalog mapping."

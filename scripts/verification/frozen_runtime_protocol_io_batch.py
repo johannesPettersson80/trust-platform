@@ -341,6 +341,7 @@ def selected_feature_shards(
                     ADS_WIRE_DISABLED_CFG,
                     ADS_SERVER_CFG,
                     '#[cfg(feature = "ads-wire")]',
+                    '#[cfg(feature = "opcua-wire")]',
                     '#[cfg(all(feature = "ethercat-wire", unix))]',
                 }
             ),

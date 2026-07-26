@@ -1,0 +1,86 @@
+schema_version = 1
+id = "RT_RUN_STARTUP_POLICY_001"
+title = "Runtime startup policy fails before mutation and exposes effective launch state"
+area = "runtime_safety"
+risk = "false_status"
+status = "planned"
+owner = "trust-runtime"
+last_reviewed = "2026-07-26"
+claim = "Runtime startup rejects unsupported bundle versions before policy mutation, exposes simulation warnings and effective settings truthfully, and maps only the reviewed graceful Unix signals into the ordinary bounded shutdown path."
+proof_level = "S0"
+contract_kind = "protocol_trace"
+source_refs = [
+  "crates/trust-runtime/src/bin/trust-runtime/run.rs",
+  "crates/trust-runtime/src/bin/trust-runtime/run/runtime.rs",
+  "crates/trust-runtime/src/bin/trust-runtime/run/types.rs",
+]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = [
+  "catalog_mapping",
+  "assertion_reachability",
+  "mutation_sensitivity",
+  "windows_shutdown_evidence",
+  "broad_remote_gate",
+]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-startup-contract"
+
+[[behavior]]
+partition = { equals = "SIMULATION_WARNING_VISIBILITY" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-startup-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Simulation mode reports its effective scale and live-hardware warning, while production mode emits no simulation warning."
+
+[[behavior]]
+partition = { equals = "GRACEFUL_UNIX_SIGNAL_SET" }
+case_family = "concurrency_or_cancellation"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-startup-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }
+rationale = "SIGINT and SIGTERM request the ordinary runtime shutdown target; unreviewed Unix signals do not manufacture a runtime stop request."
+
+[[behavior]]
+partition = { equals = "UNSUPPORTED_BUNDLE_VERSION_BEFORE_POLICY_MUTATION" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-startup-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "An unsupported bundle version rejects before watchdog, fault, or other runtime policy is replaced."
+
+[[behavior]]
+partition = { equals = "EFFECTIVE_RUNTIME_SETTINGS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-startup-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Exposed settings preserve the effective bundle, simulation plan, execution backend, and backend-source selections used for startup."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Reviewed warning and effective-settings assertions are ready for generated catalog mapping."
+
+[[coverage.cells]]
+dimension = "concurrency_or_cancellation"
+state = "gap_open"
+rationale = "Reviewed graceful-signal assertions are ready for generated catalog mapping."
+
+[[coverage.cells]]
+dimension = "extra_or_unknown"
+state = "gap_open"
+rationale = "Reviewed unsupported-version assertions are ready for generated catalog mapping."

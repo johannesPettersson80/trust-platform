@@ -96,6 +96,15 @@ no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
 rationale = "The play parser preserves explicit simulation enablement and a valid nonzero time scale for startup validation and effective configuration."
 
+[[behavior]]
+partition = { equals = "PROJECT_SIMULATION_MODEL_WITH_CLI_ENABLE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-startup-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Explicit CLI simulation enablement retains the project's simulation model and its configured time scale when no stronger CLI scale override is supplied."
+
 [[coverage.cells]]
 dimension = "happy_path"
 state = "gap_open"

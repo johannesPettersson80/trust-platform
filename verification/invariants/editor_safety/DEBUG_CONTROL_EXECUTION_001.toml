@@ -1,0 +1,104 @@
+schema_version = 1
+id = "DEBUG_CONTROL_EXECUTION_001"
+title = "Runtime debug control preserves statement-granular stop semantics and local event delivery"
+area = "editor_safety"
+risk = "false_status"
+status = "planned"
+owner = "trust-debug"
+last_reviewed = "2026-07-26"
+claim = "Runtime debug control resolves and stops at authoritative statement boundaries, preserves step, condition, hit-count, watch, frame, and task-order semantics, emits logpoints without pausing, and retains events when a local receiver disappears."
+proof_level = "S0"
+contract_kind = "state_machine"
+source_refs = ["crates/trust-runtime/src/host/debug/control"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = [
+  "catalog_mapping",
+  "assertion_reachability",
+  "mutation_sensitivity",
+  "broad_remote_gate",
+]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_DEBUG_ADAPTER_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"
+
+[[behavior]]
+partition = { equals = "STEP_EXECUTION" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }
+rationale = "Step In stops at the next statement, Step Over waits for the starting depth, and Step Out waits for the caller after resuming from pause."
+
+[[behavior]]
+partition = { equals = "BREAKPOINT_RESOLUTION_AND_STOP_EVENT" }
+case_family = "happy_path"
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }
+rationale = "Resolution selects the innermost containing or next statement start, and a matching current-generation breakpoint pauses before execution and emits one breakpoint stop."
+
+[[behavior]]
+partition = { equals = "WATCH_FRAME_AND_TASK_ORDER" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }
+rationale = "The current frame location and watch-change state follow each stop, while continue preserves the remaining configured task order."
+
+[[behavior]]
+partition = { equals = "CONDITIONAL_AND_HIT_COUNT_BREAKPOINT" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }
+rationale = "False conditions continue, true conditions pause, and an accepted hit threshold pauses exactly when its count is reached."
+
+[[behavior]]
+partition = { equals = "LOGPOINT_WITHOUT_PAUSE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A logpoint formats its text and expression fragments into one output record while execution continues without a debug stop."
+
+[[behavior]]
+partition = { equals = "EVENT_CHANNEL_FALLBACK" }
+case_family = "concurrency_or_cancellation"
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A dropped runtime-event or log receiver causes the first record to be retained in the matching in-memory debug-control buffer."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Reviewed breakpoint-resolution and logpoint assertions are ready for generated catalog mapping."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "Reviewed step, watch, frame, and task-order assertions are ready for generated catalog mapping."
+
+[[coverage.cells]]
+dimension = "boundary_high"
+state = "gap_open"
+rationale = "Reviewed conditional and hit-count assertions are ready for generated catalog mapping."
+
+[[coverage.cells]]
+dimension = "concurrency_or_cancellation"
+state = "gap_open"
+rationale = "Reviewed receiver-drop fallback assertions are ready for generated catalog mapping."

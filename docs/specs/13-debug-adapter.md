@@ -192,6 +192,37 @@ Stepping is statement-granular, not instruction-granular.
   - `pause` for explicit pause requests,
   - `entry` for stop-on-entry.
 
+### Runtime Debug-Control Execution
+
+Statement locations use the first non-trivia token. Breakpoint resolution
+prefers the innermost containing statement and otherwise selects the next
+statement at or after the requested position. Runtime resolution returns that
+statement start, and a breakpoint hit pauses before the statement, emits one
+`breakpoint` stop carrying the current breakpoint generation, and resumes only
+after an explicit continue.
+
+Step In stops at the next executed statement. Step Over ignores deeper frames
+and stops at the next statement at the starting frame depth. Step Out ignores
+the current and deeper frames and stops after returning to the caller. Each
+step resumes from a paused state and pauses again at exactly that boundary.
+
+The runtime updates the active frame location at each statement boundary.
+Watch-change state is recomputed for each stop from the current storage, and
+resuming a paused multi-task scan preserves the configured task execution
+order; a pause must not restart or reorder the remaining tasks.
+
+A conditional breakpoint whose expression is false does not pause; a true
+condition follows ordinary breakpoint stop behavior. A hit-count breakpoint
+stops exactly when its accepted threshold is reached. A logpoint evaluates its
+registered fragments, appends one formatted output record, and never pauses
+execution solely because the logpoint was reached.
+
+Debug-control event delivery is loss-resistant at the local process boundary.
+If a registered runtime-event receiver has been dropped, the event is retained
+in the in-memory runtime-event buffer. If a registered log receiver has been
+dropped, the formatted logpoint record is retained in the in-memory debug log
+buffer. Receiver failure must not discard the first fault or log record.
+
 ### Stack Trace and Navigation
 
 1) `StackTraceRequest` returns stack frames for the current thread.

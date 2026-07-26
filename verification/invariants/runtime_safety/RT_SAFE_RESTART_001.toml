@@ -57,6 +57,14 @@ outcome = "accept_value"
 delta = { target = "set_to_expected", siblings = "expected_delta", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
 rationale = "Automatic recovery from a non-panic cycle fault uses the warm-restart storage transition and clears the handled error."
 
+[[behavior]]
+partition = { equals = "STARTUP_RETAIN_LOAD_BY_RESTART_MODE" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-startup-contract"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Cold startup leaves declared retained initialization intact, while warm startup loads the validated retained snapshot before execution."
+
 [[coverage.cells]]
 dimension = "persistence_or_recovery"
 state = "covered"

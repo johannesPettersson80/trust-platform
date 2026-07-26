@@ -1329,6 +1329,9 @@ historian, persistence, and web-service initialization. Failure in any of these
 steps aborts startup; the scan start gate is not opened and the launcher must
 not report the PLC as running. Warm startup loads and validates the configured
 retain snapshot before execution. Cold startup does not read retained values.
+Bundle-version compatibility is checked before watchdog, fault, or other
+runtime policy is mutated; an unsupported version leaves the prior runtime
+policy unchanged.
 
 Simulation startup rejects a CLI or project time scale of zero. `--simulation`
 enables simulation without discarding the project's simulation model; a CLI
@@ -1337,6 +1340,9 @@ scale. Otherwise the loaded project simulation configuration remains
 authoritative. The settings exposed to control and status surfaces must reflect
 the effective runtime configuration and this effective simulation/backend
 selection, rather than an independent set of launcher defaults.
+A simulated launch exposes a warning that names simulation mode, the effective
+time scale, and that the mode is not for live hardware. Production mode emits
+no simulation warning.
 
 `trust-runtime validate --ci` validates the same bundle version, TLS, control
 authentication, enabled I/O-driver configurations, bytecode container, module,
@@ -1353,6 +1359,13 @@ name, and event data; events below the configured verbosity are omitted.
 SIGINT and SIGTERM request the ordinary bounded runtime stop path so shutdown
 and safe-state behavior completes before the launcher emits `runtime_exit` and
 returns success.
+
+Operator-facing I/O provenance labels preserve the selected driver direction.
+For Modbus, an input address uses the configured input-register base and an
+output address uses the configured output-register base, with the addressed
+word offset added to that base. For MQTT, an input address names `topic_in` and
+an output address names `topic_out`; the opposite-direction topic is never
+substituted.
 
 ##### 6.8.0 Deprecated workbench command forwarding
 
