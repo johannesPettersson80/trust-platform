@@ -1,0 +1,76 @@
+schema_version = 1
+id = "VM_REFERENCE_RESOLUTION_001"
+title = "VM reference routes preserve one logical storage model"
+area = "bytecode_vm"
+risk = "silent_corruption"
+status = "planned"
+owner = "trust-runtime"
+last_reviewed = "2026-07-26"
+claim = "Direct, generic, dynamic, inherited, nested, and frame-local reference routes resolve the same logical storage and reject invalid paths without mutation."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-runtime/src/runtime/vm/dispatch_refs.rs", "crates/trust-runtime/src/runtime/vm/call/write_target.rs", "crates/trust-runtime/src/runtime/vm/local_init.rs"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["catalog_mapping", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_BYTECODE_FORMAT_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_BYTECODE_FORMAT_001#vm-reference-resolution"
+
+[[behavior]]
+partition = { equals = "DIRECT_OR_GENERIC_STORAGE_ROUTE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#vm-reference-resolution"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "Empty direct paths and generic references read and write the same global, instance, or current-frame storage."
+
+[[behavior]]
+partition = { equals = "NESTED_FIELD_OR_ARRAY_PATH" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#vm-reference-resolution"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "Inherited fields and partial nested array paths extend against the declared aggregate shape, including extreme signed bounds, without arithmetic overflow."
+
+[[behavior]]
+partition = { equals = "NULL_OR_INVALID_REFERENCE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#vm-reference-resolution"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "fault_visible" }
+rationale = "Null, missing, incompatible, and out-of-range reference resolution faults without changing storage."
+
+[[behavior]]
+partition = { equals = "UNMATERIALIZED_INTERFACE_SLOT" }
+case_family = "happy_path"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#vm-reference-resolution"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "Function and method interface slots without a materialized value begin as NULL."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Reviewed direct, generic, and interface-default assertions await generated catalog mapping."
+
+[[coverage.cells]]
+dimension = "boundary_high"
+state = "gap_open"
+rationale = "Reviewed nested-path and extreme-bound assertions await generated catalog mapping."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Reviewed invalid-reference assertions await generated catalog mapping."

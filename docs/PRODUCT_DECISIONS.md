@@ -311,3 +311,25 @@ IEC or PLCopen deviation log merely because truST owns the behavior.
   - The surfaces answer different questions. Connector reports normalize live
     protocol evidence; authoring capabilities and fleet topology must also
     represent build and configuration states that are not connector health.
+
+## 2026-07-26 - Canonical VM semantics and optimized-backend fallback
+
+- Area: Runtime bytecode execution
+- Decision:
+  - The stack executor is the canonical oracle for observable VM semantics.
+  - Register-IR and tier-1 execution must preserve values, declared runtime
+    types, storage mutations, traps, instruction-budget accounting, and
+    deadline behavior.
+  - An optimized backend may decline and use the stack executor only before it
+    has made an observable mutation.
+  - Cache policy, allocation reuse, profiling counters, polling stride, and
+    diagnostic prose remain implementation details rather than product
+    semantics.
+- Supersedes:
+  - Any interpretation that treats successful optimized execution as
+    sufficient without parity to the stack executor, or treats exact internal
+    counters and diagnostic strings as stable product behavior.
+- Reason:
+  - Optimization must not create a second language runtime. A single semantic
+    authority permits safe fallback while keeping internal performance policy
+    evolvable.

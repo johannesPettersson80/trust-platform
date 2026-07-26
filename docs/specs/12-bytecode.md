@@ -832,8 +832,85 @@ encoded `NOP` instruction in an already constructed module is governed by the
 normal instruction contract and does not authorize fail-open source lowering.
 
 This boundary requires a visible compiler build error and is not a runtime
-failure surface. The stable bytecode and VM identifiers in Section 7.7 apply
-after bytecode production; they do not replace source-lowering diagnostics.
+failure surface. The stable bytecode and VM identifiers in Sections 7.4 and
+7.4.1 apply after bytecode production; they do not replace source-lowering
+diagnostics.
+
+#### 7.7 VM Call Binding and Copy-Back
+
+VM calls bind arguments deterministically to the callee's declared parameter
+order. Positional arguments consume the next available parameters; named
+arguments bind by the declared name without changing declaration order.
+Duplicate or unknown names, excess positional arguments, missing required
+arguments, and holes in a variadic suffix reject before callee execution or
+caller mutation.
+
+An omitted function-block input preserves the instance's stored field value.
+An omitted output or `VAR_IN_OUT` parameter creates no copy-back binding and
+does not attempt to resolve a target. A supplied output or `VAR_IN_OUT` target
+must be writable and compatible with the declared parameter type.
+`VAR_IN_OUT` copy-in and copy-back preserve the same caller target and require
+exact family and bounded-string capacity compatibility. A rejected binding or
+copy-back leaves the caller target and unaffected instance fields unchanged.
+
+Standard-function fixed and variadic parameters use the same declaration-order,
+duplicate-name, arity, and variadic-hole rules. Native split functions write
+each declared output once and return `NULL`; runtime clock functions accept
+exactly zero arguments. Integer output helpers preserve the target's declared
+integer width and reject a negative value for unsigned storage before writing.
+
+#### 7.8 VM Reference Resolution
+
+Every VM reference route resolves the same logical storage location and
+produces the same value, mutation, or trap. An empty path may use direct global,
+instance, or current-frame storage. Nested paths, inherited fields, and dynamic
+references may use generic resolution, but the selected access route is not
+observable in the program result.
+
+Field and array-path extension preserves the existing path and applies each
+additional segment against the declared aggregate shape. Index arithmetic is
+overflow-checked, including arrays with extreme signed lower bounds. A null
+reference, missing field, incompatible aggregate shape, or invalid index faults
+without mutating storage. Function and method interface slots that have no
+materialized value begin as `NULL`.
+
+#### 7.9 Optimized Backend Semantic Equivalence
+
+The stack executor defines the VM's observable semantics. Register-IR and
+tier-1 execution must produce the same return value, declared runtime types,
+storage mutations, instruction-budget boundary, and runtime-error category
+from the same module and initial state. Nested calls share the top-level
+instruction budget. Deadline and budget failure occur before the guarded
+operation commits an observable mutation.
+
+An optimized backend may decline an instruction, block, or POU and fall back
+only before that backend has made an observable mutation. Cache state,
+profiling counters, allocation reuse, polling stride, and diagnostic prose are
+implementation details and are not part of this semantic-equivalence oracle.
+
+##### 7.9.1 Register-IR lowering, verification, and fusion
+
+Register-IR lowering preserves bytecode operands, control flow, stack
+semantics, and original instruction costs. It rejects stack underflow,
+inconsistent merge depths, invalid block targets, undefined register reads,
+out-of-range destinations, and missing or inconsistent original-cost metadata.
+`RETURN` ends propagation and does not acquire a synthetic fallthrough edge.
+
+Fusion may replace only a complete reviewed instruction window. The fused form
+preserves operand order, read dependencies, branch behavior, runtime faults,
+and the sum of the original bytecode instruction costs. A partial, guarded, or
+otherwise unmatched window remains unfused without changing the surrounding
+instructions. Unsupported lowering preserves the complete original operands
+for a pre-mutation stack-executor fallback.
+
+##### 7.9.2 Tier-1 specialization
+
+Tier-1 compilation either accepts a reviewed register block and executes it
+with register-interpreter semantics, or declines it before mutation. A guard
+mismatch is a decline rather than a reinterpretation of the operands. Accepted
+blocks preserve arithmetic and comparison results, boolean and branch
+behavior, dynamic and inherited reference semantics, function and
+function-block calls, runtime traps, and original instruction costs.
 
 ### 8. Versioning
 

@@ -1,0 +1,85 @@
+schema_version = 1
+id = "VM_CALL_BINDING_001"
+title = "VM calls bind and copy back through declared parameter contracts"
+area = "bytecode_vm"
+risk = "silent_corruption"
+status = "planned"
+owner = "trust-runtime"
+last_reviewed = "2026-07-26"
+claim = "VM and standard-library calls bind positional, named, omitted, output, and IN_OUT arguments deterministically and reject invalid binding before callee execution or caller mutation."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-runtime/src/runtime/vm/call"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["catalog_mapping", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_BYTECODE_FORMAT_001", "SPEC_VM_VALUE_SEMANTICS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_BYTECODE_FORMAT_001#vm-call-binding-and-copy-back"
+
+[[behavior]]
+partition = { equals = "DECLARED_POSITIONAL_AND_NAMED_BINDING" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#vm-call-binding-and-copy-back"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "Positional and named arguments bind to declaration order, including fixed and variadic standard functions, without reordering the declared parameter model."
+
+[[behavior]]
+partition = { equals = "OMITTED_FUNCTION_BLOCK_PARAMETERS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#vm-call-binding-and-copy-back"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "An omitted FB input preserves its stored field, while omitted OUT and INOUT parameters create no target resolution or copy-back binding."
+
+[[behavior]]
+partition = { equals = "INVALID_ARGUMENT_SHAPE_OR_ARITY" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#vm-call-binding-and-copy-back"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_applicable" }
+rationale = "Duplicate or unknown names, excess positional values, missing required values, and variadic holes reject before execution or mutation."
+
+[[behavior]]
+partition = { equals = "TYPED_OUTPUT_AND_INOUT_COPYBACK" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#vm-call-binding-and-copy-back"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_applicable" }
+rationale = "OUT and INOUT require writable compatible targets; string family or capacity mismatch and conflicting declared target types reject without caller mutation."
+
+[[behavior]]
+partition = { equals = "NATIVE_STDLIB_DISPATCH_AND_OUTPUTS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#vm-call-binding-and-copy-back"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "Runtime clock functions accept zero arguments, split functions write their declared outputs once, and integer outputs preserve target width."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Reviewed VM call assertions await generated catalog mapping."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Reviewed invalid binding and copy-back assertions await generated catalog mapping."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "Reviewed declaration-order binding assertions await generated catalog mapping."
