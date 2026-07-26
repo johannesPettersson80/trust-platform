@@ -2009,6 +2009,17 @@ covers = [
   "inlay_and_inline_values",
   "code_actions_and_quick_fixes",
   "document_sync_uri_and_lifecycle",
+  "client_setting_alias_precedence",
+  "hmi_command_and_descriptor_errors",
+  "uri_and_virtual_document_normalization",
+  "completion_recovery_visibility_and_formal_suppression",
+  "learner_hint_threshold",
+  "openot_editor_projection",
+  "hover_declared_type_fallback",
+  "runtime_inline_value_merge_precedence",
+  "completion_cancellation_response",
+  "call_hierarchy_allowed_file_filter",
+  "namespace_relocation_transaction_order",
 ]
 known_limitations = []
 conflicts_with = []

@@ -370,6 +370,92 @@ The target speed for the motor in RPM.
 Range: 0.0 to 3000.0
 ```
 
+#### 6.6 Focused editor and command decisions
+
+The following rules are truST language-tooling product contracts. They do not
+change IEC 61131-3 program semantics.
+
+##### 6.6.1 Client setting aliases
+
+- Where a VS Code/LSP setting accepts both camelCase and snake_case spellings,
+  camelCase is canonical and wins when both aliases are present.
+- Alias lookup ignores values of the wrong JSON type and proceeds to the next
+  reviewed alias rather than coercing them.
+- The `stlsp` section takes precedence over legacy `trust-lsp` aliases.
+  Runtime settings accept the documented nested and top-level forms without
+  merging unrelated keys.
+
+##### 6.6.2 HMI command and descriptor diagnostics
+
+- HMI commands reject malformed argument shapes and invalid styles before
+  filesystem mutation. Valid initialization and binding requests return the
+  deterministic scaffold and external binding catalogue.
+- HMI TOML diagnostics use open-buffer content, accept valid pages, and report
+  invalid widget, type, property, and binding data without requiring a
+  successful runtime compile.
+- Near-match suggestions rank the closest valid binding first and suppress
+  low-confidence noise.
+
+##### 6.6.3 URI and virtual-document handling
+
+- File URI conversion preserves spaces and fragments and normalizes supported
+  platform-specific drive and extended-length forms without changing the
+  underlying path identity.
+- Virtual-document URIs are accepted for request processing when the client
+  supplies their text; they are not rewritten as local file paths.
+- Platform-gated URI tests that cannot execute on the current platform remain
+  explicit nonmapping evidence rather than cross-platform proof.
+
+##### 6.6.4 Completion recovery and visibility
+
+- Recovery completion in an incomplete statement keeps visible scope symbols.
+- Member completion enforces declared visibility.
+- Formal-parameter completion supports function and method calls and suppresses
+  formals already used by the call.
+- A cancelled completion request returns no completion payload. Cancellation
+  is not reported as an empty successful analysis result.
+
+##### 6.6.5 Learner hints
+
+- Learner diagnostics MAY add `Did you mean`, conversion, and common syntax
+  habit guidance when the primary diagnostic has a high-confidence correction.
+- Valid code and low-confidence candidates receive no learner-hint noise.
+
+##### 6.6.6 OpenOT editor projection
+
+- OpenOT completion exposes only documented keys and values.
+- OpenOT inlay hints identify the emitted record.
+- The OpenOT logging code action is offered only for a declaration whose type
+  supports that action.
+
+##### 6.6.7 Hover fallback and presentation
+
+- When resolved runtime/type information is unavailable, hover falls back to
+  the declaration's written type rather than omitting or inventing a type.
+- Hover presents initializer and retention qualifiers from the declaration and
+  keeps function-block member sections and parameter constants explicit.
+
+##### 6.6.8 Runtime inline-value merge
+
+- Runtime instance fields merge into the matching local/namespace projection.
+  Runtime values override the same resolved local identity; unrelated locals,
+  constants, and instances remain present.
+- CamelCase and snake_case runtime client settings follow the precedence rule
+  in section 6.6.1.
+
+##### 6.6.9 Call-hierarchy file authority
+
+- Call hierarchy includes incoming and outgoing calls only from the request's
+  allowed project files. Dependency or excluded-file calls do not leak into a
+  scoped result.
+
+##### 6.6.10 Namespace relocation transaction order
+
+- Namespace relocation applies create operations first, then content edits,
+  then deletion of an emptied source file.
+- Failure before the delete phase leaves the original source available; no
+  command may delete first and attempt recovery afterward.
+
 ---
 
 ### 7. LSP Protocol

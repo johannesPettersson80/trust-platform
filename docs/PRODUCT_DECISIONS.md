@@ -395,3 +395,29 @@ IEC or PLCopen deviation log merely because truST owns the behavior.
     Grouping their authority prevents false catalogue mappings while keeping
     legacy helpers and retired panels runnable without treating them as product
     proof.
+
+## 2026-07-26 - LSP client aliases and editor projection
+
+- Area: LSP and IDE product behavior
+- Decision:
+  - CamelCase client settings are canonical and win over snake_case aliases;
+    wrong-typed aliases are ignored rather than coerced.
+  - HMI commands and descriptor diagnostics validate independently of runtime
+    compilation and rank only high-confidence recovery suggestions.
+  - Completion cancellation returns no payload, and learner hints remain
+    confidence-gated.
+  - OpenOT completion, inlay, and code-action projection is limited to
+    documented typed behavior.
+  - Hover falls back to written declaration authority, runtime inline values
+    merge by resolved identity, call hierarchy respects allowed files, and
+    namespace relocation creates and edits before deleting.
+  - Platform-gated URI behavior is never inferred from a Linux-only test run.
+- Supersedes:
+  - Any client-alias merge that lets a legacy snake_case value override the
+    canonical camelCase setting.
+  - Any false-success interpretation of cancelled completion, low-confidence
+    learner hints, unavailable platform syntax, or HMI diagnostics that happen
+    to coincide with a successful compile.
+- Reason:
+  - These choices define deterministic editor recovery and prevent stale,
+    cross-platform, or partial state from being presented as authoritative.

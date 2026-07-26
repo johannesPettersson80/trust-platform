@@ -18,7 +18,7 @@ tests = ["TEST_AUTO_197943C28763CE20D5DA", "TEST_AUTO_2ACBB5889DA47BBE7C49", "TE
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["client_setting_alias_precedence", "hmi_command_and_descriptor_errors", "uri_virtual_document_normalization", "completion_recovery_visibility_and_formal_suppression", "learner_hint_threshold", "openot_editor_projection", "hover_declared_type_fallback", "runtime_inline_value_merge_precedence", "completion_cancellation_response", "call_hierarchy_allowed_file_filter", "namespace_relocation_transaction_order", "broad_remote_gate"]
+missing = ["broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -107,6 +107,94 @@ oracle_ref = "SPEC_LSP_CONTRACT_001#72-document-synchronization"
 outcome = "accept_value"
 delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected", status = "unchanged" }
 rationale = "Open, change, close, and dependent-document refresh preserve revision order and restore durable project truth."
+
+[[behavior]]
+partition = { equals = "CLIENT_SETTING_ALIAS_PRECEDENCE" }
+case_family = "duplicate_or_collision"
+oracle_ref = "SPEC_LSP_CONTRACT_001#661-client-setting-aliases"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Canonical camelCase and section aliases win deterministically while wrong-typed and lower-priority aliases cannot overwrite them."
+
+[[behavior]]
+partition = { equals = "HMI_COMMAND_AND_DESCRIPTOR_ERRORS" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_LSP_CONTRACT_001#662-hmi-command-and-descriptor-diagnostics"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected", status = "unchanged" }
+rationale = "HMI command inputs and descriptor content validate before mutation, independently of runtime compilation, with bounded near-match guidance."
+
+[[behavior]]
+partition = { equals = "URI_AND_VIRTUAL_DOCUMENT_NORMALIZATION" }
+case_family = "platform_or_filesystem_variation"
+oracle_ref = "SPEC_LSP_CONTRACT_001#663-uri-and-virtual-document-handling"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "File URI conversion preserves path identity on its supported platform and virtual documents remain client-owned text identities."
+
+[[behavior]]
+partition = { equals = "COMPLETION_RECOVERY_AND_VISIBILITY" }
+case_family = "missing_required"
+oracle_ref = "SPEC_LSP_CONTRACT_001#664-completion-recovery-and-visibility"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Completion recovers visible scope members, enforces visibility, and suppresses already-used call formals."
+
+[[behavior]]
+partition = { equals = "LEARNER_HINT_THRESHOLD" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_LSP_CONTRACT_001#665-learner-hints"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected", status = "unchanged" }
+rationale = "Learner hints add only high-confidence recovery and remain absent for valid or low-confidence input."
+
+[[behavior]]
+partition = { equals = "OPENOT_EDITOR_PROJECTION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_LSP_CONTRACT_001#666-openot-editor-projection"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected", status = "unchanged" }
+rationale = "OpenOT completion, inlay, validation, and logging actions project only documented typed values and records."
+
+[[behavior]]
+partition = { equals = "HOVER_DECLARED_TYPE_FALLBACK" }
+case_family = "missing_required"
+oracle_ref = "SPEC_LSP_CONTRACT_001#667-hover-fallback-and-presentation"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Hover preserves written type, initializer, retention, and member-section authority when deeper resolution is unavailable."
+
+[[behavior]]
+partition = { equals = "INLINE_VALUE_MERGE_PRECEDENCE" }
+case_family = "duplicate_or_collision"
+oracle_ref = "SPEC_LSP_CONTRACT_001#668-runtime-inline-value-merge"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Runtime values override only the same resolved local or namespace identity while preserving unrelated static and instance values."
+
+[[behavior]]
+partition = { equals = "COMPLETION_CANCELLATION_RESPONSE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_LSP_CONTRACT_001#664-completion-recovery-and-visibility"
+outcome = "reject_before_mutation"
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A cancelled completion request returns no payload and cannot masquerade as a completed empty analysis."
+
+[[behavior]]
+partition = { equals = "CALL_HIERARCHY_ALLOWED_FILES" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_LSP_CONTRACT_001#669-call-hierarchy-file-authority"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Call hierarchy includes only calls from files authorized by the request's project scope."
+
+[[behavior]]
+partition = { equals = "NAMESPACE_RELOCATION_TRANSACTION" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_LSP_CONTRACT_001#6610-namespace-relocation-transaction-order"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Namespace relocation creates and edits before deleting an emptied source so pre-delete failures remain recoverable."
 
 [[coverage.cells]]
 dimension = "missing_required"
