@@ -268,7 +268,10 @@ def qualify_test_names(
     if any(
         not isinstance(name, str)
         or not name
-        or name.startswith(profile.test_prefix)
+        or (
+            bool(profile.test_prefix)
+            and name.startswith(profile.test_prefix)
+        )
         for name in names
     ):
         raise ValueError("test names must be nonempty and unqualified")

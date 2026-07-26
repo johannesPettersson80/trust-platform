@@ -209,6 +209,61 @@ fn ignores_inactive_host_platform_cfg_duplicate_helpers() {
 }
 
 #[test]
+fn ignores_assertion_like_methods_reached_in_production_functions() {
+    let source = r#"
+fn type_check() {
+    checker
+        .stmt()
+        .check_statement_list_with_labels(&statement_list);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reports_type_error() {
+        type_check();
+        assert!(true);
+    }
+}
+"#;
+    let inventory = extract(
+        "crates/example/src/type_check.rs",
+        "reports_type_error",
+        source,
+    )
+    .expect("extract type-check assertions");
+
+    assert!(inventory.unresolved_assertion_helpers.is_empty());
+}
+
+#[test]
+fn retains_unresolved_custom_methods_in_test_only_helpers() {
+    let source = r#"
+#[cfg(test)]
+mod tests {
+    fn check_contract() {
+        fixture.check_contract();
+    }
+
+    #[test]
+    fn reports_contract() {
+        check_contract();
+        assert!(true);
+    }
+}
+"#;
+    let inventory = extract("crates/example/src/contract.rs", "reports_contract", source)
+        .expect("extract test-only method helper");
+
+    assert_eq!(
+        vec!["tests::check_contract::check_contract:unresolved-method"],
+        inventory.unresolved_assertion_helpers
+    );
+}
+
+#[test]
 fn binds_static_include_and_named_insta_snapshot_oracles() {
     let root = assertion_fixture_root("external-oracles");
     let test_path = "crates/example/tests/contract.rs";

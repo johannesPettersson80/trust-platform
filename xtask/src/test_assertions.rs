@@ -67,6 +67,7 @@ struct FunctionRecord {
     qualified_name: String,
     source_path: String,
     module: Vec<String>,
+    test_context: bool,
     imports: ImportReachability,
     item: ItemFn,
 }
@@ -334,6 +335,7 @@ fn build_context(root: Option<&Path>, sources: Vec<ContextSource>) -> Result<Ext
             &file.items,
             &context.path,
             &mut context.module.clone(),
+            is_integration_test_source(&context.path),
             &mut functions,
         );
         source_digests.insert(context.path.clone(), sha256_tag(context.source.as_bytes()));
@@ -421,6 +423,7 @@ fn extract_from_built_context(
             function: function_name.clone(),
             source_path: function.source_path.clone(),
             generated_output_roots: generated_output_roots(&function.item.block),
+            test_context: function.test_context,
             observations: BodyObservations::default(),
         };
         visitor.visit_block(&function.item.block);
@@ -500,6 +503,7 @@ fn collect_functions(
     items: &[Item],
     source_path: &str,
     modules: &mut Vec<String>,
+    test_context: bool,
     output: &mut Vec<FunctionRecord>,
 ) {
     let imports = imports_from_items(items, modules);
@@ -515,6 +519,7 @@ fn collect_functions(
                     qualified_name: segments.join("::"),
                     source_path: source_path.to_string(),
                     module: modules.clone(),
+                    test_context: test_context || has_test_attribute(&function.attrs),
                     imports: imports.clone(),
                     item: function.clone(),
                 });
@@ -522,13 +527,41 @@ fn collect_functions(
             Item::Mod(module) => {
                 if let Some((_, nested)) = &module.content {
                     modules.push(module.ident.to_string());
-                    collect_functions(nested, source_path, modules, output);
+                    collect_functions(
+                        nested,
+                        source_path,
+                        modules,
+                        test_context || has_exact_test_cfg(&module.attrs),
+                        output,
+                    );
                     modules.pop();
                 }
             }
             _ => {}
         }
     }
+}
+
+fn is_integration_test_source(path: &str) -> bool {
+    let components = Path::new(path)
+        .components()
+        .filter_map(|component| match component {
+            Component::Normal(value) => Some(value.to_string_lossy()),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    components.first().is_some_and(|value| value == "tests")
+        || (components.first().is_some_and(|value| value == "crates")
+            && components.get(2).is_some_and(|value| value == "tests"))
+}
+
+fn has_exact_test_cfg(attributes: &[Attribute]) -> bool {
+    attributes.iter().any(|attribute| {
+        attribute.path().is_ident("cfg")
+            && attribute
+                .parse_args::<syn::Meta>()
+                .is_ok_and(|meta| matches!(meta, syn::Meta::Path(path) if path.is_ident("test")))
+    })
 }
 
 fn host_platform_cfg_active(attributes: &[Attribute]) -> bool {
@@ -729,6 +762,7 @@ struct AssertionVisitor {
     function: String,
     source_path: String,
     generated_output_roots: BTreeSet<String>,
+    test_context: bool,
     observations: BodyObservations,
 }
 
@@ -762,7 +796,7 @@ impl<'ast> Visit<'ast> for AssertionVisitor {
                 span: expression.span(),
                 expression: expression.to_token_stream().to_string(),
             });
-        } else if looks_like_assertion_helper(&method) {
+        } else if self.test_context && looks_like_assertion_helper(&method) {
             self.observations
                 .unresolved_assertion_helpers
                 .insert(format!("{}::{method}:unresolved-method", self.function));

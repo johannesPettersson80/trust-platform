@@ -12,8 +12,10 @@ from scripts.verification.frozen_static_catalog_batch import (
     validate_execution_provenance,
 )
 from scripts.verification.frozen_rust_nextest_target import (
+    FrozenRustTargetProfile,
     RUNTIME_CONTROL_PROFILE,
     no_default_feature_test_names,
+    qualify_test_names,
 )
 from scripts.verification.frozen_static_semantic_assignments import (
     resolve_behavior_assignments,
@@ -21,6 +23,23 @@ from scripts.verification.frozen_static_semantic_assignments import (
 
 
 class FrozenStaticCatalogBatchTests(unittest.TestCase):
+    def test_empty_module_prefix_accepts_bare_integration_test_names(self) -> None:
+        profile = FrozenRustTargetProfile(
+            key="integration-root",
+            package="example",
+            target_kind="test",
+            target_name="contract",
+            binary_id="example::contract",
+            test_prefix="",
+            encoded_test_name_prefix="example::contract$",
+            discovery_source_kind="rust_integration_test",
+            allowed_cfg_attributes=frozenset(),
+            no_default_features_cfg=None,
+            no_default_features_shard_name=None,
+        )
+
+        self.assertEqual(("one",), qualify_test_names(profile, ("one",)))
+
     def test_selection_digest_binds_exact_frozen_rows(self) -> None:
         row = {
             "discovery_id": "DISC_A",
