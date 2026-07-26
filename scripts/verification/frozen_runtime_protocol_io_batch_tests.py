@@ -20,7 +20,8 @@ class FrozenRuntimeProtocolIoBatchTests(unittest.TestCase):
         resolved = resolve_nextest_listing(
             listing={
                 "rust-suites": {
-                    "trust-runtime": {
+                    "trust-runtime::trust_runtime": {
+                        "binary-id": "trust-runtime",
                         "testcases": {
                             "io::tests::one": {"ignored": False},
                         }
@@ -34,6 +35,10 @@ class FrozenRuntimeProtocolIoBatchTests(unittest.TestCase):
         )
         self.assertEqual("trust-runtime", resolved["one"]["binary_id"])
         self.assertEqual("io::tests::one", resolved["one"]["full_name"])
+        self.assertEqual(
+            "trust-runtime::trust_runtime$io::tests::one",
+            resolved["one"]["encoded_name"],
+        )
         command = build_batch_command(
             resolved,
             target_args=["--lib", "--test", "contract"],

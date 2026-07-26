@@ -196,7 +196,7 @@ def resolve_nextest_listing(
                     {
                         "binary_id": binary_id,
                         "full_name": full_name,
-                        "encoded_name": f"{binary_id}${full_name}",
+                        "encoded_name": f"{suite_key}${full_name}",
                     }
                 )
     missing = sorted(selected_names - set(candidates))
