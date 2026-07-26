@@ -998,7 +998,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     root = args.root.resolve()
     try:
-        profile = get_target_profile(args.profile)
+        profile = get_target_profile(args.profile, path=args.path)
         if not root.is_dir():
             raise ValueError("repository root does not exist")
         _checked_repo_file(root, DENOMINATOR_PATH, "test denominator")

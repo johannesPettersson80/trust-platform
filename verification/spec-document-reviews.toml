@@ -1719,7 +1719,7 @@ last_reviewed = "2026-07-19"
 schema_version = 1
 document_id = "SPEC_DOC_3CB0A263798CC82602164D0E"
 path = "docs/specs/09-semantic-rules.md"
-content_sha256 = "23494c29e5b79dcafa409fe5a4ff6a9da3bb41f5eb2722105340f4719eb88968"
+content_sha256 = "3a95c301aef5acb085c46739b9f1784bd004e5ae5e5423145a62e2c344269e86"
 areas = ["compiler_iec"]
 authority_levels = ["normative_product"]
 owners = ["language"]
@@ -3725,7 +3725,7 @@ last_reviewed = "2026-07-19"
 schema_version = 1
 document_id = "SPEC_DOC_897D8C7FC8578E5DB83239B0"
 path = "docs/specs/README.md"
-content_sha256 = "d0d4222d6bba087e508301a7383f122a613b09985e089f1dd56479bd94e402fa"
+content_sha256 = "f7a8f3b8cbc9df9de81ca7079cd885567cb0ab670370af21530943ae3db36d5a"
 areas = ["compiler_iec"]
 authority_levels = ["normative_candidate"]
 owners = ["trust-hir"]
@@ -3736,7 +3736,7 @@ classification_basis = "explicit_review"
 conflict_disposition = "potential_conflict_reported"
 checklist_staleness = "not_applicable"
 removed_behavior_disposition = "potentially_stale_reported"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-26"
 
 [[document_reviews]]
 schema_version = 1
@@ -4133,7 +4133,7 @@ last_reviewed = "2026-07-19"
 schema_version = 1
 document_id = "SPEC_DOC_98D975E462EFED297C87BA27"
 path = "docs/IEC_DEVIATIONS.md"
-content_sha256 = "cd18327e233f46fc40ac5b69a892125b655614480ae20d03f556e40375def008"
+content_sha256 = "a8162f28535a2647d9a17ed9affb40acd879925533bf3e790a767605ad344f42"
 areas = ["compiler_iec"]
 authority_levels = ["reviewed_deviation"]
 owners = ["language"]
@@ -4354,7 +4354,7 @@ last_reviewed = "2026-07-19"
 schema_version = 1
 document_id = "SPEC_DOC_9D127CDD1F52E8D3DB61DDC8"
 path = "docs/specs/02-data-types.md"
-content_sha256 = "b7eae54168c26ea5ea50ee7ab3791e4b77f3a5f0a985c07661122f54a94bba61"
+content_sha256 = "a985b6e076b7a8e218fa2631c535307bc138b181ac0078feaeb05bd87575a829"
 areas = ["compiler_iec"]
 authority_levels = ["normative_product"]
 owners = ["language"]
@@ -4365,7 +4365,7 @@ classification_basis = "registered_metadata"
 conflict_disposition = "registered_conflicts_reviewed"
 checklist_staleness = "not_applicable"
 removed_behavior_disposition = "reviewed_current"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-26"
 
 [[document_reviews]]
 schema_version = 1
@@ -6823,6 +6823,96 @@ content_sha256 = "0a83128c4bbb7411f9700ba3cc6d7c2b32cba3fa4ecbb09a76f6f639aeaceb
 areas = ["editor_safety"]
 authority_levels = ["normative_product"]
 owners = ["editors-vscode"]
+freshness = "current"
+visibility = "public"
+oracle_usable = true
+classification_basis = "registered_metadata"
+conflict_disposition = "registered_conflicts_reviewed"
+checklist_staleness = "not_applicable"
+removed_behavior_disposition = "reviewed_current"
+last_reviewed = "2026-07-26"
+
+
+[[document_reviews]]
+schema_version = 1
+document_id = "SPEC_DOC_51577978FA8129FCC683675F"
+path = "docs/specs/26-hir-semantic-kernel.md"
+content_sha256 = "48ceb2085b64a01f2a40bfcf56634648ba662baabd2ef808aa68490fbab8b9c0"
+areas = ["compiler_iec"]
+authority_levels = ["normative_product"]
+owners = ["language"]
+freshness = "current"
+visibility = "public"
+oracle_usable = true
+classification_basis = "registered_metadata"
+conflict_disposition = "registered_conflicts_reviewed"
+checklist_staleness = "not_applicable"
+removed_behavior_disposition = "reviewed_current"
+last_reviewed = "2026-07-26"
+
+
+[[document_reviews]]
+schema_version = 1
+document_id = "SPEC_DOC_19503D4EF07F9823A4770B67"
+path = "docs/specs/27-openot-authoring.md"
+content_sha256 = "7918abcadef5500c1be1a29d39d0effe0ee6b2d68f84a2517fe632a7a9b2b915"
+areas = ["compiler_iec"]
+authority_levels = ["normative_product"]
+owners = ["language"]
+freshness = "current"
+visibility = "public"
+oracle_usable = true
+classification_basis = "registered_metadata"
+conflict_disposition = "registered_conflicts_reviewed"
+checklist_staleness = "not_applicable"
+removed_behavior_disposition = "reviewed_current"
+last_reviewed = "2026-07-26"
+
+
+[[document_reviews]]
+schema_version = 1
+document_id = "SPEC_DOC_15EE2543BB10BB8A0A7131B1"
+path = "docs/specs/28-hir-warning-policy.md"
+content_sha256 = "97eb3a2193af3f4410906e6210eb363178dbafe0e748e1ec9ce0db272ed029ed"
+areas = ["compiler_iec"]
+authority_levels = ["normative_product"]
+owners = ["language"]
+freshness = "current"
+visibility = "public"
+oracle_usable = true
+classification_basis = "registered_metadata"
+conflict_disposition = "registered_conflicts_reviewed"
+checklist_staleness = "not_applicable"
+removed_behavior_disposition = "reviewed_current"
+last_reviewed = "2026-07-26"
+
+
+[[document_reviews]]
+schema_version = 1
+document_id = "SPEC_DOC_0BA82F5468DB13538671D6C3"
+path = "docs/specs/29-hir-sizeof-and-allocation.md"
+content_sha256 = "b5095cbc6f63288ce66b45b5248ab0e50a78cdf5a69b0baed63f89050ceb946b"
+areas = ["compiler_iec"]
+authority_levels = ["normative_product"]
+owners = ["language"]
+freshness = "current"
+visibility = "public"
+oracle_usable = true
+classification_basis = "registered_metadata"
+conflict_disposition = "registered_conflicts_reviewed"
+checklist_staleness = "not_applicable"
+removed_behavior_disposition = "reviewed_current"
+last_reviewed = "2026-07-26"
+
+
+[[document_reviews]]
+schema_version = 1
+document_id = "SPEC_DOC_904D3CDA750DEF8007C622DD"
+path = "docs/specs/30-verification-inventory.md"
+content_sha256 = "e2e8c30cfd0cc96a08edd3dc6db72fe34d37f563545a3255fe70279849b50d3d"
+areas = ["verification"]
+authority_levels = ["normative_product"]
+owners = ["verification"]
 freshness = "current"
 visibility = "public"
 oracle_usable = true

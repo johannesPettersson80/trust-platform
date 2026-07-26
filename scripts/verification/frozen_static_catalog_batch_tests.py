@@ -283,6 +283,56 @@ class FrozenStaticCatalogBatchTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, message):
                     resolve_behavior_assignments(**base, plan=plan)
 
+    def test_assertion_scoped_assignments_bind_every_assertion_exactly(
+        self,
+    ) -> None:
+        inventories = {
+            "DISC_MULTI": {
+                "test_name": "multi_case",
+                "assertions": [
+                    {"assertion_id": "ASSERT_SNAPSHOT", "line": 49},
+                    {"assertion_id": "ASSERT_MISSING", "line": 50},
+                ],
+            }
+        }
+        base = {
+            "inventories": inventories,
+            "default_invariant_id": None,
+            "allowed_invariant_ids": {"INV_INVENTORY"},
+        }
+        plan = {
+            "assertion_assignments": [
+                {
+                    "name": "multi_case",
+                    "assertions": [
+                        {
+                            "assertion_id": "ASSERT_SNAPSHOT",
+                            "invariant_id": "INV_INVENTORY",
+                            "behavior_index": 3,
+                        },
+                        {
+                            "assertion_id": "ASSERT_MISSING",
+                            "invariant_id": "INV_INVENTORY",
+                            "behavior_index": 4,
+                        },
+                    ],
+                }
+            ]
+        }
+
+        self.assertEqual(
+            {
+                "DISC_MULTI": (
+                    ("INV_INVENTORY", 3),
+                    ("INV_INVENTORY", 4),
+                )
+            },
+            resolve_behavior_assignments(**base, plan=plan),
+        )
+        plan["assertion_assignments"][0]["assertions"].pop()
+        with self.assertRaisesRegex(ValueError, "reviewed assertion IDs"):
+            resolve_behavior_assignments(**base, plan=plan)
+
     def test_measured_durations_require_exact_passing_title_set(self) -> None:
         results = {
             "tests": [

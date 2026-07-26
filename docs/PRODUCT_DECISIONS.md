@@ -6,6 +6,40 @@ in `IEC_DECISIONS.md`; PLCopen profile decisions belong in
 `PLCOPEN_DECISIONS.md`. Product behavior recorded here MUST NOT be copied to an
 IEC or PLCopen deviation log merely because truST owns the behavior.
 
+## 2026-07-26 - HIR product authority and verification-inventory boundary
+
+- Area: HIR semantic services, OpenOT authoring, diagnostics, allocation
+  validation, and verification governance
+- Decision:
+  - The stable HIR identity, invalidation, translation, diagnostic-context,
+    declaration-catalog, concurrency, and fail-closed primitive-model
+    contracts are normative truST product behavior.
+  - OpenOT pragma semantics, the exact HIR warning policy, and truST validation
+    of `SIZEOF`, `NEW`, and `__DELETE` are normative product contracts. They do
+    not become IEC requirements or IEC deviations merely because the HIR
+    implements them alongside IEC language semantics.
+  - IEC `REF(...)` lifetime requirements remain IEC authority. The
+    method-result lifetime rule and the `ADR(...)`/`POINTER TO`
+    slot-versus-pointee rules are truST product constraints around addressable
+    storage. Rejection of `REF(...)` for CONSTANT-qualified variables is the
+    separate normative conflict recorded as DEV-020.
+  - The IEC table test inventory is verification governance only. It proves
+    that its listed names resolve and that its rendered report is
+    deterministic, review-locked, and fail-closed. It does not prove that every
+    relevant IEC table or test is listed, IEC product behavior, or conformance.
+- Authority:
+  - `docs/specs/02-data-types.md`
+  - `docs/specs/26-hir-semantic-kernel.md`
+  - `docs/specs/27-openot-authoring.md`
+  - `docs/specs/28-hir-warning-policy.md`
+  - `docs/specs/29-hir-sizeof-and-allocation.md`
+  - `docs/specs/30-verification-inventory.md`
+- Reason:
+  - Existing HIR tests cover both IEC-derived semantics and truST-owned
+    behavior. Recording the ownership boundary prevents product choices and
+    verification mechanics from being mislabeled as normative IEC
+    nonconformance.
+
 ## 2026-07-26 - VS Code shell consolidation and retired surfaces
 
 - Area: VS Code commands, navigation, and product packaging

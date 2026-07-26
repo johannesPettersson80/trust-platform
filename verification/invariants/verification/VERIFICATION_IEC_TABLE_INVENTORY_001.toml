@@ -1,0 +1,93 @@
+schema_version = 1
+id = "VERIFICATION_IEC_TABLE_INVENTORY_001"
+title = "IEC table test inventory remains resolvable and deterministic"
+area = "verification"
+risk = "silent_corruption"
+status = "specified"
+owner = "verification"
+last_reviewed = "2026-07-26"
+claim = "The IEC table coverage inventory must parse its canonical tracked map, resolve every listed Rust test name, render resolving paths deterministically, and reject missing names without creating IEC product proof."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = [
+  "docs/specs/30-verification-inventory.md#iec-table-test-inventory",
+  "docs/specs/coverage/iec-table-test-map.toml",
+  "crates/trust-hir/tests/iec_table_coverage.rs",
+]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = [
+  "cataloged_inventory_test",
+  "focused_execution_evidence",
+  "final_remote_gate",
+]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_VERIFICATION_INVENTORY_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_VERIFICATION_INVENTORY_001#iec-table-test-inventory"
+
+[[behavior]]
+partition = { equals = "CANONICAL_MAP_VALID" }
+case_family = "happy_path"
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#iec-table-test-inventory"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The canonical tracked map is readable and parses into table identifiers, optional specification paths, and listed Rust test names."
+
+[[behavior]]
+partition = { equals = "CANONICAL_MAP_MALFORMED" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#iec-table-test-inventory"
+outcome = "reject"
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "An unreadable or malformed canonical map fails the inventory check rather than producing a partial report."
+
+[[behavior]]
+partition = { equals = "LISTED_TEST_NAME_RESOLVES" }
+case_family = "happy_path"
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#iec-table-test-inventory"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Every exact listed name resolves to at least one Rust test source path in the defined inventory roots."
+
+[[behavior]]
+partition = { equals = "REPORT_PATH_ORDER" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#iec-table-test-inventory"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Resolving paths are repository-relative, separator-normalized, lexically sorted, and rendered into the reviewed report snapshot."
+
+[[behavior]]
+partition = { equals = "LISTED_TEST_NAME_MISSING" }
+case_family = "missing_required"
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#iec-table-test-inventory"
+outcome = "reject"
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "A listed name with no Rust test source match is marked missing and fails the inventory check."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "The existing inventory test remains uncataloged here, so successful map parsing and name resolution have specification authority but no accepted proof binding."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Malformed-map rejection is specified but has no cataloged negative test or retained execution evidence."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "Deterministic normalized path rendering and snapshot locking are specified but not yet mapped to accepted proof."
+
+[[coverage.cells]]
+dimension = "missing_required"
+state = "gap_open"
+rationale = "Missing-name rejection is specified but has no cataloged negative test or retained execution evidence."

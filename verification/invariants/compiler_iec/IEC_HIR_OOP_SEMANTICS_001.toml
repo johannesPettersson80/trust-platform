@@ -1,0 +1,113 @@
+schema_version = 1
+id = "IEC_HIR_OOP_SEMANTICS_001"
+title = "HIR validates classes, function-block inheritance, interfaces, and members"
+area = "compiler_iec"
+risk = "wrong_result"
+status = "specified"
+owner = "trust-hir"
+last_reviewed = "2026-07-26"
+claim = "OOP declarations preserve inheritance, interface, override, visibility, property, and member contracts across files and namespaces."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-hir/src"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_IEC_POU_DECLARATIONS_001", "SPEC_IEC_SEMANTIC_RULES_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_IEC_SEMANTIC_RULES_001"
+
+[[behavior]]
+partition = { equals = "VALID_CLASS_FB_INTERFACE_AND_MEMBER_MODEL" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_POU_DECLARATIONS_001"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Classes, function blocks, interfaces, methods, fields, modifiers, and visibility are collected with their declared ownership and type roles."
+
+[[behavior]]
+partition = { equals = "VALID_INHERITED_OR_NAMESPACED_MEMBER" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Inherited members, SUPER, methods, sibling interfaces, and scoped bases resolve within the reviewed owner and namespace."
+
+[[behavior]]
+partition = { malformed = "INHERITANCE_OR_INTERFACE_CYCLE" }
+coverage_dimension = "duplicate_or_collision"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Class, function-block, or interface cycles are diagnosed across direct and mixed inheritance links."
+
+[[behavior]]
+partition = { malformed = "FINAL_ABSTRACT_OR_OVERRIDE_CONTRACT" }
+coverage_dimension = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Extending or overriding FINAL declarations, missing override intent, invalid abstract use, signature mismatch, and missing base methods are rejected."
+
+[[behavior]]
+partition = { malformed = "INTERFACE_CONFORMANCE_MISMATCH" }
+coverage_dimension = "missing_required"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Concrete implementers provide every required method or property accessor with matching signature and visibility; reviewed abstract declarations may defer implementation."
+
+[[behavior]]
+partition = { malformed = "PRIVATE_OR_INTERNAL_ACCESS_OUTSIDE_BOUNDARY" }
+coverage_dimension = "auth_or_permission"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Private and internal members are rejected outside their class or namespace access boundary."
+
+[[behavior]]
+partition = { malformed = "PROPERTY_OR_INHERITED_MEMBER_CONFLICT" }
+coverage_dimension = "duplicate_or_collision"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Reading a setter-only property and conflicting with inherited variables or methods are rejected, while assignment through a valid setter is accepted."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Valid OOP model and resolution assertions await mapping."
+
+[[coverage.cells]]
+dimension = "duplicate_or_collision"
+state = "gap_open"
+rationale = "Cycle and member-conflict assertions await mapping."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Modifier and override rejection awaits mapping."
+
+[[coverage.cells]]
+dimension = "missing_required"
+state = "gap_open"
+rationale = "Interface completeness assertions await mapping."
+
+[[coverage.cells]]
+dimension = "auth_or_permission"
+state = "gap_open"
+rationale = "Visibility assertions await mapping."

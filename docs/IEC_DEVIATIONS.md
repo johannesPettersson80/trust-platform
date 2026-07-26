@@ -15,6 +15,51 @@ this log. IEC-permitted interpretation choices belong in
 `docs/IEC_DECISIONS.md`. Existing entries are not classification precedent;
 re-check them against this rule when touched.
 
+## 2026-07-26 - `REF(...)` rejects CONSTANT-qualified variables
+
+- ID: DEV-020
+- Area: Structured Text reference operations
+- Normative IEC requirement: IEC 61131-3 Ed.3 section 6.4.4.10.3 defines
+  `REF(...)` for a variable or instance and forbids temporary variables,
+  including `VAR_TEMP` and variables inside functions. Section 6.5.4 defines
+  CONSTANT-qualified declarations as variables and does not exclude them from
+  `REF(...)`.
+- truST behavior and conflict:
+  - `trust-hir` rejects `REF(c)` whenever `c` is CONSTANT-qualified.
+  - This adds a restriction not present in the normative reference-operation
+    rule.
+- Impact:
+  - IEC source may read a constant through a reference, but the equivalent
+    source is rejected by truST.
+- Mitigation:
+  - Pass the constant value directly or copy it into non-CONSTANT storage
+    before taking a reference.
+  - This deviation closes when the type system can represent a read-only
+    reference target without permitting mutation through the reference.
+
+## 2026-07-26 - Non-NULL reference defaults on type and aggregate members
+
+- ID: DEV-019
+- Area: Structured Text reference initialization
+- Normative IEC requirement: IEC 61131-3 Ed.3 section 6.4.4.10.2 permits a
+  reference to be initialized with `NULL` or with `REF(...)` naming an already
+  declared variable, function-block instance, or class instance.
+- truST behavior and conflict:
+  - truST accepts `NULL` as a reference type/member default.
+  - During user-defined type and aggregate-member default collection,
+    `trust-hir` rejects every non-`NULL` reference initializer, including
+    `REF(target)`, with `InvalidOperation`.
+  - Rejecting the standard-permitted `REF(target)` form omits part of the
+    normative reference-initialization model.
+- Impact:
+  - IEC source that embeds an address-bound reference default in a type or
+    aggregate member is rejected by truST.
+- Mitigation:
+  - Use a `NULL` default and assign the reference after an instance has been
+    created.
+  - This deviation closes only when HIR retains and validates safe
+    address-bound reference defaults without weakening lifetime checks.
+
 ## 2026-07-26 - Mixed positional-prefix and formal-suffix calls
 
 - ID: DEV-018

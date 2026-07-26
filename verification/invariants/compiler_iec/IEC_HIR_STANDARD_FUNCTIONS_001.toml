@@ -1,0 +1,103 @@
+schema_version = 1
+id = "IEC_HIR_STANDARD_FUNCTIONS_001"
+title = "HIR validates standard functions and documented allocation extensions"
+area = "compiler_iec"
+risk = "wrong_result"
+status = "specified"
+owner = "trust-hir"
+last_reviewed = "2026-07-26"
+claim = "Registered conversion, numeric, bitwise, validation, string, time, assertion, allocation, and deletion calls enforce their written arity and type domains."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-hir/src"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_IEC_STANDARD_FUNCTIONS_001", "SPEC_IEC_SEMANTIC_RULES_001", "SPEC_HIR_SIZEOF_AND_ALLOCATION_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_IEC_STANDARD_FUNCTIONS_001"
+
+[[behavior]]
+partition = { equals = "VALID_REGISTERED_STANDARD_FUNCTION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Conversion, numeric, bitwise, selection, comparison, string, time, and validation calls accept reviewed argument categories and return the documented type."
+
+[[behavior]]
+partition = { malformed = "STANDARD_FUNCTION_WRONG_ARITY" }
+coverage_dimension = "missing_required"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Fixed and extensible functions reject calls below or outside their documented arity."
+
+[[behavior]]
+partition = { malformed = "STANDARD_FUNCTION_WRONG_ARGUMENT_TYPE" }
+coverage_dimension = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Typed conversions and overloaded functions reject arguments outside the required generic family."
+
+[[behavior]]
+partition = { equals = "ASSERT_EXTENSION_VALID" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "ASSERT functions accept their documented Boolean, comparable, character, and numeric argument domains."
+
+[[behavior]]
+partition = { malformed = "ASSERT_EXTENSION_ARITY_OR_DOMAIN" }
+coverage_dimension = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Assertion extensions reject wrong arity, incomparable operands, and nonnumeric ASSERT_NEAR arguments."
+
+[[behavior]]
+partition = { equals = "NEW_RESOLVED_TYPE_AND_DELETE_REFERENCE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_HIR_SIZEOF_AND_ALLOCATION_001"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "NEW accepts a resolved allocatable type and __DELETE accepts the resulting resolved reference at the HIR boundary."
+
+[[behavior]]
+partition = { malformed = "NEW_VALUE_IN_TYPE_POSITION_OR_UNKNOWN_DELETE" }
+coverage_dimension = "wrong_type_or_shape"
+oracle_ref = "SPEC_HIR_SIZEOF_AND_ALLOCATION_001"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "NEW rejects value operands and unresolved allocation/deletion prerequisites retain their primary diagnostic."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Accepted standard and allocation calls await mapping."
+
+[[coverage.cells]]
+dimension = "missing_required"
+state = "gap_open"
+rationale = "Arity assertions await mapping."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Argument-domain and allocation rejection assertions await mapping."

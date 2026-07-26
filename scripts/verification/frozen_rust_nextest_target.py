@@ -18,6 +18,7 @@ ADS_SERVER_CFG = '#[cfg(feature = "ads-server")]'
 MESSAGE_FORMAT_VERSION = "0.1"
 RUNTIME_CONTROL_PROFILE_KEY = "runtime-control-lib"
 HIR_SEMANTIC_CONTROL_FLOW_PROFILE_KEY = "hir-semantic-control-flow"
+HIR_REMAINING_PROFILE_KEY = "hir-remaining"
 TERMINAL_EVENTS = frozenset({"ok", "failed", "ignored", "timeout"})
 
 
@@ -90,18 +91,99 @@ HIR_SEMANTIC_CONTROL_FLOW_PROFILE = FrozenRustTargetProfile(
     no_default_features_shard_name=None,
 )
 
+HIR_REMAINING_PROFILE = FrozenRustTargetProfile(
+    key=HIR_REMAINING_PROFILE_KEY,
+    package="trust-hir",
+    target_kind="lib",
+    target_name=None,
+    binary_id="trust-hir",
+    test_prefix="",
+    encoded_test_name_prefix="trust-hir::trust_hir$",
+    discovery_source_kind="rust_unit_test",
+    allowed_cfg_attributes=frozenset(),
+    no_default_features_cfg=None,
+    no_default_features_shard_name=None,
+)
+
+HIR_REMAINING_INTEGRATION_PATHS = frozenset(
+    {
+        "crates/trust-hir/tests/declaration_catalog.rs",
+        "crates/trust-hir/tests/generic_types.rs",
+        "crates/trust-hir/tests/iec_table_coverage.rs",
+        "crates/trust-hir/tests/namespaces.rs",
+        "crates/trust-hir/tests/semantic_interfaces.rs",
+        "crates/trust-hir/tests/semantic_name_resolution.rs",
+        "crates/trust-hir/tests/semantic_parameters.rs",
+        "crates/trust-hir/tests/semantic_scope.rs",
+        "crates/trust-hir/tests/semantic_standard_functions.rs",
+        "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs",
+        "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs",
+        "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs",
+        "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs",
+        "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs",
+        "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs",
+        "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs",
+        "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs",
+        "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs",
+        "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs",
+        "crates/trust-hir/tests/semantic_type_definitions.rs",
+        "crates/trust-hir/tests/var_sections.rs",
+    }
+)
+
+HIR_REMAINING_UNIT_PREFIXES: Mapping[str, str] = {
+    "crates/trust-hir/src/db/diagnostics/context.rs": (
+        "db::diagnostics::context::tests::"
+    ),
+    "crates/trust-hir/src/db/diagnostics/oop/mod.rs": (
+        "db::diagnostics::oop::tests::"
+    ),
+    "crates/trust-hir/src/db/diagnostics/tests.rs": "db::diagnostics::tests::",
+    "crates/trust-hir/src/db/diagnostics/type_check.rs": (
+        "db::diagnostics::type_check::tests::"
+    ),
+    "crates/trust-hir/src/db/queries/database/database_tests_part_01.rs": (
+        "db::queries::database::tests::"
+    ),
+    "crates/trust-hir/src/db/queries/database/database_tests_part_02.rs": (
+        "db::queries::database::tests::"
+    ),
+    "crates/trust-hir/src/db/queries/database/database_tests_part_03.rs": (
+        "db::queries::database::tests::"
+    ),
+    "crates/trust-hir/src/diagnostics.rs": "diagnostics::tests::",
+    "crates/trust-hir/src/ident.rs": "ident::tests::",
+    "crates/trust-hir/src/openot_authoring.rs": "openot_authoring::tests::",
+    "crates/trust-hir/src/project.rs": "project::tests::",
+    "crates/trust-hir/src/semantic.rs": "semantic::tests::",
+    "crates/trust-hir/src/symbols/table.rs": "symbols::table::tests::",
+    "crates/trust-hir/src/type_check/compatibility.rs": (
+        "type_check::compatibility::tests::"
+    ),
+    "crates/trust-hir/src/type_check/mod.rs": "type_check::tests::",
+    "crates/trust-hir/src/types/defs.rs": "types::defs::tests::",
+    "crates/trust-hir/src/types/registry.rs": "types::registry::tests::",
+}
+
 TARGET_PROFILES: Mapping[str, FrozenRustTargetProfile] = {
     profile.key: profile
     for profile in (
         RUNTIME_CONTROL_PROFILE,
         HIR_SEMANTIC_CONTROL_FLOW_PROFILE,
+        HIR_REMAINING_PROFILE,
     )
 }
 
 
-def get_target_profile(key: str) -> FrozenRustTargetProfile:
+def get_target_profile(
+    key: str,
+    *,
+    path: str | None = None,
+) -> FrozenRustTargetProfile:
     """Return one explicitly supported frozen target profile."""
 
+    if key == HIR_REMAINING_PROFILE_KEY:
+        return _hir_remaining_profile(path)
     try:
         return TARGET_PROFILES[key]
     except KeyError as error:
@@ -119,9 +201,18 @@ def resolve_plan_target_profile(
 
     key = plan.get("target_profile")
     candidates = (
-        (get_target_profile(key),)
+        (
+            get_target_profile(
+                key,
+                path=plan.get("path") if isinstance(plan.get("path"), str) else None,
+            ),
+        )
         if isinstance(key, str) and key
-        else tuple(TARGET_PROFILES.values())
+        else tuple(
+            profile
+            for profile in TARGET_PROFILES.values()
+            if profile.key != HIR_REMAINING_PROFILE_KEY
+        )
     )
     fields = ("package", "target_kind", "binary_id", "test_prefix")
     matches = [
@@ -134,6 +225,38 @@ def resolve_plan_target_profile(
             "Rust plan target fields do not equal one closed target profile"
         )
     return matches[0]
+
+
+def _hir_remaining_profile(path: str | None) -> FrozenRustTargetProfile:
+    if path in HIR_REMAINING_UNIT_PREFIXES:
+        return FrozenRustTargetProfile(
+            **{
+                **HIR_REMAINING_PROFILE.__dict__,
+                "test_prefix": HIR_REMAINING_UNIT_PREFIXES[path],
+            }
+        )
+    if path in HIR_REMAINING_INTEGRATION_PATHS:
+        relative = path.removeprefix("crates/trust-hir/tests/")
+        if relative.startswith("semantic_type_checking/"):
+            target_name = "semantic_type_checking"
+            test_prefix = relative.rsplit("/", 1)[-1].removesuffix(".rs") + "::"
+        else:
+            target_name = relative.removesuffix(".rs")
+            test_prefix = ""
+        return FrozenRustTargetProfile(
+            key=HIR_REMAINING_PROFILE_KEY,
+            package="trust-hir",
+            target_kind="test",
+            target_name=target_name,
+            binary_id=f"trust-hir::{target_name}",
+            test_prefix=test_prefix,
+            encoded_test_name_prefix=f"trust-hir::{target_name}$",
+            discovery_source_kind="rust_integration_test",
+            allowed_cfg_attributes=frozenset(),
+            no_default_features_cfg=None,
+            no_default_features_shard_name=None,
+        )
+    raise ValueError(f"{path!r} is outside the closed HIR remaining path set")
 
 
 def qualify_test_names(

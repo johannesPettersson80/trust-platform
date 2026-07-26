@@ -1,0 +1,131 @@
+schema_version = 1
+id = "IEC_HIR_CONST_AGGREGATE_001"
+title = "HIR preserves constant evaluation and aggregate default initialization"
+area = "compiler_iec"
+risk = "wrong_result"
+status = "specified"
+owner = "trust-hir"
+last_reviewed = "2026-07-26"
+claim = "Scalar, array, structure, union, alias, and function-block defaults retain source-bound values, enforce destination shape and bounds, translate across files, and share deterministic constant evaluation with CASE labels."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-hir/src"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_IEC_DATA_TYPES_CANDIDATE_001", "SPEC_IEC_VARIABLES_001", "SPEC_IEC_SEMANTIC_RULES_001", "SPEC_IEC_STATEMENTS_001", "SPEC_IEC_DEVIATIONS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_IEC_SEMANTIC_RULES_001"
+
+[[behavior]]
+partition = { equals = "VALID_SCALAR_ARRAY_STRUCT_UNION_OR_FB_DEFAULT" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Valid defaults are retained with case-insensitive, order-independent named fields and permitted function-block members."
+
+[[behavior]]
+partition = { malformed = "UNKNOWN_OR_DUPLICATE_AGGREGATE_FIELD" }
+coverage_dimension = "duplicate_or_collision"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Unknown and duplicate aggregate fields are rejected at their source location."
+
+[[behavior]]
+partition = { malformed = "DEFAULT_TYPE_SHAPE_OR_MEMBER_KIND_MISMATCH" }
+coverage_dimension = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Nonaggregate targets, arbitrary array-call defaults, nested member type mismatches, and forbidden FB member kinds are rejected."
+
+[[behavior]]
+partition = { above = "DECLARED_DEFAULT_BOUND" }
+case_family = "above_max"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Integer, string, WSTRING, subrange, array element, and field defaults enforce their inclusive destination bounds."
+
+[[behavior]]
+partition = { equals = "ACYCLIC_LOCAL_FORWARD_OR_CROSS_FILE_CONSTANT" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Acyclic local, forward, expression-derived, and cross-file global constants evaluate to the same integer value for defaults, bounds, and CASE labels."
+
+[[behavior]]
+partition = { malformed = "CONSTANT_CYCLE_DIVIDE_BY_ZERO_OR_OVERFLOW" }
+coverage_dimension = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Cycles, division by zero, overflow, and unresolved constant prerequisites produce their primary diagnostic without field or range cascades."
+
+[[behavior]]
+partition = { malformed = "DUPLICATE_EVALUATED_CASE_VALUE" }
+coverage_dimension = "duplicate_or_collision"
+oracle_ref = "SPEC_IEC_STATEMENTS_001"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "CASE labels that evaluate to one value are duplicates, including values reached through local constant scope chains."
+
+[[behavior]]
+partition = { equals = "INITIALIZER_CATALOG_EDIT_OR_CROSS_FILE_IMPORT" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "expected_delta" }
+rationale = "Initializer records retain source ranges, invalidate on edit, and translate into valid target-table identities during cross-file import."
+
+[[behavior]]
+partition = { malformed = "NON_NULL_REFERENCE_TYPE_OR_MEMBER_DEFAULT" }
+coverage_dimension = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_DEVIATIONS_001#2026-07-26-non-null-reference-defaults-on-type-and-aggregate-members"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Until DEV-019 closes, a reference type/member default accepts NULL but rejects REF(target), even though IEC 61131-3 Ed.3 section 6.4.4.10.2 permits the address-bound form."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Accepted default and constant assertions await mapping."
+
+[[coverage.cells]]
+dimension = "duplicate_or_collision"
+state = "gap_open"
+rationale = "Aggregate-field and CASE duplicate assertions await mapping."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Default-shape and constant-evaluation rejection awaits mapping."
+
+[[coverage.cells]]
+dimension = "above_max"
+state = "gap_open"
+rationale = "Default-bound assertions await mapping."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "Initializer catalog lifecycle assertions await mapping."

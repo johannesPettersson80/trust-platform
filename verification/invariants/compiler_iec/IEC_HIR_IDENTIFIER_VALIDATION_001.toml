@@ -1,0 +1,62 @@
+schema_version = 1
+id = "IEC_HIR_IDENTIFIER_VALIDATION_001"
+title = "HIR validates identifiers and reserved keywords"
+area = "compiler_iec"
+risk = "wrong_result"
+status = "specified"
+owner = "trust-hir"
+last_reviewed = "2026-07-26"
+claim = "HIR accepts the documented identifier forms, rejects invalid underscore and leading-character forms, and recognizes reserved keywords case-insensitively."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-hir/src/ident.rs"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_IEC_LEXICAL_ELEMENTS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_IEC_LEXICAL_ELEMENTS_001"
+
+[[behavior]]
+partition = { equals = "VALID_IDENTIFIER" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A documented ASCII identifier beginning with a letter or permitted underscore and containing no forbidden underscore pattern is accepted."
+
+[[behavior]]
+partition = { malformed = "INVALID_IDENTIFIER" }
+coverage_dimension = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Empty, digit-leading, doubled-underscore, underscore-only, and trailing-underscore identifiers are rejected with the identifier diagnostic."
+
+[[behavior]]
+partition = { equals = "RESERVED_KEYWORD_CASE_INSENSITIVE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "IEC and documented truST keywords are recognized case-insensitively and cannot silently become ordinary identifiers."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Valid and keyword classification assertions await mapping."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Invalid identifier assertions await mapping."

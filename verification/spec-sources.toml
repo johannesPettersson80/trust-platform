@@ -91,7 +91,7 @@ locator_kind = "tracked_file"
 path = "docs/specs/09-semantic-rules.md"
 version = "current"
 last_reviewed = "2026-07-26"
-covers = ["semantic_analysis", "name_resolution", "assignment_target_validation", "assignment_type_compatibility", "array_index_validation", "property_accessor_validation", "return_flow_validation", "semantic_diagnostic_ownership"]
+covers = ["semantic_analysis", "name_resolution", "assignment_target_validation", "assignment_type_compatibility", "array_index_validation", "property_accessor_validation", "return_flow_validation", "semantic_diagnostic_ownership", "hir_initializer_retention", "default_initialization_and_constant_evaluation"]
 known_limitations = ["The static policy for a subrange-typed array index whose declared range exceeds the array bounds remains under review and is not made authoritative by this registration."]
 conflicts_with = []
 
@@ -1563,6 +1563,8 @@ last_reviewed = "2026-07-26"
 covers = [
   "iec_deviations",
   "integer_runtime_operand_normalization",
+  "non_null_reference_defaults_on_type_and_aggregate_members",
+  "ref_rejects_constant_qualified_variables",
   "runtime_string_element_semantics",
   "vendor_extensions",
   "unsigned_integer_result_materialization",
@@ -1897,21 +1899,9 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/specs/02-data-types.md"
 version = "current"
-last_reviewed = "2026-07-25"
-covers = [
-  "elementary_data_types",
-  "array_bounds",
-  "character_access",
-  "string_assignment_binding_boundaries",
-  "string_bounds",
-  "subrange_types",
-  "accuracy_preserving_implicit_conversions",
-]
-known_limitations = [
-  "The focused assignment and POU binding contract does not claim IEC certification.",
-  "This product source does not by itself establish IEC conformance.",
-  "Acceptance of named enumeration values as array limits remains under review.",
-]
+last_reviewed = "2026-07-26"
+covers = ["elementary_data_types", "array_bounds", "character_access", "string_assignment_binding_boundaries", "string_bounds", "subrange_types", "accuracy_preserving_implicit_conversions", "iec_reference_operations_and_lifetime", "trust_pointer_and_indirect_write_policy"]
+known_limitations = ["The focused assignment and POU binding contract does not claim IEC certification.", "This product source does not by itself establish IEC conformance.", "Acceptance of named enumeration values as array limits remains under review."]
 conflicts_with = []
 
 [[spec_sources]]
@@ -2212,4 +2202,104 @@ version = "current"
 last_reviewed = "2026-07-26"
 covers = ["1_purpose", "2_source_hierarchy", "3_public_api_stance", "4_compliance_and_scope_model", "5_library_package_structure_in_trust", "6_trust_specific_implementation_constraints", "7_public_reference_and_derived_types", "8_public_enums_and_canonical_data_types", "9_units_and_scaling", "10_execution_semantics", "11_output_semantics", "12_error_model", "13_axis_state_model", "14_group_state_model", "15_mandatory_implementation_choice_single_axis_commands_on_grouped_axes", "16_buffering_and_command_queue_semantics", "17_coordinated_motion_blend_model", "18_commandaccepted_and_commandid", "19_public_fb_profiles", "20_axis_kernel_contract", "21_group_kernel_contract", "22_kinematics_and_transforms", "23_dynamic_coordinate_system_rule", "24_tracking_vs_synchronization", "25_group_stop_behavior", "26_tool_and_payload_support", "27_naming_rules", "28_acceptance_tests", "29_oop_facade_mapping", "30_recommended_implementation_order", "31_final_recommendation"]
 known_limitations = ["The software-only Phase A kernel uses falling Execute as a deterministic simulated-completion signal; hardware adapters must complete from backend progress.", "The Phase A single-axis profile publishes but rejects all mcBlending modes until blending semantics are implemented."]
+conflicts_with = []
+
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_HIR_SEMANTIC_KERNEL_001"
+title = "HIR Semantic Kernel Contract"
+area = "compiler_iec"
+owner = "language"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/specs/26-hir-semantic-kernel.md"
+version = "current"
+last_reviewed = "2026-07-26"
+covers = ["1_source_identity_and_revision_lifecycle", "2_query_reuse_and_invalidation", "3_cross_file_semantic_translation", "4_stable_semantic_outcomes_and_diagnostic_context", "5_declaration_catalog", "6_concurrency_and_cancellation", "7_primitive_model_fail_closed_rules"]
+known_limitations = []
+conflicts_with = []
+
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_OPENOT_AUTHORING_001"
+title = "OpenOT Authoring Product Contract"
+area = "compiler_iec"
+owner = "language"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/specs/27-openot-authoring.md"
+version = "current"
+last_reviewed = "2026-07-26"
+covers = ["1_diagnostic_boundary", "2_value_attributes", "3_state_attributes", "4_alarm_and_message_attributes", "5_condition_lifecycle_attributes", "6_batch_recipe_and_material_events", "7_operator_and_security_events", "8_e_signatures", "9_decision_partitions"]
+known_limitations = []
+conflicts_with = []
+
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_HIR_WARNING_POLICY_001"
+title = "HIR Warning Policy"
+area = "compiler_iec"
+owner = "language"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/specs/28-hir-warning-policy.md"
+version = "current"
+last_reviewed = "2026-07-26"
+covers = ["1_unused_declarations", "2_implicit_conversion", "3_cyclomatic_complexity", "4_unreachable_statements", "5_nondeterministic_values_and_i_o", "6_shared_global_task_hazards", "7_floating_point_equality", "8_literal_zero_divisor", "9_stability_and_suppression"]
+known_limitations = []
+conflicts_with = []
+
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_HIR_SIZEOF_AND_ALLOCATION_001"
+title = "HIR SIZEOF and Allocation Contract"
+area = "compiler_iec"
+owner = "language"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/specs/29-hir-sizeof-and-allocation.md"
+version = "current"
+last_reviewed = "2026-07-26"
+covers = ["1_sizeof_result_and_accepted_operands", "2_sizeof_rejected_operands", "3_allocation_and_deletion"]
+known_limitations = []
+conflicts_with = []
+
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_VERIFICATION_INVENTORY_001"
+title = "Verification Inventory Contract"
+area = "verification"
+owner = "verification"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/specs/30-verification-inventory.md"
+version = "current"
+last_reviewed = "2026-07-26"
+covers = ["iec_table_test_inventory", "evidence_boundary"]
+known_limitations = []
 conflicts_with = []

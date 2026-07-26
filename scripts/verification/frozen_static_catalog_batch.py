@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import subprocess
 import tomllib
@@ -17,6 +16,18 @@ from .mapping_proposals import (
     validate_mapping_quarantine,
 )
 from .frozen_rust_nextest_batch import normalize_nextest_jsonl
+from .frozen_hir_family_batch import (
+    validate_projection_execution,
+    validate_projection_inventories,
+)
+from .frozen_catalog_identity import (
+    digest_bytes as _digest_bytes,
+    digest_document as _digest_document,
+    selection_digest,
+)
+from .frozen_invariant_behavior_binding import (
+    validate_invariant_behavior_digests,
+)
 from .frozen_st_batch import normalize_st_json
 from .frozen_rust_nextest_target import (
     build_catalog_command as build_rust_catalog_command,
@@ -104,6 +115,12 @@ def compile_batch(
         raise ValueError("assertion inventory document lacks inventories")
     if set(inventories) != set(facts):
         raise ValueError("assertion inventory IDs do not equal the selected denominator")
+    if plan.get("execution_kind") == "rust_nextest_jsonl_projection":
+        validate_projection_inventories(
+            root=root,
+            facts=facts,
+            inventories=inventories,
+        )
     assignments = resolve_behavior_assignments(
         inventories=inventories,
         plan=plan,
@@ -130,7 +147,10 @@ def compile_batch(
             and isinstance(row.get("name"), str)
         },
     )
-    if plan.get("execution_kind") == "rust_nextest_jsonl":
+    if plan.get("execution_kind") in {
+        "rust_nextest_jsonl",
+        "rust_nextest_jsonl_projection",
+    }:
         rust_profile = resolve_plan_target_profile(plan)
         no_default_feature_names = no_default_feature_test_names(
             profile=rust_profile,
@@ -141,6 +161,11 @@ def compile_batch(
         no_default_feature_names = set()
 
     invariants = _load_all_invariants(root)
+    validate_invariant_behavior_digests(
+        plan=plan,
+        invariant_ids=selected_invariant_ids,
+        invariants=invariants,
+    )
     invariant_sources: dict[str, tuple[str, str]] = {}
     for invariant_id in selected_invariant_ids:
         invariant_path, invariant = _load_selected_invariant(
@@ -355,6 +380,14 @@ def validate_execution_provenance(
         raise ValueError("focused results lack closed execution provenance")
     if execution.get("kind") == "rust_nextest_jsonl":
         _validate_rust_execution_provenance(
+            root=root,
+            plan=plan,
+            execution=execution,
+            results_document=results_document,
+        )
+        return
+    if execution.get("kind") == "rust_nextest_jsonl_projection":
+        validate_projection_execution(
             root=root,
             plan=plan,
             execution=execution,
@@ -583,7 +616,11 @@ def measured_durations(
     strict_results = (
         isinstance(results_document.get("execution"), Mapping)
         and results_document["execution"].get("kind")
-        in {"rust_nextest_jsonl", "st_json"}
+        in {
+            "rust_nextest_jsonl",
+            "rust_nextest_jsonl_projection",
+            "st_json",
+        }
     )
     if not isinstance(tests, Sequence) or isinstance(tests, (str, bytes)):
         raise ValueError("focused results lack tests")
@@ -788,7 +825,10 @@ def _catalog_command(
     test_name: str,
     no_default_features: bool = False,
 ) -> str:
-    if plan.get("execution_kind") == "rust_nextest_jsonl":
+    if plan.get("execution_kind") in {
+        "rust_nextest_jsonl",
+        "rust_nextest_jsonl_projection",
+    }:
         profile = resolve_plan_target_profile(plan)
         if plan.get("catalog_command_template") is not None:
             raise ValueError(
@@ -812,43 +852,6 @@ def _catalog_command(
     if "{" in command or "}" in command:
         raise ValueError("plan catalog_command_template has unsupported fields")
     return command
-
-
-def _digest_document(document: Mapping[str, Any]) -> str:
-    encoded = json.dumps(
-        document,
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=False,
-    ).encode()
-    return "sha256:" + hashlib.sha256(encoded).hexdigest()
-
-
-def selection_digest(reviews: Sequence[Mapping[str, Any]]) -> str:
-    """Bind a reviewed batch to its exact frozen denominator identities."""
-
-    rows = [
-        {
-            "discovery_id": _required_string(
-                row, "discovery_id", "denominator review"
-            ),
-            "discovery_source_kind": _required_string(
-                row, "discovery_source_kind", "denominator review"
-            ),
-            "path": _required_string(row, "path", "denominator review"),
-            "name": _required_string(row, "name", "denominator review"),
-            "ignore_state": _required_string(
-                row, "ignore_state", "denominator review"
-            ),
-        }
-        for row in reviews
-    ]
-    rows.sort(key=lambda row: row["discovery_id"])
-    return _digest_document({"reviews": rows})
-
-
-def _digest_bytes(content: bytes) -> str:
-    return "sha256:" + hashlib.sha256(content).hexdigest()
 
 
 def _git_head(root: Path) -> str:

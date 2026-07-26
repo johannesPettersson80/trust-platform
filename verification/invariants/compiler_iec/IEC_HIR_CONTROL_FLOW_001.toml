@@ -1,0 +1,104 @@
+schema_version = 1
+id = "IEC_HIR_CONTROL_FLOW_001"
+title = "HIR validates loop exits, FOR control, labels, jumps, and CASE duplicates"
+area = "compiler_iec"
+risk = "wrong_result"
+status = "specified"
+owner = "trust-hir"
+last_reviewed = "2026-07-26"
+claim = "Control-flow statements resolve within their owning POU and obey loop placement, FOR typing and immutability, label uniqueness, jump resolution, and CASE-label uniqueness."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-hir/src"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_IEC_STATEMENTS_001", "SPEC_IEC_SEMANTIC_RULES_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_IEC_STATEMENTS_001"
+
+[[behavior]]
+partition = { equals = "VALID_LABEL_AND_JUMP" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STATEMENTS_001"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A unique POU-local label resolves as a JMP target."
+
+[[behavior]]
+partition = { malformed = "EXIT_OR_CONTINUE_OUTSIDE_LOOP" }
+coverage_dimension = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "EXIT and CONTINUE require an enclosing iteration statement."
+
+[[behavior]]
+partition = { malformed = "FOR_CONTROL_MODIFIED_IN_BODY" }
+coverage_dimension = "auth_or_permission"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "The active FOR control variable cannot be assigned by the loop body."
+
+[[behavior]]
+partition = { malformed = "FOR_CONTROL_OR_BOUND_TYPE_MISMATCH" }
+coverage_dimension = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_STATEMENTS_001"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "FOR control, initial, final, and step expressions remain integer-compatible under the reviewed type contract."
+
+[[behavior]]
+partition = { malformed = "MISSING_JUMP_LABEL" }
+coverage_dimension = "missing_required"
+oracle_ref = "SPEC_IEC_STATEMENTS_001"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A JMP target absent from the owning POU is unresolved."
+
+[[behavior]]
+partition = { malformed = "DUPLICATE_LABEL_OR_CASE_VALUE" }
+coverage_dimension = "duplicate_or_collision"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Duplicate statement labels and CASE labels with the same evaluated constant value are rejected."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Valid label/JMP assertions await mapping."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Loop placement and type assertions await mapping."
+
+[[coverage.cells]]
+dimension = "auth_or_permission"
+state = "gap_open"
+rationale = "FOR-control immutability awaits mapping."
+
+[[coverage.cells]]
+dimension = "missing_required"
+state = "gap_open"
+rationale = "Missing-label assertions await mapping."
+
+[[coverage.cells]]
+dimension = "duplicate_or_collision"
+state = "gap_open"
+rationale = "Duplicate label and CASE assertions await mapping."

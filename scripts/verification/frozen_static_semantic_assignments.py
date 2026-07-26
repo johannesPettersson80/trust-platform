@@ -21,6 +21,17 @@ def resolve_behavior_assignments(
 
     if not isinstance(plan, Mapping):
         raise ValueError("assignment plan must be an object")
+    if "assertion_assignments" in plan:
+        if "test_assignments" in plan or "ranges" in plan:
+            raise ValueError(
+                "plan cannot combine assertion_assignments with another "
+                "assignment form"
+            )
+        return _assign_by_assertion_id(
+            inventories=inventories,
+            rows=plan["assertion_assignments"],
+            allowed_invariant_ids=allowed_invariant_ids,
+        )
     if "test_assignments" in plan:
         if "ranges" in plan:
             raise ValueError(
@@ -162,6 +173,116 @@ def _assign_by_test_name(
         discovery_id: tuple(by_name[name] for _ in range(assertion_count))
         for name, (discovery_id, assertion_count) in inventory_by_name.items()
     }
+
+
+def _assign_by_assertion_id(
+    *,
+    inventories: Mapping[str, Any],
+    rows: Any,
+    allowed_invariant_ids: set[str],
+) -> BehaviorAssignments:
+    if not isinstance(rows, Sequence) or isinstance(rows, (str, bytes)):
+        raise ValueError("plan assertion_assignments must be an array")
+
+    by_name: dict[str, dict[str, BehaviorRef]] = {}
+    for row_index, row in enumerate(rows):
+        if not isinstance(row, Mapping) or set(row) != {"name", "assertions"}:
+            raise ValueError(
+                f"plan assertion_assignment {row_index} fields drift"
+            )
+        name = row["name"]
+        assertion_rows = row["assertions"]
+        if not isinstance(name, str) or not name or name in by_name:
+            raise ValueError(
+                f"plan assertion_assignment {row_index} name is invalid"
+            )
+        if (
+            not isinstance(assertion_rows, Sequence)
+            or isinstance(assertion_rows, (str, bytes))
+            or not assertion_rows
+        ):
+            raise ValueError(
+                f"plan assertion_assignment {row_index} assertions are invalid"
+            )
+        assignments: dict[str, BehaviorRef] = {}
+        for assertion_index, assertion in enumerate(assertion_rows):
+            label = (
+                f"plan assertion_assignment {row_index} assertion "
+                f"{assertion_index}"
+            )
+            if not isinstance(assertion, Mapping) or set(assertion) != {
+                "assertion_id",
+                "invariant_id",
+                "behavior_index",
+            }:
+                raise ValueError(f"{label} fields drift")
+            assertion_id = assertion["assertion_id"]
+            invariant_id = assertion["invariant_id"]
+            behavior_index = assertion["behavior_index"]
+            if (
+                not isinstance(assertion_id, str)
+                or not assertion_id
+                or assertion_id in assignments
+            ):
+                raise ValueError(f"{label} assertion_id is invalid")
+            if (
+                not isinstance(invariant_id, str)
+                or invariant_id not in allowed_invariant_ids
+            ):
+                raise ValueError(f"{label} selects unapproved invariant")
+            if (
+                not isinstance(behavior_index, int)
+                or isinstance(behavior_index, bool)
+                or behavior_index < 0
+            ):
+                raise ValueError(f"{label} behavior_index is invalid")
+            assignments[assertion_id] = (invariant_id, behavior_index)
+        by_name[name] = assignments
+
+    inventory_names: set[str] = set()
+    resolved: BehaviorAssignments = {}
+    for discovery_id, inventory in inventories.items():
+        _reviewed_assertion_count(
+            discovery_id=str(discovery_id),
+            inventory=inventory,
+        )
+        name = inventory.get("test_name")
+        if not isinstance(name, str) or not name or name in inventory_names:
+            raise ValueError(
+                f"{discovery_id} assertion inventory test_name is invalid"
+            )
+        inventory_names.add(name)
+        assertions = inventory["assertions"]
+        assertion_ids = [
+            assertion.get("assertion_id")
+            for assertion in assertions
+            if isinstance(assertion, Mapping)
+        ]
+        if (
+            len(assertion_ids) != len(assertions)
+            or any(
+                not isinstance(assertion_id, str) or not assertion_id
+                for assertion_id in assertion_ids
+            )
+            or len(assertion_ids) != len(set(assertion_ids))
+        ):
+            raise ValueError(
+                f"{discovery_id} assertion inventory IDs are invalid"
+            )
+        selected = by_name.get(name)
+        if selected is None or set(selected) != set(assertion_ids):
+            raise ValueError(
+                f"{discovery_id} assertion assignments do not equal "
+                "the reviewed assertion IDs"
+            )
+        resolved[str(discovery_id)] = tuple(
+            selected[assertion_id] for assertion_id in assertion_ids
+        )
+    if set(by_name) != inventory_names:
+        raise ValueError(
+            "plan assertion_assignments do not equal selected inventory names"
+        )
+    return resolved
 
 
 def _assign_by_ranges(

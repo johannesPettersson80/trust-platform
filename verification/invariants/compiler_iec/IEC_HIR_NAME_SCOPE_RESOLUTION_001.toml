@@ -1,0 +1,99 @@
+schema_version = 1
+id = "IEC_HIR_NAME_SCOPE_RESOLUTION_001"
+title = "HIR resolves names through the documented scope and namespace order"
+area = "compiler_iec"
+risk = "silent_corruption"
+status = "specified"
+owner = "trust-hir"
+last_reviewed = "2026-07-26"
+claim = "Local, POU, namespace, imported, and global names resolve deterministically by role and scope, while missing, ambiguous, duplicate, and wrong-kind uses remain explicit."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-hir/src"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_IEC_VARIABLES_001", "SPEC_IEC_POU_DECLARATIONS_001", "SPEC_IEC_SEMANTIC_RULES_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_IEC_SEMANTIC_RULES_001"
+
+[[behavior]]
+partition = { equals = "LOCAL_POU_PARAMETER_AND_MEMBER_SCOPE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Variables, parameters, outputs, methods, test POUs, and members bind to their owning POU scope and declared semantic role."
+
+[[behavior]]
+partition = { equals = "QUALIFIED_NAMESPACE_OR_DIRECT_USING_MEMBER" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_POU_DECLARATIONS_001"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Qualified namespace members and direct members of one USING target resolve without importing nested namespaces."
+
+[[behavior]]
+partition = { malformed = "AMBIGUOUS_USING_CANDIDATES" }
+coverage_dimension = "duplicate_or_collision"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Multiple viable USING candidates produce one ambiguity diagnostic and no selected function, value, type, assignment target, or cascade."
+
+[[behavior]]
+partition = { malformed = "RESOLVED_WRONG_SYMBOL_KIND" }
+coverage_dimension = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A value, type, callable, or namespace used in the wrong semantic role reports that role mismatch instead of undefined-name or arbitrary-resolution diagnostics."
+
+[[behavior]]
+partition = { malformed = "MISSING_NAME_OR_NAMESPACE" }
+coverage_dimension = "missing_required"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "An absent variable, type, function, namespace, or owner remains unresolved and is never invented."
+
+[[behavior]]
+partition = { malformed = "DUPLICATE_LOCAL_OR_GLOBAL_DECLARATION" }
+coverage_dimension = "duplicate_or_collision"
+oracle_ref = "SPEC_IEC_VARIABLES_001"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Duplicate declarations in one scope or merged file-scope global set are rejected instead of selected by collection order."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Accepted scope and namespace assertions await mapping."
+
+[[coverage.cells]]
+dimension = "duplicate_or_collision"
+state = "gap_open"
+rationale = "Ambiguity and duplicate-declaration assertions await mapping."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Wrong-kind assertions await mapping."
+
+[[coverage.cells]]
+dimension = "missing_required"
+state = "gap_open"
+rationale = "Missing-name assertions await mapping."

@@ -361,6 +361,44 @@ END_IF;
   currently `NULL`
 - Pointer arithmetic is not supported
 
+### 4.3 IEC reference operations and lifetime
+
+IEC 61131-3 Ed.3 §6.4.4.10.3 defines `REF(variable-or-instance)` and forbids
+applying `REF(...)` to temporary storage, explicitly including `VAR_TEMP` and
+variables inside functions. It also specifies that a dereferenced reference is
+used like the referenced variable and that dereferencing `NULL` is an error.
+
+truST therefore rejects `REF(...)` for literals, calls, computed values,
+`VAR_TEMP`, function-local automatic storage, and function result variables.
+Method-result storage is also rejected because its lifetime ends with the
+invocation; this method-specific lifetime rule is a truST product constraint
+where the IEC text is not explicit.
+
+truST additionally rejects `REF(...)` for CONSTANT-qualified variables. IEC
+does not exclude those variables from `REF(...)`, so this stricter behavior is
+recorded as
+`docs/IEC_DEVIATIONS.md#2026-07-26---ref-rejects-constant-qualified-variables`.
+
+### 4.4 truST pointer and indirect-write policy
+
+The following rules define the separate truST `POINTER TO` and `ADR(...)`
+extension boundary. They are product behavior, not IEC reference requirements:
+
+- `ADR(...)` requires an lvalue with stable addressable storage; literals,
+  calls, and computed values are rejected.
+- Assignment to a `VAR_INPUT` pointer slot is rejected because the parameter
+  itself is read-only.
+- Dereferencing a valid `VAR_INPUT` pointer produces the pointed-to storage,
+  which remains writable unless the pointed-to declaration is independently
+  constant. This applies through array indexes, structure fields, and nested
+  selections.
+- For `VAR_IN_OUT CONSTANT PT : POINTER TO T`, the pointer slot is constant but
+  `PT^` denotes separate target storage. Rebinding `PT` is rejected; writing
+  `PT^` is accepted unless `T` itself is constant.
+- A non-pointer `VAR_INPUT` function-block instance remains read-only through
+  its fields; the writable-pointee rule does not turn an input aggregate into
+  indirect storage.
+
 ## 5. Type Conversion Rules (Figures 11-12, Section 6.4.2)
 
 ### Implicit Conversions

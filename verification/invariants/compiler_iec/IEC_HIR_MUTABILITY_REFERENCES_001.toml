@@ -1,0 +1,130 @@
+schema_version = 1
+id = "IEC_HIR_MUTABILITY_REFERENCES_001"
+title = "HIR preserves constant, parameter, pointer, and reference write boundaries"
+area = "compiler_iec"
+risk = "wrong_result"
+status = "specified"
+owner = "trust-hir"
+last_reviewed = "2026-07-26"
+claim = "Constant and input slots remain read-only, indirect pointer storage remains separately classified, and REF, ADR, NULL, dereference, and assignment-attempt operations obey stable type and lifetime rules."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-hir/src"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_IEC_VARIABLES_001", "SPEC_IEC_DATA_TYPES_CANDIDATE_001", "SPEC_IEC_EXPRESSIONS_001", "SPEC_IEC_SEMANTIC_RULES_001", "SPEC_HIR_SIZEOF_AND_ALLOCATION_001", "SPEC_IEC_DEVIATIONS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001"
+
+[[behavior]]
+partition = { equals = "CONSTANT_SECTION_SYMBOL_AND_CALL_BINDING" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_VARIABLES_001"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Each permitted CONSTANT section retains the reviewed symbol/parameter role, compile-time eligibility, and ordinary call-site binding."
+
+[[behavior]]
+partition = { malformed = "WRITE_TO_CONSTANT_OR_INPUT_SLOT" }
+coverage_dimension = "auth_or_permission"
+oracle_ref = "SPEC_IEC_VARIABLES_001"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Direct, field, and index writes to constant storage and rebinding of a read-only input or constant pointer slot are rejected."
+
+[[behavior]]
+partition = { equals = "WRITABLE_POINTER_POINTEE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Dereferencing a valid input or constant pointer reaches separate writable target storage through arrays, structures, and nested selections."
+
+[[behavior]]
+partition = { malformed = "FUNCTION_BLOCK_INSTANCE_IN_CONSTANT_SECTION" }
+coverage_dimension = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_VARIABLES_001"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Function-block instances are rejected in CONSTANT-qualified sections."
+
+[[behavior]]
+partition = { equals = "VALID_REF_ADR_NULL_DEREFERENCE_OR_ASSIGNMENT_ATTEMPT" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Stable lvalue storage may be referenced or addressed, dereferenced, compared or assigned to NULL, and used in a type-compatible assignment attempt."
+
+[[behavior]]
+partition = { malformed = "UNSTABLE_OR_NON_LVALUE_REFERENCE_OPERAND" }
+coverage_dimension = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Literals, computed values, temporaries, function-local automatic storage, and function or method result variables are rejected as escaping reference targets."
+
+[[behavior]]
+partition = { malformed = "ASSIGNMENT_ATTEMPT_NONREFERENCE_TARGET_OR_SOURCE" }
+coverage_dimension = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Reference assignment attempt requires a reference-compatible target and source."
+
+[[behavior]]
+partition = { malformed = "UNRESOLVED_DEREFERENCE_OR_DELETE_OPERAND" }
+case_family = "missing_required"
+oracle_ref = "SPEC_HIR_SIZEOF_AND_ALLOCATION_001"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "An unresolved dereference or deletion operand retains its primary resolution diagnostic without an invented reference type or secondary argument cascade."
+
+[[behavior]]
+partition = { equals = "NEW_REFERENCE_THEN_DELETE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_HIR_SIZEOF_AND_ALLOCATION_001"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "NEW of a resolved allocatable type yields a compatible reference that the HIR accepts as the operand of __DELETE."
+
+[[behavior]]
+partition = { malformed = "REFERENCE_TO_CONSTANT_QUALIFIED_VARIABLE" }
+coverage_dimension = "auth_or_permission"
+oracle_ref = "SPEC_IEC_DEVIATIONS_001#2026-07-26-ref-rejects-constant-qualified-variables"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Until DEV-020 closes, REF rejects a CONSTANT-qualified variable to prevent a mutable reference from bypassing the declaration's write boundary."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Accepted constant, pointer, and reference assertions await mapping."
+
+[[coverage.cells]]
+dimension = "auth_or_permission"
+state = "gap_open"
+rationale = "Read-only slot and constant write rejection awaits mapping."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Forbidden storage and reference-shape assertions await mapping."

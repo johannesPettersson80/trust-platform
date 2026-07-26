@@ -1,0 +1,131 @@
+schema_version = 1
+id = "IEC_HIR_TYPE_FORMATION_001"
+title = "HIR forms and compares declared IEC and documented extension types"
+area = "compiler_iec"
+risk = "wrong_result"
+status = "specified"
+owner = "trust-hir"
+last_reviewed = "2026-07-26"
+claim = "HIR preserves contextual literals, aliases, generic groups, bounded strings, subranges, enumerations, wildcard arrays, and pointer targets while rejecting incompatible or ambiguous formations."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-hir/src"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_IEC_DATA_TYPES_CANDIDATE_001", "SPEC_IEC_VARIABLES_001", "SPEC_IEC_EXPRESSIONS_001", "SPEC_IEC_SEMANTIC_RULES_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001"
+
+[[behavior]]
+partition = { equals = "VALID_CONTEXTUAL_LITERAL_ALIAS_OR_GENERIC_TYPE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Context supplies the reviewed literal type, aliases resolve to their base, and generic groups accept only their documented members."
+
+[[behavior]]
+partition = { equals = "BOUNDED_STRING_OR_SUBRANGE_WITHIN_LIMIT" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A resolved constant length or value within the inclusive declared boundary is retained."
+
+[[behavior]]
+partition = { malformed = "BOUNDED_STRING_OR_SUBRANGE_OUTSIDE_LIMIT" }
+coverage_dimension = "above_max"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Out-of-capacity strings and out-of-range subrange constants are rejected."
+
+[[behavior]]
+partition = { equals = "ARRAY_WILDCARD_PARAMETER" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_VARIABLES_001"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "One-dimensional ARRAY[*] parameters and pointers accept concrete bounds while preserving the required element type."
+
+[[behavior]]
+partition = { malformed = "ARRAY_WILDCARD_CONTEXT_DIMENSION_OR_ELEMENT" }
+coverage_dimension = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_VARIABLES_001"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Wildcard arrays outside permitted parameter contexts, multidimensional wildcard forms, returned wildcards, and element or concrete-bound mismatches are rejected."
+
+[[behavior]]
+partition = { equals = "UNQUALIFIED_ENUM_VARIANT_UNAMBIGUOUS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A unique enum variant resolves in initializer, assignment, and comparison value positions."
+
+[[behavior]]
+partition = { malformed = "AMBIGUOUS_OR_CYCLIC_TYPE_FORMATION" }
+coverage_dimension = "duplicate_or_collision"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Ambiguous variants, unknown typed prefixes, cyclic aliases, and unresolved bounds retain their primary diagnostic without an arbitrary type."
+
+[[behavior]]
+partition = { equals = "BOOLEAN_CONDITION_OR_COMPATIBLE_VALUE_BINDING" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Boolean control conditions and type-compatible value bindings are accepted without changing the resolved destination type."
+
+[[behavior]]
+partition = { malformed = "NONBOOLEAN_CONDITION_OR_INCOMPATIBLE_VALUE_BINDING" }
+coverage_dimension = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A control condition must be Boolean and an incompatible value binding is rejected at the semantic boundary."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Valid formation assertions await catalog association."
+
+[[coverage.cells]]
+dimension = "boundary_high"
+state = "gap_open"
+rationale = "Accepted bounded values await mapping."
+
+[[coverage.cells]]
+dimension = "above_max"
+state = "gap_open"
+rationale = "Rejected bounded values await mapping."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Wildcard and element-shape rejection awaits mapping."
+
+[[coverage.cells]]
+dimension = "duplicate_or_collision"
+state = "gap_open"
+rationale = "Ambiguous and cyclic formation assertions await mapping."

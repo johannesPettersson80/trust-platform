@@ -1,0 +1,90 @@
+schema_version = 1
+id = "TRUST_HIR_SIZEOF_001"
+title = "HIR SIZEOF accepts only statically sized reviewed operands"
+area = "compiler_iec"
+risk = "wrong_result"
+status = "specified"
+owner = "trust-hir"
+last_reviewed = "2026-07-26"
+claim = "SIZEOF produces the documented compile-time byte count for complete types and stable storage, uses platform pointer width, and rejects unknown, ambiguous, dynamic, or unsupported storage without diagnostic cascades."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-hir/src"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_HIR_SIZEOF_AND_ALLOCATION_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_HIR_SIZEOF_AND_ALLOCATION_001"
+
+[[behavior]]
+partition = { equals = "COMPLETE_TYPE_OR_STABLE_STORAGE_OPERAND" }
+case_family = "happy_path"
+oracle_ref = "SPEC_HIR_SIZEOF_AND_ALLOCATION_001"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Explicit complete types, resolved variables and fields, and THIS.field yield a compile-time DINT-compatible byte count usable in array bounds."
+
+[[behavior]]
+partition = { equals = "POINTER_OR_REFERENCE_HANDLE" }
+case_family = "platform_or_filesystem_variation"
+oracle_ref = "SPEC_HIR_SIZEOF_AND_ALLOCATION_001"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Pointer and reference operands use the target platform pointer width: four bytes on 32-bit and eight bytes on 64-bit."
+
+[[behavior]]
+partition = { malformed = "CALL_COMPUTED_OPEN_ARRAY_FB_OR_BARE_THIS_OPERAND" }
+coverage_dimension = "wrong_type_or_shape"
+oracle_ref = "SPEC_HIR_SIZEOF_AND_ALLOCATION_001"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Calls, computed expressions, open arrays, function-block instances, and bare THIS lack a supported static HIR storage-size contract."
+
+[[behavior]]
+partition = { malformed = "UNKNOWN_OR_AMBIGUOUS_OPERAND" }
+coverage_dimension = "missing_required"
+oracle_ref = "SPEC_HIR_SIZEOF_AND_ALLOCATION_001"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Unknown and ambiguous operands report their primary resolution diagnostic exactly once without an invalid-operation cascade."
+
+[[behavior]]
+partition = { malformed = "FAILED_NESTED_CONSTANT_EXPRESSION" }
+coverage_dimension = "wrong_type_or_shape"
+oracle_ref = "SPEC_HIR_SIZEOF_AND_ALLOCATION_001"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A nested type-bound constant error remains the primary diagnostic and does not manufacture a size."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Accepted SIZEOF assertions await mapping."
+
+[[coverage.cells]]
+dimension = "platform_or_filesystem_variation"
+state = "gap_open"
+rationale = "Platform pointer-width assertions await mapping."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Unsupported operand and constant-expression assertions await mapping."
+
+[[coverage.cells]]
+dimension = "missing_required"
+state = "gap_open"
+rationale = "Unknown and ambiguous operand assertions await mapping."

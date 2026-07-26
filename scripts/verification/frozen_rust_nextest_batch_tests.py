@@ -26,6 +26,7 @@ from scripts.verification.frozen_rust_nextest_batch import (
 )
 from scripts.verification.frozen_rust_nextest_target import (
     HIR_SEMANTIC_CONTROL_FLOW_PROFILE,
+    get_target_profile,
 )
 
 
@@ -244,6 +245,32 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
                 (f"{prefix}first",),
                 no_default_features=True,
                 profile=HIR_SEMANTIC_CONTROL_FLOW_PROFILE,
+            )
+
+    def test_hir_remaining_profile_is_closed_over_reviewed_source_paths(self) -> None:
+        profile = get_target_profile(
+            "hir-remaining",
+            path=(
+                "crates/trust-hir/tests/semantic_type_checking/"
+                "basics_and_warnings.rs"
+            ),
+        )
+
+        self.assertEqual("trust-hir", profile.package)
+        self.assertEqual("semantic_type_checking", profile.target_name)
+        self.assertEqual(
+            "trust-hir::semantic_type_checking",
+            profile.binary_id,
+        )
+        self.assertEqual("basics_and_warnings::", profile.test_prefix)
+        self.assertEqual(
+            "trust-hir::semantic_type_checking$",
+            profile.encoded_test_name_prefix,
+        )
+        with self.assertRaisesRegex(ValueError, "outside the closed HIR"):
+            get_target_profile(
+                "hir-remaining",
+                path="crates/trust-hir/tests/not_reviewed.rs",
             )
 
     def test_hir_selection_requires_integration_discovery_kind(self) -> None:

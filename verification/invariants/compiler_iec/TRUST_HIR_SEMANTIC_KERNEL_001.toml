@@ -1,0 +1,118 @@
+schema_version = 1
+id = "TRUST_HIR_SEMANTIC_KERNEL_001"
+title = "HIR semantic queries publish one coherent project model"
+area = "compiler_iec"
+risk = "silent_corruption"
+status = "specified"
+owner = "trust-hir"
+last_reviewed = "2026-07-26"
+claim = "Source identity, query reuse and invalidation, cross-file translation, semantic outcomes, declaration catalogs, cancellation, and concurrency preserve one coherent project revision without stale or invented identities."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-hir/src"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_HIR_SEMANTIC_KERNEL_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_HIR_SEMANTIC_KERNEL_001"
+
+[[behavior]]
+partition = { equals = "UNCHANGED_OR_UNRELATED_SOURCE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_HIR_SEMANTIC_KERNEL_001"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Unchanged inputs preserve semantic results and may reuse public shared query values; unrelated edits do not invalidate a dependency-independent file query."
+
+[[behavior]]
+partition = { equals = "SOURCE_OR_DEPENDENCY_EDIT" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_HIR_SEMANTIC_KERNEL_001"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "expected_delta" }
+rationale = "The edited source and every dependent query recompute before returning, while independent siblings remain coherent."
+
+[[behavior]]
+partition = { equals = "REMOVE_AND_READD_SOURCE" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_HIR_SEMANTIC_KERNEL_001"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "expected_delta" }
+rationale = "Removal clears live query products and re-addition rebuilds resolution from the new project graph without stale dependencies."
+
+[[behavior]]
+partition = { equals = "CROSS_FILE_TRANSLATION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_HIR_SEMANTIC_KERNEL_001"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Imported declarations, namespaces, compound types, callables, and initializers retain valid target-table identities and original source ownership."
+
+[[behavior]]
+partition = { malformed = "MISSING_OR_COLLIDING_INTERNAL_IDENTITY" }
+coverage_dimension = "wrong_type_or_shape"
+oracle_ref = "SPEC_HIR_SEMANTIC_KERNEL_001"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "File-ID collisions and missing array or pointer component identities fail closed instead of aliasing or becoming assignment-compatible."
+
+[[behavior]]
+partition = { equals = "NONRESOLVED_CONTEXT" }
+case_family = "missing_required"
+oracle_ref = "SPEC_HIR_SEMANTIC_KERNEL_001"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Missing owner, scope, or name classifications remain explicit and never fall back to an unrelated global identity."
+
+[[behavior]]
+partition = { equals = "CONCURRENT_EDIT_QUERY_OR_CANCELLATION" }
+case_family = "concurrency_or_cancellation"
+oracle_ref = "SPEC_HIR_SEMANTIC_KERNEL_001"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A completed query observes one synchronized revision; cancellation or concurrency cannot panic, deadlock, or publish a partial model."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "The reviewed historical assertions have not yet been catalog-associated."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "Edit invalidation and query-reuse assertions await mapping."
+
+[[coverage.cells]]
+dimension = "persistence_or_recovery"
+state = "gap_open"
+rationale = "Source removal and re-addition assertions await mapping."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Fail-closed identity assertions await mapping."
+
+[[coverage.cells]]
+dimension = "missing_required"
+state = "gap_open"
+rationale = "Missing-context classification assertions await mapping."
+
+[[coverage.cells]]
+dimension = "concurrency_or_cancellation"
+state = "gap_open"
+rationale = "Cancellation and concurrency assertions await mapping."

@@ -154,6 +154,53 @@ Named aggregate initializers are validated at HIR collection/type-check time.
 | FB aggregate | `VAR_IN_OUT`, temp, external, or non-public target | `E202 InvalidOperation` |
 | String/WSTRING member default | Literal exceeds declared capacity | `E304 OutOfRange` |
 
+#### 3.5.1 truST HIR initializer retention
+
+Scalar, array, structure, union, alias, and function-block defaults are
+retained as source-bound HIR initializer records so later compilation stages
+can materialize the same reviewed value. Editing a default invalidates the
+owning symbol and initializer catalog. Cross-file import translates both the
+declared type identity and any retained initializer into identities valid in
+the consuming symbol table. This paragraph defines truST HIR query and model
+behavior; IEC 61131-3 does not prescribe these internal records or invalidation
+mechanics.
+
+#### 3.5.2 Default initialization and constant evaluation
+
+IEC 61131-3 Ed.3 §6.4.4.1.2 and Figure 6 permit initialization by compatible
+literals and constant expressions. Sections 6.4.4.4.1, 6.4.4.6.2,
+6.4.4.9.2, and 6.4.4.10.2 further define subrange bounds, structure
+initialization, derived-type initialization, and reference initialization.
+
+Compile-time defaults obey these rules:
+
+- named aggregate field matching is case-insensitive and independent of field
+  order;
+- unknown and duplicate fields are rejected;
+- array repeat defaults validate the repeated element against the declared
+  element type; an arbitrary call expression is not an array-repeat default;
+- nested structure and union members are checked against their required type;
+- `NULL` is a valid reference default;
+- truST currently rejects a non-`NULL` reference type/member default,
+  including the IEC-permitted `REF(target)` form; this known conflict with IEC
+  61131-3 Ed.3 §6.4.4.10.2 is recorded as
+  `docs/IEC_DEVIATIONS.md#2026-07-26---non-null-reference-defaults-on-type-and-aggregate-members`;
+- integer, string, WSTRING, subrange, and field defaults enforce the inclusive
+  bounds of their declared destination;
+- a constant may refer forward to another acyclic constant, including a
+  resolved cross-file global constant;
+- a constant dependency cycle is rejected as cyclic;
+- division by zero and arithmetic overflow are rejected as invalid constant
+  operations; and
+- a failed prerequisite produces its primary constant-evaluation diagnostic
+  without aggregate-field or range cascades.
+
+As a truST language extension, CASE labels may use integer constant
+expressions in addition to the literals, enumerated values, and subranges
+listed by IEC 61131-3 Ed.3 §7.3.3.3.3. They use the same constant evaluator as
+initializers. Two labels whose expressions evaluate to the same value are
+duplicates, including values reached through a POU-local constant scope chain.
+
 ### 3.5 Standard Function Call Errors
 
 Standard functions and conversions (Tables 22–36) have fixed or extensible signatures with defined type categories. The type checker resolves overloads by argument types and reports errors when no valid overload matches. (IEC 61131-3 Ed.3, Tables 22–36)
