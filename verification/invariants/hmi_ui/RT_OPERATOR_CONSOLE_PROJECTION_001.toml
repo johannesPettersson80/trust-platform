@@ -3,18 +3,18 @@ id = "RT_OPERATOR_CONSOLE_PROJECTION_001"
 title = "Terminal dashboard preserves runtime control state and interaction boundaries"
 area = "hmi_ui"
 risk = "false_status"
-status = "planned"
+status = "mapped"
 owner = "trust-runtime"
 last_reviewed = "2026-07-26"
 claim = "The local terminal dashboard parses and renders the runtime status, tasks, I/O, events, simulation settings, command routing, and read-only input state without inventing health or hiding reviewed regions."
 proof_level = "S0"
 contract_kind = "protocol_trace"
 source_refs = ["crates/trust-runtime/src/host/ui"]
-tests = []
+tests = ["TEST_AUTO_311210C0D28DB24C63E4", "TEST_AUTO_5BA23B9BF6BB39B2EE7E", "TEST_AUTO_6E27A40949DC18DEBBE9", "TEST_AUTO_780380F2A944A080F4B5", "TEST_AUTO_86C9899C0207C2AFB831", "TEST_AUTO_9BC4BE4862E992370053", "TEST_AUTO_BF2DE69B33FFEE01A40C", "TEST_AUTO_FA59629171A8BDBB5DDC"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["catalog_mapping", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate", "rendered_terminal_smoke"]
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate", "rendered_terminal_smoke"]
 
 [spec]
 status = "specified"
@@ -62,8 +62,8 @@ rationale = "The reviewed snapshot retains status, task, I/O, and event regions 
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "Reviewed status and settings assertions await generated catalog mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in RT_OPERATOR_CONSOLE_PROJECTION_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "permission_or_policy"
@@ -72,5 +72,5 @@ rationale = "Reviewed input-routing assertions await generated catalog mapping."
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
-state = "gap_open"
-rationale = "Reviewed dashboard snapshot assertion awaits generated catalog mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in RT_OPERATOR_CONSOLE_PROJECTION_001; dynamic proof and broad remote validation remain explicit debt."

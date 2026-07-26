@@ -3,18 +3,18 @@ id = "RT_DEPLOY_SIGNATURE_POLICY_001"
 title = "Deployment signature policy authenticates before installation"
 area = "control_security"
 risk = "supply_chain"
-status = "planned"
+status = "mapped"
 owner = "trust-runtime"
 last_reviewed = "2026-07-26"
 claim = "Enabled deployment signature policy accepts only an intact payload signed by a current trusted key, rejects tampered, unknown, expired, malformed, or mismatched signatures before installation, and never leaks secret key material."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-runtime/src/web/deploy"]
-tests = []
+tests = ["TEST_AUTO_4E4E7A58760F6CB9F2A0", "TEST_AUTO_88B391164A19B06E9C4D", "TEST_AUTO_C197FED6D009F608FB1D", "TEST_AUTO_D28EB96F3DFC6F6DA6F8"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["catalog_mapping", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -53,10 +53,10 @@ rationale = "Failure may expose key identity and class but never configured key 
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "Reviewed valid-signature assertion awaits generated catalog mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in RT_DEPLOY_SIGNATURE_POLICY_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "supply_chain_or_artifact_fault"
-state = "gap_open"
-rationale = "Reviewed signature rejection and secret-free error assertions await generated catalog mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every supply_chain_or_artifact_fault behavior in RT_DEPLOY_SIGNATURE_POLICY_001; dynamic proof and broad remote validation remain explicit debt."
