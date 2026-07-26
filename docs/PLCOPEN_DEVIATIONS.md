@@ -61,3 +61,25 @@ This file tracks known, intentional deviations/extensions from strict PLCopen pr
   - OOP applications can bind object axes and compile against the full PLCopen OOP method surface, but unsupported methods must be checked through the returned command object status.
 - Mitigation:
   - The OOP package guide documents the binding method and unsupported method behavior, and ST unit tests cover interface dispatch, command properties, classic-state delegation, and unsupported command-object returns.
+
+## 2026-07-26 - Phase A deterministic-kernel completion and blending limits
+
+- Area: PLCopen Motion Part 1 single-axis deterministic ST kernel
+- PLCopen reference: Part 1 v2.0 sections 2.4.1 and 2.4.2
+- Deviation:
+  - The current software-only Phase A ST kernel uses the next invocation with
+    `Execute = FALSE` as its deterministic simulated-backend completion
+    signal. Part 1 states that the falling edge resets outputs but does not
+    itself influence command execution.
+  - The public Phase A FBs expose the complete standard `MC_BUFFER_MODE` enum
+    but currently implement only `mcAborting` and `mcBuffered`; each
+    `mcBlending*` value returns `mcERR_NotSupported`.
+- Impact:
+  - The deterministic ST kernel is suitable for reproducible software tests
+    but does not by itself prove asynchronous hardware completion or Part 1
+    blending behavior.
+- Mitigation:
+  - The product specification confines the completion convention to the
+    deterministic kernel, requires hardware adapters to complete from backend
+    progress, records the exact buffer-mode support matrix, and keeps both
+    limitations covered by focused tests.

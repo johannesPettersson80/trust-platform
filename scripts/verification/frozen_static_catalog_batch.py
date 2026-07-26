@@ -17,6 +17,7 @@ from .mapping_proposals import (
     validate_mapping_quarantine,
 )
 from .frozen_rust_nextest_batch import normalize_nextest_jsonl
+from .frozen_st_batch import normalize_st_json
 from .frozen_rust_nextest_target import (
     build_catalog_command as build_rust_catalog_command,
     no_default_feature_test_names,
@@ -360,6 +361,14 @@ def validate_execution_provenance(
             results_document=results_document,
         )
         return
+    if execution.get("kind") == "st_json":
+        _validate_st_execution_provenance(
+            root=root,
+            plan=plan,
+            execution=execution,
+            results_document=results_document,
+        )
+        return
     if set(execution) != {
         "command",
         "runner_path",
@@ -393,6 +402,87 @@ def validate_execution_provenance(
             raise ValueError(
                 f"focused result {digest_field} does not match live input"
             )
+
+
+def _validate_st_execution_provenance(
+    *,
+    root: Path,
+    plan: Mapping[str, Any],
+    execution: Mapping[str, Any],
+    results_document: Mapping[str, Any],
+) -> None:
+    if plan.get("execution_kind") != "st_json":
+        raise ValueError("ST focused results do not match plan execution_kind")
+    expected_fields = {
+        "kind",
+        "command",
+        "runner_path",
+        "runner_sha256",
+        "shim_path",
+        "shim_sha256",
+        "source_path",
+        "source_sha256",
+        "raw_results_path",
+        "raw_results_sha256",
+        "git_head",
+        "project_path",
+        "test_prefix",
+    }
+    if set(execution) != expected_fields:
+        raise ValueError("ST focused results lack closed execution provenance")
+    expected = {
+        "command": _required_string(plan, "command"),
+        "runner_path": _required_string(plan, "runner_path"),
+        "shim_path": _required_string(plan, "shim_path"),
+        "source_path": _required_string(plan, "path"),
+        "raw_results_path": _required_string(plan, "raw_results_path"),
+        "git_head": _required_string(plan, "git_head"),
+        "project_path": _required_string(plan, "project_path"),
+        "test_prefix": _required_string(plan, "test_prefix"),
+    }
+    for field, value in expected.items():
+        if execution.get(field) != value:
+            raise ValueError(f"focused result {field} does not match plan")
+    if execution["git_head"] != _git_head(root):
+        raise ValueError("focused result git_head does not match live Git HEAD")
+    for path_field, digest_field in (
+        ("runner_path", "runner_sha256"),
+        ("shim_path", "shim_sha256"),
+        ("source_path", "source_sha256"),
+        ("raw_results_path", "raw_results_sha256"),
+    ):
+        path = root / str(execution[path_field])
+        if (
+            not path.is_file()
+            or path.is_symlink()
+            or execution.get(digest_field) != _digest_bytes(path.read_bytes())
+        ):
+            raise ValueError(
+                f"focused result {digest_field} does not match live input"
+            )
+    tests = results_document.get("tests")
+    if not isinstance(tests, Sequence) or isinstance(tests, (str, bytes)):
+        raise ValueError("ST focused results lack normalized tests")
+    titles = [
+        row.get("title")
+        for row in tests
+        if isinstance(row, Mapping)
+    ]
+    if len(titles) != len(tests) or any(
+        not isinstance(title, str) or not title for title in titles
+    ):
+        raise ValueError("ST focused results contain invalid titles")
+    normalized = normalize_st_json(
+        (root / str(execution["raw_results_path"])).read_text(),
+        expected_names=set(titles),
+        expected_project=str(execution["project_path"]),
+    )
+    normalized_document = {
+        field: results_document.get(field)
+        for field in ("tests", "failures", "pending", "stats")
+    }
+    if normalized != normalized_document:
+        raise ValueError("ST normalized results do not match raw JSON evidence")
 
 
 def _validate_rust_execution_provenance(
@@ -490,9 +580,10 @@ def measured_durations(
     tests = results_document.get("tests")
     failures = results_document.get("failures")
     pending = results_document.get("pending")
-    rust_results = (
+    strict_results = (
         isinstance(results_document.get("execution"), Mapping)
-        and results_document["execution"].get("kind") == "rust_nextest_jsonl"
+        and results_document["execution"].get("kind")
+        in {"rust_nextest_jsonl", "st_json"}
     )
     if not isinstance(tests, Sequence) or isinstance(tests, (str, bytes)):
         raise ValueError("focused results lack tests")
@@ -504,8 +595,8 @@ def measured_durations(
             raise ValueError("focused result test is not an object")
         name = row.get("title")
         duration = row.get("duration")
-        if rust_results and row.get("state") != "passed":
-            raise ValueError("Rust focused result state is not passed")
+        if strict_results and row.get("state") != "passed":
+            raise ValueError("focused result state is not passed")
         if (
             not isinstance(name, str)
             or not name
@@ -519,7 +610,7 @@ def measured_durations(
     allowed_names = expected_names | (allowed_extra_names or set())
     if set(durations) != allowed_names:
         raise ValueError("focused result titles do not equal denominator names")
-    if rust_results:
+    if strict_results:
         expected_total = len(allowed_names)
         if results_document.get("stats") != {
             "tests": expected_total,
@@ -527,7 +618,7 @@ def measured_durations(
             "failures": 0,
             "pending": 0,
         }:
-            raise ValueError("Rust focused result stats do not match passing tests")
+            raise ValueError("focused result stats do not match passing tests")
     return {name: durations[name] for name in expected_names}
 
 

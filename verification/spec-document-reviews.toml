@@ -206,7 +206,7 @@ last_reviewed = "2026-07-19"
 schema_version = 1
 document_id = "SPEC_DOC_06572A96A58DC510037D5EFA"
 path = "CHANGELOG.md"
-content_sha256 = "4190d7e82c1fc7f30b8f3945629352631b746bef02cfe4494d2cc0a7fab95dd2"
+content_sha256 = "5da95fa78c752b9b04e66310afce5ec6d48e3ab673a60f4d654690ab67bc2460"
 areas = ["release"]
 authority_levels = ["public_claim"]
 owners = ["release"]
@@ -217,7 +217,7 @@ classification_basis = "explicit_review"
 conflict_disposition = "potential_conflict_reported"
 checklist_staleness = "not_applicable"
 removed_behavior_disposition = "potentially_stale_reported"
-last_reviewed = "2026-07-22"
+last_reviewed = "2026-07-26"
 
 [[document_reviews]]
 schema_version = 1
@@ -2348,7 +2348,7 @@ last_reviewed = "2026-07-19"
 schema_version = 1
 document_id = "SPEC_DOC_4E32FAFE7BB4D501D0347CB8"
 path = "docs/PLCOPEN_DECISIONS.md"
-content_sha256 = "e5cd27d6bdc98e535c92af35899c2e5956a1be610f42d9572f9694fce6784f56"
+content_sha256 = "e34cc45a01fb2576efa8fd3da76c106d8867985db536c8dc75451ebf13ad129b"
 areas = ["plcopen_devtools"]
 authority_levels = ["reviewed_decision"]
 owners = ["trust-plcopen"]
@@ -2359,7 +2359,7 @@ classification_basis = "explicit_review"
 conflict_disposition = "not_oracle_authority"
 checklist_staleness = "not_applicable"
 removed_behavior_disposition = "not_oracle_authority"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-26"
 
 [[document_reviews]]
 schema_version = 1
@@ -4167,18 +4167,18 @@ last_reviewed = "2026-07-19"
 schema_version = 1
 document_id = "SPEC_DOC_9970482A2E117D6AB4D1E111"
 path = "docs/internal/references/PLCopenMotion/plcopen_motion_library_spec_for_truST_v0_1.md"
-content_sha256 = "49a0c7996af3e22d3820814f03b568f0883adc8b4517ed77286ab58aa4cdcb69"
+content_sha256 = "a172f143aead72e443bf13c83ca47091b23370fa0d1a22981ff99cd33a174ddd"
 areas = ["plcopen_devtools"]
-authority_levels = ["internal_governance"]
+authority_levels = ["normative_product"]
 owners = ["trust-plcopen"]
 freshness = "current"
 visibility = "internal"
-oracle_usable = false
-classification_basis = "explicit_review"
-conflict_disposition = "not_oracle_authority"
+oracle_usable = true
+classification_basis = "registered_metadata"
+conflict_disposition = "registered_conflicts_reviewed"
 checklist_staleness = "not_applicable"
-removed_behavior_disposition = "not_oracle_authority"
-last_reviewed = "2026-07-19"
+removed_behavior_disposition = "reviewed_current"
+last_reviewed = "2026-07-26"
 
 [[document_reviews]]
 schema_version = 1
@@ -4881,7 +4881,7 @@ last_reviewed = "2026-07-19"
 schema_version = 1
 document_id = "SPEC_DOC_ACA3A41CCA89D5BCBC1539C4"
 path = "docs/PLCOPEN_DEVIATIONS.md"
-content_sha256 = "6d76ae28cb122c212a7994ea8cd987cf27a587dc57ea2a00c86614c18b551a06"
+content_sha256 = "ffb6dc7c233a0f7f8ef9f34183a0e428dcf05419a7d2505d6af2b580a263b3b4"
 areas = ["plcopen_devtools"]
 authority_levels = ["reviewed_deviation"]
 owners = ["trust-plcopen"]
@@ -4892,7 +4892,7 @@ classification_basis = "explicit_review"
 conflict_disposition = "not_oracle_authority"
 checklist_staleness = "not_applicable"
 removed_behavior_disposition = "not_oracle_authority"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-26"
 
 [[document_reviews]]
 schema_version = 1
@@ -6751,7 +6751,7 @@ last_reviewed = "2026-07-19"
 schema_version = 1
 document_id = "SPEC_DOC_FBD2638C28582E56E8886614"
 path = "docs/guides/PLCOPEN_MOTION_LIBRARY_GUIDE.md"
-content_sha256 = "95f255288b20f32218f415ced9034454d1326cf7185e46669e4cadaae5aa66f9"
+content_sha256 = "d1db35af5c58792149a1a14be00601824627ee327ed7437c304f2d5f9087be48"
 areas = ["plcopen_devtools"]
 authority_levels = ["public_claim"]
 owners = ["trust-plcopen"]
@@ -6762,7 +6762,7 @@ classification_basis = "explicit_review"
 conflict_disposition = "potential_conflict_reported"
 checklist_staleness = "not_applicable"
 removed_behavior_disposition = "potentially_stale_reported"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-26"
 
 [[document_reviews]]
 schema_version = 1

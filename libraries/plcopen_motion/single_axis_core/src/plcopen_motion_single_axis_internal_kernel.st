@@ -50,6 +50,30 @@ TRUST_MOTION_IsNumericParameter :=
     (ParameterNumber = INT#17);
 END_FUNCTION
 
+FUNCTION TRUST_MOTION_IsReadOnlyNumericParameter : BOOL
+VAR_INPUT
+    ParameterNumber : INT;
+END_VAR
+TRUST_MOTION_IsReadOnlyNumericParameter :=
+    (ParameterNumber = INT#1) OR
+    (ParameterNumber = INT#8) OR
+    (ParameterNumber = INT#10) OR
+    (ParameterNumber = INT#11) OR
+    (ParameterNumber = INT#12) OR
+    (ParameterNumber = INT#14) OR
+    (ParameterNumber = INT#16);
+END_FUNCTION
+
+FUNCTION TRUST_MOTION_CanInitializeReadOnlyParameter : BOOL
+VAR_INPUT
+    AxisIndex : UINT;
+END_VAR
+TRUST_MOTION_CanInitializeReadOnlyParameter :=
+    (g_trust_motion_state[AxisIndex] = MC_AXIS_STATUS#mcDisabled) AND
+    (g_trust_motion_active_command_id[AxisIndex] = UINT#0) AND
+    (g_trust_motion_queue_depth[AxisIndex] = UINT#0);
+END_FUNCTION
+
 FUNCTION TRUST_MOTION_IsBoolParameter : BOOL
 VAR_INPUT
     ParameterNumber : INT;
@@ -91,6 +115,17 @@ TRUST_MOTION_CommandWasAborted :=
     (g_trust_motion_aborted0_command_id[AxisIndex] = CommandID) OR
     (g_trust_motion_aborted1_command_id[AxisIndex] = CommandID) OR
     (g_trust_motion_aborted2_command_id[AxisIndex] = CommandID);
+END_FUNCTION
+
+FUNCTION TRUST_MOTION_AbortedCommandErrorID : WORD
+VAR_INPUT
+    AxisIndex : UINT;
+END_VAR
+IF g_trust_motion_state[AxisIndex] = MC_AXIS_STATUS#mcErrorStop THEN
+    TRUST_MOTION_AbortedCommandErrorID := g_trust_motion_axis_error[AxisIndex];
+ELSE
+    TRUST_MOTION_AbortedCommandErrorID := WORD#16#0000;
+END_IF;
 END_FUNCTION
 
 FUNCTION TRUST_MOTION_ClearAbortedCommand : BOOL

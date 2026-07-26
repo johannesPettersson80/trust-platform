@@ -33,13 +33,14 @@ metadata:
   notes:
     - The shipped ST motion surface currently covers the Part 1 single-axis core, the selected synchronization subset, the Phase C coordinated-motion core subset, and the selected Phase D homing subset.
     - Internal ST-only carrier globals used by the test fixture are intentionally omitted because they are not public PLCopen names.
+    - A buffered Phase A FB flushed by ErrorStop reports Error with the axis fault code and does not report CommandAborted.
 rows:
   - PublicName: AXIS_REF
     SourcePart: Part1
     SourceClass: V
     truSTPhase: A
     truSTStatus: Implemented
-    Notes: Lightweight axis handle required by the selected classic Part 1 profile.
+    Notes: Lightweight axis handle with supported public AxisId and InternalIndex fields; Phase A uses a configured InternalIndex slot in 0..31 directly and does not normalize out-of-range values.
     Profile_A_AxisCore: Required
   - PublicName: AXIS_ID
     SourcePart: Part4
@@ -62,7 +63,7 @@ rows:
     SourceClass: B
     truSTPhase: A
     truSTStatus: Implemented
-    Notes: Full Part 1 enum surface for the selected Phase A profile.
+    Notes: Full Part 1 enum surface is published; the current deterministic Phase A kernel supports mcAborting and mcBuffered and rejects mcBlending* with mcERR_NotSupported.
     Profile_A_AxisCore: Required
   - PublicName: MC_DIRECTION
     SourcePart: Part1
@@ -98,7 +99,7 @@ rows:
     SourceClass: V
     truSTPhase: A
     truSTStatus: Implemented
-    Notes: Public ST helper FB publishing the standardized Part 1 parameter-number names and the stable public mcERR_* values; call the FB once before reading members.
+    Notes: Public ST helper FB publishing the standardized Part 1 parameter-number names, PN_TRUST_VendorBool0, and the stable public mcERR_* values; call the FB once before reading members.
     Profile_A_AxisCore: Required
   - PublicName: MC_Power
     SourcePart: Part1
@@ -119,7 +120,7 @@ rows:
     SourceClass: B
     truSTPhase: A
     truSTStatus: Implemented
-    Notes: Initial Phase A public FB; selected truST signature follows Part 1 FB tables and omits Active.
+    Notes: Initial Phase A public FB; selected truST signature follows Part 1 FB tables and omits Active; Done at zero velocity is mutually exclusive with Busy while Execute retains Stopping.
     Profile_A_AxisCore: Required
   - PublicName: MC_Halt
     SourcePart: Part1
@@ -231,14 +232,14 @@ rows:
     SourceClass: B
     truSTPhase: A
     truSTStatus: Implemented
-    Notes: Initial Phase A public FB; initial profile rejects mcDelayed.
+    Notes: Initial Phase A public FB; rejects mcDelayed; standard read-only parameters may be initialized only while Disabled with no active or queued work and otherwise fail with mcERR_InvalidState.
     Profile_A_AxisCore: Required
   - PublicName: MC_WriteBoolParameter
     SourcePart: Part1
     SourceClass: B
     truSTPhase: A
     truSTStatus: Implemented
-    Notes: Initial Phase A public FB; initial profile rejects mcDelayed.
+    Notes: Initial Phase A public FB; rejects mcDelayed and supports registered truST application metadata bit PN_TRUST_VendorBool0=1000.
     Profile_A_AxisCore: Required
   - PublicName: MC_ReadStatus
     SourcePart: Part1

@@ -1,0 +1,117 @@
+schema_version = 1
+id = "PLCO_MOTION_SINGLE_AXIS_EXECUTION_001"
+title = "PLCopen Motion Phase A latches and resolves deterministic commands"
+area = "plcopen_devtools"
+risk = "wrong_result"
+status = "gap_open"
+owner = "trust-runtime"
+last_reviewed = "2026-07-26"
+claim = "Execute latching, missing inputs, references, signs, dynamic defaults, continuous updates, and final position follow the selected Phase A deterministic-kernel contract."
+proof_level = "S0"
+contract_kind = "state_machine"
+source_refs = ["libraries/plcopen_motion/single_axis_core/src"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#10-execution-semantics"
+
+[[behavior]]
+partition = { equals = "EXECUTE_EDGE_LATCH_AND_CONTINUOUS_UPDATE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#10-execution-semantics"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The rising edge latches inputs and ContinuousUpdate alone changes an active target."
+
+[[behavior]]
+partition = { equals = "OMITTED_INPUT_REUSES_INSTANCE_VALUE" }
+case_family = "missing_required"
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#10-execution-semantics"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "An omitted input reuses the instance's previous value or its first-call initial value."
+
+[[behavior]]
+partition = { equals = "RELATIVE_VS_ADDITIVE_REFERENCE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#19-public-fb-profiles"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Relative uses command-start actual position while additive uses current commanded position."
+
+[[behavior]]
+partition = { equals = "POSITION_DISTANCE_VELOCITY_SIGN_AND_POSITIVE_DYNAMICS" }
+case_family = "boundary_low"
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#10-execution-semantics"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Signed position, distance, and velocity inputs are accepted where defined while negative dynamics fail."
+
+[[behavior]]
+partition = { equals = "ZERO_DYNAMICS_RESOLVE_CONFIGURED_MAXIMA" }
+case_family = "boundary_low"
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#10-execution-semantics"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Zero acceleration, deceleration, and jerk resolve to configured application maxima."
+
+[[behavior]]
+partition = { equals = "RELATIVE_CONTINUOUS_UPDATE_USES_COMMAND_START" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#10-execution-semantics"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Relative ContinuousUpdate keeps the original command-start reference."
+
+[[behavior]]
+partition = { equals = "CONTINUOUS_UPDATE_CHANGES_TARGET_AND_END_VELOCITY" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#10-execution-semantics"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Continuous position commands update the target and in-end-velocity projection while active."
+
+[[behavior]]
+partition = { equals = "ABSOLUTE_FINAL_POSITION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#10-execution-semantics"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The deterministic kernel applies the accepted absolute target on simulated completion."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "The exact frozen latching and continuous-update tests await catalog acceptance."
+
+[[coverage.cells]]
+dimension = "missing_required"
+state = "gap_open"
+rationale = "The omitted-input behavior test awaits catalog acceptance."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "The reference and final-position tests await catalog acceptance."
+
+[[coverage.cells]]
+dimension = "boundary_low"
+state = "gap_open"
+rationale = "The sign and zero-dynamics boundary tests await catalog acceptance."

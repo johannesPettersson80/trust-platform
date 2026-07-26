@@ -2193,3 +2193,23 @@ last_reviewed = "2026-07-26"
 covers = ["scope", "supported_gx_works3_subset_v1", "known_gaps_incompatibilities", "migration_guidance", "regression_coverage"]
 known_limitations = []
 conflicts_with = []
+
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001"
+title = "PLCopen Motion Library for truST - Specification v0.2"
+area = "plcopen_devtools"
+owner = "trust-plcopen"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "internal"
+locator_kind = "tracked_file"
+path = "docs/internal/references/PLCopenMotion/plcopen_motion_library_spec_for_truST_v0_1.md"
+version = "current"
+last_reviewed = "2026-07-26"
+covers = ["1_purpose", "2_source_hierarchy", "3_public_api_stance", "4_compliance_and_scope_model", "5_library_package_structure_in_trust", "6_trust_specific_implementation_constraints", "7_public_reference_and_derived_types", "8_public_enums_and_canonical_data_types", "9_units_and_scaling", "10_execution_semantics", "11_output_semantics", "12_error_model", "13_axis_state_model", "14_group_state_model", "15_mandatory_implementation_choice_single_axis_commands_on_grouped_axes", "16_buffering_and_command_queue_semantics", "17_coordinated_motion_blend_model", "18_commandaccepted_and_commandid", "19_public_fb_profiles", "20_axis_kernel_contract", "21_group_kernel_contract", "22_kinematics_and_transforms", "23_dynamic_coordinate_system_rule", "24_tracking_vs_synchronization", "25_group_stop_behavior", "26_tool_and_payload_support", "27_naming_rules", "28_acceptance_tests", "29_oop_facade_mapping", "30_recommended_implementation_order", "31_final_recommendation"]
+known_limitations = ["The software-only Phase A kernel uses falling Execute as a deterministic simulated-completion signal; hardware adapters must complete from backend progress.", "The Phase A single-axis profile publishes but rejects all mcBlending modes until blending semantics are implemented."]
+conflicts_with = []

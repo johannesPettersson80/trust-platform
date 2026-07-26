@@ -52,7 +52,7 @@ Public handle for one motion axis. You keep one of these per axis and pass it by
 Fields:
 
 - `AxisId : UDINT`: Stable public identifier for the axis in your application.
-- `InternalIndex : UINT`: Runtime registry slot used by the library implementation.
+- `InternalIndex : UINT`: Runtime registry slot used directly by the library implementation. Bind it to a configured Phase A slot in `0..31`; out-of-range values are not normalized.
 
 ### `MC_BUFFER_MODE`
 Controls whether a command aborts the current motion, waits in a queue, or blends with adjacent motion commands.
@@ -64,6 +64,10 @@ Values:
 - `mcBlendingPrevious`: Blend using the previous command velocity.
 - `mcBlendingNext`: Blend using the next command velocity.
 - `mcBlendingHigh`: Blend using the higher transition velocity policy.
+
+The current deterministic Phase A single-axis FBs publish all four
+`mcBlending*` values for source compatibility but reject them with
+`mcERR_NotSupported`. Use `mcAborting` or `mcBuffered` in this profile.
 
 ### `MC_DIRECTION`
 Selects how directional motion commands choose travel direction.
@@ -161,7 +165,10 @@ Type: `FUNCTION_BLOCK`
 - `CommandAborted : BOOL`: TRUE when the command was aborted by another accepted command or stop condition.
 - `Error : BOOL`: TRUE when the FB reports an error.
 - `ErrorID : WORD`: Current FB error code.
-Usage notes: Use for emergency or immediate stop handling. It does not rely on buffered blending behavior.
+Usage notes: Use for emergency or immediate stop handling. It does not rely on
+buffered blending behavior. If the deterministic kernel reaches zero velocity
+on the accepting invocation, `Done` is TRUE and `Busy` is FALSE while the axis
+remains in `Stopping` until `Execute` goes FALSE.
 
 ### `MC_Halt`
 Request a halt while preserving buffered-motion semantics.
@@ -594,6 +601,9 @@ Type: `FUNCTION_BLOCK`
 - `Busy : BOOL`: TRUE while the command is accepted and still in progress.
 - `Error : BOOL`: TRUE when the FB reports an error.
 - `ErrorID : WORD`: Current FB error code.
+Usage notes: Standard read-only numeric parameter numbers may be initialized
+only while the axis is `Disabled` with no active or queued command. Later
+writes fail with `mcERR_InvalidState`.
 
 ### `MC_WriteBoolParameter`
 Write one boolean axis parameter.
@@ -642,6 +652,7 @@ Type: `FUNCTION_BLOCK`
 - `PN_MaxDecelerationAppl : INT`: `PN_MaxDecelerationAppl` value of type `INT`.
 - `PN_MaxJerkSystem : INT`: `PN_MaxJerkSystem` value of type `INT`.
 - `PN_MaxJerkAppl : INT`: `PN_MaxJerkAppl` value of type `INT`.
+- `PN_TRUST_VendorBool0 : INT`: truST vendor BOOL parameter `1000`; defaults to `FALSE` and has no motion-kernel side effect.
 - `mcERR_None : WORD`: `mcERR_None` value of type `WORD`.
 - `mcERR_InvalidParameter : WORD`: `mcERR_InvalidParameter` value of type `WORD`.
 - `mcERR_InvalidState : WORD`: `mcERR_InvalidState` value of type `WORD`.

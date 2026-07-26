@@ -61,3 +61,35 @@ This file tracks implementation decisions made where PLCopen profiles or source 
   - OOP profile, probe, digital-cam, torque/superimposed, and synchronization methods that are not implemented by the current OOP facade remain present and return deterministic command objects with `mcERR_NotSupported`.
 - Reason:
   - This matches the PLCopen OOP guidance that a standardized interface defines the user-facing axis surface, while implementation remains vendor-specific and may coexist with procedural FBs.
+
+## 2026-07-26 - Phase A deterministic single-axis profile choices
+
+- Area: PLCopen Motion Part 1 Phase A single-axis behavior
+- PLCopen context: Part 1 v2.0 sections 2.4.1, 2.4.2, 2.4.3, 3.3, 3.18,
+  3.20, and Table 5
+- Decision:
+  - `AXIS_REF.AxisId` and `AXIS_REF.InternalIndex` are supported public handle
+    fields that may be initialized before FB use but not mutated while work is
+    active or queued. The Phase A kernel uses `InternalIndex` directly and
+    requires a configured slot in `0..31`; it does not silently normalize an
+    out-of-range value. PLCopen makes the fields' content implementation
+    dependent and requires support for any exposed elements.
+  - The current single-axis kernel provides one active slot and exactly two
+    buffered FIFO slots. A third buffered request fails with
+    `mcERR_QueueFull` without mutating accepted work.
+  - `PN_TRUST_VendorBool0 = 1000` is registered by truST as a per-axis
+    application metadata bit with default `FALSE`, no motion side effect, and
+    immediate or queued read/write behavior.
+  - Standard read-only parameter numbers may be initialized through
+    `MC_WriteParameter` only while the axis is `Disabled` with no active or
+    queued work, or through the internal test-seeding boundary. Public writes
+    outside that phase fail with `mcERR_InvalidState`.
+  - An aborting `MC_Home` accepted from `DiscreteMotion` enters `Homing` and
+    completes in `Standstill` after aborting the current owner and clearing
+    buffered work.
+  - The deterministic verification helpers are not PLCopen public FBs and do
+    not widen the compliance surface.
+- Reason:
+  - These implementation-dependent choices make the selected software-only
+    Phase A profile deterministic without presenting truST-only behavior as
+    normative PLCopen behavior.

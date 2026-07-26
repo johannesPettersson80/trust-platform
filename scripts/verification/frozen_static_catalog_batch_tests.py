@@ -452,6 +452,120 @@ class FrozenStaticCatalogBatchTests(unittest.TestCase):
                     },
                 )
 
+    def test_st_execution_provenance_binds_raw_results_and_git_head(
+        self,
+    ) -> None:
+        import hashlib
+        import json
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            head = "a" * 40
+            raw_document = {
+                "version": 1,
+                "project": "fixture",
+                "summary": {
+                    "total": 1,
+                    "passed": 1,
+                    "failed": 0,
+                    "errors": 0,
+                    "duration_ms": 7,
+                },
+                "tests": [
+                    {
+                        "name": "case_one",
+                        "kind": "TEST_PROGRAM",
+                        "status": "passed",
+                        "file": "fixture/src/tests.st",
+                        "line": 4,
+                        "source": "PROGRAM case_one",
+                        "message": None,
+                        "duration_ms": 7,
+                    }
+                ],
+            }
+            raw_content = (
+                json.dumps(raw_document, sort_keys=True) + "\n"
+            ).encode()
+            for relative, content in (
+                ("scripts/verification/frozen_st_batch.py", b"runner"),
+                ("scripts/run_frozen_st_batch.py", b"shim"),
+                ("fixture/src/tests.st", b"source"),
+                ("raw.json", raw_content),
+            ):
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(content)
+            plan = {
+                "execution_kind": "st_json",
+                "command": (
+                    "trust-dev test --project fixture --filter case_ "
+                    "--output json"
+                ),
+                "runner_path": "scripts/verification/frozen_st_batch.py",
+                "shim_path": "scripts/run_frozen_st_batch.py",
+                "path": "fixture/src/tests.st",
+                "raw_results_path": "raw.json",
+                "git_head": head,
+                "project_path": "fixture",
+                "test_prefix": "case_",
+            }
+            execution = {
+                "kind": "st_json",
+                "command": plan["command"],
+                "runner_path": plan["runner_path"],
+                "runner_sha256": "sha256:"
+                + hashlib.sha256(b"runner").hexdigest(),
+                "shim_path": plan["shim_path"],
+                "shim_sha256": "sha256:"
+                + hashlib.sha256(b"shim").hexdigest(),
+                "source_path": plan["path"],
+                "source_sha256": "sha256:"
+                + hashlib.sha256(b"source").hexdigest(),
+                "raw_results_path": plan["raw_results_path"],
+                "raw_results_sha256": "sha256:"
+                + hashlib.sha256(raw_content).hexdigest(),
+                "git_head": head,
+                "project_path": plan["project_path"],
+                "test_prefix": plan["test_prefix"],
+            }
+            results = {
+                "execution": execution,
+                "tests": [
+                    {"title": "case_one", "duration": 7, "state": "passed"}
+                ],
+                "failures": [],
+                "pending": [],
+                "stats": {
+                    "tests": 1,
+                    "passes": 1,
+                    "failures": 0,
+                    "pending": 0,
+                },
+            }
+            with patch(
+                "scripts.verification.frozen_static_catalog_batch._git_head",
+                return_value=head,
+            ):
+                validate_execution_provenance(
+                    root=root,
+                    plan=plan,
+                    results_document=results,
+                )
+            execution["git_head"] = "b" * 40
+            with patch(
+                "scripts.verification.frozen_static_catalog_batch._git_head",
+                return_value=head,
+            ), self.assertRaisesRegex(ValueError, "git_head"):
+                validate_execution_provenance(
+                    root=root,
+                    plan=plan,
+                    results_document=results,
+                )
+
     def test_rust_catalog_command_is_generated_canonically(self) -> None:
         plan = {
             "execution_kind": "rust_nextest_jsonl",
