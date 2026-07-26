@@ -506,6 +506,9 @@ fn collect_functions(
     for item in items {
         match item {
             Item::Fn(function) => {
+                if !host_platform_cfg_active(&function.attrs) {
+                    continue;
+                }
                 let mut segments = modules.clone();
                 segments.push(function.sig.ident.to_string());
                 output.push(FunctionRecord {
@@ -525,6 +528,33 @@ fn collect_functions(
             }
             _ => {}
         }
+    }
+}
+
+fn host_platform_cfg_active(attributes: &[Attribute]) -> bool {
+    attributes.iter().all(|attribute| {
+        if !attribute.path().is_ident("cfg") {
+            return true;
+        }
+        attribute
+            .parse_args::<syn::Meta>()
+            .ok()
+            .and_then(|meta| evaluate_host_platform_cfg(&meta))
+            .unwrap_or(true)
+    })
+}
+
+fn evaluate_host_platform_cfg(meta: &syn::Meta) -> Option<bool> {
+    match meta {
+        syn::Meta::Path(path) if path.is_ident("windows") => {
+            Some(cfg!(windows))
+        }
+        syn::Meta::Path(path) if path.is_ident("unix") => Some(cfg!(unix)),
+        syn::Meta::List(list) if list.path.is_ident("not") => {
+            let nested = syn::parse2::<syn::Meta>(list.tokens.clone()).ok()?;
+            evaluate_host_platform_cfg(&nested).map(|value| !value)
+        }
+        _ => None,
     }
 }
 

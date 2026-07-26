@@ -188,6 +188,27 @@ fn rejects_same_file_helper_from_unrelated_inline_module() {
 }
 
 #[test]
+fn ignores_inactive_host_platform_cfg_duplicate_helpers() {
+    let inventory = extract(
+        "crates/example/src/project.rs",
+        "uses_platform_helper",
+        concat!(
+            "#[cfg(windows)]\n",
+            "fn platform_helper() { assert!(cfg!(windows)); }\n",
+            "#[cfg(not(windows))]\n",
+            "fn platform_helper() { assert!(cfg!(unix)); }\n",
+            "#[test]\n",
+            "fn uses_platform_helper() { platform_helper(); }\n",
+        ),
+    )
+    .expect("extract active platform helper only");
+
+    assert!(inventory.unresolved_assertion_helpers.is_empty());
+    assert_eq!(1, inventory.assertions.len());
+    assert_eq!("platform_helper", inventory.assertions[0].function);
+}
+
+#[test]
 fn binds_static_include_and_named_insta_snapshot_oracles() {
     let root = assertion_fixture_root("external-oracles");
     let test_path = "crates/example/tests/contract.rs";
