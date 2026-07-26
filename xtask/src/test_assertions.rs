@@ -420,6 +420,7 @@ fn extract_from_built_context(
         let mut visitor = AssertionVisitor {
             function: function_name.clone(),
             source_path: function.source_path.clone(),
+            generated_output_roots: generated_output_roots(&function.item.block),
             observations: BodyObservations::default(),
         };
         visitor.visit_block(&function.item.block);
@@ -697,6 +698,7 @@ fn assertion_module_segments(module: &str) -> Result<Vec<String>> {
 struct AssertionVisitor {
     function: String,
     source_path: String,
+    generated_output_roots: BTreeSet<String>,
     observations: BodyObservations,
 }
 
@@ -744,7 +746,9 @@ impl<'ast> Visit<'ast> for AssertionVisitor {
                 .args
                 .first()
                 .is_some_and(|argument| matches!(argument, Expr::Lit(value) if matches!(value.lit, syn::Lit::Str(_))));
-            if !static_literal {
+            if !static_literal
+                && !is_generated_output_read(expression, &self.generated_output_roots)
+            {
                 self.observations
                     .unresolved_assertion_helpers
                     .insert(format!("{}::{reader}:unresolved-oracle", self.function));
@@ -767,7 +771,10 @@ impl<'ast> Visit<'ast> for AssertionVisitor {
 
 mod external_oracles;
 
-use external_oracles::{external_oracle_digests, runtime_fixture_reader};
+use external_oracles::{
+    external_oracle_digests, generated_output_roots, is_generated_output_read,
+    runtime_fixture_reader,
+};
 fn has_test_attribute(attributes: &[Attribute]) -> bool {
     attributes.iter().any(|attribute| {
         attribute

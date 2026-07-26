@@ -253,9 +253,16 @@ fn binds_static_runtime_fixture_reads_and_rejects_dynamic_paths() {
             "  assert_eq!(value, \"ok\");\n",
             "}\n",
             "fn fixture_path() -> std::path::PathBuf { todo!() }\n",
+            "fn temp_dir(_: &str) -> std::path::PathBuf { todo!() }\n",
             "#[test]\n",
             "fn dynamic_fixture() {\n",
             "  let value = std::fs::read(fixture_path()).unwrap();\n",
+            "  assert!(!value.is_empty());\n",
+            "}\n",
+            "#[test]\n",
+            "fn generated_output() {\n",
+            "  let root = temp_dir(\"generated-output\");\n",
+            "  let value = std::fs::read_to_string(root.join(\"io.toml\")).unwrap();\n",
             "  assert!(!value.is_empty());\n",
             "}\n",
         ),
@@ -281,6 +288,18 @@ fn binds_static_runtime_fixture_reads_and_rejects_dynamic_paths() {
     assert_eq!(
         vec!["dynamic_fixture::std::fs::read:unresolved-oracle"],
         dynamic_inventory.unresolved_assertion_helpers
+    );
+
+    let generated_inventory = extract_from_repository(
+        &root,
+        test_path,
+        "generated_output",
+        "rust_integration_test",
+    )
+    .expect("extract generated output read");
+    assert!(
+        generated_inventory.unresolved_assertion_helpers.is_empty(),
+        "test-created project output is not an external fixture oracle"
     );
     fs::remove_dir_all(root).unwrap();
 }

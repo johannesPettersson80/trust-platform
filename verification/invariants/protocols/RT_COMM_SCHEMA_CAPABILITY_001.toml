@@ -10,11 +10,11 @@ claim = "Communication schema, capability, and Test responses preserve their ver
 proof_level = "S1"
 contract_kind = "protocol_trace"
 source_refs = ["crates/trust-runtime/src/control/comm_handlers"]
-tests = []
+tests = ["TEST_AUTO_0A2FB7B200058C256206", "TEST_AUTO_863CEC807E61FD6C8118", "TEST_AUTO_E01AA552585E9F9CD297", "TEST_AUTO_E01E368482A6A89AD208", "TEST_AUTO_ECCE0545B05F771C46D8"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_behavior_tests", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -62,20 +62,20 @@ rationale = "A completed negative protocol test remains a structured result, whi
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "The frozen schema and capability tests are not catalog-bound to this new invariant yet."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in RT_COMM_SCHEMA_CAPABILITY_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "auth_or_permission"
-state = "gap_open"
-rationale = "Secret-metadata assertions await catalog mapping and assertion review."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every auth_or_permission behavior in RT_COMM_SCHEMA_CAPABILITY_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "platform_or_filesystem_variation"
-state = "gap_open"
-rationale = "Build and platform truth assertions await catalog mapping and assertion review."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every platform_or_filesystem_variation behavior in RT_COMM_SCHEMA_CAPABILITY_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "hardware_or_network_fault"
-state = "gap_open"
-rationale = "Structured negative and unsupported Test assertions await catalog mapping and assertion review."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every hardware_or_network_fault behavior in RT_COMM_SCHEMA_CAPABILITY_001; dynamic proof and broad remote validation remain explicit debt."

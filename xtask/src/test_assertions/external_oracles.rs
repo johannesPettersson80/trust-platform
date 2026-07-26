@@ -5,7 +5,7 @@ use std::path::{Component, Path};
 use anyhow::{bail, Context, Result};
 use proc_macro2::{TokenStream, TokenTree};
 use syn::visit::{self, Visit};
-use syn::{Expr, ExprCall, Macro};
+use syn::{Block, Expr, ExprCall, Local, Macro, Pat};
 
 use super::sha256_tag;
 
@@ -69,6 +69,79 @@ pub(super) fn runtime_fixture_reader(expression: &ExprCall) -> Option<String> {
         return None;
     }
     Some(segments.join("::"))
+}
+
+pub(super) fn generated_output_roots(block: &Block) -> BTreeSet<String> {
+    #[derive(Default)]
+    struct GeneratedRootVisitor {
+        roots: BTreeSet<String>,
+    }
+
+    impl<'ast> Visit<'ast> for GeneratedRootVisitor {
+        fn visit_local(&mut self, local: &'ast Local) {
+            let Some(initializer) = &local.init else {
+                visit::visit_local(self, local);
+                return;
+            };
+            let Pat::Ident(binding) = &local.pat else {
+                visit::visit_local(self, local);
+                return;
+            };
+            let Expr::Call(call) = initializer.expr.as_ref() else {
+                visit::visit_local(self, local);
+                return;
+            };
+            let Expr::Path(path) = call.func.as_ref() else {
+                visit::visit_local(self, local);
+                return;
+            };
+            if path
+                .path
+                .segments
+                .last()
+                .is_some_and(|segment| segment.ident == "temp_dir")
+            {
+                self.roots.insert(binding.ident.to_string());
+            }
+            visit::visit_local(self, local);
+        }
+    }
+
+    let mut visitor = GeneratedRootVisitor::default();
+    visitor.visit_block(block);
+    visitor.roots
+}
+
+pub(super) fn is_generated_output_read(
+    expression: &ExprCall,
+    generated_roots: &BTreeSet<String>,
+) -> bool {
+    let Some(argument) = expression.args.first() else {
+        return false;
+    };
+    let Expr::MethodCall(join) = argument else {
+        return false;
+    };
+    if join.method != "join"
+        || join.args.len() != 1
+        || !matches!(
+            join.args.first(),
+            Some(Expr::Lit(value)) if matches!(value.lit, syn::Lit::Str(_))
+        )
+    {
+        return false;
+    }
+    let Expr::Path(receiver) = join.receiver.as_ref() else {
+        return false;
+    };
+    if receiver.path.leading_colon.is_some() || receiver.path.segments.len() != 1 {
+        return false;
+    }
+    receiver
+        .path
+        .segments
+        .first()
+        .is_some_and(|segment| generated_roots.contains(&segment.ident.to_string()))
 }
 
 fn first_string_literal(tokens: &TokenStream) -> Option<String> {

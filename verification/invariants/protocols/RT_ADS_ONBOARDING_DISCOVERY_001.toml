@@ -5,19 +5,12 @@ area = "protocols"
 risk = "wrong_result"
 status = "mapped"
 owner = "trust-runtime"
-last_reviewed = "2026-07-22"
+last_reviewed = "2026-07-26"
 claim = "Manual, directed-identify, and directed-broadcast discovery preserve every distinct ADS endpoint, deduplicate repeated endpoint observations, and isolate broadcast failures."
 proof_level = "T1"
 contract_kind = "protocol_trace"
 source_refs = ["crates/trust-runtime/src/host/ads/onboarding/discover.rs"]
-tests = [
-  "TEST_ADS_ONBOARDING_DISCOVERY_BROADCAST_FAILURE_PRESERVES_SUCCESSFUL_MANUAL_IDENTITY_001",
-  "TEST_ADS_ONBOARDING_DISCOVERY_DIRECTED_BROADCAST_COLLECTS_MULTIPLE_ADS_TARGETS_FROM_ONE_SUBNET_001",
-  "TEST_ADS_ONBOARDING_DISCOVERY_DIRECTED_BROADCAST_IS_OPTIONAL_AND_DEDUPLICATED_001",
-  "TEST_ADS_ONBOARDING_DISCOVERY_DIRECTED_IDENTIFY_COLLECTS_TARGET_FIELDS_FROM_WIRE_001",
-  "TEST_ADS_ONBOARDING_DISCOVERY_DISCOVERY_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001",
-  "TEST_ADS_ONBOARDING_DISCOVERY_MANUAL_DISCOVERY_PATH_DOES_NOT_DEPEND_ON_UDP_IDENTIFY_001",
-]
+tests = ["TEST_ADS_ONBOARDING_DISCOVERY_BROADCAST_FAILURE_PRESERVES_SUCCESSFUL_MANUAL_IDENTITY_001", "TEST_ADS_ONBOARDING_DISCOVERY_DIRECTED_BROADCAST_COLLECTS_MULTIPLE_ADS_TARGETS_FROM_ONE_SUBNET_001", "TEST_ADS_ONBOARDING_DISCOVERY_DIRECTED_BROADCAST_IS_OPTIONAL_AND_DEDUPLICATED_001", "TEST_ADS_ONBOARDING_DISCOVERY_DIRECTED_IDENTIFY_COLLECTS_TARGET_FIELDS_FROM_WIRE_001", "TEST_ADS_ONBOARDING_DISCOVERY_DISCOVERY_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001", "TEST_ADS_ONBOARDING_DISCOVERY_MANUAL_DISCOVERY_PATH_DOES_NOT_DEPEND_ON_UDP_IDENTIFY_001", "TEST_AUTO_0C0E896B727531F1A82B"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
@@ -90,3 +83,8 @@ rationale = "Focused regression covers same-host distinct endpoints, repeated en
 dimension = "hardware_or_network_fault"
 state = "covered"
 rationale = "A behavior lock proves broadcast failure preserves an independent manual result."
+
+[[coverage.cells]]
+dimension = "missing_required"
+state = "covered"
+rationale = "Existing focused directed-identify tests cover endpoint-field discovery when no manual AMS identity is supplied."

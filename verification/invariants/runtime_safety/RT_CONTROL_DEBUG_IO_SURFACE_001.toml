@@ -10,11 +10,11 @@ claim = "Runtime control resolves project-relative breakpoints safely, preserves
 proof_level = "S1"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src/control", "crates/trust-runtime/src/io"]
-tests = []
+tests = ["TEST_AUTO_20C70AC01ED7B2D5389F", "TEST_AUTO_3A2F95FDE41ACD3BCF80", "TEST_AUTO_53875B6D77CB51AF9D79", "TEST_AUTO_82D16E2E14705AC71B52", "TEST_AUTO_B250BBD3C58F1A2851EA"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_behavior_tests", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -62,20 +62,20 @@ rationale = "Control write and force reject every I, Q, or M byte offset at or a
 
 [[coverage.cells]]
 dimension = "platform_or_filesystem_variation"
-state = "gap_open"
-rationale = "Project-relative breakpoint binding awaits catalog mapping and assertion review."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every platform_or_filesystem_variation behavior in RT_CONTROL_DEBUG_IO_SURFACE_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "The composite debug and I/O routing behavior lock awaits catalog mapping and must not be promoted beyond handler reachability."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in RT_CONTROL_DEBUG_IO_SURFACE_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
-state = "gap_open"
-rationale = "Captured-scan force-mark ordering awaits catalog mapping and assertion review."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in RT_CONTROL_DEBUG_IO_SURFACE_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "boundary_high"
-state = "gap_open"
-rationale = "Process-image write and force boundary assertions await catalog mapping and mutation proof."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every boundary_high behavior in RT_CONTROL_DEBUG_IO_SURFACE_001; dynamic proof and broad remote validation remain explicit debt."

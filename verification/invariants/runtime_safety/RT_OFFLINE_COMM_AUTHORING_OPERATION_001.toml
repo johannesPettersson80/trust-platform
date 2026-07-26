@@ -10,11 +10,11 @@ claim = "Offline communication schema, apply, and topology operate without a liv
 proof_level = "S1"
 contract_kind = "protocol_trace"
 source_refs = ["crates/trust-runtime/src/control"]
-tests = []
+tests = ["TEST_AUTO_6EA437AE31ACD25CB497", "TEST_AUTO_72C0F29AA82A1DA03039", "TEST_AUTO_BB7CC57529DE3A792861", "TEST_AUTO_D3ED6DD3482AAFDD867A"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_behavior_tests", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -71,13 +71,13 @@ rationale = "Removing the last offline-authored project driver retains an activa
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "The frozen offline operation tests are not catalog-bound to this new invariant yet."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in RT_OFFLINE_COMM_AUTHORING_OPERATION_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "persistence_or_recovery"
-state = "gap_open"
-rationale = "Artifact creation, disable, remove, projection, and explicit no-driver assertions await catalog mapping and mutation proof."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every persistence_or_recovery behavior in RT_OFFLINE_COMM_AUTHORING_OPERATION_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "auth_or_permission"

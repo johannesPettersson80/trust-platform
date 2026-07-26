@@ -5,22 +5,12 @@ area = "protocols"
 risk = "wrong_result"
 status = "mapped"
 owner = "trust-runtime"
-last_reviewed = "2026-07-22"
+last_reviewed = "2026-07-26"
 claim = "ADS import strictly merges selected symbols, current configuration, snapshots, types, modes, and acknowledged capabilities into deterministic configuration and ST artifacts."
 proof_level = "T1"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-runtime/src/host/ads/onboarding/import.rs", "crates/trust-runtime/src/control/ads_handlers/import_symbols.rs"]
-tests = [
-  "TEST_ADS_SYMBOL_IMPORT_CONTROL_IMPORT_SYMBOLS_APPLY_ACKNOWLEDGED_WRITABLE_SYMBOLS_AS_READ_WRITE_001",
-  "TEST_ADS_SYMBOL_IMPORT_CONTROL_IMPORT_SYMBOLS_APPLY_ACKNOWLEDGED_WRITE_ONLY_SYMBOL_AS_WRITE_001",
-  "TEST_ADS_SYMBOL_IMPORT_CORE_APPLY_IMPORT_MERGES_SECOND_CONNECTION_AND_IS_IDEMPOTENT_001",
-  "TEST_ADS_SYMBOL_IMPORT_CORE_APPLY_IMPORT_PINS_LOCAL_NET_ID_AND_GENERATES_SINGLE_FILE_001",
-  "TEST_ADS_SYMBOL_IMPORT_CORE_APPLY_IMPORT_PROJECTS_STRING_ARRAY_AND_NOTIFY_MODE_001",
-  "TEST_ADS_SYMBOL_IMPORT_CORE_APPLY_IMPORT_REJECTS_EMPTY_SELECTION_001",
-  "TEST_ADS_SYMBOL_IMPORT_CORE_APPLY_IMPORT_REJECTS_MALFORMED_EXISTING_TOML_001",
-  "TEST_ADS_SYMBOL_IMPORT_CORE_APPLY_IMPORT_REJECTS_WRITE_BINDING_WITHOUT_ACKNOWLEDGEMENT_001",
-  "TEST_ADS_SYMBOL_IMPORT_CORE_IEC_TYPE_NAME_COVERS_ALL_SUPPORTED_SCALAR_TYPES_001",
-]
+tests = ["TEST_ADS_SYMBOL_IMPORT_CONTROL_IMPORT_SYMBOLS_APPLY_ACKNOWLEDGED_WRITABLE_SYMBOLS_AS_READ_WRITE_001", "TEST_ADS_SYMBOL_IMPORT_CONTROL_IMPORT_SYMBOLS_APPLY_ACKNOWLEDGED_WRITE_ONLY_SYMBOL_AS_WRITE_001", "TEST_ADS_SYMBOL_IMPORT_CORE_APPLY_IMPORT_MERGES_SECOND_CONNECTION_AND_IS_IDEMPOTENT_001", "TEST_ADS_SYMBOL_IMPORT_CORE_APPLY_IMPORT_PINS_LOCAL_NET_ID_AND_GENERATES_SINGLE_FILE_001", "TEST_ADS_SYMBOL_IMPORT_CORE_APPLY_IMPORT_PROJECTS_STRING_ARRAY_AND_NOTIFY_MODE_001", "TEST_ADS_SYMBOL_IMPORT_CORE_APPLY_IMPORT_REJECTS_EMPTY_SELECTION_001", "TEST_ADS_SYMBOL_IMPORT_CORE_APPLY_IMPORT_REJECTS_MALFORMED_EXISTING_TOML_001", "TEST_ADS_SYMBOL_IMPORT_CORE_APPLY_IMPORT_REJECTS_WRITE_BINDING_WITHOUT_ACKNOWLEDGEMENT_001", "TEST_ADS_SYMBOL_IMPORT_CORE_IEC_TYPE_NAME_COVERS_ALL_SUPPORTED_SCALAR_TYPES_001", "TEST_AUTO_C208A78C1E567F7718E8"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
@@ -121,3 +111,8 @@ rationale = "Focused tests cover unacknowledged denial and acknowledged read-wri
 dimension = "persistence_or_recovery"
 state = "covered"
 rationale = "The merge behavior lock covers byte-identical repeated application and preserved sibling connections."
+
+[[coverage.cells]]
+dimension = "missing_required"
+state = "covered"
+rationale = "An existing focused import test rejects an empty symbol selection before creating a connection artifact."

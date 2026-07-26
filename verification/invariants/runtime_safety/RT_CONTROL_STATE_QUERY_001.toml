@@ -10,11 +10,11 @@ claim = "Runtime status, health, configuration, realtime, metrics, and historian
 proof_level = "S1"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-runtime/src/control"]
-tests = []
+tests = ["TEST_AUTO_19A9F891A4E5DE671019", "TEST_AUTO_22D364962DA502F1F150", "TEST_AUTO_22E1E8DEC8F529228B6E", "TEST_AUTO_587D7703C609EB1CE7A0", "TEST_AUTO_74B77F20409806BB46F0", "TEST_AUTO_CBBB107A42464313E885", "TEST_AUTO_D4393238D4D14C70E439", "TEST_AUTO_DE73AD9B8C12C51D78FC", "TEST_AUTO_FF41ACE26383D908BC8A"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_behavior_tests", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -89,20 +89,20 @@ rationale = "Historian query and alert operations return an items array, honor t
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "Backend, status, realtime, and historian assertions await catalog mapping and assertion review."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in RT_CONTROL_STATE_QUERY_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "gap_open"
-rationale = "Live configuration rejection assertions await catalog mapping and mutation proof."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every wrong_type_or_shape behavior in RT_CONTROL_STATE_QUERY_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
-state = "gap_open"
-rationale = "Startup-only backend rejection awaits catalog mapping and assertion review."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in RT_CONTROL_STATE_QUERY_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "hardware_or_network_fault"
-state = "gap_open"
-rationale = "Faulted-driver aggregate-health assertions await catalog mapping and assertion review."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every hardware_or_network_fault behavior in RT_CONTROL_STATE_QUERY_001; dynamic proof and broad remote validation remain explicit debt."

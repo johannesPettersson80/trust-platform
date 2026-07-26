@@ -10,11 +10,11 @@ claim = "Runtime control decodes and routes each request exactly once, distingui
 proof_level = "S1"
 contract_kind = "protocol_trace"
 source_refs = ["crates/trust-runtime/src/control"]
-tests = []
+tests = ["TEST_AUTO_7CFA25E00041BF572099", "TEST_AUTO_98C072DEE99220B94B98", "TEST_AUTO_A542BF00CD94824D5DB6", "TEST_AUTO_A6203BCF8543279FF710", "TEST_AUTO_A883DECF8E1190C71056", "TEST_AUTO_CE772515BBC4E8ED75DB", "TEST_AUTO_D23A413C4CDBA3912B2A", "TEST_AUTO_E597196254404C3948A6", "TEST_AUTO_E7009F6DA35E4F274C36"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_behavior_tests", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -89,20 +89,25 @@ rationale = "Polling an unknown job returns the stable machine-readable not-foun
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "gap_open"
-rationale = "Malformed request and parameter assertions await catalog mapping and assertion review."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every wrong_type_or_shape behavior in RT_CONTROL_REQUEST_JOB_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "The routing behavior lock awaits catalog mapping and must remain explicitly limited to handler reachability."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in RT_CONTROL_REQUEST_JOB_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "concurrency_or_cancellation"
-state = "gap_open"
-rationale = "Client and server Doctor job lifecycle assertions await catalog mapping and reachability proof."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every concurrency_or_cancellation behavior in RT_CONTROL_REQUEST_JOB_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "platform_or_filesystem_variation"
-state = "gap_open"
-rationale = "Feature-unavailable ADS failure assertions await catalog mapping and assertion review."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every platform_or_filesystem_variation behavior in RT_CONTROL_REQUEST_JOB_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "extra_or_unknown"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every extra_or_unknown behavior in RT_CONTROL_REQUEST_JOB_001; dynamic proof and broad remote validation remain explicit debt."

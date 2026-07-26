@@ -13,11 +13,11 @@ source_refs = [
   "crates/trust-runtime/src/control/comm_handlers/apply.rs",
   "crates/trust-runtime/src/control/comm_handlers/apply",
 ]
-tests = []
+tests = ["TEST_AUTO_03857A00BDAAF507DA59", "TEST_AUTO_073FDF0BB5A12B8679DA", "TEST_AUTO_0A9DE2CB6B4FD8E11B69", "TEST_AUTO_420774E0476946F9E120", "TEST_AUTO_530A26285BCF28ED4AF1", "TEST_AUTO_530B33357229300BC67E", "TEST_AUTO_53C714E98C473BD45451", "TEST_AUTO_5BC2CA3EA617D63261AC", "TEST_AUTO_749CA6AED7A343292238", "TEST_AUTO_7613107496D3BF22106E", "TEST_AUTO_95ED1F72F2DD2E43B7EB", "TEST_AUTO_9F8C16B2B9365CA53931", "TEST_AUTO_A65A0E027C52EED46FBF", "TEST_AUTO_BA6FF20972DDD9F2B981", "TEST_AUTO_D751BCFA967C0670BBCD"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_behavior_tests", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate", "crash_atomic_config_write"]
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate", "crash_atomic_config_write"]
 
 [spec]
 status = "specified"
@@ -95,20 +95,30 @@ rationale = "Final-driver removal retains io.toml, project comments outside rewr
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "The frozen successful apply tests are not catalog-bound to this new invariant yet."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in RT_COMM_APPLY_MUTATION_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "gap_open"
-rationale = "Field and instance-identity rejection assertions await catalog mapping and assertion review."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every wrong_type_or_shape behavior in RT_COMM_APPLY_MUTATION_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "auth_or_permission"
-state = "gap_open"
-rationale = "Credential-channel, role, redaction, and audit assertions await catalog mapping and assertion review."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every auth_or_permission behavior in RT_COMM_APPLY_MUTATION_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "persistence_or_recovery"
-state = "gap_open"
-rationale = "Preservation, migration, idempotence, disable, removal, and no-driver recovery assertions await catalog mapping and mutation proof."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every persistence_or_recovery behavior in RT_COMM_APPLY_MUTATION_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in RT_COMM_APPLY_MUTATION_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "missing_required"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every missing_required behavior in RT_COMM_APPLY_MUTATION_001; dynamic proof and broad remote validation remain explicit debt."
