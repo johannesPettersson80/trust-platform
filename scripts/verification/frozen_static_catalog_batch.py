@@ -40,6 +40,10 @@ def compile_batch(
     timestamp = _required_string(plan, "timestamp")
     command = _required_string(plan, "command")
     reviewers = _string_array(plan.get("reviewer_ids"), "reviewer_ids")
+    expected_count = plan.get("expected_count")
+    if not isinstance(expected_count, int) or isinstance(expected_count, bool):
+        raise ValueError("plan expected_count must be an integer")
+    expected_selection_digest = _required_string(plan, "selection_digest")
 
     denominator = _toml(root / DENOMINATOR_PATH)
     catalog_source = (root / CATALOG_PATH).read_text()
@@ -56,9 +60,19 @@ def compile_batch(
         and row.get("path") == path
         and row.get("disposition") == "reviewed_nonmapping"
     ]
-    expected_count = len(reviews)
-    if expected_count == 0:
+    if not reviews:
         raise ValueError("frozen denominator selected no reviewed_nonmapping rows")
+    if len(reviews) != expected_count:
+        raise ValueError(
+            f"frozen denominator selected {len(reviews)} rows, expected "
+            f"{expected_count}"
+        )
+    actual_selection_digest = selection_digest(reviews)
+    if actual_selection_digest != expected_selection_digest:
+        raise ValueError(
+            "frozen denominator selection digest drifted: expected "
+            f"{expected_selection_digest}, actual {actual_selection_digest}"
+        )
     facts = {
         str(row["discovery_id"]): {
             "discovery_id": row["discovery_id"],
@@ -175,15 +189,22 @@ def compile_batch(
         raise ValueError("selected invariant lacks behavior rows")
     review_inputs = []
     for discovery_id, proposal in sorted(proposals_by_discovery.items()):
-        behavior_index = assignments[discovery_id]
-        if behavior_index >= len(behavior_rows):
-            raise ValueError(
-                f"{discovery_id} selects absent behavior {behavior_index}"
-            )
-        behavior = behavior_rows[behavior_index]
-        if not isinstance(behavior, Mapping):
-            raise ValueError("selected behavior row is not a table")
-        behavior_ref = f"{invariant_id}#behavior:{behavior_index}"
+        assertion_assignments = assignments[discovery_id]
+        selected_indices = tuple(dict.fromkeys(assertion_assignments))
+        selected_behaviors: list[Mapping[str, Any]] = []
+        for behavior_index in selected_indices:
+            if behavior_index >= len(behavior_rows):
+                raise ValueError(
+                    f"{discovery_id} selects absent behavior {behavior_index}"
+                )
+            behavior = behavior_rows[behavior_index]
+            if not isinstance(behavior, Mapping):
+                raise ValueError("selected behavior row is not a table")
+            selected_behaviors.append(behavior)
+        selected_behavior_refs = [
+            f"{invariant_id}#behavior:{behavior_index}"
+            for behavior_index in selected_indices
+        ]
         review_inputs.append(
             {
                 "proposal_id": proposal["id"],
@@ -193,23 +214,32 @@ def compile_batch(
                     {
                         "assertion_id": assertion["assertion_id"],
                         "disposition": "oracle_bound",
-                        "behavior_refs": [behavior_ref],
+                        "behavior_refs": [
+                            f"{invariant_id}#behavior:{behavior_index}"
+                        ],
                         "rationale": (
                             "The reviewed assertion locks this selected "
                             "VS Code product-contract behavior."
                         ),
                     }
-                    for assertion in proposal["assertions"]
+                    for assertion, behavior_index in zip(
+                        proposal["assertions"],
+                        assertion_assignments,
+                        strict=True,
+                    )
                 ],
                 "selected_invariant_ids": [invariant_id],
-                "selected_behavior_refs": [behavior_ref],
+                "selected_behavior_refs": selected_behavior_refs,
                 "command": command,
                 "command_authority": "verified_exact",
                 "confirmed_catalog": {
                     "test_class": "behavior_lock",
                     "area": invariant["area"],
                     "owner": invariant["owner"],
-                    "expected_result": behavior["rationale"],
+                    "expected_result": " ".join(
+                        str(behavior["rationale"])
+                        for behavior in selected_behaviors
+                    ),
                     "expected_failure_mode": (
                         "The static contract accepts missing, stale, "
                         "contradictory, or falsely successful product wiring."
@@ -249,7 +279,7 @@ def assign_behaviors(
     *,
     inventories: Mapping[str, Any],
     ranges: Any,
-) -> dict[str, int]:
+) -> dict[str, tuple[int, ...]]:
     if not isinstance(ranges, Sequence) or isinstance(ranges, (str, bytes)):
         raise ValueError("plan ranges must be an array")
     normalized: list[tuple[int, int, int]] = []
@@ -275,7 +305,7 @@ def assign_behaviors(
             raise ValueError(f"plan range {index} is invalid")
         normalized.append((behavior_index, minimum, maximum))
 
-    assignments: dict[str, int] = {}
+    assignments: dict[str, tuple[int, ...]] = {}
     for discovery_id, inventory in inventories.items():
         if not isinstance(inventory, Mapping):
             raise ValueError(f"{discovery_id} assertion inventory is not an object")
@@ -313,14 +343,9 @@ def assign_behaviors(
                 f"{discovery_id} line {bad_line} has {len(matches)} "
                 "behavior assignments"
             )
-        behavior_indices = {
+        assignments[str(discovery_id)] = tuple(
             next(iter(matches)) for matches in matched_by_line
-        }
-        if len(behavior_indices) != 1:
-            raise ValueError(
-                f"{discovery_id} assertions cross behavior assignments"
-            )
-        assignments[str(discovery_id)] = next(iter(behavior_indices))
+        )
     return assignments
 
 
@@ -481,10 +506,14 @@ def _toml(path: Path) -> dict[str, Any]:
     return document
 
 
-def _required_string(record: Mapping[str, Any], field: str) -> str:
+def _required_string(
+    record: Mapping[str, Any],
+    field: str,
+    label: str = "plan",
+) -> str:
     value = record.get(field)
     if not isinstance(value, str) or not value:
-        raise ValueError(f"plan requires non-empty {field}")
+        raise ValueError(f"{label} requires non-empty {field}")
     return value
 
 
@@ -505,6 +534,29 @@ def _digest_document(document: Mapping[str, Any]) -> str:
         ensure_ascii=False,
     ).encode()
     return "sha256:" + hashlib.sha256(encoded).hexdigest()
+
+
+def selection_digest(reviews: Sequence[Mapping[str, Any]]) -> str:
+    """Bind a reviewed batch to its exact frozen denominator identities."""
+
+    rows = [
+        {
+            "discovery_id": _required_string(
+                row, "discovery_id", "denominator review"
+            ),
+            "discovery_source_kind": _required_string(
+                row, "discovery_source_kind", "denominator review"
+            ),
+            "path": _required_string(row, "path", "denominator review"),
+            "name": _required_string(row, "name", "denominator review"),
+            "ignore_state": _required_string(
+                row, "ignore_state", "denominator review"
+            ),
+        }
+        for row in reviews
+    ]
+    rows.sort(key=lambda row: row["discovery_id"])
+    return _digest_document({"reviews": rows})
 
 
 def _digest_bytes(content: bytes) -> str:
@@ -530,6 +582,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--plan", type=Path, required=True)
     parser.add_argument("--inventory", type=Path, required=True)
     parser.add_argument("--results", type=Path, required=True)
+    parser.add_argument(
+        "--freeze-selection",
+        action="store_true",
+        help="derive and record the exact denominator count and digest",
+    )
     parser.add_argument("--apply", action="store_true")
     return parser
 
@@ -553,6 +610,33 @@ def main(argv: list[str] | None = None) -> int:
             for document in (plan, inventory, results)
         ):
             raise ValueError("plan, inventory, and results must be JSON objects")
+        if args.freeze_selection and args.apply:
+            raise ValueError("--freeze-selection and --apply are separate steps")
+        if args.freeze_selection:
+            denominator = _toml(root / DENOMINATOR_PATH)
+            selected_reviews = [
+                row
+                for row in denominator.get("reviews", [])
+                if isinstance(row, Mapping)
+                and row.get("path") == plan.get("path")
+                and row.get("disposition") == "reviewed_nonmapping"
+            ]
+            if not selected_reviews:
+                raise ValueError(
+                    "cannot freeze an empty reviewed_nonmapping selection"
+                )
+            plan = {
+                **plan,
+                "expected_count": len(selected_reviews),
+                "selection_digest": selection_digest(selected_reviews),
+            }
+            plan_path.write_text(
+                json.dumps(plan, indent=2, ensure_ascii=False) + "\n"
+            )
+            print(
+                "frozen denominator selection recorded: "
+                f"{len(selected_reviews)} tests"
+            )
         replacements, accepted_ids = compile_batch(
             root=root,
             plan=plan,

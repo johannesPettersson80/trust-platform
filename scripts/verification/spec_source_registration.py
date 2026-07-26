@@ -93,6 +93,19 @@ def register_spec_source(
         path=record["path"],
         label="specification source",
     )
+    if source_match is not None:
+        for field in ("area", "owner"):
+            if source_match.get(field) != record[field]:
+                raise ValueError(
+                    f"specification source {record['id']} {field} is reviewed "
+                    "metadata and cannot be changed by refresh"
+                )
+        record = {
+            **source_match,
+            "title": record["title"],
+            "last_reviewed": record["last_reviewed"],
+            "covers": record["covers"],
+        }
     rendered_sources = (
         _append_record(source_registry, "spec_sources", record)
         if source_match is None
@@ -138,6 +151,13 @@ def register_spec_source(
         path=review["path"],
         label="document review",
     )
+    if review_match is not None:
+        review = {
+            **review_match,
+            "content_sha256": review["content_sha256"],
+            "freshness": "current",
+            "last_reviewed": record["last_reviewed"],
+        }
     rendered_reviews = (
         _append_record(review_registry, "document_reviews", review)
         if review_match is None

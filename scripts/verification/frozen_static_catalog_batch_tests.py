@@ -5,18 +5,34 @@ import unittest
 from scripts.verification.frozen_static_catalog_batch import (
     assign_behaviors,
     measured_durations,
+    selection_digest,
     validate_execution_provenance,
 )
 
 
 class FrozenStaticCatalogBatchTests(unittest.TestCase):
+    def test_selection_digest_binds_exact_frozen_rows(self) -> None:
+        row = {
+            "discovery_id": "DISC_A",
+            "discovery_source_kind": "vscode_test",
+            "path": "test.ts",
+            "name": "one",
+            "ignore_state": "active",
+        }
+        baseline = selection_digest([row])
+        self.assertEqual(baseline, selection_digest([dict(row)]))
+        self.assertNotEqual(
+            baseline,
+            selection_digest([{**row, "name": "renamed"}]),
+        )
+
     def test_assign_behaviors_requires_exactly_one_reviewed_range(self) -> None:
         inventories = {
             "DISC_A": {"assertions": [{"line": 10}]},
             "DISC_B": {"assertions": [{"line": 20}]},
         }
         self.assertEqual(
-            {"DISC_A": 0, "DISC_B": 1},
+            {"DISC_A": (0,), "DISC_B": (1,)},
             assign_behaviors(
                 inventories=inventories,
                 ranges=[
@@ -40,10 +56,8 @@ class FrozenStaticCatalogBatchTests(unittest.TestCase):
                     {"behavior_index": 1, "min_line": 10, "max_line": 20},
                 ],
             )
-        with self.assertRaisesRegex(
-            ValueError,
-            "assertions cross behavior assignments",
-        ):
+        self.assertEqual(
+            {"DISC_A": (0, 1)},
             assign_behaviors(
                 inventories={
                     "DISC_A": {
@@ -54,7 +68,8 @@ class FrozenStaticCatalogBatchTests(unittest.TestCase):
                     {"behavior_index": 0, "min_line": 1, "max_line": 10},
                     {"behavior_index": 1, "min_line": 11, "max_line": 20},
                 ],
-            )
+            ),
+        )
 
     def test_measured_durations_require_exact_passing_title_set(self) -> None:
         results = {

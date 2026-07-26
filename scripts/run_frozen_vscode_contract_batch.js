@@ -12,19 +12,22 @@ const vscodeRoot = path.join(repoRoot, "editors", "vscode");
 const runnerPath = "scripts/run_frozen_vscode_contract_batch.js";
 const defaultSourcePath =
   "editors/vscode/src/test/suite/ux-shell-contract.test.ts";
+const reviewedSourcePaths = new Set([
+  defaultSourcePath,
+  "editors/vscode/src/test/suite/network-canvas.test.ts",
+]);
 if (process.argv.length > 3) {
   process.stderr.write("usage: run_frozen_vscode_contract_batch.js [test-source]\n");
   process.exit(2);
 }
 const sourcePath = process.argv[2] || defaultSourcePath;
 if (
-  !sourcePath.startsWith("editors/vscode/src/test/suite/") ||
-  !sourcePath.endsWith(".test.ts") ||
+  !reviewedSourcePaths.has(sourcePath) ||
   sourcePath.split("/").includes("..") ||
   path.resolve(repoRoot, sourcePath) !==
     path.join(repoRoot, ...sourcePath.split("/"))
 ) {
-  process.stderr.write("test-source must be a VS Code suite path\n");
+  process.stderr.write("test-source is not an allowlisted focused suite\n");
   process.exit(2);
 }
 const sourceStat = fs.lstatSync(path.join(repoRoot, sourcePath));

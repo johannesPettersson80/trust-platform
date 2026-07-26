@@ -126,6 +126,18 @@ class SpecSourceRegistrationTests(unittest.TestCase):
             )
             registry.write_text(first.rendered)
             reviews.write_text(first.document_reviews_rendered)
+            registry.write_text(
+                registry.read_text().replace(
+                    "known_limitations = []",
+                    'known_limitations = ["rendered proof remains external"]',
+                )
+            )
+            reviews.write_text(
+                reviews.read_text().replace(
+                    'conflict_disposition = "registered_conflicts_reviewed"',
+                    'conflict_disposition = "manual_conflict_review"',
+                )
+            )
             old_digest = first.document_reviews_rendered.split(
                 'content_sha256 = "',
                 1,
@@ -165,7 +177,26 @@ class SpecSourceRegistrationTests(unittest.TestCase):
                 'last_reviewed = "2026-07-26"',
                 refreshed.rendered,
             )
+            self.assertIn(
+                'known_limitations = ["rendered proof remains external"]',
+                refreshed.rendered,
+            )
+            self.assertIn(
+                'conflict_disposition = "manual_conflict_review"',
+                refreshed.document_reviews_rendered,
+            )
             self.assertNotIn(old_digest, refreshed.document_reviews_rendered)
+
+            with self.assertRaisesRegex(ValueError, "reviewed metadata"):
+                register_spec_source(
+                    root=root,
+                    registry_path=registry,
+                    review_registry_path=reviews,
+                    path=Path("docs/specs/25-vscode-product-contract.md"),
+                    area="editor_safety",
+                    owner="different-owner",
+                    reviewed_date="2026-07-26",
+                )
 
 
 if __name__ == "__main__":
