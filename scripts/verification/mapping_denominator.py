@@ -144,6 +144,63 @@ def reconcile_denominator_document(
     return updated
 
 
+def rebind_reviewed_nonmapping_identity(
+    *,
+    document: Mapping[str, Any],
+    old_discovery_id: str,
+    old_name: str,
+    new_fact: InferredTestFact,
+    reviewed_date: str,
+) -> dict[str, Any]:
+    """Mechanically rebind one renamed, still-unmapped scanner identity."""
+
+    if not DATE_RE.fullmatch(reviewed_date):
+        raise ValueError("denominator rebind requires YYYY-MM-DD review date")
+    reviews = document.get("reviews")
+    if not isinstance(reviews, Sequence) or isinstance(reviews, (str, bytes)):
+        raise ValueError("denominator rebind requires review rows")
+    matches = [
+        (index, row)
+        for index, row in enumerate(reviews)
+        if isinstance(row, Mapping)
+        and row.get("discovery_id") == old_discovery_id
+    ]
+    if len(matches) != 1:
+        raise ValueError("denominator rebind requires exactly one old identity")
+    if any(
+        isinstance(row, Mapping)
+        and row.get("discovery_id") == new_fact.stable_id
+        for row in reviews
+    ):
+        raise ValueError("denominator rebind new identity already exists")
+
+    index, old = matches[0]
+    if (
+        old.get("disposition") != "reviewed_nonmapping"
+        or old.get("name") != old_name
+        or old.get("path") != new_fact.path
+        or old.get("discovery_source_kind") != new_fact.source_kind
+        or old.get("ignore_state") != new_fact.ignore_state
+    ):
+        raise ValueError(
+            "denominator rebind only permits an exact unmapped name change"
+        )
+
+    rebound = dict(old)
+    rebound["discovery_id"] = new_fact.stable_id
+    rebound["name"] = new_fact.name
+    rebound["last_reviewed"] = reviewed_date
+    updated_reviews = [dict(row) for row in reviews]
+    updated_reviews[index] = rebound
+
+    updated = copy.deepcopy(dict(document))
+    updated["reviews"] = sorted(
+        updated_reviews, key=lambda row: str(row.get("discovery_id", ""))
+    )
+    updated["last_reviewed"] = reviewed_date
+    return updated
+
+
 def _structural_nonmapping_reason(
     fact: InferredTestFact,
     ignored: Mapping[str, Any] | None,

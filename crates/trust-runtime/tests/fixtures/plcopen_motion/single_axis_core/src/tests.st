@@ -953,6 +953,7 @@ VAR
     Seed : TRUST_MOTION_TestAxisSeed;
     MoveActive : MC_MoveAbsolute;
     MoveQueued : MC_MoveAbsolute;
+    QueueProbe : TRUST_MOTION_TestAxisQueueProbe;
 END_VAR
 
 Axis.AxisId := UDINT#115;
@@ -990,11 +991,33 @@ ASSERT_TRUE(SetPosition.Error);
 ASSERT_TRUE(SetPosition.ErrorID = WORD#16#0500);
 Seed(Axis := Axis, ResetDefaults := TRUE, ApplyState := TRUE, State := MC_AXIS_STATUS#mcStandstill);
 MoveActive(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Position := REAL#10.0, Velocity := REAL#5.0, Acceleration := REAL#2.0, Deceleration := REAL#2.0, Jerk := REAL#1.0, Direction := MC_DIRECTION#mcCurrentDirection, BufferMode := MC_BUFFER_MODE#mcAborting);
-MoveQueued(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Position := REAL#20.0, Velocity := REAL#5.0, Acceleration := REAL#2.0, Deceleration := REAL#2.0, Jerk := REAL#1.0, Direction := MC_DIRECTION#mcCurrentDirection, BufferMode := MC_BUFFER_MODE#mcBuffered);
 Seed(Axis := Axis, ResetDefaults := FALSE, ApplyState := TRUE, State := MC_AXIS_STATUS#mcDisabled);
+QueueProbe(Axis := Axis);
+ASSERT_TRUE(QueueProbe.ActiveCommandID <> UINT#0);
+ASSERT_TRUE(QueueProbe.QueueDepth = UINT#0);
 WriteParameter(Axis := Axis, Execute := TRUE, ParameterNumber := Constants.PN_CommandedPosition, Value := REAL#11.0, ExecutionMode := MC_EXECUTION_MODE#mcImmediately);
 ASSERT_TRUE(WriteParameter.Error);
 ASSERT_TRUE(WriteParameter.ErrorID = WORD#16#0100);
+ReadParameter(Axis := Axis, Enable := TRUE, ParameterNumber := Constants.PN_CommandedPosition);
+ASSERT_TRUE(ReadParameter.Value = REAL#10.0);
+WriteParameter(Axis := Axis, Execute := FALSE, ParameterNumber := Constants.PN_CommandedPosition, Value := REAL#11.0, ExecutionMode := MC_EXECUTION_MODE#mcImmediately);
+
+Seed(Axis := Axis, ResetDefaults := TRUE, ApplyState := TRUE, State := MC_AXIS_STATUS#mcStandstill);
+MoveActive(Axis := Axis, Execute := FALSE, ContinuousUpdate := FALSE, Position := REAL#10.0, Velocity := REAL#5.0, Acceleration := REAL#2.0, Deceleration := REAL#2.0, Jerk := REAL#1.0, Direction := MC_DIRECTION#mcCurrentDirection, BufferMode := MC_BUFFER_MODE#mcAborting);
+MoveQueued(Axis := Axis, Execute := FALSE, ContinuousUpdate := FALSE, Position := REAL#20.0, Velocity := REAL#5.0, Acceleration := REAL#2.0, Deceleration := REAL#2.0, Jerk := REAL#1.0, Direction := MC_DIRECTION#mcCurrentDirection, BufferMode := MC_BUFFER_MODE#mcBuffered);
+MoveActive(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Position := REAL#10.0, Velocity := REAL#5.0, Acceleration := REAL#2.0, Deceleration := REAL#2.0, Jerk := REAL#1.0, Direction := MC_DIRECTION#mcCurrentDirection, BufferMode := MC_BUFFER_MODE#mcAborting);
+MoveQueued(Axis := Axis, Execute := TRUE, ContinuousUpdate := FALSE, Position := REAL#20.0, Velocity := REAL#5.0, Acceleration := REAL#2.0, Deceleration := REAL#2.0, Jerk := REAL#1.0, Direction := MC_DIRECTION#mcCurrentDirection, BufferMode := MC_BUFFER_MODE#mcBuffered);
+TRUST_MOTION_ClearActiveCommandSlot(AxisIndex := Axis.InternalIndex);
+Seed(Axis := Axis, ResetDefaults := FALSE, ApplyState := TRUE, State := MC_AXIS_STATUS#mcDisabled);
+QueueProbe(Axis := Axis);
+ASSERT_TRUE(QueueProbe.ActiveCommandID = UINT#0);
+ASSERT_TRUE(QueueProbe.QueueDepth = UINT#1);
+ASSERT_FALSE(TRUST_MOTION_CanInitializeReadOnlyParameter(AxisIndex := Axis.InternalIndex));
+WriteParameter(Axis := Axis, Execute := TRUE, ParameterNumber := Constants.PN_CommandedPosition, Value := REAL#12.0, ExecutionMode := MC_EXECUTION_MODE#mcImmediately);
+ASSERT_TRUE(WriteParameter.Error);
+ASSERT_TRUE(WriteParameter.ErrorID = WORD#16#0100);
+ReadParameter(Axis := Axis, Enable := TRUE, ParameterNumber := Constants.PN_CommandedPosition);
+ASSERT_TRUE(ReadParameter.Value = REAL#10.0);
 END_TEST_PROGRAM
 
 TEST_PROGRAM plcopen_motion_single_axis_execute_edge_and_continuous_update_semantics
@@ -1802,13 +1825,15 @@ ASSERT_TRUE(Probe.QueueDepth = UINT#0);
 ASSERT_TRUE(Probe.ActiveCommandID = UINT#0);
 END_TEST_PROGRAM
 
-TEST_PROGRAM plcopen_motion_single_axis_buffered_commands_report_commandaborted_after_active_fault
+TEST_PROGRAM plcopen_motion_single_axis_buffered_commands_report_error_after_active_fault
 VAR
     Axis : AXIS_REF;
     Seed : TRUST_MOTION_TestAxisSeed;
     MoveActive : MC_MoveAbsolute;
     MoveBuffered1 : MC_MoveAbsolute;
     MoveBuffered2 : MC_MoveAbsolute;
+    Reset : MC_Reset;
+    ReadAxisError : MC_ReadAxisError;
 END_VAR
 
 Axis.AxisId := UDINT#137;
@@ -1863,6 +1888,13 @@ MoveActive(
     Direction := MC_DIRECTION#mcCurrentDirection,
     BufferMode := MC_BUFFER_MODE#mcAborting
 );
+Reset(Axis := Axis, Execute := TRUE);
+ASSERT_TRUE(Reset.Done);
+ASSERT_FALSE(Reset.Error);
+Reset(Axis := Axis, Execute := FALSE);
+ReadAxisError(Axis := Axis, Enable := TRUE);
+ASSERT_TRUE(ReadAxisError.Valid);
+ASSERT_TRUE(ReadAxisError.AxisErrorID = WORD#16#0000);
 MoveBuffered1(
     Axis := Axis,
     Execute := TRUE,

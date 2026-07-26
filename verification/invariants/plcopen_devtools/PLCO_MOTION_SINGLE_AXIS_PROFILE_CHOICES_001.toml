@@ -30,7 +30,7 @@ case_family = "boundary_low"
 oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#9-units-and-scaling"
 outcome = "accept_value"
 no_partial_apply = true
-delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "not_applicable" }
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "expected_delta" }
 rationale = "This composite boundary scenario moves a ContinuousMotion axis to Stopping for a zero velocity factor and separately rejects invalid factors with stable errors."
 
 [[behavior]]

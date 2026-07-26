@@ -49,7 +49,7 @@ oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#16-buffering-a
 outcome = "fault_visible"
 no_partial_apply = false
 delta = { target = "unchanged", siblings = "expected_delta", retain = "expected_delta", process_image = "unchanged", diagnostics = "stable_error", status = "fault_visible" }
-rationale = "Buffered owners expose Error with the stable axis fault code, not CommandAborted, after an earlier active fault flushes the queue."
+rationale = "Buffered owners retain and expose Error with the stable axis fault code, not CommandAborted, after an earlier active fault flushes the queue, even if MC_Reset clears the live axis fault first."
 
 [[behavior]]
 partition = { equals = "QUEUED_CONTINUOUS_UPDATE_DOES_NOT_MUTATE_ACCEPTED_COMMAND" }

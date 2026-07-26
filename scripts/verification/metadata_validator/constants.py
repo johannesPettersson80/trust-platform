@@ -159,7 +159,14 @@ DELTA_VALUES = {
     "retain": {"unchanged", "expected_delta", "not_applicable"},
     "process_image": {"unchanged", "expected_delta", "not_applicable"},
     "diagnostics": {"none", "stable_error", "expected_diagnostic", "not_applicable"},
-    "status": {"unchanged", "fault_visible", "status_degraded", "not_safe_reported", "not_applicable"},
+    "status": {
+        "unchanged",
+        "expected_delta",
+        "fault_visible",
+        "status_degraded",
+        "not_safe_reported",
+        "not_applicable",
+    },
 }
 CASE_FAMILIES = {
     "happy_path",

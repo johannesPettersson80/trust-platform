@@ -5,6 +5,7 @@ from __future__ import annotations
 import unittest
 
 from scripts.verification.mapping_denominator import (
+    rebind_reviewed_nonmapping_identity,
     reconcile_denominator_document,
 )
 from scripts.verification.test_catalog_common import make_fact
@@ -147,6 +148,50 @@ class MappingDenominatorTests(unittest.TestCase):
                 ignored_tests=[],
                 reviewed_date="2026-07-23",
             )
+
+    def test_rebind_changes_only_one_unmapped_name_identity_and_date(self) -> None:
+        old = _fact("old_name", line=1)
+        new = _fact("new_name", line=1)
+        document = _document(
+            [
+                {
+                    "discovery_id": old.stable_id,
+                    "discovery_source_kind": old.source_kind,
+                    "path": old.path,
+                    "name": old.name,
+                    "ignore_state": old.ignore_state,
+                    "disposition": "reviewed_nonmapping",
+                    "reason_code": "no_reviewed_spec_or_invariant_binding",
+                    "last_reviewed": "2026-07-20",
+                }
+            ]
+        )
+        new = make_fact(
+            source_kind=new.source_kind,
+            name=new.name,
+            path=old.path,
+            line=new.line,
+            package=new.package,
+            command_hint=new.command_hint,
+            command_hint_authority=new.command_hint_authority,
+            discovery_confidence=new.discovery_confidence,
+        )
+
+        rebound = rebind_reviewed_nonmapping_identity(
+            document=document,
+            old_discovery_id=old.stable_id,
+            old_name=old.name,
+            new_fact=new,
+            reviewed_date="2026-07-26",
+        )
+
+        self.assertEqual("2026-07-26", rebound["last_reviewed"])
+        self.assertEqual(new.stable_id, rebound["reviews"][0]["discovery_id"])
+        self.assertEqual(new.name, rebound["reviews"][0]["name"])
+        self.assertEqual(
+            "no_reviewed_spec_or_invariant_binding",
+            rebound["reviews"][0]["reason_code"],
+        )
 
 
 if __name__ == "__main__":

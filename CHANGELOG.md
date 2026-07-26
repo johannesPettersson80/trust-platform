@@ -15,7 +15,8 @@ Target release: `v0.24.55`
   standard read-only Part 1 values are now limited to the documented disabled,
   idle initialization phase; the vendor BOOL extension is published as
   `PN_TRUST_VendorBool0`. Buffered commands flushed by `ErrorStop` now report
-  `Error` with the axis fault code instead of `CommandAborted`.
+  `Error` with the retained axis fault code instead of `CommandAborted`, even
+  when `MC_Reset` runs before the buffered FB observes the flush.
 - trust-runtime: removing the final project I/O driver now retains `io.toml`
   with an explicit no-driver posture, preserving safe-state policy and project
   comments outside rewritten driver/safe-state items without implicitly

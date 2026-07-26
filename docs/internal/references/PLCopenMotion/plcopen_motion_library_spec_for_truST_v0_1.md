@@ -1026,7 +1026,9 @@ accepted queued command.
 If the controlled axis or group enters an error-stop state, all queued/buffered
 commands SHALL be cleared. Each affected buffered FB SHALL expose
 `Error = TRUE`, the axis fault code through `ErrorID`, `Busy = FALSE`, and
-`CommandAborted = FALSE` when that FB next observes the flush.
+`CommandAborted = FALSE` when that FB next observes the flush. The fault code
+SHALL remain bound to the affected buffered command until that FB observes the
+flush, even if `MC_Reset` clears the live axis fault first.
 
 ### 16.4 Targeted support rules for the selected profile
 

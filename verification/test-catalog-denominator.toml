@@ -24712,16 +24712,6 @@ catalog_test_id = "TEST_MAP_ACTION_STATUS_READ_EMITS_STATUS_CONTROL_REQUEST_001"
 last_reviewed = "2026-07-22"
 
 [[reviews]]
-discovery_id = "DISC_9198B29A72F5020674E8"
-discovery_source_kind = "structured_text_test"
-path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
-name = "plcopen_motion_single_axis_buffered_commands_report_commandaborted_after_active_fault"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
-
-[[reviews]]
 discovery_id = "DISC_919CC2ACD5005149FFE0"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/retain_store.rs"
@@ -30730,6 +30720,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_B36FA3D4E189B57BF8E5"
+discovery_source_kind = "structured_text_test"
+path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
+name = "plcopen_motion_single_axis_buffered_commands_report_error_after_active_fault"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-26"
 
 [[reviews]]
 discovery_id = "DISC_B38C4517332CE2B52F72"

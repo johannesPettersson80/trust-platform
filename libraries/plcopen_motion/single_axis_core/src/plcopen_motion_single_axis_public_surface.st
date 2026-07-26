@@ -158,7 +158,7 @@ ELSIF AcceptedCommandID <> UINT#0 THEN
         Busy := FALSE;
         Active := FALSE;
         Done := FALSE;
-        ErrorID := TRUST_MOTION_AbortedCommandErrorID(AxisIndex := AxisIndex);
+        ErrorID := TRUST_MOTION_AbortedCommandErrorID(AxisIndex := AxisIndex, CommandID := AcceptedCommandID);
         Error := ErrorID <> WORD#16#0000;
         CommandAborted := NOT Error;
         TRUST_MOTION_ClearAbortedCommand(AxisIndex := AxisIndex, CommandID := AcceptedCommandID);
@@ -370,7 +370,7 @@ ELSIF AcceptedCommandID <> UINT#0 THEN
         Busy := FALSE;
         Active := FALSE;
         Done := FALSE;
-        ErrorID := TRUST_MOTION_AbortedCommandErrorID(AxisIndex := AxisIndex);
+        ErrorID := TRUST_MOTION_AbortedCommandErrorID(AxisIndex := AxisIndex, CommandID := AcceptedCommandID);
         Error := ErrorID <> WORD#16#0000;
         CommandAborted := NOT Error;
         TRUST_MOTION_ClearAbortedCommand(AxisIndex := AxisIndex, CommandID := AcceptedCommandID);
@@ -529,7 +529,7 @@ ELSIF AcceptedCommandID <> UINT#0 THEN
         Busy := FALSE;
         Active := FALSE;
         Done := FALSE;
-        ErrorID := TRUST_MOTION_AbortedCommandErrorID(AxisIndex := AxisIndex);
+        ErrorID := TRUST_MOTION_AbortedCommandErrorID(AxisIndex := AxisIndex, CommandID := AcceptedCommandID);
         Error := ErrorID <> WORD#16#0000;
         CommandAborted := NOT Error;
         TRUST_MOTION_ClearAbortedCommand(AxisIndex := AxisIndex, CommandID := AcceptedCommandID);
@@ -702,7 +702,7 @@ ELSIF AcceptedCommandID <> UINT#0 THEN
         Busy := FALSE;
         Active := FALSE;
         Done := FALSE;
-        ErrorID := TRUST_MOTION_AbortedCommandErrorID(AxisIndex := AxisIndex);
+        ErrorID := TRUST_MOTION_AbortedCommandErrorID(AxisIndex := AxisIndex, CommandID := AcceptedCommandID);
         Error := ErrorID <> WORD#16#0000;
         CommandAborted := NOT Error;
         TRUST_MOTION_ClearAbortedCommand(AxisIndex := AxisIndex, CommandID := AcceptedCommandID);
@@ -877,7 +877,7 @@ ELSIF AcceptedCommandID <> UINT#0 THEN
         Busy := FALSE;
         Active := FALSE;
         Done := FALSE;
-        ErrorID := TRUST_MOTION_AbortedCommandErrorID(AxisIndex := AxisIndex);
+        ErrorID := TRUST_MOTION_AbortedCommandErrorID(AxisIndex := AxisIndex, CommandID := AcceptedCommandID);
         Error := ErrorID <> WORD#16#0000;
         CommandAborted := NOT Error;
         TRUST_MOTION_ClearAbortedCommand(AxisIndex := AxisIndex, CommandID := AcceptedCommandID);
@@ -1054,7 +1054,7 @@ ELSIF AcceptedCommandID <> UINT#0 THEN
         Busy := FALSE;
         Active := FALSE;
         InVelocity := FALSE;
-        ErrorID := TRUST_MOTION_AbortedCommandErrorID(AxisIndex := AxisIndex);
+        ErrorID := TRUST_MOTION_AbortedCommandErrorID(AxisIndex := AxisIndex, CommandID := AcceptedCommandID);
         Error := ErrorID <> WORD#16#0000;
         CommandAborted := NOT Error;
         TRUST_MOTION_ClearAbortedCommand(AxisIndex := AxisIndex, CommandID := AcceptedCommandID);
@@ -1239,7 +1239,7 @@ ELSIF AcceptedCommandID <> UINT#0 THEN
         Busy := FALSE;
         Active := FALSE;
         InEndVelocity := FALSE;
-        ErrorID := TRUST_MOTION_AbortedCommandErrorID(AxisIndex := AxisIndex);
+        ErrorID := TRUST_MOTION_AbortedCommandErrorID(AxisIndex := AxisIndex, CommandID := AcceptedCommandID);
         Error := ErrorID <> WORD#16#0000;
         CommandAborted := NOT Error;
         TRUST_MOTION_ClearAbortedCommand(AxisIndex := AxisIndex, CommandID := AcceptedCommandID);
@@ -1425,7 +1425,7 @@ ELSIF AcceptedCommandID <> UINT#0 THEN
         Busy := FALSE;
         Active := FALSE;
         InEndVelocity := FALSE;
-        ErrorID := TRUST_MOTION_AbortedCommandErrorID(AxisIndex := AxisIndex);
+        ErrorID := TRUST_MOTION_AbortedCommandErrorID(AxisIndex := AxisIndex, CommandID := AcceptedCommandID);
         Error := ErrorID <> WORD#16#0000;
         CommandAborted := NOT Error;
         TRUST_MOTION_ClearAbortedCommand(AxisIndex := AxisIndex, CommandID := AcceptedCommandID);
@@ -2149,7 +2149,7 @@ ELSIF AcceptedCommandID <> UINT#0 THEN
         Busy := FALSE;
         Done := FALSE;
         Error := TRUE;
-        ErrorID := TRUST_MOTION_AbortedCommandErrorID(AxisIndex := AxisIndex);
+        ErrorID := TRUST_MOTION_AbortedCommandErrorID(AxisIndex := AxisIndex, CommandID := AcceptedCommandID);
         IF ErrorID = WORD#16#0000 THEN
             ErrorID := WORD#16#0100;
         END_IF;
@@ -2264,7 +2264,7 @@ ELSIF AcceptedCommandID <> UINT#0 THEN
         Busy := FALSE;
         Done := FALSE;
         Error := TRUE;
-        ErrorID := TRUST_MOTION_AbortedCommandErrorID(AxisIndex := AxisIndex);
+        ErrorID := TRUST_MOTION_AbortedCommandErrorID(AxisIndex := AxisIndex, CommandID := AcceptedCommandID);
         IF ErrorID = WORD#16#0000 THEN
             ErrorID := WORD#16#0100;
         END_IF;

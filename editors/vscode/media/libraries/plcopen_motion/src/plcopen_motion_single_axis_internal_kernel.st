@@ -50,6 +50,30 @@ TRUST_MOTION_IsNumericParameter :=
     (ParameterNumber = INT#17);
 END_FUNCTION
 
+FUNCTION TRUST_MOTION_IsReadOnlyNumericParameter : BOOL
+VAR_INPUT
+    ParameterNumber : INT;
+END_VAR
+TRUST_MOTION_IsReadOnlyNumericParameter :=
+    (ParameterNumber = INT#1) OR
+    (ParameterNumber = INT#8) OR
+    (ParameterNumber = INT#10) OR
+    (ParameterNumber = INT#11) OR
+    (ParameterNumber = INT#12) OR
+    (ParameterNumber = INT#14) OR
+    (ParameterNumber = INT#16);
+END_FUNCTION
+
+FUNCTION TRUST_MOTION_CanInitializeReadOnlyParameter : BOOL
+VAR_INPUT
+    AxisIndex : UINT;
+END_VAR
+TRUST_MOTION_CanInitializeReadOnlyParameter :=
+    (g_trust_motion_state[AxisIndex] = MC_AXIS_STATUS#mcDisabled) AND
+    (g_trust_motion_active_command_id[AxisIndex] = UINT#0) AND
+    (g_trust_motion_queue_depth[AxisIndex] = UINT#0);
+END_FUNCTION
+
 FUNCTION TRUST_MOTION_IsBoolParameter : BOOL
 VAR_INPUT
     ParameterNumber : INT;
@@ -93,6 +117,22 @@ TRUST_MOTION_CommandWasAborted :=
     (g_trust_motion_aborted2_command_id[AxisIndex] = CommandID);
 END_FUNCTION
 
+FUNCTION TRUST_MOTION_AbortedCommandErrorID : WORD
+VAR_INPUT
+    AxisIndex : UINT;
+    CommandID : UINT;
+END_VAR
+IF g_trust_motion_aborted0_command_id[AxisIndex] = CommandID THEN
+    TRUST_MOTION_AbortedCommandErrorID := g_trust_motion_aborted0_error_id[AxisIndex];
+ELSIF g_trust_motion_aborted1_command_id[AxisIndex] = CommandID THEN
+    TRUST_MOTION_AbortedCommandErrorID := g_trust_motion_aborted1_error_id[AxisIndex];
+ELSIF g_trust_motion_aborted2_command_id[AxisIndex] = CommandID THEN
+    TRUST_MOTION_AbortedCommandErrorID := g_trust_motion_aborted2_error_id[AxisIndex];
+ELSE
+    TRUST_MOTION_AbortedCommandErrorID := WORD#16#0000;
+END_IF;
+END_FUNCTION
+
 FUNCTION TRUST_MOTION_ClearAbortedCommand : BOOL
 VAR_INPUT
     AxisIndex : UINT;
@@ -101,14 +141,17 @@ END_VAR
 TRUST_MOTION_ClearAbortedCommand := FALSE;
 IF g_trust_motion_aborted0_command_id[AxisIndex] = CommandID THEN
     g_trust_motion_aborted0_command_id[AxisIndex] := UINT#0;
+    g_trust_motion_aborted0_error_id[AxisIndex] := WORD#16#0000;
     TRUST_MOTION_ClearAbortedCommand := TRUE;
 END_IF;
 IF g_trust_motion_aborted1_command_id[AxisIndex] = CommandID THEN
     g_trust_motion_aborted1_command_id[AxisIndex] := UINT#0;
+    g_trust_motion_aborted1_error_id[AxisIndex] := WORD#16#0000;
     TRUST_MOTION_ClearAbortedCommand := TRUE;
 END_IF;
 IF g_trust_motion_aborted2_command_id[AxisIndex] = CommandID THEN
     g_trust_motion_aborted2_command_id[AxisIndex] := UINT#0;
+    g_trust_motion_aborted2_error_id[AxisIndex] := WORD#16#0000;
     TRUST_MOTION_ClearAbortedCommand := TRUE;
 END_IF;
 END_FUNCTION
@@ -117,19 +160,30 @@ FUNCTION TRUST_MOTION_RecordAbortedCommand : BOOL
 VAR_INPUT
     AxisIndex : UINT;
     CommandID : UINT;
+    ErrorID : WORD;
 END_VAR
 TRUST_MOTION_RecordAbortedCommand := FALSE;
 IF CommandID <> UINT#0 THEN
-    IF TRUST_MOTION_CommandWasAborted(AxisIndex := AxisIndex, CommandID := CommandID) THEN
+    IF g_trust_motion_aborted0_command_id[AxisIndex] = CommandID THEN
+        g_trust_motion_aborted0_error_id[AxisIndex] := ErrorID;
+        TRUST_MOTION_RecordAbortedCommand := TRUE;
+    ELSIF g_trust_motion_aborted1_command_id[AxisIndex] = CommandID THEN
+        g_trust_motion_aborted1_error_id[AxisIndex] := ErrorID;
+        TRUST_MOTION_RecordAbortedCommand := TRUE;
+    ELSIF g_trust_motion_aborted2_command_id[AxisIndex] = CommandID THEN
+        g_trust_motion_aborted2_error_id[AxisIndex] := ErrorID;
         TRUST_MOTION_RecordAbortedCommand := TRUE;
     ELSIF g_trust_motion_aborted0_command_id[AxisIndex] = UINT#0 THEN
         g_trust_motion_aborted0_command_id[AxisIndex] := CommandID;
+        g_trust_motion_aborted0_error_id[AxisIndex] := ErrorID;
         TRUST_MOTION_RecordAbortedCommand := TRUE;
     ELSIF g_trust_motion_aborted1_command_id[AxisIndex] = UINT#0 THEN
         g_trust_motion_aborted1_command_id[AxisIndex] := CommandID;
+        g_trust_motion_aborted1_error_id[AxisIndex] := ErrorID;
         TRUST_MOTION_RecordAbortedCommand := TRUE;
     ELSIF g_trust_motion_aborted2_command_id[AxisIndex] = UINT#0 THEN
         g_trust_motion_aborted2_command_id[AxisIndex] := CommandID;
+        g_trust_motion_aborted2_error_id[AxisIndex] := ErrorID;
         TRUST_MOTION_RecordAbortedCommand := TRUE;
     END_IF;
 END_IF;
@@ -158,17 +212,18 @@ END_FUNCTION
 FUNCTION TRUST_MOTION_FlushQueuedCommands : BOOL
 VAR_INPUT
     AxisIndex : UINT;
+    ErrorID : WORD;
 END_VAR
 TRUST_MOTION_FlushQueuedCommands := FALSE;
 IF g_trust_motion_queue_depth[AxisIndex] >= UINT#1 THEN
-    TRUST_MOTION_RecordAbortedCommand(AxisIndex := AxisIndex, CommandID := g_trust_motion_queue0_command_id[AxisIndex]);
+    TRUST_MOTION_RecordAbortedCommand(AxisIndex := AxisIndex, CommandID := g_trust_motion_queue0_command_id[AxisIndex], ErrorID := ErrorID);
     g_trust_motion_queue0_command_id[AxisIndex] := UINT#0;
     g_trust_motion_queue0_command_kind[AxisIndex] := TRUST_MOTION_COMMAND_KIND#trustMotionNone;
     g_trust_motion_queue0_buffer_mode[AxisIndex] := MC_BUFFER_MODE#mcAborting;
     TRUST_MOTION_FlushQueuedCommands := TRUE;
 END_IF;
 IF g_trust_motion_queue_depth[AxisIndex] >= UINT#2 THEN
-    TRUST_MOTION_RecordAbortedCommand(AxisIndex := AxisIndex, CommandID := g_trust_motion_queue1_command_id[AxisIndex]);
+    TRUST_MOTION_RecordAbortedCommand(AxisIndex := AxisIndex, CommandID := g_trust_motion_queue1_command_id[AxisIndex], ErrorID := ErrorID);
     g_trust_motion_queue1_command_id[AxisIndex] := UINT#0;
     g_trust_motion_queue1_command_kind[AxisIndex] := TRUST_MOTION_COMMAND_KIND#trustMotionNone;
     g_trust_motion_queue1_buffer_mode[AxisIndex] := MC_BUFFER_MODE#mcAborting;
@@ -193,7 +248,7 @@ VAR_INPUT
 END_VAR
 g_trust_motion_state[AxisIndex] := MC_AXIS_STATUS#mcErrorStop;
 TRUST_MOTION_ClearActiveCommandSlot(AxisIndex := AxisIndex);
-TRUST_MOTION_FlushQueuedCommands(AxisIndex := AxisIndex);
+TRUST_MOTION_FlushQueuedCommands(AxisIndex := AxisIndex, ErrorID := g_trust_motion_axis_error[AxisIndex]);
 TRUST_MOTION_EnterErrorStopAndFlushQueue := TRUE;
 END_FUNCTION
 
@@ -224,9 +279,9 @@ IF NOT TRUST_MOTION_SupportsSingleAxisBufferMode(BufferMode := BufferMode) THEN
     ErrorID := WORD#16#0500;
 ELSIF BufferMode = MC_BUFFER_MODE#mcAborting THEN
     IF g_trust_motion_active_command_id[AxisIndex] <> UINT#0 THEN
-        TRUST_MOTION_RecordAbortedCommand(AxisIndex := AxisIndex, CommandID := g_trust_motion_active_command_id[AxisIndex]);
+        TRUST_MOTION_RecordAbortedCommand(AxisIndex := AxisIndex, CommandID := g_trust_motion_active_command_id[AxisIndex], ErrorID := WORD#16#0000);
     END_IF;
-    TRUST_MOTION_FlushQueuedCommands(AxisIndex := AxisIndex);
+    TRUST_MOTION_FlushQueuedCommands(AxisIndex := AxisIndex, ErrorID := WORD#16#0000);
     g_trust_motion_active_command_id[AxisIndex] := UINT#0;
     g_trust_motion_active_command_kind[AxisIndex] := TRUST_MOTION_COMMAND_KIND#trustMotionNone;
     g_trust_motion_active_buffer_mode[AxisIndex] := MC_BUFFER_MODE#mcAborting;
@@ -400,6 +455,9 @@ IF NOT g_trust_motion_axis_initialized[AxisIndex] THEN
     g_trust_motion_aborted0_command_id[AxisIndex] := UINT#0;
     g_trust_motion_aborted1_command_id[AxisIndex] := UINT#0;
     g_trust_motion_aborted2_command_id[AxisIndex] := UINT#0;
+    g_trust_motion_aborted0_error_id[AxisIndex] := WORD#16#0000;
+    g_trust_motion_aborted1_error_id[AxisIndex] := WORD#16#0000;
+    g_trust_motion_aborted2_error_id[AxisIndex] := WORD#16#0000;
     g_trust_motion_vel_factor[AxisIndex] := REAL#1.0;
     g_trust_motion_acc_factor[AxisIndex] := REAL#1.0;
     g_trust_motion_jerk_factor[AxisIndex] := REAL#1.0;
