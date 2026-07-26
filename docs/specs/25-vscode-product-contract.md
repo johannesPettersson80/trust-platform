@@ -708,3 +708,105 @@ package, or end-to-end evidence.
 - Positive focus/invocation of shared Run and Live Values from every visual
   editor requires a rendered journey; removal of duplicate panes is not that
   proof.
+
+## 11. Existing authoring workflow contracts
+
+### 11.1 Native Testing and snippets
+
+- Native Testing MUST discover `TEST_PROGRAM` and `TEST_FUNCTION_BLOCK`
+  declarations, run all or one selected test through the registered test
+  command, and project pass/fail results into the test-controller state.
+- Refresh MUST remove results for declarations that disappeared and preserve
+  results for declarations that remain.
+- The snippet contribution MUST be registered under identifier-friendly
+  aliases. Its JSON MUST parse and contain the required declaration patterns.
+- A snippet syntax check proves validity only after affirmative parser/LSP
+  analysis completes. Observing an initially empty diagnostic collection is
+  not proof of valid Structured Text.
+
+### 11.2 OPC UA browse-to-save identity
+
+- A browsed OPC UA leaf's raw `node_id` is its protocol identity. Display
+  labels, sanitized identifiers, and tree paths MUST NOT replace or merge that
+  identity.
+- React/tree keys prefer raw `node_id`, then the source node ID, then the path.
+  Leaves with colliding sanitized IDs or equal paths but different raw NodeIds
+  remain distinct and preserve browse order.
+- A leaf without a raw NodeId cannot be saved. Saved points round-trip the raw
+  NodeId and the apply-ready data type; generated variable names are
+  deterministic and valid identifiers.
+- Write access requires both server-writable evidence and explicit user
+  opt-in. Username mode carries credentials; anonymous mode does not.
+- Connection assembly requires a usable endpoint and at least one usable
+  point. Browse failures use one product recovery action and human-facing text,
+  never raw backend status tokens.
+
+### 11.3 PLCopen import and export workflow
+
+- Import and export cancellation is side-effect free. Missing input, missing
+  project, missing runtime binary, malformed XML, and command failure produce
+  actionable, operation-specific errors.
+- Import into a nonempty target and export over an existing file require
+  explicit confirmation before mutation.
+- Successful import and export preserve the selected project/file identity and
+  complete atomically from the extension user's perspective.
+- Ladder interchange accepts schema-v2 nodes, rejects malformed enum values
+  without coercion, and reports unsupported constructs.
+- A claimed Ladder round trip MUST compare semantic node attributes, operands,
+  topology, and connections. Equal node and edge counts alone are not
+  sufficient proof.
+
+### 11.4 Visual-model transformations and generated execution
+
+- Ladder edits preserve deterministic IDs, ordering, declaration
+  reconciliation, branch topology, and auto-route geometry. Invalid shortcut
+  or topology requests fail without partial mutation.
+- Blockly lowering preserves connected statement order, control-input slots,
+  variable identity, and deterministic inference for supported untyped numeric
+  variables.
+- SFC topology validation accepts a well-formed parallel split/join and rejects
+  missing continuations or fewer than two branches.
+- Ladder, Blockly, Statechart, and SFC execution authority is the generated
+  Structured Text companion and runtime wrapper. Companion generation
+  preserves declared symbols, addressed globals, topology, and event/action
+  inputs.
+- Retained editor-specific execution engines are non-primary component models.
+  They MUST NOT weaken generated Structured Text semantics, including
+  divide-by-zero faults.
+
+### 11.5 HMI language-model tools and evidence
+
+- HMI language-model tools validate inputs and cancellation before committing
+  final artifacts. Cancellation MUST NOT be reported as a completed workflow.
+- Candidate generation, intent planning, validation locks, scenario traces,
+  viewport snapshots, journey results, and provenance explanations are
+  deterministic for identical reviewed inputs.
+- Validation writes bounded lock evidence and applies the documented retention
+  policy. Trace and preview operations preserve their scenario and viewport
+  identity.
+- Binding lookup routes through the registered workspace command and validates
+  its input shape. Layout snapshots and dry-run patches report conflicts
+  without applying them.
+- HMI page enumeration excludes scene-view payload TOML that is not an HMI
+  page.
+
+### 11.6 Libraries, project creation, persistence, and focused recovery
+
+- Library dependency edits preserve unrelated manifest structure. Path and Git
+  dependencies parse deterministically; a Git dependency has exactly one
+  reviewed pin selector; update and removal mutate only the selected entry.
+- Library code actions are offered only for known OSCAT or PLCopen Motion
+  symbols when the corresponding dependency is absent.
+- Create Project is cancellation-safe at every prompt, requires confirmation
+  before using a nonempty target, produces parseable/buildable ST and TOML, and
+  resolves single-root and multi-root workspace targets deterministically.
+- Visual right-pane width persistence uses stable per-editor keys, clamps
+  configured bounds, prefers VS Code webview state, falls back to local
+  storage, and falls back again to the default for invalid values. It governs
+  authoring panes only.
+- Compile reports actionable missing-runtime and report-version mismatch
+  recovery. Runtime source options preserve explicit include globs and apply
+  documented defaults only when they are absent.
+- Live Values MAY retry a bounded transient-busy mutation. The retry does not
+  authorize immediate success before a newer runtime state confirms the
+  mutation.

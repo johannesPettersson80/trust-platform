@@ -1,0 +1,139 @@
+schema_version = 1
+id = "LSP_CORE_FEATURES_001"
+title = "LSP core features preserve deterministic project and protocol truth"
+area = "editor_safety"
+risk = "correctness"
+status = "mapped"
+owner = "language-tooling"
+last_reviewed = "2026-07-26"
+claim = "Completion, hover, signature help, diagnostics, navigation, refactors, formatting, workspace indexing, semantic tokens, values, code actions, and document lifecycle must follow the normative LSP contract without stale, partial, or fabricated success."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = [
+  "SPEC_LSP_CONTRACT_001",
+  "crates/trust-ide",
+  "crates/trust-lsp",
+]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["client_setting_alias_precedence", "hmi_command_and_descriptor_errors", "uri_virtual_document_normalization", "completion_recovery_visibility_and_formal_suppression", "learner_hint_threshold", "openot_editor_projection", "hover_declared_type_fallback", "runtime_inline_value_merge_precedence", "completion_cancellation_response", "call_hierarchy_allowed_file_filter", "namespace_relocation_transaction_order", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_LSP_CONTRACT_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_LSP_CONTRACT_001"
+
+[[behavior]]
+partition = { equals = "COMPLETION_HOVER_SIGNATURE" }
+case_family = "missing_required"
+oracle_ref = "SPEC_LSP_CONTRACT_001#61-completion"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Completion, hover, and signature help resolve the current project and cursor context and return only protocol-valid items."
+
+[[behavior]]
+partition = { equals = "DIAGNOSTICS_DELIVERY" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_LSP_CONTRACT_001#62-diagnostics"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected", status = "unchanged" }
+rationale = "Syntax, semantic, and warning diagnostics preserve ownership, severity, cancellation, and dependent-file refresh without false empty success."
+
+[[behavior]]
+partition = { equals = "NAVIGATION_SYMBOLS_HIERARCHY" }
+case_family = "missing_required"
+oracle_ref = "SPEC_LSP_CONTRACT_001#63-navigation"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Definitions, references, symbols, links, and hierarchy results preserve source identity and project visibility."
+
+[[behavior]]
+partition = { equals = "RENAME_AND_SOURCE_REFACTOR" }
+case_family = "duplicate_or_collision"
+oracle_ref = "SPEC_LSP_CONTRACT_001#64-refactoring"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Rename and source refactors validate conflicts and apply one coherent project edit without capture or partial mutation."
+
+[[behavior]]
+partition = { equals = "FORMATTING_AND_RANGES" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_LSP_CONTRACT_001#75-formatting"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Formatting and range operations preserve canonical layout and negotiated position boundaries."
+
+[[behavior]]
+partition = { equals = "WORKSPACE_CONFIG_AND_INDEXING" }
+case_family = "platform_or_filesystem_variation"
+oracle_ref = "SPEC_LSP_CONTRACT_001#76-project-configuration-workspace-indexing"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Workspace configuration and indexing preserve durable project inputs, dependency visibility, and bounded refresh."
+
+[[behavior]]
+partition = { equals = "SEMANTIC_TOKENS" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_LSP_CONTRACT_001#73-semantic-token-types"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Semantic tokens use the negotiated legend, modifier set, and source ranges."
+
+[[behavior]]
+partition = { equals = "INLAY_AND_INLINE_VALUES" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_LSP_CONTRACT_001#71-supported-capabilities"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Inlay and runtime inline values remain source-bound, bounded, and nonduplicating."
+
+[[behavior]]
+partition = { equals = "CODE_ACTIONS_AND_QUICK_FIXES" }
+case_family = "missing_required"
+oracle_ref = "SPEC_LSP_CONTRACT_001#642-code-actions-quick-fixes"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected", status = "unchanged" }
+rationale = "Code actions expose only applicable fixes and return complete edits for the current diagnostic and project state."
+
+[[behavior]]
+partition = { equals = "DOCUMENT_SYNC_AND_LIFECYCLE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_LSP_CONTRACT_001#72-document-synchronization"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected", status = "unchanged" }
+rationale = "Open, change, close, and dependent-document refresh preserve revision order and restore durable project truth."
+
+[[coverage.cells]]
+dimension = "missing_required"
+state = "covered"
+rationale = "The invariant records the required result-bearing feature families; focused assertion mappings and remaining authority gaps are explicit."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "covered"
+rationale = "Document, diagnostic, indexing, and value delivery ordering is explicit."
+
+[[coverage.cells]]
+dimension = "duplicate_or_collision"
+state = "covered"
+rationale = "Rename and refactor conflict behavior is explicit."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "covered"
+rationale = "Protocol token and result shapes are explicit."
+
+[[coverage.cells]]
+dimension = "boundary_high"
+state = "covered"
+rationale = "Formatting and range boundaries are explicit."
+
+[[coverage.cells]]
+dimension = "platform_or_filesystem_variation"
+state = "covered"
+rationale = "Workspace and project-index inputs are explicit across filesystem contexts."

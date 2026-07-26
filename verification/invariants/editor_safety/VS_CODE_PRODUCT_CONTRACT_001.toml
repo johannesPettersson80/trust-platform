@@ -18,7 +18,7 @@ tests = ["TEST_AUTO_00AB9CCB602C92B09A3C", "TEST_AUTO_0178F83758787AA886F8", "TE
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["rendered_ui_journeys", "accessibility_and_contrast", "produced_vsix_contents", "broad_remote_gate"]
+missing = ["rendered_ui_journeys", "accessibility_and_contrast", "produced_vsix_contents", "broad_remote_gate", "diagnostic_spec_link_resolution", "snippet_affirmative_parse", "plcopen_ld_semantic_roundtrip", "visual_companion_compile_execute", "runtime_control_malformed_and_timeout", "remote_plaintext_token_nonforwarding"]
 
 [spec]
 status = "specified"
@@ -99,6 +99,54 @@ oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#9-tooling-and-example-truth"
 outcome = "accept_value"
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
 rationale = "Development and extension-test binary lookup honors the effective Cargo target directory, and exposed-server examples derive changing public values from continued Structured Text execution."
+
+[[behavior]]
+partition = { equals = "NATIVE_TESTING_AND_SNIPPETS" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#111-native-testing-and-snippets"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected", status = "unchanged" }
+rationale = "Native Testing discovery, execution, refresh, and result state stay synchronized with live TEST_PROGRAM and TEST_FUNCTION_BLOCK declarations, while snippet identity and syntax proof remain affirmative."
+
+[[behavior]]
+partition = { equals = "OPCUA_BROWSE_SAVE_IDENTITY" }
+case_family = "duplicate_or_collision"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#112-opc-ua-browse-to-save-identity"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "OPC UA browse and save preserve raw NodeId identity, collision-safe keys, access opt-in, credential mode, deterministic point projection, and product recovery text."
+
+[[behavior]]
+partition = { equals = "PLCOPEN_IMPORT_EXPORT_WORKFLOW" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#113-plcopen-import-and-export-workflow"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected_delta", process_image = "unchanged", diagnostics = "expected", status = "unchanged" }
+rationale = "PLCopen import and export are cancellation-safe and confirmation-gated, preserve selected identities, report operation-specific failures, and reject malformed or unsupported Ladder interchange without coercion."
+
+[[behavior]]
+partition = { equals = "VISUAL_AUTHORING_TRANSFORMATIONS" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#114-visual-model-transformations-and-generated-execution"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected", status = "unchanged" }
+rationale = "Ladder, Blockly, and SFC transformations preserve deterministic authoring structure, and all visual runtime authority converges on generated Structured Text rather than retained component engines."
+
+[[behavior]]
+partition = { equals = "HMI_LM_ARTIFACT_WORKFLOW" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#115-hmi-language-model-tools-and-evidence"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected_delta", process_image = "unchanged", diagnostics = "expected", status = "unchanged" }
+rationale = "HMI language-model tools validate inputs and cancellation and produce deterministic, bounded candidate, intent, lock, trace, snapshot, journey, binding, and provenance artifacts."
+
+[[behavior]]
+partition = { equals = "LIBRARY_PROJECT_AND_RECOVERY" }
+case_family = "platform_or_filesystem_variation"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#116-libraries-project-creation-persistence-and-focused-recovery"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "expected_delta", process_image = "unchanged", diagnostics = "expected", status = "unchanged" }
+rationale = "Library edits, code actions, project creation, authoring-pane persistence, runtime source defaults, and focused recovery preserve unrelated state and make cancellation or failure explicit."
 
 [[coverage.cells]]
 dimension = "missing_required"

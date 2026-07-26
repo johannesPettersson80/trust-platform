@@ -366,3 +366,32 @@ IEC or PLCopen deviation log merely because truST owns the behavior.
   - These surfaces are intentionally shipped product behavior and need stable
     authority for their existing tests. Keeping timing scope and write/security
     boundaries explicit prevents both false proof and accidental weakening.
+
+## 2026-07-26 - VS Code authoring workflow authority
+
+- Area: VS Code testing, protocol authoring, visual editors, HMI tools, and
+  project workflows
+- Decision:
+  - Native Testing, snippets, OPC UA browse-to-save identity, PLCopen
+    import/export, deterministic visual-model transformations, HMI
+    language-model artifacts, library manifest editing, project creation, and
+    focused recovery behavior are shipped product contracts.
+  - Visual execution remains authoritative only through generated Structured
+    Text. Retained Ladder and Statechart component engines and retired embedded
+    runtime/I/O panels do not define shipped runtime semantics.
+  - Right-pane persistence applies to authoring panes only. Runtime lifecycle
+    remains in the truST sidebar and values remain in Live Values.
+  - Weak tests that only observe initial diagnostics, compare interchange
+    counts, or accept a component fallback do not prove parser completion,
+    semantic round-trip fidelity, or runtime behavior.
+- Supersedes:
+  - `docs/specs/16-ladder-profile-trust.md` sections 1, 4 through 6, and 9
+    where they described LadderEngine and embedded runtime/I/O panes as
+    primary runtime evidence.
+  - Any interpretation that promotes editor-component behavior over the shared
+    Structured Text runtime contract.
+- Reason:
+  - These workflows already define user-visible data integrity and recovery.
+    Grouping their authority prevents false catalogue mappings while keeping
+    legacy helpers and retired panels runnable without treating them as product
+    proof.
