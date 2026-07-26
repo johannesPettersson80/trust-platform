@@ -910,15 +910,15 @@ preserved exactly and stored with that destination's runtime value tag. The
 closed destination ranges are the unsigned integer ranges in IEC 61131-3 Ed.3
 section 6.4.2.1, Table 10.
 
-A value above the destination maximum returns `RuntimeError::Overflow` before
-any destination is stored. The runtime never wraps, saturates, truncates, or
-substitutes a value. This fault mapping applies both to unsigned integer
-arithmetic materialization and to internal numeric coercion into an unsigned
-integer destination. IEC section 7.3.2 requires a numerical result outside its
-result-type range to be treated as an error; sections 6.6.2.5.2 and 6.6.2.5.3
-leave conversion execution errors and an out-of-range conversion result
-implementer-specific. The stable truST mapping is specified by this section;
-it is not an IEC deviation.
+A value below zero or above the destination maximum returns
+`RuntimeError::Overflow` before any destination is stored. The runtime never
+wraps, saturates, truncates, or substitutes a value. This fault mapping applies
+both to unsigned integer arithmetic materialization and to internal numeric
+coercion into an unsigned integer destination. IEC section 7.3.2 requires a
+numerical result outside its result-type range to be treated as an error;
+sections 6.6.2.5.2 and 6.6.2.5.3 leave conversion execution errors and an
+out-of-range conversion result implementer-specific. The stable truST mapping
+is specified by this section; it is not an IEC deviation.
 
 The unsigned materialization boundary accepts only the four unsigned integer
 destinations. Supplying `SINT`, `INT`, `DINT`, `LINT`, `REAL`, or `LREAL` as

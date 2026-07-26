@@ -6,7 +6,7 @@ risk = "safety_critical"
 status = "implemented"
 owner = "trust-runtime"
 last_reviewed = "2026-07-22"
-claim = "Materializing an integer result as USINT, UINT, UDINT, or ULINT preserves every representable value exactly; a value above the destination range returns RuntimeError::Overflow before storage, and a non-unsigned destination returns RuntimeError::TypeMismatch without a value."
+claim = "Materializing an integer result as USINT, UINT, UDINT, or ULINT preserves every representable value exactly; a value below zero or above the destination range returns RuntimeError::Overflow before storage, and a non-unsigned destination returns RuntimeError::TypeMismatch without a value."
 proof_level = "G1"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-runtime-core/src/numeric.rs"]
@@ -58,6 +58,15 @@ no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
 rationale = "Signed and floating destination categories return RuntimeError::TypeMismatch rather than being interpreted by the unsigned boundary."
 
+[[behavior]]
+partition = { equals = "UNSIGNED_DESTINATION_BELOW_ZERO" }
+case_family = "below_min"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#6-10-unsigned-integer-result-materialization"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "A negative integer result returns RuntimeError::Overflow before writing an unsigned destination."
+
 [[coverage.cells]]
 dimension = "happy_path"
 state = "covered"
@@ -72,3 +81,8 @@ rationale = "The producer-authentic behavior-lock pair executes the first value 
 dimension = "wrong_type_or_shape"
 state = "covered"
 rationale = "The producer-authentic behavior-lock pair executes SINT, INT, DINT, LINT, REAL, and LREAL destinations and requires RuntimeError::TypeMismatch without a substitute value."
+
+[[coverage.cells]]
+dimension = "below_min"
+state = "gap_open"
+rationale = "The reviewed VM output-width assertion awaits generated catalog mapping."
