@@ -156,6 +156,34 @@ fn opcua_case() {}
                 ),
             )
 
+    def test_source_cfg_keeps_unix_test_in_default_shard(self) -> None:
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "tests.rs"
+            source.write_text(
+                """
+#[cfg(unix)]
+#[test]
+fn unix_case() {}
+"""
+            )
+            self.assertEqual(
+                [
+                    (
+                        "default",
+                        [{"path": "tests.rs", "name": "unix_case"}],
+                        False,
+                    )
+                ],
+                selected_feature_shards(
+                    root=root,
+                    selection=[{"path": "tests.rs", "name": "unix_case"}],
+                ),
+            )
+
     def test_duplicate_bare_name_across_binaries_fails_closed(self) -> None:
         with self.assertRaisesRegex(ValueError, "ambiguous"):
             resolve_nextest_listing(
