@@ -10,23 +10,11 @@ claim = "Offline ADS import and validation canonicalize snapshots, generate dete
 proof_level = "T1"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src/bin/trust-runtime/ads.rs"]
-tests = [
-  "TEST_RUNTIME_ADS_VALIDATE_MISSING_SYMBOL_001",
-  "TEST_RUNTIME_ADS_VALIDATE_TYPE_MISMATCH_001",
-  "TEST_RUNTIME_ADS_VALIDATE_SOURCE_DRIFT_001",
-  "TEST_RUNTIME_ADS_IMPORT_OUTPUT_POLICY_001",
-  "TEST_RUNTIME_ADS_IMPORT_SYMBOLS_NO_WIRE_001",
-  "TEST_RUNTIME_ADS_VALIDATE_LIVE_NO_WIRE_001",
-]
+tests = ["TEST_AUTO_1A1F998AA3DD2B019B46", "TEST_AUTO_28C45C94601F0C40AE4D", "TEST_RUNTIME_ADS_IMPORT_OUTPUT_POLICY_001", "TEST_RUNTIME_ADS_IMPORT_SYMBOLS_NO_WIRE_001", "TEST_RUNTIME_ADS_VALIDATE_LIVE_NO_WIRE_001", "TEST_RUNTIME_ADS_VALIDATE_MISSING_SYMBOL_001", "TEST_RUNTIME_ADS_VALIDATE_SOURCE_DRIFT_001", "TEST_RUNTIME_ADS_VALIDATE_TYPE_MISMATCH_001"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = [
-  "assertion_reachability",
-  "live_target_validation",
-  "mutation_sensitivity",
-  "broad_remote_gate",
-]
+missing = ["assertion_reachability", "live_target_validation", "mutation_sensitivity", "broad_remote_gate"]
 
 [spec]
 status = "specified"

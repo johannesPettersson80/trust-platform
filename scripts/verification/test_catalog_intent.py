@@ -85,6 +85,16 @@ def validate_catalog_intent(
             reference = record.get(field)
             if isinstance(reference, str):
                 _check_reference_area(failures, record_id, area, label, reference, records)
+        for reference in record.get("oracle_refs", []):
+            if isinstance(reference, str):
+                _check_reference_area(
+                    failures,
+                    record_id,
+                    area,
+                    "oracle_refs",
+                    reference,
+                    spec_sources,
+                )
 
         if subject_kind == "generated_test":
             _validate_generated_subject(record_id, record, discoveries, failures)

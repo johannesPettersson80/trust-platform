@@ -3,18 +3,18 @@ id = "RT_PROTOCOL_WEB_CONTROL_BRIDGE_001"
 title = "Protocol web routes keep internal control credentials local"
 area = "control_security"
 risk = "security"
-status = "planned"
+status = "mapped"
 owner = "trust-runtime"
 last_reviewed = "2026-07-26"
 claim = "Authenticated local protocol routes may use the internal control token only for in-process dispatch and must never forward it through the generic control proxy."
 proof_level = "S0"
 contract_kind = "security_policy"
 source_refs = ["crates/trust-runtime/src/web", "crates/trust-runtime/tests/ads_web_api.rs", "docs/specs/11-runtime-engine.md"]
-tests = []
+tests = ["TEST_AUTO_1AA3F1B1F8D8639669F1", "TEST_AUTO_5DE8737AB55FFD7FA7D3"]
 gates = ["veryquick", "pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_behavior_tests", "focused_remote_execution", "broad_remote_gate"]
+missing = ["focused_remote_execution", "broad_remote_gate"]
 
 [spec]
 status = "specified"

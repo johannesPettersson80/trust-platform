@@ -3,18 +3,18 @@ id = "RT_ETHERCAT_DRIVER_001"
 title = "EtherCAT configuration, health policy, and process-image shape are deterministic"
 area = "protocols"
 risk = "safety_critical"
-status = "planned"
+status = "mapped"
 owner = "trust-runtime"
 last_reviewed = "2026-07-26"
 claim = "EtherCAT configuration and ordinary cycle failures must preserve deterministic layout and fail closed on an incompatible process-image shape."
 proof_level = "S0"
 contract_kind = "protocol_trace"
 source_refs = ["crates/trust-runtime/src/io/ethercat", "docs/specs/11-runtime-engine.md"]
-tests = []
+tests = ["TEST_AUTO_06821893F4327F36D9E8", "TEST_AUTO_2CDFD00CD4BD8C8471A8", "TEST_AUTO_6F665C0AE3F1C64063FF", "TEST_AUTO_A55F43B94FBE8F142878", "TEST_AUTO_B6FF8A186F0A1C6B7D26", "TEST_AUTO_B8264EC4F849EE66B2CA", "TEST_AUTO_C5B92BB21025CAE02946", "TEST_AUTO_FBF8AF35E1047258FE7E"]
 gates = ["veryquick", "pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_behavior_tests", "focused_remote_execution", "default_chain_exact_order_and_channels", "physical_hardware_topology_evidence", "broad_remote_gate"]
+missing = ["focused_remote_execution", "default_chain_exact_order_and_channels", "physical_hardware_topology_evidence", "broad_remote_gate"]
 
 [spec]
 status = "specified"

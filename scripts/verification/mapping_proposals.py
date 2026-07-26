@@ -14,6 +14,7 @@ from .code_spec_common import sha256_digest
 
 CANDIDATE_TIERS = {"C1", "C2", "C3"}
 ELIGIBLE_INVARIANT_STATUSES = {
+    "planned",
     "mapped",
     "specified",
     "implemented",
@@ -70,7 +71,7 @@ def build_mapping_proposals(
             invariant = invariants.get(invariant_id)
             if invariant is None:
                 raise ValueError(f"{discovery_id} names unknown invariant {invariant_id}")
-            if invariant.get("status") not in ELIGIBLE_INVARIANT_STATUSES:
+            if not _semantically_eligible_invariant(invariant):
                 raise ValueError(
                     f"{discovery_id} invariant {invariant_id} is not semantically eligible"
                 )
@@ -336,7 +337,7 @@ def validate_mapping_quarantine(
             if invariant is None:
                 failures.append(f"{label} references unknown invariant {invariant_id}")
                 continue
-            if invariant.get("status") not in ELIGIBLE_INVARIANT_STATUSES:
+            if not _semantically_eligible_invariant(invariant):
                 failures.append(
                     f"{label} candidate invariant {invariant_id} must be semantically eligible"
                 )
@@ -401,6 +402,18 @@ def validate_mapping_quarantine(
                 if not isinstance(value, str) or not value:
                     failures.append(f"{label} suggestions require non-empty {field}")
     return sorted(set(failures))
+
+
+def _semantically_eligible_invariant(
+    invariant: Mapping[str, Any],
+) -> bool:
+    status = invariant.get("status")
+    if status not in ELIGIBLE_INVARIANT_STATUSES:
+        return False
+    if status != "planned":
+        return True
+    spec = invariant.get("spec")
+    return isinstance(spec, Mapping) and spec.get("status") == "specified"
 
 
 def _is_digest(value: Any) -> bool:

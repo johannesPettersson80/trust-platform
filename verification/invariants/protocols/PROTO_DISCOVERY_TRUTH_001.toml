@@ -10,7 +10,7 @@ claim = "Discovery results must label protocol handshakes, likely devices, and m
 proof_level = "G1"
 contract_kind = "protocol_trace"
 source_refs = ["crates/trust-runtime/src/control/comm_handlers"]
-tests = ["TEST_PROTOCOL_DISCOVERY_CONFIDENCE_TRACE_001"]
+tests = ["TEST_AUTO_1EC9ED349ADB5937ED4B", "TEST_AUTO_21731A12FF8ED9E6061D", "TEST_AUTO_525B0CAA2D24D97F68E3", "TEST_AUTO_BDBE504F0C4ECC88ABE7", "TEST_AUTO_BE2E7DD0C24F76859578", "TEST_AUTO_DD34C44DC5B46FEE53AD", "TEST_PROTOCOL_DISCOVERY_CONFIDENCE_TRACE_001"]
 gates = ["pr", "hardware_lab"]
 evidence_refs = [
   "EVID_TEST_PROTOCOL_DISCOVERY_CONFIDENCE_TRACE_001_LOCK_BASELINE",

@@ -743,10 +743,11 @@ def measured_durations(
             raise ValueError("focused result title or duration is invalid")
         durations[name] = duration
     allowed_names = expected_names | (allowed_extra_names or set())
-    if set(durations) != allowed_names:
+    actual_names = set(durations)
+    if not expected_names <= actual_names or not actual_names <= allowed_names:
         raise ValueError("focused result titles do not equal denominator names")
     if strict_results:
-        expected_total = len(allowed_names)
+        expected_total = len(actual_names)
         if results_document.get("stats") != {
             "tests": expected_total,
             "passes": expected_total,

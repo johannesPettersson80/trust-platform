@@ -3,18 +3,18 @@ id = "RT_IO_TYPED_ROUNDTRIP_001"
 title = "In-range process-image bit and word access round-trip exactly"
 area = "runtime_safety"
 risk = "wrong_result"
-status = "planned"
+status = "mapped"
 owner = "trust-runtime"
 last_reviewed = "2026-07-26"
 claim = "A successful in-range typed process-image write followed by a read at the same address must return the exact bit or word value."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-runtime/src/io/interface.rs", "crates/trust-runtime/tests/io_address.rs", "docs/specs/11-runtime-engine.md"]
-tests = []
+tests = ["TEST_AUTO_F56D40C3AAF2688BD524"]
 gates = ["veryquick", "pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_behavior_tests", "focused_remote_execution", "broad_remote_gate"]
+missing = ["focused_remote_execution", "broad_remote_gate"]
 
 [spec]
 status = "specified"

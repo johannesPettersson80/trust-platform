@@ -209,6 +209,30 @@ class MappingProposalQuarantineTests(unittest.TestCase):
         )
         self.assertTrue(any("semantically eligible" in item for item in failures))
 
+    def test_planned_invariant_requires_specified_authority(self) -> None:
+        invariant = {
+            "status": "planned",
+            "risk": "maintenance",
+            "spec": {"status": "specified"},
+            "oracle": {
+                "kind": "trust_contract",
+                "ref": "SPEC_EXAMPLE_001#behavior",
+            },
+            "behavior": [{}],
+        }
+        self.assertEqual(
+            [],
+            self.validate(_proposal(), invariants={"INV_ONE": invariant}),
+        )
+        invariant["spec"] = {"status": "missing"}
+        failures = self.validate(
+            _proposal(),
+            invariants={"INV_ONE": invariant},
+        )
+        self.assertTrue(
+            any("semantically eligible" in item for item in failures)
+        )
+
     def test_suggestions_are_never_authoritative(self) -> None:
         proposal = copy.deepcopy(_proposal())
         proposal["suggestions"]["authoritative"] = True

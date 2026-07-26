@@ -951,6 +951,35 @@ class Validator:
                     oracle_ref=record["oracle_ref"],
                     spec_sources=self.spec_sources,
                 )
+            oracle_refs = record.get("oracle_refs")
+            if oracle_refs is not None:
+                if (
+                    not isinstance(oracle_refs, list)
+                    or not oracle_refs
+                    or any(
+                        not isinstance(item, str) or not item
+                        for item in oracle_refs
+                    )
+                    or oracle_refs != sorted(set(oracle_refs))
+                ):
+                    self.fail(
+                        path,
+                        f"{record['id']} oracle_refs must be sorted distinct strings",
+                    )
+                else:
+                    if record.get("oracle_ref") not in oracle_refs:
+                        self.fail(
+                            path,
+                            f"{record['id']} primary oracle_ref must appear in oracle_refs",
+                        )
+                    for oracle_ref in oracle_refs:
+                        validate_oracle_ref(
+                            fail=self.fail,
+                            path=path,
+                            owner_id=record["id"],
+                            oracle_ref=oracle_ref,
+                            spec_sources=self.spec_sources,
+                        )
             self.validate_case_digest(path, record)
         for failure in validate_catalog_intent(
             tests=self.tests,

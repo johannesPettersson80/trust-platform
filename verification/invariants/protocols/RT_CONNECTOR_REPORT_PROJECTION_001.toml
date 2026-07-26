@@ -3,18 +3,18 @@ id = "RT_CONNECTOR_REPORT_PROJECTION_001"
 title = "Connector report serialization and protocol projection preserve evidence"
 area = "protocols"
 risk = "false_status"
-status = "planned"
+status = "mapped"
 owner = "trust-runtime"
 last_reviewed = "2026-07-26"
 claim = "Connector report shape, driver policy, point quality, protocol state, and TCP-only confidence must preserve their exact reviewed meanings."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-runtime/src/connectors", "docs/specs/23-connector-status.md"]
-tests = []
+tests = ["TEST_AUTO_2B71CDA6D428E5AA3600", "TEST_AUTO_4FBDF6E7EFCD79AAF13A", "TEST_AUTO_52F76E1274CF56E0704C", "TEST_AUTO_5A83F98038D22DC3CF2D", "TEST_AUTO_6541A691564505602302", "TEST_AUTO_673146F9407CFA0E2A7B", "TEST_AUTO_7ABC26CF210FA536482F", "TEST_AUTO_A11A3EC89B0848F97F9F", "TEST_AUTO_D101156555E69D07F53D"]
 gates = ["veryquick", "pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_behavior_tests", "focused_remote_execution", "broad_remote_gate"]
+missing = ["focused_remote_execution", "broad_remote_gate"]
 
 [spec]
 status = "specified"

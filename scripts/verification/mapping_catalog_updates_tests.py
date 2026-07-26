@@ -95,6 +95,10 @@ class MappingCatalogUpdateTests(unittest.TestCase):
             record.get("id"),
         )
         self.assertEqual("SPEC_EXAMPLE_001#exact", record.get("oracle_ref"))
+        self.assertEqual(
+            ["SPEC_EXAMPLE_001#exact"],
+            record.get("oracle_refs"),
+        )
         self.assertEqual(_decision()["id"], record.get("mapping_decision_id"))
         self.assertEqual(
             _proposal()["assertion_source_digests"],
@@ -107,6 +111,38 @@ class MappingCatalogUpdateTests(unittest.TestCase):
         self.assertRegex(
             str(record.get("mapping_assertion_review_digest")),
             r"^sha256:[0-9a-f]{64}$",
+        )
+
+    def test_catalog_record_preserves_multiple_selected_oracles(self) -> None:
+        decision = _decision()
+        decision["selected_invariant_ids"] = ["INV_ONE", "INV_TWO"]
+        decision["selected_behavior_refs"] = [
+            "INV_ONE#behavior:0",
+            "INV_TWO#behavior:0",
+        ]
+        record = build_accepted_catalog_record(
+            proposal=_proposal(),
+            decision=decision,
+            invariants={
+                "INV_ONE": {
+                    "oracle": {"ref": "SPEC_EXAMPLE_001#exact"},
+                },
+                "INV_TWO": {
+                    "oracle": {"ref": "SPEC_OTHER_001#exact"},
+                },
+            },
+            reviewed_date="2026-07-23",
+        )
+        self.assertEqual(
+            "SPEC_EXAMPLE_001#exact",
+            record["oracle_ref"],
+        )
+        self.assertEqual(
+            [
+                "SPEC_EXAMPLE_001#exact",
+                "SPEC_OTHER_001#exact",
+            ],
+            record["oracle_refs"],
         )
 
     def test_assertion_review_digest_is_canonical_and_content_sensitive(self) -> None:
@@ -238,6 +274,7 @@ class MappingCatalogUpdateTests(unittest.TestCase):
         invariant = """
 schema_version = 1
 id = "INV_ONE"
+status = "planned"
 tests = ["TEST_ONE"]
 missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
 
@@ -269,6 +306,7 @@ mapping_behavior_refs = ["INV_ONE#behavior:0"]
             catalog_source=partial_catalog,
         )
         partial_document = tomllib.loads(partial)
+        self.assertEqual("mapped", partial_document["status"])
         self.assertIn("cataloged_behavior_tests", partial_document["missing"])
         self.assertEqual(
             ["covered", "gap_open"],
@@ -355,8 +393,48 @@ rationale = "Awaiting catalog acceptance."
                     reconcile_invariant_catalog_state(
                         source,
                         invariant_id="INV_ONE",
-                        catalog_source=catalog,
-                    )
+                    catalog_source=catalog,
+                )
+
+    def test_catalog_reconciliation_preserves_absent_optional_dimension_cell(
+        self,
+    ) -> None:
+        invariant = """
+schema_version = 1
+id = "INV_ONE"
+status = "planned"
+tests = ["TEST_ONE"]
+missing = ["catalog_mapping", "broad_remote_gate"]
+
+[[behavior]]
+case_family = "happy_path"
+
+[[behavior]]
+case_family = "boundary_high"
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Awaiting catalog acceptance."
+"""
+        catalog = """
+[[tests]]
+id = "TEST_ONE"
+invariants = ["INV_ONE"]
+mapping_behavior_refs = ["INV_ONE#behavior:1"]
+"""
+        updated = tomllib.loads(
+            reconcile_invariant_catalog_state(
+                invariant,
+                invariant_id="INV_ONE",
+                catalog_source=catalog,
+            )
+        )
+        self.assertEqual("mapped", updated["status"])
+        self.assertEqual(
+            "gap_open",
+            updated["coverage"]["cells"][0]["state"],
+        )
 
     def test_catalog_reconciliation_uses_reviewed_non_equals_dimension(
         self,
@@ -471,7 +549,7 @@ mapping_behavior_refs = [
             [cell["rationale"] for cell in reconciled["coverage"]["cells"]],
         )
 
-    def test_catalog_reconciliation_rejects_non_catalog_coverage_debt(
+    def test_catalog_reconciliation_preserves_non_catalog_coverage_debt(
         self,
     ) -> None:
         catalog = """
@@ -499,15 +577,25 @@ state = "{state}"
 rationale = "{rationale}"
 """
             with self.subTest(state=state):
-                with self.assertRaisesRegex(
-                    ValueError,
-                    "cannot close behavior dimension happy_path",
-                ):
+                reconciled = tomllib.loads(
                     reconcile_invariant_catalog_state(
                         invariant,
                         invariant_id="INV_ONE",
                         catalog_source=catalog,
                     )
+                )
+                self.assertEqual(
+                    state,
+                    reconciled["coverage"]["cells"][0]["state"],
+                )
+                self.assertEqual(
+                    rationale,
+                    reconciled["coverage"]["cells"][0]["rationale"],
+                )
+                self.assertNotIn(
+                    "cataloged_behavior_tests",
+                    reconciled["missing"],
+                )
 
     def test_denominator_mapping_is_generated_and_canonically_sorted(self) -> None:
         document = {

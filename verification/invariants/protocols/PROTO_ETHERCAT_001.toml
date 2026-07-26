@@ -10,7 +10,7 @@ claim = "Unavailable EtherCAT hardware or configuration must not create unbounde
 proof_level = "G1"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src"]
-tests = ["TEST_ETHERCAT_UNAVAILABLE_RESOURCE_TRACE_001"]
+tests = ["TEST_AUTO_73C6354A8A53C9B983CB", "TEST_AUTO_791BAC7290836FAA6F59", "TEST_AUTO_81E439A8EA2F04181A77", "TEST_AUTO_B9ACE9B650FE5BFE0DC6", "TEST_AUTO_D7D8D7D25E83930E81B1", "TEST_ETHERCAT_UNAVAILABLE_RESOURCE_TRACE_001"]
 gates = []
 evidence_refs = [
   "EVID_TEST_ETHERCAT_UNAVAILABLE_RESOURCE_TRACE_001_LOCK_BASELINE",

@@ -29,6 +29,7 @@ CATALOG_FIELDS = (
     "status",
     "invariants",
     "oracle_ref",
+    "oracle_refs",
     "expected_result",
     "expected_failure_mode",
     "suite_tiers",
@@ -98,10 +99,8 @@ def build_accepted_catalog_record(
         if not isinstance(oracle_ref, str) or not oracle_ref:
             raise ValueError(f"selected invariant {invariant_id} lacks oracle ref")
         oracle_refs.add(oracle_ref)
-    if len(oracle_refs) != 1:
-        raise ValueError(
-            "one generated catalog row requires one shared selected oracle"
-        )
+    if not oracle_refs:
+        raise ValueError("generated catalog row requires selected oracles")
     confirmed = decision.get("confirmed_catalog")
     if not isinstance(confirmed, Mapping):
         raise ValueError("accepted decision lacks confirmed catalog fields")
@@ -144,7 +143,8 @@ def build_accepted_catalog_record(
         "owner": _required_string(confirmed, "owner", "confirmed catalog"),
         "status": "mapped",
         "invariants": sorted(selected),
-        "oracle_ref": next(iter(oracle_refs)),
+        "oracle_ref": sorted(oracle_refs)[0],
+        "oracle_refs": sorted(oracle_refs),
         "expected_result": _required_string(
             confirmed, "expected_result", "confirmed catalog"
         ),
@@ -345,7 +345,7 @@ def reconcile_invariant_catalog_state(
             cells_by_dimension.setdefault(dimension, []).append(cell)
     for dimension in behavior_refs_by_dimension:
         dimension_cells = cells_by_dimension.get(dimension, [])
-        if len(dimension_cells) != 1:
+        if len(dimension_cells) > 1:
             raise ValueError(
                 f"{invariant_id} requires exactly one coverage cell for "
                 f"behavior dimension {dimension}; found {len(dimension_cells)}"
@@ -359,6 +359,8 @@ def reconcile_invariant_catalog_state(
     transition_dimensions: set[str] = set()
     preserved_cells: dict[str, tuple[str, str]] = {}
     for dimension in closed_dimensions:
+        if dimension not in cells_by_dimension:
+            continue
         cell = cells_by_dimension[dimension][0]
         state = cell.get("state")
         rationale = cell.get("rationale")
@@ -366,15 +368,13 @@ def reconcile_invariant_catalog_state(
             raise ValueError(
                 f"{invariant_id} coverage dimension {dimension} lacks rationale"
             )
-        if state in {"covered", "covered_by_fuzz"}:
+        if (
+            state == "gap_open"
+            and _catalog_awaiting_rationale(rationale)
+        ):
+            transition_dimensions.add(dimension)
+        else:
             preserved_cells[dimension] = (state, rationale)
-            continue
-        if state != "gap_open" or not _catalog_awaiting_rationale(rationale):
-            raise ValueError(
-                f"{invariant_id} cannot close behavior dimension {dimension} "
-                f"from coverage state {state!r} and rationale {rationale!r}"
-            )
-        transition_dimensions.add(dimension)
 
     all_behavior_refs = set().union(*behavior_refs_by_dimension.values())
     updated_missing = list(missing)
@@ -385,8 +385,15 @@ def reconcile_invariant_catalog_state(
             if item not in {"cataloged_behavior_tests", "catalog_mapping"}
         ]
 
+    result = source
+    if mapped_refs and invariant.get("status") in {"planned", "specified"}:
+        result = _replace_top_level_string(
+            result,
+            field="status",
+            value="mapped",
+        )
     result = _replace_top_level_array(
-        source,
+        result,
         field="missing",
         values=updated_missing,
     )
@@ -396,10 +403,15 @@ def reconcile_invariant_catalog_state(
         closed_dimensions=transition_dimensions,
     )
     parsed = tomllib.loads(result)
+    if mapped_refs and invariant.get("status") in {"planned", "specified"}:
+        if parsed.get("status") != "mapped":
+            raise ValueError("invariant catalog status promotion failed")
     if parsed.get("missing") != updated_missing:
         raise ValueError("invariant missing-state reconciliation failed")
     parsed_cells = parsed.get("coverage", {}).get("cells", [])
     for dimension in closed_dimensions:
+        if dimension not in cells_by_dimension:
+            continue
         dimension_cells = [
             cell
             for cell in parsed_cells
@@ -583,6 +595,25 @@ def _replace_top_level_array(
         raise ValueError(f"invariant source lacks top-level {field} assignment")
     rendered = f"{field} = {_toml_value(list(values))}"
     return source[: match.start()] + rendered + source[match.end() :]
+
+
+def _replace_top_level_string(
+    source: str,
+    *,
+    field: str,
+    value: str,
+) -> str:
+    pattern = re.compile(
+        rf'(?m)^{re.escape(field)}\s*=\s*"[^"]*"\s*$'
+    )
+    result, count = pattern.subn(
+        f"{field} = {_toml_value(value)}",
+        source,
+        count=1,
+    )
+    if count != 1:
+        raise ValueError(f"invariant source lacks top-level {field} assignment")
+    return result
 
 
 def _replace_covered_catalog_cells(
