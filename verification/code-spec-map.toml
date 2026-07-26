@@ -24805,9 +24805,11 @@ visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_0748F7B91574B0F7E4F94EB7BDF11CB90F8846A23F1C9A2CFF0D31A83452579C"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_COMPILER_IEC_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_IEC_STATEMENTS_001#malformed-source-recovery"
+invariant_ids = ["IEC_PARSE_BOUNDED_SCAN_001"]
+test_ids = ["TEST_AUTO_24926AF7B506A67CE190", "TEST_AUTO_3C5D1667AD9E1B86A142", "TEST_AUTO_B29671FE018210E9C48E"]
+last_reviewed = "2026-07-26"
 
 [[mappings]]
 schema_version = 1
@@ -43492,9 +43494,11 @@ visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_BD51298404902765C9E0458DD17C6132F85B2AA0A35C42DE121FDF58672DEE9A"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_COMPILER_IEC_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_IEC_STATEMENTS_001#malformed-source-recovery"
+invariant_ids = ["IEC_PARSE_BOUNDED_SCAN_001"]
+test_ids = ["TEST_AUTO_5F59509A6C430C5EE9F8", "TEST_AUTO_7A7978359CD7CD06FA6F"]
+last_reviewed = "2026-07-26"
 
 [[mappings]]
 schema_version = 1

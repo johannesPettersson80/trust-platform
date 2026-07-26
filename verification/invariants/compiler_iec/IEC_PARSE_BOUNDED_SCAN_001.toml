@@ -10,11 +10,11 @@ claim = "A bounded parser-recovery scan treats separators and closing delimiters
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-syntax/src/parser/parser.rs"]
-tests = []
+tests = ["TEST_AUTO_24926AF7B506A67CE190", "TEST_AUTO_3C5D1667AD9E1B86A142", "TEST_AUTO_5F59509A6C430C5EE9F8", "TEST_AUTO_7A7978359CD7CD06FA6F", "TEST_AUTO_B29671FE018210E9C48E"]
 gates = ["veryquick", "pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+missing = ["assertion_reachability", "broad_remote_gate"]
 
 [spec]
 status = "specified"

@@ -898,6 +898,29 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   IEC decision or deviation. No broad workspace test, coverage campaign,
   mutation campaign, or final gate has run.
   <!-- generated:runtime-string-element-semantics:end -->
+  <!-- generated:parser-bounded-recovery-catalog:start -->
+
+  Parser bounded-recovery catalog progress (2026-07-26): the product
+  recovery contract now states how nested parentheses, brackets, separators,
+  owning closers, and statement boundaries interact in a bounded scan. The
+  policy remains a truST tooling decision recorded in `IEC_DECISIONS.md`, not
+  an IEC deviation. A separate `IEC_PARSE_BOUNDED_SCAN_001` invariant prevents
+  five internal helper tests from overstating parser-level diagnostic proof;
+  two parser-level tests bind only to the existing missing-semicolon and
+  missing-inner-terminator partitions of `IEC_PARSE_RECOVER_001`.
+  Execution-derived attribution and two independent semantic reviewers bind
+  the exact two helper code facts and catalog-map all seven tests. Repository
+  totals become 1,646 specified code facts, 13,739 remaining `spec_gap` facts,
+  1,155 `catalog_mapped` denominator tests, and 3,231 remaining
+  `reviewed_nonmapping` tests; the catalog contains 1,163 rows including the
+  eight rows outside the frozen denominator. The focused trace observed 7/7
+  tests in 18 seconds. Its five-test and two-test review scopes reused that
+  saved raw evidence without rerunning tests, and 80 focused
+  mapping/authority self-tests are green. Valid-source parser smoke tests and
+  unrelated colocated runtime/ADS tests remain honest nonmapping debt rather
+  than being forced into semantically different invariants. No broad
+  workspace test, coverage campaign, mutation campaign, or final gate has run.
+  <!-- generated:parser-bounded-recovery-catalog:end -->
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device

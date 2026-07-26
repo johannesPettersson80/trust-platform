@@ -28941,3 +28941,227 @@ mapping_assertion_review_digest = "sha256:12830895b446c4de485b422bf6e7687b42576d
 mapping_assertion_source_digests = { "crates/trust-runtime-core/src/value/string_semantics.rs" = "sha256:6c574228d11c327262ab9a99065b72f44a5547fe62f07af6943ffdb135adf994" }
 mapping_behavior_refs = ["VM_SEAM_STRING_ELEMENT_001#behavior:3", "VM_SEAM_STRING_ELEMENT_001#behavior:4"]
 mapping_reviewer_ids = ["codex-main-semantic-review", "codex-semantic-authority-adjudicator"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_24926AF7B506A67CE190"
+subject_kind = "generated_test"
+discovery_id = "DISC_24926AF7B506A67CE190"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/src/parser/parser.rs"
+name = "test_bounded_recovery_closes_after_nested_paren_is_balanced"
+command = "cargo nextest run -p trust-syntax --lib -E '(binary_id(=trust-syntax) & test(=parser::parser::tests::test_bounded_recovery_closes_after_nested_paren_is_balanced))'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_BOUNDED_SCAN_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001#malformed-source-recovery"
+expected_result = "After a nested parenthesis is balanced, recovery returns the owning closing parenthesis and preserves the following semicolon."
+expected_failure_mode = "The observed result violates the reviewed behavior: After a nested parenthesis is balanced, recovery returns the owning closing parenthesis and preserves the following semicolon."
+suite_tiers = ["pr", "veryquick"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_24926AF7B506A67CE190.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_24926AF7B506A67CE190_71B05CD1C09B"
+mapping_proposal_digest = "sha256:71b05cd1c09b11a02b24ed69b23b4d07e01c5a2c4a15904dedd0c2e86760c2c1"
+mapping_decision_id = "MAP_DEC_A684960AAB354E1BEBFAC3B1"
+mapping_reviewed_source_digest = "sha256:a680fa3c0f6b17db3653e5274f29664e31f79cc197ac4672a28d64fe23978a2d"
+mapping_assertion_review_digest = "sha256:d082a2a7e22120d54ab8f1524c6f03314bc5cb2b0974a44de3e75f10fef162d8"
+mapping_assertion_source_digests = { "crates/trust-syntax/src/parser/parser.rs" = "sha256:a680fa3c0f6b17db3653e5274f29664e31f79cc197ac4672a28d64fe23978a2d" }
+mapping_behavior_refs = ["IEC_PARSE_BOUNDED_SCAN_001#behavior:3"]
+mapping_reviewer_ids = ["codex-main-semantic-review", "codex-review-attribution-perf"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_3C5D1667AD9E1B86A142"
+subject_kind = "generated_test"
+discovery_id = "DISC_3C5D1667AD9E1B86A142"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/src/parser/parser.rs"
+name = "test_bounded_recovery_does_not_close_on_rparen_inside_unclosed_bracket"
+command = "cargo nextest run -p trust-syntax --lib -E '(binary_id(=trust-syntax) & test(=parser::parser::tests::test_bounded_recovery_does_not_close_on_rparen_inside_unclosed_bracket))'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_BOUNDED_SCAN_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001#malformed-source-recovery"
+expected_result = "A closing parenthesis inside an unclosed bracket cannot close the outer construct; recovery returns and preserves the following semicolon boundary."
+expected_failure_mode = "The observed result violates the reviewed behavior: A closing parenthesis inside an unclosed bracket cannot close the outer construct; recovery returns and preserves the following semicolon boundary."
+suite_tiers = ["pr", "veryquick"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_3C5D1667AD9E1B86A142.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_3C5D1667AD9E1B86A142_C80B6EE5C683"
+mapping_proposal_digest = "sha256:c80b6ee5c683553a69cdd8d9c62511d3e7a36766c1b642ce4dec13cd81bdcb97"
+mapping_decision_id = "MAP_DEC_5C91924F36CF728C5A6F1AB8"
+mapping_reviewed_source_digest = "sha256:a680fa3c0f6b17db3653e5274f29664e31f79cc197ac4672a28d64fe23978a2d"
+mapping_assertion_review_digest = "sha256:febc90ae9b0d4ec9d62ec545bacd807adc6a8be263be041105a67342be478cf3"
+mapping_assertion_source_digests = { "crates/trust-syntax/src/parser/parser.rs" = "sha256:a680fa3c0f6b17db3653e5274f29664e31f79cc197ac4672a28d64fe23978a2d" }
+mapping_behavior_refs = ["IEC_PARSE_BOUNDED_SCAN_001#behavior:2"]
+mapping_reviewer_ids = ["codex-main-semantic-review", "codex-review-attribution-perf"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_5F59509A6C430C5EE9F8"
+subject_kind = "generated_test"
+discovery_id = "DISC_5F59509A6C430C5EE9F8"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/src/parser/parser.rs"
+name = "test_bounded_top_level_scan_ignores_commas_inside_brackets"
+command = "cargo nextest run -p trust-syntax --lib -E '(binary_id(=trust-syntax) & test(=parser::parser::tests::test_bounded_top_level_scan_ignores_commas_inside_brackets))'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_BOUNDED_SCAN_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001#malformed-source-recovery"
+expected_result = "A comma inside balanced brackets is not top-level, so the scan returns the owning closing parenthesis."
+expected_failure_mode = "The observed result violates the reviewed behavior: A comma inside balanced brackets is not top-level, so the scan returns the owning closing parenthesis."
+suite_tiers = ["pr", "veryquick"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_5F59509A6C430C5EE9F8.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_5F59509A6C430C5EE9F8_228597F056E6"
+mapping_proposal_digest = "sha256:228597f056e65cb22794e68d88ab5840fe764df32733162df873f606aef20a0c"
+mapping_decision_id = "MAP_DEC_A95BCA71D5FD16B230C5DE2B"
+mapping_reviewed_source_digest = "sha256:a680fa3c0f6b17db3653e5274f29664e31f79cc197ac4672a28d64fe23978a2d"
+mapping_assertion_review_digest = "sha256:367ac8bb693646f2c5581cf8659929885d146cf80aebd3c900c2e6936f4f8e8e"
+mapping_assertion_source_digests = { "crates/trust-syntax/src/parser/parser.rs" = "sha256:a680fa3c0f6b17db3653e5274f29664e31f79cc197ac4672a28d64fe23978a2d" }
+mapping_behavior_refs = ["IEC_PARSE_BOUNDED_SCAN_001#behavior:0"]
+mapping_reviewer_ids = ["codex-main-semantic-review", "codex-review-attribution-perf"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_7A7978359CD7CD06FA6F"
+subject_kind = "generated_test"
+discovery_id = "DISC_7A7978359CD7CD06FA6F"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/src/parser/parser.rs"
+name = "test_bounded_top_level_scan_stops_at_boundary_inside_unclosed_bracket"
+command = "cargo nextest run -p trust-syntax --lib -E '(binary_id(=trust-syntax) & test(=parser::parser::tests::test_bounded_top_level_scan_stops_at_boundary_inside_unclosed_bracket))'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_BOUNDED_SCAN_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001#malformed-source-recovery"
+expected_result = "An unclosed bracket keeps its comma non-top-level, so the scan returns the configured semicolon boundary."
+expected_failure_mode = "The observed result violates the reviewed behavior: An unclosed bracket keeps its comma non-top-level, so the scan returns the configured semicolon boundary."
+suite_tiers = ["pr", "veryquick"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_7A7978359CD7CD06FA6F.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_7A7978359CD7CD06FA6F_E5A87EDE5466"
+mapping_proposal_digest = "sha256:e5a87ede54660e1892d6159069ffd4879296c303af8a9ead560a02089dd7d61b"
+mapping_decision_id = "MAP_DEC_A4EC3B7B86722E48721D81FA"
+mapping_reviewed_source_digest = "sha256:a680fa3c0f6b17db3653e5274f29664e31f79cc197ac4672a28d64fe23978a2d"
+mapping_assertion_review_digest = "sha256:9b675832a2694d842304d6276822982a0a08e99d533267e4eedadb57520a119a"
+mapping_assertion_source_digests = { "crates/trust-syntax/src/parser/parser.rs" = "sha256:a680fa3c0f6b17db3653e5274f29664e31f79cc197ac4672a28d64fe23978a2d" }
+mapping_behavior_refs = ["IEC_PARSE_BOUNDED_SCAN_001#behavior:1"]
+mapping_reviewer_ids = ["codex-main-semantic-review", "codex-review-attribution-perf"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_B29671FE018210E9C48E"
+subject_kind = "generated_test"
+discovery_id = "DISC_B29671FE018210E9C48E"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/src/parser/parser.rs"
+name = "test_bounded_recovery_closes_after_nested_bracket_is_balanced"
+command = "cargo nextest run -p trust-syntax --lib -E '(binary_id(=trust-syntax) & test(=parser::parser::tests::test_bounded_recovery_closes_after_nested_bracket_is_balanced))'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_BOUNDED_SCAN_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001#malformed-source-recovery"
+expected_result = "After a nested bracket is balanced, recovery returns the owning closing parenthesis and preserves the following semicolon."
+expected_failure_mode = "The observed result violates the reviewed behavior: After a nested bracket is balanced, recovery returns the owning closing parenthesis and preserves the following semicolon."
+suite_tiers = ["pr", "veryquick"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_B29671FE018210E9C48E.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_B29671FE018210E9C48E_4BBFBF5BE2B7"
+mapping_proposal_digest = "sha256:4bbfbf5be2b77d5c5f75ad8e068fc441dd44ee69d146b04c2d227f497ab4353b"
+mapping_decision_id = "MAP_DEC_07E1138697864E3C5FB8D2E4"
+mapping_reviewed_source_digest = "sha256:a680fa3c0f6b17db3653e5274f29664e31f79cc197ac4672a28d64fe23978a2d"
+mapping_assertion_review_digest = "sha256:5fdd4693483d430fe5b1de6525bcbfe3f78933b26d8fbc5b35385bf1b7061d5d"
+mapping_assertion_source_digests = { "crates/trust-syntax/src/parser/parser.rs" = "sha256:a680fa3c0f6b17db3653e5274f29664e31f79cc197ac4672a28d64fe23978a2d" }
+mapping_behavior_refs = ["IEC_PARSE_BOUNDED_SCAN_001#behavior:4"]
+mapping_reviewer_ids = ["codex-main-semantic-review", "codex-review-attribution-perf"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_D32DA38076E458C4708A"
+subject_kind = "generated_test"
+discovery_id = "DISC_D32DA38076E458C4708A"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/src/parser/parser.rs"
+name = "test_missing_semicolon_insertion"
+command = "cargo nextest run -p trust-syntax --lib -E '(binary_id(=trust-syntax) & test(=parser::parser::tests::test_missing_semicolon_insertion))'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_RECOVER_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001#malformed-source-recovery"
+expected_result = "A missing statement semicolon diagnoses at the following statement boundary."
+expected_failure_mode = "The observed result violates the reviewed behavior: A missing statement semicolon diagnoses at the following statement boundary."
+suite_tiers = ["pr", "veryquick"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_D32DA38076E458C4708A.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_D32DA38076E458C4708A_8E9D29294A43"
+mapping_proposal_digest = "sha256:8e9d29294a43a22801a08ad45ee77cbc2731d9be00168622242a82ef83335579"
+mapping_decision_id = "MAP_DEC_F85D967752C03F494E657142"
+mapping_reviewed_source_digest = "sha256:a680fa3c0f6b17db3653e5274f29664e31f79cc197ac4672a28d64fe23978a2d"
+mapping_assertion_review_digest = "sha256:a6aa131d288ee618aa5dbbe719b45d3904f9cf458675d6884a1bbfea61b33494"
+mapping_assertion_source_digests = { "crates/trust-syntax/src/parser/parser.rs" = "sha256:a680fa3c0f6b17db3653e5274f29664e31f79cc197ac4672a28d64fe23978a2d" }
+mapping_behavior_refs = ["IEC_PARSE_RECOVER_001#behavior:14"]
+mapping_reviewer_ids = ["codex-main-semantic-review", "codex-scout-parser-batch"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_F1888E05720F069BDF08"
+subject_kind = "generated_test"
+discovery_id = "DISC_F1888E05720F069BDF08"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/src/parser/parser.rs"
+name = "test_missing_end_case_recovery"
+command = "cargo nextest run -p trust-syntax --lib -E '(binary_id(=trust-syntax) & test(=parser::parser::tests::test_missing_end_case_recovery))'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_RECOVER_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001#malformed-source-recovery"
+expected_result = "A missing inner terminator diagnoses before and does not consume the displayed outer terminator."
+expected_failure_mode = "The observed result violates the reviewed behavior: A missing inner terminator diagnoses before and does not consume the displayed outer terminator."
+suite_tiers = ["pr", "veryquick"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_F1888E05720F069BDF08.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_F1888E05720F069BDF08_B31ED39077C2"
+mapping_proposal_digest = "sha256:b31ed39077c2bc41b8c46b64bb83aaccd400646ffcd4325416fe4c27b7b1ae6c"
+mapping_decision_id = "MAP_DEC_F1C99227A882B4F4C63E85FF"
+mapping_reviewed_source_digest = "sha256:a680fa3c0f6b17db3653e5274f29664e31f79cc197ac4672a28d64fe23978a2d"
+mapping_assertion_review_digest = "sha256:4e990630695f560991056cff09eed59e804152622183cb8bb36244a4fe12a1da"
+mapping_assertion_source_digests = { "crates/trust-syntax/src/parser/parser.rs" = "sha256:a680fa3c0f6b17db3653e5274f29664e31f79cc197ac4672a28d64fe23978a2d" }
+mapping_behavior_refs = ["IEC_PARSE_RECOVER_001#behavior:11"]
+mapping_reviewer_ids = ["codex-main-semantic-review", "codex-scout-parser-batch"]
