@@ -10928,13 +10928,13 @@ id = "RISK_ACK_CE4C2EC85978E76CFF2EC3E94670A5426E57C388157A1BDC908C2C1E9AE160AE"
 code_id = "CODE_CE4C2EC85978E76CFF2EC3E94670A5426E57C388157A1BDC908C2C1E9AE160AE"
 owner = "language"
 area = "compiler_iec"
-body_digest = "sha256:84a735344dab3321a78686c7b14140257df43e0126683d56b950101ab56ec39b"
+body_digest = "sha256:b46820e46a115d830460ad502c77dedff5b7e17066234a12d3005f7a653aba28"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#compiler-iec-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-25-p18-hir-index-risk-review.md#infer-index-expression-outcome"
 reviewed_by = "language"
-reviewed_on = "2026-07-21"
+reviewed_on = "2026-07-25"
 expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+rationale = "Acknowledges the unchanged state_mutation risk signal for this exact reviewed body while the fact remains bound to its cited specification, invariant, and mapped tests; it neither infers correctness nor suppresses any signal."
 
 [[acknowledgements]]
 schema_version = 1

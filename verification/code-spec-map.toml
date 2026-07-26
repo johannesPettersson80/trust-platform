@@ -4785,14 +4785,14 @@ path = "crates/trust-runtime-core/src/value/string_semantics.rs"
 qualified_symbol = "trust_runtime_core::value::string_semantics::value_to_char"
 item_kind = "rust_function"
 signature_digest = "sha256:228ffd4eaae0c5f4d90abde36efaeda35872970cc207cf69af45648a0bf3beb4"
-reviewed_body_digest = "sha256:b5e0561cd81ad1ebc43725caa0f978f5bcaeff98e0a9c0ac5d9086ff2412d742"
+reviewed_body_digest = "sha256:fa9a831dccd4866eaa49601a7dd88958a6289849d59e5ef6b654c0d3bcc71abf"
 owner = "trust-runtime"
 area = "bytecode_vm"
 visibility = "private"
 risk_signals = []
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-21"
+last_reviewed = "2026-07-25"
 
 [[mappings]]
 schema_version = 1
