@@ -1,0 +1,79 @@
+schema_version = 1
+id = "PLCO_MOTION_OOP_FACADE_001"
+title = "PLCopen Motion OOP single-axis facade delegates to classic state"
+area = "plcopen_devtools"
+risk = "wrong_result"
+status = "specified"
+owner = "trust-plcopen"
+last_reviewed = "2026-07-27"
+claim = "The shipped Phase E single-axis objects bind axes, dispatch through public interfaces, expose classic command/readback state, and fail closed for unsupported methods."
+proof_level = "S0"
+contract_kind = "state_machine"
+source_refs = [
+  "docs/internal/references/PLCopenMotion/plcopen_motion_library_spec_for_truST_v0_1.md",
+  "libraries/plcopen_motion/oop/src",
+]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_tests", "focused_execution_evidence", "final_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#29-oop-facade-mapping"
+
+[[behavior]]
+partition = { equals = "OOP_BINDING_AND_INTERFACE_DISPATCH" }
+case_family = "happy_path"
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#29-oop-facade-mapping"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "expected_delta" }
+rationale = "Axis binding, concrete/interface assignment, method dispatch, refresh, and command-object return preserve the shipped Phase E surface."
+
+[[behavior]]
+partition = { equals = "OOP_COMMAND_STATUS_AND_CLASSIC_EXECUTION" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#196-phase-e-oop-facade"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "expected_delta", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "expected_delta" }
+rationale = "Power, home, move, set-position, reset, velocity, and command properties reflect the same classic axis state and completion rules."
+
+[[behavior]]
+partition = { equals = "OOP_READBACK_AND_PARAMETER_METHODS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#29-oop-facade-mapping"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "expected_delta" }
+rationale = "Readback and parameter methods project classic values through the shipped OOP public surface."
+
+[[behavior]]
+partition = { equals = "OOP_UNSUPPORTED_METHODS_FAIL_CLOSED" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#29-oop-facade-mapping"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "expected_delta" }
+rationale = "Unsupported methods return a command object with mcERR_NotSupported instead of false success."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Binding and interface-dispatch assertions await catalog binding and focused execution evidence."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "Classic command lifecycle assertions await catalog binding and focused execution evidence."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Unsupported-method rejection awaits catalog binding and focused execution evidence."

@@ -1,0 +1,66 @@
+schema_version = 1
+id = "OSCAT_OOP_FACADE_001"
+title = "The OSCAT OOP facade preserves classic behavior and per-instance state"
+area = "plcopen_devtools"
+risk = "wrong_result"
+status = "specified"
+owner = "trust-plcopen"
+last_reviewed = "2026-07-27"
+claim = "The shipped OSCAT OOP objects delegate to the classic behavior contract, advance one scan per update, and isolate state between instances."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = [
+  "docs/specs/31-oscat-library-profile.md",
+  "docs/guides/OSCAT_OOP_LIBRARY_GUIDE.md",
+  "libraries/oscat_oop/src",
+]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_tests", "focused_execution_evidence", "final_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_OSCAT_LIBRARY_PROFILE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_OSCAT_LIBRARY_PROFILE_001#3-oop-facade-contract"
+
+[[behavior]]
+partition = { equals = "CONTEXT_CONVERSION_AND_CALENDAR_PARITY" }
+case_family = "happy_path"
+oracle_ref = "SPEC_OSCAT_LIBRARY_PROFILE_001#31-context-conversion-and-calendar-parity"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "expected_delta" }
+rationale = "Context, carrier, direction, conversion, calendar, and sun services match their classic counterparts."
+
+[[behavior]]
+partition = { equals = "STATEFUL_SCAN_LIFECYCLE_RESET_AND_ISOLATION" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_OSCAT_LIBRARY_PROFILE_001#32-stateful-scan-lifecycle-and-isolation"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected_delta", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "expected_delta" }
+rationale = "Each object owns one classic instance, advances one scan per update, resets deterministically, and shares no scan history with other objects."
+
+[[behavior]]
+partition = { equals = "COMPONENT_AND_INTERFACE_PARITY" }
+case_family = "happy_path"
+oracle_ref = "SPEC_OSCAT_LIBRARY_PROFILE_001#33-component-parity"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected_delta", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "expected_delta" }
+rationale = "Concrete and interface-dispatched memory, logic, generator, filter, controller, measuring, building, and device objects preserve classic results."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Reviewed OOP parity assertions await catalog binding and focused execution evidence."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "Reviewed reset, multiscan, and instance-isolation assertions await catalog binding and focused execution evidence."

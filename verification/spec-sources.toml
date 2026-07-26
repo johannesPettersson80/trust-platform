@@ -2248,6 +2248,33 @@ covers = ["1_purpose", "2_source_hierarchy", "3_public_api_stance", "4_complianc
 known_limitations = ["The software-only Phase A kernel uses falling Execute as a deterministic simulated-completion signal; hardware adapters must complete from backend progress.", "The Phase A single-axis profile publishes but rejects all mcBlending modes until blending semantics are implemented."]
 conflicts_with = []
 
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_OSCAT_LIBRARY_PROFILE_001"
+title = "OSCAT Library Product Profile"
+area = "plcopen_devtools"
+owner = "trust-runtime"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/specs/31-oscat-library-profile.md"
+version = "current"
+last_reviewed = "2026-07-27"
+covers = [
+  "1_scope_and_authority",
+  "2_classic_package_contract",
+  "3_oop_facade_contract",
+  "4_verification_partitions",
+]
+known_limitations = [
+  "T_PLC_US is a millisecond-derived compatibility projection, not a sub-millisecond hardware clock.",
+  "Random-helper conformance requires a non-tautological observable property; callability alone is not proof.",
+]
+conflicts_with = []
+
 
 [[spec_sources]]
 schema_version = 2

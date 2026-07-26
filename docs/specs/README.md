@@ -2,7 +2,7 @@
 
 This directory contains the IEC 61131-3 Structured Text language specs
 (`01-09`), the split runtime/tooling specs (`10-14`), the Ladder/profile/editor
-specs (`15-17`), the project/runtime and operational contract specs (`18-30`), and the current
+specs (`15-17`), the project/runtime and operational contract specs (`18-31`), and the current
 non-numbered SFC profile note (`sfc-profile`). Product and tooling contracts in
 this directory are explicitly identified and do not become IEC requirements.
 
@@ -35,6 +35,7 @@ this directory are explicitly identified and do not become IEC requirements.
 | [28-hir-warning-policy.md](28-hir-warning-policy.md) | Product warning policy for unused declarations, conversions, complexity, reachability, determinism, and suspicious operations | trust-hir |
 | [29-hir-sizeof-and-allocation.md](29-hir-sizeof-and-allocation.md) | Product contracts for `SIZEOF`, `NEW`, and `__DELETE` semantic validation | trust-hir |
 | [30-verification-inventory.md](30-verification-inventory.md) | Governance contract for complete IEC table inventory coverage and fail-closed review | verification tooling |
+| [31-oscat-library-profile.md](31-oscat-library-profile.md) | Normative truST product profile for the classic OSCAT package and its OOP facade | trust-runtime |
 | [16-ladder-profile-trust.md](16-ladder-profile-trust.md) | truST LD schema/runtime/editor profile and interoperability constraints | trust-runtime, trust-lsp, editors/vscode |
 | [17-visual-editors-runtime-unification.md](17-visual-editors-runtime-unification.md) | Shared ST-backed runtime/debug command path for Ladder/Statechart/Blockly | editors/vscode, trust-debug, trust-runtime |
 | [18-configurations-resources-tasks.md](18-configurations-resources-tasks.md) | CONFIGURATION/RESOURCE/TASK declarations and program-to-task binding rules | trust-hir, trust-lsp, trust-runtime |

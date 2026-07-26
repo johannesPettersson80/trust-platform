@@ -1,0 +1,112 @@
+schema_version = 1
+id = "OSCAT_CLASSIC_LIBRARY_PROFILE_001"
+title = "The classic OSCAT package preserves its selected public profile"
+area = "plcopen_devtools"
+risk = "wrong_result"
+status = "specified"
+owner = "trust-plcopen"
+last_reviewed = "2026-07-27"
+claim = "The shipped classic OSCAT chapters expose the documented truST-adapted public surface and preserve their specified pure and scan-state behavior."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = [
+  "docs/specs/31-oscat-library-profile.md",
+  "docs/guides/OSCAT_LIBRARY_GUIDE.md",
+  "libraries/oscat/src",
+]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_tests", "focused_execution_evidence", "final_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_OSCAT_LIBRARY_PROFILE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_OSCAT_LIBRARY_PROFILE_001#2-classic-package-contract"
+
+[[behavior]]
+partition = { equals = "CLASSIC_INITIALIZATION_CARRIERS_AND_PUBLIC_NAMING" }
+case_family = "happy_path"
+oracle_ref = "SPEC_OSCAT_LIBRARY_PROFILE_001#21-initialization-carriers-and-public-naming"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "expected_delta" }
+rationale = "Initialization, Chapter 3-4 carriers/helpers, compatibility timing, typed ports, and mandatory public renames follow the selected profile."
+
+[[behavior]]
+partition = { equals = "CLASSIC_REPLACED_PUBLIC_NAMES_ABSENT" }
+case_family = "missing_required"
+oracle_ref = "SPEC_OSCAT_LIBRARY_PROFILE_001#21-initialization-carriers-and-public-naming"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Upstream names replaced by the documented truST OSCAT naming profile remain absent rather than resolving as duplicate public APIs."
+
+[[behavior]]
+partition = { equals = "CLASSIC_NUMERIC_ARRAY_COMPLEX_DOUBLE_GEOMETRY_VECTOR" }
+case_family = "happy_path"
+oracle_ref = "SPEC_OSCAT_LIBRARY_PROFILE_001#22-numeric-array-complex-double-geometry-and-vector-behavior"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Chapters 5-11 preserve their documented scalar, aggregate, conversion, approximation, and in-place mutation results."
+
+[[behavior]]
+partition = { equals = "CLASSIC_TIME_CALENDAR_AND_STRING" }
+case_family = "happy_path"
+oracle_ref = "SPEC_OSCAT_LIBRARY_PROFILE_001#23-time-calendar-and-string-behavior"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "expected_delta" }
+rationale = "Chapters 12-13 preserve documented temporal, Gregorian/ISO calendar, bounded string, formatting, and message behavior."
+
+[[behavior]]
+partition = { equals = "CLASSIC_MEMORY_LOGIC_GENERATOR_AND_SIGNAL_PROCESSING" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_OSCAT_LIBRARY_PROFILE_001#24-memory-pulse-logic-generator-and-signal-processing-behavior"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "expected_delta" }
+rationale = "Chapters 14-19 retain per-instance state and apply documented reset, edge, timing, recurrence, and processing rules."
+
+[[behavior]]
+partition = { equals = "CLASSIC_SENSOR_MEASURING_CALCULATION_CONTROL_AND_DEVICE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_OSCAT_LIBRARY_PROFILE_001#25-sensor-measuring-calculation-control-and-device-behavior"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "expected_delta" }
+rationale = "Chapters 20-24 preserve documented conversion, calibration, alarm, controller, driver, limit, and transition behavior."
+
+[[behavior]]
+partition = { equals = "CLASSIC_BUFFER_AND_LIST" }
+case_family = "resource_limit"
+oracle_ref = "SPEC_OSCAT_LIBRARY_PROFILE_001#26-buffer-and-list-behavior"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "expected_delta" }
+rationale = "Chapters 25-26 preserve bounds, ordering, count, empty/full, error, and unrelated-storage behavior for caller-owned buffers and lists."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "The extracted Structured Text assertions are reviewed but are not catalog-bound until the focused batch transaction is accepted."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "Stateful scan behavior awaits the same focused catalogue and execution transaction."
+
+[[coverage.cells]]
+dimension = "resource_limit"
+state = "gap_open"
+rationale = "Buffer/list boundary assertions await the same focused catalogue and execution transaction."
+
+[[coverage.cells]]
+dimension = "missing_required"
+state = "gap_open"
+rationale = "The renamed-public-surface absence test awaits catalog binding and focused negative execution evidence."
