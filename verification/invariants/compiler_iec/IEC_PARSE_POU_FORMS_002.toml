@@ -10,11 +10,11 @@ claim = "The parser accepts documented IEC POU and namespace forms plus explicit
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-syntax/src/parser", "docs/specs/03-variables.md", "docs/specs/04-pou-declarations.md", "docs/specs/18-configurations-resources-tasks.md"]
-tests = []
+tests = ["TEST_AUTO_0B4EB1177A669105BB48", "TEST_AUTO_132C51368691E4ACA7A4", "TEST_AUTO_157C2D9DE0C16280F1FC", "TEST_AUTO_1641D22035FF1021837D", "TEST_AUTO_19D2CE16E17DF11154B6", "TEST_AUTO_28E425C23DE358335943", "TEST_AUTO_2DD47463E38CD0C6B50A", "TEST_AUTO_314498D9CCD74BBC02FE", "TEST_AUTO_48EBB052B5162666BA2B", "TEST_AUTO_49687F4FF7933F5F2ADB", "TEST_AUTO_4CE47E9236C3393B599F", "TEST_AUTO_69B10FABD36B24FE599A", "TEST_AUTO_6B6C2005B158D524747F", "TEST_AUTO_7E641C521D52CB31C083", "TEST_AUTO_9280A9739478FD9C554E", "TEST_AUTO_B06CB96D55F06E4E7B93", "TEST_AUTO_D7A9ABD35C01112BF887", "TEST_AUTO_D9946A99F129EC3AE4F1", "TEST_AUTO_DE62025A26A86F67F39D", "TEST_AUTO_E04E23863B97B597D39E", "TEST_AUTO_F712646D984E58F6E0A8"]
 gates = ["veryquick", "pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+missing = ["assertion_reachability", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -134,5 +134,5 @@ rationale = "A documented vendor-style namespace-level VAR_GLOBAL block remains 
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "The complete POU-form assertion family awaits catalog association."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in IEC_PARSE_POU_FORMS_002; dynamic proof and broad remote validation remain explicit debt."

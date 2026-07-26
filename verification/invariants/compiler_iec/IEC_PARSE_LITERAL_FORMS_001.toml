@@ -10,11 +10,11 @@ claim = "Integer, real, Boolean, typed, string, duration, date, time-of-day, and
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-syntax/src/lexer.rs", "crates/trust-syntax/src/parser", "docs/specs/01-lexical-elements.md"]
-tests = []
+tests = ["TEST_AUTO_6452349A9EE83ECBBC37", "TEST_AUTO_6B03272519B37089A6DD", "TEST_AUTO_805F2C665E75A8E33AB7", "TEST_AUTO_8B565ECC1E11CAE65DF5", "TEST_AUTO_912A1D0AEA9E0C84B9A9", "TEST_AUTO_930CC415CFEB0A8D08F0", "TEST_AUTO_B2E4F66FB0D35F64903E"]
 gates = ["veryquick", "pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+missing = ["assertion_reachability", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -71,10 +71,10 @@ rationale = "Date, long-date, time-of-day, long time-of-day, and date-time forms
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "The numeric, typed, duration, and date/time literal assertions await catalog association."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in IEC_PARSE_LITERAL_FORMS_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "encoding_or_unicode"
-state = "gap_open"
-rationale = "The character-string literal assertions await catalog association."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every encoding_or_unicode behavior in IEC_PARSE_LITERAL_FORMS_001; dynamic proof and broad remote validation remain explicit debt."

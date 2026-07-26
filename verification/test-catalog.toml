@@ -54395,3 +54395,3098 @@ mapping_assertion_review_digest = "sha256:28aeb2ba1797de75a2a2f7fbb8d5d67bbbe834
 mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/var_sections.rs" = "sha256:be6b0ec52229bd42dc9b04addbcd64610177025d334385e09a5a23422d9ba1d7" }
 mapping_behavior_refs = ["IEC_HIR_NAME_SCOPE_RESOLUTION_001#behavior:0"]
 mapping_reviewer_ids = ["codex-main", "codex-specification-review"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_7ED161A7FAC81F254D67"
+subject_kind = "generated_test"
+discovery_id = "DISC_7ED161A7FAC81F254D67"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_complex.rs"
+name = "test_complete_function_block"
+command = "cargo nextest run -p trust-syntax --test parser_complex --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_complex) & test(=test_complete_function_block)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_COMPOSITE_SOURCE_001"]
+oracle_ref = "SPEC_IEC_POU_DECLARATIONS_001"
+expected_result = "The complete function block retains its input, output, and local sections plus arithmetic assignment statements under the matching declaration terminator."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_7ED161A7FAC81F254D67.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_7ED161A7FAC81F254D67_F5CC53C17386"
+mapping_proposal_digest = "sha256:f5cc53c173868281d61d3de25cbaff49985a9f49caa38843da6b5ffc05df5898"
+mapping_decision_id = "MAP_DEC_CE76B9BA69E01999C7E0425E"
+mapping_reviewed_source_digest = "sha256:30b0e06f1f74cc6f2a421d24d3d8692e5f2141ec65173d0dd0e0c3242ee5382d"
+mapping_assertion_review_digest = "sha256:2c0585ae69c643478b5dfd62b7c3f5ba7cc41bba647801d07b0f045b8504f0a4"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_complex.rs" = "sha256:30b0e06f1f74cc6f2a421d24d3d8692e5f2141ec65173d0dd0e0c3242ee5382d" }
+mapping_behavior_refs = ["IEC_PARSE_COMPOSITE_SOURCE_001#behavior:0"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_040FA7FD5A9C4FA012E9"
+subject_kind = "generated_test"
+discovery_id = "DISC_040FA7FD5A9C4FA012E9"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_expressions.rs"
+name = "test_pointer_dereference"
+command = "cargo nextest run -p trust-syntax --test parser_expressions --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_expressions) & test(=test_pointer_dereference)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_EXPRESSION_FORMS_002"]
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001"
+expected_result = "Field access, array indexing, and repeated pointer dereference remain distinct postfix expression forms."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_040FA7FD5A9C4FA012E9.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_040FA7FD5A9C4FA012E9_425EC224E749"
+mapping_proposal_digest = "sha256:425ec224e7497c80c83c2f2f8fde4cb9bfdf3a6c46c027095ddcbc8dad055199"
+mapping_decision_id = "MAP_DEC_E00285519FFECEDFE8A27164"
+mapping_reviewed_source_digest = "sha256:073c8867172a61f77a33f9cc6a7166b97e7eb488119112afcac6e7cc231a3e48"
+mapping_assertion_review_digest = "sha256:aae605fc183a8d10ee2692931277d16c6810ae1809f7ce295e36e4baf7b9419d"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_expressions.rs" = "sha256:073c8867172a61f77a33f9cc6a7166b97e7eb488119112afcac6e7cc231a3e48" }
+mapping_behavior_refs = ["IEC_PARSE_EXPRESSION_FORMS_002#behavior:1"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_0C64B66155D18AB6A349"
+subject_kind = "generated_test"
+discovery_id = "DISC_0C64B66155D18AB6A349"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_expressions.rs"
+name = "test_logical_operators"
+command = "cargo nextest run -p trust-syntax --test parser_expressions --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_expressions) & test(=test_logical_operators)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_EXPRESSION_FORMS_002"]
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001"
+expected_result = "Arithmetic, comparison, logical, unary-sign, and NOT expressions retain their documented operator nodes and operands."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_0C64B66155D18AB6A349.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_0C64B66155D18AB6A349_9F6B1D69165A"
+mapping_proposal_digest = "sha256:9f6b1d69165ad53f98448def85635375018020c1085d7d6f79d90ebf3afda75c"
+mapping_decision_id = "MAP_DEC_1959E01A44AA4E79A7296FBA"
+mapping_reviewed_source_digest = "sha256:073c8867172a61f77a33f9cc6a7166b97e7eb488119112afcac6e7cc231a3e48"
+mapping_assertion_review_digest = "sha256:dc787507976684fe6ed98a9be1b10308f25000e9eba27bfda443d9ae2b8c8ee5"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_expressions.rs" = "sha256:073c8867172a61f77a33f9cc6a7166b97e7eb488119112afcac6e7cc231a3e48" }
+mapping_behavior_refs = ["IEC_PARSE_EXPRESSION_FORMS_002#behavior:0"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_1C42DB389FAA2ED580BB"
+subject_kind = "generated_test"
+discovery_id = "DISC_1C42DB389FAA2ED580BB"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_expressions.rs"
+name = "exponentiation_is_left_associative_per_iec_table_71"
+command = "cargo nextest run -p trust-syntax --test parser_expressions --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_expressions) & test(=exponentiation_is_left_associative_per_iec_table_71)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_PREC_001"]
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001"
+expected_result = "Repeated exponentiation groups from the left under the active product contract."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_1C42DB389FAA2ED580BB.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_1C42DB389FAA2ED580BB_4576F546639C"
+mapping_proposal_digest = "sha256:4576f546639ce5598331579acdf6b904ce43a65b9fb51533111dfe39c841af08"
+mapping_decision_id = "MAP_DEC_7C71ABC26A2B3DEE1973F9B6"
+mapping_reviewed_source_digest = "sha256:073c8867172a61f77a33f9cc6a7166b97e7eb488119112afcac6e7cc231a3e48"
+mapping_assertion_review_digest = "sha256:eea59343c14b206879ea038d39c711ee5987ead15829fffdfe93562e69d785cd"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_expressions.rs" = "sha256:073c8867172a61f77a33f9cc6a7166b97e7eb488119112afcac6e7cc231a3e48" }
+mapping_behavior_refs = ["IEC_PREC_001#behavior:2"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_242B246E9CD7517FDEF5"
+subject_kind = "generated_test"
+discovery_id = "DISC_242B246E9CD7517FDEF5"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_expressions.rs"
+name = "test_sizeof_index_operand_is_expression_not_type_ref"
+command = "cargo nextest run -p trust-syntax --test parser_expressions --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_expressions) & test(=test_sizeof_index_operand_is_expression_not_type_ref)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_EXPRESSION_FORMS_002"]
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001"
+expected_result = "Explicit builtin and array types are TypeRef operands while names, fields, indexes, dereferences, and calls remain expression operands."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_242B246E9CD7517FDEF5.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_242B246E9CD7517FDEF5_9D5A8DDDF237"
+mapping_proposal_digest = "sha256:9d5a8dddf237ece314df00301293208b75a3fae4ff9b9d483b0719d8de137ef3"
+mapping_decision_id = "MAP_DEC_037761584243B8899325746C"
+mapping_reviewed_source_digest = "sha256:073c8867172a61f77a33f9cc6a7166b97e7eb488119112afcac6e7cc231a3e48"
+mapping_assertion_review_digest = "sha256:420dc0b0697e92132eb06449b8e25efd2f913652f88de69b11e31c373ccfef0c"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_expressions.rs" = "sha256:073c8867172a61f77a33f9cc6a7166b97e7eb488119112afcac6e7cc231a3e48" }
+mapping_behavior_refs = ["IEC_PARSE_EXPRESSION_FORMS_002#behavior:3"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_369516AA6B664D5C95D8"
+subject_kind = "generated_test"
+discovery_id = "DISC_369516AA6B664D5C95D8"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_expressions.rs"
+name = "test_comparison_operators"
+command = "cargo nextest run -p trust-syntax --test parser_expressions --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_expressions) & test(=test_comparison_operators)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_EXPRESSION_FORMS_002"]
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001"
+expected_result = "Arithmetic, comparison, logical, unary-sign, and NOT expressions retain their documented operator nodes and operands."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_369516AA6B664D5C95D8.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_369516AA6B664D5C95D8_5A05C35F5135"
+mapping_proposal_digest = "sha256:5a05c35f513564741037b93484b6982d032628491e314671e6571b6362ec9f6e"
+mapping_decision_id = "MAP_DEC_04EEAEC47A49EAA777E07BD8"
+mapping_reviewed_source_digest = "sha256:073c8867172a61f77a33f9cc6a7166b97e7eb488119112afcac6e7cc231a3e48"
+mapping_assertion_review_digest = "sha256:acf6df374e77c11dfe330e867c095bc5ac23405c1a7f1b4c4822d24fefc184df"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_expressions.rs" = "sha256:073c8867172a61f77a33f9cc6a7166b97e7eb488119112afcac6e7cc231a3e48" }
+mapping_behavior_refs = ["IEC_PARSE_EXPRESSION_FORMS_002#behavior:0"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_3B724A69637CEE49AF44"
+subject_kind = "generated_test"
+discovery_id = "DISC_3B724A69637CEE49AF44"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_expressions.rs"
+name = "test_sizeof_call_operand_is_expression_not_type_ref"
+command = "cargo nextest run -p trust-syntax --test parser_expressions --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_expressions) & test(=test_sizeof_call_operand_is_expression_not_type_ref)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_EXPRESSION_FORMS_002"]
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001"
+expected_result = "Explicit builtin and array types are TypeRef operands while names, fields, indexes, dereferences, and calls remain expression operands."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_3B724A69637CEE49AF44.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_3B724A69637CEE49AF44_2CE900C30C03"
+mapping_proposal_digest = "sha256:2ce900c30c03f7521d9d312aae5a2ac432a0b5a34620e15b60bfc2c6651ea42f"
+mapping_decision_id = "MAP_DEC_BDBAB765760CC3BCB4D73CBD"
+mapping_reviewed_source_digest = "sha256:073c8867172a61f77a33f9cc6a7166b97e7eb488119112afcac6e7cc231a3e48"
+mapping_assertion_review_digest = "sha256:23883ba26286779cfc579e3266bd7f5651eb1469e12a78b6b5f5d4baba7c3230"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_expressions.rs" = "sha256:073c8867172a61f77a33f9cc6a7166b97e7eb488119112afcac6e7cc231a3e48" }
+mapping_behavior_refs = ["IEC_PARSE_EXPRESSION_FORMS_002#behavior:3"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_4DF938F54F2FA1306C1E"
+subject_kind = "generated_test"
+discovery_id = "DISC_4DF938F54F2FA1306C1E"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_expressions.rs"
+name = "test_unary_operators"
+command = "cargo nextest run -p trust-syntax --test parser_expressions --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_expressions) & test(=test_unary_operators)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_EXPRESSION_FORMS_002"]
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001"
+expected_result = "Arithmetic, comparison, logical, unary-sign, and NOT expressions retain their documented operator nodes and operands."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_4DF938F54F2FA1306C1E.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_4DF938F54F2FA1306C1E_4EA38A551D54"
+mapping_proposal_digest = "sha256:4ea38a551d5494ead8d70e73479ada8b9fbcb03289c03e4f134e07f3292bba0c"
+mapping_decision_id = "MAP_DEC_54ABE0B7D88B811A48047618"
+mapping_reviewed_source_digest = "sha256:073c8867172a61f77a33f9cc6a7166b97e7eb488119112afcac6e7cc231a3e48"
+mapping_assertion_review_digest = "sha256:0df1817d3aa0e3f5f516145cf819784b2d86ce7eded8a6b78a2b5f34d3ca8368"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_expressions.rs" = "sha256:073c8867172a61f77a33f9cc6a7166b97e7eb488119112afcac6e7cc231a3e48" }
+mapping_behavior_refs = ["IEC_PARSE_EXPRESSION_FORMS_002#behavior:0"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_660B3271451CCA419643"
+subject_kind = "generated_test"
+discovery_id = "DISC_660B3271451CCA419643"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_expressions.rs"
+name = "test_sizeof_deref_operand_is_expression_not_type_ref"
+command = "cargo nextest run -p trust-syntax --test parser_expressions --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_expressions) & test(=test_sizeof_deref_operand_is_expression_not_type_ref)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_EXPRESSION_FORMS_002"]
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001"
+expected_result = "Explicit builtin and array types are TypeRef operands while names, fields, indexes, dereferences, and calls remain expression operands."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_660B3271451CCA419643.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_660B3271451CCA419643_77005449CCC3"
+mapping_proposal_digest = "sha256:77005449ccc372d2699fecd6f448543551f7ef458c5134a306deb8a580b4021a"
+mapping_decision_id = "MAP_DEC_0F3A69392A7C0277BEC83A8D"
+mapping_reviewed_source_digest = "sha256:073c8867172a61f77a33f9cc6a7166b97e7eb488119112afcac6e7cc231a3e48"
+mapping_assertion_review_digest = "sha256:76c28c2d8df750ea30880ab4b5f51a6aa1416e888c58f4307897229518af0d59"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_expressions.rs" = "sha256:073c8867172a61f77a33f9cc6a7166b97e7eb488119112afcac6e7cc231a3e48" }
+mapping_behavior_refs = ["IEC_PARSE_EXPRESSION_FORMS_002#behavior:3"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_67045A053B4987BD9299"
+subject_kind = "generated_test"
+discovery_id = "DISC_67045A053B4987BD9299"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_expressions.rs"
+name = "test_sizeof_variable_operand_is_expression_not_type_ref"
+command = "cargo nextest run -p trust-syntax --test parser_expressions --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_expressions) & test(=test_sizeof_variable_operand_is_expression_not_type_ref)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_EXPRESSION_FORMS_002"]
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001"
+expected_result = "Explicit builtin and array types are TypeRef operands while names, fields, indexes, dereferences, and calls remain expression operands."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_67045A053B4987BD9299.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_67045A053B4987BD9299_363B07201790"
+mapping_proposal_digest = "sha256:363b072017901ac33b6ffc9ace2b9248d3b26c0433e0266ba28208f13b0651e2"
+mapping_decision_id = "MAP_DEC_A8334D530F74B65862008622"
+mapping_reviewed_source_digest = "sha256:073c8867172a61f77a33f9cc6a7166b97e7eb488119112afcac6e7cc231a3e48"
+mapping_assertion_review_digest = "sha256:3f9f80cf4acf975747e817c09dcd6d9156bd50dc5edcaa5be32f2253ef19e6a0"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_expressions.rs" = "sha256:073c8867172a61f77a33f9cc6a7166b97e7eb488119112afcac6e7cc231a3e48" }
+mapping_behavior_refs = ["IEC_PARSE_EXPRESSION_FORMS_002#behavior:3"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_72A4635A2F50FA9B6F66"
+subject_kind = "generated_test"
+discovery_id = "DISC_72A4635A2F50FA9B6F66"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_expressions.rs"
+name = "unary_minus_binds_tighter_than_exponentiation_per_iec_table_71"
+command = "cargo nextest run -p trust-syntax --test parser_expressions --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_expressions) & test(=unary_minus_binds_tighter_than_exponentiation_per_iec_table_71)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_PREC_001"]
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001"
+expected_result = "Unary sign binds more tightly than exponentiation under the active product contract."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_72A4635A2F50FA9B6F66.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_72A4635A2F50FA9B6F66_B6E98BD86BCA"
+mapping_proposal_digest = "sha256:b6e98bd86bca9f59350b388ee606102272108dd953774729d42d6c8f445c03c7"
+mapping_decision_id = "MAP_DEC_6E674FDB3DDB0AE9721A2DF4"
+mapping_reviewed_source_digest = "sha256:073c8867172a61f77a33f9cc6a7166b97e7eb488119112afcac6e7cc231a3e48"
+mapping_assertion_review_digest = "sha256:8bd59bdedb5939cb7e8b940d3d0bea5c63fc459a755efb5f4c1aa60f66ea41a6"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_expressions.rs" = "sha256:073c8867172a61f77a33f9cc6a7166b97e7eb488119112afcac6e7cc231a3e48" }
+mapping_behavior_refs = ["IEC_PREC_001#behavior:3"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_7952C429413C84BEC774"
+subject_kind = "generated_test"
+discovery_id = "DISC_7952C429413C84BEC774"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_expressions.rs"
+name = "test_sizeof_explicit_array_type_operand_is_type_ref"
+command = "cargo nextest run -p trust-syntax --test parser_expressions --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_expressions) & test(=test_sizeof_explicit_array_type_operand_is_type_ref)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_EXPRESSION_FORMS_002"]
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001"
+expected_result = "Explicit builtin and array types are TypeRef operands while names, fields, indexes, dereferences, and calls remain expression operands."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_7952C429413C84BEC774.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_7952C429413C84BEC774_524055D496D9"
+mapping_proposal_digest = "sha256:524055d496d9406f90afe8b104392205fef1d9d58de0138e9e622b114bea23f6"
+mapping_decision_id = "MAP_DEC_93FA56F65646DB993B04E9E9"
+mapping_reviewed_source_digest = "sha256:073c8867172a61f77a33f9cc6a7166b97e7eb488119112afcac6e7cc231a3e48"
+mapping_assertion_review_digest = "sha256:3a2c438e53271beae5ce8e07c5780ff69082286182a3fab67a2217350870e798"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_expressions.rs" = "sha256:073c8867172a61f77a33f9cc6a7166b97e7eb488119112afcac6e7cc231a3e48" }
+mapping_behavior_refs = ["IEC_PARSE_EXPRESSION_FORMS_002#behavior:3"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_80070FE89B24B89216E5"
+subject_kind = "generated_test"
+discovery_id = "DISC_80070FE89B24B89216E5"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_expressions.rs"
+name = "test_array_indexing"
+command = "cargo nextest run -p trust-syntax --test parser_expressions --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_expressions) & test(=test_array_indexing)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_EXPRESSION_FORMS_002"]
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001"
+expected_result = "Field access, array indexing, and repeated pointer dereference remain distinct postfix expression forms."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_80070FE89B24B89216E5.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_80070FE89B24B89216E5_6B7E2BBC57B5"
+mapping_proposal_digest = "sha256:6b7e2bbc57b5fbaed11392d35e19e20354125db842954f6f0a319d6f6783734f"
+mapping_decision_id = "MAP_DEC_6CB5902A0765353376221F88"
+mapping_reviewed_source_digest = "sha256:073c8867172a61f77a33f9cc6a7166b97e7eb488119112afcac6e7cc231a3e48"
+mapping_assertion_review_digest = "sha256:1e5c774972dfe4e17e9858ca67d9461beda6625f0376590d9f11049910749003"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_expressions.rs" = "sha256:073c8867172a61f77a33f9cc6a7166b97e7eb488119112afcac6e7cc231a3e48" }
+mapping_behavior_refs = ["IEC_PARSE_EXPRESSION_FORMS_002#behavior:1"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_844BE5EF314ABC05FC5D"
+subject_kind = "generated_test"
+discovery_id = "DISC_844BE5EF314ABC05FC5D"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_expressions.rs"
+name = "test_siemens_hash_prefixed_locals"
+command = "cargo nextest run -p trust-syntax --test parser_expressions --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_expressions) & test(=test_siemens_hash_prefixed_locals)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_EXPRESSION_FORMS_002"]
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001"
+expected_result = "The documented number-sign local-reference extension composes with assignment, field access, calls, and loop expressions."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_844BE5EF314ABC05FC5D.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_844BE5EF314ABC05FC5D_4A0E4D62F3E4"
+mapping_proposal_digest = "sha256:4a0e4d62f3e4383deaad8834199ddab1317a0668c6015dc66efa63323b49169f"
+mapping_decision_id = "MAP_DEC_33EBCEF6C6FACAE688E29A96"
+mapping_reviewed_source_digest = "sha256:073c8867172a61f77a33f9cc6a7166b97e7eb488119112afcac6e7cc231a3e48"
+mapping_assertion_review_digest = "sha256:481eef158890288d189dfc7476830a629e1372c57753b3b12a49e9b30970b46c"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_expressions.rs" = "sha256:073c8867172a61f77a33f9cc6a7166b97e7eb488119112afcac6e7cc231a3e48" }
+mapping_behavior_refs = ["IEC_PARSE_EXPRESSION_FORMS_002#behavior:4"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_91B00FC87E16AEF9D815"
+subject_kind = "generated_test"
+discovery_id = "DISC_91B00FC87E16AEF9D815"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_expressions.rs"
+name = "test_this_super"
+command = "cargo nextest run -p trust-syntax --test parser_expressions --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_expressions) & test(=test_this_super)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_EXPRESSION_FORMS_002"]
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001"
+expected_result = "THIS member access and SUPER method calls remain documented primary and postfix expression forms."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_91B00FC87E16AEF9D815.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_91B00FC87E16AEF9D815_F54FE35DE6C5"
+mapping_proposal_digest = "sha256:f54fe35de6c53bb8125d8f6ebad21fe25e139ae7bf3739fb446a4c89a9436904"
+mapping_decision_id = "MAP_DEC_133061CD48334EF1A2D47530"
+mapping_reviewed_source_digest = "sha256:073c8867172a61f77a33f9cc6a7166b97e7eb488119112afcac6e7cc231a3e48"
+mapping_assertion_review_digest = "sha256:559f8ae339edde49bd68aee9766272ec05ab378e5d90e5250ee389c2d1664f90"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_expressions.rs" = "sha256:073c8867172a61f77a33f9cc6a7166b97e7eb488119112afcac6e7cc231a3e48" }
+mapping_behavior_refs = ["IEC_PARSE_EXPRESSION_FORMS_002#behavior:5"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_92D9633307186FC98E4B"
+subject_kind = "generated_test"
+discovery_id = "DISC_92D9633307186FC98E4B"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_expressions.rs"
+name = "test_arithmetic_operators"
+command = "cargo nextest run -p trust-syntax --test parser_expressions --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_expressions) & test(=test_arithmetic_operators)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_EXPRESSION_FORMS_002"]
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001"
+expected_result = "Arithmetic, comparison, logical, unary-sign, and NOT expressions retain their documented operator nodes and operands."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_92D9633307186FC98E4B.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_92D9633307186FC98E4B_2228344F91CC"
+mapping_proposal_digest = "sha256:2228344f91cc662f42cded3577458954526e2598a58d879cf4657bdda0e8abef"
+mapping_decision_id = "MAP_DEC_21B6D1CDB5702FD8AF4C7F16"
+mapping_reviewed_source_digest = "sha256:073c8867172a61f77a33f9cc6a7166b97e7eb488119112afcac6e7cc231a3e48"
+mapping_assertion_review_digest = "sha256:22aae593a0adf37e86a08d7f08653aca6e8ba3139badf09ae8ce1c16f79d1455"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_expressions.rs" = "sha256:073c8867172a61f77a33f9cc6a7166b97e7eb488119112afcac6e7cc231a3e48" }
+mapping_behavior_refs = ["IEC_PARSE_EXPRESSION_FORMS_002#behavior:0"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_97D61BB7559A7DD6E76E"
+subject_kind = "generated_test"
+discovery_id = "DISC_97D61BB7559A7DD6E76E"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_expressions.rs"
+name = "test_adr_sizeof"
+command = "cargo nextest run -p trust-syntax --test parser_expressions --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_expressions) & test(=test_adr_sizeof)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_EXPRESSION_FORMS_002"]
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001"
+expected_result = "Positional and formal function calls plus documented ADR, SIZEOF, and TIME parser forms retain their call or product-expression structure without asserting semantic binding."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_97D61BB7559A7DD6E76E.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_97D61BB7559A7DD6E76E_6AB4B1571B46"
+mapping_proposal_digest = "sha256:6ab4b1571b4699ccfe32e7a1d6098ef76f826e6367873df889582fc553ce6dab"
+mapping_decision_id = "MAP_DEC_A9C38F0901DCAE54DA8FA3ED"
+mapping_reviewed_source_digest = "sha256:073c8867172a61f77a33f9cc6a7166b97e7eb488119112afcac6e7cc231a3e48"
+mapping_assertion_review_digest = "sha256:187ba4edd7d9193ec45b1dfa8a67b54eefbc7d7ac521620b884c309cd472a209"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_expressions.rs" = "sha256:073c8867172a61f77a33f9cc6a7166b97e7eb488119112afcac6e7cc231a3e48" }
+mapping_behavior_refs = ["IEC_PARSE_EXPRESSION_FORMS_002#behavior:2"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_A1A6F0948A4713FAF153"
+subject_kind = "generated_test"
+discovery_id = "DISC_A1A6F0948A4713FAF153"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_expressions.rs"
+name = "test_time_builtin_call"
+command = "cargo nextest run -p trust-syntax --test parser_expressions --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_expressions) & test(=test_time_builtin_call)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_EXPRESSION_FORMS_002"]
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001"
+expected_result = "Positional and formal function calls plus documented ADR, SIZEOF, and TIME parser forms retain their call or product-expression structure without asserting semantic binding."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_A1A6F0948A4713FAF153.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_A1A6F0948A4713FAF153_82A2DA516E42"
+mapping_proposal_digest = "sha256:82a2da516e42247c4df8f09d67dc1cd506eb744e69b505c772da42b3de0f973c"
+mapping_decision_id = "MAP_DEC_06A6AE6004D7AA1FB0A072F2"
+mapping_reviewed_source_digest = "sha256:073c8867172a61f77a33f9cc6a7166b97e7eb488119112afcac6e7cc231a3e48"
+mapping_assertion_review_digest = "sha256:44e8b9968b2b1b94d98ff243e112fd0ebbc22164e4fa73b9ce41baa57b223fd0"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_expressions.rs" = "sha256:073c8867172a61f77a33f9cc6a7166b97e7eb488119112afcac6e7cc231a3e48" }
+mapping_behavior_refs = ["IEC_PARSE_EXPRESSION_FORMS_002#behavior:2"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_A24D196C0A5E43F2BAC6"
+subject_kind = "generated_test"
+discovery_id = "DISC_A24D196C0A5E43F2BAC6"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_expressions.rs"
+name = "test_operator_precedence"
+command = "cargo nextest run -p trust-syntax --test parser_expressions --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_expressions) & test(=test_operator_precedence)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_EXPRESSION_FORMS_002"]
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001"
+expected_result = "One lossless syntax snapshot preserves multiplicative-before-additive grouping, parenthesis override, and repeated exponentiation grouping together."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_A24D196C0A5E43F2BAC6.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_A24D196C0A5E43F2BAC6_8CAFEE0E014F"
+mapping_proposal_digest = "sha256:8cafee0e014fc8120006d5812441aa2eb37c6f6de80966086c2480b171dcd75b"
+mapping_decision_id = "MAP_DEC_6CADF7C827601F171911FE3F"
+mapping_reviewed_source_digest = "sha256:073c8867172a61f77a33f9cc6a7166b97e7eb488119112afcac6e7cc231a3e48"
+mapping_assertion_review_digest = "sha256:47f924cc113e73cb5aa56c64e0710db6a4d0c0618ea0d097f037b0bb46f8793d"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_expressions.rs" = "sha256:073c8867172a61f77a33f9cc6a7166b97e7eb488119112afcac6e7cc231a3e48" }
+mapping_behavior_refs = ["IEC_PARSE_EXPRESSION_FORMS_002#behavior:6"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_A5EA38429E32754E180A"
+subject_kind = "generated_test"
+discovery_id = "DISC_A5EA38429E32754E180A"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_expressions.rs"
+name = "test_sizeof_field_operand_is_expression_not_type_ref"
+command = "cargo nextest run -p trust-syntax --test parser_expressions --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_expressions) & test(=test_sizeof_field_operand_is_expression_not_type_ref)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_EXPRESSION_FORMS_002"]
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001"
+expected_result = "Explicit builtin and array types are TypeRef operands while names, fields, indexes, dereferences, and calls remain expression operands."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_A5EA38429E32754E180A.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_A5EA38429E32754E180A_12AEA7D6CCDF"
+mapping_proposal_digest = "sha256:12aea7d6ccdf1d04eb4d3dfd100a74ab2c4b74150421a0c4637debd5983d7dab"
+mapping_decision_id = "MAP_DEC_5163955EC138A517512E4FEC"
+mapping_reviewed_source_digest = "sha256:073c8867172a61f77a33f9cc6a7166b97e7eb488119112afcac6e7cc231a3e48"
+mapping_assertion_review_digest = "sha256:b038c3209f8c3c70f09c11bd08d2b6302825fc082ba981e0c39896f4bc6c967a"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_expressions.rs" = "sha256:073c8867172a61f77a33f9cc6a7166b97e7eb488119112afcac6e7cc231a3e48" }
+mapping_behavior_refs = ["IEC_PARSE_EXPRESSION_FORMS_002#behavior:3"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_C30D90A345E81DB8C44F"
+subject_kind = "generated_test"
+discovery_id = "DISC_C30D90A345E81DB8C44F"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_expressions.rs"
+name = "test_sizeof_explicit_builtin_type_operand_is_type_ref"
+command = "cargo nextest run -p trust-syntax --test parser_expressions --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_expressions) & test(=test_sizeof_explicit_builtin_type_operand_is_type_ref)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_EXPRESSION_FORMS_002"]
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001"
+expected_result = "Explicit builtin and array types are TypeRef operands while names, fields, indexes, dereferences, and calls remain expression operands."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_C30D90A345E81DB8C44F.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_C30D90A345E81DB8C44F_6DA2D08E199B"
+mapping_proposal_digest = "sha256:6da2d08e199b259bd8d16bbd1e58f8d33d27ba95cbfae03487d2456fb51c7df8"
+mapping_decision_id = "MAP_DEC_DC20A5C85DD805B2B4E32CFF"
+mapping_reviewed_source_digest = "sha256:073c8867172a61f77a33f9cc6a7166b97e7eb488119112afcac6e7cc231a3e48"
+mapping_assertion_review_digest = "sha256:9a5b44e472a1f3493e8f36a1df04cef515e6c67b505d90a0c67dea39d33f80c9"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_expressions.rs" = "sha256:073c8867172a61f77a33f9cc6a7166b97e7eb488119112afcac6e7cc231a3e48" }
+mapping_behavior_refs = ["IEC_PARSE_EXPRESSION_FORMS_002#behavior:3"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_DE0A37F5DBCEA9EC22BD"
+subject_kind = "generated_test"
+discovery_id = "DISC_DE0A37F5DBCEA9EC22BD"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_expressions.rs"
+name = "test_field_access"
+command = "cargo nextest run -p trust-syntax --test parser_expressions --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_expressions) & test(=test_field_access)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_EXPRESSION_FORMS_002"]
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001"
+expected_result = "Field access, array indexing, and repeated pointer dereference remain distinct postfix expression forms."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_DE0A37F5DBCEA9EC22BD.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_DE0A37F5DBCEA9EC22BD_32AF41410655"
+mapping_proposal_digest = "sha256:32af414106557a1cb8427b937be8d3a218e3f22c4a02f7fdd24b61cd0ecb53bd"
+mapping_decision_id = "MAP_DEC_5439BBDE4798D1AF2416E876"
+mapping_reviewed_source_digest = "sha256:073c8867172a61f77a33f9cc6a7166b97e7eb488119112afcac6e7cc231a3e48"
+mapping_assertion_review_digest = "sha256:584eee43983a4d4c76edb172453dc0a4ef9e86bb8d0782df2b9a7c4d12bb481b"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_expressions.rs" = "sha256:073c8867172a61f77a33f9cc6a7166b97e7eb488119112afcac6e7cc231a3e48" }
+mapping_behavior_refs = ["IEC_PARSE_EXPRESSION_FORMS_002#behavior:1"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_DEAB54E384071EC060B1"
+subject_kind = "generated_test"
+discovery_id = "DISC_DEAB54E384071EC060B1"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_expressions.rs"
+name = "test_function_call"
+command = "cargo nextest run -p trust-syntax --test parser_expressions --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_expressions) & test(=test_function_call)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_EXPRESSION_FORMS_002"]
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001"
+expected_result = "Positional and formal function calls plus documented ADR, SIZEOF, and TIME parser forms retain their call or product-expression structure without asserting semantic binding."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_DEAB54E384071EC060B1.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_DEAB54E384071EC060B1_BB3FE2C65040"
+mapping_proposal_digest = "sha256:bb3fe2c6504042003d5558b8ca5a438e317e375cfd4a08934ee3a165541e4184"
+mapping_decision_id = "MAP_DEC_21C8AAEDEC8C060A9B294C19"
+mapping_reviewed_source_digest = "sha256:073c8867172a61f77a33f9cc6a7166b97e7eb488119112afcac6e7cc231a3e48"
+mapping_assertion_review_digest = "sha256:c6c75eeba07073fbc9326f3ca9cef8b4bd84f8050ee33f2f45314afa1c6a4c18"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_expressions.rs" = "sha256:073c8867172a61f77a33f9cc6a7166b97e7eb488119112afcac6e7cc231a3e48" }
+mapping_behavior_refs = ["IEC_PARSE_EXPRESSION_FORMS_002#behavior:2"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_6452349A9EE83ECBBC37"
+subject_kind = "generated_test"
+discovery_id = "DISC_6452349A9EE83ECBBC37"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_literals.rs"
+name = "test_typed_literals"
+command = "cargo nextest run -p trust-syntax --test parser_literals --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_literals) & test(=test_typed_literals)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_LITERAL_FORMS_001"]
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001"
+expected_result = "Typed integer, real, and bit-string literals preserve type prefixes, signs, bases, and payload tokens."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_6452349A9EE83ECBBC37.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_6452349A9EE83ECBBC37_6BDE4AFC4F8C"
+mapping_proposal_digest = "sha256:6bde4afc4f8c80ee73bb0595411c58effc7f12c342196a412574ae89e61c76df"
+mapping_decision_id = "MAP_DEC_6BC6E720D17A6D9E8A34C50E"
+mapping_reviewed_source_digest = "sha256:4aa8cee600937bad2741e91372a7cfa23dfb52ea8ae17649a3a583a379cdbb09"
+mapping_assertion_review_digest = "sha256:d92a577eb3bb2ddde4a53d36eb8a703e3646b7700c2cd1b57513822a12411661"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_literals.rs" = "sha256:4aa8cee600937bad2741e91372a7cfa23dfb52ea8ae17649a3a583a379cdbb09" }
+mapping_behavior_refs = ["IEC_PARSE_LITERAL_FORMS_001#behavior:1"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_6B03272519B37089A6DD"
+subject_kind = "generated_test"
+discovery_id = "DISC_6B03272519B37089A6DD"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_literals.rs"
+name = "test_string_literals"
+command = "cargo nextest run -p trust-syntax --test parser_literals --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_literals) & test(=test_string_literals)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_LITERAL_FORMS_001"]
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001"
+expected_result = "Single-byte and double-byte quoted source forms retain their respective string literal tokens."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_6B03272519B37089A6DD.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_6B03272519B37089A6DD_F347C7D834BF"
+mapping_proposal_digest = "sha256:f347c7d834bfb1830c6dd6754dc7ded53025565aee4c28f8a5a6fc11e725eb0e"
+mapping_decision_id = "MAP_DEC_A0EFD66F0070637A6C3464EE"
+mapping_reviewed_source_digest = "sha256:4aa8cee600937bad2741e91372a7cfa23dfb52ea8ae17649a3a583a379cdbb09"
+mapping_assertion_review_digest = "sha256:c671532d6c0f9ba65a2bf5783e3dd8e3701fd0f9ca791daa6ac0adf7a2cbba18"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_literals.rs" = "sha256:4aa8cee600937bad2741e91372a7cfa23dfb52ea8ae17649a3a583a379cdbb09" }
+mapping_behavior_refs = ["IEC_PARSE_LITERAL_FORMS_001#behavior:2"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_805F2C665E75A8E33AB7"
+subject_kind = "generated_test"
+discovery_id = "DISC_805F2C665E75A8E33AB7"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_literals.rs"
+name = "test_time_literals"
+command = "cargo nextest run -p trust-syntax --test parser_literals --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_literals) & test(=test_time_literals)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_LITERAL_FORMS_001"]
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001"
+expected_result = "TIME and LTIME prefixes, signs, unit sequences, fractional units, and separators remain one documented duration literal form."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_805F2C665E75A8E33AB7.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_805F2C665E75A8E33AB7_DB2FB1A884C1"
+mapping_proposal_digest = "sha256:db2fb1a884c1d2f2b086748dfac514015ef631a6fc5652d12027aa6f30573fb7"
+mapping_decision_id = "MAP_DEC_946104EC7BB23BC3590E625A"
+mapping_reviewed_source_digest = "sha256:4aa8cee600937bad2741e91372a7cfa23dfb52ea8ae17649a3a583a379cdbb09"
+mapping_assertion_review_digest = "sha256:62e29674b439900b7fcc935fa0b72b31a7b38b977b45e638bcc313acf2de2dc6"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_literals.rs" = "sha256:4aa8cee600937bad2741e91372a7cfa23dfb52ea8ae17649a3a583a379cdbb09" }
+mapping_behavior_refs = ["IEC_PARSE_LITERAL_FORMS_001#behavior:3"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_8B565ECC1E11CAE65DF5"
+subject_kind = "generated_test"
+discovery_id = "DISC_8B565ECC1E11CAE65DF5"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_literals.rs"
+name = "test_integer_literals"
+command = "cargo nextest run -p trust-syntax --test parser_literals --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_literals) & test(=test_integer_literals)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_LITERAL_FORMS_001"]
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001"
+expected_result = "Decimal, based, real, exponent, TRUE, and FALSE source forms retain their literal boundaries."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_8B565ECC1E11CAE65DF5.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_8B565ECC1E11CAE65DF5_426B3C427A0D"
+mapping_proposal_digest = "sha256:426b3c427a0dc8b9be0011051c16b5ab8a0215307aa07d469551d4f353b83366"
+mapping_decision_id = "MAP_DEC_45120628E2941E30FBC433AA"
+mapping_reviewed_source_digest = "sha256:4aa8cee600937bad2741e91372a7cfa23dfb52ea8ae17649a3a583a379cdbb09"
+mapping_assertion_review_digest = "sha256:4c37be7199190d223c7110a538dc7f20cb16386db9c3b99c4fe2f7ac0995f2cc"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_literals.rs" = "sha256:4aa8cee600937bad2741e91372a7cfa23dfb52ea8ae17649a3a583a379cdbb09" }
+mapping_behavior_refs = ["IEC_PARSE_LITERAL_FORMS_001#behavior:0"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_912A1D0AEA9E0C84B9A9"
+subject_kind = "generated_test"
+discovery_id = "DISC_912A1D0AEA9E0C84B9A9"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_literals.rs"
+name = "test_real_literals"
+command = "cargo nextest run -p trust-syntax --test parser_literals --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_literals) & test(=test_real_literals)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_LITERAL_FORMS_001"]
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001"
+expected_result = "Decimal, based, real, exponent, TRUE, and FALSE source forms retain their literal boundaries."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_912A1D0AEA9E0C84B9A9.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_912A1D0AEA9E0C84B9A9_C8E1652ECC9B"
+mapping_proposal_digest = "sha256:c8e1652ecc9b17d870172c3fb23d9481a2a257a0aabd096ab77de095505de32e"
+mapping_decision_id = "MAP_DEC_F08B778259B25FD2BFC22264"
+mapping_reviewed_source_digest = "sha256:4aa8cee600937bad2741e91372a7cfa23dfb52ea8ae17649a3a583a379cdbb09"
+mapping_assertion_review_digest = "sha256:7464dea347b84f442c1604e49a180062a0af3118a9587772a9949e8cd4a95e15"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_literals.rs" = "sha256:4aa8cee600937bad2741e91372a7cfa23dfb52ea8ae17649a3a583a379cdbb09" }
+mapping_behavior_refs = ["IEC_PARSE_LITERAL_FORMS_001#behavior:0"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_930CC415CFEB0A8D08F0"
+subject_kind = "generated_test"
+discovery_id = "DISC_930CC415CFEB0A8D08F0"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_literals.rs"
+name = "test_boolean_literals"
+command = "cargo nextest run -p trust-syntax --test parser_literals --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_literals) & test(=test_boolean_literals)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_LITERAL_FORMS_001"]
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001"
+expected_result = "Decimal, based, real, exponent, TRUE, and FALSE source forms retain their literal boundaries."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_930CC415CFEB0A8D08F0.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_930CC415CFEB0A8D08F0_EFBA2C573026"
+mapping_proposal_digest = "sha256:efba2c5730266ccb0a44dc27b38a790cf99a5e7739e97bb5d32ff21db56f7a87"
+mapping_decision_id = "MAP_DEC_8B6D7F54578216191099526E"
+mapping_reviewed_source_digest = "sha256:4aa8cee600937bad2741e91372a7cfa23dfb52ea8ae17649a3a583a379cdbb09"
+mapping_assertion_review_digest = "sha256:0fd66619cadd7fdf147c3cf293e3f7f263faea97a61fc24ebf320987c9c5ee11"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_literals.rs" = "sha256:4aa8cee600937bad2741e91372a7cfa23dfb52ea8ae17649a3a583a379cdbb09" }
+mapping_behavior_refs = ["IEC_PARSE_LITERAL_FORMS_001#behavior:0"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_B2E4F66FB0D35F64903E"
+subject_kind = "generated_test"
+discovery_id = "DISC_B2E4F66FB0D35F64903E"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_literals.rs"
+name = "test_date_literals"
+command = "cargo nextest run -p trust-syntax --test parser_literals --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_literals) & test(=test_date_literals)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_LITERAL_FORMS_001"]
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001"
+expected_result = "Date, long-date, time-of-day, long time-of-day, and date-time forms retain their documented prefixes and components."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_B2E4F66FB0D35F64903E.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_B2E4F66FB0D35F64903E_07D458B6D6B1"
+mapping_proposal_digest = "sha256:07d458b6d6b1110cb4e8edcedbdb0e8fb2a4d8940279567fb241759a43a63c42"
+mapping_decision_id = "MAP_DEC_94CEAD07A0C481AF0243A8C0"
+mapping_reviewed_source_digest = "sha256:4aa8cee600937bad2741e91372a7cfa23dfb52ea8ae17649a3a583a379cdbb09"
+mapping_assertion_review_digest = "sha256:119fad6691b8159665f6c29a977fee12e4ef81bd8c69993552649b2f9ec30caa"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_literals.rs" = "sha256:4aa8cee600937bad2741e91372a7cfa23dfb52ea8ae17649a3a583a379cdbb09" }
+mapping_behavior_refs = ["IEC_PARSE_LITERAL_FORMS_001#behavior:4"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_0B4EB1177A669105BB48"
+subject_kind = "generated_test"
+discovery_id = "DISC_0B4EB1177A669105BB48"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_pous.rs"
+name = "test_action"
+command = "cargo nextest run -p trust-syntax --test parser_pous --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_pous) & test(=test_action)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_POU_FORMS_002"]
+oracle_ref = "SPEC_IEC_POU_DECLARATIONS_001"
+expected_result = "An ACTION nested in its owning POU preserves its name, statement list, and terminator."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_0B4EB1177A669105BB48.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_0B4EB1177A669105BB48_AC2F042C1ADA"
+mapping_proposal_digest = "sha256:ac2f042c1ada6f0b5c797e2bdec684282119385ee5e4166649ab7b583bb08e53"
+mapping_decision_id = "MAP_DEC_3BA596C92E1897ABF17D3E41"
+mapping_reviewed_source_digest = "sha256:dbb3d4754b9a50e4bc946eab809447ecc2c95deba33123b9d260917a4a04beb1"
+mapping_assertion_review_digest = "sha256:2ac671d01f9234f673f1cd9327bfec0c7b7f91d6af0817ca0acd9ed0ffb7ec26"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_pous.rs" = "sha256:dbb3d4754b9a50e4bc946eab809447ecc2c95deba33123b9d260917a4a04beb1" }
+mapping_behavior_refs = ["IEC_PARSE_POU_FORMS_002#behavior:3"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_132C51368691E4ACA7A4"
+subject_kind = "generated_test"
+discovery_id = "DISC_132C51368691E4ACA7A4"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_pous.rs"
+name = "test_function_block_implements"
+command = "cargo nextest run -p trust-syntax --test parser_pous --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_pous) & test(=test_function_block_implements)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_POU_FORMS_002"]
+oracle_ref = "SPEC_IEC_POU_DECLARATIONS_001"
+expected_result = "Function block declarations retain EXTENDS and one-or-more IMPLEMENTS names for the documented IEC object-oriented forms."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_132C51368691E4ACA7A4.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_132C51368691E4ACA7A4_028EBE71DA4A"
+mapping_proposal_digest = "sha256:028ebe71da4a749829fb223d0980bc8d5a6caf67c6cae1983fbcd767fa2f1ecf"
+mapping_decision_id = "MAP_DEC_429AFEECB9F6EE1A834C43D8"
+mapping_reviewed_source_digest = "sha256:dbb3d4754b9a50e4bc946eab809447ecc2c95deba33123b9d260917a4a04beb1"
+mapping_assertion_review_digest = "sha256:91f58ef55b597cb85828906349b289677a6ca72e5b6ef2c4b0cd0611b03d9c8a"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_pous.rs" = "sha256:dbb3d4754b9a50e4bc946eab809447ecc2c95deba33123b9d260917a4a04beb1" }
+mapping_behavior_refs = ["IEC_PARSE_POU_FORMS_002#behavior:9"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_157C2D9DE0C16280F1FC"
+subject_kind = "generated_test"
+discovery_id = "DISC_157C2D9DE0C16280F1FC"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_pous.rs"
+name = "test_function_with_return_type"
+command = "cargo nextest run -p trust-syntax --test parser_pous --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_pous) & test(=test_function_with_return_type)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_POU_FORMS_002"]
+oracle_ref = "SPEC_IEC_POU_DECLARATIONS_001"
+expected_result = "Functions, programs, and function blocks preserve names, return types, variable sections, body statement lists, and matching terminators."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_157C2D9DE0C16280F1FC.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_157C2D9DE0C16280F1FC_DBD26A658D6D"
+mapping_proposal_digest = "sha256:dbd26a658d6d0a61a854c44f027eaf8ac8047c4e232df2550981e749e9d2e3be"
+mapping_decision_id = "MAP_DEC_FCEFF4B643EF9C9676AC406E"
+mapping_reviewed_source_digest = "sha256:dbb3d4754b9a50e4bc946eab809447ecc2c95deba33123b9d260917a4a04beb1"
+mapping_assertion_review_digest = "sha256:539c4ab70633ca9918b062e492cba294fb450e50044c16fa1af3575301ee0feb"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_pous.rs" = "sha256:dbb3d4754b9a50e4bc946eab809447ecc2c95deba33123b9d260917a4a04beb1" }
+mapping_behavior_refs = ["IEC_PARSE_POU_FORMS_002#behavior:0"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_1641D22035FF1021837D"
+subject_kind = "generated_test"
+discovery_id = "DISC_1641D22035FF1021837D"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_pous.rs"
+name = "test_test_function_block"
+command = "cargo nextest run -p trust-syntax --test parser_pous --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_pous) & test(=test_test_function_block)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_POU_FORMS_002"]
+oracle_ref = "SPEC_IEC_POU_DECLARATIONS_001"
+expected_result = "TEST_PROGRAM and TEST_FUNCTION_BLOCK use their documented product syntax and matching terminators."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_1641D22035FF1021837D.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_1641D22035FF1021837D_715F0B33E8E9"
+mapping_proposal_digest = "sha256:715f0b33e8e904056a41c7277d80c153f1acbb0ef20995264407804a20a037a2"
+mapping_decision_id = "MAP_DEC_B003ABD94D698622EFD81910"
+mapping_reviewed_source_digest = "sha256:dbb3d4754b9a50e4bc946eab809447ecc2c95deba33123b9d260917a4a04beb1"
+mapping_assertion_review_digest = "sha256:d7b680f0a7424950839df09e6ca1a3b25164c659e278b54efb666db6d73b3610"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_pous.rs" = "sha256:dbb3d4754b9a50e4bc946eab809447ecc2c95deba33123b9d260917a4a04beb1" }
+mapping_behavior_refs = ["IEC_PARSE_POU_FORMS_002#behavior:1"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_19D2CE16E17DF11154B6"
+subject_kind = "generated_test"
+discovery_id = "DISC_19D2CE16E17DF11154B6"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_pous.rs"
+name = "test_test_program"
+command = "cargo nextest run -p trust-syntax --test parser_pous --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_pous) & test(=test_test_program)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_POU_FORMS_002"]
+oracle_ref = "SPEC_IEC_POU_DECLARATIONS_001"
+expected_result = "TEST_PROGRAM and TEST_FUNCTION_BLOCK use their documented product syntax and matching terminators."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_19D2CE16E17DF11154B6.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_19D2CE16E17DF11154B6_43956F3D64EF"
+mapping_proposal_digest = "sha256:43956f3d64effd945fdf4de709b9b966eb8077ba762f1232711a52451b2f76eb"
+mapping_decision_id = "MAP_DEC_A0D7E1EECE051F801ECFB66A"
+mapping_reviewed_source_digest = "sha256:dbb3d4754b9a50e4bc946eab809447ecc2c95deba33123b9d260917a4a04beb1"
+mapping_assertion_review_digest = "sha256:fc980b4c34b8e9f308aa8ec3517037bf18fdd180cc1a1441a3f1378ee0de08b4"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_pous.rs" = "sha256:dbb3d4754b9a50e4bc946eab809447ecc2c95deba33123b9d260917a4a04beb1" }
+mapping_behavior_refs = ["IEC_PARSE_POU_FORMS_002#behavior:1"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_28E425C23DE358335943"
+subject_kind = "generated_test"
+discovery_id = "DISC_28E425C23DE358335943"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_pous.rs"
+name = "test_namespace_qualified_name"
+command = "cargo nextest run -p trust-syntax --test parser_pous --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_pous) & test(=test_namespace_qualified_name)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_POU_FORMS_002"]
+oracle_ref = "SPEC_IEC_POU_DECLARATIONS_001"
+expected_result = "Namespaces, qualified names, USING directives, and namespace-level global variables remain attached to their documented scopes."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_28E425C23DE358335943.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_28E425C23DE358335943_0A9669879DE7"
+mapping_proposal_digest = "sha256:0a9669879de717eec2eed3b154b05c964f5e1c506acdb8f37e9c9a57578713c1"
+mapping_decision_id = "MAP_DEC_18FC59BB2F99DCFC930B982B"
+mapping_reviewed_source_digest = "sha256:dbb3d4754b9a50e4bc946eab809447ecc2c95deba33123b9d260917a4a04beb1"
+mapping_assertion_review_digest = "sha256:79668a86c4e55a15c01b772219e630e7143da31109719398fb68c0bdb6ba704b"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_pous.rs" = "sha256:dbb3d4754b9a50e4bc946eab809447ecc2c95deba33123b9d260917a4a04beb1" }
+mapping_behavior_refs = ["IEC_PARSE_POU_FORMS_002#behavior:4"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_2DD47463E38CD0C6B50A"
+subject_kind = "generated_test"
+discovery_id = "DISC_2DD47463E38CD0C6B50A"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_pous.rs"
+name = "test_interface"
+command = "cargo nextest run -p trust-syntax --test parser_pous --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_pous) & test(=test_interface)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_POU_FORMS_002"]
+oracle_ref = "SPEC_IEC_POU_DECLARATIONS_001"
+expected_result = "Interface declarations retain their names, method signatures, and matching terminators."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_2DD47463E38CD0C6B50A.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_2DD47463E38CD0C6B50A_5781C93BE8F8"
+mapping_proposal_digest = "sha256:5781c93be8f85a964c736d462d5dd7f4daf22b5af3ce976d3978b37f00214c4d"
+mapping_decision_id = "MAP_DEC_9FBAC2BF72DA727753E991EE"
+mapping_reviewed_source_digest = "sha256:dbb3d4754b9a50e4bc946eab809447ecc2c95deba33123b9d260917a4a04beb1"
+mapping_assertion_review_digest = "sha256:24d6ce777a646c8a08dcdde1ca5f8852a8df775fa752e0a3151df94f188e555a"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_pous.rs" = "sha256:dbb3d4754b9a50e4bc946eab809447ecc2c95deba33123b9d260917a4a04beb1" }
+mapping_behavior_refs = ["IEC_PARSE_POU_FORMS_002#behavior:8"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_314498D9CCD74BBC02FE"
+subject_kind = "generated_test"
+discovery_id = "DISC_314498D9CCD74BBC02FE"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_pous.rs"
+name = "test_method_with_body"
+command = "cargo nextest run -p trust-syntax --test parser_pous --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_pous) & test(=test_method_with_body)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_POU_FORMS_002"]
+oracle_ref = "SPEC_IEC_POU_DECLARATIONS_001"
+expected_result = "A method retains access, name, optional return type, variable sections, statement body, and matching terminator."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_314498D9CCD74BBC02FE.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_314498D9CCD74BBC02FE_635BB7643B3B"
+mapping_proposal_digest = "sha256:635bb7643b3bb475cc9ac9c75886a52ddc8ee2386d778742065a05bae082e8dd"
+mapping_decision_id = "MAP_DEC_3376AC3EEFB9C95B1CFF0431"
+mapping_reviewed_source_digest = "sha256:dbb3d4754b9a50e4bc946eab809447ecc2c95deba33123b9d260917a4a04beb1"
+mapping_assertion_review_digest = "sha256:6136610009387f14e89e45e94faa76543fc04f34f0c556bcc93851e12f580c9a"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_pous.rs" = "sha256:dbb3d4754b9a50e4bc946eab809447ecc2c95deba33123b9d260917a4a04beb1" }
+mapping_behavior_refs = ["IEC_PARSE_POU_FORMS_002#behavior:10"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_48EBB052B5162666BA2B"
+subject_kind = "generated_test"
+discovery_id = "DISC_48EBB052B5162666BA2B"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_pous.rs"
+name = "test_namespace"
+command = "cargo nextest run -p trust-syntax --test parser_pous --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_pous) & test(=test_namespace)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_POU_FORMS_002"]
+oracle_ref = "SPEC_IEC_POU_DECLARATIONS_001"
+expected_result = "Namespaces, qualified names, USING directives, and namespace-level global variables remain attached to their documented scopes."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_48EBB052B5162666BA2B.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_48EBB052B5162666BA2B_1EA88B8D8616"
+mapping_proposal_digest = "sha256:1ea88b8d86168cbf3e222defe817955920ba69cdecfaf18854dd0ce2ca3c4e87"
+mapping_decision_id = "MAP_DEC_A7D5B1532F3A330EDD78B927"
+mapping_reviewed_source_digest = "sha256:dbb3d4754b9a50e4bc946eab809447ecc2c95deba33123b9d260917a4a04beb1"
+mapping_assertion_review_digest = "sha256:435c2eaa6cf6ebe73fe2c8fdfdbe5670ad5bf548b48d8b1cf0a48da7d67d2eb7"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_pous.rs" = "sha256:dbb3d4754b9a50e4bc946eab809447ecc2c95deba33123b9d260917a4a04beb1" }
+mapping_behavior_refs = ["IEC_PARSE_POU_FORMS_002#behavior:4"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_49687F4FF7933F5F2ADB"
+subject_kind = "generated_test"
+discovery_id = "DISC_49687F4FF7933F5F2ADB"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_pous.rs"
+name = "test_var_access_with_index_and_bit"
+command = "cargo nextest run -p trust-syntax --test parser_pous --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_pous) & test(=test_var_access_with_index_and_bit)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_POU_FORMS_002"]
+oracle_ref = "SPEC_IEC_POU_DECLARATIONS_001"
+expected_result = "A PROGRAM or configuration VAR_ACCESS declaration retains its qualified variable path, index and bit selectors, declared type, and access mode."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_49687F4FF7933F5F2ADB.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_49687F4FF7933F5F2ADB_98A365C02803"
+mapping_proposal_digest = "sha256:98a365c028034e9dd570d6a08e300ccdf7aea51dc00af51c1b7986de167660e4"
+mapping_decision_id = "MAP_DEC_C971ACC64FDED0AF928222DD"
+mapping_reviewed_source_digest = "sha256:dbb3d4754b9a50e4bc946eab809447ecc2c95deba33123b9d260917a4a04beb1"
+mapping_assertion_review_digest = "sha256:56eea29781d1195000c76c517d200037d05e1f1dd6031dee009a75d8b84d355a"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_pous.rs" = "sha256:dbb3d4754b9a50e4bc946eab809447ecc2c95deba33123b9d260917a4a04beb1" }
+mapping_behavior_refs = ["IEC_PARSE_POU_FORMS_002#behavior:7"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_4CE47E9236C3393B599F"
+subject_kind = "generated_test"
+discovery_id = "DISC_4CE47E9236C3393B599F"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_pous.rs"
+name = "test_program_with_var_block"
+command = "cargo nextest run -p trust-syntax --test parser_pous --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_pous) & test(=test_program_with_var_block)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_POU_FORMS_002"]
+oracle_ref = "SPEC_IEC_POU_DECLARATIONS_001"
+expected_result = "Functions, programs, and function blocks preserve names, return types, variable sections, body statement lists, and matching terminators."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_4CE47E9236C3393B599F.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_4CE47E9236C3393B599F_54DCB2332A30"
+mapping_proposal_digest = "sha256:54dcb2332a305624dea706309272f491816dafe9a792d6dabf8a6be8d86495cc"
+mapping_decision_id = "MAP_DEC_7D2D77A421E8EF3C0A8E8FED"
+mapping_reviewed_source_digest = "sha256:dbb3d4754b9a50e4bc946eab809447ecc2c95deba33123b9d260917a4a04beb1"
+mapping_assertion_review_digest = "sha256:14f536c5aac563f5829f16b48fa06ccac393eed686addf1b39cc75caaeb8cc06"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_pous.rs" = "sha256:dbb3d4754b9a50e4bc946eab809447ecc2c95deba33123b9d260917a4a04beb1" }
+mapping_behavior_refs = ["IEC_PARSE_POU_FORMS_002#behavior:0"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_69B10FABD36B24FE599A"
+subject_kind = "generated_test"
+discovery_id = "DISC_69B10FABD36B24FE599A"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_pous.rs"
+name = "test_class_declaration"
+command = "cargo nextest run -p trust-syntax --test parser_pous --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_pous) & test(=test_class_declaration)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_POU_FORMS_002"]
+oracle_ref = "SPEC_IEC_POU_DECLARATIONS_001"
+expected_result = "Class declarations retain modifiers, inheritance, interface implementation lists, qualified names, variables, methods, and matching terminators."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_69B10FABD36B24FE599A.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_69B10FABD36B24FE599A_9C0F02993688"
+mapping_proposal_digest = "sha256:9c0f02993688a7c6d319b88232f5addfdcc65d32a7f91998c5b99209dd59e6f4"
+mapping_decision_id = "MAP_DEC_F0BF1878104C4A92BA14B9C6"
+mapping_reviewed_source_digest = "sha256:dbb3d4754b9a50e4bc946eab809447ecc2c95deba33123b9d260917a4a04beb1"
+mapping_assertion_review_digest = "sha256:748a8e861d6a984c722f0c9ff84184a2fcb1d54cf0d13e3f44d88e3da87fdc5c"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_pous.rs" = "sha256:dbb3d4754b9a50e4bc946eab809447ecc2c95deba33123b9d260917a4a04beb1" }
+mapping_behavior_refs = ["IEC_PARSE_POU_FORMS_002#behavior:2"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_6B6C2005B158D524747F"
+subject_kind = "generated_test"
+discovery_id = "DISC_6B6C2005B158D524747F"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_pous.rs"
+name = "test_function_block_extends"
+command = "cargo nextest run -p trust-syntax --test parser_pous --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_pous) & test(=test_function_block_extends)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_POU_FORMS_002"]
+oracle_ref = "SPEC_IEC_POU_DECLARATIONS_001"
+expected_result = "Function block declarations retain EXTENDS and one-or-more IMPLEMENTS names for the documented IEC object-oriented forms."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_6B6C2005B158D524747F.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_6B6C2005B158D524747F_BDAD7EA31BF5"
+mapping_proposal_digest = "sha256:bdad7ea31bf5c4a6495025e637cad60e4cb34e51b300c22565bd3a2c6be23454"
+mapping_decision_id = "MAP_DEC_65D9D584057F5CBE84A48734"
+mapping_reviewed_source_digest = "sha256:dbb3d4754b9a50e4bc946eab809447ecc2c95deba33123b9d260917a4a04beb1"
+mapping_assertion_review_digest = "sha256:b6ea68edb2ef590e5f146fd9714b57b43b414ab8a4503d8ae28f23ba7b8e938b"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_pous.rs" = "sha256:dbb3d4754b9a50e4bc946eab809447ecc2c95deba33123b9d260917a4a04beb1" }
+mapping_behavior_refs = ["IEC_PARSE_POU_FORMS_002#behavior:9"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_7E641C521D52CB31C083"
+subject_kind = "generated_test"
+discovery_id = "DISC_7E641C521D52CB31C083"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_pous.rs"
+name = "test_function_block_top_level_statements_form_stmt_list"
+command = "cargo nextest run -p trust-syntax --test parser_pous --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_pous) & test(=test_function_block_top_level_statements_form_stmt_list)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_POU_FORMS_002"]
+oracle_ref = "SPEC_IEC_POU_DECLARATIONS_001"
+expected_result = "Functions, programs, and function blocks preserve names, return types, variable sections, body statement lists, and matching terminators."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_7E641C521D52CB31C083.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_7E641C521D52CB31C083_CEC50921FEDB"
+mapping_proposal_digest = "sha256:cec50921fedbdddf0c075af900e3dc2e6156d2c21535a6fbfb914c912e2e03cd"
+mapping_decision_id = "MAP_DEC_8506539D52121BE8299F3945"
+mapping_reviewed_source_digest = "sha256:dbb3d4754b9a50e4bc946eab809447ecc2c95deba33123b9d260917a4a04beb1"
+mapping_assertion_review_digest = "sha256:90007f697cf11511a42b1677fb48feee52270c0d4b5909327f1f669e3c62d163"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_pous.rs" = "sha256:dbb3d4754b9a50e4bc946eab809447ecc2c95deba33123b9d260917a4a04beb1" }
+mapping_behavior_refs = ["IEC_PARSE_POU_FORMS_002#behavior:0"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_9280A9739478FD9C554E"
+subject_kind = "generated_test"
+discovery_id = "DISC_9280A9739478FD9C554E"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_pous.rs"
+name = "test_class_qualified_extends_implements"
+command = "cargo nextest run -p trust-syntax --test parser_pous --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_pous) & test(=test_class_qualified_extends_implements)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_POU_FORMS_002"]
+oracle_ref = "SPEC_IEC_POU_DECLARATIONS_001"
+expected_result = "Class declarations retain modifiers, inheritance, interface implementation lists, qualified names, variables, methods, and matching terminators."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_9280A9739478FD9C554E.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_9280A9739478FD9C554E_307CB1E31F4A"
+mapping_proposal_digest = "sha256:307cb1e31f4a5d9bd89f2c87b2d335395b4b7398d51fae5bfd9f4266385b3691"
+mapping_decision_id = "MAP_DEC_7A1E0D031C819CFA091192B5"
+mapping_reviewed_source_digest = "sha256:dbb3d4754b9a50e4bc946eab809447ecc2c95deba33123b9d260917a4a04beb1"
+mapping_assertion_review_digest = "sha256:6d86bcf2aee9d0fa2caba0577f05015cbd8f515bc2b014461055e14370cee3e3"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_pous.rs" = "sha256:dbb3d4754b9a50e4bc946eab809447ecc2c95deba33123b9d260917a4a04beb1" }
+mapping_behavior_refs = ["IEC_PARSE_POU_FORMS_002#behavior:2"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_B06CB96D55F06E4E7B93"
+subject_kind = "generated_test"
+discovery_id = "DISC_B06CB96D55F06E4E7B93"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_pous.rs"
+name = "test_function_block"
+command = "cargo nextest run -p trust-syntax --test parser_pous --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_pous) & test(=test_function_block)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_POU_FORMS_002"]
+oracle_ref = "SPEC_IEC_POU_DECLARATIONS_001"
+expected_result = "Functions, programs, and function blocks preserve names, return types, variable sections, body statement lists, and matching terminators."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_B06CB96D55F06E4E7B93.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_B06CB96D55F06E4E7B93_AAD2640BBDD7"
+mapping_proposal_digest = "sha256:aad2640bbdd7e376353ab58e911be5f1485a0ac4c42583f4db1339fdedeec396"
+mapping_decision_id = "MAP_DEC_574E8B6BA4F1BEF73DE9357F"
+mapping_reviewed_source_digest = "sha256:dbb3d4754b9a50e4bc946eab809447ecc2c95deba33123b9d260917a4a04beb1"
+mapping_assertion_review_digest = "sha256:57b2bb5f85b813d322a3aa6f5b31e3d1cfc5451c8eb10c1093e38c6ee04d5e27"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_pous.rs" = "sha256:dbb3d4754b9a50e4bc946eab809447ecc2c95deba33123b9d260917a4a04beb1" }
+mapping_behavior_refs = ["IEC_PARSE_POU_FORMS_002#behavior:0"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_D7A9ABD35C01112BF887"
+subject_kind = "generated_test"
+discovery_id = "DISC_D7A9ABD35C01112BF887"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_pous.rs"
+name = "test_using_directive"
+command = "cargo nextest run -p trust-syntax --test parser_pous --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_pous) & test(=test_using_directive)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_POU_FORMS_002"]
+oracle_ref = "SPEC_IEC_POU_DECLARATIONS_001"
+expected_result = "Namespaces, qualified names, USING directives, and namespace-level global variables remain attached to their documented scopes."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_D7A9ABD35C01112BF887.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_D7A9ABD35C01112BF887_29BAD6306C98"
+mapping_proposal_digest = "sha256:29bad6306c988828997b4407db0ac9c73759559c5a62e40b0a127f6f06ce8897"
+mapping_decision_id = "MAP_DEC_3D8E6E86DCF1649125AB604E"
+mapping_reviewed_source_digest = "sha256:dbb3d4754b9a50e4bc946eab809447ecc2c95deba33123b9d260917a4a04beb1"
+mapping_assertion_review_digest = "sha256:e11b2a680537b9f6e50813344a7048273c35f38c48dc84df54bcb2d3b56881cb"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_pous.rs" = "sha256:dbb3d4754b9a50e4bc946eab809447ecc2c95deba33123b9d260917a4a04beb1" }
+mapping_behavior_refs = ["IEC_PARSE_POU_FORMS_002#behavior:4"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_D9946A99F129EC3AE4F1"
+subject_kind = "generated_test"
+discovery_id = "DISC_D9946A99F129EC3AE4F1"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_pous.rs"
+name = "test_configuration"
+command = "cargo nextest run -p trust-syntax --test parser_pous --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_pous) & test(=test_configuration)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_POU_FORMS_002"]
+oracle_ref = "SPEC_IEC_POU_DECLARATIONS_001"
+expected_result = "Configuration, resource, task, and program binding syntax retains names, processor targets, scheduling parameters, and binding structure."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_D9946A99F129EC3AE4F1.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_D9946A99F129EC3AE4F1_8F8E5657045B"
+mapping_proposal_digest = "sha256:8f8e5657045b3e356a28ffe8a0e8bcf046d583ee23f9588cb630fc2bb7ab2039"
+mapping_decision_id = "MAP_DEC_2E036AEE099F4BCB7B72316F"
+mapping_reviewed_source_digest = "sha256:dbb3d4754b9a50e4bc946eab809447ecc2c95deba33123b9d260917a4a04beb1"
+mapping_assertion_review_digest = "sha256:317a3047ac39491af29545d1d6b3172bc46196d2baff3ea61ee86782d9aed66b"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_pous.rs" = "sha256:dbb3d4754b9a50e4bc946eab809447ecc2c95deba33123b9d260917a4a04beb1" }
+mapping_behavior_refs = ["IEC_PARSE_POU_FORMS_002#behavior:5"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_DE62025A26A86F67F39D"
+subject_kind = "generated_test"
+discovery_id = "DISC_DE62025A26A86F67F39D"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_pous.rs"
+name = "test_empty_program"
+command = "cargo nextest run -p trust-syntax --test parser_pous --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_pous) & test(=test_empty_program)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_POU_FORMS_002"]
+oracle_ref = "SPEC_IEC_POU_DECLARATIONS_001"
+expected_result = "Functions, programs, and function blocks preserve names, return types, variable sections, body statement lists, and matching terminators."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_DE62025A26A86F67F39D.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_DE62025A26A86F67F39D_84B012A6AF5E"
+mapping_proposal_digest = "sha256:84b012a6af5eee1497a17178a9cca87324139c4f6fa92a9ee611dd2b2553db0f"
+mapping_decision_id = "MAP_DEC_F6ED3A67FAEEF6363B728EAC"
+mapping_reviewed_source_digest = "sha256:dbb3d4754b9a50e4bc946eab809447ecc2c95deba33123b9d260917a4a04beb1"
+mapping_assertion_review_digest = "sha256:f87d5374fdfc779d747ae8862c2c1330c0c865d2b554bb31ff883a8f3346acd7"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_pous.rs" = "sha256:dbb3d4754b9a50e4bc946eab809447ecc2c95deba33123b9d260917a4a04beb1" }
+mapping_behavior_refs = ["IEC_PARSE_POU_FORMS_002#behavior:0"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_E04E23863B97B597D39E"
+subject_kind = "generated_test"
+discovery_id = "DISC_E04E23863B97B597D39E"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_pous.rs"
+name = "test_property"
+command = "cargo nextest run -p trust-syntax --test parser_pous --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_pous) & test(=test_property)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_POU_FORMS_002"]
+oracle_ref = "SPEC_IEC_POU_DECLARATIONS_001"
+expected_result = "The documented truST PROPERTY extension retains its declared type plus GET and SET accessor bodies and matching terminators."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_E04E23863B97B597D39E.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_E04E23863B97B597D39E_A15F612E9545"
+mapping_proposal_digest = "sha256:a15f612e9545e92923c9a1f208cf0894a172e8817380fe24140ce53cc6b26e92"
+mapping_decision_id = "MAP_DEC_5BEAF29353C6483A98D88D4A"
+mapping_reviewed_source_digest = "sha256:dbb3d4754b9a50e4bc946eab809447ecc2c95deba33123b9d260917a4a04beb1"
+mapping_assertion_review_digest = "sha256:b0b92b8c8ae332942ac17e3ead3509fb64abe0ad483640efb65f17ff7923978f"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_pous.rs" = "sha256:dbb3d4754b9a50e4bc946eab809447ecc2c95deba33123b9d260917a4a04beb1" }
+mapping_behavior_refs = ["IEC_PARSE_POU_FORMS_002#behavior:6"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_F712646D984E58F6E0A8"
+subject_kind = "generated_test"
+discovery_id = "DISC_F712646D984E58F6E0A8"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_pous.rs"
+name = "test_namespace_with_var_global"
+command = "cargo nextest run -p trust-syntax --test parser_pous --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_pous) & test(=test_namespace_with_var_global)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_POU_FORMS_002"]
+oracle_ref = "SPEC_IEC_POU_DECLARATIONS_001"
+expected_result = "A documented vendor-style namespace-level VAR_GLOBAL block remains a VarBlock child of its namespace."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_F712646D984E58F6E0A8.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_F712646D984E58F6E0A8_BDBF6A5318B7"
+mapping_proposal_digest = "sha256:bdbf6a5318b7c8e61e1a705cb09690e838ee4e73d9fa8afe861e58acc247aee5"
+mapping_decision_id = "MAP_DEC_FB0B23DAC52A20312A4C9F57"
+mapping_reviewed_source_digest = "sha256:dbb3d4754b9a50e4bc946eab809447ecc2c95deba33123b9d260917a4a04beb1"
+mapping_assertion_review_digest = "sha256:9c4ad4b818327c105f57fb9e57d00e454fe186cb487eb99a16fa339034e3474f"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_pous.rs" = "sha256:dbb3d4754b9a50e4bc946eab809447ecc2c95deba33123b9d260917a4a04beb1" }
+mapping_behavior_refs = ["IEC_PARSE_POU_FORMS_002#behavior:11"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_01AED98E2F97A54B9555"
+subject_kind = "generated_test"
+discovery_id = "DISC_01AED98E2F97A54B9555"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_statements.rs"
+name = "test_siemens_hash_prefixed_statement_forms"
+command = "cargo nextest run -p trust-syntax --test parser_statements --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_statements) & test(=test_siemens_hash_prefixed_statement_forms)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_STATEMENT_FORMS_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001"
+expected_result = "The documented Siemens-compatible #identifier local reference remains a NameRef in assignments and loop expressions."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_01AED98E2F97A54B9555.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_01AED98E2F97A54B9555_12A71E338592"
+mapping_proposal_digest = "sha256:12a71e3385926fe4fd583f2103b046ca2727dfd4602ca8ca6374b74e40e514c3"
+mapping_decision_id = "MAP_DEC_BB7A96413FFF2860EFD2EF90"
+mapping_reviewed_source_digest = "sha256:7e3d04992155ef7dc011e72d158e5ac9b067bf2fe6f1584327812c05bce42cc6"
+mapping_assertion_review_digest = "sha256:bbf3b44fd12d650a7fd9520aa0e83e19b590bcf62aa9e2278745641d080d1488"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_statements.rs" = "sha256:7e3d04992155ef7dc011e72d158e5ac9b067bf2fe6f1584327812c05bce42cc6" }
+mapping_behavior_refs = ["IEC_PARSE_STATEMENT_FORMS_001#behavior:2"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_0925AFD6015516772D6D"
+subject_kind = "generated_test"
+discovery_id = "DISC_0925AFD6015516772D6D"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_statements.rs"
+name = "test_while_loop"
+command = "cargo nextest run -p trust-syntax --test parser_statements --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_statements) & test(=test_while_loop)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_STATEMENT_FORMS_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001"
+expected_result = "WHILE retains its precondition, body, and terminator."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_0925AFD6015516772D6D.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_0925AFD6015516772D6D_68C321C7F0A3"
+mapping_proposal_digest = "sha256:68c321c7f0a3ac3e073c9a6a786b895cc98a5645d7bcdf3430fcc8e2fbfb6947"
+mapping_decision_id = "MAP_DEC_54AF3ECB6A85B6CA966C2CD5"
+mapping_reviewed_source_digest = "sha256:7e3d04992155ef7dc011e72d158e5ac9b067bf2fe6f1584327812c05bce42cc6"
+mapping_assertion_review_digest = "sha256:449a28d387e0a044002bd2c1854b33104cd0f5a0eb6945007dc084e737542203"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_statements.rs" = "sha256:7e3d04992155ef7dc011e72d158e5ac9b067bf2fe6f1584327812c05bce42cc6" }
+mapping_behavior_refs = ["IEC_PARSE_STATEMENT_FORMS_001#behavior:6"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_0D125EFC814B673B762D"
+subject_kind = "generated_test"
+discovery_id = "DISC_0D125EFC814B673B762D"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_statements.rs"
+name = "test_for_loop"
+command = "cargo nextest run -p trust-syntax --test parser_statements --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_statements) & test(=test_for_loop)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_STATEMENT_FORMS_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001"
+expected_result = "FOR retains its control assignment, final value, optional BY value, body, and terminator."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_0D125EFC814B673B762D.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_0D125EFC814B673B762D_6473E4612A95"
+mapping_proposal_digest = "sha256:6473e4612a954741d2ff2e48adc5beab58bbb6489983095f647b13a447c1e776"
+mapping_decision_id = "MAP_DEC_788F5866FD3D319FBE5693C5"
+mapping_reviewed_source_digest = "sha256:7e3d04992155ef7dc011e72d158e5ac9b067bf2fe6f1584327812c05bce42cc6"
+mapping_assertion_review_digest = "sha256:f7e72ef6af199430ac8b15ee23474867f6bec35aaf9b2d5ac0c8ee0d6352ca0c"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_statements.rs" = "sha256:7e3d04992155ef7dc011e72d158e5ac9b067bf2fe6f1584327812c05bce42cc6" }
+mapping_behavior_refs = ["IEC_PARSE_STATEMENT_FORMS_001#behavior:5"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_291C3EBEC7E833C93A5C"
+subject_kind = "generated_test"
+discovery_id = "DISC_291C3EBEC7E833C93A5C"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_statements.rs"
+name = "test_label_statement"
+command = "cargo nextest run -p trust-syntax --test parser_statements --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_statements) & test(=test_label_statement)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_STATEMENT_FORMS_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001"
+expected_result = "A label remains attached to the following statement and coexists with jumps in the same POU body."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_291C3EBEC7E833C93A5C.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_291C3EBEC7E833C93A5C_ED852B826FC4"
+mapping_proposal_digest = "sha256:ed852b826fc493e82c32bca8abe71fcaed16577b2f5491d6e8aa2e5661745a6e"
+mapping_decision_id = "MAP_DEC_03B530E7EFBDB21E11FF33AE"
+mapping_reviewed_source_digest = "sha256:7e3d04992155ef7dc011e72d158e5ac9b067bf2fe6f1584327812c05bce42cc6"
+mapping_assertion_review_digest = "sha256:0e75027ed8f630223acbcbb13ef20896592ea0942618c5a52fa6e5ee2c1f4c8d"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_statements.rs" = "sha256:7e3d04992155ef7dc011e72d158e5ac9b067bf2fe6f1584327812c05bce42cc6" }
+mapping_behavior_refs = ["IEC_PARSE_STATEMENT_FORMS_001#behavior:11"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_5F406CAEB978B707827D"
+subject_kind = "generated_test"
+discovery_id = "DISC_5F406CAEB978B707827D"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_statements.rs"
+name = "test_assignment_attempt"
+command = "cargo nextest run -p trust-syntax --test parser_statements --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_statements) & test(=test_assignment_attempt)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_STATEMENT_FORMS_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001"
+expected_result = "The IEC assignment-attempt operator remains an assignment statement with its left and right operands."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_5F406CAEB978B707827D.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_5F406CAEB978B707827D_C3C1E90F9794"
+mapping_proposal_digest = "sha256:c3c1e90f97940f0ab11c7cab2c417dcb5e5ea3da4a14e02339063702ccdc8f88"
+mapping_decision_id = "MAP_DEC_B663898D2BC93AB12B2A0DEF"
+mapping_reviewed_source_digest = "sha256:7e3d04992155ef7dc011e72d158e5ac9b067bf2fe6f1584327812c05bce42cc6"
+mapping_assertion_review_digest = "sha256:ef80008df8735ec119b9e8f4cec04d6e17215f5fd3031eadc10f6963257441df"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_statements.rs" = "sha256:7e3d04992155ef7dc011e72d158e5ac9b067bf2fe6f1584327812c05bce42cc6" }
+mapping_behavior_refs = ["IEC_PARSE_STATEMENT_FORMS_001#behavior:0"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_7E1CB500E92AD2FEAB80"
+subject_kind = "generated_test"
+discovery_id = "DISC_7E1CB500E92AD2FEAB80"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_statements.rs"
+name = "test_output_connection"
+command = "cargo nextest run -p trust-syntax --test parser_statements --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_statements) & test(=test_output_connection)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_STATEMENT_FORMS_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001"
+expected_result = "A formal call preserves input connections written with := and output connections written with =>."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_7E1CB500E92AD2FEAB80.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_7E1CB500E92AD2FEAB80_2663FA9D2E56"
+mapping_proposal_digest = "sha256:2663fa9d2e561111c842732c9244308b76955b848b187126b9f45f73566686f0"
+mapping_decision_id = "MAP_DEC_1AE92EBFA63FD1317E4DEF08"
+mapping_reviewed_source_digest = "sha256:7e3d04992155ef7dc011e72d158e5ac9b067bf2fe6f1584327812c05bce42cc6"
+mapping_assertion_review_digest = "sha256:b3387501428d3c2497275eecea08bae3855594ea8fcc3d8341aa51bfd4563f27"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_statements.rs" = "sha256:7e3d04992155ef7dc011e72d158e5ac9b067bf2fe6f1584327812c05bce42cc6" }
+mapping_behavior_refs = ["IEC_PARSE_STATEMENT_FORMS_001#behavior:1"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_8D24202CA10A5562C5CF"
+subject_kind = "generated_test"
+discovery_id = "DISC_8D24202CA10A5562C5CF"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_statements.rs"
+name = "test_repeat_loop"
+command = "cargo nextest run -p trust-syntax --test parser_statements --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_statements) & test(=test_repeat_loop)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_STATEMENT_FORMS_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001"
+expected_result = "REPEAT retains its body, UNTIL condition, and terminator."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_8D24202CA10A5562C5CF.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_8D24202CA10A5562C5CF_BF62A835183D"
+mapping_proposal_digest = "sha256:bf62a835183dcc909c6d6d63dfa53afa192617f2db0e5a9f5b38962ac9acb0ed"
+mapping_decision_id = "MAP_DEC_057407FDAA91C4FD791EE449"
+mapping_reviewed_source_digest = "sha256:7e3d04992155ef7dc011e72d158e5ac9b067bf2fe6f1584327812c05bce42cc6"
+mapping_assertion_review_digest = "sha256:6b2f73585e0a0a3d4277b03d77f3a987e33a66c42a4b85e91e854ebc51425dc8"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_statements.rs" = "sha256:7e3d04992155ef7dc011e72d158e5ac9b067bf2fe6f1584327812c05bce42cc6" }
+mapping_behavior_refs = ["IEC_PARSE_STATEMENT_FORMS_001#behavior:7"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_8E26DA86493D7F27B8A5"
+subject_kind = "generated_test"
+discovery_id = "DISC_8E26DA86493D7F27B8A5"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_statements.rs"
+name = "test_case_statement"
+command = "cargo nextest run -p trust-syntax --test parser_statements --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_statements) & test(=test_case_statement)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_STATEMENT_FORMS_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001"
+expected_result = "CASE retains range and list labels, branch bodies, optional ELSE, and its terminator."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_8E26DA86493D7F27B8A5.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_8E26DA86493D7F27B8A5_9434725E405A"
+mapping_proposal_digest = "sha256:9434725e405a689c8f8a4fef2d66ca71d1f4202d433d8a763079db183fb27df4"
+mapping_decision_id = "MAP_DEC_C8F86964350FC734B6EF2C6F"
+mapping_reviewed_source_digest = "sha256:7e3d04992155ef7dc011e72d158e5ac9b067bf2fe6f1584327812c05bce42cc6"
+mapping_assertion_review_digest = "sha256:3ff73403e1f6c31f13e24317675bc1b906ea3193d2fc16b66e5fc3c63cdf80ce"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_statements.rs" = "sha256:7e3d04992155ef7dc011e72d158e5ac9b067bf2fe6f1584327812c05bce42cc6" }
+mapping_behavior_refs = ["IEC_PARSE_STATEMENT_FORMS_001#behavior:4"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_9634CE251F783796BE54"
+subject_kind = "generated_test"
+discovery_id = "DISC_9634CE251F783796BE54"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_statements.rs"
+name = "test_if_statement"
+command = "cargo nextest run -p trust-syntax --test parser_statements --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_statements) & test(=test_if_statement)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_STATEMENT_FORMS_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001"
+expected_result = "IF, ELSIF, and ELSE branches retain their conditions, bodies, order, and terminator."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_9634CE251F783796BE54.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_9634CE251F783796BE54_73E759C5A05B"
+mapping_proposal_digest = "sha256:73e759c5a05b0615fc1dae81b51250bd41bb3ed5c1e4a8ce426c60893254755f"
+mapping_decision_id = "MAP_DEC_933FE6617A37C469FA5DA199"
+mapping_reviewed_source_digest = "sha256:7e3d04992155ef7dc011e72d158e5ac9b067bf2fe6f1584327812c05bce42cc6"
+mapping_assertion_review_digest = "sha256:3acecace5e4d9a89d2f14b9169c1fde031e3155ed25dd3b51632cf775f25fdc7"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_statements.rs" = "sha256:7e3d04992155ef7dc011e72d158e5ac9b067bf2fe6f1584327812c05bce42cc6" }
+mapping_behavior_refs = ["IEC_PARSE_STATEMENT_FORMS_001#behavior:3"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_9980C535C02811084344"
+subject_kind = "generated_test"
+discovery_id = "DISC_9980C535C02811084344"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_statements.rs"
+name = "test_exit_continue"
+command = "cargo nextest run -p trust-syntax --test parser_statements --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_statements) & test(=test_exit_continue)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_STATEMENT_FORMS_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001"
+expected_result = "EXIT and CONTINUE remain distinct loop-transfer statements."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_9980C535C02811084344.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_9980C535C02811084344_11B309C8BC28"
+mapping_proposal_digest = "sha256:11b309c8bc283884c7a2a4abad0ca2d8be6a1dfb21eeef0e4045d11cc5539059"
+mapping_decision_id = "MAP_DEC_D3EC6B42AEF865F580903E26"
+mapping_reviewed_source_digest = "sha256:7e3d04992155ef7dc011e72d158e5ac9b067bf2fe6f1584327812c05bce42cc6"
+mapping_assertion_review_digest = "sha256:25b51ee0659655ba4127e8fe3e05fb407112a2e4477dc0df12ad81f8c0c1e0ab"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_statements.rs" = "sha256:7e3d04992155ef7dc011e72d158e5ac9b067bf2fe6f1584327812c05bce42cc6" }
+mapping_behavior_refs = ["IEC_PARSE_STATEMENT_FORMS_001#behavior:9"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_D94000CA9175B64CE654"
+subject_kind = "generated_test"
+discovery_id = "DISC_D94000CA9175B64CE654"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_statements.rs"
+name = "test_jmp_statement"
+command = "cargo nextest run -p trust-syntax --test parser_statements --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_statements) & test(=test_jmp_statement)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_STATEMENT_FORMS_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001"
+expected_result = "JMP retains its target and statement boundary."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_D94000CA9175B64CE654.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_D94000CA9175B64CE654_4418D6151BE5"
+mapping_proposal_digest = "sha256:4418d6151be5ff1b61878b290fbf84dccca1bf8e59ff0e19c9179f2df17ba652"
+mapping_decision_id = "MAP_DEC_53137D72A6FB6313C2964E93"
+mapping_reviewed_source_digest = "sha256:7e3d04992155ef7dc011e72d158e5ac9b067bf2fe6f1584327812c05bce42cc6"
+mapping_assertion_review_digest = "sha256:cac570f4a3f582bfdb5f4306164e71f8e7f54475ddc4b0a9ca42d5689a31a518"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_statements.rs" = "sha256:7e3d04992155ef7dc011e72d158e5ac9b067bf2fe6f1584327812c05bce42cc6" }
+mapping_behavior_refs = ["IEC_PARSE_STATEMENT_FORMS_001#behavior:10"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_DFF275CC5DC79F7F2B11"
+subject_kind = "generated_test"
+discovery_id = "DISC_DFF275CC5DC79F7F2B11"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_statements.rs"
+name = "test_return_statement"
+command = "cargo nextest run -p trust-syntax --test parser_statements --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_statements) & test(=test_return_statement)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_STATEMENT_FORMS_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001"
+expected_result = "RETURN retains its optional expression and statement boundary."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_DFF275CC5DC79F7F2B11.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_DFF275CC5DC79F7F2B11_A5143E0328D4"
+mapping_proposal_digest = "sha256:a5143e0328d40ef396ed16fe4af36fea4af014666d0355480d15867f219eaa42"
+mapping_decision_id = "MAP_DEC_13880DC58722A5F32D75FC6B"
+mapping_reviewed_source_digest = "sha256:7e3d04992155ef7dc011e72d158e5ac9b067bf2fe6f1584327812c05bce42cc6"
+mapping_assertion_review_digest = "sha256:8c5224dd9331805e1d324546b2dd85aa726c76b4adea5ad46b3eb45131318967"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_statements.rs" = "sha256:7e3d04992155ef7dc011e72d158e5ac9b067bf2fe6f1584327812c05bce42cc6" }
+mapping_behavior_refs = ["IEC_PARSE_STATEMENT_FORMS_001#behavior:8"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_EAAB547DE413E9A8A8FB"
+subject_kind = "generated_test"
+discovery_id = "DISC_EAAB547DE413E9A8A8FB"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_statements.rs"
+name = "test_if_elsif_else"
+command = "cargo nextest run -p trust-syntax --test parser_statements --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_statements) & test(=test_if_elsif_else)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_STATEMENT_FORMS_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001"
+expected_result = "IF, ELSIF, and ELSE branches retain their conditions, bodies, order, and terminator."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_EAAB547DE413E9A8A8FB.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_EAAB547DE413E9A8A8FB_86F9D609A4A3"
+mapping_proposal_digest = "sha256:86f9d609a4a32863ddcc03de876d97e3b168a0be605d4dcc3f70387b6dca3900"
+mapping_decision_id = "MAP_DEC_DD465CF24780F083C2D278AA"
+mapping_reviewed_source_digest = "sha256:7e3d04992155ef7dc011e72d158e5ac9b067bf2fe6f1584327812c05bce42cc6"
+mapping_assertion_review_digest = "sha256:fab3016be37f31ed069238bd5bbb2613d6b2956176e66e64e2e31efc14816000"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_statements.rs" = "sha256:7e3d04992155ef7dc011e72d158e5ac9b067bf2fe6f1584327812c05bce42cc6" }
+mapping_behavior_refs = ["IEC_PARSE_STATEMENT_FORMS_001#behavior:3"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_45DD3DD6BD6F1B83A7F7"
+subject_kind = "generated_test"
+discovery_id = "DISC_45DD3DD6BD6F1B83A7F7"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_types.rs"
+name = "test_pointer_type"
+command = "cargo nextest run -p trust-syntax --test parser_types --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_types) & test(=test_pointer_type)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_TYPE_FORMS_001"]
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001"
+expected_result = "REF_TO and the documented POINTER TO extension retain their referenced type syntax."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_45DD3DD6BD6F1B83A7F7.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_45DD3DD6BD6F1B83A7F7_4F897F148630"
+mapping_proposal_digest = "sha256:4f897f148630d874969e37ecde5100a74ea435980c63e0c9ab7abe1ae045966c"
+mapping_decision_id = "MAP_DEC_7BF0A77B9311EFC8F6D3A678"
+mapping_reviewed_source_digest = "sha256:fa82d8fb2a2a37dadcc4be8a023679cbb0b0c89d6f34192e8af7678e55bf37d9"
+mapping_assertion_review_digest = "sha256:c9551625c0a92d9ca57566a6dc7e91d00ee1e3aa4fa700172df8a0a2cb2354b6"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_types.rs" = "sha256:fa82d8fb2a2a37dadcc4be8a023679cbb0b0c89d6f34192e8af7678e55bf37d9" }
+mapping_behavior_refs = ["IEC_PARSE_TYPE_FORMS_001#behavior:3"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_6CC791442390F88B2DA9"
+subject_kind = "generated_test"
+discovery_id = "DISC_6CC791442390F88B2DA9"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_types.rs"
+name = "test_type_level_named_aggregate_defaults"
+command = "cargo nextest run -p trust-syntax --test parser_types --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_types) & test(=test_type_level_named_aggregate_defaults)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_TYPE_FORMS_001"]
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001"
+expected_result = "Named aggregates and array defaults at TYPE level retain initializer-list and array-initializer nodes according to their declared shapes."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_6CC791442390F88B2DA9.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_6CC791442390F88B2DA9_2419AD649408"
+mapping_proposal_digest = "sha256:2419ad649408018c90b93f9b81c74b274bf38db4c62faa43178689bf3bb49851"
+mapping_decision_id = "MAP_DEC_64564AF057E280B2B8BAC2F3"
+mapping_reviewed_source_digest = "sha256:fa82d8fb2a2a37dadcc4be8a023679cbb0b0c89d6f34192e8af7678e55bf37d9"
+mapping_assertion_review_digest = "sha256:4f35da121a4593749523cb890f00c62cc70d18817db278772f02d1fced004256"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_types.rs" = "sha256:fa82d8fb2a2a37dadcc4be8a023679cbb0b0c89d6f34192e8af7678e55bf37d9" }
+mapping_behavior_refs = ["IEC_PARSE_TYPE_FORMS_001#behavior:4"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_6DA2B9381B2A0F3A9DC1"
+subject_kind = "generated_test"
+discovery_id = "DISC_6DA2B9381B2A0F3A9DC1"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_types.rs"
+name = "test_string_type_with_length"
+command = "cargo nextest run -p trust-syntax --test parser_types --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_types) & test(=test_string_type_with_length)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_TYPE_FORMS_001"]
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001"
+expected_result = "Bracketed literal string lengths and documented parenthesized constant expressions remain attached to STRING and WSTRING type references."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_6DA2B9381B2A0F3A9DC1.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_6DA2B9381B2A0F3A9DC1_B3F8EC80D4BE"
+mapping_proposal_digest = "sha256:b3f8ec80d4be17dcdefd7d68761505af656da3ccd3374cc901eb54240df5a621"
+mapping_decision_id = "MAP_DEC_C5C25AC81D64BC6DF43D382E"
+mapping_reviewed_source_digest = "sha256:fa82d8fb2a2a37dadcc4be8a023679cbb0b0c89d6f34192e8af7678e55bf37d9"
+mapping_assertion_review_digest = "sha256:6c5270d2c3b4cdf46981adb34b13bdc83ec42bd29f0a2c482d667697a520913f"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_types.rs" = "sha256:fa82d8fb2a2a37dadcc4be8a023679cbb0b0c89d6f34192e8af7678e55bf37d9" }
+mapping_behavior_refs = ["IEC_PARSE_TYPE_FORMS_001#behavior:2"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_98D93551073158A07EE3"
+subject_kind = "generated_test"
+discovery_id = "DISC_98D93551073158A07EE3"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_types.rs"
+name = "test_struct_type"
+command = "cargo nextest run -p trust-syntax --test parser_types --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_types) & test(=test_struct_type)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_TYPE_FORMS_001"]
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001"
+expected_result = "One- and multidimensional arrays and structured type members retain bounds, element types, fields, and terminators."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_98D93551073158A07EE3.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_98D93551073158A07EE3_385CAA5DC734"
+mapping_proposal_digest = "sha256:385caa5dc73480a84619f8783e89a79ee3dd61e17bac743e3cf1d11d1540a28f"
+mapping_decision_id = "MAP_DEC_85A414D86F7AB064F4248AF2"
+mapping_reviewed_source_digest = "sha256:fa82d8fb2a2a37dadcc4be8a023679cbb0b0c89d6f34192e8af7678e55bf37d9"
+mapping_assertion_review_digest = "sha256:c514f9b34c0e5aa551705da79bb32cd1940d5439e06f7d0d2d693add76d46091"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_types.rs" = "sha256:fa82d8fb2a2a37dadcc4be8a023679cbb0b0c89d6f34192e8af7678e55bf37d9" }
+mapping_behavior_refs = ["IEC_PARSE_TYPE_FORMS_001#behavior:1"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_9F5C3B5A29DEB7FCDA89"
+subject_kind = "generated_test"
+discovery_id = "DISC_9F5C3B5A29DEB7FCDA89"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_types.rs"
+name = "test_array_type"
+command = "cargo nextest run -p trust-syntax --test parser_types --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_types) & test(=test_array_type)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_TYPE_FORMS_001"]
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001"
+expected_result = "One- and multidimensional arrays and structured type members retain bounds, element types, fields, and terminators."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_9F5C3B5A29DEB7FCDA89.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_9F5C3B5A29DEB7FCDA89_7632457C08C8"
+mapping_proposal_digest = "sha256:7632457c08c8e7f4ec71c96159fc3b4445d1b5ad5a73f1b0c1acd0d735ea616e"
+mapping_decision_id = "MAP_DEC_FA7977E5215BC634CE2FE0D1"
+mapping_reviewed_source_digest = "sha256:fa82d8fb2a2a37dadcc4be8a023679cbb0b0c89d6f34192e8af7678e55bf37d9"
+mapping_assertion_review_digest = "sha256:3e7944fe10b8db051d15049c363474e45f770898ed17e3584ead30a6cbde5ea6"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_types.rs" = "sha256:fa82d8fb2a2a37dadcc4be8a023679cbb0b0c89d6f34192e8af7678e55bf37d9" }
+mapping_behavior_refs = ["IEC_PARSE_TYPE_FORMS_001#behavior:1"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_B053583EF10943BA7A9C"
+subject_kind = "generated_test"
+discovery_id = "DISC_B053583EF10943BA7A9C"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_types.rs"
+name = "test_type_alias"
+command = "cargo nextest run -p trust-syntax --test parser_types --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_types) & test(=test_type_alias)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_TYPE_FORMS_001"]
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001"
+expected_result = "Direct aliases, subranges, enumerations, named values, base types, and enumeration defaults remain part of their TYPE declarations."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_B053583EF10943BA7A9C.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_B053583EF10943BA7A9C_AF1BC3B67B6B"
+mapping_proposal_digest = "sha256:af1bc3b67b6be2cceecd0da642245467d6a9a6c0574fd03ed52cdbd8ad32ea9e"
+mapping_decision_id = "MAP_DEC_2F789E1198F6EA4DAE2DB605"
+mapping_reviewed_source_digest = "sha256:fa82d8fb2a2a37dadcc4be8a023679cbb0b0c89d6f34192e8af7678e55bf37d9"
+mapping_assertion_review_digest = "sha256:3d7644f66b9c4148845d123b8c884c60e7d7557a7436db1cc92f210e2bb2c633"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_types.rs" = "sha256:fa82d8fb2a2a37dadcc4be8a023679cbb0b0c89d6f34192e8af7678e55bf37d9" }
+mapping_behavior_refs = ["IEC_PARSE_TYPE_FORMS_001#behavior:0"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_BC855A3FE686F66002C1"
+subject_kind = "generated_test"
+discovery_id = "DISC_BC855A3FE686F66002C1"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_types.rs"
+name = "test_string_type_with_parenthesized_length"
+command = "cargo nextest run -p trust-syntax --test parser_types --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_types) & test(=test_string_type_with_parenthesized_length)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_TYPE_FORMS_001"]
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001"
+expected_result = "Bracketed literal string lengths and documented parenthesized constant expressions remain attached to STRING and WSTRING type references."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_BC855A3FE686F66002C1.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_BC855A3FE686F66002C1_D4A13DAC4B80"
+mapping_proposal_digest = "sha256:d4a13dac4b80584853a1bf892a5c7eb86bd435438806a5ebc65f4bf831488c23"
+mapping_decision_id = "MAP_DEC_6D3702150C7F498EC18AA22D"
+mapping_reviewed_source_digest = "sha256:fa82d8fb2a2a37dadcc4be8a023679cbb0b0c89d6f34192e8af7678e55bf37d9"
+mapping_assertion_review_digest = "sha256:890383822a8bdb5a235fc9fc98e253f4d9c94fecd3bc0d6297849f63a070fb98"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_types.rs" = "sha256:fa82d8fb2a2a37dadcc4be8a023679cbb0b0c89d6f34192e8af7678e55bf37d9" }
+mapping_behavior_refs = ["IEC_PARSE_TYPE_FORMS_001#behavior:2"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_EB8709AACC1F37E9B154"
+subject_kind = "generated_test"
+discovery_id = "DISC_EB8709AACC1F37E9B154"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_types.rs"
+name = "test_type_level_defaults_cover_directly_derived_shapes"
+command = "cargo nextest run -p trust-syntax --test parser_types --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_types) & test(=test_type_level_defaults_cover_directly_derived_shapes)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_TYPE_FORMS_001"]
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001"
+expected_result = "Named aggregates and array defaults at TYPE level retain initializer-list and array-initializer nodes according to their declared shapes."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_EB8709AACC1F37E9B154.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_EB8709AACC1F37E9B154_16C3E0F625A9"
+mapping_proposal_digest = "sha256:16c3e0f625a91dba44c923370b4f014eb152554131dec50c9ec15b9c38a6e429"
+mapping_decision_id = "MAP_DEC_579B10224145821483001671"
+mapping_reviewed_source_digest = "sha256:fa82d8fb2a2a37dadcc4be8a023679cbb0b0c89d6f34192e8af7678e55bf37d9"
+mapping_assertion_review_digest = "sha256:77544615f9f041fbee7b43fa45508327507d663b069949f413db1e39d5105783"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_types.rs" = "sha256:fa82d8fb2a2a37dadcc4be8a023679cbb0b0c89d6f34192e8af7678e55bf37d9" }
+mapping_behavior_refs = ["IEC_PARSE_TYPE_FORMS_001#behavior:4"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_EE8ECC9BD204BC50BEEA"
+subject_kind = "generated_test"
+discovery_id = "DISC_EE8ECC9BD204BC50BEEA"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_types.rs"
+name = "test_enum_type"
+command = "cargo nextest run -p trust-syntax --test parser_types --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_types) & test(=test_enum_type)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_TYPE_FORMS_001"]
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001"
+expected_result = "Direct aliases, subranges, enumerations, named values, base types, and enumeration defaults remain part of their TYPE declarations."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_EE8ECC9BD204BC50BEEA.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_EE8ECC9BD204BC50BEEA_DDDC5E829073"
+mapping_proposal_digest = "sha256:dddc5e829073f95c3bff7b7c3e891b5a0944bb1157281f77f8c4bc4e56677aeb"
+mapping_decision_id = "MAP_DEC_9DAD34F741A231E763B4A0E5"
+mapping_reviewed_source_digest = "sha256:fa82d8fb2a2a37dadcc4be8a023679cbb0b0c89d6f34192e8af7678e55bf37d9"
+mapping_assertion_review_digest = "sha256:e3e6354ccd738ece2d4db96c1d2df24c98f860ad62a6ffa36cf81692e96ce76f"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_types.rs" = "sha256:fa82d8fb2a2a37dadcc4be8a023679cbb0b0c89d6f34192e8af7678e55bf37d9" }
+mapping_behavior_refs = ["IEC_PARSE_TYPE_FORMS_001#behavior:0"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_0A9EB4B9437059E82C8B"
+subject_kind = "generated_test"
+discovery_id = "DISC_0A9EB4B9437059E82C8B"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_variables.rs"
+name = "test_var_at_address"
+command = "cargo nextest run -p trust-syntax --test parser_variables --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_variables) & test(=test_var_at_address)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_VARIABLE_FORMS_001"]
+oracle_ref = "SPEC_IEC_VARIABLES_001"
+expected_result = "Concrete and partly specified direct-address spellings remain attached to their AT declarations."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_0A9EB4B9437059E82C8B.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_0A9EB4B9437059E82C8B_1DA2C7C176B8"
+mapping_proposal_digest = "sha256:1da2c7c176b89acdd3656a3c974eb02e8c2be022dcc888b2c27e9a21280bddc1"
+mapping_decision_id = "MAP_DEC_4A68DE99E6EADAAA9D66968B"
+mapping_reviewed_source_digest = "sha256:e5a77c88686742f998a58b18854d333c3f4792ff68938d2f4f73e2f78be10865"
+mapping_assertion_review_digest = "sha256:f1bb0e869ea1fc130e3c5c5c460191efdf81b8aef0a9f516d7e54265342376d5"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_variables.rs" = "sha256:e5a77c88686742f998a58b18854d333c3f4792ff68938d2f4f73e2f78be10865" }
+mapping_behavior_refs = ["IEC_PARSE_VARIABLE_FORMS_001#behavior:1"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_17EF3CAC510BCE1AC88C"
+subject_kind = "generated_test"
+discovery_id = "DISC_17EF3CAC510BCE1AC88C"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_variables.rs"
+name = "test_initializer_parser_is_not_used_for_enum_values_or_calls"
+command = "cargo nextest run -p trust-syntax --test parser_variables --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_variables) & test(=test_initializer_parser_is_not_used_for_enum_values_or_calls)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_VARIABLE_FORMS_001"]
+oracle_ref = "SPEC_IEC_VARIABLES_001"
+expected_result = "Formal call arguments and enumerated named values are not reclassified as declaration initializer lists."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_17EF3CAC510BCE1AC88C.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_17EF3CAC510BCE1AC88C_653CDEE3C08B"
+mapping_proposal_digest = "sha256:653cdee3c08b9b7890aea9666e0fc4dc888f5fb9cca66dad042307170b1c8f20"
+mapping_decision_id = "MAP_DEC_0CFE1DFE4DC8BED9860695A7"
+mapping_reviewed_source_digest = "sha256:e5a77c88686742f998a58b18854d333c3f4792ff68938d2f4f73e2f78be10865"
+mapping_assertion_review_digest = "sha256:3985f7fe60f7d950fda420f058feeeff661054c1845b9c57634e746ffed896a1"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_variables.rs" = "sha256:e5a77c88686742f998a58b18854d333c3f4792ff68938d2f4f73e2f78be10865" }
+mapping_behavior_refs = ["IEC_PARSE_VARIABLE_FORMS_001#behavior:4"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_21449A3BBD5F3F55D531"
+subject_kind = "generated_test"
+discovery_id = "DISC_21449A3BBD5F3F55D531"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_variables.rs"
+name = "test_initializer_recovery_property_smoke_for_generated_positional_shapes"
+command = "cargo nextest run -p trust-syntax --test parser_variables --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_variables) & test(=test_initializer_recovery_property_smoke_for_generated_positional_shapes)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_VARIABLE_FORMS_001"]
+oracle_ref = "SPEC_IEC_VARIABLES_001"
+expected_result = "Unsupported positional or empty aggregate shapes produce the locked targeted diagnostics without consuming following declarations or cascading without bound."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_21449A3BBD5F3F55D531.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_21449A3BBD5F3F55D531_0685F5FEC476"
+mapping_proposal_digest = "sha256:0685f5fec4761b8b891d141255763e421627a9ec3e5e90bd0002e703f4567b60"
+mapping_decision_id = "MAP_DEC_828D2EA4DEFC0C91D3FD55A1"
+mapping_reviewed_source_digest = "sha256:e5a77c88686742f998a58b18854d333c3f4792ff68938d2f4f73e2f78be10865"
+mapping_assertion_review_digest = "sha256:41f0eb7172c3cb3af2bad8e51bf4d171b4cb085c82e767dd297a3f32cecaa886"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_variables.rs" = "sha256:e5a77c88686742f998a58b18854d333c3f4792ff68938d2f4f73e2f78be10865" }
+mapping_behavior_refs = ["IEC_PARSE_VARIABLE_FORMS_001#behavior:5"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_305267835695FA492638"
+subject_kind = "generated_test"
+discovery_id = "DISC_305267835695FA492638"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_variables.rs"
+name = "test_var_with_repetition_array_initializer"
+command = "cargo nextest run -p trust-syntax --test parser_variables --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_variables) & test(=test_var_with_repetition_array_initializer)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_VARIABLE_FORMS_001"]
+oracle_ref = "SPEC_IEC_VARIABLES_001"
+expected_result = "Scalar, named aggregate, partial array, repetition, nested aggregate, function-block instance, and global declaration initializers retain their initializer syntax nodes."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_305267835695FA492638.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_305267835695FA492638_9CE972DAB08D"
+mapping_proposal_digest = "sha256:9ce972dab08d23234046303542af778e83e73b7ee37b4da7167aef03ae3d313d"
+mapping_decision_id = "MAP_DEC_438AF69AAAA628C4641F126C"
+mapping_reviewed_source_digest = "sha256:e5a77c88686742f998a58b18854d333c3f4792ff68938d2f4f73e2f78be10865"
+mapping_assertion_review_digest = "sha256:b64c28cf9d929edde25bf8076e5559ce42aeaabe910e5af3c1b7efed3175b549"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_variables.rs" = "sha256:e5a77c88686742f998a58b18854d333c3f4792ff68938d2f4f73e2f78be10865" }
+mapping_behavior_refs = ["IEC_PARSE_VARIABLE_FORMS_001#behavior:3"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_76D56500266DDABE87F7"
+subject_kind = "generated_test"
+discovery_id = "DISC_76D56500266DDABE87F7"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_variables.rs"
+name = "test_var_modifiers"
+command = "cargo nextest run -p trust-syntax --test parser_variables --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_variables) & test(=test_var_modifiers)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_VARIABLE_FORMS_001"]
+oracle_ref = "SPEC_IEC_VARIABLES_001"
+expected_result = "CONSTANT, RETAIN, and documented PERSISTENT qualifiers remain attached to their declared variable sections."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_76D56500266DDABE87F7.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_76D56500266DDABE87F7_3EB5FF2234F2"
+mapping_proposal_digest = "sha256:3eb5ff2234f2f7cad6b0880e2696610e18a10a05c121d8f74a353b9279c732a3"
+mapping_decision_id = "MAP_DEC_568574CC2225CAF91EA63D7E"
+mapping_reviewed_source_digest = "sha256:e5a77c88686742f998a58b18854d333c3f4792ff68938d2f4f73e2f78be10865"
+mapping_assertion_review_digest = "sha256:50942d0f94f8cb7cdf8511c290511a00c5297331f8e365c93d539e64ec5cee10"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_variables.rs" = "sha256:e5a77c88686742f998a58b18854d333c3f4792ff68938d2f4f73e2f78be10865" }
+mapping_behavior_refs = ["IEC_PARSE_VARIABLE_FORMS_001#behavior:8"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_7B935FCCC5563522FBA4"
+subject_kind = "generated_test"
+discovery_id = "DISC_7B935FCCC5563522FBA4"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_variables.rs"
+name = "test_file_scope_var_global"
+command = "cargo nextest run -p trust-syntax --test parser_variables --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_variables) & test(=test_file_scope_var_global)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_VARIABLE_FORMS_001"]
+oracle_ref = "SPEC_IEC_VARIABLES_001"
+expected_result = "The documented vendor-style file-scope VAR_GLOBAL form remains a root-level VarBlock."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_7B935FCCC5563522FBA4.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_7B935FCCC5563522FBA4_10B1A65FBC69"
+mapping_proposal_digest = "sha256:10b1a65fbc69b5387e12e3c63935a2c4114ff6167f34489e0e41f4dfcde4f818"
+mapping_decision_id = "MAP_DEC_E32981AB6A247EF3A1719965"
+mapping_reviewed_source_digest = "sha256:e5a77c88686742f998a58b18854d333c3f4792ff68938d2f4f73e2f78be10865"
+mapping_assertion_review_digest = "sha256:e22971be49ccef5a879ee4637985ee065c6768cc6b454917fad7220c8dfba80d"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_variables.rs" = "sha256:e5a77c88686742f998a58b18854d333c3f4792ff68938d2f4f73e2f78be10865" }
+mapping_behavior_refs = ["IEC_PARSE_VARIABLE_FORMS_001#behavior:7"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_8ED4AABC4BD8CC5CCE12"
+subject_kind = "generated_test"
+discovery_id = "DISC_8ED4AABC4BD8CC5CCE12"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_variables.rs"
+name = "test_var_initializer_aggregate_shapes_and_recovery"
+command = "cargo nextest run -p trust-syntax --test parser_variables --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_variables) & test(=test_var_initializer_aggregate_shapes_and_recovery)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_VARIABLE_FORMS_001"]
+oracle_ref = "SPEC_IEC_VARIABLES_001"
+expected_result = "Scalar, named aggregate, partial array, repetition, nested aggregate, function-block instance, and global declaration initializers retain their initializer syntax nodes."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_8ED4AABC4BD8CC5CCE12.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_8ED4AABC4BD8CC5CCE12_E51A0D384BD6"
+mapping_proposal_digest = "sha256:e51a0d384bd6618d35d3b8c46f047adf51171e7cb3a80e8d798d0f5378c0526c"
+mapping_decision_id = "MAP_DEC_B347E068F5BBFFB0677A50C3"
+mapping_reviewed_source_digest = "sha256:e5a77c88686742f998a58b18854d333c3f4792ff68938d2f4f73e2f78be10865"
+mapping_assertion_review_digest = "sha256:09fbb8a40f52b8951357f7c113bdef499c2a192a99f7b47aa4448e1667b0f7c8"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_variables.rs" = "sha256:e5a77c88686742f998a58b18854d333c3f4792ff68938d2f4f73e2f78be10865" }
+mapping_behavior_refs = ["IEC_PARSE_VARIABLE_FORMS_001#behavior:3"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_9B43339BCCE6BCB56DD5"
+subject_kind = "generated_test"
+discovery_id = "DISC_9B43339BCCE6BCB56DD5"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_variables.rs"
+name = "test_var_at_wildcard_address"
+command = "cargo nextest run -p trust-syntax --test parser_variables --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_variables) & test(=test_var_at_wildcard_address)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_VARIABLE_FORMS_001"]
+oracle_ref = "SPEC_IEC_VARIABLES_001"
+expected_result = "Concrete and partly specified direct-address spellings remain attached to their AT declarations."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_9B43339BCCE6BCB56DD5.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_9B43339BCCE6BCB56DD5_4428578F15C7"
+mapping_proposal_digest = "sha256:4428578f15c7292f526e3c85dea2962dc70c2b6f82e498c425932d7a16384752"
+mapping_decision_id = "MAP_DEC_50E346120A36279567CF98C2"
+mapping_reviewed_source_digest = "sha256:e5a77c88686742f998a58b18854d333c3f4792ff68938d2f4f73e2f78be10865"
+mapping_assertion_review_digest = "sha256:c7faffb3423b0112814e9f015fafcdf15f78adf575e51b13e971691b48b38f82"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_variables.rs" = "sha256:e5a77c88686742f998a58b18854d333c3f4792ff68938d2f4f73e2f78be10865" }
+mapping_behavior_refs = ["IEC_PARSE_VARIABLE_FORMS_001#behavior:1"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_9DFCF021E78DDDE1500A"
+subject_kind = "generated_test"
+discovery_id = "DISC_9DFCF021E78DDDE1500A"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_variables.rs"
+name = "test_call_arguments_remain_call_arguments"
+command = "cargo nextest run -p trust-syntax --test parser_variables --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_variables) & test(=test_call_arguments_remain_call_arguments)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_VARIABLE_FORMS_001"]
+oracle_ref = "SPEC_IEC_VARIABLES_001"
+expected_result = "Formal call arguments and enumerated named values are not reclassified as declaration initializer lists."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_9DFCF021E78DDDE1500A.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_9DFCF021E78DDDE1500A_62D8C9B08780"
+mapping_proposal_digest = "sha256:62d8c9b08780fd6fd9f6b3e4e1785038c1524650227ce8bf1ed3505dac105036"
+mapping_decision_id = "MAP_DEC_1EC15C038B132611F44F17AE"
+mapping_reviewed_source_digest = "sha256:e5a77c88686742f998a58b18854d333c3f4792ff68938d2f4f73e2f78be10865"
+mapping_assertion_review_digest = "sha256:a43a43377673854e0c4fb5d98c1cf6de0efbbc392b8cb34815f2028f1ee4d345"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_variables.rs" = "sha256:e5a77c88686742f998a58b18854d333c3f4792ff68938d2f4f73e2f78be10865" }
+mapping_behavior_refs = ["IEC_PARSE_VARIABLE_FORMS_001#behavior:4"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_A667418E5CB415D18B4A"
+subject_kind = "generated_test"
+discovery_id = "DISC_A667418E5CB415D18B4A"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_variables.rs"
+name = "test_var_with_initializer"
+command = "cargo nextest run -p trust-syntax --test parser_variables --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_variables) & test(=test_var_with_initializer)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_VARIABLE_FORMS_001"]
+oracle_ref = "SPEC_IEC_VARIABLES_001"
+expected_result = "Scalar, named aggregate, partial array, repetition, nested aggregate, function-block instance, and global declaration initializers retain their initializer syntax nodes."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_A667418E5CB415D18B4A.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_A667418E5CB415D18B4A_DABAD94C0CC6"
+mapping_proposal_digest = "sha256:dabad94c0cc68d78a689ba739b01beb4cb92c6284a0b57cdc9855f07b309661f"
+mapping_decision_id = "MAP_DEC_68EE41ABF30540A9F3B29CA3"
+mapping_reviewed_source_digest = "sha256:e5a77c88686742f998a58b18854d333c3f4792ff68938d2f4f73e2f78be10865"
+mapping_assertion_review_digest = "sha256:4a81f2d74adf6d04a7cf7dbd64919d0e8bdcdad6f78d9b1d6665ef0fef0045b3"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_variables.rs" = "sha256:e5a77c88686742f998a58b18854d333c3f4792ff68938d2f4f73e2f78be10865" }
+mapping_behavior_refs = ["IEC_PARSE_VARIABLE_FORMS_001#behavior:3"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_AA1F7E39CA7ECDE9AEC2"
+subject_kind = "generated_test"
+discovery_id = "DISC_AA1F7E39CA7ECDE9AEC2"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_variables.rs"
+name = "parse_array_star_in_var_in_out"
+command = "cargo nextest run -p trust-syntax --test parser_variables --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_variables) & test(=parse_array_star_in_var_in_out)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_VARIABLE_FORMS_001"]
+oracle_ref = "SPEC_IEC_VARIABLES_001"
+expected_result = "ARRAY[*] remains a variable-length array type in the documented input, in-out, and pointer-to-array declaration positions."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_AA1F7E39CA7ECDE9AEC2.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_AA1F7E39CA7ECDE9AEC2_42F7F76658A8"
+mapping_proposal_digest = "sha256:42f7f76658a8e9bfbdd7e67f8c2e6d4374fc81b6745f6a15727606d720aec26d"
+mapping_decision_id = "MAP_DEC_71DC6AF470AC439E90974E42"
+mapping_reviewed_source_digest = "sha256:e5a77c88686742f998a58b18854d333c3f4792ff68938d2f4f73e2f78be10865"
+mapping_assertion_review_digest = "sha256:8c7d7cbb0cab16b82f0aecb67066e8a0cfbd431ddbc853fec5b878067bfe2a18"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_variables.rs" = "sha256:e5a77c88686742f998a58b18854d333c3f4792ff68938d2f4f73e2f78be10865" }
+mapping_behavior_refs = ["IEC_PARSE_VARIABLE_FORMS_001#behavior:2"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_B697B33479C2C3CD7B91"
+subject_kind = "generated_test"
+discovery_id = "DISC_B697B33479C2C3CD7B91"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_variables.rs"
+name = "test_var_with_named_aggregate_initializer"
+command = "cargo nextest run -p trust-syntax --test parser_variables --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_variables) & test(=test_var_with_named_aggregate_initializer)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_VARIABLE_FORMS_001"]
+oracle_ref = "SPEC_IEC_VARIABLES_001"
+expected_result = "Scalar, named aggregate, partial array, repetition, nested aggregate, function-block instance, and global declaration initializers retain their initializer syntax nodes."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_B697B33479C2C3CD7B91.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_B697B33479C2C3CD7B91_100E00A0078E"
+mapping_proposal_digest = "sha256:100e00a0078effe0c1618560b103c4de1a7cb99b3a4852b005395c75f3b85d58"
+mapping_decision_id = "MAP_DEC_E364C34A607A19DC5E81146E"
+mapping_reviewed_source_digest = "sha256:e5a77c88686742f998a58b18854d333c3f4792ff68938d2f4f73e2f78be10865"
+mapping_assertion_review_digest = "sha256:f2975f18f2c09cb4c6cae83944e4454186418db23b2f87b67e1bbe488d33dbb1"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_variables.rs" = "sha256:e5a77c88686742f998a58b18854d333c3f4792ff68938d2f4f73e2f78be10865" }
+mapping_behavior_refs = ["IEC_PARSE_VARIABLE_FORMS_001#behavior:3"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_B89969D2FDCA98F4AE82"
+subject_kind = "generated_test"
+discovery_id = "DISC_B89969D2FDCA98F4AE82"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_variables.rs"
+name = "test_var_block_types"
+command = "cargo nextest run -p trust-syntax --test parser_variables --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_variables) & test(=test_var_block_types)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_VARIABLE_FORMS_001"]
+oracle_ref = "SPEC_IEC_VARIABLES_001"
+expected_result = "Local, input, output, in-out, temporary, file-global, constant, retain, and persistent declarations remain in their declared sections with their qualifiers."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_B89969D2FDCA98F4AE82.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_B89969D2FDCA98F4AE82_150EAF058CD5"
+mapping_proposal_digest = "sha256:150eaf058cd550beab906095563abf6a2ab4653502597c7ff8e82b37c8e9c01e"
+mapping_decision_id = "MAP_DEC_C1C72EA4478F210B4E876C3F"
+mapping_reviewed_source_digest = "sha256:e5a77c88686742f998a58b18854d333c3f4792ff68938d2f4f73e2f78be10865"
+mapping_assertion_review_digest = "sha256:a208436bc892e52a97b9a98b54be24e686dd88240cc18015607e4819d30dc3aa"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_variables.rs" = "sha256:e5a77c88686742f998a58b18854d333c3f4792ff68938d2f4f73e2f78be10865" }
+mapping_behavior_refs = ["IEC_PARSE_VARIABLE_FORMS_001#behavior:0"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_BAFFBB88330C39CA4020"
+subject_kind = "generated_test"
+discovery_id = "DISC_BAFFBB88330C39CA4020"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_variables.rs"
+name = "parse_array_star_in_var_input"
+command = "cargo nextest run -p trust-syntax --test parser_variables --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_variables) & test(=parse_array_star_in_var_input)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_VARIABLE_FORMS_001"]
+oracle_ref = "SPEC_IEC_VARIABLES_001"
+expected_result = "ARRAY[*] remains a variable-length array type in the documented input, in-out, and pointer-to-array declaration positions."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_BAFFBB88330C39CA4020.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_BAFFBB88330C39CA4020_5AC5EA956A20"
+mapping_proposal_digest = "sha256:5ac5ea956a203f20decaa4fe2c51b83503b906314b0efbdcf7ef44389b1a4e81"
+mapping_decision_id = "MAP_DEC_EAD297C01477831EE3A8F734"
+mapping_reviewed_source_digest = "sha256:e5a77c88686742f998a58b18854d333c3f4792ff68938d2f4f73e2f78be10865"
+mapping_assertion_review_digest = "sha256:1891906e9a28801def23b0e21fa703e68e9edc1b7abc0f24281b038d5235fb90"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_variables.rs" = "sha256:e5a77c88686742f998a58b18854d333c3f4792ff68938d2f4f73e2f78be10865" }
+mapping_behavior_refs = ["IEC_PARSE_VARIABLE_FORMS_001#behavior:2"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_BB91AC7A18EC0953D601"
+subject_kind = "generated_test"
+discovery_id = "DISC_BB91AC7A18EC0953D601"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_variables.rs"
+name = "test_positional_initializer_recovery_preserves_declaration_boundaries"
+command = "cargo nextest run -p trust-syntax --test parser_variables --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_variables) & test(=test_positional_initializer_recovery_preserves_declaration_boundaries)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_VARIABLE_FORMS_001"]
+oracle_ref = "SPEC_IEC_VARIABLES_001"
+expected_result = "Unsupported positional or empty aggregate shapes produce the locked targeted diagnostics without consuming following declarations or cascading without bound."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_BB91AC7A18EC0953D601.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_BB91AC7A18EC0953D601_12A6950D73EE"
+mapping_proposal_digest = "sha256:12a6950d73ee53695691300ba716426f099bb2f71c76e32bf4cc2b3b4cd4ca93"
+mapping_decision_id = "MAP_DEC_96196AEB6B083E20B51E8D42"
+mapping_reviewed_source_digest = "sha256:e5a77c88686742f998a58b18854d333c3f4792ff68938d2f4f73e2f78be10865"
+mapping_assertion_review_digest = "sha256:51afd3fbb5eddc459f1f2f8bdd022d81b5f8d5b7d98afac19f444a09c0263220"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_variables.rs" = "sha256:e5a77c88686742f998a58b18854d333c3f4792ff68938d2f4f73e2f78be10865" }
+mapping_behavior_refs = ["IEC_PARSE_VARIABLE_FORMS_001#behavior:5"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_C2687A2FEF31E4256BAA"
+subject_kind = "generated_test"
+discovery_id = "DISC_C2687A2FEF31E4256BAA"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_variables.rs"
+name = "test_var_with_partial_array_initializer"
+command = "cargo nextest run -p trust-syntax --test parser_variables --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_variables) & test(=test_var_with_partial_array_initializer)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_VARIABLE_FORMS_001"]
+oracle_ref = "SPEC_IEC_VARIABLES_001"
+expected_result = "Scalar, named aggregate, partial array, repetition, nested aggregate, function-block instance, and global declaration initializers retain their initializer syntax nodes."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_C2687A2FEF31E4256BAA.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_C2687A2FEF31E4256BAA_50AEB8C9AA24"
+mapping_proposal_digest = "sha256:50aeb8c9aa244f0eb470c28c9a3788c90a2938a25a983f20129a4431c1132fa6"
+mapping_decision_id = "MAP_DEC_404CE4CE2EA46CD94DE47FB7"
+mapping_reviewed_source_digest = "sha256:e5a77c88686742f998a58b18854d333c3f4792ff68938d2f4f73e2f78be10865"
+mapping_assertion_review_digest = "sha256:491631e19e2c06fbe9787329aca681f68b561792f2e81108161cb48039315c4e"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_variables.rs" = "sha256:e5a77c88686742f998a58b18854d333c3f4792ff68938d2f4f73e2f78be10865" }
+mapping_behavior_refs = ["IEC_PARSE_VARIABLE_FORMS_001#behavior:3"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_C88643F355A4CFA49DF0"
+subject_kind = "generated_test"
+discovery_id = "DISC_C88643F355A4CFA49DF0"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_variables.rs"
+name = "parse_array_star_in_pointer_to_array"
+command = "cargo nextest run -p trust-syntax --test parser_variables --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_variables) & test(=parse_array_star_in_pointer_to_array)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_VARIABLE_FORMS_001"]
+oracle_ref = "SPEC_IEC_VARIABLES_001"
+expected_result = "The documented POINTER TO extension composes with a variable-length ARRAY[*] referenced type without changing the array declaration form."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_C88643F355A4CFA49DF0.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_C88643F355A4CFA49DF0_0A6CC86696A4"
+mapping_proposal_digest = "sha256:0a6cc86696a4b88b9dbdc1a1630c4c2a88be5e1398b9d4ad3c59052c70af76d6"
+mapping_decision_id = "MAP_DEC_5F04F77B1B9671040A1C5D7A"
+mapping_reviewed_source_digest = "sha256:e5a77c88686742f998a58b18854d333c3f4792ff68938d2f4f73e2f78be10865"
+mapping_assertion_review_digest = "sha256:2e4cd89a15e695370a73222768ea3cfaf53f86a1c4c00a7edd18eb953dc31ad1"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_variables.rs" = "sha256:e5a77c88686742f998a58b18854d333c3f4792ff68938d2f4f73e2f78be10865" }
+mapping_behavior_refs = ["IEC_PARSE_VARIABLE_FORMS_001#behavior:6"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_D1BD83DB9C4B98C948C7"
+subject_kind = "generated_test"
+discovery_id = "DISC_D1BD83DB9C4B98C948C7"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_variables.rs"
+name = "test_positional_and_empty_aggregate_recovery_is_bounded"
+command = "cargo nextest run -p trust-syntax --test parser_variables --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_variables) & test(=test_positional_and_empty_aggregate_recovery_is_bounded)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_VARIABLE_FORMS_001"]
+oracle_ref = "SPEC_IEC_VARIABLES_001"
+expected_result = "Unsupported positional or empty aggregate shapes produce the locked targeted diagnostics without consuming following declarations or cascading without bound."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_D1BD83DB9C4B98C948C7.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_D1BD83DB9C4B98C948C7_3AE901AC60A8"
+mapping_proposal_digest = "sha256:3ae901ac60a874ff06ab1725f9223f9ba6f39f5b247497b16c01b0689ee419bd"
+mapping_decision_id = "MAP_DEC_0B61D959DDDDE996A0DBCA63"
+mapping_reviewed_source_digest = "sha256:e5a77c88686742f998a58b18854d333c3f4792ff68938d2f4f73e2f78be10865"
+mapping_assertion_review_digest = "sha256:4d27d2c7e1aec791849a0ed1a697c9b350730eff730d47d5d9b9a7af66dae9dd"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_variables.rs" = "sha256:e5a77c88686742f998a58b18854d333c3f4792ff68938d2f4f73e2f78be10865" }
+mapping_behavior_refs = ["IEC_PARSE_VARIABLE_FORMS_001#behavior:5"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_F68CDE0188626C53A2F6"
+subject_kind = "generated_test"
+discovery_id = "DISC_F68CDE0188626C53A2F6"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_variables.rs"
+name = "test_var_with_array_initializer"
+command = "cargo nextest run -p trust-syntax --test parser_variables --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_variables) & test(=test_var_with_array_initializer)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_VARIABLE_FORMS_001"]
+oracle_ref = "SPEC_IEC_VARIABLES_001"
+expected_result = "Scalar, named aggregate, partial array, repetition, nested aggregate, function-block instance, and global declaration initializers retain their initializer syntax nodes."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_F68CDE0188626C53A2F6.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_F68CDE0188626C53A2F6_24EB530E7DC5"
+mapping_proposal_digest = "sha256:24eb530e7dc5712fc5a3436cb3b951cd42dc7b7f2e01f4b11f1ffa21abfc7268"
+mapping_decision_id = "MAP_DEC_C17191136F69B52932C424D5"
+mapping_reviewed_source_digest = "sha256:e5a77c88686742f998a58b18854d333c3f4792ff68938d2f4f73e2f78be10865"
+mapping_assertion_review_digest = "sha256:886cbf5d775ac3d279c7d85fd61bda64c7833987287368e84a2fdc25946db448"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_variables.rs" = "sha256:e5a77c88686742f998a58b18854d333c3f4792ff68938d2f4f73e2f78be10865" }
+mapping_behavior_refs = ["IEC_PARSE_VARIABLE_FORMS_001#behavior:3"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_F85DA6E835C2F33830D1"
+subject_kind = "generated_test"
+discovery_id = "DISC_F85DA6E835C2F33830D1"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_variables.rs"
+name = "test_fb_instance_aggregate_initializer_parse"
+command = "cargo nextest run -p trust-syntax --test parser_variables --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_variables) & test(=test_fb_instance_aggregate_initializer_parse)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_VARIABLE_FORMS_001"]
+oracle_ref = "SPEC_IEC_VARIABLES_001"
+expected_result = "Scalar, named aggregate, partial array, repetition, nested aggregate, function-block instance, and global declaration initializers retain their initializer syntax nodes."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_F85DA6E835C2F33830D1.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_F85DA6E835C2F33830D1_85B4B2020B61"
+mapping_proposal_digest = "sha256:85b4b2020b61591ace6cd5d0ad48b4cf637a95dd6eb95d04caf3ac213c3bbbe7"
+mapping_decision_id = "MAP_DEC_685D6905BBA14C6D12BD57F9"
+mapping_reviewed_source_digest = "sha256:e5a77c88686742f998a58b18854d333c3f4792ff68938d2f4f73e2f78be10865"
+mapping_assertion_review_digest = "sha256:49af505d38053ba74564e5dec7235b35ac2af3f306fb53a90c2e2591d563c52a"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_variables.rs" = "sha256:e5a77c88686742f998a58b18854d333c3f4792ff68938d2f4f73e2f78be10865" }
+mapping_behavior_refs = ["IEC_PARSE_VARIABLE_FORMS_001#behavior:3"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_F9EBDCFECF196E95F8F7"
+subject_kind = "generated_test"
+discovery_id = "DISC_F9EBDCFECF196E95F8F7"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/tests/parser_variables.rs"
+name = "test_var_global_aggregate_initializer_parse"
+command = "cargo nextest run -p trust-syntax --test parser_variables --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax::parser_variables) & test(=test_var_global_aggregate_initializer_parse)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["IEC_PARSE_VARIABLE_FORMS_001"]
+oracle_ref = "SPEC_IEC_VARIABLES_001"
+expected_result = "Scalar, named aggregate, partial array, repetition, nested aggregate, function-block instance, and global declaration initializers retain their initializer syntax nodes."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_F9EBDCFECF196E95F8F7.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_F9EBDCFECF196E95F8F7_7FFD6A45A88B"
+mapping_proposal_digest = "sha256:7ffd6a45a88b8c49d01cf39dd6cbdf553ff833b986ab2991e03ff5a8298e2f1e"
+mapping_decision_id = "MAP_DEC_87FF0079B2159EB9C9857CEC"
+mapping_reviewed_source_digest = "sha256:e5a77c88686742f998a58b18854d333c3f4792ff68938d2f4f73e2f78be10865"
+mapping_assertion_review_digest = "sha256:534a664cf643c6578b53cf3a45843b3c2631ff49c769d7a319e8e74d7c30fbf9"
+mapping_assertion_source_digests = { "crates/trust-syntax/tests/common.rs" = "sha256:9f8367b78a53ffed0a0ad6e4101c72aa614d0dbddabb047df094fdf52657f99a", "crates/trust-syntax/tests/parser_variables.rs" = "sha256:e5a77c88686742f998a58b18854d333c3f4792ff68938d2f4f73e2f78be10865" }
+mapping_behavior_refs = ["IEC_PARSE_VARIABLE_FORMS_001#behavior:3"]
+mapping_reviewer_ids = ["codex-main", "codex-review-syntax-assignments"]

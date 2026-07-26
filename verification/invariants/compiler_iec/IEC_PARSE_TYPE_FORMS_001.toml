@@ -10,11 +10,11 @@ claim = "Aliases, subranges, enumerations, arrays, structures, strings, referenc
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-syntax/src/parser", "docs/specs/02-data-types.md"]
-tests = []
+tests = ["TEST_AUTO_45DD3DD6BD6F1B83A7F7", "TEST_AUTO_6CC791442390F88B2DA9", "TEST_AUTO_6DA2B9381B2A0F3A9DC1", "TEST_AUTO_98D93551073158A07EE3", "TEST_AUTO_9F5C3B5A29DEB7FCDA89", "TEST_AUTO_B053583EF10943BA7A9C", "TEST_AUTO_BC855A3FE686F66002C1", "TEST_AUTO_EB8709AACC1F37E9B154", "TEST_AUTO_EE8ECC9BD204BC50BEEA"]
 gates = ["veryquick", "pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+missing = ["assertion_reachability", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -71,5 +71,5 @@ rationale = "Named aggregates and array defaults at TYPE level retain initialize
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "The complete type-form assertion family awaits catalog association."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in IEC_PARSE_TYPE_FORMS_001; dynamic proof and broad remote validation remain explicit debt."

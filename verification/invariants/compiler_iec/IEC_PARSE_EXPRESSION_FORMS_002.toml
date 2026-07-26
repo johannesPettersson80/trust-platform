@@ -10,11 +10,11 @@ claim = "Documented arithmetic, comparison, logical, reference, postfix, call, a
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-syntax/src/parser", "docs/specs/05-expressions.md"]
-tests = []
+tests = ["TEST_AUTO_040FA7FD5A9C4FA012E9", "TEST_AUTO_0C64B66155D18AB6A349", "TEST_AUTO_242B246E9CD7517FDEF5", "TEST_AUTO_369516AA6B664D5C95D8", "TEST_AUTO_3B724A69637CEE49AF44", "TEST_AUTO_4DF938F54F2FA1306C1E", "TEST_AUTO_660B3271451CCA419643", "TEST_AUTO_67045A053B4987BD9299", "TEST_AUTO_7952C429413C84BEC774", "TEST_AUTO_80070FE89B24B89216E5", "TEST_AUTO_844BE5EF314ABC05FC5D", "TEST_AUTO_91B00FC87E16AEF9D815", "TEST_AUTO_92D9633307186FC98E4B", "TEST_AUTO_97D61BB7559A7DD6E76E", "TEST_AUTO_A1A6F0948A4713FAF153", "TEST_AUTO_A24D196C0A5E43F2BAC6", "TEST_AUTO_A5EA38429E32754E180A", "TEST_AUTO_C30D90A345E81DB8C44F", "TEST_AUTO_DE0A37F5DBCEA9EC22BD", "TEST_AUTO_DEAB54E384071EC060B1"]
 gates = ["veryquick", "pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+missing = ["assertion_reachability", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -89,15 +89,15 @@ rationale = "One lossless syntax snapshot preserves multiplicative-before-additi
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "The documented expression-form assertions await catalog association."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in IEC_PARSE_EXPRESSION_FORMS_002; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
-state = "gap_open"
-rationale = "The combined precedence-matrix assertion awaits catalog association."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in IEC_PARSE_EXPRESSION_FORMS_002; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "gap_open"
-rationale = "The exact SIZEOF operand-role assertions await catalog association."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every wrong_type_or_shape behavior in IEC_PARSE_EXPRESSION_FORMS_002; dynamic proof and broad remote validation remain explicit debt."

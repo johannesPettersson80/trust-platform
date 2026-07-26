@@ -10,11 +10,11 @@ claim = "Documented variable sections, qualifiers, direct addresses, variable-le
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-syntax/src/parser", "docs/specs/03-variables.md"]
-tests = []
+tests = ["TEST_AUTO_0A9EB4B9437059E82C8B", "TEST_AUTO_17EF3CAC510BCE1AC88C", "TEST_AUTO_21449A3BBD5F3F55D531", "TEST_AUTO_305267835695FA492638", "TEST_AUTO_76D56500266DDABE87F7", "TEST_AUTO_7B935FCCC5563522FBA4", "TEST_AUTO_8ED4AABC4BD8CC5CCE12", "TEST_AUTO_9B43339BCCE6BCB56DD5", "TEST_AUTO_9DFCF021E78DDDE1500A", "TEST_AUTO_A667418E5CB415D18B4A", "TEST_AUTO_AA1F7E39CA7ECDE9AEC2", "TEST_AUTO_B697B33479C2C3CD7B91", "TEST_AUTO_B89969D2FDCA98F4AE82", "TEST_AUTO_BAFFBB88330C39CA4020", "TEST_AUTO_BB91AC7A18EC0953D601", "TEST_AUTO_C2687A2FEF31E4256BAA", "TEST_AUTO_C88643F355A4CFA49DF0", "TEST_AUTO_D1BD83DB9C4B98C948C7", "TEST_AUTO_F68CDE0188626C53A2F6", "TEST_AUTO_F85DA6E835C2F33830D1", "TEST_AUTO_F9EBDCFECF196E95F8F7"]
 gates = ["veryquick", "pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+missing = ["assertion_reachability", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -107,10 +107,10 @@ rationale = "CONSTANT, RETAIN, and documented PERSISTENT qualifiers remain attac
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "The variable declaration and initializer assertions await catalog association."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in IEC_PARSE_VARIABLE_FORMS_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "gap_open"
-rationale = "The call/enum disambiguation and bounded recovery assertions await catalog association."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every wrong_type_or_shape behavior in IEC_PARSE_VARIABLE_FORMS_001; dynamic proof and broad remote validation remain explicit debt."
