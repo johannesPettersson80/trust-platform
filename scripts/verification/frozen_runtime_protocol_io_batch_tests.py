@@ -79,6 +79,33 @@ class FrozenRuntimeProtocolIoBatchTests(unittest.TestCase):
             ),
         )
 
+    def test_target_selection_routes_nested_module_to_owning_integration_target(
+        self,
+    ) -> None:
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            target = root / "crates/trust-runtime/tests/bytecode_vm_core.rs"
+            target.parent.mkdir(parents=True)
+            target.write_text("mod bytecode_vm_core;\n")
+
+            self.assertEqual(
+                ["--test", "bytecode_vm_core"],
+                selected_target_args(
+                    [
+                        {
+                            "path": (
+                                "crates/trust-runtime/tests/"
+                                "bytecode_vm_core/ref_validation.rs"
+                            )
+                        }
+                    ],
+                    root=root,
+                ),
+            )
+
     def test_source_cfg_splits_no_ads_wire_tests_from_default(self) -> None:
         import tempfile
         from pathlib import Path

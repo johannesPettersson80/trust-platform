@@ -91,7 +91,7 @@ def run_batch(
         if len(recorded_shards) != len(raw_recorded_shards):
             raise ValueError("recorded nextest feature shard names are invalid")
     for shard_name, shard_selection, no_default_features in shards:
-        target_args = selected_target_args(shard_selection)
+        target_args = selected_target_args(shard_selection, root=root)
         feature_args = ["--no-default-features"] if no_default_features else []
         list_command = [
             "cargo",
@@ -374,6 +374,8 @@ def selected_feature_shards(
 
 def selected_target_args(
     selection: Sequence[Mapping[str, str]],
+    *,
+    root: Path | None = None,
 ) -> list[str]:
     """Select only the library and named integration targets in the batch."""
 
@@ -385,9 +387,22 @@ def selected_target_args(
         path = _string(row, "path", "selection")
         if path.startswith(prefix):
             relative = path.removeprefix(prefix)
-            if "/" in relative or not relative.endswith(".rs"):
+            if "/" in relative:
+                module_root = relative.split("/", 1)[0]
+                target_source = (
+                    root / prefix / f"{module_root}.rs"
+                    if root is not None
+                    else None
+                )
+                if target_source is None or not target_source.is_file():
+                    raise ValueError(
+                        f"unsupported runtime integration path {path}"
+                    )
+                integration_targets.add(module_root)
+            elif relative.endswith(".rs"):
+                integration_targets.add(relative.removesuffix(".rs"))
+            else:
                 raise ValueError(f"unsupported runtime integration path {path}")
-            integration_targets.add(relative.removesuffix(".rs"))
         elif path.startswith(
             "crates/trust-runtime/src/bin/trust-runtime/"
         ):
@@ -520,7 +535,7 @@ def build_outputs(
         if len(binary_ids) != 1:
             raise ValueError(f"{path} resolves to multiple nextest binaries")
         binary_id = next(iter(binary_ids))
-        catalog_target_args = selected_target_args(rows)
+        catalog_target_args = selected_target_args(rows, root=root)
         plan["catalog_command_template"] = (
             shlex.join(
                 [
