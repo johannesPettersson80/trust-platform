@@ -17,6 +17,18 @@ Program Organization Units (POUs) are the building blocks of IEC 61131-3 program
 | Interface | `INTERFACE` | N/A | N/A | N/A |
 | Method | `METHOD` | N/A | No | Optional |
 
+### Parser acceptance contract
+
+The parser accepts an empty source buffer without parse diagnostics. This
+editor-oriented acceptance does not claim a syntax-tree shape or that an empty
+project is runnable.
+
+The canonical minimal `PROGRAM name END_PROGRAM` form and a
+`FUNCTION_BLOCK` containing a complete `VAR_INPUT ... END_VAR` section and no
+body statements parse successfully when their required names and matching
+terminators are present. Semantic declaration and project validation remain
+separate.
+
 ### Implementation Extension: Test POUs
 
 truST accepts `TEST_PROGRAM` and `TEST_FUNCTION_BLOCK` as documented

@@ -243,6 +243,12 @@ fb.method(x)        // Method call
 ptr^                // Dereference
 ```
 
+A dereference is a valid assignment target at parse time, and its right-hand
+side may be any syntactically valid expression. In particular,
+`ptr^ := INT#16#FF;` combines the postfix dereference form with a typed based
+numeric literal and parses successfully. Type resolution, reference validity,
+and assignment compatibility remain semantic checks.
+
 ### 5.4 Parenthesized Expressions
 
 ```
