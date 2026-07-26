@@ -3,7 +3,7 @@ id = "PLCO_MOTION_HOMING_001"
 title = "PLCopen Motion homing steps preserve the selected Phase D state model"
 area = "plcopen_devtools"
 risk = "wrong_result"
-status = "specified"
+status = "mapped"
 owner = "trust-plcopen"
 last_reviewed = "2026-07-27"
 claim = "The selected Phase D profile publishes its homing types and active FBs, preserves switch/block/reference/finish semantics, and leaves deferred passive names absent."
@@ -13,7 +13,7 @@ source_refs = [
   "docs/internal/references/PLCopenMotion/plcopen_motion_library_spec_for_truST_v0_1.md",
   "libraries/plcopen_motion/homing/src",
 ]
-tests = []
+tests = ["TEST_AUTO_0F588D2A8D5AF3B14484", "TEST_AUTO_19A3FE8AFB4002ED6160", "TEST_AUTO_738D769BA80FB78B8554", "TEST_AUTO_741FD4E8A9E4647C8426", "TEST_AUTO_75F849491A6D18C0AE6D", "TEST_AUTO_92FAAFB6123E16125BB8", "TEST_AUTO_97AC4842EAC707C6D0A9", "TEST_AUTO_EA984C0D9AC3BA4471BA"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []

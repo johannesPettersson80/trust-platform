@@ -73,6 +73,13 @@ Random helpers SHALL remain callable with the documented types, but a test
 proves their behavior only when it asserts a non-tautological deterministic
 property such as a bound, state transition, or reproducible relation.
 
+OSCAT bit-transfer wrappers follow the truST explicit-conversion policy:
+finite IEEE `REAL` patterns round-trip, while `DWORD_TO_REAL` rejects patterns
+for NaN or either infinity with overflow. Consequently, `CHK_REAL` can observe
+the normal finite classification through supported truST program execution;
+its upstream non-finite classification branches remain source-compatible but
+are not executable conformance oracles.
+
 ### 2.3 Time, calendar, and string behavior
 
 The Chapters 12 and 13 public functions and function blocks SHALL implement the

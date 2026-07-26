@@ -3,7 +3,7 @@ id = "OSCAT_OOP_FACADE_001"
 title = "The OSCAT OOP facade preserves classic behavior and per-instance state"
 area = "plcopen_devtools"
 risk = "wrong_result"
-status = "specified"
+status = "mapped"
 owner = "trust-plcopen"
 last_reviewed = "2026-07-27"
 claim = "The shipped OSCAT OOP objects delegate to the classic behavior contract, advance one scan per update, and isolate state between instances."
@@ -14,7 +14,7 @@ source_refs = [
   "docs/guides/OSCAT_OOP_LIBRARY_GUIDE.md",
   "libraries/oscat_oop/src",
 ]
-tests = []
+tests = ["TEST_AUTO_0B0E907B03A08281CE61", "TEST_AUTO_0D6ABAAF097F898476FB", "TEST_AUTO_1EDE82931FE02A991D24", "TEST_AUTO_1F13B40B91FFE0E1F06F", "TEST_AUTO_32C509013C20697F95C6", "TEST_AUTO_3E5D3BE099DEEAE5DE97", "TEST_AUTO_A5B211E2B981AEF3D922", "TEST_AUTO_BCA9F19FE3AA0BA740A9", "TEST_AUTO_CD36CAEC06119D5211CA", "TEST_AUTO_E116D042CE82EB211139"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []

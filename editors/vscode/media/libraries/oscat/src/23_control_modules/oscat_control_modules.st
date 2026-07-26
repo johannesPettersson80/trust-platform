@@ -1328,8 +1328,8 @@ END_VAR
 VAR
     DewCondensation : REAL;
 END_VAR
-DewCondensation := DEW_CON(1.0, T);
-DEW_RH := LIMIT(0.0, VC / DewCondensation, 100.0);
+DewCondensation := DEW_CON(REAL#1.0, T);
+DEW_RH := LIMIT(REAL#0.0, VC / DewCondensation, REAL#100.0);
 END_FUNCTION
 
 

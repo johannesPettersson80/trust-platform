@@ -3,7 +3,7 @@ id = "PLCO_MOTION_COORDINATED_001"
 title = "PLCopen Motion coordinated groups preserve membership, readback, and motion"
 area = "plcopen_devtools"
 risk = "wrong_result"
-status = "specified"
+status = "mapped"
 owner = "trust-plcopen"
 last_reviewed = "2026-07-27"
 claim = "The selected Phase C group profile preserves public types, membership, administration, readback, transforms, command state, motion, and deferred-surface rules."
@@ -13,7 +13,7 @@ source_refs = [
   "docs/internal/references/PLCopenMotion/plcopen_motion_library_spec_for_truST_v0_1.md",
   "libraries/plcopen_motion/coordinated_motion/src",
 ]
-tests = []
+tests = ["TEST_AUTO_042EB497CED14A708CBB", "TEST_AUTO_0833A7ADFC8EB52164ED", "TEST_AUTO_15B0E02CE3BA5DB02758", "TEST_AUTO_1ABADAD85474DE193E5C", "TEST_AUTO_28F2434350CB7D85496E", "TEST_AUTO_2A2A2310A2CC0687C2CE", "TEST_AUTO_2B25F571548B9C0CD445", "TEST_AUTO_4FF8622E56E0FBAD8281", "TEST_AUTO_562D4862D3EA69C38343", "TEST_AUTO_601C807D90F2B9C4C67E", "TEST_AUTO_729B7BD80DED32027115", "TEST_AUTO_735797CA38CF6D4B5AEF", "TEST_AUTO_8A89F1AF26B18E2E5330", "TEST_AUTO_9A3738DD6DC56822F730", "TEST_AUTO_C394138BF07961C5E372", "TEST_AUTO_CD6E6F736BF9521A30E3", "TEST_AUTO_E3E3F34D9FE55F20095D", "TEST_AUTO_E70286A29781BDBC3773"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []

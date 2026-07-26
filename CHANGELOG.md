@@ -10,6 +10,13 @@ Target release: `v0.24.56`
 
 ### Fixed
 
+- OSCAT: decimal rounding, random helpers, array shuffle, random generators,
+  and dew-point relative-humidity conversion now preserve their declared
+  `INT`/`REAL` types instead of failing at runtime when generic `LIMIT`
+  expressions widened untyped bounds; `IS_SORTED` now reports unsorted
+  nonempty arrays instead of overwriting its detected failure. OSCAT
+  bit-transfer documentation and tests now also honor truST's existing
+  rejection of non-finite `REAL` values.
 - VS Code: managed runtimes whose status command fails or returns an
   unrecognized state are now shown as unavailable with lifecycle actions
   disabled instead of being misreported as stopped and offered a misleading

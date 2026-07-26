@@ -718,12 +718,12 @@ The shipped Chapter 6 `Arrays` surface is now complete.
 | `BYTE_TO_BITS(IN)` | FB that exposes the eight individual bits of a byte as `B0..B7`. |
 | `BYTE_TO_GRAY(IN)` | Binary byte to Gray code. |
 | `CHECK_PARITY(IN, P)` | Checks whether parity bit `P` matches the current even-parity requirement for `IN`. |
-| `CHK_REAL(X)` | Classifies a `REAL` as normal (`00`), `+inf` (`20`), `-inf` (`40`), or `NaN` (`80`). |
+| `CHK_REAL(X)` | Classifies an accepted finite `REAL` as normal (`00`). The upstream `+inf` (`20`), `-inf` (`40`), and `NaN` (`80`) branches remain source-compatible but cannot be reached through truST conversions because the runtime rejects non-finite `REAL` results. |
 | `CRC_GEN(PT, SIZE, PL, PN, INIT, REV_IN, REV_OUT, XOR_OUT)` | Generates a CRC checksum over a caller-supplied byte buffer using the configured polynomial and reflection settings. |
 | `DEC_2(D, A)` | Two-way decoder. |
 | `DEC_4(D, A0, A1)` | Four-way decoder. |
 | `DEC_8(D, A0, A1, A2)` | Eight-way decoder. |
-| `DW_TO_REAL(X)` | Bit-pattern reinterpretation wrapper from `DWORD` to `REAL` via truST `DWORD_TO_REAL`. |
+| `DW_TO_REAL(X)` | Bit-pattern reinterpretation wrapper from `DWORD` to `REAL` via truST `DWORD_TO_REAL`; non-finite IEEE patterns are rejected with overflow. |
 | `DWORD_OF_BYTE(B3, B2, B1, B0)` | Packs four bytes into one `DWORD`. |
 | `DWORD_OF_WORD(W1, W0)` | Packs two words into one `DWORD`. |
 | `GRAY_TO_BYTE(IN)` | Gray code back to binary byte. |

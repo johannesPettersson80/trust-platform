@@ -3,7 +3,7 @@ id = "PLCO_MOTION_OOP_FACADE_001"
 title = "PLCopen Motion OOP single-axis facade delegates to classic state"
 area = "plcopen_devtools"
 risk = "wrong_result"
-status = "specified"
+status = "mapped"
 owner = "trust-plcopen"
 last_reviewed = "2026-07-27"
 claim = "The shipped Phase E single-axis objects bind axes, dispatch through public interfaces, expose classic command/readback state, and fail closed for unsupported methods."
@@ -13,7 +13,7 @@ source_refs = [
   "docs/internal/references/PLCopenMotion/plcopen_motion_library_spec_for_truST_v0_1.md",
   "libraries/plcopen_motion/oop/src",
 ]
-tests = []
+tests = ["TEST_AUTO_1DB21BB00B8CD33534B6", "TEST_AUTO_256A0F2FC5E3ADFBEEF6", "TEST_AUTO_2DED137F519F2FBD9F2B", "TEST_AUTO_2EC0582BB283D36077F9", "TEST_AUTO_541CF962933661F9A980", "TEST_AUTO_55000F2744C3ACCBFDF8", "TEST_AUTO_6D1B6DAFAD31E58A8E56", "TEST_AUTO_6E2A5FC578987C5B1630", "TEST_AUTO_7BE54508C5CB5640161D", "TEST_AUTO_8BE91E1B537B63E8388A", "TEST_AUTO_8F7E69346A517A2A8F9D", "TEST_AUTO_C92A8904F7EDBA7A36DF", "TEST_AUTO_EC3387E325EFB353311E", "TEST_AUTO_FD22EA18970154477FE4"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
