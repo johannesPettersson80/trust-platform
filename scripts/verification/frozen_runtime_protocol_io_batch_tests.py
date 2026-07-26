@@ -22,11 +22,15 @@ class FrozenRuntimeProtocolIoBatchTests(unittest.TestCase):
                 "rust-suites": {
                     "trust-runtime::trust_runtime": {
                         "binary-id": "trust-runtime",
+                        "binary-name": "trust_runtime",
+                        "package-name": "trust-runtime",
                         "testcases": {
                             "io::tests::one": {"ignored": False},
                         }
                     },
                     "trust-runtime::contract": {
+                        "binary-name": "contract",
+                        "package-name": "trust-runtime",
                         "testcases": {"two": {"ignored": False}},
                     },
                 }
@@ -114,8 +118,16 @@ fn disabled_case() {}
             resolve_nextest_listing(
                 listing={
                     "rust-suites": {
-                        "a": {"testcases": {"module::same": {}}},
-                        "b": {"testcases": {"same": {}}},
+                        "a": {
+                            "binary-name": "a",
+                            "package-name": "package",
+                            "testcases": {"module::same": {}},
+                        },
+                        "b": {
+                            "binary-name": "b",
+                            "package-name": "package",
+                            "testcases": {"same": {}},
+                        },
                     }
                 },
                 selected_names={"same"},

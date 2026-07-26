@@ -236,6 +236,18 @@ def resolve_nextest_listing(
         binary_id = raw_suite.get("binary-id", suite_key)
         if not isinstance(binary_id, str) or not binary_id:
             raise ValueError("nextest listing binary ID is invalid")
+        package_name = raw_suite.get("package-name")
+        binary_name = raw_suite.get("binary-name")
+        if (
+            not isinstance(package_name, str)
+            or not package_name
+            or not isinstance(binary_name, str)
+            or not binary_name
+        ):
+            raise ValueError(
+                f"nextest suite {binary_id} lacks package or binary name"
+            )
+        event_suite_id = f"{package_name}::{binary_name}"
         testcases = raw_suite.get("testcases")
         if not isinstance(testcases, Mapping):
             raise ValueError(f"nextest suite {binary_id} lacks testcases")
@@ -248,7 +260,7 @@ def resolve_nextest_listing(
                     {
                         "binary_id": binary_id,
                         "full_name": full_name,
-                        "encoded_name": f"{suite_key}${full_name}",
+                        "encoded_name": f"{event_suite_id}${full_name}",
                     }
                 )
     missing = sorted(selected_names - set(candidates))
