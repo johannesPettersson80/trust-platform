@@ -15,6 +15,7 @@ const defaultSourcePath =
 const reviewedSourcePaths = new Set([
   defaultSourcePath,
   "editors/vscode/src/test/suite/network-canvas.test.ts",
+  "editors/vscode/src/test/suite/runtime-controls-contract.test.ts",
 ]);
 if (process.argv.length > 3) {
   process.stderr.write("usage: run_frozen_vscode_contract_batch.js [test-source]\n");

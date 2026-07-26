@@ -62625,3 +62625,1600 @@ mapping_assertion_review_digest = "sha256:64ff15f74ec19c184935aeeb15f13d53cd356e
 mapping_assertion_source_digests = { "crates/trust-runtime/tests/process_image.rs" = "sha256:efbdd9f067063382cbfce39b941fc06b6d418c084a576aaeb77c034bf5a3cbd9" }
 mapping_behavior_refs = ["RT_PROCESS_IMAGE_CONTRACT_001#behavior:1"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_00AB9CCB602C92B09A3C"
+subject_kind = "generated_test"
+discovery_id = "DISC_00AB9CCB602C92B09A3C"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+name = "lifecycle success is HONEST: Start only at 'running', Stop only at 'stopped'"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "The sidebar projects one typed action state, truthful Compile and Update results, stable project identity and settings, and SecretStorage-first runtime authentication."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_00AB9CCB602C92B09A3C.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_00AB9CCB602C92B09A3C_8804A3F76181"
+mapping_proposal_digest = "sha256:8804a3f76181d5f9cda634e25297484c640eecb2b9221bb86619e05162475a9a"
+mapping_decision_id = "MAP_DEC_C3EE57A45C275B4B6F85C382"
+mapping_reviewed_source_digest = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c"
+mapping_assertion_review_digest = "sha256:ffeb2e5d903cbf5a830f3888cc1905157d3ea04d34257b37ac47228836cd39b3"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/runtime-controls-contract.test.ts" = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:5"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-runtime-controls"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_15BB68D9CC310C933A4B"
+subject_kind = "generated_test"
+discovery_id = "DISC_15BB68D9CC310C933A4B"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+name = "compile/update gates use one shared user-facing reason model"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "The sidebar projects one typed action state, truthful Compile and Update results, stable project identity and settings, and SecretStorage-first runtime authentication."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_15BB68D9CC310C933A4B.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_15BB68D9CC310C933A4B_ECEDEE8448B5"
+mapping_proposal_digest = "sha256:ecedee8448b5803cc192a9554c39d064bfd9919cd7a135ceef6f57281197efce"
+mapping_decision_id = "MAP_DEC_02D87E66CF1FFC1E3EB3391D"
+mapping_reviewed_source_digest = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c"
+mapping_assertion_review_digest = "sha256:44362e2e5b68f1db0458f241c4c70963cde8bfc7d5de762775aab4224eb82d97"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/runtime-controls-contract.test.ts" = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:5"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-runtime-controls"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_17CD6FBA86AA28D7FF7D"
+subject_kind = "generated_test"
+discovery_id = "DISC_17CD6FBA86AA28D7FF7D"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+name = "managed local runtime auth token parser accepts top-level dotted runtime.control form"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "The sidebar projects one typed action state, truthful Compile and Update results, stable project identity and settings, and SecretStorage-first runtime authentication."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_17CD6FBA86AA28D7FF7D.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_17CD6FBA86AA28D7FF7D_D2ABB705A95B"
+mapping_proposal_digest = "sha256:d2abb705a95b82f0e79e23e7c7f6903854a4422ae0e2d06bcb03b3ff017e937d"
+mapping_decision_id = "MAP_DEC_9BD77B71F371A62D8A47C433"
+mapping_reviewed_source_digest = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c"
+mapping_assertion_review_digest = "sha256:03386a35830190b61eaa504b4382b84ec5a1b5f800c4d9b9ab25143d6b26472a"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/runtime-controls-contract.test.ts" = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:5"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-runtime-controls"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_18A38E8A2E551A3401C8"
+subject_kind = "generated_test"
+discovery_id = "DISC_18A38E8A2E551A3401C8"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+name = "remote: not attached → Connect, attached → Disconnect; Connect disabled without an endpoint"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "Devices and Connections maintains honest loading, selection, runtime setup, topology, editing, browsing, recovery, and persistence state through shared product chrome."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_18A38E8A2E551A3401C8.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_18A38E8A2E551A3401C8_1B265DFEA25C"
+mapping_proposal_digest = "sha256:1b265dfea25cf3953fcb8e8cae1c15803197ccfa7f585eb9674aef9370cfb93e"
+mapping_decision_id = "MAP_DEC_BFC6178F245146A809D9EA62"
+mapping_reviewed_source_digest = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c"
+mapping_assertion_review_digest = "sha256:1e2d3866d13e2e48a6d2858e2e10533a3a704f830217bd6ac0058940ed082afb"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/runtime-controls-contract.test.ts" = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:4"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-runtime-controls"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_20C3697C7228FCD45743"
+subject_kind = "generated_test"
+discovery_id = "DISC_20C3697C7228FCD45743"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+name = "Start compiles first and does not launch after a failed Compile"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "The sidebar projects one typed action state, truthful Compile and Update results, stable project identity and settings, and SecretStorage-first runtime authentication."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_20C3697C7228FCD45743.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_20C3697C7228FCD45743_60965EC48C05"
+mapping_proposal_digest = "sha256:60965ec48c0553a35b335852fa2f49d5ff8c36feef51405f313468aee728efc8"
+mapping_decision_id = "MAP_DEC_390DB770D2C377E9E20DB12A"
+mapping_reviewed_source_digest = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c"
+mapping_assertion_review_digest = "sha256:bc24da4df1e0a175f4a0bc4c6bee2a5a78c013edfa7ab6012a1b39642ea77a5f"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/runtime-controls-contract.test.ts" = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:5"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-runtime-controls"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_21EF7498B8A7DC8A6855"
+subject_kind = "generated_test"
+discovery_id = "DISC_21EF7498B8A7DC8A6855"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+name = "ERR-04 control-endpoint override is test-mode only"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "The sidebar projects one typed action state, truthful Compile and Update results, stable project identity and settings, and SecretStorage-first runtime authentication."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_21EF7498B8A7DC8A6855.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_21EF7498B8A7DC8A6855_66ABE6FEEC08"
+mapping_proposal_digest = "sha256:66abe6feec084ae44ffaa7187e3244b8a61fc5f0e4a89fdab6b047052f7df4cc"
+mapping_decision_id = "MAP_DEC_23593F35AEEB74AA74AB8DA1"
+mapping_reviewed_source_digest = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c"
+mapping_assertion_review_digest = "sha256:82cc344f5131ade2d317d8604a617d4fd3fa200470923fb3b09c3e6b7d75b2f4"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/runtime-controls-contract.test.ts" = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:5"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-runtime-controls"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_2F368998753B230E257E"
+subject_kind = "generated_test"
+discovery_id = "DISC_2F368998753B230E257E"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+name = "HONESTY: a remote runtime NEVER renders Start or Stop (we don't own its process)"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "Devices and Connections maintains honest loading, selection, runtime setup, topology, editing, browsing, recovery, and persistence state through shared product chrome."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_2F368998753B230E257E.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_2F368998753B230E257E_F4FF1EE46E82"
+mapping_proposal_digest = "sha256:f4ff1ee46e82c9b7f7c82d766fc33c7a28bb09290c240eedf1343212014647ca"
+mapping_decision_id = "MAP_DEC_02112CE56EA5A81E710813EB"
+mapping_reviewed_source_digest = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c"
+mapping_assertion_review_digest = "sha256:8fe4fe7a48d65f5d453c63c3c29cd4c5137954d0d81cf4e236c75c0d16b86fb5"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/runtime-controls-contract.test.ts" = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:4"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-runtime-controls"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_33B2F243D7CECFF83529"
+subject_kind = "generated_test"
+discovery_id = "DISC_33B2F243D7CECFF83529"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+name = "remote auth failures make Set auth token the primary recovery without changing lifecycle ownership"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "Devices and Connections maintains honest loading, selection, runtime setup, topology, editing, browsing, recovery, and persistence state through shared product chrome."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_33B2F243D7CECFF83529.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_33B2F243D7CECFF83529_261501944411"
+mapping_proposal_digest = "sha256:2615019444115a9263137ae8e71bb82dfc8d953bfb866a4a28eca7ac2d32dc79"
+mapping_decision_id = "MAP_DEC_3901218013F2B5D56B0BB916"
+mapping_reviewed_source_digest = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c"
+mapping_assertion_review_digest = "sha256:0269b43b8e6d2d821e858189032ed6ecbce69742217999964e99f3408df5cba8"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/runtime-controls-contract.test.ts" = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:4"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-runtime-controls"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_3D764AC5F702B96CB615"
+subject_kind = "generated_test"
+discovery_id = "DISC_3D764AC5F702B96CB615"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+name = "normalizeManagedState + label"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "The sidebar projects one typed action state, truthful Compile and Update results, stable project identity and settings, and SecretStorage-first runtime authentication."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_3D764AC5F702B96CB615.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_3D764AC5F702B96CB615_DEBCC14F4464"
+mapping_proposal_digest = "sha256:debcc14f446417cdac16adb83e3664c6b4bb48e0bf646bce7313bb3eabc99266"
+mapping_decision_id = "MAP_DEC_A92A268260017564F1D895D1"
+mapping_reviewed_source_digest = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c"
+mapping_assertion_review_digest = "sha256:78f49c836361d2ee4cf00f79b8307e961840e41db73b001f5777fe39de75acce"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/runtime-controls-contract.test.ts" = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:5"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-runtime-controls"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_3E1B8A9AE3FE2AD4EC34"
+subject_kind = "generated_test"
+discovery_id = "DISC_3E1B8A9AE3FE2AD4EC34"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+name = "Connect failures show state-specific next actions, not auth for every failure"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "The sidebar projects one typed action state, truthful Compile and Update results, stable project identity and settings, and SecretStorage-first runtime authentication."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_3E1B8A9AE3FE2AD4EC34.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_3E1B8A9AE3FE2AD4EC34_C38EDE0FC572"
+mapping_proposal_digest = "sha256:c38ede0fc572dfcb5e0c67970267168174e23cf120102b799c0ba25dd83d33c9"
+mapping_decision_id = "MAP_DEC_9D2786731DFCB723459FEF7C"
+mapping_reviewed_source_digest = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c"
+mapping_assertion_review_digest = "sha256:2de5c5da88fa499276440b1c90e949e79fd4a5bf3ad93220b52cfda8b7ecc1d0"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/runtime-controls-contract.test.ts" = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:5"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-runtime-controls"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_4708AAFD6668D62FBB0F"
+subject_kind = "generated_test"
+discovery_id = "DISC_4708AAFD6668D62FBB0F"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+name = "attach sessions keep raw adapter logs out of canvas and Live Values workflows"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "The sidebar projects one typed action state, truthful Compile and Update results, stable project identity and settings, and SecretStorage-first runtime authentication."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_4708AAFD6668D62FBB0F.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_4708AAFD6668D62FBB0F_5A94F4FE4F61"
+mapping_proposal_digest = "sha256:5a94f4fe4f61b53fb5d096e6703e6eed7ceb3200a74c5a8e1492bbe983181a00"
+mapping_decision_id = "MAP_DEC_C1D1FD55EEA034F0E3925664"
+mapping_reviewed_source_digest = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c"
+mapping_assertion_review_digest = "sha256:3c8b4a9638b1f71b99a866a6bb6e1eaa55ee713df59fee17674cae42a3ce0c54"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/runtime-controls-contract.test.ts" = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:5"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-runtime-controls"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_4750CDD946B8A8E13A8B"
+subject_kind = "generated_test"
+discovery_id = "DISC_4750CDD946B8A8E13A8B"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+name = "toManagedRuntimes merges fleet list + per-name status"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "The sidebar projects one typed action state, truthful Compile and Update results, stable project identity and settings, and SecretStorage-first runtime authentication."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_4750CDD946B8A8E13A8B.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_4750CDD946B8A8E13A8B_A91BF14E8BB4"
+mapping_proposal_digest = "sha256:a91bf14e8bb48a71433557bc35c3cecaa8bd136ff614aa5453569ebaa8c5f2d8"
+mapping_decision_id = "MAP_DEC_9361E3F92BDBB13CEFDFF8F4"
+mapping_reviewed_source_digest = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c"
+mapping_assertion_review_digest = "sha256:83a01d9f9ae828e765148c68c9b960ca7e88120e215e2ecb405ca9f0a01f27d9"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/runtime-controls-contract.test.ts" = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:5"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-runtime-controls"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_4889180B9EDE622A411E"
+subject_kind = "generated_test"
+discovery_id = "DISC_4889180B9EDE622A411E"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+name = "the status bar does not pretend a simulator target exists before a project exists"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "The sidebar projects one typed action state, truthful Compile and Update results, stable project identity and settings, and SecretStorage-first runtime authentication."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_4889180B9EDE622A411E.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_4889180B9EDE622A411E_ABFCEF75D979"
+mapping_proposal_digest = "sha256:abfcef75d979a310324e3f928d2be59cd6b198618068d7c3d2ef1fa3e75af11e"
+mapping_decision_id = "MAP_DEC_6E8C51621C800CE002C0546A"
+mapping_reviewed_source_digest = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c"
+mapping_assertion_review_digest = "sha256:eacd365c21f31d5c312af791b4ee5d1fcbafd10bfc32c8e29f7bf608b5658ed1"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/runtime-controls-contract.test.ts" = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:5"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-runtime-controls"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_4B127A3A0DE94D4007B7"
+subject_kind = "generated_test"
+discovery_id = "DISC_4B127A3A0DE94D4007B7"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+name = "no status-bar / palette Start/Stop commands (one run surface)"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "The extension exposes the current truST shell and registered escape hatches while removing retired Communication, ADS-panel, Runtime Panel, Network Canvas, and VS Code 3D-twin product surfaces."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_4B127A3A0DE94D4007B7.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_4B127A3A0DE94D4007B7_3A3BC2FDE4D5"
+mapping_proposal_digest = "sha256:3a3bc2fde4d565b025a51fea29529d779e0d2641f260d9102a077460c6369819"
+mapping_decision_id = "MAP_DEC_7A921D4B38DA2108E84C7D06"
+mapping_reviewed_source_digest = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c"
+mapping_assertion_review_digest = "sha256:9528c30e636a1a6e8d1e5e516e1a94d3fb24fff53aee0b0e6deea4a90ce6828e"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/runtime-controls-contract.test.ts" = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:0"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-runtime-controls"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_4BCDD2A839BE69819446"
+subject_kind = "generated_test"
+discovery_id = "DISC_4BCDD2A839BE69819446"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+name = "exactly one truST activity container + one view, and the view is a WebviewView"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "The extension exposes the current truST shell and registered escape hatches while removing retired Communication, ADS-panel, Runtime Panel, Network Canvas, and VS Code 3D-twin product surfaces."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_4BCDD2A839BE69819446.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_4BCDD2A839BE69819446_D193ADA78EE3"
+mapping_proposal_digest = "sha256:d193ada78ee3e7b71e26dc0feaa6bd7e389306e59dda1df9c820f65ad8c0ea2e"
+mapping_decision_id = "MAP_DEC_A70A1083C3A3CE95B2738103"
+mapping_reviewed_source_digest = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c"
+mapping_assertion_review_digest = "sha256:a4cf343f29a8fab502ebbf2063cadee30d248bc0b0aeb95433dc6cdcf5b2c9d2"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/runtime-controls-contract.test.ts" = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:0"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-runtime-controls"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_4BFD139FD933E55F0770"
+subject_kind = "generated_test"
+discovery_id = "DISC_4BFD139FD933E55F0770"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+name = "simulator: stopped → Start, running → Stop, starting → disabled (no action)"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "The sidebar projects one typed action state, truthful Compile and Update results, stable project identity and settings, and SecretStorage-first runtime authentication."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_4BFD139FD933E55F0770.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_4BFD139FD933E55F0770_5293DA983E2B"
+mapping_proposal_digest = "sha256:5293da983e2bb1708907e2541ab0f9e5f574959d38778b48199449b2761ad22a"
+mapping_decision_id = "MAP_DEC_624A1486FDCC2135E9DF1BCF"
+mapping_reviewed_source_digest = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c"
+mapping_assertion_review_digest = "sha256:78810aca9df25cab5d602d83bbef8fa0384469dcb151d7b91153f04559fd76ec"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/runtime-controls-contract.test.ts" = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:5"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-runtime-controls"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_582285AA211A54728D6B"
+subject_kind = "generated_test"
+discovery_id = "DISC_582285AA211A54728D6B"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+name = "managed local runtime node: Start when stopped, Stop when running — never Connect (we own it)"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "Devices and Connections maintains honest loading, selection, runtime setup, topology, editing, browsing, recovery, and persistence state through shared product chrome."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_582285AA211A54728D6B.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_582285AA211A54728D6B_7738086607FE"
+mapping_proposal_digest = "sha256:7738086607fea5ca186968c21d21bf930c59568433caef5e0d74ee0b66276b7e"
+mapping_decision_id = "MAP_DEC_C9ADD37800FD2A1108DD83D4"
+mapping_reviewed_source_digest = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c"
+mapping_assertion_review_digest = "sha256:4d0eb9a351ddced91e6df25ee224597e03b781c285f1f31f9892f54569948f51"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/runtime-controls-contract.test.ts" = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:4"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-runtime-controls"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_6112977138BECAD7539A"
+subject_kind = "generated_test"
+discovery_id = "DISC_6112977138BECAD7539A"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+name = "dropdown is SELECT-ONLY: simulator first, then remotes — NO Add/Connect sentinel; invalid selection falls back to simulator"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "The sidebar projects one typed action state, truthful Compile and Update results, stable project identity and settings, and SecretStorage-first runtime authentication."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_6112977138BECAD7539A.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_6112977138BECAD7539A_52C38FE48ABE"
+mapping_proposal_digest = "sha256:52c38fe48abe2953033bf56ee644df0f6cdc0a63195844181879cb35ed9c6b60"
+mapping_decision_id = "MAP_DEC_3023433A5F1F40D14586858B"
+mapping_reviewed_source_digest = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c"
+mapping_assertion_review_digest = "sha256:d9693f2fe65f67a921d8ea4dc8160c5c85a06920cba71d17e6e0bdc4975e4c09"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/runtime-controls-contract.test.ts" = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:5"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-runtime-controls"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_6281E2D00BF7DE380FD9"
+subject_kind = "generated_test"
+discovery_id = "DISC_6281E2D00BF7DE380FD9"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+name = "runtime node offers Set as run target + Settings; Logs only when a log backend exists"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "Devices and Connections maintains honest loading, selection, runtime setup, topology, editing, browsing, recovery, and persistence state through shared product chrome."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_6281E2D00BF7DE380FD9.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_6281E2D00BF7DE380FD9_52C3742C234F"
+mapping_proposal_digest = "sha256:52c3742c234f773384fc09cb975286bbb225684ccf2623c2228c442f4f563007"
+mapping_decision_id = "MAP_DEC_DEB144565C9FAE730249BD94"
+mapping_reviewed_source_digest = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c"
+mapping_assertion_review_digest = "sha256:8e7da442f6fcd73bde00b05b6e25ec1d6fb1a9330c7ceeeb47d5a3af1ba0cb5a"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/runtime-controls-contract.test.ts" = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:4"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-runtime-controls"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_62C419221630F8B20B48"
+subject_kind = "generated_test"
+discovery_id = "DISC_62C419221630F8B20B48"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+name = "remote labels keep the port so same-host runtimes are distinguishable"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "The sidebar projects one typed action state, truthful Compile and Update results, stable project identity and settings, and SecretStorage-first runtime authentication."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_62C419221630F8B20B48.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_62C419221630F8B20B48_66768154EAC1"
+mapping_proposal_digest = "sha256:66768154eac108efac7190c010bfa41c1cee21674426341399d54b0652d15fb5"
+mapping_decision_id = "MAP_DEC_B6FED3A5C26D28777FAFF869"
+mapping_reviewed_source_digest = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c"
+mapping_assertion_review_digest = "sha256:e5ffc7f70592d1104291e0d4ada3a200c5d01b7f3f1227634e3a52227c3820ab"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/runtime-controls-contract.test.ts" = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:5"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-runtime-controls"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_6416BA115672F37BC791"
+subject_kind = "generated_test"
+discovery_id = "DISC_6416BA115672F37BC791"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+name = "unreachable selected remote: Connect is DISABLED with a reason (never a button that just fails)"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "The sidebar projects one typed action state, truthful Compile and Update results, stable project identity and settings, and SecretStorage-first runtime authentication."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_6416BA115672F37BC791.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_6416BA115672F37BC791_FB3F84820FEF"
+mapping_proposal_digest = "sha256:fb3f84820fef3a024911ddeedd949c8310a49e00f58d268822afbbe74b733286"
+mapping_decision_id = "MAP_DEC_2F1F4293B04654898302D1E6"
+mapping_reviewed_source_digest = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c"
+mapping_assertion_review_digest = "sha256:b64233f1bfbf0a7a7e06b67ca2e428dac8f32cbc6bdd7d78a0274f6a96250ad8"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/runtime-controls-contract.test.ts" = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:5"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-runtime-controls"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_6F10F530E9B17D5183C6"
+subject_kind = "generated_test"
+discovery_id = "DISC_6F10F530E9B17D5183C6"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+name = "unreachable runtime messages are human-facing and do not expose local socket paths"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "The sidebar projects one typed action state, truthful Compile and Update results, stable project identity and settings, and SecretStorage-first runtime authentication."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_6F10F530E9B17D5183C6.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_6F10F530E9B17D5183C6_4F8FA27E6FF2"
+mapping_proposal_digest = "sha256:4f8fa27e6ff22c5e92c3f741490cb65ba7e38c30191c1bb146a55b9ca74c5fdf"
+mapping_decision_id = "MAP_DEC_EB7A6CB25A9A2B14C298FF01"
+mapping_reviewed_source_digest = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c"
+mapping_assertion_review_digest = "sha256:6d679f29e776d5f62ebfa5b68bcb014271bda39159c2bb6bc1bbe4daf6d885be"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/runtime-controls-contract.test.ts" = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:5"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-runtime-controls"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_71FD9029CACB9C62677F"
+subject_kind = "generated_test"
+discovery_id = "DISC_71FD9029CACB9C62677F"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+name = "local simulator: stopped → Start, running → Stop, starting → disabled"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "Devices and Connections maintains honest loading, selection, runtime setup, topology, editing, browsing, recovery, and persistence state through shared product chrome."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_71FD9029CACB9C62677F.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_71FD9029CACB9C62677F_EAA3D9C8EAE9"
+mapping_proposal_digest = "sha256:eaa3d9c8eae9ad6ec8ea8a3f83ad986b243dd1107d07fc093c22be57312d9085"
+mapping_decision_id = "MAP_DEC_E0167A0AF25833DF1A22B3DB"
+mapping_reviewed_source_digest = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c"
+mapping_assertion_review_digest = "sha256:632bc6acac68511478e6375b5889e8610006ff59168e69f015c8d8f59b3226df"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/runtime-controls-contract.test.ts" = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:4"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-runtime-controls"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_7607EA2FDD5A7FFB1DF4"
+subject_kind = "generated_test"
+discovery_id = "DISC_7607EA2FDD5A7FFB1DF4"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+name = "stopRuntime is idempotent (a disappeared session after Stop is success, not a warning)"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "The sidebar projects one typed action state, truthful Compile and Update results, stable project identity and settings, and SecretStorage-first runtime authentication."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_7607EA2FDD5A7FFB1DF4.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_7607EA2FDD5A7FFB1DF4_000293B44CE1"
+mapping_proposal_digest = "sha256:000293b44ce164ec777a9176f54c3ef8ba282d4a069e02055b29fc085b9abfba"
+mapping_decision_id = "MAP_DEC_E1796D93B672BFBA01B76289"
+mapping_reviewed_source_digest = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c"
+mapping_assertion_review_digest = "sha256:ee2879924d1c696bdce0a69d021cc9f91c64b99a968be3fdd9ce66e052f665a9"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/runtime-controls-contract.test.ts" = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:5"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-runtime-controls"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_7F373CD035DE6D8E3CF8"
+subject_kind = "generated_test"
+discovery_id = "DISC_7F373CD035DE6D8E3CF8"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+name = "Update running simulation cannot hang forever on a stuck stReload request"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "The sidebar projects one typed action state, truthful Compile and Update results, stable project identity and settings, and SecretStorage-first runtime authentication."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_7F373CD035DE6D8E3CF8.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_7F373CD035DE6D8E3CF8_E614D5D45A55"
+mapping_proposal_digest = "sha256:e614d5d45a55f7797806b2ce3da814960bb2ca0c2680bf4b169dd47ee6bad045"
+mapping_decision_id = "MAP_DEC_D802395A619AFBC440360C90"
+mapping_reviewed_source_digest = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c"
+mapping_assertion_review_digest = "sha256:8d26b33d62eb7ca115ea28bd92eeb3c9fd265f864e3054776102f35b7519422f"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/runtime-controls-contract.test.ts" = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:5"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-runtime-controls"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_84A22E5E025C0C8764A8"
+subject_kind = "generated_test"
+discovery_id = "DISC_84A22E5E025C0C8764A8"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+name = "managed local runtime auth token is parsed only from runtime.control"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "The sidebar projects one typed action state, truthful Compile and Update results, stable project identity and settings, and SecretStorage-first runtime authentication."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_84A22E5E025C0C8764A8.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_84A22E5E025C0C8764A8_A8C216C07DF8"
+mapping_proposal_digest = "sha256:a8c216c07df8ac2162e7d24a8bcab1ad779cec4473cbd08583c7b1141bbd44f2"
+mapping_decision_id = "MAP_DEC_80125C40CD50610E5D664FDB"
+mapping_reviewed_source_digest = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c"
+mapping_assertion_review_digest = "sha256:0f12799e8185b3bbefdec019b8b96f61e8ec644a35676982c9102b46541b23f5"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/runtime-controls-contract.test.ts" = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:5"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-runtime-controls"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_8B4AD9AE67B6DC72227F"
+subject_kind = "generated_test"
+discovery_id = "DISC_8B4AD9AE67B6DC72227F"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+name = "Devices & Connections wires remote auth recovery through the SecretStorage command"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "Devices and Connections maintains honest loading, selection, runtime setup, topology, editing, browsing, recovery, and persistence state through shared product chrome."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_8B4AD9AE67B6DC72227F.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_8B4AD9AE67B6DC72227F_A01338B4FCC8"
+mapping_proposal_digest = "sha256:a01338b4fcc8c9f9a0da1e7286ab70206ae5b97611c184d3c83ee33e31198c6c"
+mapping_decision_id = "MAP_DEC_416CAEB54BEE2AF0D96B4536"
+mapping_reviewed_source_digest = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c"
+mapping_assertion_review_digest = "sha256:a9c5b166469c0183c573bac0965b7bd6650f41ae55a525a94cfc80219ea75995"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/runtime-controls-contract.test.ts" = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:4"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-runtime-controls"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_90A704FF49272CC1C299"
+subject_kind = "generated_test"
+discovery_id = "DISC_90A704FF49272CC1C299"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+name = "primary Start can be disabled with a visible reason without hiding the affordance"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "The sidebar projects one typed action state, truthful Compile and Update results, stable project identity and settings, and SecretStorage-first runtime authentication."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_90A704FF49272CC1C299.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_90A704FF49272CC1C299_8AAB5CD486B0"
+mapping_proposal_digest = "sha256:8aab5cd486b09452150658229ef93e08c01498708937dce9f8dee1c2f777b949"
+mapping_decision_id = "MAP_DEC_C792E21E681D875F5B642CE9"
+mapping_reviewed_source_digest = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c"
+mapping_assertion_review_digest = "sha256:6d4e033ae351c04288b728d7a1e897b1efa6431063c57adb78a4dd9248241a42"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/runtime-controls-contract.test.ts" = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:5"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-runtime-controls"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_9754F0A553AD2B4D9D7C"
+subject_kind = "generated_test"
+discovery_id = "DISC_9754F0A553AD2B4D9D7C"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+name = "managed local runtime: projected into the dropdown; Start when stopped, Stop when running (we own it)"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "The sidebar projects one typed action state, truthful Compile and Update results, stable project identity and settings, and SecretStorage-first runtime authentication."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_9754F0A553AD2B4D9D7C.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_9754F0A553AD2B4D9D7C_B521542B27D0"
+mapping_proposal_digest = "sha256:b521542b27d07cac4ae26ce9d0b8d446f7ed6d81e2d304f54c317721ef08e58a"
+mapping_decision_id = "MAP_DEC_5EB73ED993B2E025B172CED6"
+mapping_reviewed_source_digest = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c"
+mapping_assertion_review_digest = "sha256:9679957a86ef3b629925716af83eb43fada9cc570b507405077ad2c739939714"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/runtime-controls-contract.test.ts" = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:5"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-runtime-controls"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_97F575C6CEA369A2DFDA"
+subject_kind = "generated_test"
+discovery_id = "DISC_97F575C6CEA369A2DFDA"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+name = "the status bar is passive: it only reveals the sidebar, never starts/stops"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "The extension exposes the current truST shell and registered escape hatches while removing retired Communication, ADS-panel, Runtime Panel, Network Canvas, and VS Code 3D-twin product surfaces."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_97F575C6CEA369A2DFDA.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_97F575C6CEA369A2DFDA_9D6E764543EE"
+mapping_proposal_digest = "sha256:9d6e764543eee1e6cb1d23dc0e282e055620ce70b52fd07267f8c834341b1d28"
+mapping_decision_id = "MAP_DEC_0F8D75F2C21541FBD1548D15"
+mapping_reviewed_source_digest = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c"
+mapping_assertion_review_digest = "sha256:c1eb2c31d9e87841faf63ffe9614b4042611ee105204a3ee1bf4f58e31b6af63"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/runtime-controls-contract.test.ts" = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:0"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-runtime-controls"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_98A47B085D94930D3D0F"
+subject_kind = "generated_test"
+discovery_id = "DISC_98A47B085D94930D3D0F"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+name = "managed runtime logs are formatted for humans instead of raw JSON"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "The sidebar projects one typed action state, truthful Compile and Update results, stable project identity and settings, and SecretStorage-first runtime authentication."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_98A47B085D94930D3D0F.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_98A47B085D94930D3D0F_EC18387FFED3"
+mapping_proposal_digest = "sha256:ec18387ffed380f9744009ceff82687f1a9d240e20fa35a0e2169f39e8a15320"
+mapping_decision_id = "MAP_DEC_26D17046FACFA1364357A494"
+mapping_reviewed_source_digest = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c"
+mapping_assertion_review_digest = "sha256:f0da03bd1528e4c0620dd80b2bd18527630ebf3a792beb2e7c714dbc1ccc4699"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/runtime-controls-contract.test.ts" = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:5"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-runtime-controls"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_9B5B37DA24FD67A5DFD4"
+subject_kind = "generated_test"
+discovery_id = "DISC_9B5B37DA24FD67A5DFD4"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+name = "HONESTY: a connected remote NEVER renders Stop"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "The sidebar projects one typed action state, truthful Compile and Update results, stable project identity and settings, and SecretStorage-first runtime authentication."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_9B5B37DA24FD67A5DFD4.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_9B5B37DA24FD67A5DFD4_53BAF54A199D"
+mapping_proposal_digest = "sha256:53baf54a199da45d5eab026065e3c872a8c865c9e262e2bff6a846523f03aba1"
+mapping_decision_id = "MAP_DEC_9D1594F3926F067329B6D306"
+mapping_reviewed_source_digest = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c"
+mapping_assertion_review_digest = "sha256:3dfe2aad1ce0fba5ea7eee7d24e018d5552a6ac5c762e33f23d46bb3d404c848"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/runtime-controls-contract.test.ts" = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:5"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-runtime-controls"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_9E878E20D0C98A56EBED"
+subject_kind = "generated_test"
+discovery_id = "DISC_9E878E20D0C98A56EBED"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+name = "Live Values normalizes runtime debug values before webview rendering"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "Live Values owns attach-safe observation and controlled Write, Force, Release, presentation, lifecycle truth, and feedback while capability and authorization gates fail visibly before mutation."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_9E878E20D0C98A56EBED.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_9E878E20D0C98A56EBED_BED107566267"
+mapping_proposal_digest = "sha256:bed10756626719b05689f2788733966a946f6809e04855bf07dccec45de8f8cb"
+mapping_decision_id = "MAP_DEC_86EC6CA537DC95BE723FF6A9"
+mapping_reviewed_source_digest = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c"
+mapping_assertion_review_digest = "sha256:db3543c38f926b311d1e5ca696e3907bf53f9be813ae3e74f943ee989ade6f5d"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/runtime-controls-contract.test.ts" = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:3"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-runtime-controls"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_A528632397A0B458E427"
+subject_kind = "generated_test"
+discovery_id = "DISC_A528632397A0B458E427"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+name = "Start and Update disable with reasons when compile/config validity cannot succeed"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "The sidebar projects one typed action state, truthful Compile and Update results, stable project identity and settings, and SecretStorage-first runtime authentication."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_A528632397A0B458E427.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_A528632397A0B458E427_982111112A71"
+mapping_proposal_digest = "sha256:982111112a71a383ff8661428fdef4b55f170ee34f0300228bdac3a3dc6e1a53"
+mapping_decision_id = "MAP_DEC_A62E0F278A5F2269A57CA594"
+mapping_reviewed_source_digest = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c"
+mapping_assertion_review_digest = "sha256:8e9f5a63c349e388042b9b223864b8b916479ec5a9d1b39ac407732cce515176"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/runtime-controls-contract.test.ts" = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:5"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-runtime-controls"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_B262093056AF77A9B30D"
+subject_kind = "generated_test"
+discovery_id = "DISC_B262093056AF77A9B30D"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+name = "remote attach refuses debug-disabled runtimes before reporting connected"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "The sidebar projects one typed action state, truthful Compile and Update results, stable project identity and settings, and SecretStorage-first runtime authentication."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_B262093056AF77A9B30D.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_B262093056AF77A9B30D_42C72D597DBD"
+mapping_proposal_digest = "sha256:42c72d597dbd17b30c1e5ddd7f0e7d41c30d5ebe2449efd547207f4ac7c8832a"
+mapping_decision_id = "MAP_DEC_C09FA23B11D973EDE99F6288"
+mapping_reviewed_source_digest = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c"
+mapping_assertion_review_digest = "sha256:067b4eefc443afd9d43db46db67f27624b9c6f7332127ad2c22e7d7f1fcc18ba"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/runtime-controls-contract.test.ts" = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:5"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-runtime-controls"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_B3400D347E75E547B9BD"
+subject_kind = "generated_test"
+discovery_id = "DISC_B3400D347E75E547B9BD"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+name = "stopping a runtime emits a fresh lifecycle refresh after the session is gone"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "The sidebar projects one typed action state, truthful Compile and Update results, stable project identity and settings, and SecretStorage-first runtime authentication."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_B3400D347E75E547B9BD.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_B3400D347E75E547B9BD_D06829173FE0"
+mapping_proposal_digest = "sha256:d06829173fe0716192b8e920f6f4d095a94770ef11009db4942208ecde7efb71"
+mapping_decision_id = "MAP_DEC_DF26BBE45B4E810B11A42D9E"
+mapping_reviewed_source_digest = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c"
+mapping_assertion_review_digest = "sha256:25ac8e930d923af26ea06ddfba36569c65a9f48a224053e5ed7f890f3be67382"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/runtime-controls-contract.test.ts" = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:5"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-runtime-controls"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_B9BDD049441ED1656A8F"
+subject_kind = "generated_test"
+discovery_id = "DISC_B9BDD049441ED1656A8F"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+name = "simulator launch keeps raw adapter logs out of the first-run surface"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "The sidebar projects one typed action state, truthful Compile and Update results, stable project identity and settings, and SecretStorage-first runtime authentication."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_B9BDD049441ED1656A8F.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_B9BDD049441ED1656A8F_6C02CF55F020"
+mapping_proposal_digest = "sha256:6c02cf55f020231508bc154ba07aa1dad10bc490ac7d41b8f131ca31426e47ed"
+mapping_decision_id = "MAP_DEC_0B8882C2806DA083DBFBFE26"
+mapping_reviewed_source_digest = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c"
+mapping_assertion_review_digest = "sha256:99a9dca3cef4c2eabeb335044ad8fb62fa216717197f2b2928533294896e9320"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/runtime-controls-contract.test.ts" = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:5"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-runtime-controls"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_BE79CBCC4D898414F703"
+subject_kind = "generated_test"
+discovery_id = "DISC_BE79CBCC4D898414F703"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+name = "remote: not connected → Connect, connected → Disconnect"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "The sidebar projects one typed action state, truthful Compile and Update results, stable project identity and settings, and SecretStorage-first runtime authentication."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_BE79CBCC4D898414F703.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_BE79CBCC4D898414F703_E3B35ACFA868"
+mapping_proposal_digest = "sha256:e3b35acfa8688fae6e28372f0f3331caa4fad8839a87325fd45cd09752a3beba"
+mapping_decision_id = "MAP_DEC_5EDC0BEE0634CF188A1C851F"
+mapping_reviewed_source_digest = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c"
+mapping_assertion_review_digest = "sha256:0570424e10640a2ef393ebd7a102a9b11cce83d5866f4e8aae0723bb0b0fce5f"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/runtime-controls-contract.test.ts" = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:5"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-runtime-controls"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_C09CC9CF86770C42BC1F"
+subject_kind = "generated_test"
+discovery_id = "DISC_C09CC9CF86770C42BC1F"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+name = "sidebar renders start failure messages even after simulator stays stopped"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "The sidebar projects one typed action state, truthful Compile and Update results, stable project identity and settings, and SecretStorage-first runtime authentication."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_C09CC9CF86770C42BC1F.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_C09CC9CF86770C42BC1F_09DE5A0DDA5A"
+mapping_proposal_digest = "sha256:09de5a0dda5a9588f40525d7fe8d16d7037a94f27c1395a0ded6995d81a610db"
+mapping_decision_id = "MAP_DEC_ED60B1BEC07831341DD03DEF"
+mapping_reviewed_source_digest = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c"
+mapping_assertion_review_digest = "sha256:47a93217fe9c614f9919a5f536ad94c2432537a34b5e73df944e33fd495b221e"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/runtime-controls-contract.test.ts" = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:5"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-runtime-controls"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_C0A229CB0B1B32D38729"
+subject_kind = "generated_test"
+discovery_id = "DISC_C0A229CB0B1B32D38729"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+name = "background I/O refresh failures do not persist as sidebar start failures"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "The sidebar projects one typed action state, truthful Compile and Update results, stable project identity and settings, and SecretStorage-first runtime authentication."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_C0A229CB0B1B32D38729.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_C0A229CB0B1B32D38729_0C11DB41859F"
+mapping_proposal_digest = "sha256:0c11db41859f7632f801e9e743cd5c789fd980c43950734596c0a5efd0cb7d33"
+mapping_decision_id = "MAP_DEC_07CB454E2353BCF671163BA5"
+mapping_reviewed_source_digest = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c"
+mapping_assertion_review_digest = "sha256:a94bf1b69b09fddd098f952ebe371bb5e3b86853c97f5475af2824647a799681"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/runtime-controls-contract.test.ts" = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:5"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-runtime-controls"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_C472214EBC02F1CB243C"
+subject_kind = "generated_test"
+discovery_id = "DISC_C472214EBC02F1CB243C"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+name = "remote Connect verifies control auth before opening an attach session"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "The sidebar projects one typed action state, truthful Compile and Update results, stable project identity and settings, and SecretStorage-first runtime authentication."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_C472214EBC02F1CB243C.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_C472214EBC02F1CB243C_E38B04EEE7C4"
+mapping_proposal_digest = "sha256:e38b04eee7c4fb9a15d901521f7bd34778d3b598edd713fcf99effa851359449"
+mapping_decision_id = "MAP_DEC_2BE785984ED02686730EEA00"
+mapping_reviewed_source_digest = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c"
+mapping_assertion_review_digest = "sha256:933814fd38910bb5afafa743936b4a49f04347fba82ae8977fb214802f3477a8"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/runtime-controls-contract.test.ts" = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:5"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-runtime-controls"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_C5978692F8E72668034A"
+subject_kind = "generated_test"
+discovery_id = "DISC_C5978692F8E72668034A"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+name = "simulator Start treats a failed I/O probe as a failed launch"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "The sidebar projects one typed action state, truthful Compile and Update results, stable project identity and settings, and SecretStorage-first runtime authentication."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_C5978692F8E72668034A.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_C5978692F8E72668034A_9242DA7D0162"
+mapping_proposal_digest = "sha256:9242da7d0162ab9974f9e864a0c22774e2c48e0b1d33b7dc1c9b6c013f90fa3d"
+mapping_decision_id = "MAP_DEC_60B1DE6ECCF6711DAAD2E870"
+mapping_reviewed_source_digest = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c"
+mapping_assertion_review_digest = "sha256:ab29a272e7ac6fd262facf9b1b5345ad6eeac4c459d3469bb28f16c5a65a2bd8"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/runtime-controls-contract.test.ts" = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:5"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-runtime-controls"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_D12F957E05EBF9F92CD0"
+subject_kind = "generated_test"
+discovery_id = "DISC_D12F957E05EBF9F92CD0"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+name = "managed Stop disconnects Live Values even when fleet stop omits the endpoint"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "Live Values owns attach-safe observation and controlled Write, Force, Release, presentation, lifecycle truth, and feedback while capability and authorization gates fail visibly before mutation. The sidebar projects one typed action state, truthful Compile and Update results, stable project identity and settings, and SecretStorage-first runtime authentication."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_D12F957E05EBF9F92CD0.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_D12F957E05EBF9F92CD0_D5A51E9571DD"
+mapping_proposal_digest = "sha256:d5a51e9571dd6459e4d6ee041af5a521f65c41715013bd927d28bd8959825043"
+mapping_decision_id = "MAP_DEC_61EB382294BFFBEC09C36F3D"
+mapping_reviewed_source_digest = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c"
+mapping_assertion_review_digest = "sha256:ee86f0dd0412826903a80227738c8c32307c281cce27d80f14b225307e944aab"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/runtime-controls-contract.test.ts" = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:3", "VS_CODE_PRODUCT_CONTRACT_001#behavior:5"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-runtime-controls"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_E10F3FE5740E8A93BDEB"
+subject_kind = "generated_test"
+discovery_id = "DISC_E10F3FE5740E8A93BDEB"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+name = "no ST editor-title Run/Stop controls"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "The extension exposes the current truST shell and registered escape hatches while removing retired Communication, ADS-panel, Runtime Panel, Network Canvas, and VS Code 3D-twin product surfaces."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_E10F3FE5740E8A93BDEB.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_E10F3FE5740E8A93BDEB_3E0608FF20CD"
+mapping_proposal_digest = "sha256:3e0608ff20cd93d2556b39c05fe89fc483801b84ba53e13d3969bcf8d11ec065"
+mapping_decision_id = "MAP_DEC_C52A5FAA39B4859EAB842049"
+mapping_reviewed_source_digest = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c"
+mapping_assertion_review_digest = "sha256:283ede364f6236734e8ab517845d81b40134b965251acc2ee8726845223fd4d7"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/runtime-controls-contract.test.ts" = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:0"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-runtime-controls"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_E2A1AA98AB818924FFF3"
+subject_kind = "generated_test"
+discovery_id = "DISC_E2A1AA98AB818924FFF3"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+name = "S-14: node inspector caps visible secondary actions at two with an overflow disclosure"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "Devices and Connections maintains honest loading, selection, runtime setup, topology, editing, browsing, recovery, and persistence state through shared product chrome."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_E2A1AA98AB818924FFF3.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_E2A1AA98AB818924FFF3_5405DA3D4D7A"
+mapping_proposal_digest = "sha256:5405da3d4d7a7144224b397706c6afd1c84b57c96584b8213c5b44322db7383f"
+mapping_decision_id = "MAP_DEC_995EA8267C51CBA5F2C3129A"
+mapping_reviewed_source_digest = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c"
+mapping_assertion_review_digest = "sha256:1c027265dc2c5be1ef2047023476bc8bd5c84140cf521b0340cdac81642ded85"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/runtime-controls-contract.test.ts" = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:4"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-runtime-controls"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_E2AE888B980D278EDA64"
+subject_kind = "generated_test"
+discovery_id = "DISC_E2AE888B980D278EDA64"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+name = "the truST panel is a WebviewView with examples-first onboarding and a compact action surface"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "The extension exposes the current truST shell and registered escape hatches while removing retired Communication, ADS-panel, Runtime Panel, Network Canvas, and VS Code 3D-twin product surfaces. Curated examples, scaffolds, packaged binaries, and retained journey artifacts remain complete, runnable, portable, secret-free, and accurately labelled. The sidebar projects one typed action state, truthful Compile and Update results, stable project identity and settings, and SecretStorage-first runtime authentication. Devices and Connections maintains honest loading, selection, runtime setup, topology, editing, browsing, recovery, and persistence state through shared product chrome. Libraries preserves curated package availability, shared presentation, visible failure recovery, project-copy version truth, scalable symbol browsing, and user-facing row actions. Live Values owns attach-safe observation and controlled Write, Force, Release, presentation, lifecycle truth, and feedback while capability and authorization gates fail visibly before mutation. HMI, Devices and Connections, SFC, Statechart, Ladder, and Blockly share theme and authoring structure, keep runtime controls in their owning surfaces, and preserve visible edit/recovery behavior."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_E2AE888B980D278EDA64.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_E2AE888B980D278EDA64_C1C410083C0C"
+mapping_proposal_digest = "sha256:c1c410083c0cccae5bded7b40b2e08c2dea4e8b4a586e6dc6f80629ac2f6ab09"
+mapping_decision_id = "MAP_DEC_BE177CC11AD6E2AB281ED42E"
+mapping_reviewed_source_digest = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c"
+mapping_assertion_review_digest = "sha256:de4dcdbad89642c589cf5b2ab525232388b9927719b9191e6a634a5122df7823"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/runtime-controls-contract.test.ts" = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:0", "VS_CODE_PRODUCT_CONTRACT_001#behavior:2", "VS_CODE_PRODUCT_CONTRACT_001#behavior:3", "VS_CODE_PRODUCT_CONTRACT_001#behavior:4", "VS_CODE_PRODUCT_CONTRACT_001#behavior:5", "VS_CODE_PRODUCT_CONTRACT_001#behavior:6", "VS_CODE_PRODUCT_CONTRACT_001#behavior:7"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-runtime-controls"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_EBA6B8F5F5110461E18F"
+subject_kind = "generated_test"
+discovery_id = "DISC_EBA6B8F5F5110461E18F"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+name = "the status bar follows the selected target, not a separate simulator-only state"
+command = "node scripts/run_frozen_vscode_contract_batch.js editors/vscode/src/test/suite/runtime-controls-contract.test.ts"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "The sidebar projects one typed action state, truthful Compile and Update results, stable project identity and settings, and SecretStorage-first runtime authentication."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_EBA6B8F5F5110461E18F.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_EBA6B8F5F5110461E18F_831B4F26467A"
+mapping_proposal_digest = "sha256:831b4f26467ad446843aae99e80ed722667c6fa5a8dd4ecff907b1467279e32e"
+mapping_decision_id = "MAP_DEC_EDFF0E52FBBF2CB67EDDC71F"
+mapping_reviewed_source_digest = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c"
+mapping_assertion_review_digest = "sha256:ecbf7a2421fd4147cf2e3cac7af7b86dd642545741220fd860cf4c9e3d02d8a5"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/runtime-controls-contract.test.ts" = "sha256:9d1898dfcd93f84955b793a50cab814ce6cbd7a1efa383f7c759bab51c73fb5c" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:5"]
+mapping_reviewer_ids = ["codex-main", "codex-scout-runtime-controls"]

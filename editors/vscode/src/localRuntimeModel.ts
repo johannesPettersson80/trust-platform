@@ -3,7 +3,12 @@
 // via `trust-runtime fleet runtime …`), distinct from the ephemeral debug simulator and from remotes we
 // only connect to.
 
-export type ManagedRuntimeState = "running" | "stopped";
+export type ManagedRuntimeState =
+  | "running"
+  | "stopped"
+  | "starting"
+  | "stopping"
+  | "unavailable";
 
 export interface ManagedRuntime {
   readonly name: string;
@@ -51,7 +56,15 @@ export function isManagedLifecycleSuccess(
 }
 
 export function normalizeManagedState(raw: string | undefined): ManagedRuntimeState {
-  return raw === "running" ? "running" : "stopped";
+  switch (raw) {
+    case "running":
+    case "stopped":
+    case "starting":
+    case "stopping":
+      return raw;
+    default:
+      return "unavailable";
+  }
 }
 
 // "<name> (this computer)" — disambiguates managed locals from the Simulator + remotes in the dropdown.

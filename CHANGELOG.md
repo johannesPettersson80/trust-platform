@@ -6,10 +6,14 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.55`
+Target release: `v0.24.56`
 
 ### Fixed
 
+- VS Code: managed runtimes whose status command fails or returns an
+  unrecognized state are now shown as unavailable with lifecycle actions
+  disabled instead of being misreported as stopped and offered a misleading
+  Start action.
 - trust-syntax: `ACTION ... END_ACTION` declarations nested in a `PROGRAM` are
   now parsed as action nodes instead of terminating the program statement list
   early and cascading top-level parse diagnostics.

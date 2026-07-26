@@ -245,6 +245,17 @@ package, or end-to-end evidence.
 - Panel and HTML titles MUST be `Devices & Connections`; `Network Canvas` is
   permitted only as an internal identifier and MUST NOT appear in the built
   webview or runtime-rendered strings.
+- Lifecycle ownership is exact: Simulator and managed-local targets use
+  Start/Stop because the extension owns their processes; unowned remote targets
+  use Connect/Disconnect because the extension owns only their sessions.
+  Transitional lifecycle state disables the primary action. An unreachable or
+  endpoint-less remote keeps Connect visible but disabled with a recovery
+  reason. A managed runtime whose status is unavailable keeps Start visible but
+  disabled and MUST NOT be represented as stopped.
+- An invalid saved selection falls back to Simulator. Remote labels retain the
+  endpoint port so same-host targets remain distinguishable. Lifecycle success
+  requires the requested terminal state (`running` after Start, `stopped` after
+  Stop); `starting`, `stopping`, missing, and unknown states are not success.
 - Before React mounts or topology resolves, the webview MUST synchronously
   paint a themed loading shell saying `Loading your devices...` and
   `Reading the project's runtime and connections.` Refresh starts
@@ -260,6 +271,11 @@ package, or end-to-end evidence.
   through the shared helper with the reached endpoint and friendly label,
   selects the target, and makes Live Values usable. A static fake local-runtime
   capability flag is forbidden.
+- Runtime-node controls retain the same ownership rules. They offer
+  `Set as run target` and Settings, offer Logs only when a log backend exists,
+  and make credential recovery primary after an authentication failure without
+  inventing remote process ownership. At most two secondary controls are
+  visible before the remainder moves behind `More actions`.
 
 ### 5.2 Setup tasks and stable panes
 
@@ -482,6 +498,9 @@ package, or end-to-end evidence.
 - Runtime start failure preserves the graph, marks the runtime node as error,
   and exposes an inline retry action rather than replacing the surface with a
   failure screen.
+- Failure or malformed output from managed-runtime status discovery is
+  `Status unavailable`, never `Stopped`. Sidebar and graph lifecycle actions
+  remain disabled until an authoritative status refresh succeeds.
 - Start failures classify missing executable, address/port conflict,
   workspace permission, stale runtime/timeout, and other spawn failure as
   `missing_binary`, `port_conflict`, `workspace_permission`,
@@ -496,6 +515,10 @@ package, or end-to-end evidence.
 
 - The fixed row contains Compile, runtime action, Debug, and Deploy. Each
   button is projected from one typed state function.
+- The status bar is passive, follows the shared target selection, reveals the
+  sidebar, and shows a neutral no-project state. It MUST NOT provide a second
+  lifecycle action, and editor-title menus MUST NOT provide Run/Stop lifecycle
+  controls.
 - Only enabled Start or Connect is filled-primary. Stop and Disconnect are
   neutral-outline. All four use Codicons rather than emoji/text glyphs.
 - Compile state uses icon plus semantic tone: clean is check/neutral/outline,
@@ -550,6 +573,28 @@ package, or end-to-end evidence.
 - The retired `trust-lsp.runtime.controlAuthToken` key is not contributed.
   The fallback key remains only with UI text that explicitly says legacy,
   fallback, and OS secret store.
+- Remote Connect verifies control authentication and `debug_enabled` before
+  opening an attach session. Managed token parsing accepts only root
+  `runtime.control`, including its root dotted form; an identically named key
+  below another table does not supply runtime-control authority.
+
+### 6.5 Lifecycle execution and bounded recovery
+
+- Managed-runtime list/status projection preserves the authoritative
+  `running`, `stopped`, `starting`, and `stopping` states. A missing or unknown
+  status is `Status unavailable`, never `Stopped`; the sidebar keeps Start
+  visible but disabled until a successful status refresh.
+- Start completes Compile successfully before launch dispatch. A failed
+  Compile prevents launch. Successful simulator Start also requires the
+  post-launch I/O acceptance probe; background polling failures after an
+  accepted Start do not become persistent Start failures.
+- Stop is idempotent when the matching session has already disappeared,
+  publishes the fresh lifecycle state only after termination, and managed Stop
+  disconnects the matching Live Values session.
+- Start and Update requests are bounded. Timeout and failure text is
+  human-facing and MUST NOT expose raw local paths, adapter JSON, or debug
+  console noise. Managed logs likewise render readable event summaries rather
+  than raw JSON records.
 
 ## 7. Libraries
 

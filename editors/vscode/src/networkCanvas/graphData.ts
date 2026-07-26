@@ -397,11 +397,24 @@ function injectManagedRuntimes(
           id: `managed:${local.name}`,
           name: local.name,
           mode: "managed",
-          health: local.state === "running" ? "connected" : "stopped",
+          health:
+            local.state === "running"
+              ? "connected"
+              : local.state === "stopped"
+                ? "stopped"
+                : local.state === "starting" || local.state === "stopping"
+                  ? "pending"
+                  : "error",
           detail:
             local.state === "running"
               ? "Running (managed local runtime)."
-              : "Stopped — Start it from this node.",
+              : local.state === "stopped"
+                ? "Stopped — Start it from this node."
+                : local.state === "starting"
+                  ? "Starting managed local runtime…"
+                  : local.state === "stopping"
+                    ? "Stopping managed local runtime…"
+                    : "Status unavailable — refresh before starting.",
           controlEndpoint: local.controlEndpoint || undefined,
           managed: true,
           managedName: local.name,
