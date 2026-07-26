@@ -1,0 +1,146 @@
+schema_version = 1
+id = "VS_CODE_PRODUCT_CONTRACT_001"
+title = "VS Code product surfaces preserve one coherent user-facing contract"
+area = "editor_safety"
+risk = "usability"
+status = "mapped"
+owner = "editors-vscode"
+last_reviewed = "2026-07-26"
+claim = "The shipped VS Code extension must preserve the specified product shell, discovery, example, Live Values, Devices and Connections, compile, library, HMI, visual-editor, and packaged-tool contracts without reviving retired surfaces or inventing product state."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = [
+  "editors/vscode/package.json",
+  "editors/vscode/src",
+  "editors/vscode/src/test/suite/ux-shell-contract.test.ts",
+]
+tests = ["TEST_AUTO_0178F83758787AA886F8", "TEST_AUTO_05A15BB8A9F6D626C468", "TEST_AUTO_0672565AFED8ADC87AB6", "TEST_AUTO_0991AE26DCECBDD19614", "TEST_AUTO_0A69A8BA0C0B065B5B5B", "TEST_AUTO_0C91D4D7B483CDA2CD7A", "TEST_AUTO_0D218CEECC04A20235B3", "TEST_AUTO_0D2FF2D7B7045244EE02", "TEST_AUTO_0D5863DB6B096AD16181", "TEST_AUTO_11BBA7D6EDF97286D62C", "TEST_AUTO_1218EDE8B08DB51CDB21", "TEST_AUTO_124D39018265FC8C72A1", "TEST_AUTO_12F56A99CEF1A0DB8F1B", "TEST_AUTO_13E2B15D33D03714A72A", "TEST_AUTO_1628F297093D44D8CA22", "TEST_AUTO_18984960E4BB47CD32DF", "TEST_AUTO_1F6DC0B37EC99D2621B1", "TEST_AUTO_1FF72C914C287951D91F", "TEST_AUTO_2101306264BBCFCDE99A", "TEST_AUTO_22B456C39DA59CE867AA", "TEST_AUTO_26182A905C6D80B36D86", "TEST_AUTO_26FF043877487F9DA5D0", "TEST_AUTO_27A040B54E74EAC76068", "TEST_AUTO_2835E08A4221B4EED569", "TEST_AUTO_2A1330A8730F61208513", "TEST_AUTO_2A6EB35FFEBA47D17F66", "TEST_AUTO_2D59D052F336ACEFF49F", "TEST_AUTO_2E5202BC6AC2BE6F5745", "TEST_AUTO_2EC86AB9B1842161F6A7", "TEST_AUTO_34375A6CE4D12EE2ABDF", "TEST_AUTO_357ACDDC7DC09038D940", "TEST_AUTO_37AE3A54B5BA095F2E87", "TEST_AUTO_3B6E97361EE4CE45A600", "TEST_AUTO_3D8C0CA2CDE5BCAC0219", "TEST_AUTO_412E98E79F2C9FC69F86", "TEST_AUTO_43D7E06FF9E223A39019", "TEST_AUTO_44D2538AAF201C6ABBD7", "TEST_AUTO_44D2C87B1AE80FA118EB", "TEST_AUTO_49C6A4C491EB5639A2C3", "TEST_AUTO_4B5520D0EAD036C12924", "TEST_AUTO_4BB02C90C4EE44B1C690", "TEST_AUTO_500F30ABF3541F712088", "TEST_AUTO_512040D9DDB0C307ECF2", "TEST_AUTO_517AEA6DB7A3DABFE2A0", "TEST_AUTO_51F94583AFF2825BD4C9", "TEST_AUTO_544B7227A0C6ADF8EF4D", "TEST_AUTO_5454DCB596DED437F8EC", "TEST_AUTO_54CB59758EEF8CE86156", "TEST_AUTO_5A9D0E72D6E039AE01AF", "TEST_AUTO_5CC127E996CB1A2C5F95", "TEST_AUTO_5EE4B5D37FF0D0DF4829", "TEST_AUTO_600330EEB9F72B915087", "TEST_AUTO_60469C891E956F61EBFC", "TEST_AUTO_65398089C491D6C7C77C", "TEST_AUTO_65E00F21757091DED808", "TEST_AUTO_677A0CEBB67E415C009F", "TEST_AUTO_689F5DBBBF50BEDD7DDF", "TEST_AUTO_699C5D8166BF08EB0D87", "TEST_AUTO_6C4C44310C21353333E4", "TEST_AUTO_6C8FEAE756AA8F3CEE0F", "TEST_AUTO_6EBBB53BA6BB406DE861", "TEST_AUTO_6F1CD5D3B0B95E366AFB", "TEST_AUTO_7038F6DC111C3FA453AC", "TEST_AUTO_726ECCA435FACD53FBD5", "TEST_AUTO_730148047813BBBA087C", "TEST_AUTO_75AEF53ED40BBF403CBD", "TEST_AUTO_7696768494AAED23644C", "TEST_AUTO_77D94BB2145BDAB61F63", "TEST_AUTO_7B3A5FA6D3614DD17271", "TEST_AUTO_7B420060C563E5ACCB06", "TEST_AUTO_7E4E79CE02AFFEBC1F8F", "TEST_AUTO_8012662EF660269EC7B7", "TEST_AUTO_8094953FE41DF049FF7A", "TEST_AUTO_816D7AA553F893BDFAB9", "TEST_AUTO_83D0D709424CBE3BE810", "TEST_AUTO_8419ECFA9D379406FE91", "TEST_AUTO_873EA88AC1EA9E8EEE1F", "TEST_AUTO_8A2D5F99C8F40E58808E", "TEST_AUTO_8C163CB626382DE1C514", "TEST_AUTO_8FFCF49A756D4A8C9752", "TEST_AUTO_92FDC4AD270E7E98AEC1", "TEST_AUTO_94D825A21C3A00EE219E", "TEST_AUTO_968BD401D87061A5B98C", "TEST_AUTO_96920E91D7B452C0363C", "TEST_AUTO_989102A31323208EA82A", "TEST_AUTO_9A440025BE9F60234946", "TEST_AUTO_9A79D3FA4A71E0CD5D1C", "TEST_AUTO_9C41C55D51543339DADB", "TEST_AUTO_9CCD07B708E408EF8025", "TEST_AUTO_9D1B82946A31A0568E7B", "TEST_AUTO_9E9BE0E24424346433D7", "TEST_AUTO_9F3F926E547FBBC9A355", "TEST_AUTO_A225F839B0F21FE0E476", "TEST_AUTO_A2A1A86D274913AED88A", "TEST_AUTO_A3100AAEA529338DC1E9", "TEST_AUTO_A405ED7CCDAECFA5FBB9", "TEST_AUTO_A535CDFD8E267DCBE21C", "TEST_AUTO_AA27235D935E99C46EEF", "TEST_AUTO_ABEAAC628F3332D9D7DE", "TEST_AUTO_AE93A961291079A49612", "TEST_AUTO_AF67A50F5171C862EA76", "TEST_AUTO_B062FB2ABFF3C2880279", "TEST_AUTO_B09E66A7603AD641BC97", "TEST_AUTO_B0BBF55ACFD8D4584F7B", "TEST_AUTO_B15B22A3E04434943E0E", "TEST_AUTO_B24E564555819588ED76", "TEST_AUTO_B2998A24536C6D0B231A", "TEST_AUTO_B58468A80460889AC646", "TEST_AUTO_B7F41C54512F321ACFF0", "TEST_AUTO_B9C27DC43DA1F9D0D90F", "TEST_AUTO_B9F5C7DD88E5D780B519", "TEST_AUTO_BA148192A834C74C012F", "TEST_AUTO_BCC9D903DBF6BF0A2C0C", "TEST_AUTO_BD7DC3C02B602DC946DC", "TEST_AUTO_C187A8410C3F5EFC17E4", "TEST_AUTO_C1F6A5CA75A68E6FB440", "TEST_AUTO_C20CD52176684ACDB115", "TEST_AUTO_C3C68094BCF6582D3738", "TEST_AUTO_C3E8477FA51D63AFAF6D", "TEST_AUTO_C5131170B8D2496CC357", "TEST_AUTO_C5C0E5DDF023301B75C5", "TEST_AUTO_C6E201B79D4B399A27B2", "TEST_AUTO_C7A8E28864614D7C216E", "TEST_AUTO_C84D96C8B18867D8C1D2", "TEST_AUTO_C93DC351370AA439EC39", "TEST_AUTO_CACC83FBC8843807678C", "TEST_AUTO_CCD44C25F2A5A6440C16", "TEST_AUTO_CD3E7F85EDD85AE5BC1B", "TEST_AUTO_CD49E390CD8B9DBFB668", "TEST_AUTO_D32AF44E2F688CC1BCF4", "TEST_AUTO_D49FE0224AAC6E84626F", "TEST_AUTO_D4B128A8F5AE94B3D615", "TEST_AUTO_D8305F273D4AEF2589BE", "TEST_AUTO_D95CA9A72034867BCC7F", "TEST_AUTO_D9A12A633886DE28361A", "TEST_AUTO_D9A2C781E64D0F605103", "TEST_AUTO_D9CD3462B2F8FEF93512", "TEST_AUTO_D9F3923D3BEE2A889908", "TEST_AUTO_DC1AC628D925574CFFB5", "TEST_AUTO_DC22B1FA9EA08AEBC83D", "TEST_AUTO_DDDA00FA9228FE8E819E", "TEST_AUTO_E23C36D7435DB7F2B5D3", "TEST_AUTO_E476A7F8409929D5BA63", "TEST_AUTO_E528EDE2EB97182EE8A0", "TEST_AUTO_E53966F187411498430E", "TEST_AUTO_EC6F220B77136927D8EB", "TEST_AUTO_ECD5150419B33360CBB4", "TEST_AUTO_EFE59CAFDB19DDE5B6A7", "TEST_AUTO_F16B514F9D98C0B9FCA4", "TEST_AUTO_F1D9C5F10D9EB5A93FF4", "TEST_AUTO_F8C79FF91451AE0B9A76", "TEST_AUTO_F8D684DB3369FC5BF8BF", "TEST_AUTO_F96A9E4CAC0597A1C257", "TEST_AUTO_FAAB3AB5F11AE3745019", "TEST_AUTO_FAEBCF4E161F2836E59F", "TEST_AUTO_FD3D4101D2258C0B8A52", "TEST_AUTO_FE37775F3189EFFA61DC", "TEST_AUTO_FF57A735C35B7DAFBB4E"]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["rendered_ui_journeys", "accessibility_and_contrast", "produced_vsix_contents", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+
+[[behavior]]
+partition = { equals = "PRODUCT_SHELL_AND_COMMAND_EXPOSURE" }
+case_family = "missing_required"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#1-product-shell-and-command-exposure"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The extension exposes the current truST shell and registered escape hatches while removing retired Communication, ADS-panel, Runtime Panel, Network Canvas, and VS Code 3D-twin product surfaces."
+
+[[behavior]]
+partition = { equals = "DISCOVER" }
+case_family = "hardware_or_network_fault"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#2-discover"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }
+rationale = "Discover presents actionable runtime and device candidates, honest origin capability gates, first-user recovery guidance, and focused adoption without exposing backend jargon."
+
+[[behavior]]
+partition = { equals = "EXAMPLES_PROJECT_SCAFFOLDING_AND_PACKAGED_TOOLS" }
+case_family = "supply_chain_or_artifact_fault"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#3-examples-project-scaffolding-and-packaged-tools"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Curated examples, scaffolds, packaged binaries, and retained journey artifacts remain complete, runnable, portable, secret-free, and accurately labelled."
+
+[[behavior]]
+partition = { equals = "LIVE_VALUES" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#4-live-values"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }
+rationale = "Live Values owns attach-safe observation and controlled Write, Force, Release, presentation, lifecycle truth, and feedback while capability and authorization gates fail visibly before mutation."
+
+[[behavior]]
+partition = { equals = "DEVICES_AND_CONNECTIONS" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#5-devices-connections"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }
+rationale = "Devices and Connections maintains honest loading, selection, runtime setup, topology, editing, browsing, recovery, and persistence state through shared product chrome."
+
+[[behavior]]
+partition = { equals = "SIDEBAR_COMPILE_UPDATE_AND_AUTHENTICATION" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#6-sidebar-actions-compile-update-and-authentication"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }
+rationale = "The sidebar projects one typed action state, truthful Compile and Update results, stable project identity and settings, and SecretStorage-first runtime authentication."
+
+[[behavior]]
+partition = { equals = "LIBRARIES" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#7-libraries"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Libraries preserves curated package availability, shared presentation, visible failure recovery, project-copy version truth, scalable symbol browsing, and user-facing row actions."
+
+[[behavior]]
+partition = { equals = "SHARED_HMI_AND_VISUAL_EDITORS" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#8-shared-hmi-and-visual-editor-contract"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }
+rationale = "HMI, Devices and Connections, SFC, Statechart, Ladder, and Blockly share theme and authoring structure, keep runtime controls in their owning surfaces, and preserve visible edit/recovery behavior."
+
+[[behavior]]
+partition = { equals = "TOOLING_AND_EXAMPLE_TRUTH" }
+case_family = "platform_or_filesystem_variation"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#9-tooling-and-example-truth"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Development and extension-test binary lookup honors the effective Cargo target directory, and exposed-server examples derive changing public values from continued Structured Text execution."
+
+[[coverage.cells]]
+dimension = "missing_required"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every missing_required behavior in VS_CODE_PRODUCT_CONTRACT_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "hardware_or_network_fault"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every hardware_or_network_fault behavior in VS_CODE_PRODUCT_CONTRACT_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "supply_chain_or_artifact_fault"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every supply_chain_or_artifact_fault behavior in VS_CODE_PRODUCT_CONTRACT_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "auth_or_permission"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every auth_or_permission behavior in VS_CODE_PRODUCT_CONTRACT_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in VS_CODE_PRODUCT_CONTRACT_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "persistence_or_recovery"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every persistence_or_recovery behavior in VS_CODE_PRODUCT_CONTRACT_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "boundary_high"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every boundary_high behavior in VS_CODE_PRODUCT_CONTRACT_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every wrong_type_or_shape behavior in VS_CODE_PRODUCT_CONTRACT_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "platform_or_filesystem_variation"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every platform_or_filesystem_variation behavior in VS_CODE_PRODUCT_CONTRACT_001; dynamic proof and broad remote validation remain explicit debt."

@@ -22,7 +22,9 @@ Target release: `v0.24.55`
   retaining that closure after catalog acceptance so helper or fixture changes
   cannot leave a stale mapping marked fresh; acceptance closes only
   catalog-awaiting coverage cells and preserves existing proof or non-catalog
-  debt classifications.
+  debt classifications, while large accepted batches update catalog,
+  denominator, and invariant links once per file instead of reparsing each
+  growing ledger once per test.
 - trust-runtime: registry publish help now describes standard bundle detection
   instead of claiming a current-directory fallback.
 - trust-runtime: `hmi init`, `hmi update`, and `hmi reset` now preserve standard

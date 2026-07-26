@@ -8,7 +8,9 @@ import unittest
 
 from scripts.verification.mapping_catalog_updates import (
     append_catalog_record,
+    append_catalog_records,
     append_invariant_test,
+    append_invariant_tests,
     build_accepted_catalog_record,
     map_denominator_review,
     reconcile_invariant_catalog_state,
@@ -186,6 +188,49 @@ class MappingCatalogUpdateTests(unittest.TestCase):
             ["TEST_AUTO_00000000000000000001", "TEST_EXISTING"],
             tomllib.loads(invariant)["tests"],
         )
+
+    def test_invariant_test_batch_append_is_sorted_and_fail_closed(self) -> None:
+        source = 'schema_version = 1\nid = "INV_ONE"\ntests = ["TEST_EXISTING"]\n'
+        updated = append_invariant_tests(
+            source,
+            ["TEST_TWO", "TEST_ONE"],
+        )
+        self.assertEqual(
+            ["TEST_EXISTING", "TEST_ONE", "TEST_TWO"],
+            tomllib.loads(updated)["tests"],
+        )
+        with self.assertRaisesRegex(ValueError, "already references TEST_EXISTING"):
+            append_invariant_tests(source, ["TEST_EXISTING"])
+        with self.assertRaisesRegex(ValueError, "distinct non-empty strings"):
+            append_invariant_tests(source, ["TEST_ONE", "TEST_ONE"])
+
+    def test_catalog_batch_append_validates_all_identities_before_render(self) -> None:
+        first = build_accepted_catalog_record(
+            proposal=_proposal(),
+            decision=_decision(),
+            invariants={
+                "INV_ONE": {"oracle": {"ref": "SPEC_EXAMPLE_001#exact"}}
+            },
+            reviewed_date="2026-07-23",
+        )
+        second = dict(first)
+        second["id"] = "TEST_AUTO_00000000000000000002"
+        second["discovery_id"] = "DISC_00000000000000000002"
+        rendered = append_catalog_records(
+            "# catalog\n\ntests = []\n",
+            [first, second],
+        )
+        self.assertEqual(
+            [first, second],
+            tomllib.loads(rendered)["tests"],
+        )
+        duplicate = dict(second)
+        duplicate["id"] = first["id"]
+        with self.assertRaisesRegex(ValueError, "already contains"):
+            append_catalog_records(
+                "# catalog\n\ntests = []\n",
+                [first, duplicate],
+            )
 
     def test_catalog_reconciliation_closes_only_fully_mapped_behavior_dimensions(
         self,

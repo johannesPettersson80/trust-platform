@@ -7,10 +7,10 @@ from dataclasses import dataclass
 from typing import Any
 
 from .mapping_catalog_updates import (
-    append_catalog_record,
-    append_invariant_test,
+    append_catalog_records,
+    append_invariant_tests,
     build_accepted_catalog_record,
-    map_denominator_review,
+    map_denominator_reviews,
     reconcile_invariant_catalog_state,
     render_denominator_document,
 )
@@ -67,8 +67,11 @@ def build_review_batch(
     }
     new_decisions: list[dict[str, Any]] = []
     accepted_test_ids: list[str] = []
+    accepted_catalog_records: list[dict[str, Any]] = []
+    denominator_mappings: list[tuple[Mapping[str, Any], str]] = []
     rejected_proposal_ids: list[str] = []
     touched_invariant_ids: set[str] = set()
+    invariant_test_additions: dict[str, list[str]] = {}
     for proposal_id in sorted(review_by_proposal):
         proposal = proposals[proposal_id]
         if proposal_id in snapshots:
@@ -91,12 +94,9 @@ def build_review_batch(
             invariants=invariants,
             reviewed_date=reviewed_date,
         )
-        catalog_after = append_catalog_record(catalog_after, catalog_record)
-        denominator_after = map_denominator_review(
-            document=denominator_after,
-            proposal=proposal,
-            catalog_test_id=str(catalog_record["id"]),
-            reviewed_date=reviewed_date,
+        accepted_catalog_records.append(catalog_record)
+        denominator_mappings.append(
+            (proposal, str(catalog_record["id"]))
         )
         for invariant_id in decision["selected_invariant_ids"]:
             source_entry = invariant_after.get(str(invariant_id))
@@ -104,16 +104,29 @@ def build_review_batch(
                 raise ValueError(
                     f"accepted mapping lacks source for invariant {invariant_id}"
                 )
-            path, source = source_entry
-            invariant_after[str(invariant_id)] = (
-                path,
-                append_invariant_test(source, str(catalog_record["id"])),
+            invariant_test_additions.setdefault(str(invariant_id), []).append(
+                str(catalog_record["id"])
             )
             touched_invariant_ids.add(str(invariant_id))
         accepted_test_ids.append(str(catalog_record["id"]))
 
+    if accepted_catalog_records:
+        catalog_after = append_catalog_records(
+            catalog_after,
+            accepted_catalog_records,
+        )
+        denominator_after = map_denominator_reviews(
+            document=denominator_after,
+            mappings=denominator_mappings,
+            reviewed_date=reviewed_date,
+        )
+
     for invariant_id in sorted(touched_invariant_ids):
         path, source = invariant_after[invariant_id]
+        source = append_invariant_tests(
+            source,
+            invariant_test_additions[invariant_id],
+        )
         invariant_after[invariant_id] = (
             path,
             reconcile_invariant_catalog_state(

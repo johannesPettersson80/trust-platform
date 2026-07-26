@@ -181,45 +181,85 @@ def build_accepted_catalog_record(
 
 
 def append_catalog_record(source: str, record: Mapping[str, Any]) -> str:
+    return append_catalog_records(source, [record])
+
+
+def append_catalog_records(
+    source: str,
+    records: Sequence[Mapping[str, Any]],
+) -> str:
     document = tomllib.loads(source)
     existing = document.get("tests")
     if not isinstance(existing, list):
         raise ValueError("catalog source must contain tests array")
-    test_id = _required_string(record, "id", "catalog record")
-    discovery_id = _required_string(record, "discovery_id", "catalog record")
-    if any(row.get("id") == test_id for row in existing if isinstance(row, Mapping)):
-        raise ValueError(f"catalog already contains {test_id}")
-    if any(
-        row.get("discovery_id") == discovery_id
+    if not records:
+        raise ValueError("catalog append requires at least one record")
+    existing_ids = {
+        str(row.get("id")) for row in existing if isinstance(row, Mapping)
+    }
+    existing_discovery_ids = {
+        str(row.get("discovery_id"))
         for row in existing
         if isinstance(row, Mapping)
-    ):
-        raise ValueError(f"catalog already maps {discovery_id}")
-    if set(record) != set(CATALOG_FIELDS):
-        raise ValueError("generated catalog record fields drift")
+        and isinstance(row.get("discovery_id"), str)
+    }
+    new_ids: set[str] = set()
+    new_discovery_ids: set[str] = set()
+    additions: list[dict[str, Any]] = []
+    for record in records:
+        test_id = _required_string(record, "id", "catalog record")
+        discovery_id = _required_string(record, "discovery_id", "catalog record")
+        if test_id in existing_ids or test_id in new_ids:
+            raise ValueError(f"catalog already contains {test_id}")
+        if (
+            discovery_id in existing_discovery_ids
+            or discovery_id in new_discovery_ids
+        ):
+            raise ValueError(f"catalog already maps {discovery_id}")
+        if set(record) != set(CATALOG_FIELDS):
+            raise ValueError("generated catalog record fields drift")
+        new_ids.add(test_id)
+        new_discovery_ids.add(discovery_id)
+        additions.append(dict(record))
     rendered = re.sub(
         r"(?m)^tests\s*=\s*\[\]\s*\n?",
         "",
         source,
         count=1,
     ).rstrip()
-    lines = ["", "", "[[tests]]"]
-    lines.extend(f"{field} = {_toml_value(record[field])}" for field in CATALOG_FIELDS)
+    lines: list[str] = []
+    for record in additions:
+        lines.extend(["", "", "[[tests]]"])
+        lines.extend(
+            f"{field} = {_toml_value(record[field])}"
+            for field in CATALOG_FIELDS
+        )
     result = rendered + "\n".join(lines) + "\n"
     parsed = tomllib.loads(result)
-    if parsed.get("tests") != [*existing, dict(record)]:
+    if parsed.get("tests") != [*existing, *additions]:
         raise ValueError("generated catalog append failed round-trip validation")
     return result
 
 
 def append_invariant_test(source: str, test_id: str) -> str:
+    return append_invariant_tests(source, [test_id])
+
+
+def append_invariant_tests(
+    source: str,
+    test_ids: Sequence[str],
+) -> str:
     document = tomllib.loads(source)
     tests = document.get("tests")
     if not isinstance(tests, list) or any(not isinstance(item, str) for item in tests):
         raise ValueError("invariant must contain a string tests array")
-    if test_id in tests:
-        raise ValueError(f"invariant already references {test_id}")
-    updated = sorted([*tests, test_id])
+    additions = _strings(test_ids, "invariant test IDs")
+    if not additions:
+        raise ValueError("invariant test append requires at least one test ID")
+    overlap = sorted(set(tests).intersection(additions))
+    if overlap:
+        raise ValueError(f"invariant already references {overlap[0]}")
+    updated = sorted([*tests, *additions])
     match = re.search(r"(?m)^tests\s*=\s*\[", source)
     if match is None:
         raise ValueError("invariant source lacks top-level tests assignment")
@@ -380,31 +420,58 @@ def map_denominator_review(
     catalog_test_id: str,
     reviewed_date: str,
 ) -> dict[str, Any]:
+    return map_denominator_reviews(
+        document=document,
+        mappings=[(proposal, catalog_test_id)],
+        reviewed_date=reviewed_date,
+    )
+
+
+def map_denominator_reviews(
+    *,
+    document: Mapping[str, Any],
+    mappings: Sequence[tuple[Mapping[str, Any], str]],
+    reviewed_date: str,
+) -> dict[str, Any]:
+    if not mappings:
+        raise ValueError("denominator mapping requires at least one proposal")
     updated = copy.deepcopy(dict(document))
     reviews = updated.get("reviews")
     if not isinstance(reviews, list):
         raise ValueError("denominator document lacks reviews")
-    discovery_id = _required_string(proposal, "discovery_id", "proposal")
-    matches = [
-        (index, row)
-        for index, row in enumerate(reviews)
-        if isinstance(row, Mapping) and row.get("discovery_id") == discovery_id
-    ]
-    if len(matches) != 1:
-        raise ValueError(
-            f"denominator must contain exactly one review for {discovery_id}"
-        )
-    index, current = matches[0]
-    for field in ("discovery_source_kind", "path", "name"):
-        if current.get(field) != proposal.get(field):
-            raise ValueError(f"denominator {field} does not match proposal")
-    reviews[index] = {
-        field: current[field] for field in DENOMINATOR_REVIEW_COMMON_FIELDS[:-1]
-    } | {
-        "disposition": "catalog_mapped",
-        "catalog_test_id": catalog_test_id,
-        "last_reviewed": reviewed_date,
-    }
+    review_indices: dict[str, list[int]] = {}
+    for index, row in enumerate(reviews):
+        if isinstance(row, Mapping) and isinstance(
+            row.get("discovery_id"), str
+        ):
+            review_indices.setdefault(str(row["discovery_id"]), []).append(index)
+    mapped_ids: set[str] = set()
+    for proposal, catalog_test_id in mappings:
+        discovery_id = _required_string(proposal, "discovery_id", "proposal")
+        if discovery_id in mapped_ids:
+            raise ValueError(
+                f"denominator mapping duplicates {discovery_id}"
+            )
+        mapped_ids.add(discovery_id)
+        indices = review_indices.get(discovery_id, [])
+        if len(indices) != 1:
+            raise ValueError(
+                f"denominator must contain exactly one review for {discovery_id}"
+            )
+        index = indices[0]
+        current = reviews[index]
+        assert isinstance(current, Mapping)
+        for field in ("discovery_source_kind", "path", "name"):
+            if current.get(field) != proposal.get(field):
+                raise ValueError(f"denominator {field} does not match proposal")
+        reviews[index] = {
+            field: current[field]
+            for field in DENOMINATOR_REVIEW_COMMON_FIELDS[:-1]
+        } | {
+            "disposition": "catalog_mapped",
+            "catalog_test_id": catalog_test_id,
+            "last_reviewed": reviewed_date,
+        }
     updated["reviews"] = sorted(
         reviews, key=lambda row: str(row.get("discovery_id", ""))
     )
