@@ -50,6 +50,7 @@ DECISIONS_PATH = Path("verification/test-catalog-mapping-decisions.toml")
 CATALOG_MAPPING_DEBT = frozenset(
     {"cataloged_behavior_tests", "catalog_mapping"}
 )
+MAPPING_DEBT_REASON = "no_reviewed_spec_or_invariant_binding"
 
 
 def compile_batch(
@@ -85,6 +86,7 @@ def compile_batch(
         if isinstance(row, Mapping)
         and row.get("path") == path
         and row.get("disposition") == "reviewed_nonmapping"
+        and row.get("reason_code") == MAPPING_DEBT_REASON
     ]
     if not reviews:
         raise ValueError("frozen denominator selected no reviewed_nonmapping rows")
@@ -130,6 +132,10 @@ def compile_batch(
             else None
         ),
         allowed_invariant_ids=set(selected_invariant_ids),
+    )
+    assertion_dispositions = _assertion_dispositions(
+        plan=plan,
+        inventories=inventories,
     )
     validate_execution_provenance(
         root=root,
@@ -191,12 +197,29 @@ def compile_batch(
                 str(fact["name"]) in no_default_feature_names
             ),
         )
+        inventory_assertions = inventories[discovery_id].get("assertions", [])
         candidate_invariant_ids = sorted(
             {
                 invariant_id
-                for invariant_id, _behavior_index in assignments[discovery_id]
+                for assertion, (invariant_id, _behavior_index) in zip(
+                    inventory_assertions,
+                    assignments[discovery_id],
+                    strict=True,
+                )
+                if assertion_dispositions.get(
+                    (
+                        str(fact["name"]),
+                        str(assertion.get("assertion_id")),
+                    ),
+                    "oracle_bound",
+                )
+                == "oracle_bound"
             }
         )
+        if not candidate_invariant_ids:
+            raise ValueError(
+                f"{discovery_id} has no oracle-bound assertion after classification"
+            )
         trace_records[discovery_id] = {
             "discovery_id": discovery_id,
             "trace_status": "observed",
@@ -261,7 +284,31 @@ def compile_batch(
     review_inputs = []
     for discovery_id, proposal in sorted(proposals_by_discovery.items()):
         assertion_assignments = assignments[discovery_id]
-        selected_indices = tuple(dict.fromkeys(assertion_assignments))
+        reviewed_assertions = [
+            (
+                assertion,
+                assignment,
+                assertion_dispositions.get(
+                    (
+                        str(facts[discovery_id]["name"]),
+                        str(assertion.get("assertion_id")),
+                    ),
+                    "oracle_bound",
+                ),
+            )
+            for assertion, assignment in zip(
+                proposal["assertions"],
+                assertion_assignments,
+                strict=True,
+            )
+        ]
+        selected_indices = tuple(
+            dict.fromkeys(
+                assignment
+                for _assertion, assignment, disposition in reviewed_assertions
+                if disposition == "oracle_bound"
+            )
+        )
         selected_behaviors: list[Mapping[str, Any]] = []
         selected_behavior_refs: list[str] = []
         for invariant_id, behavior_index in selected_indices:
@@ -312,20 +359,31 @@ def compile_batch(
                 "assertion_reviews": [
                     {
                         "assertion_id": assertion["assertion_id"],
-                        "disposition": "oracle_bound",
-                        "behavior_refs": [
-                            f"{invariant_id}#behavior:{behavior_index}"
-                        ],
+                        "disposition": disposition,
+                        "behavior_refs": (
+                            [f"{invariant_id}#behavior:{behavior_index}"]
+                            if disposition == "oracle_bound"
+                            else []
+                        ),
                         "rationale": (
                             "The reviewed assertion locks this selected "
                             "product-contract behavior."
+                            if disposition == "oracle_bound"
+                            else (
+                                "The reviewed assertion is fixture setup or "
+                                "a precondition, not product-oracle evidence."
+                                if disposition == "setup_or_precondition"
+                                else (
+                                    "The reviewed assertion is not a product "
+                                    "oracle and creates no behavior proof."
+                                )
+                            )
                         ),
                     }
-                    for assertion, (invariant_id, behavior_index) in zip(
-                        proposal["assertions"],
-                        assertion_assignments,
-                        strict=True,
-                    )
+                    for assertion, (
+                        invariant_id,
+                        behavior_index,
+                    ), disposition in reviewed_assertions
                 ],
                 "selected_invariant_ids": proposal_invariant_ids,
                 "selected_behavior_refs": selected_behavior_refs,
@@ -659,6 +717,69 @@ def measured_durations(
     return {name: durations[name] for name in expected_names}
 
 
+def _assertion_dispositions(
+    *,
+    plan: Mapping[str, Any],
+    inventories: Mapping[str, Any],
+) -> dict[tuple[str, str], str]:
+    rows = plan.get("assertion_dispositions", [])
+    if not isinstance(rows, Sequence) or isinstance(rows, (str, bytes)):
+        raise ValueError("plan assertion_dispositions must be an array")
+    inventory_by_name: dict[str, set[str]] = {}
+    for discovery_id, inventory in inventories.items():
+        if not isinstance(inventory, Mapping):
+            raise ValueError(f"{discovery_id} assertion inventory is invalid")
+        name = inventory.get("test_name")
+        assertions = inventory.get("assertions")
+        if (
+            not isinstance(name, str)
+            or not name
+            or not isinstance(assertions, Sequence)
+            or isinstance(assertions, (str, bytes))
+        ):
+            raise ValueError(f"{discovery_id} assertion inventory shape is invalid")
+        inventory_by_name[name] = {
+            str(assertion.get("assertion_id"))
+            for assertion in assertions
+            if isinstance(assertion, Mapping)
+        }
+    result: dict[tuple[str, str], str] = {}
+    for index, row in enumerate(rows):
+        if not isinstance(row, Mapping) or set(row) != {
+            "name",
+            "setup_assertion_ids",
+            "non_oracle_assertion_ids",
+        }:
+            raise ValueError(f"assertion disposition row {index} fields drift")
+        name = row.get("name")
+        if not isinstance(name, str) or name not in inventory_by_name:
+            raise ValueError(f"assertion disposition row {index} name is invalid")
+        for field, disposition in (
+            ("setup_assertion_ids", "setup_or_precondition"),
+            ("non_oracle_assertion_ids", "non_oracle"),
+        ):
+            values = row.get(field)
+            if not isinstance(values, Sequence) or isinstance(values, (str, bytes)):
+                raise ValueError(
+                    f"assertion disposition row {index} {field} must be an array"
+                )
+            for assertion_id in values:
+                if (
+                    not isinstance(assertion_id, str)
+                    or assertion_id not in inventory_by_name[name]
+                ):
+                    raise ValueError(
+                        f"assertion disposition row {index} has unknown assertion"
+                    )
+                key = (name, assertion_id)
+                if key in result:
+                    raise ValueError(
+                        f"assertion disposition row {index} overlaps an assertion"
+                    )
+                result[key] = disposition
+    return result
+
+
 def validate_applied_batch(
     *,
     root: Path,
@@ -918,6 +1039,7 @@ def main(argv: list[str] | None = None) -> int:
                 if isinstance(row, Mapping)
                 and row.get("path") == plan.get("path")
                 and row.get("disposition") == "reviewed_nonmapping"
+                and row.get("reason_code") == MAPPING_DEBT_REASON
             ]
             if not selected_reviews:
                 raise ValueError(
@@ -970,6 +1092,7 @@ def main(argv: list[str] | None = None) -> int:
                 if isinstance(row, Mapping)
                 and row.get("path") == plan.get("path")
                 and row.get("disposition") == "reviewed_nonmapping"
+                and row.get("reason_code") == MAPPING_DEBT_REASON
             }
             apply_mapping_transaction(
                 root=root,

@@ -1209,7 +1209,7 @@ last_reviewed = "2026-07-19"
 schema_version = 1
 document_id = "SPEC_DOC_2BB2F9190775BBF95827F595"
 path = "docs/specs/11-runtime-engine.md"
-content_sha256 = "eae050619013e5a6371060374ce4056dabc5f5e01c5a30191e964655fdd4b8dd"
+content_sha256 = "4cda16e79fde7fb31cc87e45c36170e729cf254b4f0a56cf697a282088634e51"
 areas = ["runtime_safety"]
 authority_levels = ["normative_product"]
 owners = ["trust-runtime"]
@@ -5714,7 +5714,7 @@ last_reviewed = "2026-07-19"
 schema_version = 1
 document_id = "SPEC_DOC_D3099CAB58820150EFD76260"
 path = "docs/specs/23-connector-status.md"
-content_sha256 = "84673d6a8a06ecf415ca2c16e6060afe0cc579bc61e01e43e645b03f6f4cbca9"
+content_sha256 = "9f30425105d9e6b9293d46e00863043f8f6169f39afa236d03cf698dc616659f"
 areas = ["hmi_ui"]
 authority_levels = ["normative_product"]
 owners = ["trust-runtime"]
@@ -5725,7 +5725,7 @@ classification_basis = "registered_metadata"
 conflict_disposition = "registered_conflicts_reviewed"
 checklist_staleness = "not_applicable"
 removed_behavior_disposition = "reviewed_current"
-last_reviewed = "2026-07-19"
+last_reviewed = "2026-07-26"
 
 [[document_reviews]]
 schema_version = 1

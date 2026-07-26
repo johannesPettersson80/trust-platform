@@ -5,7 +5,7 @@ area = "protocols"
 risk = "false_status"
 status = "mapped"
 owner = "trust-runtime"
-last_reviewed = "2026-07-23"
+last_reviewed = "2026-07-26"
 claim = "The runtime ADS server publishes only the deterministic configured scalar subset, reports value failures without fabricated bytes, avoids all work when disabled, and exposes and releases its live TCP/UDP lifecycle truth."
 proof_level = "T1"
 contract_kind = "state_machine"
@@ -77,6 +77,24 @@ outcome = "accept_value"
 no_partial_apply = true
 delta = { diagnostics = "none", process_image = "unchanged", retain = "unchanged", siblings = "unchanged", status = "unchanged", target = "set_to_expected" }
 rationale = "Shutdown and Drop release both listeners."
+
+[[behavior]]
+partition = { equals = "SNAPSHOT_REFRESH_VERSION_AND_SWAP" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { diagnostics = "none", process_image = "unchanged", retain = "unchanged", siblings = "unchanged", status = "unchanged", target = "set_to_expected" }
+rationale = "A newer runtime snapshot refreshes the published symbol set and version as one observable replacement rather than exposing a mixed generation."
+
+[[behavior]]
+partition = { equals = "ARRAY_DESCRIPTOR_BOUNDS_AND_SCALAR_TYPE" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { diagnostics = "none", process_image = "unchanged", retain = "unchanged", siblings = "unchanged", status = "unchanged", target = "set_to_expected" }
+rationale = "Array descriptors preserve signed inclusive bounds, element scalar type, and the resulting byte extent without widening publication."
 
 [[coverage.cells]]
 dimension = "happy_path"

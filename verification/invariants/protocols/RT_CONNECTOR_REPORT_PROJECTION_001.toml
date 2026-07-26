@@ -1,0 +1,102 @@
+schema_version = 1
+id = "RT_CONNECTOR_REPORT_PROJECTION_001"
+title = "Connector report serialization and protocol projection preserve evidence"
+area = "protocols"
+risk = "false_status"
+status = "planned"
+owner = "trust-runtime"
+last_reviewed = "2026-07-26"
+claim = "Connector report shape, driver policy, point quality, protocol state, and TCP-only confidence must preserve their exact reviewed meanings."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-runtime/src/connectors", "docs/specs/23-connector-status.md"]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_behavior_tests", "focused_remote_execution", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_CONNECTOR_STATUS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_CONNECTOR_STATUS_001"
+
+[[behavior]]
+partition = { equals = "VERSIONED_CONNECTOR_REPORT_SHAPE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_CONNECTOR_STATUS_001#versioned-report-shape"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Serialization preserves stable report, point metadata, count, freshness, reconnect, and optional-detail fields without claiming that constructed state came from a live transport."
+
+[[behavior]]
+partition = { equals = "IO_DRIVER_OK_PROJECTION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_CONNECTOR_STATUS_001#projection-rules"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Ok driver health projects to ready without inventing degraded or fault evidence."
+
+[[behavior]]
+partition = { equals = "IO_DRIVER_DEGRADED_PROJECTION" }
+case_family = "hardware_or_network_fault"
+oracle_ref = "SPEC_CONNECTOR_STATUS_001#projection-rules"
+outcome = "not_safe_reported"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "status_degraded" }
+rationale = "Degraded driver health preserves its detail and projects to degraded status."
+
+[[behavior]]
+partition = { equals = "IO_DRIVER_FAULT_POLICY_PROJECTION" }
+case_family = "hardware_or_network_fault"
+oracle_ref = "SPEC_CONNECTOR_STATUS_001#projection-rules"
+outcome = "not_safe_reported"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "fault_visible" }
+rationale = "Fault policy preserves a faulted projection rather than keeping the connector ready."
+
+[[behavior]]
+partition = { equals = "IO_DRIVER_WARN_OR_IGNORE_POLICY_PROJECTION" }
+case_family = "hardware_or_network_fault"
+oracle_ref = "SPEC_CONNECTOR_STATUS_001#projection-rules"
+outcome = "not_safe_reported"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "status_degraded" }
+rationale = "Warn and ignore policy preserve degraded evidence while permitting the surrounding runtime to remain active."
+
+[[behavior]]
+partition = { equals = "ADS_POINT_QUALITY_AND_COUNTS" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_CONNECTOR_STATUS_001#projection-rules"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }
+rationale = "ADS point quality, write state, detail, last update, and point counts project without collapsing degraded evidence."
+
+[[behavior]]
+partition = { equals = "PROCESS_IMAGE_PROTOCOL_PROJECTION" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_CONNECTOR_STATUS_001#projection-rules"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }
+rationale = "MQTT, Modbus, and EtherCAT runtime states map to their documented connector states while unknown protocol remains explicitly unknown."
+
+[[behavior]]
+partition = { equals = "TCP_ONLY_CONFIDENCE_WIRE_VALUE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_CONNECTOR_STATUS_001#canonical-vocabulary"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "TCP-only discovery serializes as port_reachable and cannot be promoted to confirmed."
+
+[[coverage.cells]]
+dimension = "hardware_or_network_fault"
+state = "gap_open"
+rationale = "The connector report contract is specified; catalog mapping and focused execution are pending."

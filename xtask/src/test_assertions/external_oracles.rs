@@ -203,6 +203,14 @@ pub(super) fn external_oracle_digests(
         digests.insert(relative, sha256_tag(&fs::read(&path)?));
     }
     for runtime_read in visitor.runtime_reads {
+        let literal_path = Path::new(&runtime_read);
+        if literal_path.is_absolute()
+            || literal_path
+                .components()
+                .any(|component| matches!(component, Component::ParentDir))
+        {
+            continue;
+        }
         let relative =
             resolve_runtime_fixture_path(root, &source_parent, source_path, &runtime_read)?;
         let path = root.join(&relative);

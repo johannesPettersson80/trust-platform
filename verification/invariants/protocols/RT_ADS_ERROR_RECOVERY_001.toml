@@ -1,0 +1,48 @@
+schema_version = 1
+id = "RT_ADS_ERROR_RECOVERY_001"
+title = "ADS symbol-upload failures select honest recovery guidance"
+area = "protocols"
+risk = "false_status"
+status = "planned"
+owner = "trust-runtime"
+last_reviewed = "2026-07-26"
+claim = "ADS symbol-upload recovery must distinguish a missing return route from an empty symbol table or refused connection and attach a route plan only to the classified route failure."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-runtime/src/host/ads/onboarding/errors.rs", "crates/trust-runtime/src/control/comm_handlers/browse_symbols.rs", "docs/specs/11-runtime-engine.md"]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_behavior_tests", "focused_remote_execution", "external_ads_target", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+
+[[behavior]]
+partition = { equals = "RETURN_ROUTE_FAILURE_CLASSIFICATION" }
+case_family = "hardware_or_network_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+outcome = "not_safe_reported"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "not_safe_reported" }
+rationale = "Typed route-missing or explicit no-reply detail selects route recovery; an actual empty table or refused connection does not."
+
+[[behavior]]
+partition = { equals = "ROUTE_MISSING_REPORT_WITH_PLAN" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#communication-discovery-scope-and-symbol-browsing"
+outcome = "not_safe_reported"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "not_safe_reported" }
+rationale = "A classified upload failure returns route_missing and its credential-free plan without a fabricated symbol tree or import."
+
+[[coverage.cells]]
+dimension = "hardware_or_network_fault"
+state = "gap_open"
+rationale = "Classifier and structured recovery behavior are specified; catalog mapping and focused execution remain open."

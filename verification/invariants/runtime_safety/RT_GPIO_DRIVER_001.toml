@@ -1,0 +1,66 @@
+schema_version = 1
+id = "RT_GPIO_DRIVER_001"
+title = "GPIO configuration, health, and safe-state delivery fail closed"
+area = "runtime_safety"
+risk = "safety_critical"
+status = "planned"
+owner = "trust-runtime"
+last_reviewed = "2026-07-26"
+claim = "GPIO backends accept only reviewed bit mappings, preserve backend errors in health, and apply confirmed safe-state outputs."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-runtime/src/io/gpio.rs", "docs/specs/11-runtime-engine.md"]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_behavior_tests", "focused_remote_execution", "physical_gpio_evidence", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#io-drivers"
+
+[[behavior]]
+partition = { equals = "VALID_CHARDEV_OR_SYSFS_BIT_MAPPING" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#io-drivers"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The default chardev and compatibility sysfs backends accept concrete input and output bit entries with documented options."
+
+[[behavior]]
+partition = { equals = "WILDCARD_NONBIT_WRONG_AREA_OR_NESTED_MAPPING" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#io-drivers"
+outcome = "reject"
+no_partial_apply = false
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "GPIO configuration rejects mappings that cannot identify one exact input or output bit."
+
+[[behavior]]
+partition = { equals = "BACKEND_READ_OR_WRITE_FAILURE" }
+case_family = "hardware_or_network_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#io-drivers"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "fault_visible" }
+rationale = "A backend error remains visible and sets faulted driver health."
+
+[[behavior]]
+partition = { equals = "WATCHDOG_SAFE_STATE_WRITE_CONFIRMED" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#safe-state-handoff-confirmation"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "expected_delta", diagnostics = "none", status = "not_applicable" }
+rationale = "Watchdog fault handling writes the configured safe output through GPIO and observes the backend result."
+
+[[coverage.cells]]
+dimension = "hardware_or_network_fault"
+state = "gap_open"
+rationale = "Software-backed GPIO behavior is specified; mapping, focused execution, and physical-line evidence remain pending."

@@ -1,0 +1,102 @@
+schema_version = 1
+id = "RT_COMM_DISCOVERY_BROWSE_001"
+title = "Communication discovery and browsing preserve bounded source authority"
+area = "protocols"
+risk = "false_status"
+status = "planned"
+owner = "trust-runtime"
+last_reviewed = "2026-07-26"
+claim = "Communication discovery, direct probes, symbol trees, and runtime mDNS must preserve their exact scope, origin, source, and evidence limits."
+proof_level = "S0"
+contract_kind = "protocol_trace"
+source_refs = ["crates/trust-runtime/src/control/comm_handlers", "crates/trust-runtime/src/host/discovery.rs", "docs/specs/11-runtime-engine.md"]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_behavior_tests", "focused_remote_execution", "external_protocol_targets", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#communication-discovery-scope-and-symbol-browsing"
+
+[[behavior]]
+partition = { equals = "RUNTIME_ORIGIN_DISCOVERY" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#communication-discovery-scope-and-symbol-browsing"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Runtime-origin discovery may return configured mock EtherCAT modules while retaining mock rather than physical authority."
+
+[[behavior]]
+partition = { equals = "UNAVAILABLE_ORIGIN_OR_DEFERRED_PROTOCOL" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#communication-discovery-scope-and-symbol-browsing"
+outcome = "not_safe_reported"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "not_safe_reported" }
+rationale = "Wrong-origin EtherCAT, generic OPC UA setup, and registered deferred protocols return no candidates and an explicit warning."
+
+[[behavior]]
+partition = { equals = "OVERSIZED_CIDR" }
+case_family = "resource_limit"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#communication-discovery-scope-and-symbol-browsing"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "A scan broader than slash-24 rejects before enumerating an unbounded network scope."
+
+[[behavior]]
+partition = { equals = "UNKNOWN_PROTOCOL" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#communication-discovery-scope-and-symbol-browsing"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "An unregistered protocol is a request error rather than a deferred empty discovery result."
+
+[[behavior]]
+partition = { equals = "LOCAL_AND_PROTOCOL_BROWSE_PROJECTION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#communication-discovery-scope-and-symbol-browsing"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Local globals, EtherCAT channels, cached ADS symbols, and OPC UA leaves retain their deterministic source-owned tree fields."
+
+[[behavior]]
+partition = { equals = "DIRECT_TCP_PROBE_RESULT" }
+case_family = "hardware_or_network_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#communication-discovery-scope-and-symbol-browsing"
+outcome = "not_safe_reported"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "not_safe_reported" }
+rationale = "A direct Modbus or MQTT TCP probe reports its exact target, bounded outcome, and field error without claiming a protocol handshake."
+
+[[behavior]]
+partition = { equals = "MDNS_SERVICE_AND_PROPERTY_PROJECTION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#browser-ui-discovery-and-mesh-operational-ux"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The truST PLC service enables automatic addresses and retains reviewed TXT identity, endpoint, TLS, mesh, host-group, and observation fields."
+
+[[behavior]]
+partition = { equals = "MDNS_REMOVAL_MATCH" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#browser-ui-discovery-and-mesh-operational-ux"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "An exact ID/name or reviewed instance suffix removes only the matching runtime entry."
+
+[[coverage.cells]]
+dimension = "hardware_or_network_fault"
+state = "gap_open"
+rationale = "The grouped discovery and browsing contract is specified; mapping, focused execution, and external targets remain open."

@@ -6,6 +6,52 @@ in `IEC_DECISIONS.md`; PLCopen profile decisions belong in
 `PLCOPEN_DECISIONS.md`. Product behavior recorded here MUST NOT be copied to an
 IEC or PLCopen deviation log merely because truST owns the behavior.
 
+## 2026-07-26 - Runtime process-image and connector boundary
+
+- Area: Runtime process image, I/O drivers, industrial protocols, and connector
+  reporting
+- Decision:
+  - Each process-image area is independently capped at 16 MiB. Oversized
+    metadata, bindings, resizes, and writes fail before partial mutation, while
+    unallocated reads return zero without allocating.
+  - Built-in I/O drivers retain stable canonical names and aliases. Driver
+    composition follows cycle-boundary ordering, and GPIO configuration,
+    Modbus/MQTT worker lifecycle, EtherCAT image-shape failure, and safe-state
+    handoff follow the contracts in `docs/specs/11-runtime-engine.md`.
+  - MQTT TLS/mTLS validation and the outbound Sparkplug B node profile are
+    closed product contracts. Transport construction or mock traffic does not
+    by itself claim an authenticated broker or external interoperability.
+  - Connector reports use the versioned schema and projection rules in
+    `docs/specs/23-connector-status.md`. A serializer lock proves wire shape
+    only; mock, TCP reachability, and directly constructed states do not prove
+    live protocol or physical-device health.
+  - Communication discovery is bounded by caller-selected scope and origin.
+    Browsing projects configured or observed symbols into stable authoring
+    trees without converting cached or transport-only evidence into live
+    protocol proof.
+  - Runtime mDNS uses the truST PLC service type and preserves the reviewed
+    runtime identity, endpoint, host-group, and removal semantics.
+  - The OPC UA server exports only the reviewed scalar and enum projection,
+    starts before its first runtime snapshot without claiming ready data, and
+    remains read-only. Its secure profile is signed-and-encrypted with
+    anonymous access disabled unless configuration explicitly selects another
+    accepted profile.
+  - ADS generated interfaces are deterministic, type-faithful, collision-free
+    Structured Text artifacts whose offline validation is exact. ADS web
+    routes derive credential-channel authority from the observed request and
+    may use an internal local token only for in-process control dispatch; that
+    token is never forwarded by the control proxy.
+- Authority:
+  - `docs/specs/11-runtime-engine.md`
+  - `docs/specs/23-connector-status.md`
+- Reason:
+  - IEC 61131-3 defines PLC language and directly represented variables but not
+    host allocation caps, GPIO backends, MQTT/Sparkplug, Modbus worker
+    lifecycle, EtherCAT transport, mDNS, OPC UA or ADS transport/tooling, web
+    proxy credentials, or connector JSON. Keeping these choices in the product
+    log prevents them from being mislabeled as IEC deviations and makes the
+    proof ceiling of structural tests explicit.
+
 ## 2026-07-26 - Structured Text parser compatibility boundary
 
 - Area: Structured Text type references, expression calls, declaration

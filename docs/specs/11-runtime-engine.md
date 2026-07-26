@@ -265,6 +265,35 @@ Sizes are derived from compiled program metadata at load time. On embedded targe
 
 The process image is owned by a single resource thread; no internal locking is required. Cross-resource data sharing is synchronized through the configuration-level shared globals lock (see 6.7). External I/O exchange (Modbus, etc.) reads/writes to this image at cycle boundaries.
 
+##### Process-image bounds, reads, snapshots, and metadata application
+
+Each `%I`, `%Q`, and `%M` byte area has an independent maximum length of
+16 MiB. A resize, bytecode metadata declaration, source binding, or concrete
+write whose addressed window exceeds that limit is rejected before allocating
+or mutating the affected area. A failed metadata application is transactional:
+resource selection, task/program references, all three area lengths, and I/O
+bindings are validated before the executable state or process image changes.
+The exact-resource and single-legacy-`RESOURCE` selection rules are defined in
+section 6.7.1.
+
+Reading an unallocated byte or the unallocated portion of a multi-byte value
+returns zero bytes without growing the area. An unallocated fixed-width string
+window therefore reads as an empty string. A fixed-width string write whose
+payload is larger than its declared byte window returns overflow before
+allocation or partial mutation.
+
+For an in-range concrete address, a successful typed write followed by a typed
+read of the same address returns the written value. Bit access updates and
+reads only the addressed bit within its byte. Word access uses the process
+image's little-endian byte representation and returns the same 16-bit value.
+
+An I/O snapshot is produced after output and marker bindings have been
+committed for the cycle. Each entry preserves its area, complete address,
+optional display name, optional driver/source description, and optional
+declared type. Typed snapshot values are decoded according to that declared
+type, including `REAL`, `TIME`, and fixed-width `STRING`; a conversion failure
+is represented as an entry error rather than a fabricated untyped value.
+
 ##### Typed floating-point egress
 
 At end-of-cycle synchronization, typed `%Q` and `%M` bindings declared as
@@ -293,6 +322,34 @@ pub trait IoDriver: Send {
 ```
 
 Multiple drivers may be composed (e.g., fieldbus + simulated I/O). The resource scheduler owns the driver(s) and invokes them at cycle boundaries.
+
+Composed drivers retain their configured order. On a successful boundary, each
+driver reached by the composition receives exactly one input-read attempt
+before task execution and one output-write attempt after task execution. An
+earlier driver error short-circuits that boundary. `%I` and `%M` bindings are
+loaded before ready tasks run; `%Q` and `%M` bindings are committed after those
+tasks finish; the cycle I/O snapshot is emitted only after that commit. Arrays,
+structures, and function-block instance bindings use their flattened declared
+layout. An unresolved `%I*`, `%Q*`, or `%M*` binding must be resolved by a
+matching-area `VAR_CONFIG` entry before runtime construction and is rejected
+in disallowed declaration sections or on an area mismatch.
+
+The built-in driver registry exposes the stable canonical names `ethercat`,
+`gpio`, `loopback`, `modbus-tcp`, `mqtt`, and `simulated` in sorted unique
+order. Accepted aliases resolve to the canonical name before validation or
+construction; this includes `sim`/`noop`, `modbus_tcp`, `mqtt-tcp`, and
+`ether-cat`/`ecat`. The explicit driver name `none` selects no driver.
+
+The GPIO driver accepts `chardev`/`libgpiod` (defaulting to
+`/dev/gpiochip0`) and the compatibility `sysfs` backend (defaulting to
+`/sys/class/gpio`). Input entries require concrete `%IX` bit addresses and
+output entries require concrete `%QX` bit addresses; wildcard, non-bit,
+wrong-area, and nested addresses make driver construction fail. The current
+construction order does not claim that backend configuration is side-effect
+free before this mapping rejection. GPIO read or write failure sets faulted
+driver health with the original error. A configured watchdog/fault safe-state
+output is written through the GPIO driver and is successful only under the
+safe-state confirmation rule below.
 
 Process-image drivers must keep scan-cycle methods bounded. Drivers with
 blocking wire protocols may own background workers, but the `IoDriver` boundary
@@ -381,12 +438,35 @@ session event returns failure immediately rather than blocking or allocating
 an unbounded queue. After the worker drains pending events, the same sink can
 accept a later event. A rejected event is not claimed delivered.
 
+###### OPC UA server surface, security, and cold start
+
 The runtime's OPC UA server publishes PLC snapshot variables with CurrentRead
 access only. The periodic publisher refreshes those values from runtime
 snapshots; client writes are rejected because no transactional write-back path
 to PLC storage is defined. A future writable server surface requires an
 explicit allowlist, authorization, type validation, scan-boundary application,
 and visible write result before it may advertise CurrentWrite.
+
+The server value projection is closed over `BOOL`; signed 16-, 32-, and 64-bit
+integers; unsigned 16-, 32-, and 64-bit integers; `REAL`; `LREAL`; and
+`STRING`. Each value retains the corresponding OPC UA Boolean, integer, Float,
+Double, or String scalar. A declared enum exports its selected variant name as
+an OPC UA String. Null, references, time values, arrays, structures, and other
+unsupported runtime values are omitted rather than invented as another scalar
+type.
+
+The secure server profile defaults to `Basic256Sha256`,
+`SignAndEncrypt`, and anonymous access disabled. Policy `None` is valid only
+with message mode `None`; a signing or encryption policy requires a compatible
+non-`None` mode. Configured authentication and certificate-trust rules are
+enforced by the wire server before a client may read a node.
+
+Server construction and listener startup do not depend on the first runtime
+snapshot. Before a snapshot exists, nodes have no fabricated ready value.
+After a snapshot becomes available, a reference client may read every exported
+supported scalar with CurrentRead access. Loopback/reference-client proof
+establishes interoperability for the exercised profile only; it does not
+establish external-vendor or production-certificate interoperability.
 
 ##### Floating-point boundary admission policy
 
@@ -451,6 +531,21 @@ in-process IEC arithmetic, `IS_VALID`, subnormal, or signed-zero semantics.
 - A completed worker read preserves its typed protocol error at the scan-cycle
   boundary. In particular, a Modbus exception remains an `IoAddress` error and
   is not replaced by a generic unavailable-snapshot transport error.
+- Function selection is closed over FC01, FC02, FC03, and FC04 for input and
+  FC05, FC06, FC15, and FC16 for output. An unknown or direction-incompatible
+  function is rejected during configuration.
+- A coil point is boolean and does not accept numeric scaling. A register point
+  uses a declared supported numeric type; scaling must be finite and invertible
+  for the requested direction. Invalid point type, address, function, or
+  scaling is rejected before the worker starts.
+- A completed transport failure follows `on_error`: `fault` returns the typed
+  error and faults health, while `warn` and `ignore` return degraded success.
+  This policy never rewrites a Modbus exception into a generic transport error.
+- Reconnect uses a non-zero bounded backoff and cannot spin on an unavailable
+  endpoint. Dropping the driver requests worker shutdown and returns within the
+  bounded driver-drop deadline even when the worker is awaiting its first
+  response. This return-time contract does not claim that the detached worker
+  thread has already joined; joined worker shutdown remains open proof debt.
 
 ###### Modbus declared-width floating-point finiteness
 
@@ -479,6 +574,24 @@ deviation.
 - Sparkplug mode publishes NBIRTH on MQTT session establishment, configures
   NDEATH as the MQTT last will, and publishes NDATA scalar metric payloads for
   typed output points.
+- Sparkplug topics are
+  `<namespace>/<group_id>/NBIRTH/<edge_node_id>`,
+  `<namespace>/<group_id>/NDEATH/<edge_node_id>`, and
+  `<namespace>/<group_id>/NDATA/<edge_node_id>`. Birth precedes data for each
+  accepted session. Payloads use the Eclipse Tahu Sparkplug B protobuf metric
+  representation for the supported scalar types. The configured profile
+  requires `group_id`, `edge_node_id`, at least one output point, and no input
+  points. Device topics, templates, aliases, and command subscriptions are
+  non-goals rather than claimed supported behavior. Structural field-byte or
+  substring assertions do not establish reference Tahu interoperability; a
+  reference decoder remains required for that proof.
+- A plain `mqtt://` endpoint is permitted only for loopback/local authority
+  unless the explicit insecure-remote override is set. `mqtts://` implies TLS.
+  TLS configuration requires a CA path; client certificate and key are an
+  all-or-nothing pair; TLS-only fields are rejected when TLS is disabled.
+  An empty ALPN list has no effect when TLS is disabled. Enabling TLS constructs
+  the configured CA and optional mTLS transport, but construction alone is not
+  evidence of a successful broker handshake.
 - Runtime exchange is worker-backed: broker connect/poll/publish and
   reconnection happen on the MQTT worker, while scan-cycle reads/writes use
   bounded snapshot/handoff state.
@@ -501,6 +614,11 @@ deviation.
   output; later publication does not retroactively make the timed-out call
   successful.
 - Reconnection is non-blocking; runtime cycle remains deterministic.
+- Reconnection uses a non-zero bounded backoff and cannot busy-loop after a
+  connection failure. Dropping the driver requests shutdown and returns within
+  the bounded driver-drop deadline, including while a session connection is
+  pending. This return-time contract does not claim that the detached worker
+  thread has already joined; joined worker shutdown remains open proof debt.
 - Security baseline rejects insecure remote brokers unless explicitly overridden.
 - Sparkplug B non-goals in this profile: command subscriptions, device-level
   DBIRTH/DDATA topics, metric aliases, templates, and store-and-forward.
@@ -516,10 +634,19 @@ belong in `IEC_DECISIONS.md` or `IEC_DEVIATIONS.md`.
 - Driver name: `ethercat`.
 - Deterministic process-image mapping for module-chain profiles (including
   `EK1100` + digital I/O modules such as `EL1008` / `EL2008`).
+- The default reviewed module-chain profile is `EK1100`, `EL1008`, and
+  `EL2008`, with deterministic input/output byte lengths and channel order.
+  An explicit hardware adapter name is accepted as configuration authority;
+  it is not proof that the adapter exists.
 - Startup discovery diagnostics emit discovered module summary and expected
   process-image sizes.
 - Cycle-time health telemetry upgrades driver status to **degraded** when cycle
   read/write exceeds configured warning threshold.
+- A read or write failure follows the configured fault/warn/ignore policy,
+  except that a discovered process-image size mismatch is always faulted
+  because continuing would reinterpret channel layout. Warn and ignore may
+  keep the resource running only when the image shape remains valid, and must
+  preserve the failure detail in degraded health.
 - Non-mock adapters are backed by EtherCrab hardware transport on unix targets.
 - Deterministic `adapter = "mock"` mode is available for CI/offline validation.
 - Explicit v1 non-goals: no functional safety/SIL claims and no advanced motion
@@ -746,6 +873,43 @@ MQTT discovery sets `clean_session = true` and sends DISCONNECT immediately
 after every received CONNACK, including rejected CONNACK responses. It does not
 leave a discovery session active. MQTTS port reachability without a TLS MQTT
 exchange remains `port_reachable`.
+
+##### Communication discovery scope and symbol browsing
+
+Communication discovery is a bounded authoring operation. A directed Modbus or
+MQTT TCP connection reports only `port_reachable` until the protocol probe
+rules above earn stronger evidence. A CIDR scan broader than `/24` is rejected
+before enumeration. EtherCAT discovery is available only from the runtime host;
+another origin receives an empty candidate set and an explicit runtime-origin
+warning. Runtime-origin mock discovery may project the configured/discovered
+module chain, but it remains mock evidence. OPC UA generic discovery currently
+returns an explicit server-setup warning and no candidates. A registered
+protocol whose discovery is deferred returns an empty candidate set and a
+stable unavailable warning; an unknown protocol is a request error.
+
+Symbol browsing returns a versioned tree whose `protocol`, `kind`, IDs, paths,
+type labels, writable flag, and protocol-specific identifiers are derived from
+the owning source:
+
+- Local project browsing returns declared globals in deterministic name order
+  and does not claim runtime values.
+- EtherCAT channel browsing returns the configured module and channel order
+  with exact process-image direction, byte/bit coordinates, and data type.
+- Cached ADS browsing canonicalizes the supplied snapshot and returns the same
+  deterministic candidate groups and import shape owned by the ADS
+  symbol-import contract. The target AMS identity accepts the documented
+  `ams_net_id` and `target_net_id` aliases.
+- A live ADS upload failure classified as a missing return route returns a
+  structured `route_missing` error plus the credential-free route plan. It
+  must not fabricate a symbol tree or successful import.
+- OPC UA leaf browsing retains the raw node ID and maps a supported scalar data
+  type into the exact apply-facing type name. Browse failure retains the
+  classified protocol error instead of returning an empty successful tree.
+
+Reading a project file, generated temporary artifact, cached snapshot, or live
+wire response remains an external oracle. A structural response-shape
+assertion may map to this contract, but an unresolved file or wire observation
+cannot be promoted to proof merely because surrounding assertions are static.
 
 ##### EtherCAT unavailable-resource contract
 
@@ -1423,6 +1587,27 @@ into success. External Doctor proof metadata is accepted only when kind and
 name are supplied together. Human and JSON modes render the same underlying
 successful report or artifact.
 
+###### ADS browser-to-control boundary
+
+Every ADS HTTP route delegates to its exact registered control operation and
+returns that operation's response; web routing alone does not manufacture ADS
+success. Local web authentication may supply the configured internal control
+token only to the in-process control dispatch that serves the authenticated
+request. The generic control proxy must not forward that token in headers,
+payload, logs, or error text to another target.
+
+Credential-channel classification is derived from the observed request.
+Loopback is `trusted_same_host`; a non-loopback request is
+`trusted_https_admin` only when TLS is active and the authenticated role is
+Admin; every other network request is `untrusted_plain_http_network`. The
+server overwrites any caller-supplied channel before `ads.route_add` policy is
+evaluated. Route-add responses and serialized failures never echo the supplied
+username, password, or internal control token.
+
+Static setup-page asset checks establish only that the reviewed onboarding
+labels and route names are shipped. They do not prove rendered interaction,
+authorization, control dispatch, ADS transport, or production readiness.
+
 ###### ADS server command dispatch and resource safety
 
 The ADS server evaluates the client allowlist before decoding or executing a
@@ -1700,6 +1885,13 @@ must agree with the projected type. Unsupported metadata may be omitted, but
 inconsistent, overflowing, or otherwise unrepresentable metadata fails closed
 instead of producing a bindable descriptor.
 
+A symbol-upload error establishes a missing return route when its typed kind is
+`RouteMissing`, or when a `NoSymbols` failure explicitly describes a timeout,
+no reply/response, route setup, or failure while receiving the reply. An actual
+empty symbol-table response and a refused TCP connection are not reclassified
+as route missing. This diagnostic classifier selects recovery guidance only; it
+does not claim that adding a route will make the subsequent upload succeed.
+
 By-name handle resolution first verifies that the remote symbol byte size
 exactly equals the requested type size and then acquires a remote symbol
 handle. Index-group/index-offset resolution verifies that its declared byte
@@ -1958,6 +2150,29 @@ read, write, or read-write access are serialized without silently changing the
 selected capability. Malformed current configuration, missing selection,
 unacknowledged writes, invalid descriptor metadata, or generation mismatch
 fails before an artifact is returned.
+
+The generated ADS interface is one deterministic Structured Text source for
+all configured connections. It declares the shared `ADS_QUALITY` enum exactly
+once, then each configured point and its `<name>_quality` companion in stable
+connection/point order. Generated identifiers must be valid non-keyword
+Structured Text identifiers and unique across point names and generated
+quality names. Snapshot and configuration descriptor byte sizes must agree
+before generation. STRING capacity and inclusive array bounds are rendered
+without widening or flattening their declared type.
+
+Offline validation regenerates the complete expected source from the current
+configuration and canonical snapshots. It accepts only byte-identical source
+and reports the first differing line for stale content. A generated source that
+successfully compiles with its consuming project proves language/toolchain
+compatibility for that exact artifact; generation or source equality alone does
+not prove compilation, runtime binding, or live PLC communication.
+
+Once that generated source is compiled into a runtime, its point and quality
+declarations are ordinary first-class globals. Their declared type and enum
+variant remain available through HMI schema/values, the HMI binding catalog,
+control evaluation, debugger globals, historian capture, and the supported
+OPC UA scalar/enum projection. This cross-surface rule requires runtime metadata
+and snapshot evidence; source-text presence alone is not proof.
 
 ##### 6.8.1b Runtime benchmark measurement and output contract
 
@@ -2362,6 +2577,16 @@ Rules:
   These limits are internal runtime safety constants in this contract version,
   not `runtime.toml` settings.
 - **Discovery uses mDNS/Bonjour** on the local LAN only.
+- The advertised and browsed service type is
+  `_trust._plc._tcp.local.`. Service construction enables automatic interface
+  addresses. The TXT projection preserves stable runtime `id` and `name`,
+  web port and TLS flag, optional mesh port, control endpoint, and a trimmed
+  nonempty host group; a missing or malformed optional value is absent rather
+  than fabricated.
+- A resolved service replaces the entry with the same runtime ID and receives a
+  fresh observation timestamp. A removal event matches the exact entry ID or
+  runtime name, or an mDNS instance name whose final `-<runtime-name>` suffix
+  identifies that runtime. It removes only the matching entry.
 - **Remote access** supports manual add and invite/QR pairing only.
 - **Data sharing** is explicit (publish/subscribe mapping only).
 - Inbound mesh values are decoded against the current local target type. Integer

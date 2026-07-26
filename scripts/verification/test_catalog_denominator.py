@@ -18,6 +18,8 @@ DENOMINATOR_PATH = "verification/test-catalog-denominator.toml"
 DENOMINATOR_SCHEMA_PATH = "verification/schemas/test-catalog-denominator.schema.json"
 NONMAPPING_REASON_CODES = (
     "no_reviewed_spec_or_invariant_binding",
+    "assertion_oracle_unresolved",
+    "not_catalogable_product_oracle",
     "ignored_test_registry_owned",
     "fuzz_program_owned",
     "gate_inventory_owned",
@@ -27,6 +29,16 @@ NONMAPPING_REASON_DEFINITIONS = {
         "The fact remains part of its native test suite, but no hand-reviewed "
         "catalog row authorizes a specification, invariant, oracle, or expected-result "
         "claim for it. It is retired from mapping debt without being deleted."
+    ),
+    "assertion_oracle_unresolved": (
+        "The test has product-facing assertions, but the reviewed assertion "
+        "extractor cannot close one or more helper or external-oracle calls. It "
+        "remains runnable and explicit without claiming catalog proof."
+    ),
+    "not_catalogable_product_oracle": (
+        "The test is a harness, static-presence, zero-assertion, or "
+        "authority-contradictory check that cannot honestly prove an accepted "
+        "product invariant. It remains runnable without catalog proof."
     ),
     "ignored_test_registry_owned": (
         "The ignored or conditional fact is governed by its exact Phase 3 ignored-test "

@@ -87,6 +87,24 @@ no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
 rationale = "Read-write remains read_write and write-only remains write; acknowledgement never invents read capability."
 
+[[behavior]]
+partition = { equals = "GENERATED_NAME_COLLISION_GUARD" }
+case_family = "duplicate_or_collision"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-symbol-import-selection-and-generated-identifiers"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "Two selected symbols that normalize to the same generated identifier are rejected rather than silently overwriting one generated binding."
+
+[[behavior]]
+partition = { equals = "INVALID_DESCRIPTOR_METADATA" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-symbol-import-apply-and-merge"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "Malformed or internally inconsistent type, array, or capacity metadata is rejected before configuration or ST artifacts are emitted."
+
 [[coverage.cells]]
 dimension = "happy_path"
 state = "covered"

@@ -1,0 +1,138 @@
+schema_version = 1
+id = "RT_MQTT_DRIVER_001"
+title = "MQTT mapping, security, Sparkplug, reconnect, and shutdown are fail-closed"
+area = "protocols"
+risk = "silent_corruption"
+status = "planned"
+owner = "trust-runtime"
+last_reviewed = "2026-07-26"
+claim = "MQTT configuration and execution must preserve typed payloads, broker security, Sparkplug node semantics, error policy, bounded reconnect, and shutdown."
+proof_level = "S0"
+contract_kind = "protocol_trace"
+source_refs = ["crates/trust-runtime/src/io/mqtt", "docs/specs/11-runtime-engine.md"]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_behavior_tests", "focused_remote_execution", "retry_attempt_observation", "worker_shutdown_join", "reference_tahu_payload_decode", "external_broker_interoperability", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#io-drivers"
+
+[[behavior]]
+partition = { equals = "TYPED_TEXT_JSON_OR_BINARY_POINT" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#io-drivers"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "expected_delta", diagnostics = "none", status = "unchanged" }
+rationale = "Supported typed point maps preserve payload format, byte order, scaling, topic, and process-image coordinates."
+
+[[behavior]]
+partition = { equals = "INVALID_TYPED_POINT_SHAPE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#io-drivers"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Unsupported point types, payload forms, addresses, and non-invertible scaling fail before worker activation; each assertion maps to the exact rejected shape."
+
+[[behavior]]
+partition = { equals = "TLS_MTLS_AND_REMOTE_AUTHORITY" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#io-drivers"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Remote authority, URI scheme, CA, optional client identity, and TLS-only fields form one validated transport configuration without claiming handshake success."
+
+[[behavior]]
+partition = { equals = "INSECURE_REMOTE_OR_INCOMPLETE_TLS_CONFIGURATION" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#io-drivers"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Insecure remote brokers, missing CA authority, partial mTLS identity, and TLS fields without TLS fail before connection."
+
+[[behavior]]
+partition = { equals = "SPARKPLUG_NODE_TOPIC_ORDER_AND_STRUCTURAL_PAYLOAD" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#io-drivers"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The outbound node profile constructs canonical NBIRTH/NDEATH/NDATA topics and birth-before-data ordering; current structural payload assertions do not replace a reference Tahu decode."
+
+[[behavior]]
+partition = { equals = "UNSUPPORTED_SPARKPLUG_SHAPE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#io-drivers"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Unsupported device, template, alias, command, and point shapes are rejected rather than approximated."
+
+[[behavior]]
+partition = { equals = "FAULT_POLICY_CONNECT_FAILURE" }
+case_family = "hardware_or_network_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#io-drivers"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "fault_visible" }
+rationale = "Fault policy preserves an observable connection error and exposes faulted health."
+
+[[behavior]]
+partition = { equals = "WARN_OR_IGNORE_CONNECT_FAILURE" }
+case_family = "hardware_or_network_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#io-drivers"
+outcome = "not_safe_reported"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "status_degraded" }
+rationale = "Warn and ignore may continue only with degraded health."
+
+[[behavior]]
+partition = { equals = "RECONNECT_ATTEMPT_OBSERVED" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#io-drivers"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }
+rationale = "A failed connection produces another observable broker connection attempt."
+
+[[behavior]]
+partition = { equals = "RECONNECT_NONSPINNING_BOUND" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#io-drivers"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }
+rationale = "Failed connection attempts use a non-zero bounded backoff instead of spinning continuously."
+
+[[behavior]]
+partition = { equals = "DROP_SHUTDOWN_SIGNAL_BOUND" }
+case_family = "concurrency_or_cancellation"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#io-drivers"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Drop signals shutdown and returns within its deadline without claiming the detached worker has joined."
+
+[[behavior]]
+partition = { equals = "CONFIRMED_SAFE_STATE_PUBLISH" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#safe-state-handoff-confirmation"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "expected_delta", diagnostics = "none", status = "unchanged" }
+rationale = "A safe-state handoff succeeds only after the MQTT worker confirms the configured publish."
+
+[[coverage.cells]]
+dimension = "hardware_or_network_fault"
+state = "gap_open"
+rationale = "The MQTT product contract is specified; catalog mapping, focused execution, and external-broker evidence remain pending."

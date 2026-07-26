@@ -209,6 +209,30 @@ fn ignores_inactive_host_platform_cfg_duplicate_helpers() {
 }
 
 #[test]
+fn follows_mutually_exclusive_feature_cfg_helper_variants() {
+    let inventory = extract(
+        "crates/example/src/protocol.rs",
+        "uses_feature_helper",
+        concat!(
+            "#[cfg(feature = \"wire\")]\n",
+            "fn protocol_helper() { assert_eq!(\"wire\", \"wire\"); }\n",
+            "#[cfg(not(feature = \"wire\"))]\n",
+            "fn protocol_helper() { assert_eq!(\"offline\", \"offline\"); }\n",
+            "#[test]\n",
+            "fn uses_feature_helper() { protocol_helper(); }\n",
+        ),
+    )
+    .expect("extract both feature helper variants");
+
+    assert!(inventory.unresolved_assertion_helpers.is_empty());
+    assert_eq!(2, inventory.assertions.len());
+    assert!(inventory
+        .assertions
+        .iter()
+        .all(|assertion| assertion.function == "protocol_helper"));
+}
+
+#[test]
 fn ignores_assertion_like_methods_reached_in_production_functions() {
     let source = r#"
 fn type_check() {
@@ -378,4 +402,33 @@ fn binds_static_runtime_fixture_reads_and_rejects_dynamic_paths() {
         "test-created project output is not an external fixture oracle"
     );
     fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn external_runtime_observation_is_unresolved_only_when_reachable() {
+    let source = concat!(
+        "fn read_host_metric() {\n",
+        "  let _ = std::fs::read_to_string(\"/proc/self/status\");\n",
+        "  assert!(true);\n",
+        "}\n",
+        "#[test]\n",
+        "fn ordinary_case() { assert_eq!(1, 1); }\n",
+        "#[test]\n",
+        "fn host_metric_case() { read_host_metric(); }\n",
+    );
+
+    let ordinary = extract("crates/example/tests/runtime.rs", "ordinary_case", source)
+        .expect("unreachable host observation must not block extraction");
+    assert!(ordinary.unresolved_assertion_helpers.is_empty());
+
+    let observed = extract(
+        "crates/example/tests/runtime.rs",
+        "host_metric_case",
+        source,
+    )
+    .expect("reachable host observation remains an explicit unresolved oracle");
+    assert_eq!(
+        vec!["read_host_metric::std::fs::read_to_string:unresolved-oracle"],
+        observed.unresolved_assertion_helpers
+    );
 }

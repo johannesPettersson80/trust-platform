@@ -1,0 +1,39 @@
+schema_version = 1
+id = "RT_ADS_GENERATED_PRODUCT_SURFACE_001"
+title = "Compiled ADS-generated globals remain first-class runtime variables"
+area = "protocols"
+risk = "wrong_result"
+status = "planned"
+owner = "trust-runtime"
+last_reviewed = "2026-07-26"
+claim = "Compiled ADS point and quality globals must retain their identity, type, value, and enum variant across HMI, control, debug, historian, and OPC UA projections."
+proof_level = "S0"
+contract_kind = "protocol_trace"
+source_refs = ["crates/trust-runtime/src/control/tests/ads_product_surfaces.rs", "examples/communication/ads_line1", "docs/specs/11-runtime-engine.md"]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_behavior_tests", "focused_remote_execution", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#ads-symbol-import-apply-and-merge"
+
+[[behavior]]
+partition = { equals = "COMPILED_POINT_AND_QUALITY_GLOBALS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-symbol-import-apply-and-merge"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Runtime metadata and snapshot evidence preserve ADS value and quality globals across every reviewed product surface."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "The cross-surface product contract is specified; catalog mapping and focused execution remain open."

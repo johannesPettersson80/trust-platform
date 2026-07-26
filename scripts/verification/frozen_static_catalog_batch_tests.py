@@ -3,6 +3,7 @@ from __future__ import annotations
 import unittest
 
 from scripts.verification.frozen_static_catalog_batch import (
+    _assertion_dispositions,
     _catalog_command,
     _required_test_prefix,
     assign_behavior_refs,
@@ -24,6 +25,48 @@ from scripts.verification.frozen_static_semantic_assignments import (
 
 
 class FrozenStaticCatalogBatchTests(unittest.TestCase):
+    def test_assertion_dispositions_are_exact_and_disjoint(self) -> None:
+        inventories = {
+            "DISC_A": {
+                "test_name": "one",
+                "assertions": [
+                    {"assertion_id": "ASSERT_A"},
+                    {"assertion_id": "ASSERT_B"},
+                ],
+            }
+        }
+        self.assertEqual(
+            {
+                ("one", "ASSERT_A"): "setup_or_precondition",
+                ("one", "ASSERT_B"): "non_oracle",
+            },
+            _assertion_dispositions(
+                plan={
+                    "assertion_dispositions": [
+                        {
+                            "name": "one",
+                            "setup_assertion_ids": ["ASSERT_A"],
+                            "non_oracle_assertion_ids": ["ASSERT_B"],
+                        }
+                    ]
+                },
+                inventories=inventories,
+            ),
+        )
+        with self.assertRaisesRegex(ValueError, "overlaps"):
+            _assertion_dispositions(
+                plan={
+                    "assertion_dispositions": [
+                        {
+                            "name": "one",
+                            "setup_assertion_ids": ["ASSERT_A"],
+                            "non_oracle_assertion_ids": ["ASSERT_A"],
+                        }
+                    ]
+                },
+                inventories=inventories,
+            )
+
     def test_empty_module_prefix_accepts_bare_integration_test_names(self) -> None:
         profile = FrozenRustTargetProfile(
             key="integration-root",

@@ -387,29 +387,27 @@ fn extract_from_built_context(
         )
     }
     let by_simple_name = index_functions(&context.functions);
-    let mut queue = vec![candidates[0].qualified_name.clone()];
+    let mut queue = vec![candidates[0]];
     let mut visited = BTreeSet::new();
-    let mut by_qualified = BTreeMap::new();
+    let mut by_qualified: BTreeMap<String, Vec<&FunctionRecord>> = BTreeMap::new();
     for record in &context.functions {
-        if by_qualified
-            .insert(record.qualified_name.clone(), record)
-            .is_some()
-        {
-            bail!(
-                "Rust assertion context duplicates function {}",
-                record.qualified_name
-            )
-        }
+        by_qualified
+            .entry(record.qualified_name.clone())
+            .or_default()
+            .push(record);
     }
     let mut sites = Vec::new();
     let mut unresolved = BTreeSet::new();
-    while let Some(function_name) = queue.pop() {
-        if !visited.insert(function_name.clone()) {
+    while let Some(function) = queue.pop() {
+        let function_name = function.qualified_name.clone();
+        let function_identity = (
+            function_name.clone(),
+            function.source_path.clone(),
+            function.item.sig.ident.span().start().line,
+        );
+        if !visited.insert(function_identity) {
             continue;
         }
-        let function = by_qualified
-            .get(&function_name)
-            .ok_or_else(|| anyhow::anyhow!("missing indexed Rust function {function_name}"))?;
         if has_should_panic_attribute(&function.item.attrs) {
             sites.push(RawAssertion {
                 kind: "should_panic_attribute".to_string(),
@@ -431,19 +429,24 @@ fn extract_from_built_context(
         unresolved.extend(visitor.observations.unresolved_assertion_helpers);
         for called in visitor.observations.calls {
             let reachable = resolve_call(function, &called, &by_qualified);
-            match reachable.as_slice() {
-                [matched] => {
-                    queue.push(matched.qualified_name.clone());
+            let qualified_names = reachable
+                .iter()
+                .map(|matched| matched.qualified_name.as_str())
+                .collect::<BTreeSet<_>>();
+            match qualified_names.len() {
+                1 => {
+                    queue.extend(reachable);
                 }
-                matches if !matches.is_empty() => {
+                count if count > 1 => {
                     unresolved.insert(format!("{function_name}::{}:ambiguous", called.display()));
                 }
-                [] if by_simple_name.contains_key(called.simple_name())
+                0 if by_simple_name.contains_key(called.simple_name())
                     || looks_like_assertion_helper(called.simple_name()) =>
                 {
                     unresolved.insert(format!("{function_name}::{}:unresolved", called.display()));
                 }
-                _ => {}
+                0 => {}
+                _ => unreachable!("qualified-name count is exhaustive"),
             }
         }
     }
@@ -579,9 +582,7 @@ fn host_platform_cfg_active(attributes: &[Attribute]) -> bool {
 
 fn evaluate_host_platform_cfg(meta: &syn::Meta) -> Option<bool> {
     match meta {
-        syn::Meta::Path(path) if path.is_ident("windows") => {
-            Some(cfg!(windows))
-        }
+        syn::Meta::Path(path) if path.is_ident("windows") => Some(cfg!(windows)),
         syn::Meta::Path(path) if path.is_ident("unix") => Some(cfg!(unix)),
         syn::Meta::List(list) if list.path.is_ident("not") => {
             let nested = syn::parse2::<syn::Meta>(list.tokens.clone()).ok()?;
@@ -650,7 +651,7 @@ fn collect_use_tree(
 fn resolve_call<'a>(
     function: &FunctionRecord,
     call: &CallReference,
-    by_qualified: &'a BTreeMap<String, &'a FunctionRecord>,
+    by_qualified: &'a BTreeMap<String, Vec<&'a FunctionRecord>>,
 ) -> Vec<&'a FunctionRecord> {
     if call.segments.is_empty() {
         return Vec::new();
@@ -708,7 +709,9 @@ fn resolve_call<'a>(
     }
     candidates
         .into_iter()
-        .filter_map(|segments| by_qualified.get(&segments.join("::")).copied())
+        .filter_map(|segments| by_qualified.get(&segments.join("::")))
+        .flatten()
+        .copied()
         .collect()
 }
 
@@ -806,11 +809,21 @@ impl<'ast> Visit<'ast> for AssertionVisitor {
 
     fn visit_expr_call(&mut self, expression: &'ast ExprCall) {
         if let Some(reader) = runtime_fixture_reader(expression) {
-            let static_literal = expression
-                .args
-                .first()
-                .is_some_and(|argument| matches!(argument, Expr::Lit(value) if matches!(value.lit, syn::Lit::Str(_))));
-            if !static_literal
+            let closed_static_literal = expression.args.first().is_some_and(|argument| {
+                let Expr::Lit(value) = argument else {
+                    return false;
+                };
+                let syn::Lit::Str(literal) = &value.lit else {
+                    return false;
+                };
+                let literal = literal.value();
+                let path = Path::new(&literal);
+                !path.is_absolute()
+                    && !path
+                        .components()
+                        .any(|component| matches!(component, Component::ParentDir))
+            });
+            if !closed_static_literal
                 && !is_generated_output_read(expression, &self.generated_output_roots)
             {
                 self.observations
