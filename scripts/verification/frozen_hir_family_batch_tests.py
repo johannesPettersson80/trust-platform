@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import hashlib
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -28,6 +29,23 @@ def _digest(path: Path) -> str:
 
 
 class FrozenHirFamilyBatchTests(unittest.TestCase):
+    def test_direct_runner_cli_is_importable(self) -> None:
+        root = Path(__file__).resolve().parents[2]
+        completed = subprocess.run(
+            [
+                sys.executable,
+                "scripts/run_frozen_hir_family_batch.py",
+                "--help",
+            ],
+            cwd=root,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertIn("--raw-results", completed.stdout)
+
     def test_closed_manifest_has_all_remaining_hir_source_paths(self) -> None:
         paths = hir_remaining_paths()
 
