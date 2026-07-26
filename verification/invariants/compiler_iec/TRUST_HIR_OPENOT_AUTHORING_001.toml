@@ -10,11 +10,11 @@ claim = "OpenOT pragma attributes accept only the truST product vocabulary, type
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-hir/src/openot_authoring.rs"]
-tests = []
+tests = ["TEST_AUTO_030A23BFD97B43EC2358", "TEST_AUTO_315A9A89911D494BA9B2", "TEST_AUTO_4D4B5D737C5FD8D0D393", "TEST_AUTO_4D6A06DBEDBDE31DFA68", "TEST_AUTO_545C10CFBE46B086F294", "TEST_AUTO_58DE673EF0C888BADDD3", "TEST_AUTO_6105B02E0F815A70832D", "TEST_AUTO_6C2CA96E6F63768B3CD3", "TEST_AUTO_8D106C670C6583CD943A", "TEST_AUTO_9C0F92513658AAAD135E", "TEST_AUTO_A14B32D75DC89BAA53C0", "TEST_AUTO_AD9D9D8A4F208629E1C7", "TEST_AUTO_B7F59B0CD8582D9157D9", "TEST_AUTO_CDE7BF4366619CE64898", "TEST_AUTO_D6E228314F5B17835F49", "TEST_AUTO_DB66B809E70D159C17C9", "TEST_AUTO_EAEBB71090C80FC9A3A4", "TEST_AUTO_EDD197D4B3BF8911E272", "TEST_AUTO_F0ADB9FC9FDC8BD2EE40", "TEST_AUTO_F45C52725DCACC47B10B", "TEST_AUTO_F842A5D4BA29AEABEF11", "TEST_AUTO_FA991ADAC870585849F4"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+missing = ["assertion_reachability", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -224,20 +224,20 @@ rationale = "A procedural enum containing canonical pairs from the selected mode
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "Existing reviewed tests await catalog association and dynamic reachability proof."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in TRUST_HIR_OPENOT_AUTHORING_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "gap_open"
-rationale = "Existing reviewed rejection tests await catalog association and dynamic reachability proof."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every wrong_type_or_shape behavior in TRUST_HIR_OPENOT_AUTHORING_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "missing_required"
-state = "gap_open"
-rationale = "Existing reviewed missing-field and reference tests await catalog association and dynamic reachability proof."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every missing_required behavior in TRUST_HIR_OPENOT_AUTHORING_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "duplicate_or_collision"
-state = "gap_open"
-rationale = "Existing reviewed identity-collision tests await catalog association and dynamic reachability proof."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every duplicate_or_collision behavior in TRUST_HIR_OPENOT_AUTHORING_001; dynamic proof and broad remote validation remain explicit debt."

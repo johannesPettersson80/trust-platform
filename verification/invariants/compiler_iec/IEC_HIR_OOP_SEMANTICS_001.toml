@@ -10,11 +10,11 @@ claim = "OOP declarations preserve inheritance, interface, override, visibility,
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-hir/src"]
-tests = []
+tests = ["TEST_AUTO_06F0D6A24B4385C7480B", "TEST_AUTO_08261C6721F17E842D4A", "TEST_AUTO_0C246CDC2FDB4C8D9D9B", "TEST_AUTO_0D7FF02AEE92435AA3FC", "TEST_AUTO_191BB5A62DA24F2032D3", "TEST_AUTO_1BA7CDE86489DB127B9E", "TEST_AUTO_260C548E20CAA6F8A4C3", "TEST_AUTO_2B4D8356395B590349D0", "TEST_AUTO_2DDD92D625C24A77C05E", "TEST_AUTO_30016D0562D6DF5A1745", "TEST_AUTO_31C65E944C3DA7501A0A", "TEST_AUTO_3337D09B89CC0C03B90F", "TEST_AUTO_4966104D5CA163226F50", "TEST_AUTO_4D1F763D18DBB4DA3CD4", "TEST_AUTO_4DC9E89EBC56F7B8B9D8", "TEST_AUTO_61D8EE489849A686D304", "TEST_AUTO_6BC58413F8B850D0FFD8", "TEST_AUTO_6E9054996B3466A9C5DF", "TEST_AUTO_6EC3AF14BCC339E5C85B", "TEST_AUTO_7BF982D21B8FD81719BD", "TEST_AUTO_7C04501265F4C5AE6DF1", "TEST_AUTO_7DBEC5262646CCC13FE0", "TEST_AUTO_96086852002E488097FA", "TEST_AUTO_9FD395E7E09E777B05CE", "TEST_AUTO_AD21C818FED907C8EE3C", "TEST_AUTO_AFD5A3B97B31234A82BB", "TEST_AUTO_B185F1B11295C285D515", "TEST_AUTO_B6EC367C2AEC080CD7D4", "TEST_AUTO_BD560EA6B7A32C1886E3", "TEST_AUTO_BE31C41C9BB087B1219D", "TEST_AUTO_C2E7CD2BC5C00EFF830C", "TEST_AUTO_C61DE54FC81406EC69A0", "TEST_AUTO_C80429A6AF0ECB69BB70", "TEST_AUTO_CAA955CD2012CC2649C7", "TEST_AUTO_CAB4E15101E18208E1DD", "TEST_AUTO_CC5F4851F4641E53ADD9", "TEST_AUTO_D28A718472C0CC80FD84", "TEST_AUTO_E5992CDD6D2EEED9B588", "TEST_AUTO_E6CB77436AFC77B01994", "TEST_AUTO_E7CE5E419F7725A8472F", "TEST_AUTO_F4A699ACCEF7CBED8A17", "TEST_AUTO_F8AC6A333D1B789B55C3"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+missing = ["assertion_reachability", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -89,25 +89,25 @@ rationale = "Reading a setter-only property and conflicting with inherited varia
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "Valid OOP model and resolution assertions await mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in IEC_HIR_OOP_SEMANTICS_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "duplicate_or_collision"
-state = "gap_open"
-rationale = "Cycle and member-conflict assertions await mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every duplicate_or_collision behavior in IEC_HIR_OOP_SEMANTICS_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "gap_open"
-rationale = "Modifier and override rejection awaits mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every wrong_type_or_shape behavior in IEC_HIR_OOP_SEMANTICS_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "missing_required"
-state = "gap_open"
-rationale = "Interface completeness assertions await mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every missing_required behavior in IEC_HIR_OOP_SEMANTICS_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "auth_or_permission"
-state = "gap_open"
-rationale = "Visibility assertions await mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every auth_or_permission behavior in IEC_HIR_OOP_SEMANTICS_001; dynamic proof and broad remote validation remain explicit debt."

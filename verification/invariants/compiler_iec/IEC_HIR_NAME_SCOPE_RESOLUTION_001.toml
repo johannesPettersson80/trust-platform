@@ -10,11 +10,11 @@ claim = "Local, POU, namespace, imported, and global names resolve deterministic
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-hir/src"]
-tests = []
+tests = ["TEST_AUTO_0352C8114517C76C75FE", "TEST_AUTO_0A5ACC1E184595B117F3", "TEST_AUTO_17D32E7F13E3462FBD21", "TEST_AUTO_240362AB3FBFF10EA988", "TEST_AUTO_2964988170D20F8E70E9", "TEST_AUTO_2CE7B5383A9C21BFBCA9", "TEST_AUTO_2D08F2BEA4A7BD5AD967", "TEST_AUTO_317B57AC00EF0F86F0B9", "TEST_AUTO_317F0DEDA5DF7A3D08F8", "TEST_AUTO_32B113369BE0E5AF3F95", "TEST_AUTO_3C9FB0334CCC48B7763E", "TEST_AUTO_476A021591262987DFA1", "TEST_AUTO_4CD9432FAACD75BDDCFA", "TEST_AUTO_4E4AC1E5F94C1FC77609", "TEST_AUTO_50F86E61A7A2E56C397F", "TEST_AUTO_591D1F80D69EE11A5354", "TEST_AUTO_5B9269CD368A640ABFEC", "TEST_AUTO_5DD1A0E7DA639EF0052E", "TEST_AUTO_605F2D13F6D415B70C17", "TEST_AUTO_69D26B173E1254C6CC59", "TEST_AUTO_6CCD3E18E6F1411D86E6", "TEST_AUTO_74ED8153A453892337A4", "TEST_AUTO_864A8087002B21079481", "TEST_AUTO_88246CDAABC1FBB361FD", "TEST_AUTO_8B3E808EDBF93ECB63E3", "TEST_AUTO_9232DE2EB3C0FBDDFADD", "TEST_AUTO_9C0C2F70A1D215235A23", "TEST_AUTO_A813361CA42CEB99D8F0", "TEST_AUTO_ACF6575D2219D1F346C7", "TEST_AUTO_AE244DAA6B1AE9F13051", "TEST_AUTO_AF8BD8921B2A937C1313", "TEST_AUTO_B03A434068FF9092FD36", "TEST_AUTO_BDCCC287C855F7EC5951", "TEST_AUTO_C2C62B3BC3F7EE7F3F36", "TEST_AUTO_C7ABF66EECB32176096D", "TEST_AUTO_D76E451E4EE9B8FDDE1E", "TEST_AUTO_DDE96C31A0FC0AC6C4D2", "TEST_AUTO_E091D70576BE1F5753AF", "TEST_AUTO_E1D35246AE82A7ED5E2A", "TEST_AUTO_E3F40AEFBB255E2AEDDB", "TEST_AUTO_E85F3FA2978297950949", "TEST_AUTO_EA1F874941C90147ED61", "TEST_AUTO_EA71618D4952FDAF7F83", "TEST_AUTO_EF8A426CE4FC01441600", "TEST_AUTO_F9051038AB4E86CEA686"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+missing = ["assertion_reachability", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -80,20 +80,20 @@ rationale = "Duplicate declarations in one scope or merged file-scope global set
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "Accepted scope and namespace assertions await mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in IEC_HIR_NAME_SCOPE_RESOLUTION_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "duplicate_or_collision"
-state = "gap_open"
-rationale = "Ambiguity and duplicate-declaration assertions await mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every duplicate_or_collision behavior in IEC_HIR_NAME_SCOPE_RESOLUTION_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "gap_open"
-rationale = "Wrong-kind assertions await mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every wrong_type_or_shape behavior in IEC_HIR_NAME_SCOPE_RESOLUTION_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "missing_required"
-state = "gap_open"
-rationale = "Missing-name assertions await mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every missing_required behavior in IEC_HIR_NAME_SCOPE_RESOLUTION_001; dynamic proof and broad remote validation remain explicit debt."

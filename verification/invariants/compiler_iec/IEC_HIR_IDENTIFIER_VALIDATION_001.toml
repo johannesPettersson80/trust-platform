@@ -10,11 +10,11 @@ claim = "HIR accepts the documented identifier forms, rejects invalid underscore
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-hir/src/ident.rs"]
-tests = []
+tests = ["TEST_AUTO_2325CC8431152C1A31EB", "TEST_AUTO_4551DD37AAD48961CBC9", "TEST_AUTO_6A8F0D0E93C0D592A8C1", "TEST_AUTO_F92A4D327BBD44F97201"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+missing = ["assertion_reachability", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -53,10 +53,10 @@ rationale = "IEC and documented truST keywords are recognized case-insensitively
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "Valid and keyword classification assertions await mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in IEC_HIR_IDENTIFIER_VALIDATION_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "gap_open"
-rationale = "Invalid identifier assertions await mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every wrong_type_or_shape behavior in IEC_HIR_IDENTIFIER_VALIDATION_001; dynamic proof and broad remote validation remain explicit debt."

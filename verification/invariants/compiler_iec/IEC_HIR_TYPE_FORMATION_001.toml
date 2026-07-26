@@ -10,11 +10,11 @@ claim = "HIR preserves contextual literals, aliases, generic groups, bounded str
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-hir/src"]
-tests = []
+tests = ["TEST_AUTO_03D27C2E887CA2C0B7CC", "TEST_AUTO_043C2FC1EDE569A47229", "TEST_AUTO_1475FF85C78990F634A3", "TEST_AUTO_187A04A789AD9B0005F5", "TEST_AUTO_285B9436CE0FDA88577E", "TEST_AUTO_320B8B612E00D578B1EF", "TEST_AUTO_32B7466F13C5D7E6A5AF", "TEST_AUTO_387A16F1CA5BE0E19F0C", "TEST_AUTO_42DF0CA426C392ED63B1", "TEST_AUTO_44D2AECEE13EB41E3AA0", "TEST_AUTO_4FA43D135F60B1489A44", "TEST_AUTO_5B224949604858E91F2E", "TEST_AUTO_5B4DD226CBA8B7AFA460", "TEST_AUTO_623217085BD92965FE67", "TEST_AUTO_63E20FCA299BB19B3CDC", "TEST_AUTO_6DF338CAC731E11F8304", "TEST_AUTO_73A6D8AF8E73403C4CB3", "TEST_AUTO_7AEACE8EA3B2E1BCCAAE", "TEST_AUTO_7F6536CCC3214E277F47", "TEST_AUTO_8240892424BB45B1CDE8", "TEST_AUTO_8A5E65EAEF4F08036DD2", "TEST_AUTO_91EF5CC65F82D5BEC113", "TEST_AUTO_99F818A0DB55C307039A", "TEST_AUTO_A1F314CA70078621F788", "TEST_AUTO_A99473E37DB519A2555B", "TEST_AUTO_AD314494CD5DF8A645EE", "TEST_AUTO_AD999AFE35064CE0FB2A", "TEST_AUTO_AE6E3D5AA4597CFD61C2", "TEST_AUTO_B16B8569CA0E62ACCBCE", "TEST_AUTO_C71F38BBC2871DE9F57C", "TEST_AUTO_C838D2A471BDA2E07343", "TEST_AUTO_CDE6C28C2FE2B22E490F", "TEST_AUTO_DA541FC99C60C0B346BB", "TEST_AUTO_DEFB3533B646090DEA05", "TEST_AUTO_DF1743DCE4E87A1B80F7", "TEST_AUTO_E618C56EF4F9469EA27E", "TEST_AUTO_EDCA384439F6894CF97E", "TEST_AUTO_F23C7F5C2A94D67F6ADF", "TEST_AUTO_F25EDEAE0459001ED5B7", "TEST_AUTO_F25FDFBDB630D14A9B91", "TEST_AUTO_FD9EDD216CEF1CF02AB0", "TEST_AUTO_FE0CE8BCDC3E801A0117"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+missing = ["assertion_reachability", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -107,25 +107,25 @@ rationale = "A control condition must be Boolean and an incompatible value bindi
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "Valid formation assertions await catalog association."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in IEC_HIR_TYPE_FORMATION_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "boundary_high"
-state = "gap_open"
-rationale = "Accepted bounded values await mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every boundary_high behavior in IEC_HIR_TYPE_FORMATION_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "above_max"
-state = "gap_open"
-rationale = "Rejected bounded values await mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every above_max behavior in IEC_HIR_TYPE_FORMATION_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "gap_open"
-rationale = "Wildcard and element-shape rejection awaits mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every wrong_type_or_shape behavior in IEC_HIR_TYPE_FORMATION_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "duplicate_or_collision"
-state = "gap_open"
-rationale = "Ambiguous and cyclic formation assertions await mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every duplicate_or_collision behavior in IEC_HIR_TYPE_FORMATION_001; dynamic proof and broad remote validation remain explicit debt."

@@ -10,11 +10,11 @@ claim = "Constant and input slots remain read-only, indirect pointer storage rem
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-hir/src"]
-tests = []
+tests = ["TEST_AUTO_0270C8290A0D5AD93C1A", "TEST_AUTO_040086F27F6121D463D9", "TEST_AUTO_0BFFA6B86F7C48F9B120", "TEST_AUTO_17EB3E39FF47AD5E50B6", "TEST_AUTO_1837416D9FF42555A848", "TEST_AUTO_1B2B256D14EDF473D16D", "TEST_AUTO_1C693AFB3F36A1A88DD2", "TEST_AUTO_2307026A9DA4ACA20908", "TEST_AUTO_3616DA1D8CE0C84A804C", "TEST_AUTO_3C93CF6C560C37CE28BB", "TEST_AUTO_52CC9307E084C238A2A2", "TEST_AUTO_53EBC7EDC0F663FBD96F", "TEST_AUTO_57F4ECDAFAA86E363BA7", "TEST_AUTO_6699DD76A0F26B644FC3", "TEST_AUTO_6A3ED8213919EEE19589", "TEST_AUTO_6DEA62C519CA801DF06C", "TEST_AUTO_7295A585C38C58818171", "TEST_AUTO_73D4FC496FF38C284D6D", "TEST_AUTO_85BAE64389639F443AA6", "TEST_AUTO_882185357A8BB84CF42E", "TEST_AUTO_8D4C8BB143EC378C8E75", "TEST_AUTO_94100DB31F1CB2D16C0F", "TEST_AUTO_994DEE1F0AE6ACFDDC9F", "TEST_AUTO_99516D1BA9CC12F01931", "TEST_AUTO_9B2B2CFFDB0CAE77D5D9", "TEST_AUTO_9B66D6501600FA25CA65", "TEST_AUTO_A1981DA854E2080AC9BA", "TEST_AUTO_B0927C9B0A0ED50D6BB1", "TEST_AUTO_B139A6AD136789FBDB72", "TEST_AUTO_B89551062EF4F02B30E8", "TEST_AUTO_BA0F79DCA2E65962E085", "TEST_AUTO_C096582CCBB65B04A27C", "TEST_AUTO_C41498B9CB6C648630FE", "TEST_AUTO_C4D475F7F979054481DD", "TEST_AUTO_C6E0E43C5535FC99AAE2", "TEST_AUTO_D3B656D6EE809158ADAA", "TEST_AUTO_D5F71F78B2798CF5DEAE", "TEST_AUTO_E02CF25F3D5FDAAF22E7", "TEST_AUTO_EC380387F1335ACEA8F2", "TEST_AUTO_EC8BAD0A64AE8A89BFB5", "TEST_AUTO_EDA48D90FA61FC9B67B1", "TEST_AUTO_F1BFAEF8054FF79967E4", "TEST_AUTO_F2141AA02D7E55F42BDB", "TEST_AUTO_F326F2DFED4741689B18", "TEST_AUTO_F6CEA3F9DB2B552E5004", "TEST_AUTO_F8D1E5D3DD37AB914876", "TEST_AUTO_FB21D0CB9C474F1E0F3B", "TEST_AUTO_FBAE3604ED51DFC8770C", "TEST_AUTO_FD75EFD192A3FB8FDE42"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+missing = ["assertion_reachability", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -116,15 +116,20 @@ rationale = "Until DEV-020 closes, REF rejects a CONSTANT-qualified variable to 
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "Accepted constant, pointer, and reference assertions await mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in IEC_HIR_MUTABILITY_REFERENCES_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "auth_or_permission"
-state = "gap_open"
-rationale = "Read-only slot and constant write rejection awaits mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every auth_or_permission behavior in IEC_HIR_MUTABILITY_REFERENCES_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "gap_open"
-rationale = "Forbidden storage and reference-shape assertions await mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every wrong_type_or_shape behavior in IEC_HIR_MUTABILITY_REFERENCES_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "missing_required"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every missing_required behavior in IEC_HIR_MUTABILITY_REFERENCES_001; dynamic proof and broad remote validation remain explicit debt."

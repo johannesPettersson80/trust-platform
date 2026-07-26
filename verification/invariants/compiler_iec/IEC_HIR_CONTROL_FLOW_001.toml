@@ -10,11 +10,11 @@ claim = "Control-flow statements resolve within their owning POU and obey loop p
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-hir/src"]
-tests = []
+tests = ["TEST_AUTO_3230112186D6D25A3FEB", "TEST_AUTO_357364B5F017E40114CD", "TEST_AUTO_4445FA250BC640392A56", "TEST_AUTO_65CDD30C08848EC032A9", "TEST_AUTO_663E06F446673A48B34C", "TEST_AUTO_7323CC5D9F0D99E4FF3D", "TEST_AUTO_983CBB9F52DE6C7EA64C", "TEST_AUTO_D16DDAE93185E8E31371"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+missing = ["assertion_reachability", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -80,25 +80,25 @@ rationale = "Duplicate statement labels and CASE labels with the same evaluated 
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "Valid label/JMP assertions await mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in IEC_HIR_CONTROL_FLOW_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "gap_open"
-rationale = "Loop placement and type assertions await mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every wrong_type_or_shape behavior in IEC_HIR_CONTROL_FLOW_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "auth_or_permission"
-state = "gap_open"
-rationale = "FOR-control immutability awaits mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every auth_or_permission behavior in IEC_HIR_CONTROL_FLOW_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "missing_required"
-state = "gap_open"
-rationale = "Missing-label assertions await mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every missing_required behavior in IEC_HIR_CONTROL_FLOW_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "duplicate_or_collision"
-state = "gap_open"
-rationale = "Duplicate label and CASE assertions await mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every duplicate_or_collision behavior in IEC_HIR_CONTROL_FLOW_001; dynamic proof and broad remote validation remain explicit debt."

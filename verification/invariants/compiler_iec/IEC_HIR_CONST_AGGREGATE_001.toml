@@ -10,11 +10,11 @@ claim = "Scalar, array, structure, union, alias, and function-block defaults ret
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-hir/src"]
-tests = []
+tests = ["TEST_AUTO_00DA11957432B7BAF833", "TEST_AUTO_0CC3775A2FCEAEE55CB5", "TEST_AUTO_0E475FE523B9735F24EB", "TEST_AUTO_1815F34E6383478FA4F3", "TEST_AUTO_1C334B9F78A6CC903E42", "TEST_AUTO_3470D15CD11D722E8027", "TEST_AUTO_397C97F8D897AB5C62C8", "TEST_AUTO_39B82970C3B9F0F0AFE0", "TEST_AUTO_3DCC92807A5EF738B8DA", "TEST_AUTO_44224568DC68773ABB94", "TEST_AUTO_464D77E530E7EDA41D18", "TEST_AUTO_4CB529FD38059EF7CB0B", "TEST_AUTO_53FB74DD728EF27C5DF0", "TEST_AUTO_55C842274DE04C03BFE1", "TEST_AUTO_624432DAC34BA77705E6", "TEST_AUTO_628C7FD00A3545FFD54E", "TEST_AUTO_6D17DEE37A264E5CD0FD", "TEST_AUTO_6ED3295B9320278DB577", "TEST_AUTO_6FC28E86A7FB1B6FC73F", "TEST_AUTO_7A7CCCF80312F0BF1C71", "TEST_AUTO_7B47E982621133BE9340", "TEST_AUTO_8B078D0B388F89904A67", "TEST_AUTO_95C8803A54C0FAF1B7DB", "TEST_AUTO_982B4D691EABE58FD09F", "TEST_AUTO_A2D327C0D3B20178490E", "TEST_AUTO_A346F7BB1128BD58295C", "TEST_AUTO_B03A434068FF9092FD36", "TEST_AUTO_B089CF63CC6C34B39C61", "TEST_AUTO_B536EE59A9A2EEE83D86", "TEST_AUTO_B58AB55CA6FEAF9446CA", "TEST_AUTO_BDA3D387D422A3B6E6B6", "TEST_AUTO_C1A2C63A377FD9A8C760", "TEST_AUTO_C4769092001F614617AE", "TEST_AUTO_C48792A6DCC0980CF87A", "TEST_AUTO_C7312942D0B1A1F3DB1F", "TEST_AUTO_C78C8311671D28530A1A", "TEST_AUTO_C81FA8B01C3CE4BE3762", "TEST_AUTO_CAEC6E0AD9F0471F5394", "TEST_AUTO_CB3F93E58B89EA3300AB", "TEST_AUTO_D927C08738A3AED695E3", "TEST_AUTO_E1DD2C9E5FF5ADCB4FE7", "TEST_AUTO_F28B547132B0C7329CD7"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+missing = ["assertion_reachability", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -107,25 +107,25 @@ rationale = "Until DEV-019 closes, a reference type/member default accepts NULL 
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "Accepted default and constant assertions await mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in IEC_HIR_CONST_AGGREGATE_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "duplicate_or_collision"
-state = "gap_open"
-rationale = "Aggregate-field and CASE duplicate assertions await mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every duplicate_or_collision behavior in IEC_HIR_CONST_AGGREGATE_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "gap_open"
-rationale = "Default-shape and constant-evaluation rejection awaits mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every wrong_type_or_shape behavior in IEC_HIR_CONST_AGGREGATE_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "above_max"
-state = "gap_open"
-rationale = "Default-bound assertions await mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every above_max behavior in IEC_HIR_CONST_AGGREGATE_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
-state = "gap_open"
-rationale = "Initializer catalog lifecycle assertions await mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in IEC_HIR_CONST_AGGREGATE_001; dynamic proof and broad remote validation remain explicit debt."
