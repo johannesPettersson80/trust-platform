@@ -1,0 +1,39 @@
+schema_version = 1
+id = "IEC_HIR_TYPED_LITERAL_TYPING_001"
+title = "HIR accepts integer typed literals"
+area = "compiler_iec"
+risk = "wrong_result"
+status = "specified"
+owner = "trust-hir"
+last_reviewed = "2026-07-26"
+claim = "A valid integer typed literal is accepted as a semantic expression of its declared integer type."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-hir/src"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_IEC_LEXICAL_ELEMENTS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#7-numeric-literals-table-5-section-6-3-2"
+
+[[behavior]]
+partition = { equals = "INTEGER_TYPED_LITERAL_ACCEPTED" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#7-numeric-literals-table-5-section-6-3-2"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A valid integer type prefix and literal body form a semantically accepted typed value."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Typed-literal semantic acceptance awaits catalog association."

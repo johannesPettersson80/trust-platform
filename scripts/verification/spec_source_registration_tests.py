@@ -8,6 +8,7 @@ from scripts.verification.spec_source_registration import (
     build_spec_source_record,
     register_spec_source,
 )
+from scripts.verification.spec_source_models import stable_document_id
 
 
 class SpecSourceRegistrationTests(unittest.TestCase):
@@ -37,6 +38,56 @@ class SpecSourceRegistrationTests(unittest.TestCase):
                 record["covers"],
             )
             self.assertEqual("normative_product", record["authority"])
+
+    def test_refresh_preserves_existing_reviewed_id_for_path(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            spec = root / "docs/specs/04-pou-declarations.md"
+            spec.parent.mkdir(parents=True)
+            spec.write_text("# POU Declarations\n\n## Function calls\n")
+            registry = root / "verification/spec-sources.toml"
+            registry.parent.mkdir(parents=True)
+            registry.write_text(
+                "[[spec_sources]]\n"
+                "schema_version = 2\n"
+                'id = "SPEC_IEC_POU_DECLARATIONS_001"\n'
+                'title = "Reviewed POU contract"\n'
+                'area = "compiler_iec"\n'
+                'owner = "language"\n'
+                'status = "mapped"\n'
+                'authority = "normative_product"\n'
+                'source_status = "active"\n'
+                "oracle_eligible = true\n"
+                'visibility = "public"\n'
+                'locator_kind = "tracked_file"\n'
+                'path = "docs/specs/04-pou-declarations.md"\n'
+                'version = "current"\n'
+                'last_reviewed = "2026-07-25"\n'
+                'covers = ["pou_declarations"]\n'
+                "known_limitations = []\n"
+                "conflicts_with = []\n"
+            )
+            reviews = root / "verification/spec-document-reviews.toml"
+            reviews.write_text("# reviews\n")
+
+            refreshed = register_spec_source(
+                root=root,
+                registry_path=registry,
+                review_registry_path=reviews,
+                path=Path("docs/specs/04-pou-declarations.md"),
+                area="compiler_iec",
+                owner="language",
+                reviewed_date="2026-07-26",
+            )
+
+            self.assertIn(
+                'id = "SPEC_IEC_POU_DECLARATIONS_001"',
+                refreshed.rendered,
+            )
+            self.assertNotIn(
+                'id = "SPEC_POU_DECLARATIONS_001"',
+                refreshed.rendered,
+            )
 
     def test_registration_is_idempotent_and_rejects_id_collision(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -197,6 +248,166 @@ class SpecSourceRegistrationTests(unittest.TestCase):
                     owner="different-owner",
                     reviewed_date="2026-07-26",
                 )
+
+    def test_first_registration_promotes_existing_nonoracle_review(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            spec = root / "docs/guides/vendor-compatibility.md"
+            spec.parent.mkdir(parents=True)
+            spec.write_text("# Vendor Compatibility\n\n## Edge aliases\n")
+            registry = root / "verification/spec-sources.toml"
+            registry.parent.mkdir(parents=True)
+            registry.write_text("# registry\n")
+            reviews = root / "verification/spec-document-reviews.toml"
+            document_id = stable_document_id(
+                "docs/guides/vendor-compatibility.md"
+            )
+            reviews.write_text(
+                "[[document_reviews]]\n"
+                "schema_version = 1\n"
+                f'document_id = "{document_id}"\n'
+                'path = "docs/guides/vendor-compatibility.md"\n'
+                'content_sha256 = "stale"\n'
+                'areas = ["verification"]\n'
+                'authority_levels = ["public_claim"]\n'
+                'owners = ["verification"]\n'
+                'freshness = "current"\n'
+                'visibility = "public"\n'
+                "oracle_usable = false\n"
+                'classification_basis = "explicit_review"\n'
+                'conflict_disposition = "potential_conflict_reported"\n'
+                'checklist_staleness = "not_applicable"\n'
+                'removed_behavior_disposition = "potentially_stale_reported"\n'
+                'last_reviewed = "2026-07-19"\n'
+            )
+
+            promoted = register_spec_source(
+                root=root,
+                registry_path=registry,
+                review_registry_path=reviews,
+                path=Path("docs/guides/vendor-compatibility.md"),
+                area="compiler_iec",
+                owner="language",
+                reviewed_date="2026-07-26",
+            )
+
+            self.assertIn(
+                'areas = ["compiler_iec"]',
+                promoted.document_reviews_rendered,
+            )
+            self.assertIn(
+                'owners = ["language"]',
+                promoted.document_reviews_rendered,
+            )
+            self.assertIn(
+                'authority_levels = ["normative_product"]',
+                promoted.document_reviews_rendered,
+            )
+            self.assertIn(
+                "oracle_usable = true",
+                promoted.document_reviews_rendered,
+            )
+            self.assertIn(
+                'classification_basis = "registered_metadata"',
+                promoted.document_reviews_rendered,
+            )
+
+    def test_refresh_promotes_legacy_review_for_registered_source(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            spec = root / "docs/specs/04-pou-declarations.md"
+            spec.parent.mkdir(parents=True)
+            spec.write_text("# POU Declarations\n\n## Function calls\n")
+            registry = root / "verification/spec-sources.toml"
+            registry.parent.mkdir(parents=True)
+            registry.write_text(
+                "[[spec_sources]]\n"
+                "schema_version = 2\n"
+                'id = "SPEC_IEC_POU_DECLARATIONS_001"\n'
+                'title = "POU Declarations"\n'
+                'area = "compiler_iec"\n'
+                'owner = "language"\n'
+                'status = "mapped"\n'
+                'authority = "normative_product"\n'
+                'source_status = "active"\n'
+                "oracle_eligible = true\n"
+                'visibility = "public"\n'
+                'locator_kind = "tracked_file"\n'
+                'path = "docs/specs/04-pou-declarations.md"\n'
+                'version = "current"\n'
+                'last_reviewed = "2026-07-25"\n'
+                'covers = ["function_calls"]\n'
+                "known_limitations = []\n"
+                "conflicts_with = []\n"
+            )
+            reviews = root / "verification/spec-document-reviews.toml"
+            document_id = stable_document_id(
+                "docs/specs/04-pou-declarations.md"
+            )
+            reviews.write_text(
+                "[[document_reviews]]\n"
+                "schema_version = 1\n"
+                f'document_id = "{document_id}"\n'
+                'path = "docs/specs/04-pou-declarations.md"\n'
+                'content_sha256 = "stale"\n'
+                'areas = ["compiler_iec"]\n'
+                'authority_levels = ["normative_candidate"]\n'
+                'owners = ["trust-hir"]\n'
+                'freshness = "current"\n'
+                'visibility = "public"\n'
+                "oracle_usable = false\n"
+                'classification_basis = "explicit_review"\n'
+                'conflict_disposition = "potential_conflict_reported"\n'
+                'checklist_staleness = "not_applicable"\n'
+                'removed_behavior_disposition = "potentially_stale_reported"\n'
+                'last_reviewed = "2026-07-19"\n'
+            )
+
+            conservative = register_spec_source(
+                root=root,
+                registry_path=registry,
+                review_registry_path=reviews,
+                path=Path("docs/specs/04-pou-declarations.md"),
+                area="compiler_iec",
+                owner="language",
+                reviewed_date="2026-07-26",
+            )
+            self.assertIn(
+                "oracle_usable = false",
+                conservative.document_reviews_rendered,
+            )
+            self.assertIn(
+                'classification_basis = "explicit_review"',
+                conservative.document_reviews_rendered,
+            )
+
+            promoted = register_spec_source(
+                root=root,
+                registry_path=registry,
+                review_registry_path=reviews,
+                path=Path("docs/specs/04-pou-declarations.md"),
+                area="compiler_iec",
+                owner="language",
+                reviewed_date="2026-07-26",
+                promote_review=True,
+            )
+
+            self.assertIn(
+                'authority_levels = ["normative_product"]',
+                promoted.document_reviews_rendered,
+            )
+            self.assertIn(
+                'owners = ["language"]',
+                promoted.document_reviews_rendered,
+            )
+            self.assertIn(
+                "oracle_usable = true",
+                promoted.document_reviews_rendered,
+            )
+            self.assertIn(
+                'classification_basis = "registered_metadata"',
+                promoted.document_reviews_rendered,
+            )
 
     def test_refresh_preserves_reviewed_covers_for_legacy_h3_document(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

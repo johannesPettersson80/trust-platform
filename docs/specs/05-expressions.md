@@ -39,7 +39,7 @@ The maximum allowed length of expressions is Implementer specific.
 
 ## 3. Evaluation Rules
 
-### Rule 1: Precedence
+### Operator precedence
 
 Operators with higher precedence are applied first.
 

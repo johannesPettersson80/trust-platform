@@ -18,7 +18,7 @@ evidence_refs = [
   "EVID_TEST_IEC_PRECEDENCE_TRACE_001_LOCK_BASELINE_CASE_V2",
   "EVID_TEST_IEC_PRECEDENCE_TRACE_001_LOCK_COMPARE_CASE_V2",
 ]
-missing = ["broad_remote_gate"]
+missing = ["cataloged_behavior_tests", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -85,6 +85,14 @@ delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unc
 rationale = "Comparison expressions are formed before boolean AND is applied."
 
 [[behavior]]
+partition = { equals = "MULTIPLICATIVE_BEFORE_COMPARISON" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001#operator-precedence"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Multiplicative expressions are formed before comparison operators are applied."
+
+[[behavior]]
 partition = { equals = "AND_BEFORE_XOR_BEFORE_OR" }
 case_family = "ordering_or_lifecycle"
 oracle_ref = "SPEC_IEC_EXPRESSIONS_001#operator-precedence"
@@ -94,5 +102,5 @@ rationale = "Boolean AND binds more tightly than XOR, and XOR binds more tightly
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
-state = "covered"
-rationale = "The mapped case runner covers every reviewed precedence and associativity partition with a current producer-authentic CASE_V2 lock comparison; the prior pair remains historical source-revision evidence."
+state = "gap_open"
+rationale = "Existing CASE_V2 proof covers the prior precedence partitions; the newly specified multiplicative-before-comparison HIR assertion awaits catalog association."

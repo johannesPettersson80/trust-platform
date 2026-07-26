@@ -19,8 +19,13 @@ from scripts.verification.frozen_rust_nextest_batch import (
     build_nextest_command,
     build_normalized_document,
     derive_frozen_selection,
+    derive_frozen_selection_from_evidence,
+    main,
     normalize_nextest_jsonl,
     split_feature_shards,
+)
+from scripts.verification.frozen_rust_nextest_target import (
+    HIR_SEMANTIC_CONTROL_FLOW_PROFILE,
 )
 
 
@@ -198,6 +203,84 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
             command,
         )
 
+    def test_hir_profile_uses_exact_integration_target_filter(self) -> None:
+        prefix = HIR_SEMANTIC_CONTROL_FLOW_PROFILE.test_prefix
+
+        command = build_nextest_command(
+            (
+                f"{prefix}second",
+                f"{prefix}first",
+            ),
+            profile=HIR_SEMANTIC_CONTROL_FLOW_PROFILE,
+        )
+
+        self.assertEqual(
+            [
+                "cargo",
+                "nextest",
+                "run",
+                "-p",
+                "trust-hir",
+                "--test",
+                "semantic_type_checking",
+            ],
+            command[:7],
+        )
+        expression = command[-1]
+        self.assertIn(
+            "binary_id(=trust-hir::semantic_type_checking)",
+            expression,
+        )
+        self.assertIn(
+            "test(=control_flow_and_calls::first)",
+            expression,
+        )
+        self.assertNotIn("assignments_and_var_access::", expression)
+        with self.assertRaisesRegex(
+            ValueError,
+            "has no no-default-features shard",
+        ):
+            build_nextest_command(
+                (f"{prefix}first",),
+                no_default_features=True,
+                profile=HIR_SEMANTIC_CONTROL_FLOW_PROFILE,
+            )
+
+    def test_hir_selection_requires_integration_discovery_kind(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            verification = root / "verification"
+            verification.mkdir()
+            _write_toml(
+                verification / "test-catalog-denominator.toml",
+                """
+                [[reviews]]
+                discovery_id = "DISC_HIR"
+                discovery_source_kind = "rust_integration_test"
+                path = "tests/control_flow.rs"
+                name = "one"
+                disposition = "reviewed_nonmapping"
+                ignore_state = "not_ignored"
+                """,
+            )
+            _write_toml(
+                verification / "test-catalog.toml",
+                "tests = []",
+            )
+
+            selection = derive_frozen_selection(
+                root=root,
+                path="tests/control_flow.rs",
+                expected_reviewed_nonmapping=1,
+                expected_catalog_mapped=0,
+                profile=HIR_SEMANTIC_CONTROL_FLOW_PROFILE,
+            )
+
+            self.assertEqual(
+                ("control_flow_and_calls::one",),
+                selection.full_names,
+            )
+
     def test_feature_shards_are_derived_from_exact_source_attributes(self) -> None:
         names = (
             f"{TEST_NAME_PREFIX}default_case",
@@ -253,6 +336,20 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
                 fn platform_case() {}
                 """,
                 expected_full_names=(f"{TEST_NAME_PREFIX}platform_case",),
+            )
+
+    def test_hir_profile_rejects_every_cfg_shard(self) -> None:
+        with self.assertRaisesRegex(ValueError, "unsupported cfg attributes"):
+            split_feature_shards(
+                source="""
+                #[cfg(unix)]
+                #[test]
+                fn platform_case() {}
+                """,
+                expected_full_names=(
+                    "control_flow_and_calls::platform_case",
+                ),
+                profile=HIR_SEMANTIC_CONTROL_FLOW_PROFILE,
             )
 
     def test_normalizer_records_exact_passing_set_and_milliseconds(self) -> None:
@@ -323,6 +420,33 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
                 expected_full_names={f"{TEST_NAME_PREFIX}encoded"},
             ),
         )
+
+    def test_normalizer_accepts_only_hir_profile_encoded_name(self) -> None:
+        raw = json.dumps(
+            {
+                "type": "test",
+                "event": "ok",
+                "name": (
+                    "trust-hir::semantic_type_checking$"
+                    "control_flow_and_calls::one"
+                ),
+                "exec_time": 0.001,
+            }
+        )
+
+        self.assertEqual(
+            [{"title": "one", "duration": 1, "state": "passed"}],
+            normalize_nextest_jsonl(
+                raw,
+                expected_full_names={"control_flow_and_calls::one"},
+                profile=HIR_SEMANTIC_CONTROL_FLOW_PROFILE,
+            ),
+        )
+        with self.assertRaisesRegex(ValueError, "outside required prefix"):
+            normalize_nextest_jsonl(
+                raw,
+                expected_full_names={f"{TEST_NAME_PREFIX}one"},
+            )
 
     def test_normalizer_rejects_missing_unexpected_duplicate_and_nonpass(self) -> None:
         expected = {f"{TEST_NAME_PREFIX}first"}
@@ -484,6 +608,143 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
                 },
                 document["stats"],
             )
+
+    def test_normalize_only_reuses_combined_evidence_after_ledger_apply(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source_path = Path(
+                "crates/trust-runtime/src/control/tests/core.rs"
+            )
+            raw_path = root / "target/gate-artifacts/combined.jsonl"
+            metadata_path = raw_path.with_suffix(".execution.json")
+            source_content = b"#[test]\nfn first() {}\n"
+            raw_content = (
+                json.dumps(
+                    {
+                        "type": "test",
+                        "event": "ok",
+                        "name": f"{TEST_NAME_PREFIX}first",
+                        "exec_time": 0.001,
+                    }
+                ).encode()
+                + b"\n"
+            )
+            initial_denominator = b"reviews = []\n"
+            initial_catalog = b"tests = []\n"
+            contents = {
+                source_path: source_content,
+                DENOMINATOR_PATH: initial_denominator,
+                CATALOG_PATH: initial_catalog,
+                RUNNER_PATH: b"runner module\n",
+                SHIM_PATH: b"runner shim\n",
+                raw_path.relative_to(root): raw_content,
+            }
+            for relative, content in contents.items():
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(content)
+
+            full_names = (f"{TEST_NAME_PREFIX}first",)
+            command = build_nextest_command(full_names)
+            selected_digest = _sha256(
+                json.dumps(
+                    list(full_names),
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                ).encode()
+            )
+            missing_shard = Path(
+                "target/gate-artifacts/combined.default.jsonl"
+            )
+            metadata = {
+                "schema_version": 2,
+                "command": shlex.join(command),
+                "argv": [command],
+                "environment": {
+                    "NEXTEST_EXPERIMENTAL_LIBTEST_JSON": "1"
+                },
+                "nextest_version": "cargo-nextest 0.9.140",
+                "exit_code": 0,
+                "started_at": "2026-07-26T00:00:00Z",
+                "finished_at": "2026-07-26T00:00:01Z",
+                "path": source_path.as_posix(),
+                "reviewed_nonmapping_count": 1,
+                "catalog_mapped_count": 0,
+                "selected_test_count": 1,
+                "selected_names_sha256": selected_digest,
+                "source_sha256": _sha256(source_content),
+                "denominator_sha256": _sha256(initial_denominator),
+                "catalog_sha256": _sha256(initial_catalog),
+                "module_path": RUNNER_PATH.as_posix(),
+                "module_sha256": _sha256(contents[RUNNER_PATH]),
+                "shim_path": SHIM_PATH.as_posix(),
+                "shim_sha256": _sha256(contents[SHIM_PATH]),
+                "raw_results_path": raw_path.relative_to(root).as_posix(),
+                "raw_results_sha256": _sha256(raw_content),
+                "shards": [
+                    {
+                        "name": "default",
+                        "command": shlex.join(command),
+                        "argv": command,
+                        "selected_test_count": 1,
+                        "selected_names_sha256": selected_digest,
+                        "raw_results_path": missing_shard.as_posix(),
+                        "raw_results_sha256": "sha256:" + "0" * 64,
+                        "exit_code": 0,
+                        "started_at": "2026-07-26T00:00:00Z",
+                        "finished_at": "2026-07-26T00:00:01Z",
+                    }
+                ],
+            }
+            metadata_path.write_text(json.dumps(metadata))
+            (root / DENOMINATOR_PATH).write_text(
+                '[[reviews]]\ndisposition = "catalog_mapped"\n'
+            )
+            (root / CATALOG_PATH).write_text(
+                '[[tests]]\nstatus = "mapped"\n'
+            )
+
+            selection = derive_frozen_selection_from_evidence(
+                root=root,
+                path=source_path.as_posix(),
+                raw_path=raw_path,
+                metadata=metadata,
+            )
+            document = build_normalized_document(
+                root=root,
+                selection=selection,
+                raw_path=raw_path,
+                metadata=metadata,
+                reuse_frozen_evidence=True,
+            )
+
+            self.assertEqual(
+                [{"title": "first", "duration": 1, "state": "passed"}],
+                document["tests"],
+            )
+            self.assertFalse((root / missing_shard).exists())
+            results_path = Path("target/gate-artifacts/reused.json")
+            self.assertEqual(
+                0,
+                main(
+                    [
+                        "--root",
+                        str(root),
+                        "--path",
+                        source_path.as_posix(),
+                        "--raw-results",
+                        raw_path.relative_to(root).as_posix(),
+                        "--execution-metadata",
+                        metadata_path.relative_to(root).as_posix(),
+                        "--results",
+                        results_path.as_posix(),
+                        "--normalize-only",
+                    ]
+                ),
+            )
+            self.assertTrue((root / results_path).is_file())
 
 
 if __name__ == "__main__":

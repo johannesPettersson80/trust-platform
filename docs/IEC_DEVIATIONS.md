@@ -15,6 +15,31 @@ this log. IEC-permitted interpretation choices belong in
 `docs/IEC_DECISIONS.md`. Existing entries are not classification precedent;
 re-check them against this rule when touched.
 
+## 2026-07-26 - Mixed positional-prefix and formal-suffix calls
+
+- ID: DEV-018
+- Area: Structured Text textual call parameter binding
+- Normative IEC requirement: IEC 61131-3 Ed.3 section 6.6.1.4.2 defines a
+  textual parameter list as either:
+  - a formal parameter list consisting of `:=` input/in-out assignments and
+    `=>` output assignments, whose ordering is insignificant; or
+  - a non-formal parameter list containing exactly the parameters of the
+    definition in declaration order, excluding `EN` and `ENO`.
+- truST behavior and conflict:
+  - truST additionally accepts a hybrid call when all positional arguments
+    precede all formal assignments, for example `Add(1, b := 2)`.
+  - Such a list is neither the IEC formal form nor the IEC non-formal form, so
+    accepting it extends the normative textual-call grammar and binding rules.
+  - A formal assignment followed by a positional argument remains rejected.
+- Impact:
+  - Source using this convenience syntax is accepted by truST but is not
+    portable to strictly conforming IEC 61131-3 implementations.
+- Mitigation:
+  - Portable source should use either a wholly formal or wholly non-formal
+    parameter list.
+  - The semantic specification labels the hybrid form as a truST extension,
+    and the compiler still enforces the positional-prefix ordering.
+
 ## 2026-04-20 - Runtime STRING / WSTRING element semantics
 
 - ID: DEV-017

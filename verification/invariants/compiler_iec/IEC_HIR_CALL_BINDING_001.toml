@@ -1,0 +1,190 @@
+schema_version = 1
+id = "IEC_HIR_CALL_BINDING_001"
+title = "HIR binds formal, non-formal, and mixed-extension calls"
+area = "compiler_iec"
+risk = "wrong_result"
+status = "specified"
+owner = "trust-hir"
+last_reviewed = "2026-07-26"
+claim = "Call binding enforces parameter direction, name, uniqueness, completeness, and EN/ENO rules while limiting the truST mixed-call extension to a positional prefix followed by formal assignments."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-hir/src"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_IEC_STATEMENTS_001", "SPEC_IEC_SEMANTIC_RULES_001", "SPEC_IEC_DEVIATIONS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_IEC_STATEMENTS_001#3-1-shared-call-syntax"
+
+[[behavior]]
+partition = { malformed = "FORMAL_THEN_POSITIONAL" }
+coverage_dimension = "ordering_or_lifecycle"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001#3-4-call-binding-errors"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Once a formal assignment begins, a later positional argument is rejected."
+
+[[behavior]]
+partition = { equals = "POSITIONAL_THEN_FORMAL_EXTENSION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_DEVIATIONS_001#2026-07-26-mixed-positional-prefix-and-formal-suffix-calls"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "truST intentionally accepts a positional prefix followed by formal assignments as DEV-018."
+
+[[behavior]]
+partition = { equals = "FORMAL_OUTPUT_ARROW" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#3-1-shared-call-syntax"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A formal VAR_OUTPUT connection uses the output arrow and an assignable target."
+
+[[behavior]]
+partition = { malformed = "FORMAL_OUTPUT_WITH_COLON_EQUAL" }
+coverage_dimension = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#3-1-shared-call-syntax"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A VAR_OUTPUT formal connection cannot use the input assignment operator."
+
+[[behavior]]
+partition = { malformed = "FORMAL_INPUT_WITH_OUTPUT_ARROW" }
+coverage_dimension = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#3-1-shared-call-syntax"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "The output arrow cannot bind a VAR_INPUT parameter."
+
+[[behavior]]
+partition = { equals = "FORMAL_OMITTED_NORMALS_USE_DEFAULTS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#3-1-shared-call-syntax"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "An incomplete formal list may omit ordinary input and output parameters, which retain their declared initial or default values."
+
+[[behavior]]
+partition = { malformed = "FORMAL_MISSING_INOUT" }
+coverage_dimension = "missing_required"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001#3-4-call-binding-errors"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A VAR_IN_OUT parameter must be properly mapped even in an incomplete formal call."
+
+[[behavior]]
+partition = { malformed = "DUPLICATE_FORMAL_NAME" }
+coverage_dimension = "duplicate_or_collision"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001#3-4-call-binding-errors"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "One formal parameter cannot be bound more than once."
+
+[[behavior]]
+partition = { malformed = "UNKNOWN_FORMAL_NAME" }
+coverage_dimension = "extra_or_unknown"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001#3-4-call-binding-errors"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A formal name absent from the callable signature is rejected."
+
+[[behavior]]
+partition = { malformed = "INCOMPLETE_NONFORMAL_LIST" }
+coverage_dimension = "missing_required"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001#3-4-call-binding-errors"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A non-formal list must contain the complete positional signature after excluding EN and ENO."
+
+[[behavior]]
+partition = { equals = "NONFORMAL_EXCLUDES_EN_ENO" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#3-1-shared-call-syntax"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "EN and ENO are omitted from positional arity and declaration-order matching."
+
+[[behavior]]
+partition = { malformed = "NONFORMAL_EXPLICIT_EN_OR_ENO" }
+coverage_dimension = "extra_or_unknown"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001#3-4-call-binding-errors"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Execution-control parameters are not part of the non-formal positional list."
+
+[[behavior]]
+partition = { equals = "NONFORMAL_OUTPUT_POSITIONAL" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#3-1-shared-call-syntax"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A complete non-formal list binds an output parameter positionally in declaration order."
+
+[[behavior]]
+partition = { malformed = "ASSIGNMENT_ATTEMPT_ARGUMENT" }
+coverage_dimension = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001#3-4-call-binding-errors"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "An assignment-attempt expression is not accepted as an ordinary call argument binding."
+
+[[behavior]]
+partition = { equals = "FUNCTION_BLOCK_INSTANCE_FORMAL_CALL" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#3-1-shared-call-syntax"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A resolved function-block instance accepts a direction-correct formal parameter list."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Accepted formal, non-formal, function-block, and mixed-extension calls await catalog association."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Direction and argument-shape rejection awaits catalog association."
+
+[[coverage.cells]]
+dimension = "missing_required"
+state = "gap_open"
+rationale = "Required IN_OUT and complete positional-list rejection awaits catalog association."
+
+[[coverage.cells]]
+dimension = "duplicate_or_collision"
+state = "gap_open"
+rationale = "Duplicate formal binding rejection awaits catalog association."
+
+[[coverage.cells]]
+dimension = "extra_or_unknown"
+state = "gap_open"
+rationale = "Unknown formal names and explicit positional EN/ENO rejection await catalog association."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "Formal-then-positional ordering rejection awaits catalog association."

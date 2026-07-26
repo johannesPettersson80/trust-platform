@@ -105,7 +105,12 @@ END_FUNCTION
 | 2 | Non-formal call | `Y := Square(5);` |
 | 3 | Procedure call | `LogMessage('Hello');` |
 
-Mixed calls are allowed when positional arguments precede formal arguments. (IEC 61131-3 Ed.3 §6.6.1.4.2; Table 50)
+IEC 61131-3 Ed.3 section 6.6.1.4.2 defines formal and non-formal parameter
+lists as separate call forms. truST also accepts a mixed convenience form when
+all positional arguments precede all formal arguments, for example
+`Add(1, b := 2)`. This is the intentional extension recorded as
+[`DEV-018`](../IEC_DEVIATIONS.md#2026-07-26---mixed-positional-prefix-and-formal-suffix-calls);
+portable source should use one IEC call form throughout.
 
 ### EN/ENO Mechanism (Section 6.6.1.6)
 

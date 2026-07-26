@@ -76,6 +76,7 @@ def register_spec_source(
     area: str,
     owner: str,
     reviewed_date: str,
+    promote_review: bool = False,
 ) -> RegistrationResult:
     root = root.resolve()
     relative = _relative_path(root, path)
@@ -100,6 +101,10 @@ def register_spec_source(
         reviewed_date=reviewed_date,
         fallback_covers=fallback_covers,
     )
+    if path_matches:
+        # Legacy reviewed sources may predate filename-derived IDs. The path is
+        # already unique, so refresh the existing authority without renaming it.
+        record = {**record, "id": path_matches[0]["id"]}
     source_match = _existing_record(
         source_records,
         id_field="id",
@@ -164,12 +169,25 @@ def register_spec_source(
         label="document review",
     )
     if review_match is not None:
-        review = {
-            **review_match,
-            "content_sha256": review["content_sha256"],
-            "freshness": "current",
-            "last_reviewed": record["last_reviewed"],
-        }
+        if (
+            source_match is None
+            or (
+                promote_review
+                and review_match.get("classification_basis")
+                != "registered_metadata"
+            )
+        ):
+            # A document may already have a conservative, non-oracle audit row.
+            # First registration is the acceptance act; a later promotion must
+            # be explicitly authorized rather than hidden in a digest refresh.
+            review = {**review}
+        else:
+            review = {
+                **review_match,
+                "content_sha256": review["content_sha256"],
+                "freshness": "current",
+                "last_reviewed": record["last_reviewed"],
+            }
     rendered_reviews = (
         _append_record(review_registry, "document_reviews", review)
         if review_match is None
@@ -340,6 +358,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--area", required=True)
     parser.add_argument("--owner", required=True)
     parser.add_argument("--reviewed-date", required=True)
+    parser.add_argument(
+        "--promote-review",
+        action="store_true",
+        help=(
+            "explicitly accept and promote an existing conservative document "
+            "review to the registered source authority"
+        ),
+    )
     parser.add_argument("--apply", action="store_true")
     return parser
 
@@ -356,6 +382,7 @@ def main(argv: list[str] | None = None) -> int:
             area=args.area,
             owner=args.owner,
             reviewed_date=args.reviewed_date,
+            promote_review=args.promote_review,
         )
         if args.apply and result.changed:
             (root / SPEC_REGISTRY).write_text(result.rendered)

@@ -105,8 +105,11 @@ Shared rules:
   initial value or the type default. (IEC 61131-3 Ed.3, 6.6.1.4.2)
 - Non-formal calls must provide all parameters in order, excluding execution
   control parameters `EN` and `ENO`. (IEC 61131-3 Ed.3, 6.6.1.4.2; Table 50)
-- Do not mix formal and non-formal styles within the same call. (IEC 61131-3
-  Ed.3, 6.6.1.4.2)
+- IEC calls do not mix formal and non-formal styles. truST intentionally also
+  accepts a positional prefix followed by formal assignments, but rejects any
+  positional argument after the first formal assignment. This non-portable
+  extension is recorded as
+  [`DEV-018`](../IEC_DEVIATIONS.md#2026-07-26---mixed-positional-prefix-and-formal-suffix-calls).
 - `=>` is only valid for `VAR_OUTPUT` / `ENO` bindings and is invalid for
   non-output parameters. (IEC 61131-3 Ed.3, 6.6.1.2.2, Table 71)
 

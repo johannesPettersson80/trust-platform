@@ -11,6 +11,10 @@ from scripts.verification.frozen_static_catalog_batch import (
     validate_applied_batch,
     validate_execution_provenance,
 )
+from scripts.verification.frozen_rust_nextest_target import (
+    RUNTIME_CONTROL_PROFILE,
+    no_default_feature_test_names,
+)
 
 
 class FrozenStaticCatalogBatchTests(unittest.TestCase):
@@ -286,6 +290,13 @@ class FrozenStaticCatalogBatchTests(unittest.TestCase):
         command = _catalog_command(plan, test_name="one")
         self.assertIn("binary_id(=trust-runtime)", command)
         self.assertIn("test(=control::tests::one)", command)
+        self.assertNotIn("--no-default-features", command)
+        disabled_command = _catalog_command(
+            plan,
+            test_name="without_wire",
+            no_default_features=True,
+        )
+        self.assertIn("--lib --no-default-features", disabled_command)
         with self.assertRaisesRegex(ValueError, "generated canonically"):
             _catalog_command(
                 {
@@ -293,6 +304,69 @@ class FrozenStaticCatalogBatchTests(unittest.TestCase):
                     "catalog_command_template": "cargo test {name}",
                 },
                 test_name="one",
+            )
+
+    def test_runtime_cfg_source_selects_per_test_catalog_feature_flag(
+        self,
+    ) -> None:
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "core.rs"
+            source.write_text(
+                """
+#[test]
+fn default_case() {}
+
+#[cfg(not(feature = "ads-wire"))]
+#[test]
+fn without_wire() {}
+"""
+            )
+            self.assertEqual(
+                {"without_wire"},
+                no_default_feature_test_names(
+                    profile=RUNTIME_CONTROL_PROFILE,
+                    source=source.read_text(),
+                    test_names=("default_case", "without_wire"),
+                ),
+            )
+
+    def test_hir_integration_catalog_command_is_generated_canonically(
+        self,
+    ) -> None:
+        plan = {
+            "execution_kind": "rust_nextest_jsonl",
+            "target_profile": "hir-semantic-control-flow",
+            "package": "trust-hir",
+            "target_kind": "test",
+            "binary_id": "trust-hir::semantic_type_checking",
+            "test_prefix": "control_flow_and_calls::",
+        }
+
+        command = _catalog_command(
+            plan,
+            test_name="test_for_loop_bounds_integer",
+        )
+
+        self.assertIn("-p trust-hir --test semantic_type_checking", command)
+        self.assertIn(
+            "binary_id(=trust-hir::semantic_type_checking)",
+            command,
+        )
+        self.assertIn(
+            "test(=control_flow_and_calls::test_for_loop_bounds_integer)",
+            command,
+        )
+        with self.assertRaisesRegex(ValueError, "closed target profile"):
+            _catalog_command(
+                {
+                    **plan,
+                    "binary_id": "trust-hir::another_target",
+                },
+                test_name="test_for_loop_bounds_integer",
             )
 
     def test_multi_invariant_post_apply_validation_rejects_cross_links(

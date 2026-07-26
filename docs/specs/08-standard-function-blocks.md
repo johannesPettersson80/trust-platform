@@ -318,9 +318,16 @@ QD := (CV <= 0);
 
 ### Common Timer Interface
 
-TIME timer variants use TIME for `PT` and `ET`; `*_LTIME` variants use LTIME
-for both fields. The TIME and LTIME variants use the same state machine and
-differ only in the duration type and range.
+IEC 61131-3 Ed.3 section 6.6.3.5.5 and Table 46 define `TP`, `TON`, and `TOF`
+as overloads whose `PT` and `ET` duration family is selected consistently as
+either TIME or LTIME. IEC also names explicit `*_TIME` and `*_LTIME` forms.
+
+truST currently accepts the overloaded base names with either duration family
+and the explicit `TP_LTIME`, `TON_LTIME`, and `TOF_LTIME` names. An explicit
+`*_LTIME` instance requires LTIME for both `PT` and `ET`; supplying TIME is a
+type error. The TIME and LTIME forms use the same state machine and differ only
+in duration type and range. The explicit IEC `*_TIME` names are not yet part of
+the supported built-in set.
 
 | Input | Type | Description |
 |-------|------|-------------|
@@ -437,13 +444,24 @@ ET:  0        /-----PT========0  /---PT========
 
 ### Timer Variants
 
-Standard timers use TIME. Variants for LTIME:
+The overloaded standard names accept either a consistent TIME or LTIME
+interface:
+
+- `TP`
+- `TON`
+- `TOF`
+
+Explicit LTIME names are also supported:
+
 - `TP_LTIME`
 - `TON_LTIME`
 - `TOF_LTIME`
 
 Each LTIME variant follows the corresponding Figure 15 scan-step state machine
-above and exposes `PT` and `ET` as LTIME.
+above and requires `PT` and `ET` to be LTIME. IEC Table 46 also defines
+`TP_TIME`, `TON_TIME`, and `TOF_TIME`; those explicit TIME names remain a
+declared implementation gap rather than being implied by the overloaded base
+names.
 
 ## 6. Usage Examples
 

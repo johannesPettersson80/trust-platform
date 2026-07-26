@@ -139,7 +139,8 @@ IEC 61131-3 Ed.3 §6.6.1.4.1 requires VAR_IN_OUT parameters to be “properly ma
 | Formal calls | Unknown or duplicate parameter names |
 | VAR_IN_OUT mapping | Missing binding for VAR_IN_OUT parameter |
 | Non-formal calls | Positional argument count must match parameters (excluding EN/ENO) |
-| Mixed calls | Positional arguments must precede formal arguments (IEC 61131-3 Ed.3 §6.6.1.4.2; Table 50) |
+| IEC call-form separation | IEC 61131-3 Ed.3 section 6.6.1.4.2 defines separate formal and non-formal lists |
+| truST mixed-call extension | A positional prefix followed by formal assignments is accepted; a positional argument after a formal assignment is rejected ([`DEV-018`](../IEC_DEVIATIONS.md#2026-07-26---mixed-positional-prefix-and-formal-suffix-calls)) |
 
 ### 3.5 Aggregate Initializer Errors
 
@@ -173,7 +174,8 @@ Standard function blocks (Tables 43–46) have fixed or overloaded signatures. T
 |------|-----------------|
 | Bistable/edge FBs (RS/SR, R_TRIG/F_TRIG) | Non-BOOL inputs/outputs |
 | Counter FBs (CTU/CTD/CTUD) | PV/CV not INT/DINT/LINT/UDINT/ULINT |
-| Timer FBs (TP/TON/TOF, TP_LTIME/TON_LTIME/TOF_LTIME) | PT/ET not TIME or LTIME |
+| Overloaded timer FBs (TP/TON/TOF) | PT/ET not one consistent TIME or LTIME family |
+| Explicit LTIME timer FBs (TP_LTIME/TON_LTIME/TOF_LTIME) | PT/ET not LTIME |
 | Output parameters | Non-assignable target or missing `=>` in formal call |
 
 ### 3.7 Array Index Rules

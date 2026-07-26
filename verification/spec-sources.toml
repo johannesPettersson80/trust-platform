@@ -52,16 +52,9 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/specs/06-statements.md"
 version = "current"
-last_reviewed = "2026-07-24"
-covers = [
-  "statement_syntax",
-  "control_flow_syntax",
-  "malformed_source_recovery",
-  "parser_diagnostics",
-]
-known_limitations = [
-  "Partial-tree recovery is a truST tooling contract; it does not make malformed Structured Text valid IEC source.",
-]
+last_reviewed = "2026-07-26"
+covers = ["statement_syntax", "control_flow_syntax", "malformed_source_recovery", "parser_diagnostics"]
+known_limitations = ["Partial-tree recovery is a truST tooling contract; it does not make malformed Structured Text valid IEC source."]
 conflicts_with = []
 
 [[spec_sources]]
@@ -78,15 +71,9 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/specs/04-pou-declarations.md"
 version = "current"
-last_reviewed = "2026-07-24"
-covers = [
-  "pou_declarations",
-  "pou_terminators",
-  "test_pou_extensions",
-]
-known_limitations = [
-  "TEST_PROGRAM and TEST_FUNCTION_BLOCK are documented truST extensions rather than IEC POU kinds.",
-]
+last_reviewed = "2026-07-26"
+covers = ["pou_declarations", "pou_terminators", "test_pou_extensions"]
+known_limitations = ["TEST_PROGRAM and TEST_FUNCTION_BLOCK are documented truST extensions rather than IEC POU kinds."]
 conflicts_with = []
 
 [[spec_sources]]
@@ -103,20 +90,9 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/specs/09-semantic-rules.md"
 version = "current"
-last_reviewed = "2026-07-25"
-covers = [
-  "semantic_analysis",
-  "name_resolution",
-  "assignment_target_validation",
-  "assignment_type_compatibility",
-  "array_index_validation",
-  "property_accessor_validation",
-  "return_flow_validation",
-  "semantic_diagnostic_ownership",
-]
-known_limitations = [
-  "The static policy for a subrange-typed array index whose declared range exceeds the array bounds remains under review and is not made authoritative by this registration.",
-]
+last_reviewed = "2026-07-26"
+covers = ["semantic_analysis", "name_resolution", "assignment_target_validation", "assignment_type_compatibility", "array_index_validation", "property_accessor_validation", "return_flow_validation", "semantic_diagnostic_ownership"]
+known_limitations = ["The static policy for a subrange-typed array index whose declared range exceeds the array bounds remains under review and is not made authoritative by this registration."]
 conflicts_with = []
 
 [[spec_sources]]
@@ -1855,15 +1831,9 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/specs/05-expressions.md"
 version = "current"
-last_reviewed = "2026-07-10"
-covers = [
-  "expression_syntax",
-  "operator_precedence",
-  "operator_associativity",
-]
-known_limitations = [
-  "The source records implementer-specific choices and does not replace the unavailable external IEC text as an IEC conformance oracle.",
-]
+last_reviewed = "2026-07-26"
+covers = ["expression_syntax", "operator_precedence", "operator_associativity"]
+known_limitations = ["The source records implementer-specific choices and does not replace the unavailable external IEC text as an IEC conformance oracle."]
 conflicts_with = []
 
 [[spec_sources]]
@@ -1880,23 +1850,9 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/specs/01-lexical-elements.md"
 version = "current"
-last_reviewed = "2026-07-24"
-covers = [
-  "character_set",
-  "identifiers",
-  "keywords",
-  "comments",
-  "pragmas",
-  "numeric_literals",
-  "character_string_literals",
-  "time_literals",
-  "lexer_token_classification",
-  "lexer_source_fidelity",
-]
-known_limitations = [
-  "This normative product source cites IEC 61131-3 but does not replace the registered external IEC source for conformance proof.",
-  "The documented ASCII-only identifier limitation remains DEV-013.",
-]
+last_reviewed = "2026-07-26"
+covers = ["character_set", "identifiers", "keywords", "comments", "pragmas", "numeric_literals", "character_string_literals", "time_literals", "lexer_token_classification", "lexer_source_fidelity"]
+known_limitations = ["This normative product source cites IEC 61131-3 but does not replace the registered external IEC source for conformance proof.", "The documented ASCII-only identifier limitation remains DEV-013."]
 conflicts_with = []
 
 [[spec_sources]]
@@ -1972,18 +1928,9 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/specs/08-standard-function-blocks.md"
 version = "current"
-last_reviewed = "2026-07-19"
-covers = [
-  "standard_function_blocks",
-  "timer_function_blocks",
-  "timer_elapsed_time",
-  "timer_scan_step_semantics",
-  "timer_ltime_parity",
-]
-known_limitations = [
-  "The timer contract is written, but restart, PT-change, short-input, and clock-step branches remain outside the first trace proof.",
-  "This product source does not by itself establish IEC conformance.",
-]
+last_reviewed = "2026-07-26"
+covers = ["standard_function_blocks", "timer_function_blocks", "timer_elapsed_time", "timer_scan_step_semantics", "timer_ltime_parity"]
+known_limitations = ["The timer contract is written, but restart, PT-change, short-input, and clock-step branches remain outside the first trace proof.", "This product source does not by itself establish IEC conformance."]
 conflicts_with = []
 
 [[spec_sources]]
@@ -2224,5 +2171,25 @@ path = "docs/specs/25-vscode-product-contract.md"
 version = "current"
 last_reviewed = "2026-07-26"
 covers = ["1_product_shell_and_command_exposure", "2_discover", "3_examples_project_scaffolding_and_packaged_tools", "4_live_values", "5_devices_connections", "6_sidebar_actions_compile_update_and_authentication", "7_libraries", "8_shared_hmi_and_visual_editor_contract", "9_tooling_and_example_truth", "10_proof_limits_and_remaining_authority_gaps"]
+known_limitations = []
+conflicts_with = []
+
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_MITSUBISHI_GXWORKS3_COMPATIBILITY_001"
+title = "Mitsubishi GX Works3 Compatibility v1 (Deliverable 8)"
+area = "compiler_iec"
+owner = "language"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "internal"
+locator_kind = "tracked_file"
+path = "docs/guides/MITSUBISHI_GXWORKS3_COMPATIBILITY.md"
+version = "current"
+last_reviewed = "2026-07-26"
+covers = ["scope", "supported_gx_works3_subset_v1", "known_gaps_incompatibilities", "migration_guidance", "regression_coverage"]
 known_limitations = []
 conflicts_with = []

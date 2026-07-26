@@ -16,9 +16,11 @@ from .mapping_proposals import (
     duration_class,
     validate_mapping_quarantine,
 )
-from .frozen_rust_nextest_batch import (
+from .frozen_rust_nextest_batch import normalize_nextest_jsonl
+from .frozen_rust_nextest_target import (
     build_catalog_command as build_rust_catalog_command,
-    normalize_nextest_jsonl,
+    no_default_feature_test_names,
+    resolve_plan_target_profile,
 )
 from .mapping_review_batch import build_review_batch
 from .mapping_transaction import apply_mapping_transaction
@@ -119,6 +121,15 @@ def compile_batch(
             and isinstance(row.get("name"), str)
         },
     )
+    if plan.get("execution_kind") == "rust_nextest_jsonl":
+        rust_profile = resolve_plan_target_profile(plan)
+        no_default_feature_names = no_default_feature_test_names(
+            profile=rust_profile,
+            source=(root / path).read_text(),
+            test_names=tuple(sorted(durations)),
+        )
+    else:
+        no_default_feature_names = set()
 
     invariants = _load_all_invariants(root)
     invariant_sources: dict[str, tuple[str, str]] = {}
@@ -142,6 +153,9 @@ def compile_batch(
         catalog_command = _catalog_command(
             plan,
             test_name=str(fact["name"]),
+            no_default_features=(
+                str(fact["name"]) in no_default_feature_names
+            ),
         )
         candidate_invariant_ids = sorted(
             {
@@ -251,6 +265,10 @@ def compile_batch(
         catalog_command = _catalog_command(
             plan,
             test_name=str(facts[discovery_id]["name"]),
+            no_default_features=(
+                str(facts[discovery_id]["name"])
+                in no_default_feature_names
+            ),
         )
         review_inputs.append(
             {
@@ -489,6 +507,7 @@ def _validate_rust_execution_provenance(
 ) -> None:
     if plan.get("execution_kind") != "rust_nextest_jsonl":
         raise ValueError("Rust focused results do not match plan execution_kind")
+    profile = resolve_plan_target_profile(plan)
     expected_fields = {
         "kind",
         "batch_command",
@@ -557,6 +576,7 @@ def _validate_rust_execution_provenance(
     normalized = normalize_nextest_jsonl(
         raw_path.read_text(),
         expected_full_names=expected_full_names,
+        profile=profile,
     )
     if normalized != list(tests):
         raise ValueError(
@@ -761,23 +781,23 @@ def _plan_invariant_ids(plan: Mapping[str, Any]) -> tuple[str, ...]:
     return (_required_string(plan, "invariant_id"),)
 
 
-def _catalog_command(plan: Mapping[str, Any], *, test_name: str) -> str:
+def _catalog_command(
+    plan: Mapping[str, Any],
+    *,
+    test_name: str,
+    no_default_features: bool = False,
+) -> str:
     if plan.get("execution_kind") == "rust_nextest_jsonl":
-        for field, expected in (
-            ("package", "trust-runtime"),
-            ("target_kind", "lib"),
-            ("binary_id", "trust-runtime"),
-            ("test_prefix", "control::tests::"),
-        ):
-            if plan.get(field) != expected:
-                raise ValueError(
-                    f"Rust plan {field} must equal {expected}"
-                )
+        profile = resolve_plan_target_profile(plan)
         if plan.get("catalog_command_template") is not None:
             raise ValueError(
                 "Rust plan catalog commands are generated canonically"
             )
-        return build_rust_catalog_command(test_name)
+        return build_rust_catalog_command(
+            profile,
+            test_name,
+            no_default_features=no_default_features,
+        )
     template = plan.get("catalog_command_template")
     if template is None:
         return _required_string(plan, "command")

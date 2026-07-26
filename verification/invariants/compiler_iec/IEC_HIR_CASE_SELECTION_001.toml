@@ -1,0 +1,121 @@
+schema_version = 1
+id = "IEC_HIR_CASE_SELECTION_001"
+title = "HIR validates CASE selectors, labels, ranges, and exhaustiveness"
+area = "compiler_iec"
+risk = "wrong_result"
+status = "specified"
+owner = "trust-hir"
+last_reviewed = "2026-07-26"
+claim = "CASE accepts elementary selectors and compatible constant labels, restricts ranges to ordered integer domains, and reports a missing ELSE unless an enumeration is exhaustive."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-hir/src"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_IEC_STATEMENTS_001", "SPEC_IEC_DATA_TYPES_CANDIDATE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_IEC_STATEMENTS_001#6-case-statement-section-7-3-3-3-3"
+
+[[behavior]]
+partition = { malformed = "NON_ELEMENTARY_SELECTOR" }
+coverage_dimension = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#6-case-statement-section-7-3-3-3-3"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "The selector expression must have an elementary type."
+
+[[behavior]]
+partition = { malformed = "NONCONSTANT_LABEL" }
+coverage_dimension = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#6-case-statement-section-7-3-3-3-3"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Each label must be a literal or a constant expression."
+
+[[behavior]]
+partition = { malformed = "NONCONSTANT_RANGE_BOUND" }
+coverage_dimension = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#6-case-statement-section-7-3-3-3-3"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Both bounds of a CASE subrange must be constant values."
+
+[[behavior]]
+partition = { equals = "ENUM_LABEL_COMPATIBLE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#6-case-statement-section-7-3-3-3-3"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A label from the selector's enumeration domain is accepted."
+
+[[behavior]]
+partition = { equals = "STRING_LABEL_COMPATIBLE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#6-case-statement-section-7-3-3-3-3"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A STRING selector accepts compatible constant STRING labels."
+
+[[behavior]]
+partition = { equals = "WSTRING_LABEL_COMPATIBLE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#6-case-statement-section-7-3-3-3-3"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A WSTRING selector accepts compatible constant WSTRING labels."
+
+[[behavior]]
+partition = { malformed = "STRING_OR_WSTRING_RANGE" }
+coverage_dimension = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#6-case-statement-section-7-3-3-3-3"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "CASE subranges belong to integer domains and are not applicable to STRING or WSTRING selectors."
+
+[[behavior]]
+partition = { malformed = "NONEXHAUSTIVE_CASE_WITHOUT_ELSE" }
+coverage_dimension = "missing_required"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#6-case-statement-section-7-3-3-3-3"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A non-exhaustive CASE without ELSE remains analyzable but emits the documented warning."
+
+[[behavior]]
+partition = { equals = "EXHAUSTIVE_ENUM_WITHOUT_ELSE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#6-case-statement-section-7-3-3-3-3"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A CASE that covers every value of an enumeration does not require an ELSE warning."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Compatible label and exhaustive-enum acceptance awaits catalog association."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Selector, label, and range rejection awaits catalog association."
+
+[[coverage.cells]]
+dimension = "missing_required"
+state = "gap_open"
+rationale = "Missing-ELSE warning behavior awaits catalog association."

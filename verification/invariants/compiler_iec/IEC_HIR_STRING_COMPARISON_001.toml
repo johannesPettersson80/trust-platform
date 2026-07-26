@@ -1,0 +1,48 @@
+schema_version = 1
+id = "IEC_HIR_STRING_COMPARISON_001"
+title = "HIR accepts ordered STRING and WSTRING comparisons"
+area = "compiler_iec"
+risk = "wrong_result"
+status = "specified"
+owner = "trust-hir"
+last_reviewed = "2026-07-26"
+claim = "Equality and ordering operators accept compatible STRING and WSTRING operands, including declared fixed-capacity string types."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-hir/src"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_IEC_EXPRESSIONS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_IEC_EXPRESSIONS_001#4-2-comparison-operators"
+
+[[behavior]]
+partition = { equals = "UNBOUNDED_STRING_AND_WSTRING_COMPARABLE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001#4-2-comparison-operators"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "STRING values compare with STRING values and WSTRING values compare with WSTRING values using the documented comparison operators."
+
+[[behavior]]
+partition = { equals = "FIXED_STRING_AND_WSTRING_COMPARABLE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001#4-2-comparison-operators"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A declared string capacity constrains storage but does not remove comparison-operator eligibility."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "STRING and WSTRING comparison acceptance awaits catalog association."

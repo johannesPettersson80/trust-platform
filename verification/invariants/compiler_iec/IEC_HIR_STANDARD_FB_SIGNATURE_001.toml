@@ -1,0 +1,125 @@
+schema_version = 1
+id = "IEC_HIR_STANDARD_FB_SIGNATURE_001"
+title = "HIR validates standard function-block signatures"
+area = "compiler_iec"
+risk = "wrong_result"
+status = "specified"
+owner = "trust-hir"
+last_reviewed = "2026-07-26"
+claim = "Standard timer, bistable, edge, and counter function blocks expose the documented IEC names, directions, and compatible parameter types."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-hir/src"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_behavior_tests", "assertion_reachability", "explicit_time_timer_names", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_IEC_STANDARD_FBS_CANDIDATE_001", "SPEC_IEC_SEMANTIC_RULES_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#5-timer-function-blocks-table-46-figure-15"
+
+[[behavior]]
+partition = { equals = "TIMER_TIME_SIGNATURE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#common-timer-interface"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "An overloaded base timer accepts a consistent TIME PT/ET interface."
+
+[[behavior]]
+partition = { equals = "TIMER_OVERLOADED_LTIME_SIGNATURE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#common-timer-interface"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "An overloaded base timer accepts a consistent LTIME PT/ET interface."
+
+[[behavior]]
+partition = { equals = "TIMER_NAMED_LTIME_SIGNATURE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#timer-variants"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "An explicit *_LTIME timer accepts LTIME PT and ET bindings."
+
+[[behavior]]
+partition = { malformed = "TIME_ARGUMENT_TO_NAMED_LTIME_TIMER" }
+coverage_dimension = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#timer-variants"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "An explicit *_LTIME timer rejects TIME PT or ET bindings."
+
+[[behavior]]
+partition = { equals = "TIMER_NAMED_TIME_SIGNATURE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#timer-variants"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "IEC Table 46 defines TP_TIME, TON_TIME, and TOF_TIME with TIME PT and ET; implementation and focused test evidence remain missing."
+
+[[behavior]]
+partition = { equals = "BISTABLE_SHORT_AND_LONG_NAMES" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#2-bistable-function-blocks-table-43"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "RS and SR accept both their short parameter names and the Table 43 long aliases."
+
+[[behavior]]
+partition = { malformed = "NONBOOL_BISTABLE_INPUT" }
+coverage_dimension = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001#3-6-standard-function-block-call-errors"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Bistable input and output parameters require BOOL-compatible bindings."
+
+[[behavior]]
+partition = { equals = "EDGE_BOOL_SIGNATURES" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#3-edge-detection-table-44"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "R_TRIG and F_TRIG accept BOOL CLK input and BOOL Q output bindings."
+
+[[behavior]]
+partition = { equals = "COUNTER_STANDARD_AND_TYPED_SIGNATURES" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#4-counter-function-blocks-table-45"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Standard and typed counter names bind PV and CV within one supported integer family."
+
+[[behavior]]
+partition = { malformed = "NONINTEGER_COUNTER_PV_OR_CV" }
+coverage_dimension = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001#3-6-standard-function-block-call-errors"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Counter PV and CV bindings reject values outside the supported integer categories."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Accepted timer, bistable, edge, and counter signatures await catalog association; explicit *_TIME names remain implementation and test debt."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Timer, bistable, and counter type rejection awaits catalog association."

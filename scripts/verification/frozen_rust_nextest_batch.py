@@ -7,61 +7,56 @@ import hashlib
 import json
 import math
 import os
-import re
 import shlex
 import subprocess
 import sys
 import tempfile
 import tomllib
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation, ROUND_CEILING
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from .coverage_trace_filter import exact_name_matcher
+from .frozen_rust_nextest_target import (
+    ADS_SERVER_CFG,
+    ADS_WIRE_DISABLED_CFG,
+    RUNTIME_CONTROL_PROFILE,
+    TARGET_PROFILES,
+    TERMINAL_EVENTS,
+    FrozenSelection,
+    FrozenRustTargetProfile,
+    TestShard,
+    build_catalog_command as build_profile_catalog_command,
+    build_nextest_command as build_profile_nextest_command,
+    get_target_profile,
+    normalize_event_test_name,
+    qualify_test_names,
+    selected_names_digest as _selected_names_digest,
+    selection_from_combined_evidence,
+    split_feature_shards as split_profile_feature_shards,
+)
 
 
 CATALOG_PATH = Path("verification/test-catalog.toml")
 DENOMINATOR_PATH = Path("verification/test-catalog-denominator.toml")
 RUNNER_PATH = Path("scripts/verification/frozen_rust_nextest_batch.py")
 SHIM_PATH = Path("scripts/run_frozen_rust_nextest_batch.py")
-PACKAGE = "trust-runtime"
-BINARY_ID = "trust-runtime"
-TEST_NAME_PREFIX = "control::tests::"
-ENCODED_TEST_NAME_PREFIX = "trust-runtime::trust_runtime$"
-ADS_WIRE_DISABLED_CFG = '#[cfg(not(feature = "ads-wire"))]'
-DEFAULT_FEATURE_CFG = '#[cfg(feature = "ads-server")]'
-MESSAGE_FORMAT_VERSION = "0.1"
+PACKAGE = RUNTIME_CONTROL_PROFILE.package
+BINARY_ID = RUNTIME_CONTROL_PROFILE.binary_id
+TEST_NAME_PREFIX = RUNTIME_CONTROL_PROFILE.test_prefix
+ENCODED_TEST_NAME_PREFIX = RUNTIME_CONTROL_PROFILE.encoded_test_name_prefix
+DEFAULT_FEATURE_CFG = ADS_SERVER_CFG
 EXPECTED_REVIEWED_NONMAPPING = 69
 EXPECTED_CATALOG_MAPPED = 2
 EXPERIMENTAL_ENVIRONMENT = {"NEXTEST_EXPERIMENTAL_LIBTEST_JSON": "1"}
-TERMINAL_EVENTS = frozenset({"ok", "failed", "ignored", "timeout"})
-
-
-@dataclass(frozen=True)
-class FrozenSelection:
-    path: str
-    reviewed_nonmapping_count: int
-    catalog_mapped_count: int
-    names: tuple[str, ...]
-    full_names: tuple[str, ...]
-
-
-@dataclass(frozen=True)
-class TestShard:
-    name: str
-    full_names: tuple[str, ...]
-    no_default_features: bool
-
-
 def derive_frozen_selection(
     *,
     root: Path,
     path: str,
     expected_reviewed_nonmapping: int,
     expected_catalog_mapped: int,
+    profile: FrozenRustTargetProfile = RUNTIME_CONTROL_PROFILE,
 ) -> FrozenSelection:
     """Select only frozen nonmapping and catalog-mapped tests for one path."""
 
@@ -120,11 +115,20 @@ def derive_frozen_selection(
             f"{expected_catalog_mapped}"
         )
 
-    reviewed_identities = _review_identities(reviewed, "reviewed denominator")
-    mapped_denominator_identities = _review_identities(
-        denominator_mapped, "mapped denominator"
+    reviewed_identities = _review_identities(
+        reviewed,
+        "reviewed denominator",
+        discovery_source_kind=profile.discovery_source_kind,
     )
-    mapped_catalog_identities = _catalog_identities(catalog_mapped)
+    mapped_denominator_identities = _review_identities(
+        denominator_mapped,
+        "mapped denominator",
+        discovery_source_kind=profile.discovery_source_kind,
+    )
+    mapped_catalog_identities = _catalog_identities(
+        catalog_mapped,
+        discovery_source_kind=profile.discovery_source_kind,
+    )
     if set(mapped_denominator_identities) != set(mapped_catalog_identities):
         raise ValueError(
             "mapped denominator identities do not equal mapped catalog identities"
@@ -143,7 +147,29 @@ def derive_frozen_selection(
         reviewed_nonmapping_count=len(reviewed),
         catalog_mapped_count=len(denominator_mapped),
         names=ordered_names,
-        full_names=tuple(TEST_NAME_PREFIX + name for name in ordered_names),
+        full_names=qualify_test_names(profile, ordered_names),
+    )
+
+
+def derive_frozen_selection_from_evidence(
+    *,
+    root: Path,
+    path: str,
+    raw_path: Path,
+    metadata: Mapping[str, Any],
+    profile: FrozenRustTargetProfile = RUNTIME_CONTROL_PROFILE,
+) -> FrozenSelection:
+    """Recover the frozen name set without consulting mutable live ledgers."""
+
+    _validate_catalog_path(path)
+    return selection_from_combined_evidence(
+        profile=profile,
+        path=path,
+        raw=raw_path.read_text(),
+        raw_results_path=_repo_relative(root, raw_path),
+        raw_results_sha256=_digest_file(raw_path),
+        source_sha256=_digest_file(root / path),
+        metadata=metadata,
     )
 
 
@@ -151,156 +177,44 @@ def split_feature_shards(
     *,
     source: str,
     expected_full_names: Sequence[str],
+    profile: FrozenRustTargetProfile = RUNTIME_CONTROL_PROFILE,
 ) -> tuple[TestShard, ...]:
-    """Derive the exact default/no-ads-wire split from source attributes."""
+    """Derive exact feature shards under one closed target profile."""
 
-    expected = set(expected_full_names)
-    if not expected or len(expected) != len(expected_full_names):
-        raise ValueError("feature shard selection must be nonempty and unique")
-    if any(not name.startswith(TEST_NAME_PREFIX) for name in expected):
-        raise ValueError("feature shard test name is outside required prefix")
-
-    attributes: list[str] = []
-    classified: dict[str, bool] = {}
-    function_pattern = re.compile(
-        r"^(?:pub(?:\([^)]*\))?\s+)?(?:async\s+)?fn\s+([A-Za-z_][A-Za-z0-9_]*)"
+    return split_profile_feature_shards(
+        profile=profile,
+        source=source,
+        expected_full_names=expected_full_names,
     )
-    for raw_line in source.splitlines():
-        line = raw_line.strip()
-        if line.startswith("#[") and line.endswith("]"):
-            attributes.append(line)
-            continue
-        match = function_pattern.match(line)
-        if match:
-            full_name = TEST_NAME_PREFIX + match.group(1)
-            if full_name in expected:
-                cfg_attributes = [
-                    attribute
-                    for attribute in attributes
-                    if attribute.startswith("#[cfg")
-                ]
-                unsupported = [
-                    attribute
-                    for attribute in cfg_attributes
-                    if attribute
-                    not in {ADS_WIRE_DISABLED_CFG, DEFAULT_FEATURE_CFG}
-                ]
-                if unsupported:
-                    raise ValueError(
-                        f"{full_name} has unsupported cfg attributes: "
-                        + ", ".join(unsupported)
-                    )
-                if full_name in classified:
-                    raise ValueError(f"duplicate selected source test {full_name}")
-                if (
-                    ADS_WIRE_DISABLED_CFG in cfg_attributes
-                    and DEFAULT_FEATURE_CFG in cfg_attributes
-                ):
-                    raise ValueError(
-                        f"{full_name} combines incompatible supported cfg attributes"
-                    )
-                classified[full_name] = ADS_WIRE_DISABLED_CFG in cfg_attributes
-            attributes.clear()
-            continue
-        if line and not line.startswith("//"):
-            attributes.clear()
-
-    missing = sorted(expected - set(classified))
-    if missing:
-        raise ValueError(
-            "selected tests missing from source classification: "
-            + ", ".join(missing)
-        )
-    default_names = tuple(
-        sorted(name for name, disabled in classified.items() if not disabled)
-    )
-    disabled_names = tuple(
-        sorted(name for name, disabled in classified.items() if disabled)
-    )
-    shards = []
-    if default_names:
-        shards.append(TestShard("default", default_names, False))
-    if disabled_names:
-        shards.append(TestShard("no-ads-wire", disabled_names, True))
-    return tuple(shards)
 
 
 def build_nextest_command(
     full_names: Sequence[str],
     *,
     no_default_features: bool = False,
+    profile: FrozenRustTargetProfile = RUNTIME_CONTROL_PROFILE,
 ) -> list[str]:
-    """Build one shell-free exact-name filter for the selected library tests."""
+    """Build one shell-free exact-name filter for the selected profile."""
 
-    ordered = tuple(sorted(full_names))
-    if not ordered:
-        raise ValueError("nextest batch requires at least one test")
-    if len(ordered) != len(set(ordered)):
-        raise ValueError("nextest batch contains duplicate full test names")
-    clauses = []
-    for name in ordered:
-        if not isinstance(name, str) or not name.startswith(TEST_NAME_PREFIX):
-            raise ValueError(
-                f"nextest test name is outside required prefix {TEST_NAME_PREFIX}"
-            )
-        clauses.append(
-            f"(binary_id({exact_name_matcher(BINARY_ID)}) & "
-            f"test({exact_name_matcher(name)}))"
-        )
-    command = [
-        "cargo",
-        "nextest",
-        "run",
-        "-p",
-        PACKAGE,
-        "--lib",
-    ]
-    if no_default_features:
-        command.append("--no-default-features")
-    command.extend(
-        [
-            "--no-fail-fast",
-            "--message-format",
-            "libtest-json-plus",
-            "--message-format-version",
-            MESSAGE_FORMAT_VERSION,
-            "--user-config-file",
-            "none",
-            "-E",
-            " | ".join(clauses),
-        ]
+    return build_profile_nextest_command(
+        profile,
+        full_names,
+        no_default_features=no_default_features,
     )
-    return command
 
 
-def build_catalog_command(test_name: str) -> str:
+def build_catalog_command(
+    test_name: str,
+    *,
+    profile: FrozenRustTargetProfile = RUNTIME_CONTROL_PROFILE,
+    no_default_features: bool = False,
+) -> str:
     """Return the canonical exact command for one selected catalog test."""
 
-    if (
-        not isinstance(test_name, str)
-        or not test_name
-        or test_name.startswith(TEST_NAME_PREFIX)
-    ):
-        raise ValueError("catalog test name must be a nonempty unqualified name")
-    full_name = TEST_NAME_PREFIX + test_name
-    expression = (
-        f"binary_id({exact_name_matcher(BINARY_ID)}) & "
-        f"test({exact_name_matcher(full_name)})"
-    )
-    return shlex.join(
-        [
-            "cargo",
-            "nextest",
-            "run",
-            "-p",
-            PACKAGE,
-            "--lib",
-            "--no-fail-fast",
-            "--user-config-file",
-            "none",
-            "-E",
-            expression,
-        ]
+    return build_profile_catalog_command(
+        profile,
+        test_name,
+        no_default_features=no_default_features,
     )
 
 
@@ -308,12 +222,16 @@ def normalize_nextest_jsonl(
     raw: str,
     *,
     expected_full_names: set[str],
+    profile: FrozenRustTargetProfile = RUNTIME_CONTROL_PROFILE,
 ) -> list[dict[str, Any]]:
     """Normalize exact passing libtest JSON events to catalog batch rows."""
 
     if not expected_full_names:
         raise ValueError("normalizer requires at least one expected test")
-    if any(not name.startswith(TEST_NAME_PREFIX) for name in expected_full_names):
+    if any(
+        not name.startswith(profile.test_prefix)
+        for name in expected_full_names
+    ):
         raise ValueError("expected test name is outside required prefix")
 
     started: set[str] = set()
@@ -335,14 +253,7 @@ def normalize_nextest_jsonl(
         event_name = event.get("event")
         if not isinstance(raw_name, str) or not raw_name:
             raise ValueError(f"test event on line {line_number} lacks a name")
-        name = raw_name
-        if name.startswith(ENCODED_TEST_NAME_PREFIX):
-            name = name.removeprefix(ENCODED_TEST_NAME_PREFIX)
-        if not name.startswith(TEST_NAME_PREFIX):
-            raise ValueError(
-                f"test result {raw_name!r} is outside required prefix "
-                f"{TEST_NAME_PREFIX}"
-            )
+        name = normalize_event_test_name(profile, raw_name)
         if name not in expected_full_names:
             raise ValueError(f"unexpected test result {name}")
         if event_name == "started":
@@ -360,7 +271,7 @@ def normalize_nextest_jsonl(
             raise ValueError(f"test {name} did not pass: {event_name}")
         duration_ms = _duration_milliseconds(event.get("exec_time"), name=name)
         terminal[name] = {
-            "title": name.removeprefix(TEST_NAME_PREFIX),
+            "title": name.removeprefix(profile.test_prefix),
             "duration": duration_ms,
             "state": "passed",
         }
@@ -381,15 +292,19 @@ def build_normalized_document(
     selection: FrozenSelection,
     raw_path: Path,
     metadata: Mapping[str, Any],
+    profile: FrozenRustTargetProfile = RUNTIME_CONTROL_PROFILE,
+    reuse_frozen_evidence: bool = False,
 ) -> dict[str, Any]:
     shards = split_feature_shards(
         source=(root / selection.path).read_text(),
         expected_full_names=selection.full_names,
+        profile=profile,
     )
     commands = [
         build_nextest_command(
             shard.full_names,
             no_default_features=shard.no_default_features,
+            profile=profile,
         )
         for shard in shards
     ]
@@ -400,11 +315,15 @@ def build_normalized_document(
         metadata=metadata,
         shards=shards,
         commands=commands,
+        profile=profile,
+        validate_live_ledgers=not reuse_frozen_evidence,
+        require_shard_raws=not reuse_frozen_evidence,
     )
     raw = raw_path.read_text()
     tests = normalize_nextest_jsonl(
         raw,
         expected_full_names=set(selection.full_names),
+        profile=profile,
     )
     return {
         "schema_version": 1,
@@ -418,10 +337,10 @@ def build_normalized_document(
             "raw_results_path": _repo_relative(root, raw_path),
             "raw_results_sha256": _digest_file(raw_path),
             "nextest_version": metadata["nextest_version"],
-            "package": PACKAGE,
-            "target_kind": "lib",
-            "binary_id": BINARY_ID,
-            "test_prefix": TEST_NAME_PREFIX,
+            "package": profile.package,
+            "target_kind": profile.target_kind,
+            "binary_id": profile.binary_id,
+            "test_prefix": profile.test_prefix,
         },
         "tests": tests,
         "failures": [],
@@ -443,6 +362,7 @@ def execute_nextest_batch(
     metadata_path: Path,
     reuse_default_raw_path: Path | None = None,
     reuse_default_metadata_path: Path | None = None,
+    profile: FrozenRustTargetProfile = RUNTIME_CONTROL_PROFILE,
 ) -> Mapping[str, Any]:
     """Execute exact source-derived shards, optionally reusing a default shard."""
 
@@ -456,11 +376,13 @@ def execute_nextest_batch(
     shards = split_feature_shards(
         source=(root / selection.path).read_text(),
         expected_full_names=selection.full_names,
+        profile=profile,
     )
     commands = [
         build_nextest_command(
             shard.full_names,
             no_default_features=shard.no_default_features,
+            profile=profile,
         )
         for shard in shards
     ]
@@ -503,11 +425,16 @@ def execute_nextest_batch(
                 selection=selection,
                 raw_path=reused[0],
                 metadata=legacy_metadata,
-                command=build_nextest_command(selection.full_names),
+                command=build_nextest_command(
+                    selection.full_names,
+                    profile=profile,
+                ),
+                profile=profile,
             )
             normalize_nextest_jsonl(
                 reused[0].read_text(),
                 expected_full_names=set(shard.full_names),
+                profile=profile,
             )
             shard_path.write_bytes(reused[0].read_bytes())
             shard_record = {
@@ -608,6 +535,9 @@ def _validate_execution_metadata(
     metadata: Mapping[str, Any],
     shards: Sequence[TestShard],
     commands: Sequence[Sequence[str]],
+    profile: FrozenRustTargetProfile,
+    validate_live_ledgers: bool = True,
+    require_shard_raws: bool = True,
 ) -> None:
     if metadata.get("schema_version") == 1:
         _validate_legacy_execution_metadata(
@@ -615,7 +545,12 @@ def _validate_execution_metadata(
             selection=selection,
             raw_path=raw_path,
             metadata=metadata,
-            command=build_nextest_command(selection.full_names),
+            command=build_nextest_command(
+                selection.full_names,
+                profile=profile,
+            ),
+            profile=profile,
+            validate_live_ledgers=validate_live_ledgers,
         )
         return
     required_fields = {
@@ -667,13 +602,20 @@ def _validate_execution_metadata(
         "selected_test_count": len(selection.full_names),
         "selected_names_sha256": _selected_names_digest(selection.full_names),
         "source_sha256": _digest_file(root / selection.path),
-        "denominator_sha256": _digest_file(root / DENOMINATOR_PATH),
-        "catalog_sha256": _digest_file(root / CATALOG_PATH),
         "raw_results_path": _repo_relative(root, raw_path),
         "raw_results_sha256": _digest_file(raw_path),
         "module_path": RUNNER_PATH.as_posix(),
         "shim_path": SHIM_PATH.as_posix(),
     }
+    if validate_live_ledgers:
+        expected.update(
+            {
+                "denominator_sha256": _digest_file(
+                    root / DENOMINATOR_PATH
+                ),
+                "catalog_sha256": _digest_file(root / CATALOG_PATH),
+            }
+        )
     for field, value in expected.items():
         if metadata.get(field) != value:
             raise ValueError(
@@ -688,7 +630,12 @@ def _validate_execution_metadata(
     ):
         if not isinstance(metadata.get(field), str) or not metadata[field]:
             raise ValueError(f"execution metadata requires non-empty {field}")
-    for field in ("module_sha256", "shim_sha256"):
+    for field in (
+        "module_sha256",
+        "shim_sha256",
+        "denominator_sha256",
+        "catalog_sha256",
+    ):
         if not str(metadata[field]).startswith("sha256:"):
             raise ValueError(f"execution metadata {field} is not a SHA-256 digest")
     for shard, command, record in zip(shards, commands, records, strict=True):
@@ -714,9 +661,17 @@ def _validate_execution_metadata(
             "name": shard.name,
             "selected_test_count": len(shard.full_names),
             "selected_names_sha256": _selected_names_digest(shard.full_names),
-            "raw_results_sha256": _digest_file(shard_path),
             "exit_code": 0,
         }
+        if require_shard_raws:
+            expected_shard["raw_results_sha256"] = _digest_file(shard_path)
+        elif (
+            not isinstance(record.get("raw_results_sha256"), str)
+            or not str(record["raw_results_sha256"]).startswith("sha256:")
+        ):
+            raise ValueError(
+                f"execution metadata shard {shard.name} raw digest is invalid"
+            )
         if record.get("reused_from") is None:
             expected_shard.update(
                 {"command": shlex.join(command), "argv": list(command)}
@@ -726,11 +681,13 @@ def _validate_execution_metadata(
                 raise ValueError(
                     f"execution metadata shard {shard.name} {field} mismatch"
                 )
-        normalize_nextest_jsonl(
-            shard_path.read_text(),
-            expected_full_names=set(shard.full_names),
-        )
-        if record.get("reused_from") is not None:
+        if require_shard_raws:
+            normalize_nextest_jsonl(
+                shard_path.read_text(),
+                expected_full_names=set(shard.full_names),
+                profile=profile,
+            )
+        if require_shard_raws and record.get("reused_from") is not None:
             reused_path = root / _required_string(
                 record, "reused_from", "execution shard"
             )
@@ -745,6 +702,8 @@ def _validate_legacy_execution_metadata(
     raw_path: Path,
     metadata: Mapping[str, Any],
     command: Sequence[str],
+    profile: FrozenRustTargetProfile,
+    validate_live_ledgers: bool = True,
 ) -> None:
     required_fields = {
         "schema_version",
@@ -786,13 +745,20 @@ def _validate_legacy_execution_metadata(
         "selected_test_count": len(selection.full_names),
         "selected_names_sha256": _selected_names_digest(selection.full_names),
         "source_sha256": _digest_file(root / selection.path),
-        "denominator_sha256": _digest_file(root / DENOMINATOR_PATH),
-        "catalog_sha256": _digest_file(root / CATALOG_PATH),
         "raw_results_path": _repo_relative(root, raw_path),
         "raw_results_sha256": _digest_file(raw_path),
         "module_path": RUNNER_PATH.as_posix(),
         "shim_path": SHIM_PATH.as_posix(),
     }
+    if validate_live_ledgers:
+        expected.update(
+            {
+                "denominator_sha256": _digest_file(
+                    root / DENOMINATOR_PATH
+                ),
+                "catalog_sha256": _digest_file(root / CATALOG_PATH),
+            }
+        )
     for field, value in expected.items():
         if metadata.get(field) != value:
             raise ValueError(
@@ -810,7 +776,12 @@ def _validate_legacy_execution_metadata(
             raise ValueError(
                 f"legacy execution metadata requires non-empty {field}"
             )
-    for field in ("module_sha256", "shim_sha256"):
+    for field in (
+        "module_sha256",
+        "shim_sha256",
+        "denominator_sha256",
+        "catalog_sha256",
+    ):
         if not str(metadata[field]).startswith("sha256:"):
             raise ValueError(
                 f"legacy execution metadata {field} is not a SHA-256 digest"
@@ -820,11 +791,15 @@ def _validate_legacy_execution_metadata(
 def _review_identities(
     rows: Sequence[Mapping[str, Any]],
     label: str,
+    *,
+    discovery_source_kind: str,
 ) -> list[tuple[str, str]]:
     identities: list[tuple[str, str]] = []
     for row in rows:
-        if row.get("discovery_source_kind") != "rust_unit_test":
-            raise ValueError(f"{label} row is not a rust_unit_test")
+        if row.get("discovery_source_kind") != discovery_source_kind:
+            raise ValueError(
+                f"{label} row is not a {discovery_source_kind}"
+            )
         if row.get("ignore_state") != "not_ignored":
             raise ValueError(f"{label} row is not an active test")
         identities.append(
@@ -840,11 +815,16 @@ def _review_identities(
 
 def _catalog_identities(
     rows: Sequence[Mapping[str, Any]],
+    *,
+    discovery_source_kind: str,
 ) -> list[tuple[str, str]]:
     identities = []
     for row in rows:
-        if row.get("discovery_source_kind") != "rust_unit_test":
-            raise ValueError("mapped catalog row is not a rust_unit_test")
+        if row.get("discovery_source_kind") != discovery_source_kind:
+            raise ValueError(
+                "mapped catalog row is not a "
+                f"{discovery_source_kind}"
+            )
         identities.append(
             (
                 _required_string(row, "discovery_id", "mapped catalog"),
@@ -870,15 +850,6 @@ def _duration_milliseconds(value: Any, *, name: str) -> int:
     return int(
         (seconds * Decimal(1000)).to_integral_value(rounding=ROUND_CEILING)
     )
-
-
-def _selected_names_digest(full_names: Sequence[str]) -> str:
-    encoded = json.dumps(
-        sorted(full_names),
-        ensure_ascii=False,
-        separators=(",", ":"),
-    ).encode()
-    return _digest_bytes(encoded)
 
 
 def _load_toml(path: Path) -> dict[str, Any]:
@@ -986,6 +957,11 @@ def _write_json_atomic(path: Path, document: Mapping[str, Any]) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=Path.cwd())
+    parser.add_argument(
+        "--profile",
+        choices=sorted(TARGET_PROFILES),
+        default=RUNTIME_CONTROL_PROFILE.key,
+    )
     parser.add_argument("--path", required=True)
     parser.add_argument(
         "--expected-reviewed-nonmapping",
@@ -1022,6 +998,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     root = args.root.resolve()
     try:
+        profile = get_target_profile(args.profile)
         if not root.is_dir():
             raise ValueError("repository root does not exist")
         _checked_repo_file(root, DENOMINATOR_PATH, "test denominator")
@@ -1058,12 +1035,6 @@ def main(argv: list[str] | None = None) -> int:
             raise ValueError(
                 "raw results, execution metadata, and results paths must differ"
             )
-        selection = derive_frozen_selection(
-            root=root,
-            path=args.path,
-            expected_reviewed_nonmapping=args.expected_reviewed_nonmapping,
-            expected_catalog_mapped=args.expected_catalog_mapped,
-        )
         if args.normalize_only:
             if reuse_raw_path is not None or reuse_metadata_path is not None:
                 raise ValueError(
@@ -1082,6 +1053,13 @@ def main(argv: list[str] | None = None) -> int:
             metadata = json.loads(metadata_path.read_text())
             if not isinstance(metadata, Mapping):
                 raise ValueError("execution metadata is not a JSON object")
+            selection = derive_frozen_selection_from_evidence(
+                root=root,
+                path=args.path,
+                raw_path=raw_path,
+                metadata=metadata,
+                profile=profile,
+            )
         else:
             if (reuse_raw_path is None) != (reuse_metadata_path is None):
                 raise ValueError(
@@ -1098,6 +1076,15 @@ def main(argv: list[str] | None = None) -> int:
                     Path(_repo_relative(root, reuse_metadata_path)),
                     "reused default execution metadata",
                 )
+            selection = derive_frozen_selection(
+                root=root,
+                path=args.path,
+                expected_reviewed_nonmapping=(
+                    args.expected_reviewed_nonmapping
+                ),
+                expected_catalog_mapped=args.expected_catalog_mapped,
+                profile=profile,
+            )
             metadata = execute_nextest_batch(
                 root=root,
                 selection=selection,
@@ -1105,12 +1092,15 @@ def main(argv: list[str] | None = None) -> int:
                 metadata_path=metadata_path,
                 reuse_default_raw_path=reuse_raw_path,
                 reuse_default_metadata_path=reuse_metadata_path,
+                profile=profile,
             )
         document = build_normalized_document(
             root=root,
             selection=selection,
             raw_path=raw_path,
             metadata=metadata,
+            profile=profile,
+            reuse_frozen_evidence=args.normalize_only,
         )
         _write_json_atomic(results_path, document)
         print(
