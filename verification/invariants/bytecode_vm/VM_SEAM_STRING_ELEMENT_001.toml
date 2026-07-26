@@ -14,7 +14,7 @@ source_refs = [
   "crates/trust-runtime/src/memory",
   "crates/trust-runtime/src/value/reference.rs",
 ]
-tests = []
+tests = ["TEST_AUTO_430AF663A79A7D319743", "TEST_AUTO_4B09734A8D1856C5E38A", "TEST_AUTO_57FB35474C4EE46899FD", "TEST_AUTO_AB054456F6E59419DEFA", "TEST_AUTO_C914D2330D1D8FD81820", "TEST_AUTO_EF1816FF5BB0935AC957"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
@@ -26,12 +26,12 @@ source_refs = ["SPEC_VM_VALUE_SEMANTICS_001", "SPEC_IEC_DEVIATIONS_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_VM_VALUE_SEMANTICS_001#runtime-string-elements"
+ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-2-runtime-string-elements"
 
 [[behavior]]
 partition = { equals = "SCALAR_COUNT_AND_LIBRARY_POSITIONS" }
 case_family = "encoding_or_unicode"
-oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#runtime-string-elements"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-2-runtime-string-elements"
 outcome = "accept_value"
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
 rationale = "Counts and standard string positions use Unicode scalar elements rather than UTF-8 bytes or UTF-16 code units."
@@ -39,7 +39,7 @@ rationale = "Counts and standard string positions use Unicode scalar elements ra
 [[behavior]]
 partition = { equals = "NARROW_INDEX_IN_RANGE" }
 case_family = "happy_path"
-oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#runtime-string-elements"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-2-runtime-string-elements"
 outcome = "accept_value"
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
 rationale = "A 1-based STRING index reads a scalar that fits CHAR and a successful write replaces exactly the selected scalar."
@@ -47,7 +47,7 @@ rationale = "A 1-based STRING index reads a scalar that fits CHAR and a successf
 [[behavior]]
 partition = { equals = "WIDE_INDEX_IN_RANGE" }
 case_family = "encoding_or_unicode"
-oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#runtime-string-elements"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-2-runtime-string-elements"
 outcome = "accept_value"
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
 rationale = "A 1-based WSTRING index reads a scalar that fits WCHAR and a successful write replaces exactly the selected scalar."
@@ -55,7 +55,7 @@ rationale = "A 1-based WSTRING index reads a scalar that fits WCHAR and a succes
 [[behavior]]
 partition = { equals = "IN_RANGE_ELEMENT_EXCEEDS_REQUESTED_WIDTH" }
 case_family = "wrong_type_or_shape"
-oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#runtime-string-elements"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-2-runtime-string-elements"
 outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
@@ -64,7 +64,7 @@ rationale = "For an in-range index, a selected scalar outside the requested CHAR
 [[behavior]]
 partition = { equals = "IN_RANGE_INVALID_REPLACEMENT_SHAPE_OR_SCALAR" }
 case_family = "wrong_type_or_shape"
-oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#runtime-string-elements"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-2-runtime-string-elements"
 outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
@@ -73,7 +73,7 @@ rationale = "For an in-range index, an invalid scalar encoding, empty or multi-s
 [[behavior]]
 partition = { equals = "INDEX_BELOW_ONE" }
 case_family = "boundary_low"
-oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#runtime-string-elements"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-2-runtime-string-elements"
 outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
@@ -82,7 +82,7 @@ rationale = "Bounds are validated first; an index below 1 returns RuntimeError::
 [[behavior]]
 partition = { equals = "INDEX_ABOVE_SCALAR_COUNT" }
 case_family = "boundary_high"
-oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#runtime-string-elements"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-2-runtime-string-elements"
 outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
@@ -91,7 +91,7 @@ rationale = "Bounds are validated first; an index above the scalar count returns
 [[behavior]]
 partition = { equals = "VM_AND_STORAGE_REFERENCE_ROUND_TRIP" }
 case_family = "happy_path"
-oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#runtime-string-elements"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-2-runtime-string-elements"
 outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }

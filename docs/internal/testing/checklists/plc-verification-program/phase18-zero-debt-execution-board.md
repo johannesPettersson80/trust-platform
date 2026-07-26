@@ -874,6 +874,30 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   source-closure and broad-report refresh, remaining semantic domains, and
   final broad gates remain open.
   <!-- generated:hir-assignments-and-variable-semantics:end -->
+  <!-- generated:runtime-string-element-semantics:start -->
+  Runtime string-element coherent-batch progress (2026-07-26):
+  automatic discovery selected six existing focused runtime and runtime-core
+  tests. A product specification and `VM_SEAM_STRING_ELEMENT_001` now own the
+  Unicode-scalar count, position, narrow/wide index, replacement-shape,
+  destination-width, and reference-path behavior. Focused red/green proof
+  exposed and fixed a real width-check bypass: a one-scalar `STRING` or
+  `WSTRING` replacement previously returned early and could place a scalar
+  outside the destination `CHAR` or `WCHAR` width. The corrected conversion
+  applies destination width and Unicode-scalar validation uniformly.
+  Deterministic numbered authority and assertion review binds 12 live
+  `bytecode_vm` facts and catalog-maps all six tests with two independent
+  reviewers. Two covered `runtime_safety` storage helpers remain honest
+  `spec_gap` rows instead of being forced across the area boundary. Repository
+  totals become 1,644 specified code facts, 13,741 remaining `spec_gap` facts,
+  1,148 `catalog_mapped` denominator tests, and 3,238 remaining
+  `reviewed_nonmapping` tests. The focused trace observed 6/6 tests in 18
+  seconds and 80 focused mapping/authority tests are green. Lower- and
+  upper-index boundary behaviors still require dedicated cataloged tests; no
+  coverage cell or proof level was promoted from trace evidence alone. The
+  contract uses the existing genuine `DEV-017` deviation and adds no unrelated
+  IEC decision or deviation. No broad workspace test, coverage campaign,
+  mutation campaign, or final gate has run.
+  <!-- generated:runtime-string-element-semantics:end -->
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device

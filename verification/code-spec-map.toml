@@ -4790,9 +4790,11 @@ owner = "trust-runtime"
 area = "bytecode_vm"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-25"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-2-runtime-string-elements"
+invariant_ids = ["VM_SEAM_STRING_ELEMENT_001"]
+test_ids = ["TEST_AUTO_430AF663A79A7D319743", "TEST_AUTO_4B09734A8D1856C5E38A", "TEST_AUTO_57FB35474C4EE46899FD", "TEST_AUTO_AB054456F6E59419DEFA", "TEST_AUTO_EF1816FF5BB0935AC957"]
+last_reviewed = "2026-07-26"
 
 [[mappings]]
 schema_version = 1
@@ -7166,9 +7168,11 @@ owner = "trust-runtime"
 area = "bytecode_vm"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-2-runtime-string-elements"
+invariant_ids = ["VM_SEAM_STRING_ELEMENT_001"]
+test_ids = ["TEST_AUTO_C914D2330D1D8FD81820"]
+last_reviewed = "2026-07-26"
 
 [[mappings]]
 schema_version = 1
@@ -8278,9 +8282,11 @@ visibility = "private"
 risk_signals = ["broad_error_suppression"]
 owner_ack = "RISK_ACK_49049F09DF49C617C7159F73CC79E380BCBB749E5BB08EF59907004CC7B47C6C"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-2-runtime-string-elements"
+invariant_ids = ["VM_SEAM_STRING_ELEMENT_001"]
+test_ids = ["TEST_AUTO_430AF663A79A7D319743", "TEST_AUTO_4B09734A8D1856C5E38A"]
+last_reviewed = "2026-07-26"
 
 [[mappings]]
 schema_version = 1
@@ -8346,9 +8352,11 @@ owner = "trust-runtime"
 area = "bytecode_vm"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-2-runtime-string-elements"
+invariant_ids = ["VM_SEAM_STRING_ELEMENT_001"]
+test_ids = ["TEST_AUTO_C914D2330D1D8FD81820"]
+last_reviewed = "2026-07-26"
 
 [[mappings]]
 schema_version = 1
@@ -10798,9 +10806,11 @@ owner = "trust-runtime"
 area = "bytecode_vm"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-2-runtime-string-elements"
+invariant_ids = ["VM_SEAM_STRING_ELEMENT_001"]
+test_ids = ["TEST_AUTO_C914D2330D1D8FD81820"]
+last_reviewed = "2026-07-26"
 
 [[mappings]]
 schema_version = 1
@@ -11260,9 +11270,11 @@ visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_6BF5A85DAB965CB1439658F805719C9FA8E1AFF487070E2BB972DD8480FFE905"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-2-runtime-string-elements"
+invariant_ids = ["VM_SEAM_STRING_ELEMENT_001"]
+test_ids = ["TEST_AUTO_430AF663A79A7D319743", "TEST_AUTO_4B09734A8D1856C5E38A"]
+last_reviewed = "2026-07-26"
 
 [[mappings]]
 schema_version = 1
@@ -14979,9 +14991,11 @@ visibility = "public"
 risk_signals = ["fault_mapping"]
 owner_ack = "RISK_ACK_91CA9EDFD0A160C1FE9F92DA596D1666BDF193395624EF24E3B6B42FEBA615F4"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-2-runtime-string-elements"
+invariant_ids = ["VM_SEAM_STRING_ELEMENT_001"]
+test_ids = ["TEST_AUTO_C914D2330D1D8FD81820"]
+last_reviewed = "2026-07-26"
 
 [[mappings]]
 schema_version = 1
@@ -15815,9 +15829,11 @@ visibility = "public"
 risk_signals = ["fault_mapping"]
 owner_ack = "RISK_ACK_988067CEB49D730AC554C6D10F47AFF83D5C476400C6BA0F5D8384BBF4173E5F"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-2-runtime-string-elements"
+invariant_ids = ["VM_SEAM_STRING_ELEMENT_001"]
+test_ids = ["TEST_AUTO_430AF663A79A7D319743", "TEST_AUTO_4B09734A8D1856C5E38A", "TEST_AUTO_57FB35474C4EE46899FD", "TEST_AUTO_AB054456F6E59419DEFA", "TEST_AUTO_EF1816FF5BB0935AC957"]
+last_reviewed = "2026-07-26"
 
 [[mappings]]
 schema_version = 1
@@ -20574,9 +20590,11 @@ visibility = "private"
 risk_signals = ["broad_error_suppression"]
 owner_ack = "RISK_ACK_D1E02702C754023920004D088C1F6929730FF2B1CE7640C4CACCEA71CE11A5CB"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-2-runtime-string-elements"
+invariant_ids = ["VM_SEAM_STRING_ELEMENT_001"]
+test_ids = ["TEST_AUTO_430AF663A79A7D319743", "TEST_AUTO_4B09734A8D1856C5E38A"]
+last_reviewed = "2026-07-26"
 
 [[mappings]]
 schema_version = 1
@@ -20811,9 +20829,11 @@ visibility = "public"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_D4761B50E589206F8CEE26CD41404AD890D97F5E26B71CA2B464763D6D7B7D9F"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-2-runtime-string-elements"
+invariant_ids = ["VM_SEAM_STRING_ELEMENT_001"]
+test_ids = ["TEST_AUTO_430AF663A79A7D319743", "TEST_AUTO_4B09734A8D1856C5E38A", "TEST_AUTO_57FB35474C4EE46899FD", "TEST_AUTO_AB054456F6E59419DEFA", "TEST_AUTO_EF1816FF5BB0935AC957"]
+last_reviewed = "2026-07-26"
 
 [[mappings]]
 schema_version = 1
@@ -21129,9 +21149,11 @@ owner = "trust-runtime"
 area = "bytecode_vm"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-2-runtime-string-elements"
+invariant_ids = ["VM_SEAM_STRING_ELEMENT_001"]
+test_ids = ["TEST_AUTO_430AF663A79A7D319743", "TEST_AUTO_4B09734A8D1856C5E38A"]
+last_reviewed = "2026-07-26"
 
 [[mappings]]
 schema_version = 1
@@ -21428,9 +21450,11 @@ visibility = "public"
 risk_signals = ["fault_mapping"]
 owner_ack = "RISK_ACK_DDCEA1E8332BDEDC68154057718536D8230C70D77BCA8F6929D83D42D57C006A"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-2-runtime-string-elements"
+invariant_ids = ["VM_SEAM_STRING_ELEMENT_001"]
+test_ids = ["TEST_AUTO_430AF663A79A7D319743", "TEST_AUTO_4B09734A8D1856C5E38A", "TEST_AUTO_57FB35474C4EE46899FD", "TEST_AUTO_AB054456F6E59419DEFA", "TEST_AUTO_EF1816FF5BB0935AC957"]
+last_reviewed = "2026-07-26"
 
 [[mappings]]
 schema_version = 1
