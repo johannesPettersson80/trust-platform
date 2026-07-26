@@ -3,7 +3,7 @@ id = "RT_RUN_STARTUP_POLICY_001"
 title = "Runtime startup policy fails before mutation and exposes effective launch state"
 area = "runtime_safety"
 risk = "false_status"
-status = "planned"
+status = "mapped"
 owner = "trust-runtime"
 last_reviewed = "2026-07-26"
 claim = "Runtime startup rejects unsupported bundle versions before policy mutation, exposes simulation warnings and effective settings truthfully, and maps only the reviewed graceful Unix signals into the ordinary bounded shutdown path."
@@ -14,17 +14,11 @@ source_refs = [
   "crates/trust-runtime/src/bin/trust-runtime/run/runtime.rs",
   "crates/trust-runtime/src/bin/trust-runtime/run/types.rs",
 ]
-tests = []
+tests = ["TEST_AUTO_05F976172E8A5BB0566B", "TEST_AUTO_0DDFCA476A330F0BE047", "TEST_AUTO_3C5AC4C3361E223612AF", "TEST_AUTO_57D298DD438F5E6F5975", "TEST_AUTO_598D28DD4E4B50652577", "TEST_AUTO_63C4C5C26503EF8BCCB4", "TEST_AUTO_A786BA87F3027726DC24"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = [
-  "catalog_mapping",
-  "assertion_reachability",
-  "mutation_sensitivity",
-  "windows_shutdown_evidence",
-  "broad_remote_gate",
-]
+missing = ["assertion_reachability", "mutation_sensitivity", "windows_shutdown_evidence", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -72,15 +66,15 @@ rationale = "Exposed settings preserve the effective bundle, simulation plan, ex
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "Reviewed warning and effective-settings assertions are ready for generated catalog mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in RT_RUN_STARTUP_POLICY_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "concurrency_or_cancellation"
-state = "gap_open"
-rationale = "Reviewed graceful-signal assertions are ready for generated catalog mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every concurrency_or_cancellation behavior in RT_RUN_STARTUP_POLICY_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "extra_or_unknown"
-state = "gap_open"
-rationale = "Reviewed unsupported-version assertions are ready for generated catalog mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every extra_or_unknown behavior in RT_RUN_STARTUP_POLICY_001; dynamic proof and broad remote validation remain explicit debt."

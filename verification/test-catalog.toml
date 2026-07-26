@@ -65615,3 +65615,1361 @@ mapping_assertion_review_digest = "sha256:a9bbc8c23b17fb069209493abc90488ed75de3
 mapping_assertion_source_digests = { "crates/trust-runtime/src/bin/trust-runtime/cli/tests.rs" = "sha256:970dfe82b987753a50967c8b4a0ae144c628ec6ab9ea5f8afe2f2f4f5684ddf8" }
 mapping_behavior_refs = ["RT_WORKBENCH_ALIAS_FORWARDING_001#behavior:0"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_2A96A0E41EBCE64E1BC9"
+subject_kind = "generated_test"
+discovery_id = "DISC_2A96A0E41EBCE64E1BC9"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "crates/trust-runtime/tests/debug_control.rs"
+name = "resolve_breakpoint_prefers_inner_statement"
+command = "cargo nextest run -p trust-runtime --test debug_control --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::debug_control) & test(~resolve_breakpoint_prefers_inner_statement)'"
+owner = "trust-debug"
+status = "mapped"
+invariants = ["DEBUG_CONTROL_EXECUTION_001"]
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"
+oracle_refs = ["SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"]
+expected_result = "Resolution selects the innermost containing or next statement start, and a matching current-generation breakpoint pauses before execution and emits one breakpoint stop."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_2A96A0E41EBCE64E1BC9.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_2A96A0E41EBCE64E1BC9_55CB9107FF8B"
+mapping_proposal_digest = "sha256:55cb9107ff8b719a540c6d65dab4903ca81f4b41b92b66c85699dd13415e24c2"
+mapping_decision_id = "MAP_DEC_0B69AF94048DDB00B007C43E"
+mapping_reviewed_source_digest = "sha256:16f1e36d294d16e15ea60c0532734705cc749b238b29448980f0dc3868717a85"
+mapping_assertion_review_digest = "sha256:8587363730368b79fea7bc8f5a1e2113c4b025456a71d800e3295340c6c774c3"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/debug_control.rs" = "sha256:16f1e36d294d16e15ea60c0532734705cc749b238b29448980f0dc3868717a85" }
+mapping_behavior_refs = ["DEBUG_CONTROL_EXECUTION_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_2C744D790225D90AF217"
+subject_kind = "generated_test"
+discovery_id = "DISC_2C744D790225D90AF217"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "crates/trust-runtime/tests/debug_control.rs"
+name = "breakpoint_pauses_execution"
+command = "cargo nextest run -p trust-runtime --test debug_control --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::debug_control) & test(~breakpoint_pauses_execution)'"
+owner = "trust-debug"
+status = "mapped"
+invariants = ["DEBUG_CONTROL_EXECUTION_001"]
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"
+oracle_refs = ["SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"]
+expected_result = "Resolution selects the innermost containing or next statement start, and a matching current-generation breakpoint pauses before execution and emits one breakpoint stop."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_2C744D790225D90AF217.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_2C744D790225D90AF217_957DBB33E604"
+mapping_proposal_digest = "sha256:957dbb33e604641a1d2db20aac69649196f99225b596390fa99f2e4aabdae95b"
+mapping_decision_id = "MAP_DEC_0C2F0C8E28426D7C570340F0"
+mapping_reviewed_source_digest = "sha256:16f1e36d294d16e15ea60c0532734705cc749b238b29448980f0dc3868717a85"
+mapping_assertion_review_digest = "sha256:3637b410f792c921a9ca3bb11166e6e1fa96d35705e02c40fd43da0f6143fc87"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/debug_control.rs" = "sha256:16f1e36d294d16e15ea60c0532734705cc749b238b29448980f0dc3868717a85" }
+mapping_behavior_refs = ["DEBUG_CONTROL_EXECUTION_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_2FE8A15EB7130A04B428"
+subject_kind = "generated_test"
+discovery_id = "DISC_2FE8A15EB7130A04B428"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "crates/trust-runtime/tests/debug_control.rs"
+name = "step_once_pauses_again"
+command = "cargo nextest run -p trust-runtime --test debug_control --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::debug_control) & test(~step_once_pauses_again)'"
+owner = "trust-debug"
+status = "mapped"
+invariants = ["DEBUG_CONTROL_EXECUTION_001"]
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"
+oracle_refs = ["SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"]
+expected_result = "Step In stops at the next statement, Step Over waits for the starting depth, and Step Out waits for the caller after resuming from pause."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_2FE8A15EB7130A04B428.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_2FE8A15EB7130A04B428_D32947D32F02"
+mapping_proposal_digest = "sha256:d32947d32f02b087d2ed49398160541390dce89f26d6dad5d63108128bd6e00d"
+mapping_decision_id = "MAP_DEC_28CE6E6BEA7975936896E1CB"
+mapping_reviewed_source_digest = "sha256:16f1e36d294d16e15ea60c0532734705cc749b238b29448980f0dc3868717a85"
+mapping_assertion_review_digest = "sha256:770f15f9e082cac93650fdad10867a61552b66f6d30660f7752302317164fd28"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/debug_control.rs" = "sha256:16f1e36d294d16e15ea60c0532734705cc749b238b29448980f0dc3868717a85" }
+mapping_behavior_refs = ["DEBUG_CONTROL_EXECUTION_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_32C281174ED571C3F5BA"
+subject_kind = "generated_test"
+discovery_id = "DISC_32C281174ED571C3F5BA"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "crates/trust-runtime/tests/debug_control.rs"
+name = "step_out_pauses_after_return"
+command = "cargo nextest run -p trust-runtime --test debug_control --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::debug_control) & test(~step_out_pauses_after_return)'"
+owner = "trust-debug"
+status = "mapped"
+invariants = ["DEBUG_CONTROL_EXECUTION_001"]
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"
+oracle_refs = ["SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"]
+expected_result = "Step In stops at the next statement, Step Over waits for the starting depth, and Step Out waits for the caller after resuming from pause."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_32C281174ED571C3F5BA.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_32C281174ED571C3F5BA_AF48D3630F3A"
+mapping_proposal_digest = "sha256:af48d3630f3ac4b69407c6691179d78a085b5370658d31ed88233745d9d4b305"
+mapping_decision_id = "MAP_DEC_2505B4A83E5E1BBCECE62456"
+mapping_reviewed_source_digest = "sha256:16f1e36d294d16e15ea60c0532734705cc749b238b29448980f0dc3868717a85"
+mapping_assertion_review_digest = "sha256:5652db6f4cf307e909e6e49c20d31e039d679f21f28aeaf991ee336036d068f1"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/debug_control.rs" = "sha256:16f1e36d294d16e15ea60c0532734705cc749b238b29448980f0dc3868717a85" }
+mapping_behavior_refs = ["DEBUG_CONTROL_EXECUTION_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_409932463EB8BCB34BAF"
+subject_kind = "generated_test"
+discovery_id = "DISC_409932463EB8BCB34BAF"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "crates/trust-runtime/tests/debug_control.rs"
+name = "runtime_event_sender_drop_buffers_event_in_debug_control"
+command = "cargo nextest run -p trust-runtime --test debug_control --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::debug_control) & test(~runtime_event_sender_drop_buffers_event_in_debug_control)'"
+owner = "trust-debug"
+status = "mapped"
+invariants = ["DEBUG_CONTROL_EXECUTION_001"]
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"
+oracle_refs = ["SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"]
+expected_result = "A dropped runtime-event or log receiver causes the first record to be retained in the matching in-memory debug-control buffer."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_409932463EB8BCB34BAF.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_409932463EB8BCB34BAF_498A9E9E5CD1"
+mapping_proposal_digest = "sha256:498a9e9e5cd1904d8ce3c7c8ce9cb0cde94268ae3efc714aa6529b0cded9f37c"
+mapping_decision_id = "MAP_DEC_016A03FAD0F6716D003AE11A"
+mapping_reviewed_source_digest = "sha256:16f1e36d294d16e15ea60c0532734705cc749b238b29448980f0dc3868717a85"
+mapping_assertion_review_digest = "sha256:e52ae7bd91ec7b71e75dfe50dd88c2e23a054431dd6e379106fc3f9114b58f32"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/debug_control.rs" = "sha256:16f1e36d294d16e15ea60c0532734705cc749b238b29448980f0dc3868717a85" }
+mapping_behavior_refs = ["DEBUG_CONTROL_EXECUTION_001#behavior:5"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_5AA958453C04F575A73F"
+subject_kind = "generated_test"
+discovery_id = "DISC_5AA958453C04F575A73F"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "crates/trust-runtime/tests/debug_control.rs"
+name = "runtime_resolves_breakpoint_position_to_statement_start"
+command = "cargo nextest run -p trust-runtime --test debug_control --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::debug_control) & test(~runtime_resolves_breakpoint_position_to_statement_start)'"
+owner = "trust-debug"
+status = "mapped"
+invariants = ["DEBUG_CONTROL_EXECUTION_001"]
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"
+oracle_refs = ["SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"]
+expected_result = "Resolution selects the innermost containing or next statement start, and a matching current-generation breakpoint pauses before execution and emits one breakpoint stop."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_5AA958453C04F575A73F.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_5AA958453C04F575A73F_9FFABCF13D82"
+mapping_proposal_digest = "sha256:9ffabcf13d8207b224bbde4499f3206bde115291f04aa775805608607823b1eb"
+mapping_decision_id = "MAP_DEC_D6CB5DB8D0BF44FD075792B1"
+mapping_reviewed_source_digest = "sha256:16f1e36d294d16e15ea60c0532734705cc749b238b29448980f0dc3868717a85"
+mapping_assertion_review_digest = "sha256:bff95d2f859f85bc042fd48a4fcc89cc41e6b10e5fa7227687cd2a3c54650716"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/debug_control.rs" = "sha256:16f1e36d294d16e15ea60c0532734705cc749b238b29448980f0dc3868717a85" }
+mapping_behavior_refs = ["DEBUG_CONTROL_EXECUTION_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_6A54BECFBCEE4FD899FE"
+subject_kind = "generated_test"
+discovery_id = "DISC_6A54BECFBCEE4FD899FE"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "crates/trust-runtime/tests/debug_control.rs"
+name = "resolve_breakpoint_next_statement"
+command = "cargo nextest run -p trust-runtime --test debug_control --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::debug_control) & test(~resolve_breakpoint_next_statement)'"
+owner = "trust-debug"
+status = "mapped"
+invariants = ["DEBUG_CONTROL_EXECUTION_001"]
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"
+oracle_refs = ["SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"]
+expected_result = "Resolution selects the innermost containing or next statement start, and a matching current-generation breakpoint pauses before execution and emits one breakpoint stop."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_6A54BECFBCEE4FD899FE.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_6A54BECFBCEE4FD899FE_75C5AA379ED5"
+mapping_proposal_digest = "sha256:75c5aa379ed58acca9c09d25df785f237c101aceea3639e5ef4e5246152463f6"
+mapping_decision_id = "MAP_DEC_1027EA30B248336CDB39372B"
+mapping_reviewed_source_digest = "sha256:16f1e36d294d16e15ea60c0532734705cc749b238b29448980f0dc3868717a85"
+mapping_assertion_review_digest = "sha256:b280baac3421c7e5aea69424e20e0f5f776c10f25fe326ae423ed5725813eaa1"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/debug_control.rs" = "sha256:16f1e36d294d16e15ea60c0532734705cc749b238b29448980f0dc3868717a85" }
+mapping_behavior_refs = ["DEBUG_CONTROL_EXECUTION_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_6E1D8338155F08DD3A00"
+subject_kind = "generated_test"
+discovery_id = "DISC_6E1D8338155F08DD3A00"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "crates/trust-runtime/tests/debug_control.rs"
+name = "hit_count_breakpoint_pauses_on_threshold"
+command = "cargo nextest run -p trust-runtime --test debug_control --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::debug_control) & test(~hit_count_breakpoint_pauses_on_threshold)'"
+owner = "trust-debug"
+status = "mapped"
+invariants = ["DEBUG_CONTROL_EXECUTION_001"]
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"
+oracle_refs = ["SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"]
+expected_result = "False conditions continue, true conditions pause, and an accepted hit threshold pauses exactly when its count is reached."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_6E1D8338155F08DD3A00.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_6E1D8338155F08DD3A00_4A378DD07B8C"
+mapping_proposal_digest = "sha256:4a378dd07b8caf74689473c9d77dcdc449947fc7357571b4b8bdbd3f135e09fd"
+mapping_decision_id = "MAP_DEC_53A8CD596CB01A6EE307F4D2"
+mapping_reviewed_source_digest = "sha256:16f1e36d294d16e15ea60c0532734705cc749b238b29448980f0dc3868717a85"
+mapping_assertion_review_digest = "sha256:6fd2b5d140173e9c9b9aa985fa4b6b409a151dbc789e5bb99cbb94376935b5fb"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/debug_control.rs" = "sha256:16f1e36d294d16e15ea60c0532734705cc749b238b29448980f0dc3868717a85" }
+mapping_behavior_refs = ["DEBUG_CONTROL_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_74070CA2ED3F2DF9C39C"
+subject_kind = "generated_test"
+discovery_id = "DISC_74070CA2ED3F2DF9C39C"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "crates/trust-runtime/tests/debug_control.rs"
+name = "breakpoint_emits_stop_event"
+command = "cargo nextest run -p trust-runtime --test debug_control --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::debug_control) & test(~breakpoint_emits_stop_event)'"
+owner = "trust-debug"
+status = "mapped"
+invariants = ["DEBUG_CONTROL_EXECUTION_001"]
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"
+oracle_refs = ["SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"]
+expected_result = "Resolution selects the innermost containing or next statement start, and a matching current-generation breakpoint pauses before execution and emits one breakpoint stop."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_74070CA2ED3F2DF9C39C.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_74070CA2ED3F2DF9C39C_493632B89F25"
+mapping_proposal_digest = "sha256:493632b89f258e5c14135d24bc7a184f321a827d57fa38ce849a451933b5e011"
+mapping_decision_id = "MAP_DEC_5CF69E3C8F8ED3D4A72BCAC6"
+mapping_reviewed_source_digest = "sha256:16f1e36d294d16e15ea60c0532734705cc749b238b29448980f0dc3868717a85"
+mapping_assertion_review_digest = "sha256:6cecb1babab753cd3e6426882977a13da8376ad6a0dce2354582fe54762a1ec5"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/debug_control.rs" = "sha256:16f1e36d294d16e15ea60c0532734705cc749b238b29448980f0dc3868717a85" }
+mapping_behavior_refs = ["DEBUG_CONTROL_EXECUTION_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_7A66519B6D69169281B8"
+subject_kind = "generated_test"
+discovery_id = "DISC_7A66519B6D69169281B8"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "crates/trust-runtime/tests/debug_control.rs"
+name = "step_over_pauses_at_same_depth"
+command = "cargo nextest run -p trust-runtime --test debug_control --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::debug_control) & test(~step_over_pauses_at_same_depth)'"
+owner = "trust-debug"
+status = "mapped"
+invariants = ["DEBUG_CONTROL_EXECUTION_001"]
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"
+oracle_refs = ["SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"]
+expected_result = "Step In stops at the next statement, Step Over waits for the starting depth, and Step Out waits for the caller after resuming from pause."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_7A66519B6D69169281B8.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_7A66519B6D69169281B8_D97938E11B3D"
+mapping_proposal_digest = "sha256:d97938e11b3d836e9d12aacc567b5cd42f10082947df154190d40554b68a3c48"
+mapping_decision_id = "MAP_DEC_503236F4440C8B3FCE3F246E"
+mapping_reviewed_source_digest = "sha256:16f1e36d294d16e15ea60c0532734705cc749b238b29448980f0dc3868717a85"
+mapping_assertion_review_digest = "sha256:f5077046eba9f61ceba37efb63da1472706658ca5105737c16752e8fce4f3190"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/debug_control.rs" = "sha256:16f1e36d294d16e15ea60c0532734705cc749b238b29448980f0dc3868717a85" }
+mapping_behavior_refs = ["DEBUG_CONTROL_EXECUTION_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_85B4ED878073A5E30340"
+subject_kind = "generated_test"
+discovery_id = "DISC_85B4ED878073A5E30340"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "crates/trust-runtime/tests/debug_control.rs"
+name = "frame_location_tracks_current_frame"
+command = "cargo nextest run -p trust-runtime --test debug_control --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::debug_control) & test(~frame_location_tracks_current_frame)'"
+owner = "trust-debug"
+status = "mapped"
+invariants = ["DEBUG_CONTROL_EXECUTION_001"]
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"
+oracle_refs = ["SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"]
+expected_result = "The current frame location and watch-change state follow each stop, while continue preserves the remaining configured task order."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_85B4ED878073A5E30340.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_85B4ED878073A5E30340_E092C3C64E29"
+mapping_proposal_digest = "sha256:e092c3c64e290500bbb5a26287a045a307755e7659f6aab96ccdd85d01b29ffc"
+mapping_decision_id = "MAP_DEC_74E86601523624B432ED1409"
+mapping_reviewed_source_digest = "sha256:16f1e36d294d16e15ea60c0532734705cc749b238b29448980f0dc3868717a85"
+mapping_assertion_review_digest = "sha256:748fd88ce28753a19eba3ddb3a5fe86d5084a36c5d6906ff17ed2c6b1b1d27f5"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/debug_control.rs" = "sha256:16f1e36d294d16e15ea60c0532734705cc749b238b29448980f0dc3868717a85" }
+mapping_behavior_refs = ["DEBUG_CONTROL_EXECUTION_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_886FA242D29116F3F256"
+subject_kind = "generated_test"
+discovery_id = "DISC_886FA242D29116F3F256"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "crates/trust-runtime/tests/debug_control.rs"
+name = "statement_locations_use_first_token_in_if_block"
+command = "cargo nextest run -p trust-runtime --test debug_control --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::debug_control) & test(~statement_locations_use_first_token_in_if_block)'"
+owner = "trust-debug"
+status = "mapped"
+invariants = ["DEBUG_CONTROL_EXECUTION_001"]
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"
+oracle_refs = ["SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"]
+expected_result = "Resolution selects the innermost containing or next statement start, and a matching current-generation breakpoint pauses before execution and emits one breakpoint stop."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_886FA242D29116F3F256.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_886FA242D29116F3F256_33C37B0388CD"
+mapping_proposal_digest = "sha256:33c37b0388cd501d29a2ac67e3c8189b669daa666dc490466590ad9e1ba96a0d"
+mapping_decision_id = "MAP_DEC_189EBAC37740A18DCB3758CA"
+mapping_reviewed_source_digest = "sha256:16f1e36d294d16e15ea60c0532734705cc749b238b29448980f0dc3868717a85"
+mapping_assertion_review_digest = "sha256:d81fc8bc85ef730106ba2213028d393e32b11325872d2cb39fdcd19957941a05"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/debug_control.rs" = "sha256:16f1e36d294d16e15ea60c0532734705cc749b238b29448980f0dc3868717a85" }
+mapping_behavior_refs = ["DEBUG_CONTROL_EXECUTION_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_8CAB7A4337CA6BE04E7F"
+subject_kind = "generated_test"
+discovery_id = "DISC_8CAB7A4337CA6BE04E7F"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "crates/trust-runtime/tests/debug_control.rs"
+name = "conditional_breakpoint_skips_when_false"
+command = "cargo nextest run -p trust-runtime --test debug_control --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::debug_control) & test(~conditional_breakpoint_skips_when_false)'"
+owner = "trust-debug"
+status = "mapped"
+invariants = ["DEBUG_CONTROL_EXECUTION_001"]
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"
+oracle_refs = ["SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"]
+expected_result = "False conditions continue, true conditions pause, and an accepted hit threshold pauses exactly when its count is reached."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_8CAB7A4337CA6BE04E7F.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_8CAB7A4337CA6BE04E7F_5778C5D64EF9"
+mapping_proposal_digest = "sha256:5778c5d64ef92ce6a5127a4e64e2483ce80e07eed3837c02c6a826896624be0e"
+mapping_decision_id = "MAP_DEC_B9F7741CDFFA6349EBA490DB"
+mapping_reviewed_source_digest = "sha256:16f1e36d294d16e15ea60c0532734705cc749b238b29448980f0dc3868717a85"
+mapping_assertion_review_digest = "sha256:fc8d78ae503f9e7a8435277fdfd526613f4595dd66a82bad1a2ec4001820f8e3"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/debug_control.rs" = "sha256:16f1e36d294d16e15ea60c0532734705cc749b238b29448980f0dc3868717a85" }
+mapping_behavior_refs = ["DEBUG_CONTROL_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_8CC0C32A02C75700E3A8"
+subject_kind = "generated_test"
+discovery_id = "DISC_8CC0C32A02C75700E3A8"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "crates/trust-runtime/tests/debug_control.rs"
+name = "logpoint_sender_drop_buffers_log_in_debug_control"
+command = "cargo nextest run -p trust-runtime --test debug_control --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::debug_control) & test(~logpoint_sender_drop_buffers_log_in_debug_control)'"
+owner = "trust-debug"
+status = "mapped"
+invariants = ["DEBUG_CONTROL_EXECUTION_001"]
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"
+oracle_refs = ["SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"]
+expected_result = "A dropped runtime-event or log receiver causes the first record to be retained in the matching in-memory debug-control buffer."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_8CC0C32A02C75700E3A8.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_8CC0C32A02C75700E3A8_644092454F02"
+mapping_proposal_digest = "sha256:644092454f023b0921cfe711ae3a7beef8edc7ce16c9da47fce2e8a237a93835"
+mapping_decision_id = "MAP_DEC_9DD3D9DB20236AF6684BA4D4"
+mapping_reviewed_source_digest = "sha256:16f1e36d294d16e15ea60c0532734705cc749b238b29448980f0dc3868717a85"
+mapping_assertion_review_digest = "sha256:d8727c8c251b08bd2c13800af0cf5ec4086de3a005166410625cc6ee2bc4a0bb"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/debug_control.rs" = "sha256:16f1e36d294d16e15ea60c0532734705cc749b238b29448980f0dc3868717a85" }
+mapping_behavior_refs = ["DEBUG_CONTROL_EXECUTION_001#behavior:5"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_92B081AFB9BC90E206D6"
+subject_kind = "generated_test"
+discovery_id = "DISC_92B081AFB9BC90E206D6"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "crates/trust-runtime/tests/debug_control.rs"
+name = "breakpoint_generation_increments_on_clear"
+command = "cargo nextest run -p trust-runtime --test debug_control --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::debug_control) & test(~breakpoint_generation_increments_on_clear)'"
+owner = "trust-debug"
+status = "mapped"
+invariants = ["DEBUG_CONTROL_EXECUTION_001"]
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"
+oracle_refs = ["SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"]
+expected_result = "Resolution selects the innermost containing or next statement start, and a matching current-generation breakpoint pauses before execution and emits one breakpoint stop."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_92B081AFB9BC90E206D6.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_92B081AFB9BC90E206D6_6471416A4506"
+mapping_proposal_digest = "sha256:6471416a45061a41e6c4cf47369b27fc9a29f901f839972eb0b9cfadbc367102"
+mapping_decision_id = "MAP_DEC_09F10E0B799F865E98EC8CEA"
+mapping_reviewed_source_digest = "sha256:16f1e36d294d16e15ea60c0532734705cc749b238b29448980f0dc3868717a85"
+mapping_assertion_review_digest = "sha256:53c548d93f9bc256bf7891a9fa50b5f2a79ddea8632ad2b0c479316d54be5c44"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/debug_control.rs" = "sha256:16f1e36d294d16e15ea60c0532734705cc749b238b29448980f0dc3868717a85" }
+mapping_behavior_refs = ["DEBUG_CONTROL_EXECUTION_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_E0B5E92D4B643A8AE264"
+subject_kind = "generated_test"
+discovery_id = "DISC_E0B5E92D4B643A8AE264"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "crates/trust-runtime/tests/debug_control.rs"
+name = "watch_changes_reported_between_stops"
+command = "cargo nextest run -p trust-runtime --test debug_control --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::debug_control) & test(~watch_changes_reported_between_stops)'"
+owner = "trust-debug"
+status = "mapped"
+invariants = ["DEBUG_CONTROL_EXECUTION_001"]
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"
+oracle_refs = ["SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"]
+expected_result = "The current frame location and watch-change state follow each stop, while continue preserves the remaining configured task order."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_E0B5E92D4B643A8AE264.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_E0B5E92D4B643A8AE264_4F348A8707DE"
+mapping_proposal_digest = "sha256:4f348a8707de204e88b26adb46d22b0e24065b66043a1b6144ae9a6008b0faac"
+mapping_decision_id = "MAP_DEC_0425D7F60817DE884E89A58B"
+mapping_reviewed_source_digest = "sha256:16f1e36d294d16e15ea60c0532734705cc749b238b29448980f0dc3868717a85"
+mapping_assertion_review_digest = "sha256:9aa653f2e99a301336d2356eaf88bd86185c4ce83caaf0d2b9e9fcd7220d8813"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/debug_control.rs" = "sha256:16f1e36d294d16e15ea60c0532734705cc749b238b29448980f0dc3868717a85" }
+mapping_behavior_refs = ["DEBUG_CONTROL_EXECUTION_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_E2618AAFF9EE0C3C6E82"
+subject_kind = "generated_test"
+discovery_id = "DISC_E2618AAFF9EE0C3C6E82"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "crates/trust-runtime/tests/debug_control.rs"
+name = "conditional_breakpoint_pauses_when_true"
+command = "cargo nextest run -p trust-runtime --test debug_control --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::debug_control) & test(~conditional_breakpoint_pauses_when_true)'"
+owner = "trust-debug"
+status = "mapped"
+invariants = ["DEBUG_CONTROL_EXECUTION_001"]
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"
+oracle_refs = ["SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"]
+expected_result = "False conditions continue, true conditions pause, and an accepted hit threshold pauses exactly when its count is reached."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_E2618AAFF9EE0C3C6E82.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_E2618AAFF9EE0C3C6E82_8F946CE0F462"
+mapping_proposal_digest = "sha256:8f946ce0f462568a5d3f52d92b47290465ab533d7fa9d6653dae0169e5af9d71"
+mapping_decision_id = "MAP_DEC_75A95D1C1F037BE0334461B4"
+mapping_reviewed_source_digest = "sha256:16f1e36d294d16e15ea60c0532734705cc749b238b29448980f0dc3868717a85"
+mapping_assertion_review_digest = "sha256:268c5ee9745cf1eca59e608d8ee8c193a5daf45a9d70fdcd05f0f0c3c68893ea"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/debug_control.rs" = "sha256:16f1e36d294d16e15ea60c0532734705cc749b238b29448980f0dc3868717a85" }
+mapping_behavior_refs = ["DEBUG_CONTROL_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_E74444F2E944A7346A1B"
+subject_kind = "generated_test"
+discovery_id = "DISC_E74444F2E944A7346A1B"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "crates/trust-runtime/tests/debug_control.rs"
+name = "logpoint_emits_output_without_pausing"
+command = "cargo nextest run -p trust-runtime --test debug_control --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::debug_control) & test(~logpoint_emits_output_without_pausing)'"
+owner = "trust-debug"
+status = "mapped"
+invariants = ["DEBUG_CONTROL_EXECUTION_001"]
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"
+oracle_refs = ["SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"]
+expected_result = "A logpoint formats its text and expression fragments into one output record while execution continues without a debug stop."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_E74444F2E944A7346A1B.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_E74444F2E944A7346A1B_A6A0290E3A64"
+mapping_proposal_digest = "sha256:a6a0290e3a643b236a897ac3cd9bce28b28efadcc07abaa07bad9d1a2ddcf1e1"
+mapping_decision_id = "MAP_DEC_15AF5DF702639C7E236C8286"
+mapping_reviewed_source_digest = "sha256:16f1e36d294d16e15ea60c0532734705cc749b238b29448980f0dc3868717a85"
+mapping_assertion_review_digest = "sha256:3ac984b5be172c05a1d576b16f3c743884e954cc220c6fcbb95e56bcf6ea8cab"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/debug_control.rs" = "sha256:16f1e36d294d16e15ea60c0532734705cc749b238b29448980f0dc3868717a85" }
+mapping_behavior_refs = ["DEBUG_CONTROL_EXECUTION_001#behavior:4"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_E8FF497B1411878B1442"
+subject_kind = "generated_test"
+discovery_id = "DISC_E8FF497B1411878B1442"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "crates/trust-runtime/tests/debug_control.rs"
+name = "pause_preserves_task_order"
+command = "cargo nextest run -p trust-runtime --test debug_control --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::debug_control) & test(~pause_preserves_task_order)'"
+owner = "trust-debug"
+status = "mapped"
+invariants = ["DEBUG_CONTROL_EXECUTION_001"]
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"
+oracle_refs = ["SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"]
+expected_result = "The current frame location and watch-change state follow each stop, while continue preserves the remaining configured task order."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_E8FF497B1411878B1442.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_E8FF497B1411878B1442_266DE94F5AC8"
+mapping_proposal_digest = "sha256:266de94f5ac8f89fd26eb3cb3581c36ee7fae0d7827b76a0540b5d34b17859cd"
+mapping_decision_id = "MAP_DEC_C491D0C7D524A6F708BC0A6B"
+mapping_reviewed_source_digest = "sha256:16f1e36d294d16e15ea60c0532734705cc749b238b29448980f0dc3868717a85"
+mapping_assertion_review_digest = "sha256:1171cafdc27e3a55b1c9d3037fe841dbc213055c30462d05bb3cf0f2470ae666"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/debug_control.rs" = "sha256:16f1e36d294d16e15ea60c0532734705cc749b238b29448980f0dc3868717a85" }
+mapping_behavior_refs = ["DEBUG_CONTROL_EXECUTION_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_EED9C5DD30F925D42EE7"
+subject_kind = "generated_test"
+discovery_id = "DISC_EED9C5DD30F925D42EE7"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "crates/trust-runtime/tests/debug_control.rs"
+name = "runtime_resolves_breakpoint_using_index"
+command = "cargo nextest run -p trust-runtime --test debug_control --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::debug_control) & test(~runtime_resolves_breakpoint_using_index)'"
+owner = "trust-debug"
+status = "mapped"
+invariants = ["DEBUG_CONTROL_EXECUTION_001"]
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"
+oracle_refs = ["SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"]
+expected_result = "Resolution selects the innermost containing or next statement start, and a matching current-generation breakpoint pauses before execution and emits one breakpoint stop."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_EED9C5DD30F925D42EE7.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_EED9C5DD30F925D42EE7_506D90C3A88B"
+mapping_proposal_digest = "sha256:506d90c3a88b0c94c2f33ab47dfe2d6777f24ed2d1c7bad5bb14608dfccbddf9"
+mapping_decision_id = "MAP_DEC_CE91725D99A715BB900EC5BB"
+mapping_reviewed_source_digest = "sha256:16f1e36d294d16e15ea60c0532734705cc749b238b29448980f0dc3868717a85"
+mapping_assertion_review_digest = "sha256:cc43894dd2ab0851042386efc1495b67906372f0d7e095f5b899b73571339148"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/debug_control.rs" = "sha256:16f1e36d294d16e15ea60c0532734705cc749b238b29448980f0dc3868717a85" }
+mapping_behavior_refs = ["DEBUG_CONTROL_EXECUTION_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_04C3E5C754B5BACD20F6"
+subject_kind = "generated_test"
+discovery_id = "DISC_04C3E5C754B5BACD20F6"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/run/tests.rs"
+name = "execution_backend_selection_uses_bundle_when_cli_absent"
+command = "cargo nextest run -p trust-runtime --bin trust-runtime --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bin/trust-runtime) & test(~execution_backend_selection_uses_bundle_when_cli_absent)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_CONFIG_BUNDLE_LOAD_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-configuration-loading-and-validation-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#runtime-configuration-loading-and-validation-contract"]
+expected_result = "The loaded runtime records Config for an explicit backend and Default only when the documented field is omitted."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_04C3E5C754B5BACD20F6.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_04C3E5C754B5BACD20F6_4B0ED5A2DE1E"
+mapping_proposal_digest = "sha256:4b0ed5a2de1e088c5bd017d68b766a52967f1a0a721230727e24cbb68ee9c768"
+mapping_decision_id = "MAP_DEC_EB1AF14A077AC30041F25B6C"
+mapping_reviewed_source_digest = "sha256:ed9e9dac32ad28a321433f085a2494553269a6a84b09057025ea4109e77118c5"
+mapping_assertion_review_digest = "sha256:b61c703e25c59783ff4086e80c945f2b80bec65344a706ee6c20a6aad3f9c6de"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/bin/trust-runtime/run/tests.rs" = "sha256:ed9e9dac32ad28a321433f085a2494553269a6a84b09057025ea4109e77118c5" }
+mapping_behavior_refs = ["RT_CONFIG_BUNDLE_LOAD_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_05F976172E8A5BB0566B"
+subject_kind = "generated_test"
+discovery_id = "DISC_05F976172E8A5BB0566B"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/run/tests.rs"
+name = "runtime_settings_project_effective_bundle_and_cli_selection"
+command = "cargo nextest run -p trust-runtime --bin trust-runtime --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bin/trust-runtime) & test(~runtime_settings_project_effective_bundle_and_cli_selection)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_RUN_STARTUP_POLICY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-startup-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-startup-contract"]
+expected_result = "Exposed settings preserve the effective bundle, simulation plan, execution backend, and backend-source selections used for startup."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_05F976172E8A5BB0566B.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_05F976172E8A5BB0566B_FB4117AABDD5"
+mapping_proposal_digest = "sha256:fb4117aabdd5c5d0f6b462441b354a48d6ad97c9c8ca33075765d4362773f83d"
+mapping_decision_id = "MAP_DEC_7E2F44AFB75F11F45D188260"
+mapping_reviewed_source_digest = "sha256:ed9e9dac32ad28a321433f085a2494553269a6a84b09057025ea4109e77118c5"
+mapping_assertion_review_digest = "sha256:a1d38c507018674e5bf86f471be1a95c1061110214903ac658552ac6dfd6367c"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/bin/trust-runtime/run/tests.rs" = "sha256:ed9e9dac32ad28a321433f085a2494553269a6a84b09057025ea4109e77118c5" }
+mapping_behavior_refs = ["RT_RUN_STARTUP_POLICY_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_0DDFCA476A330F0BE047"
+subject_kind = "generated_test"
+discovery_id = "DISC_0DDFCA476A330F0BE047"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/run/tests.rs"
+name = "simulation_warning_includes_mode_and_safety_note"
+command = "cargo nextest run -p trust-runtime --bin trust-runtime --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bin/trust-runtime) & test(~simulation_warning_includes_mode_and_safety_note)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_RUN_STARTUP_POLICY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-startup-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-startup-contract"]
+expected_result = "Simulation mode reports its effective scale and live-hardware warning, while production mode emits no simulation warning."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_0DDFCA476A330F0BE047.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_0DDFCA476A330F0BE047_DD79D945D756"
+mapping_proposal_digest = "sha256:dd79d945d756ea2bc20e643f3379053f1d14b9d0880ddd4427c0bf1f553c521e"
+mapping_decision_id = "MAP_DEC_70C5F40FE4562563412B2DA8"
+mapping_reviewed_source_digest = "sha256:ed9e9dac32ad28a321433f085a2494553269a6a84b09057025ea4109e77118c5"
+mapping_assertion_review_digest = "sha256:bfce6996b7d2de65264af22d82fe7f8e057fc1f2574c5eaafe0d60c4892cf0b8"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/bin/trust-runtime/run/tests.rs" = "sha256:ed9e9dac32ad28a321433f085a2494553269a6a84b09057025ea4109e77118c5" }
+mapping_behavior_refs = ["RT_RUN_STARTUP_POLICY_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_2AD9428FF97F3FA04D55"
+subject_kind = "generated_test"
+discovery_id = "DISC_2AD9428FF97F3FA04D55"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/bin/trust-runtime/run/tests.rs"
+name = "mqtt_io_source_label_uses_directional_topic"
+command = "cargo nextest run -p trust-runtime --bin trust-runtime --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bin/trust-runtime) & test(~mqtt_io_source_label_uses_directional_topic)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MQTT_DRIVER_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#io-drivers"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#io-drivers"]
+expected_result = "Input provenance names topic_in and output provenance names topic_out without substituting the opposite-direction topic."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_2AD9428FF97F3FA04D55.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_2AD9428FF97F3FA04D55_6D6FFD631AA7"
+mapping_proposal_digest = "sha256:6d6ffd631aa7056b74dbffbeb883f34962638e07175f1fe57d656b1c6d6f7adb"
+mapping_decision_id = "MAP_DEC_662D28A395DC6577FD9EA476"
+mapping_reviewed_source_digest = "sha256:ed9e9dac32ad28a321433f085a2494553269a6a84b09057025ea4109e77118c5"
+mapping_assertion_review_digest = "sha256:997baa52faaea6740c069bc6318714ebc91bb46067b14a95896b40befd11dfe1"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/bin/trust-runtime/run/tests.rs" = "sha256:ed9e9dac32ad28a321433f085a2494553269a6a84b09057025ea4109e77118c5" }
+mapping_behavior_refs = ["RT_MQTT_DRIVER_001#behavior:12"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_3C5AC4C3361E223612AF"
+subject_kind = "generated_test"
+discovery_id = "DISC_3C5AC4C3361E223612AF"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/run/tests.rs"
+name = "simulation_warning_omitted_in_production_mode"
+command = "cargo nextest run -p trust-runtime --bin trust-runtime --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bin/trust-runtime) & test(~simulation_warning_omitted_in_production_mode)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_RUN_STARTUP_POLICY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-startup-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-startup-contract"]
+expected_result = "Simulation mode reports its effective scale and live-hardware warning, while production mode emits no simulation warning."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_3C5AC4C3361E223612AF.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_3C5AC4C3361E223612AF_0686488D26CC"
+mapping_proposal_digest = "sha256:0686488d26ccd0375e08ac0b0b8c51639d3072a9d569ffa4720f25d75424cf8d"
+mapping_decision_id = "MAP_DEC_73C5C24E35754E835C0B88B1"
+mapping_reviewed_source_digest = "sha256:ed9e9dac32ad28a321433f085a2494553269a6a84b09057025ea4109e77118c5"
+mapping_assertion_review_digest = "sha256:744e04b7c51c8c8835fe9a3d581ead9c645ad2264250078bbdf95a8b21f04e29"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/bin/trust-runtime/run/tests.rs" = "sha256:ed9e9dac32ad28a321433f085a2494553269a6a84b09057025ea4109e77118c5" }
+mapping_behavior_refs = ["RT_RUN_STARTUP_POLICY_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_4685ADC459FF023B939A"
+subject_kind = "generated_test"
+discovery_id = "DISC_4685ADC459FF023B939A"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/run/tests.rs"
+name = "project_runtime_load_includes_local_dependencies"
+command = "cargo nextest run -p trust-runtime --bin trust-runtime --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bin/trust-runtime) & test(~project_runtime_load_includes_local_dependencies)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_PROJECT_RUNTIME_SOURCE_LOAD_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-startup-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-startup-contract"]
+expected_result = "Project-mode source compilation includes the selected source root and every resolved local project dependency source."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_4685ADC459FF023B939A.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_4685ADC459FF023B939A_68FCA29E95D2"
+mapping_proposal_digest = "sha256:68fca29e95d231c21f6eb34d4d2c28e8ec3fa24c2ea2e3f716a4e9ec39b09f64"
+mapping_decision_id = "MAP_DEC_97BF9F2C68A1969D07828325"
+mapping_reviewed_source_digest = "sha256:ed9e9dac32ad28a321433f085a2494553269a6a84b09057025ea4109e77118c5"
+mapping_assertion_review_digest = "sha256:1497895bcd8ba74f00fb9d5d6db52e937ae63fd34ae4eb7ec6aea4f6f992fb86"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/bin/trust-runtime/run/tests.rs" = "sha256:ed9e9dac32ad28a321433f085a2494553269a6a84b09057025ea4109e77118c5" }
+mapping_behavior_refs = ["RT_PROJECT_RUNTIME_SOURCE_LOAD_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_4AF856C071A36379205A"
+subject_kind = "generated_test"
+discovery_id = "DISC_4AF856C071A36379205A"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/run/tests.rs"
+name = "legacy_runtime_root_source_loading_treats_paths_literally"
+command = "cargo nextest run -p trust-runtime --bin trust-runtime --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bin/trust-runtime) & test(~legacy_runtime_root_source_loading_treats_paths_literally)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_PROJECT_RUNTIME_SOURCE_LOAD_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-startup-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-startup-contract"]
+expected_result = "Legacy runtime-root loading treats metacharacters literally, finds ST and POU files recursively and case-insensitively, and returns deterministic path order."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_4AF856C071A36379205A.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_4AF856C071A36379205A_0047EFDD1F20"
+mapping_proposal_digest = "sha256:0047efdd1f20cda60c47800bd1d439850d16781cb3e2c5a13f11dee807cdd0a0"
+mapping_decision_id = "MAP_DEC_564AEE0BB7EE4ED5BADAE772"
+mapping_reviewed_source_digest = "sha256:ed9e9dac32ad28a321433f085a2494553269a6a84b09057025ea4109e77118c5"
+mapping_assertion_review_digest = "sha256:d9bcd3c04f1526a4105889a2426b9d67f7ad0cbfb396aed0c6fe8eeaf73ac874"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/bin/trust-runtime/run/tests.rs" = "sha256:ed9e9dac32ad28a321433f085a2494553269a6a84b09057025ea4109e77118c5" }
+mapping_behavior_refs = ["RT_PROJECT_RUNTIME_SOURCE_LOAD_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_4B4E5752827124306312"
+subject_kind = "generated_test"
+discovery_id = "DISC_4B4E5752827124306312"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/run/tests.rs"
+name = "execution_backend_selection_cli_overrides_bundle"
+command = "cargo nextest run -p trust-runtime --bin trust-runtime --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bin/trust-runtime) & test(~execution_backend_selection_cli_overrides_bundle)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_CONFIG_BUNDLE_LOAD_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-configuration-loading-and-validation-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#runtime-configuration-loading-and-validation-contract"]
+expected_result = "The loaded runtime records Config for an explicit backend and Default only when the documented field is omitted."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_4B4E5752827124306312.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_4B4E5752827124306312_FF3EDE353FF4"
+mapping_proposal_digest = "sha256:ff3ede353ff48c9a684fd802200928562268fbfd1616624d965feb93963a95ff"
+mapping_decision_id = "MAP_DEC_5E7C7A225319BB99864172CB"
+mapping_reviewed_source_digest = "sha256:ed9e9dac32ad28a321433f085a2494553269a6a84b09057025ea4109e77118c5"
+mapping_assertion_review_digest = "sha256:c2b711c8bb8f89e55a4731d1854bee3fd70b81d46e18f91a90f0729d35024506"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/bin/trust-runtime/run/tests.rs" = "sha256:ed9e9dac32ad28a321433f085a2494553269a6a84b09057025ea4109e77118c5" }
+mapping_behavior_refs = ["RT_CONFIG_BUNDLE_LOAD_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_4B89573A074FC2BB9D94"
+subject_kind = "generated_test"
+discovery_id = "DISC_4B89573A074FC2BB9D94"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/run/tests.rs"
+name = "simulation_plan_preserves_project_model_when_cli_enables_it"
+command = "cargo nextest run -p trust-runtime --bin trust-runtime --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bin/trust-runtime) & test(~simulation_plan_preserves_project_model_when_cli_enables_it)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_PLAY_LAUNCH_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-startup-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-startup-contract"]
+expected_result = "Explicit CLI simulation enablement retains the project's simulation model and its configured time scale when no stronger CLI scale override is supplied."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_4B89573A074FC2BB9D94.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_4B89573A074FC2BB9D94_50C89497A072"
+mapping_proposal_digest = "sha256:50c89497a0722b5481d4862f4a59d3b37ff1b1dde003029b288cbceb435e4c53"
+mapping_decision_id = "MAP_DEC_01AD7FA9505134DC03E4D42A"
+mapping_reviewed_source_digest = "sha256:ed9e9dac32ad28a321433f085a2494553269a6a84b09057025ea4109e77118c5"
+mapping_assertion_review_digest = "sha256:bf0494eb62ad42513ec2ac99e178d3c0a296a2b2fd16089b80286895b1101e89"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/bin/trust-runtime/run/tests.rs" = "sha256:ed9e9dac32ad28a321433f085a2494553269a6a84b09057025ea4109e77118c5" }
+mapping_behavior_refs = ["RT_PLAY_LAUNCH_001#behavior:8"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_57D298DD438F5E6F5975"
+subject_kind = "generated_test"
+discovery_id = "DISC_57D298DD438F5E6F5975"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/run/tests.rs"
+name = "unix_signal_mapping_rejects_unreviewed_shutdown_signals"
+command = "cargo nextest run -p trust-runtime --bin trust-runtime --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bin/trust-runtime) & test(~unix_signal_mapping_rejects_unreviewed_shutdown_signals)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_RUN_STARTUP_POLICY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-startup-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-startup-contract"]
+expected_result = "SIGINT and SIGTERM request the ordinary runtime shutdown target; unreviewed Unix signals do not manufacture a runtime stop request."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_57D298DD438F5E6F5975.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_57D298DD438F5E6F5975_ACB38D48C67A"
+mapping_proposal_digest = "sha256:acb38d48c67ada8293661cad10c8c70fef3733b2ebda292fd7e11cadd1c520a0"
+mapping_decision_id = "MAP_DEC_DEAACF7A81E3F6AF6A9A1B39"
+mapping_reviewed_source_digest = "sha256:ed9e9dac32ad28a321433f085a2494553269a6a84b09057025ea4109e77118c5"
+mapping_assertion_review_digest = "sha256:7dcb1548fab7d5547dc98ca4f480a2aef211802f7fcebed97292c775c391502b"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/bin/trust-runtime/run/tests.rs" = "sha256:ed9e9dac32ad28a321433f085a2494553269a6a84b09057025ea4109e77118c5" }
+mapping_behavior_refs = ["RT_RUN_STARTUP_POLICY_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_598D28DD4E4B50652577"
+subject_kind = "generated_test"
+discovery_id = "DISC_598D28DD4E4B50652577"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/run/tests.rs"
+name = "unix_signal_mapping_covers_sigint_and_sigterm"
+command = "cargo nextest run -p trust-runtime --bin trust-runtime --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bin/trust-runtime) & test(~unix_signal_mapping_covers_sigint_and_sigterm)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_RUN_STARTUP_POLICY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-startup-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-startup-contract"]
+expected_result = "SIGINT and SIGTERM request the ordinary runtime shutdown target; unreviewed Unix signals do not manufacture a runtime stop request."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_598D28DD4E4B50652577.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_598D28DD4E4B50652577_5EAFD9D9D7DF"
+mapping_proposal_digest = "sha256:5eafd9d9d7dfd42027ee7e669f019f61a6a0f3d44eed8a8997ca8c1bc772d571"
+mapping_decision_id = "MAP_DEC_A30B10A53643D6CDAF6547CD"
+mapping_reviewed_source_digest = "sha256:ed9e9dac32ad28a321433f085a2494553269a6a84b09057025ea4109e77118c5"
+mapping_assertion_review_digest = "sha256:16781be2102ea070578f060148cbbd27ce1c7a74c74667423f05b7ef9f2b8189"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/bin/trust-runtime/run/tests.rs" = "sha256:ed9e9dac32ad28a321433f085a2494553269a6a84b09057025ea4109e77118c5" }
+mapping_behavior_refs = ["RT_RUN_STARTUP_POLICY_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_5DFDEC6B9BF7CE3038B7"
+subject_kind = "generated_test"
+discovery_id = "DISC_5DFDEC6B9BF7CE3038B7"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/bin/trust-runtime/run/tests.rs"
+name = "modbus_io_source_label_uses_register_direction"
+command = "cargo nextest run -p trust-runtime --bin trust-runtime --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bin/trust-runtime) & test(~modbus_io_source_label_uses_register_direction)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MODBUS_DRIVER_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#io-drivers"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#io-drivers"]
+expected_result = "Input provenance uses the configured input-register base and output provenance uses the configured output-register base, each with the addressed word offset."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_5DFDEC6B9BF7CE3038B7.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_5DFDEC6B9BF7CE3038B7_9BCCA79ADEBE"
+mapping_proposal_digest = "sha256:9bcca79adebe7dd96ee301d1661560884837378b0e47e19f51af47ce3c34e3fc"
+mapping_decision_id = "MAP_DEC_0E57C001CB13FAABF9AB36AD"
+mapping_reviewed_source_digest = "sha256:ed9e9dac32ad28a321433f085a2494553269a6a84b09057025ea4109e77118c5"
+mapping_assertion_review_digest = "sha256:1368f8f95931dfcde7d9d238313d23d9950325ab553f79cadc77d97edd3519a8"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/bin/trust-runtime/run/tests.rs" = "sha256:ed9e9dac32ad28a321433f085a2494553269a6a84b09057025ea4109e77118c5" }
+mapping_behavior_refs = ["RT_MODBUS_DRIVER_001#behavior:10"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_63C4C5C26503EF8BCCB4"
+subject_kind = "generated_test"
+discovery_id = "DISC_63C4C5C26503EF8BCCB4"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/run/tests.rs"
+name = "signal_abstraction_requests_regular_runtime_shutdown"
+command = "cargo nextest run -p trust-runtime --bin trust-runtime --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bin/trust-runtime) & test(~signal_abstraction_requests_regular_runtime_shutdown)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_RUN_STARTUP_POLICY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-startup-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-startup-contract"]
+expected_result = "SIGINT and SIGTERM request the ordinary runtime shutdown target; unreviewed Unix signals do not manufacture a runtime stop request."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_63C4C5C26503EF8BCCB4.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_63C4C5C26503EF8BCCB4_7741213EDABC"
+mapping_proposal_digest = "sha256:7741213edabc591ebed50348f96c6d92d36ba07152271b1140295c7136de7cd0"
+mapping_decision_id = "MAP_DEC_BE56DD70199DA91C03639C76"
+mapping_reviewed_source_digest = "sha256:ed9e9dac32ad28a321433f085a2494553269a6a84b09057025ea4109e77118c5"
+mapping_assertion_review_digest = "sha256:9fb6b332b9a9fa55ebbf530188f94c2690d3334118f25ae2938c336993ead964"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/bin/trust-runtime/run/tests.rs" = "sha256:ed9e9dac32ad28a321433f085a2494553269a6a84b09057025ea4109e77118c5" }
+mapping_behavior_refs = ["RT_RUN_STARTUP_POLICY_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_A35F20C32C3BFC531653"
+subject_kind = "generated_test"
+discovery_id = "DISC_A35F20C32C3BFC531653"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/run/tests.rs"
+name = "simulation_plan_rejects_zero_cli_scale"
+command = "cargo nextest run -p trust-runtime --bin trust-runtime --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bin/trust-runtime) & test(~simulation_plan_rejects_zero_cli_scale)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_PLAY_LAUNCH_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-startup-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-startup-contract"]
+expected_result = "Launch options fail before detection, creation, or runtime startup."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_A35F20C32C3BFC531653.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_A35F20C32C3BFC531653_6AB373D37CD9"
+mapping_proposal_digest = "sha256:6ab373d37cd97b0667d776c1402514f77ba23c0e9a128ff747737cca698416db"
+mapping_decision_id = "MAP_DEC_D72ECA4C11EF02E66BCB737B"
+mapping_reviewed_source_digest = "sha256:ed9e9dac32ad28a321433f085a2494553269a6a84b09057025ea4109e77118c5"
+mapping_assertion_review_digest = "sha256:8160b823860747262a1e49e059a59e669a26e27f1a2013c8916604e6658afa2b"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/bin/trust-runtime/run/tests.rs" = "sha256:ed9e9dac32ad28a321433f085a2494553269a6a84b09057025ea4109e77118c5" }
+mapping_behavior_refs = ["RT_PLAY_LAUNCH_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_A786BA87F3027726DC24"
+subject_kind = "generated_test"
+discovery_id = "DISC_A786BA87F3027726DC24"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/run/tests.rs"
+name = "bundle_version_is_rejected_before_runtime_policy_mutation"
+command = "cargo nextest run -p trust-runtime --bin trust-runtime --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bin/trust-runtime) & test(~bundle_version_is_rejected_before_runtime_policy_mutation)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_RUN_STARTUP_POLICY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-startup-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-startup-contract"]
+expected_result = "An unsupported bundle version rejects before watchdog, fault, or other runtime policy is replaced."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_A786BA87F3027726DC24.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_A786BA87F3027726DC24_26C2975A349C"
+mapping_proposal_digest = "sha256:26c2975a349c60f797948d30b0259df7f613ff69136265ee8ea52ddf0deb0b36"
+mapping_decision_id = "MAP_DEC_E3ECEB2457AD671C9916C3D9"
+mapping_reviewed_source_digest = "sha256:ed9e9dac32ad28a321433f085a2494553269a6a84b09057025ea4109e77118c5"
+mapping_assertion_review_digest = "sha256:498ec5814b28a804fa8fb00c6566908688ac37a798ca6915cfe4278e9055029d"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/bin/trust-runtime/run/tests.rs" = "sha256:ed9e9dac32ad28a321433f085a2494553269a6a84b09057025ea4109e77118c5" }
+mapping_behavior_refs = ["RT_RUN_STARTUP_POLICY_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_B6BA8F58B15F440648E7"
+subject_kind = "generated_test"
+discovery_id = "DISC_B6BA8F58B15F440648E7"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/bin/trust-runtime/run/tests.rs"
+name = "opcua_runtime_start_spawns_configured_connection"
+command = "cargo nextest run -p trust-runtime --bin trust-runtime --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bin/trust-runtime) & test(~opcua_runtime_start_spawns_configured_connection)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["PROTO_OPCUA_001"]
+oracle_ref = "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001"
+oracle_refs = ["SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001"]
+expected_result = "Repeated scan ticks and output writes reuse one connected session rather than reconnecting per scan or write."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_B6BA8F58B15F440648E7.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_B6BA8F58B15F440648E7_95198274C79B"
+mapping_proposal_digest = "sha256:95198274c79bcbcc5028b8a034cb99b080365b364285e15038fdca9a9fe21cb8"
+mapping_decision_id = "MAP_DEC_42103503593E8CCA02CC1782"
+mapping_reviewed_source_digest = "sha256:ed9e9dac32ad28a321433f085a2494553269a6a84b09057025ea4109e77118c5"
+mapping_assertion_review_digest = "sha256:abc1d64acb9cf4f0d51fda00db17b1010c44d72a763f7184f256da11df655d78"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/bin/trust-runtime/run/tests.rs" = "sha256:ed9e9dac32ad28a321433f085a2494553269a6a84b09057025ea4109e77118c5" }
+mapping_behavior_refs = ["PROTO_OPCUA_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_DC83ED83D64D175E03A7"
+subject_kind = "generated_test"
+discovery_id = "DISC_DC83ED83D64D175E03A7"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/bin/trust-runtime/run/tests.rs"
+name = "ads_runtime_start_spawns_worker_and_scan_applies_mock_data"
+command = "cargo nextest run -p trust-runtime --bin trust-runtime --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bin/trust-runtime) & test(~ads_runtime_start_spawns_worker_and_scan_applies_mock_data)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#ads-client-transport-boundary"]
+expected_result = "Complete handle, poll, subscription, notification, and write responses with a stable equality token may update only their correlated points."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_DC83ED83D64D175E03A7.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_DC83ED83D64D175E03A7_45DAD009705E"
+mapping_proposal_digest = "sha256:45dad009705e380e6d2b4e729200c594e72bcdc42a77e35e47087c4e9e571b55"
+mapping_decision_id = "MAP_DEC_262C8C3D12DBE65EEB9D41AD"
+mapping_reviewed_source_digest = "sha256:ed9e9dac32ad28a321433f085a2494553269a6a84b09057025ea4109e77118c5"
+mapping_assertion_review_digest = "sha256:31108dbc8509de4ddf9ce172c1759851f45ae5d56f9d47fef2970c0d18b84aee"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/bin/trust-runtime/run/tests.rs" = "sha256:ed9e9dac32ad28a321433f085a2494553269a6a84b09057025ea4109e77118c5" }
+mapping_behavior_refs = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_DFC00804D131838F18B2"
+subject_kind = "generated_test"
+discovery_id = "DISC_DFC00804D131838F18B2"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/run/tests.rs"
+name = "startup_retain_load_respects_restart_mode"
+command = "cargo nextest run -p trust-runtime --bin trust-runtime --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bin/trust-runtime) & test(~startup_retain_load_respects_restart_mode)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_SAFE_RESTART_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001"]
+expected_result = "Cold startup leaves declared retained initialization intact, while warm startup loads the validated retained snapshot before execution."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_DFC00804D131838F18B2.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_DFC00804D131838F18B2_BE3A14927400"
+mapping_proposal_digest = "sha256:be3a14927400f6f1396e01580f192c7dbad8d825b1b0360bc46b2e7a82b57e55"
+mapping_decision_id = "MAP_DEC_31EE25171F8777B8BEDA7001"
+mapping_reviewed_source_digest = "sha256:ed9e9dac32ad28a321433f085a2494553269a6a84b09057025ea4109e77118c5"
+mapping_assertion_review_digest = "sha256:bc03b9a919035449235526fa9ef6447fc215e0c7f85d4b614b137ae67f9e0a9c"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/bin/trust-runtime/run/tests.rs" = "sha256:ed9e9dac32ad28a321433f085a2494553269a6a84b09057025ea4109e77118c5" }
+mapping_behavior_refs = ["RT_SAFE_RESTART_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_F6F2D8C0F05DA912D458"
+subject_kind = "generated_test"
+discovery_id = "DISC_F6F2D8C0F05DA912D458"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/run/tests.rs"
+name = "execution_backend_selection_defaults_to_vm"
+command = "cargo nextest run -p trust-runtime --bin trust-runtime --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bin/trust-runtime) & test(~execution_backend_selection_defaults_to_vm)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_CONFIG_BUNDLE_LOAD_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-configuration-loading-and-validation-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#runtime-configuration-loading-and-validation-contract"]
+expected_result = "The loaded runtime records Config for an explicit backend and Default only when the documented field is omitted."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_F6F2D8C0F05DA912D458.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_F6F2D8C0F05DA912D458_95808152B0A5"
+mapping_proposal_digest = "sha256:95808152b0a5a1fb1d0d5e5e9aaab230c0ed5593396c26984c8c1572cae1543c"
+mapping_decision_id = "MAP_DEC_A07D04AADD3E11E12182DF1C"
+mapping_reviewed_source_digest = "sha256:ed9e9dac32ad28a321433f085a2494553269a6a84b09057025ea4109e77118c5"
+mapping_assertion_review_digest = "sha256:8eb803b4a6caf65b893fb7b784ab5f905038e015ae9f14486978acbe85c116b0"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/bin/trust-runtime/run/tests.rs" = "sha256:ed9e9dac32ad28a321433f085a2494553269a6a84b09057025ea4109e77118c5" }
+mapping_behavior_refs = ["RT_CONFIG_BUNDLE_LOAD_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_F87A85B1DA5F238164FF"
+subject_kind = "generated_test"
+discovery_id = "DISC_F87A85B1DA5F238164FF"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/bin/trust-runtime/run/tests.rs"
+name = "execution_backend_selection_prefers_cli_override"
+command = "cargo nextest run -p trust-runtime --bin trust-runtime --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bin/trust-runtime) & test(~execution_backend_selection_prefers_cli_override)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_CONFIG_BUNDLE_LOAD_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-configuration-loading-and-validation-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#runtime-configuration-loading-and-validation-contract"]
+expected_result = "The loaded runtime records Config for an explicit backend and Default only when the documented field is omitted."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_F87A85B1DA5F238164FF.json"
+last_reviewed = "2026-07-26"
+mapping_proposal_id = "MAP_CAND_F87A85B1DA5F238164FF_993425697CA5"
+mapping_proposal_digest = "sha256:993425697ca5cfbc885723c2c96dba6aa796040e036f2497798e901a6dcbef10"
+mapping_decision_id = "MAP_DEC_426C632F9AFA119CC10E5797"
+mapping_reviewed_source_digest = "sha256:ed9e9dac32ad28a321433f085a2494553269a6a84b09057025ea4109e77118c5"
+mapping_assertion_review_digest = "sha256:a92386a4b0dea5d11d112549aae9cfc86d75165dbba2c542be8837c608884236"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/bin/trust-runtime/run/tests.rs" = "sha256:ed9e9dac32ad28a321433f085a2494553269a6a84b09057025ea4109e77118c5" }
+mapping_behavior_refs = ["RT_CONFIG_BUNDLE_LOAD_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]

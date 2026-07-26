@@ -14,7 +14,7 @@ source_refs = [
   "crates/trust-runtime/src/io/provenance.rs",
   "docs/specs/11-runtime-engine.md",
 ]
-tests = ["TEST_AUTO_115B36B27D6276F2E2C0", "TEST_AUTO_22FFF435A5C79CFB4226", "TEST_AUTO_2CE088F1926B33175423", "TEST_AUTO_456E5DFC92F78865CD94", "TEST_AUTO_6E23CF19296BECF5CAB1", "TEST_AUTO_788265591A86ECBA1247", "TEST_AUTO_7CCA5C983F3BC05339EC", "TEST_AUTO_84211DB0157DDFA2DAD8", "TEST_AUTO_859C42B742CE618E4C76", "TEST_AUTO_A3BEFC6AEFD5123C849D", "TEST_AUTO_A89C5FA2356D682836D2", "TEST_AUTO_F8896C1E5734037D4BF4"]
+tests = ["TEST_AUTO_115B36B27D6276F2E2C0", "TEST_AUTO_22FFF435A5C79CFB4226", "TEST_AUTO_2CE088F1926B33175423", "TEST_AUTO_456E5DFC92F78865CD94", "TEST_AUTO_5DFDEC6B9BF7CE3038B7", "TEST_AUTO_6E23CF19296BECF5CAB1", "TEST_AUTO_788265591A86ECBA1247", "TEST_AUTO_7CCA5C983F3BC05339EC", "TEST_AUTO_84211DB0157DDFA2DAD8", "TEST_AUTO_859C42B742CE618E4C76", "TEST_AUTO_A3BEFC6AEFD5123C849D", "TEST_AUTO_A89C5FA2356D682836D2", "TEST_AUTO_F8896C1E5734037D4BF4"]
 gates = ["veryquick", "pr"]
 evidence_refs = []
 spec_gap_refs = []
@@ -129,8 +129,8 @@ rationale = "Input provenance uses the configured input-register base and output
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "Direction-specific operator provenance is ready for generated catalog mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in RT_MODBUS_DRIVER_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "hardware_or_network_fault"
