@@ -6,7 +6,7 @@ risk = "wrong_result"
 status = "mapped"
 owner = "trust-runtime"
 last_reviewed = "2026-07-27"
-claim = "Portable date/time, program-model, memory identity, stable error, default, operator, partial-access, reference, array, structure, interface, and assignment values preserve canonical identity, bounds, checked results, and fail-closed mutation."
+claim = "Portable date/time profiles and values, program-model, memory identity, stable error, default, operator, partial-access, reference, array, structure, interface, and assignment values preserve canonical identity, bounds, checked results, and fail-closed mutation."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["docs/specs/10-runtime-semantics.md", "crates/trust-runtime-core/src"]
@@ -77,6 +77,15 @@ outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
 rationale = "Date/time ticks and long values round-trip, and duration unit views preserve one stored duration."
+
+[[behavior]]
+partition = { equals = "DATETIME_DEFAULT_PROFILE_AND_LONG_UNITS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#2-5-date-and-time-types"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The default short date/time profile uses epoch tick zero and one-millisecond resolution, while reviewed LDATE, LTOD, and LDT values expose their exact stored nanosecond counts."
 
 [[behavior]]
 partition = { equals = "DATETIME_RANGE_AND_TIMEZONE_REJECTION" }

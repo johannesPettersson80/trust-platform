@@ -1995,15 +1995,21 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/specs/07-standard-functions.md"
 version = "current"
-last_reviewed = "2026-07-21"
+last_reviewed = "2026-07-27"
 covers = [
   "standard_functions",
+  "standard_function_runtime_results",
+  "standard_function_text_conversion_representatives",
+  "standard_function_assertion_extension_results",
   "time_arithmetic_functions",
   "date_time_component_functions",
   "date_time_split_functions",
   "day_of_week_function",
 ]
 known_limitations = [
+  "The reviewed runtime text-conversion outputs are representative and do not define formatting for every elementary value.",
+  "Non-finite text-to-real parsing rejects without a stable runtime-error variant.",
+  "Planned runtime-result invariants do not establish catalog assignment or execution proof.",
   "The product contract specifies standard date/time operations but does not define the CURRENT_DT host-clock boundary.",
   "The mapped pilot tests exercise representative direct and executed-ST paths; exhaustive overflow and invalid-component partitions remain visible in invariant coverage.",
   "This product source does not by itself establish IEC conformance.",

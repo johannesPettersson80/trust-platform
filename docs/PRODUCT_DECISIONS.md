@@ -819,3 +819,41 @@ IEC or PLCopen deviation log merely because truST owns the behavior.
   - These behaviors are already observable automation contracts. Recording
     their bounded authority lets existing tests be catalogued without
     converting compatibility strings or narrow snapshots into broader claims.
+
+## 2026-07-27 - Runtime standard-function result authority
+
+- Area: Runtime standard-library values and truST assertion extensions
+- Decision:
+  - The runtime result contract for the IEC-named conversion, numerical, bit,
+    selection, comparison, string, and validation functions is the bounded
+    behavior written in `docs/specs/07-standard-functions.md`. Static HIR
+    signature acceptance alone does not prove those runtime results.
+  - The reviewed text-conversion representatives are
+    `DINT_TO_STRING(DINT#42) = '42'`,
+    `REAL_TO_STRING(REAL#1.25) = '1.25'`,
+    `DWORD_TO_STRING(DWORD#42) = '42'`, and
+    `STRING_TO_DINT('42') = DINT#42`. These examples do not define formatting
+    for every elementary value.
+  - Text-to-`REAL`/`LREAL` conversion rejects the reviewed non-finite spellings
+    `NaN` and `inf` without assigning a stable runtime-error variant to that
+    rejection.
+  - A successful truST `ASSERT_*` runtime call returns the internal
+    `Value::Null` representation of its IEC-facing `VOID` result. A failed
+    assertion returns `RuntimeError::AssertionFailed` with the bounded
+    user-facing message forms specified in
+    `docs/specs/07-standard-functions.md`.
+  - The reviewed assertion comparisons admit lossless `INT`/`DINT`
+    comparison and finite `REAL`/`LREAL` tolerance comparison. This does not
+    authorize every mixed elementary-type pairing.
+- Supersedes:
+  - Any interpretation that a standard-function HIR signature establishes its
+    runtime result.
+  - Any interpretation that non-finite text parsing has a catalog-stable error
+    variant merely because it must reject.
+  - Any interpretation that truST assertion success or diagnostic formatting
+    is governed by IEC 61131-3.
+- Reason:
+  - Runtime result values and assertion diagnostics are observable product
+    behavior. The assertion API and its messages are truST test-workflow
+    contracts outside the IEC standard, so they belong in product authority
+    rather than the IEC deviation register.

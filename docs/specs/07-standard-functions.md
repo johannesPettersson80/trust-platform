@@ -2,7 +2,8 @@
 
 IEC 61131-3 Edition 3.0 (2013) - Section 6.6.2.5
 
-This specification defines standard functions for trust-hir.
+This specification defines standard-function signatures for trust-hir and the
+bounded runtime results explicitly written below.
 
 ## 1. Overview
 
@@ -82,12 +83,14 @@ When STRING/WSTRING is an input or output, the string shall conform to the exter
 | `REAL_TO_LREAL` | Widening |
 | `LREAL_TO_REAL` | Narrowing and precision loss; a finite source that overflows basic-single range returns `RuntimeError::Overflow` |
 
-For every explicit conversion whose target is `REAL` or `LREAL`, truST returns
-`RuntimeError::Overflow` if the result would be NaN or either infinity. This
-includes string parsing, `LREAL_TO_REAL` narrowing, and the IEC Table 25 binary
-transfers `DWORD_TO_REAL` and `LWORD_TO_LREAL`. Finite binary transfers retain
-their exact bit-defined value. The rejection policy is implementer-specific
-under IEC 61131-3 section 6.6.2.5.2 and Table 23; see
+For an explicit numeric or binary-transfer conversion whose target is `REAL`
+or `LREAL`, truST returns `RuntimeError::Overflow` if the computed result would
+be NaN or either infinity. This includes `LREAL_TO_REAL` narrowing and the IEC
+Table 25 binary transfers `DWORD_TO_REAL` and `LWORD_TO_LREAL`. Finite binary
+transfers retain their exact bit-defined value. Text parsing rejects the
+non-finite spellings specified in section 2.7, but that rejection does not
+promise an exact runtime-error variant. The rejection policy is
+implementer-specific under IEC 61131-3 section 6.6.2.5.2 and Table 23; see
 `docs/IEC_DECISIONS.md#2026-07-22---non-finite-real-result-and-explicit-conversion-policy`.
 
 For conversion into `SINT`, `INT`, `DINT`, or `LINT`, a representable integer
@@ -171,6 +174,27 @@ Implementer extension note:
 BCDValue := 16#0042;
 UIntValue := BCD_TO_UINT(BCDValue);  // UIntValue = 42
 ```
+
+### 2.7 Runtime Text-Conversion Representatives
+
+IEC 61131-3 Ed.3 section 6.6.2.5.2 requires conversions involving
+`STRING`/`WSTRING` to use the external representation of the source or
+destination type, while conversion-error handling remains
+implementer-specific. The bounded truST runtime contract contains these exact
+representatives:
+
+| Call | Result |
+|------|--------|
+| `DINT_TO_STRING(DINT#42)` | `STRING#'42'` |
+| `REAL_TO_STRING(REAL#1.25)` | `STRING#'1.25'` |
+| `DWORD_TO_STRING(DWORD#42)` | `STRING#'42'` |
+| `STRING_TO_DINT(STRING#'42')` | `DINT#42` |
+
+These representatives do not define canonical output spelling for every
+numeric or bit-string value. `STRING_TO_REAL('NaN')` and
+`STRING_TO_LREAL('inf')` reject without producing a runtime `REAL`/`LREAL`
+value. This specification intentionally does not freeze the runtime-error
+variant used for those two text-rejection cases.
 
 ## 3. Numerical Functions (Table 28)
 
@@ -257,6 +281,12 @@ Z := ROL(X, 2);    // Z = 2#0000_0011 (bits rotated)
 
 **Note**: AND, OR, XOR are extensible.
 
+At runtime, shift and rotate functions preserve the input bit-string type and
+width. Bitwise Boolean functions return the common participating bit-string
+width; a narrower input is zero-extended to that width. The reviewed mixed
+representative is
+`OR(BYTE#16#0F, WORD#16#00F0) = WORD#16#00FF`.
+
 ```
 // Examples
 Mask := 16#FF00;
@@ -290,6 +320,11 @@ Output := LIMIT(0, Input, 100);  // 0 <= Output <= 100
 Selected := MUX(Index, Value0, Value1, Value2, Value3);
 ```
 
+The runtime returns the selected input with its runtime value identity intact,
+including an enumerated value selected by `SEL`. Named invocation binds the
+documented formal names; the reviewed executed-ST representative
+`SEL(G := TRUE, IN0 := INT#4, IN1 := INT#7)` returns `INT#7`.
+
 ## 7. Comparison Functions (Table 33)
 
 | Function | Description | Signature |
@@ -302,6 +337,10 @@ Selected := MUX(Index, Value0, Value1, Value2, Value3);
 | `NE` | Not equal | `NE(IN1, IN2: ANY_ELEMENTARY) : BOOL` |
 
 **Note**: For GT, GE, EQ, LE, LT with multiple inputs, checks if sequence is monotonic. `NE` is not extensible.
+
+For values of the same enumerated type, runtime `EQ` and `NE` compare the
+enumerated value identity. The reviewed representatives are `EQ(RED, RED) =
+TRUE` and `NE(RED, GREEN) = TRUE`.
 
 ```
 // Examples
@@ -344,6 +383,10 @@ Pos := FIND('ABCABC', 'BC');           // 2 (first occurrence)
 **Position Notes**:
 - Position 1 is the first character
 - FIND returns 0 if not found
+- Runtime positions and lengths count Unicode scalar values, not UTF-8 bytes.
+  Thus `LEN('ÄBC') = 3`, `LEFT('ÄBC', 1) = 'Ä'`, and
+  `FIND('ÄBC', 'B') = 2`. The same element-count rule applies to the reviewed
+  `WSTRING` length.
 
 ## 9. Date and Time Functions (Tables 35-36)
 
@@ -548,4 +591,23 @@ Compatibility notes:
 - These assertions are truST test-workflow extensions and are not part of IEC
   61131-3 Tables 22-36 or Table 39.
 - They are intended for `TEST_PROGRAM` / `TEST_FUNCTION_BLOCK` execution paths.
-- Runtime failures include assertion context (`expected` / `actual` and tolerance data for `ASSERT_NEAR`).
+- On success, every `ASSERT_*` runtime call returns `Value::Null`, the runtime
+  representation of the IEC-facing `VOID` result.
+- The reviewed mixed numeric comparisons are lossless `INT`/`DINT` equality
+  and ordering, plus finite `REAL`/`LREAL` comparison for `ASSERT_NEAR`. Other
+  mixed elementary-type pairs are not authorized by these representatives.
+- A condition failure returns `RuntimeError::AssertionFailed`; it does not
+  return a normal value.
+- Failure messages use user-facing value text rather than internal `Value`
+  debug forms. For the reviewed value families, integers use decimal text,
+  integral `REAL` values retain `.0`, Boolean values use `TRUE`/`FALSE`, and
+  `CHAR` values use single quotes.
+- The stable message forms for the reviewed relational assertions are:
+  - `ASSERT_EQUAL failed: expected {expected}, actual {actual}`
+  - `ASSERT_NOT_EQUAL failed: values should differ, left {left}, right {right}`
+  - `ASSERT_GREATER failed: value {value} is not greater than bound {bound}`
+  - `ASSERT_LESS failed: value {value} is not less than bound {bound}`
+  - `ASSERT_GREATER_OR_EQUAL failed: value {value} is not >= bound {bound}`
+  - `ASSERT_LESS_OR_EQUAL failed: value {value} is not <= bound {bound}`
+- An `ASSERT_NEAR` failure message identifies `ASSERT_NEAR` and includes its
+  `delta` context. No exact full-string format is promised for that message.

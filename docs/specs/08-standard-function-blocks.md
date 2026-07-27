@@ -369,6 +369,11 @@ TIME---|PT ET|---TIME
 - When IN goes TRUE, Q goes TRUE for duration PT
 - Q stays TRUE for full PT duration regardless of IN changes
 - ET counts up while Q is TRUE, stops at PT
+- After the pulse expires while an executed call still samples IN as TRUE, Q
+  remains FALSE and ET remains at PT. The first later executed call sampling IN
+  as FALSE resets ET to zero and rearms edge detection. A subsequent executed
+  FALSE-to-TRUE call starts a new pulse with Q TRUE and ET advanced by that
+  call's elapsed-time contribution.
 
 **Timing Diagram**:
 ```

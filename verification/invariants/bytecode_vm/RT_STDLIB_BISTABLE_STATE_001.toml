@@ -1,0 +1,48 @@
+schema_version = 1
+id = "RT_STDLIB_BISTABLE_STATE_001"
+title = "Runtime bistable function blocks preserve state and dominance"
+area = "bytecode_vm"
+risk = "wrong_result"
+status = "planned"
+owner = "trust-runtime"
+last_reviewed = "2026-07-27"
+claim = "Runtime SR and RS instances start false, preserve their latched state, and apply their documented set-dominant or reset-dominant transition on every executed call."
+proof_level = "S0"
+contract_kind = "state_machine"
+source_refs = ["docs/specs/08-standard-function-blocks.md", "crates/trust-runtime/src/stdlib/fbs/bistable.rs"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["accepted_catalog_mappings", "focused_execution_evidence", "final_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_IEC_STANDARD_FBS_CANDIDATE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#2-bistable-function-blocks-table-43"
+
+[[behavior]]
+partition = { equals = "SR_LATCH_RESET_AND_SET_DOMINANCE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#sr---set-dominant-bistable"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A new SR instance reports Q1 false, S1 sets it, an idle call preserves it, R resets it when S1 is false, and simultaneous S1 and R leave Q1 true."
+
+[[behavior]]
+partition = { equals = "RS_LATCH_RESET_AND_RESET_DOMINANCE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#rs---reset-dominant-bistable"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A new RS instance reports Q1 false, S sets it, an idle call preserves it, R1 resets it, and simultaneous S and R1 leave Q1 false."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "The state machines are specified; the ready runtime tests still require accepted catalog mappings and focused execution evidence."

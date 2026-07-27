@@ -1,0 +1,57 @@
+schema_version = 1
+id = "RT_STDLIB_NUMERIC_BIT_001"
+title = "Runtime numerical and bit functions preserve reviewed values and widths"
+area = "bytecode_vm"
+risk = "wrong_result"
+status = "planned"
+owner = "trust-runtime"
+last_reviewed = "2026-07-27"
+claim = "Runtime numerical representatives return the reviewed typed values, and bit shifts, rotations, and Boolean operations preserve the reviewed widths and bit patterns."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["docs/specs/07-standard-functions.md", "crates/trust-runtime/src/stdlib"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_tests", "focused_execution_evidence", "final_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_IEC_STANDARD_FUNCTIONS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#3-numerical-functions-table-28"
+
+[[behavior]]
+partition = { equals = "NUMERICAL_REPRESENTATIVE_VALUES" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#3-numerical-functions-table-28"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "ABS(INT#-5) returns INT#5, SQRT(REAL#9.0) returns REAL#3.0 within 1e-6, and SIN(REAL#0.0) returns REAL#0.0 within 1e-6."
+
+[[behavior]]
+partition = { equals = "SHIFT_AND_ROTATE_WIDTH_VALUES" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#4-bit-shift-functions-table-30"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The reviewed WORD shifts and BYTE rotations preserve their input widths and produce 0x0008, 0x0001, 0x03, and 0x81 respectively."
+
+[[behavior]]
+partition = { equals = "BITWISE_SAME_AND_MIXED_WIDTH_VALUES" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#5-bitwise-boolean-functions-table-31"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Reviewed AND, OR, XOR, and NOT calls preserve exact bit patterns; mixed BYTE/WORD OR returns WORD#16#00FF."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Numerical and bit results are specified; no tests are assigned to this planned invariant."

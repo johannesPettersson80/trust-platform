@@ -1,0 +1,270 @@
+{
+  "batch": "runtime-stdlib-33",
+  "schema_version": 1,
+  "tests": [
+    {
+      "assertion_count": 2,
+      "behavior_selector": "DATETIME_DEFAULT_PROFILE_AND_LONG_UNITS",
+      "invariant_id": "RT_CORE_VALUE_PROGRAM_MODEL_001",
+      "name": "default_profile",
+      "path": "crates/trust-runtime/tests/datetime_profile.rs",
+      "semantic_digest": "sha256:13b9d47fe6b7595426ac925fb4c77b7f6582a68abca28d9bf2075ce28034ccdb"
+    },
+    {
+      "assertion_count": 1,
+      "behavior_selector": "DATETIME_RANGE_AND_TIMEZONE_REJECTION",
+      "invariant_id": "RT_CORE_VALUE_PROGRAM_MODEL_001",
+      "name": "timezone_naive",
+      "path": "crates/trust-runtime/tests/datetime_profile.rs",
+      "semantic_digest": "sha256:ce27bdffd2395e05dfa7f5015e5733cf4d544938c4c826b520922f173310c27d"
+    },
+    {
+      "assertion_count": 3,
+      "behavior_selector": "DATETIME_RANGE_AND_TIMEZONE_REJECTION",
+      "invariant_id": "RT_CORE_VALUE_PROGRAM_MODEL_001",
+      "name": "out_of_range_error",
+      "path": "crates/trust-runtime/tests/datetime_range.rs",
+      "semantic_digest": "sha256:016a137c7f12664c880c1cb26f3c284cf20a1275ad1a06fda2a4d2c07c785c75"
+    },
+    {
+      "assertion_count": 3,
+      "behavior_selector": "DATETIME_DEFAULT_PROFILE_AND_LONG_UNITS",
+      "invariant_id": "RT_CORE_VALUE_PROGRAM_MODEL_001",
+      "name": "ltime_epoch_and_units",
+      "path": "crates/trust-runtime/tests/datetime_types.rs",
+      "semantic_digest": "sha256:218eb63b3c01afd9cd1cdd6edea66587c62834a68f446b5dab4e334d8407bc8d"
+    },
+    {
+      "assertion_count": 2,
+      "behavior_selector": "SEL_NAMED_ARGUMENT_BINDING",
+      "invariant_id": "RT_STDLIB_SELECTION_001",
+      "name": "stdlib_named_args",
+      "path": "crates/trust-runtime/tests/expr_calls.rs",
+      "semantic_digest": "sha256:a40b15362f2e9be9cde78fbf3e481ebc9bc004526963a076433e7cba23c913a7"
+    },
+    {
+      "assertion_count": 11,
+      "behavior_selector": "SR_LATCH_RESET_AND_SET_DOMINANCE",
+      "invariant_id": "RT_STDLIB_BISTABLE_STATE_001",
+      "name": "sr_rs",
+      "path": "crates/trust-runtime/tests/fb_bistable.rs",
+      "semantic_digest": "sha256:84c8a7eda35e50d3a7b098dd4177e9030f53e18c6d2da83af2054a2d3bd72f12"
+    },
+    {
+      "assertion_count": 23,
+      "behavior_selector": "CTU_RISING_EDGE_RESET_AND_THRESHOLD",
+      "invariant_id": "RT_STDLIB_COUNTER_STATE_001",
+      "name": "ctu_ctd_ctud",
+      "path": "crates/trust-runtime/tests/fb_counters.rs",
+      "semantic_digest": "sha256:2f60cd25392f4a18782de4f0f2f44049114aa81953226d97e55e3ef6f74dbf99"
+    },
+    {
+      "assertion_count": 37,
+      "behavior_selector": "CTU_RISING_EDGE_RESET_AND_THRESHOLD",
+      "invariant_id": "RT_STDLIB_COUNTER_STATE_001",
+      "name": "counter_variants",
+      "path": "crates/trust-runtime/tests/fb_counters_full.rs",
+      "semantic_digest": "sha256:764a2a4a54f077800635387da294ea7930531956cc11d77e0e25ddacd24927f7"
+    },
+    {
+      "assertion_count": 3,
+      "behavior_selector": "COUNTER_SELECTED_RUNTIME_VALUE_TYPE",
+      "invariant_id": "RT_STDLIB_COUNTER_STATE_001",
+      "name": "generic_counter_uses_call_value_type_after_null_default",
+      "path": "crates/trust-runtime/tests/fb_counters_full.rs",
+      "semantic_digest": "sha256:c01e839b743b2a29d33e1c21799966489629231f8718afcbca83ed6b5e7467c5"
+    },
+    {
+      "assertion_count": 9,
+      "behavior_selector": "DIFU_DIFD_RUNTIME_EDGE_EQUIVALENCE",
+      "invariant_id": "RT_STDLIB_EDGE_STATE_001",
+      "name": "difu_difd_aliases_match_edge_behavior",
+      "path": "crates/trust-runtime/tests/fb_edges.rs",
+      "semantic_digest": "sha256:98fd451baccb4195352c4397b8e1880131f103af286e108e662e371e2f0302a8"
+    },
+    {
+      "assertion_count": 13,
+      "behavior_selector": "R_TRIG_RISING_EDGE_AND_HELD_HIGH",
+      "invariant_id": "RT_STDLIB_EDGE_STATE_001",
+      "name": "r_trig_f_trig",
+      "path": "crates/trust-runtime/tests/fb_edges.rs",
+      "semantic_digest": "sha256:eccbf07bc6c9e499d8717c0d2a49c007ae6a2a24a125f6635a69fe063c14e09a"
+    },
+    {
+      "assertion_count": 28,
+      "behavior_selector": "TON_TIME_BASIC_DELAY",
+      "invariant_id": "IEC_TIMER_001",
+      "name": "ton_tof_tp",
+      "path": "crates/trust-runtime/tests/fb_timers.rs",
+      "semantic_digest": "sha256:cf6d9b15ccdaa800eac2aa09a5a67f9633e8e226e03b884e28c26c0bde95027c"
+    },
+    {
+      "assertion_count": 17,
+      "behavior_selector": "CTU_RISING_EDGE_RESET_AND_THRESHOLD",
+      "invariant_id": "RT_STDLIB_COUNTER_STATE_001",
+      "name": "counter_examples",
+      "path": "crates/trust-runtime/tests/iec_counters.rs",
+      "semantic_digest": "sha256:79989228f16dca5a71bf39c2c6a4b0dfa805e998361b6fa0ce1bd3b06c615623"
+    },
+    {
+      "assertion_count": 7,
+      "behavior_selector": "TRUNCATION_AND_NUMERIC_WIDENING",
+      "invariant_id": "RT_STDLIB_CONVERSION_001",
+      "name": "conversion_usage_examples",
+      "path": "crates/trust-runtime/tests/iec_examples.rs",
+      "semantic_digest": "sha256:882dcd57ff012e4b5441dbf2eb341ceb4ae8ce9f6fd5a69e624cf8b830293364"
+    },
+    {
+      "assertion_count": 31,
+      "behavior_selector": "TON_TIME_BASIC_DELAY",
+      "invariant_id": "IEC_TIMER_001",
+      "name": "timing_diagrams",
+      "path": "crates/trust-runtime/tests/iec_timers.rs",
+      "semantic_digest": "sha256:44c80b16ff935dfa9ae8b0b6361b4c2972639401c3fb8f9592c5e1adac595238"
+    },
+    {
+      "assertion_count": 1,
+      "behavior_selector": "ASSERTION_SUCCESS_NULL",
+      "invariant_id": "RT_STDLIB_ASSERTION_001",
+      "name": "assertion_comparison_functions_coerce_numeric_types",
+      "path": "crates/trust-runtime/tests/stdlib_assertions.rs",
+      "semantic_digest": "sha256:64f23f78fd5d5c1101b31c21d0daa883d4dc02bb9cfc7b869c74abe48ad7e9e0"
+    },
+    {
+      "assertion_count": 9,
+      "behavior_selector": "ASSERTION_RELATIONAL_MESSAGE_FORMS",
+      "invariant_id": "RT_STDLIB_ASSERTION_001",
+      "name": "assertion_failure_messages_use_user_facing_value_strings",
+      "path": "crates/trust-runtime/tests/stdlib_assertions.rs",
+      "semantic_digest": "sha256:ec34ce005eafdf06dc1eaa2558243ba3212490d6a62e6fdb1dcc69d2c3cddee8"
+    },
+    {
+      "assertion_count": 16,
+      "behavior_selector": "ASSERTION_CONDITION_FAILURE",
+      "invariant_id": "RT_STDLIB_ASSERTION_001",
+      "name": "assertion_functions_fail_with_assertion_error",
+      "path": "crates/trust-runtime/tests/stdlib_assertions.rs",
+      "semantic_digest": "sha256:fa580a756b65571fdf5ff7967598e7a088642af31d36463356dcb89c041faf4c"
+    },
+    {
+      "assertion_count": 11,
+      "behavior_selector": "ASSERTION_SUCCESS_NULL",
+      "invariant_id": "RT_STDLIB_ASSERTION_001",
+      "name": "assertion_functions_pass_when_conditions_hold",
+      "path": "crates/trust-runtime/tests/stdlib_assertions.rs",
+      "semantic_digest": "sha256:4fbd6fce03602e0bda06a0b69074524359f090f9c3f20b6fc1bf69464658b01b"
+    },
+    {
+      "assertion_count": 9,
+      "behavior_selector": "SHIFT_AND_ROTATE_WIDTH_VALUES",
+      "invariant_id": "RT_STDLIB_NUMERIC_BIT_001",
+      "name": "bit_full",
+      "path": "crates/trust-runtime/tests/stdlib_bit_full.rs",
+      "semantic_digest": "sha256:cf4cac3b6c0807d7a05b24e95a2231025621bc5330ed8aa884cf092cf6d934ab"
+    },
+    {
+      "assertion_count": 5,
+      "behavior_selector": "BOOLEAN_AND_INTEGER_WIDTH_CONVERSION",
+      "invariant_id": "RT_STDLIB_CONVERSION_001",
+      "name": "conversion_functions",
+      "path": "crates/trust-runtime/tests/stdlib_conv.rs",
+      "semantic_digest": "sha256:1f0045b9edcbb622590299a788687088be23d26b48dd79eff069dc015045e0fb"
+    },
+    {
+      "assertion_count": 38,
+      "behavior_selector": "ROUND_TO_NEAREST_TIES_EVEN",
+      "invariant_id": "RT_STDLIB_CONVERSION_001",
+      "name": "conversion_full",
+      "path": "crates/trust-runtime/tests/stdlib_conv_full.rs",
+      "semantic_digest": "sha256:74ceb6892b68f711be890f1e6ec36348c3c932a052b4d549a5f77af6f4246874"
+    },
+    {
+      "assertion_count": 4,
+      "behavior_selector": "NONFINITE_TEXT_TO_REAL_REJECTION",
+      "invariant_id": "RT_STDLIB_CONVERSION_001",
+      "name": "string_to_real_rejects_non_finite_text",
+      "path": "crates/trust-runtime/tests/stdlib_conv_full.rs",
+      "semantic_digest": "sha256:fa7653207af1582af1a5fa7f4b4d67907d6759e4d23b408bcae88969ae07b53a"
+    },
+    {
+      "assertion_count": 4,
+      "behavior_selector": "SAME_ENUM_EQ_NE",
+      "invariant_id": "RT_STDLIB_COMPARISON_VALIDATE_001",
+      "name": "enum_comparisons",
+      "path": "crates/trust-runtime/tests/stdlib_enum_validate.rs",
+      "semantic_digest": "sha256:19af077b0527ce7532b795aa4df06cf1ea4736f891ed8d86d7bb295f26cbfe36"
+    },
+    {
+      "assertion_count": 6,
+      "behavior_selector": "BCD_NIBBLE_VALIDITY",
+      "invariant_id": "RT_STDLIB_COMPARISON_VALIDATE_001",
+      "name": "is_valid_bcd_bit_strings",
+      "path": "crates/trust-runtime/tests/stdlib_enum_validate.rs",
+      "semantic_digest": "sha256:93d5dbd6d7fd290afc5519232b3d0b99c1ad49db9f57026deaecfb3a785a6feb"
+    },
+    {
+      "assertion_count": 4,
+      "behavior_selector": "REAL_FINITE_AND_NONFINITE_VALIDITY",
+      "invariant_id": "RT_STDLIB_COMPARISON_VALIDATE_001",
+      "name": "is_valid_real_values",
+      "path": "crates/trust-runtime/tests/stdlib_enum_validate.rs",
+      "semantic_digest": "sha256:6a046b81cc5393d9d0cf140befb7c21d99936712ef5d218db60ab67d938bc365"
+    },
+    {
+      "assertion_count": 7,
+      "behavior_selector": "NUMERICAL_REPRESENTATIVE_VALUES",
+      "invariant_id": "RT_STDLIB_NUMERIC_BIT_001",
+      "name": "numeric_functions",
+      "path": "crates/trust-runtime/tests/stdlib_numeric.rs",
+      "semantic_digest": "sha256:4609ce1316b07e9de84ad8278d24185059c845759ffd4f83c38918dd27c32fca"
+    },
+    {
+      "assertion_count": 8,
+      "behavior_selector": "SEL_MIN_MAX_RUNTIME_VALUES",
+      "invariant_id": "RT_STDLIB_SELECTION_001",
+      "name": "selection_full",
+      "path": "crates/trust-runtime/tests/stdlib_select_full.rs",
+      "semantic_digest": "sha256:4e4d4fd96aa32f876ed3d83338f9f70c44fa57b24d2b5e7114099ab2690ba24b"
+    },
+    {
+      "assertion_count": 8,
+      "behavior_selector": "REGISTERED_COMPONENT_SPLIT",
+      "invariant_id": "IEC_STANDARD_TIME_FUNCTIONS_001",
+      "name": "split_date_writes_function_local_outputs_in_runtime_and_vm",
+      "path": "crates/trust-runtime/tests/stdlib_split_locals.rs",
+      "semantic_digest": "sha256:832d4617b6ea161ca176c0262f4ed55a7d469d02589608978c5b6940216cd6ac"
+    },
+    {
+      "assertion_count": 3,
+      "behavior_selector": "STRING_3_CONCAT_ASSIGNMENT_TRUNCATION",
+      "invariant_id": "VM_SEAM_STRING_BOUND_001",
+      "name": "bounded_string_assignment_and_concat_respect_declared_capacity",
+      "path": "crates/trust-runtime/tests/stdlib_string.rs",
+      "semantic_digest": "sha256:63a53103fe46f1526ca80dbb437e5ea1ce189d37b3e6adeeab240ec09d737ea6"
+    },
+    {
+      "assertion_count": 2,
+      "behavior_selector": "ASCII_STRING_FUNCTION_RESULTS",
+      "invariant_id": "RT_STDLIB_STRING_001",
+      "name": "string_functions",
+      "path": "crates/trust-runtime/tests/stdlib_string.rs",
+      "semantic_digest": "sha256:3df1f27c4db47b18a1448d7e8500785b455681b9b1194279134c4728be91460e"
+    },
+    {
+      "assertion_count": 8,
+      "behavior_selector": "ASCII_STRING_FUNCTION_RESULTS",
+      "invariant_id": "RT_STDLIB_STRING_001",
+      "name": "string_full",
+      "path": "crates/trust-runtime/tests/stdlib_string_full.rs",
+      "semantic_digest": "sha256:2192af1249daaaa2b34220b8fd1966581c1fdd9b121a90c6518d9b35ea7ef1ec"
+    },
+    {
+      "assertion_count": 5,
+      "behavior_selector": "UNICODE_SCALAR_STRING_ELEMENTS",
+      "invariant_id": "RT_STDLIB_STRING_001",
+      "name": "string_full_non_ascii_uses_character_elements",
+      "path": "crates/trust-runtime/tests/stdlib_string_full.rs",
+      "semantic_digest": "sha256:0a54ad0d2d75c7659fdbb496f9fb44286e6769586d7d5a15bd1ab8659b797a9d"
+    }
+  ]
+}

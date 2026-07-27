@@ -1,0 +1,57 @@
+schema_version = 1
+id = "RT_STDLIB_EDGE_STATE_001"
+title = "Runtime edge detectors emit one executed-call pulse per edge"
+area = "bytecode_vm"
+risk = "wrong_result"
+status = "planned"
+owner = "trust-runtime"
+last_reviewed = "2026-07-27"
+claim = "Runtime R_TRIG and F_TRIG instances, including the DIFU and DIFD product aliases, preserve edge memory and emit Q for exactly the documented executed call."
+proof_level = "S0"
+contract_kind = "state_machine"
+source_refs = ["docs/specs/08-standard-function-blocks.md", "crates/trust-runtime/src/stdlib/fbs/triggers.rs", "verification/invariants/compiler_iec/TRUST_MITSUBISHI_EDGE_ALIAS_001.toml"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["accepted_catalog_mappings", "focused_execution_evidence", "final_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_IEC_STANDARD_FBS_CANDIDATE_001", "SPEC_MITSUBISHI_GXWORKS3_COMPATIBILITY_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#3-edge-detection-table-44"
+
+[[behavior]]
+partition = { equals = "R_TRIG_RISING_EDGE_AND_HELD_HIGH" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#r_trig---rising-edge-detector"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "R_TRIG reports Q false while CLK is low, true on the first executed false-to-true transition, and false on the next executed call while CLK remains high."
+
+[[behavior]]
+partition = { equals = "F_TRIG_COLD_START_AND_FALLING_EDGE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#cold-restart-behavior"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "F_TRIG reports Q true on the first executed low CLK after cold restart, false on a later held-low call, and true for one executed call on a later true-to-false transition."
+
+[[behavior]]
+partition = { equals = "DIFU_DIFD_RUNTIME_EDGE_EQUIVALENCE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_MITSUBISHI_GXWORKS3_COMPATIBILITY_001#1-mitsubishi-edge-aliases-difu-difd"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "DIFU and DIFD execute the same state transitions as R_TRIG and F_TRIG. TRUST_MITSUBISHI_EDGE_ALIAS_001 owns compiler acceptance and signature equivalence; this invariant owns the runtime state result."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "The edge state machines and product alias are specified; the ready runtime tests still require accepted catalog mappings and focused execution evidence."

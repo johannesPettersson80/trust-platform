@@ -765,6 +765,38 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
             integration.cargo_target_args,
         )
 
+    def test_runtime_remaining_profile_resolves_stdlib_batch_paths(self) -> None:
+        paths = {
+            "crates/trust-runtime/tests/datetime_profile.rs",
+            "crates/trust-runtime/tests/datetime_range.rs",
+            "crates/trust-runtime/tests/datetime_types.rs",
+            "crates/trust-runtime/tests/expr_calls.rs",
+            "crates/trust-runtime/tests/fb_bistable.rs",
+            "crates/trust-runtime/tests/fb_counters.rs",
+            "crates/trust-runtime/tests/fb_counters_full.rs",
+            "crates/trust-runtime/tests/fb_edges.rs",
+            "crates/trust-runtime/tests/fb_timers.rs",
+            "crates/trust-runtime/tests/iec_counters.rs",
+            "crates/trust-runtime/tests/iec_examples.rs",
+            "crates/trust-runtime/tests/iec_timers.rs",
+            "crates/trust-runtime/tests/stdlib_assertions.rs",
+            "crates/trust-runtime/tests/stdlib_bit_full.rs",
+            "crates/trust-runtime/tests/stdlib_conv.rs",
+            "crates/trust-runtime/tests/stdlib_conv_full.rs",
+            "crates/trust-runtime/tests/stdlib_enum_validate.rs",
+            "crates/trust-runtime/tests/stdlib_numeric.rs",
+            "crates/trust-runtime/tests/stdlib_select_full.rs",
+            "crates/trust-runtime/tests/stdlib_split_locals.rs",
+            "crates/trust-runtime/tests/stdlib_string.rs",
+            "crates/trust-runtime/tests/stdlib_string_full.rs",
+        }
+        for path in paths:
+            with self.subTest(path=path):
+                profile = get_target_profile("runtime-remaining", path=path)
+                target = path.rsplit("/", 1)[-1].removesuffix(".rs")
+                self.assertEqual(("test", target), (profile.target_kind, profile.target_name))
+                self.assertEqual("", profile.test_prefix)
+
     def test_hir_selection_requires_integration_discovery_kind(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

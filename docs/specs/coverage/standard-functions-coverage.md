@@ -12,6 +12,21 @@ below are implemented in trust-hir. Runtime execution coverage is tracked in
 internal test checklists. trust-ide surfaces IEC-referenced standard function
 docs in hover/completion (`stdlib_docs`).
 
+Runtime-result authority is tracked separately from HIR signature coverage:
+
+- `RT_STDLIB_CONVERSION_001`, `RT_STDLIB_COMPARISON_VALIDATE_001`,
+  `RT_STDLIB_NUMERIC_BIT_001`, `RT_STDLIB_STRING_001`, and
+  `RT_STDLIB_ASSERTION_001` are planned with no assigned tests or execution
+  proof.
+- `RT_STDLIB_SELECTION_001` retains its existing mapped `SEL`/`MIN`/`MAX`
+  representative. Its `LIMIT`/`MUX`, enum-selection, and named-argument
+  runtime partitions remain open.
+- Bounded receiving-storage behavior remains owned by
+  `VM_SEAM_STRING_BOUND_001`; a string-function result does not by itself
+  prove assignment-capacity enforcement.
+- Checked implementation boxes below do not imply that the corresponding
+  runtime-result invariant is dynamically proved.
+
 ## Table 22 - Data Type Conversion Function Forms
 - [x] `SRC_TO_DST` typed conversion
 - [x] `TO_DST` overloaded conversion (deprecated)
@@ -153,6 +168,13 @@ Implementer extensions tracked outside IEC Table 27:
 - [x] CHAR_TO_BYTE
 - [x] WCHAR_TO_WORD
 
+Reviewed runtime text-conversion authority:
+- [~] Exact representatives for `DINT_TO_STRING`, `REAL_TO_STRING`,
+  `DWORD_TO_STRING`, and `STRING_TO_DINT`; invariant mapping and execution
+  evidence remain open.
+- [~] Non-finite `STRING_TO_REAL`/`STRING_TO_LREAL` text is rejected; the
+  runtime-error variant is intentionally not fixed.
+
 ## Table 28 - Numerical and Arithmetic Functions (Single Input)
 - [x] ABS
 - [x] SQRT
@@ -216,6 +238,8 @@ Implementer extensions tracked outside IEC Table 27:
 
 Runtime note:
 - The shipped VM/runtime applies the `DEV-017` element model consistently across `LEN`, `LEFT`, `RIGHT`, `MID`, `INSERT`, `DELETE`, `REPLACE`, and `FIND`.
+- Runtime-result catalog assignment and focused proof remain open under
+  `RT_STDLIB_STRING_001`.
 
 ## Table 35 - Time/Duration Arithmetic Functions
 - [x] ADD (overloaded)
@@ -274,6 +298,11 @@ Runtime note:
 - [x] ASSERT_GREATER_OR_EQUAL
 - [x] ASSERT_LESS_OR_EQUAL
 - [x] ASSERT_NEAR
+
+Runtime assertion note:
+- [~] Success-`Null`, `AssertionFailed`, reviewed mixed-numeric comparison, and
+  bounded user-facing message contracts are specified; catalog assignment and
+  focused execution evidence remain open under `RT_STDLIB_ASSERTION_001`.
 
 ## Table 43 - Bistable Function Blocks
 - [x] RS
