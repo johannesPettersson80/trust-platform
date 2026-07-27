@@ -278,6 +278,16 @@ mod tests {
     }
 }
 
+"#;
+    let inventory = extract("crates/example/src/contract.rs", "reports_contract", source)
+        .expect("extract test-only method helper");
+
+    assert_eq!(
+        vec!["tests::check_contract::check_contract:unresolved-method"],
+        inventory.unresolved_assertion_helpers
+    );
+}
+
 #[test]
 fn checked_arithmetic_methods_are_not_assertion_helpers() {
     let source = r#"
@@ -301,15 +311,6 @@ mod tests {
     .expect("extract checked arithmetic assertions");
 
     assert!(inventory.unresolved_assertion_helpers.is_empty());
-}
-"#;
-    let inventory = extract("crates/example/src/contract.rs", "reports_contract", source)
-        .expect("extract test-only method helper");
-
-    assert_eq!(
-        vec!["tests::check_contract::check_contract:unresolved-method"],
-        inventory.unresolved_assertion_helpers
-    );
 }
 
 #[test]
