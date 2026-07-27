@@ -103913,3 +103913,376 @@ mapping_assertion_review_digest = "sha256:6c14993456c75326fdbd4a464b962ea82591b3
 mapping_assertion_source_digests = { "crates/trust-runtime/src/host/mesh/tests.rs" = "sha256:b9945e57668d357539f3f6460c9029b76be49364a91a99ca137951657536dcf1" }
 mapping_behavior_refs = ["RT_MESH_DATA_PLANE_001#behavior:1"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_05D523F0DA7935D57DE2"
+subject_kind = "generated_test"
+discovery_id = "DISC_05D523F0DA7935D57DE2"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-ads-server/src/ams.rs"
+name = "parser_rejects_invalid_state_flags"
+command = "cargo nextest run -p trust-ads-server --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-ads-server) & test(=ams::tests::parser_rejects_invalid_state_flags)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_AMS_TCP_FRAME_CODEC_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-amstcp-frame-codec"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#ads-amstcp-frame-codec"]
+expected_result = "Unsupported commands, invalid state flags, header/payload length mismatch, and serialization mismatch reject without a partially accepted frame."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_05D523F0DA7935D57DE2.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_05D523F0DA7935D57DE2_A6769671E195"
+mapping_proposal_digest = "sha256:a6769671e1954a177c5a5e46ae4fb4605390f93f85a2092f31a3b1e96d888875"
+mapping_decision_id = "MAP_DEC_A536ECF544EAC91DF4F21491"
+mapping_reviewed_source_digest = "sha256:440420e34185042145ab029af6a11e1a2cfb6a9bbac92fff15df432ffa23fce5"
+mapping_assertion_review_digest = "sha256:c9f15afcb4ac0d8d0fe5e719a94d8453ac176f06dc64bb8484e9d5540bbaa913"
+mapping_assertion_source_digests = { "crates/trust-ads-server/src/ams.rs" = "sha256:440420e34185042145ab029af6a11e1a2cfb6a9bbac92fff15df432ffa23fce5" }
+mapping_behavior_refs = ["RT_ADS_AMS_TCP_FRAME_CODEC_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_092311EA917C2AD0A2D0"
+subject_kind = "generated_test"
+discovery_id = "DISC_092311EA917C2AD0A2D0"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-ads-server/src/ams.rs"
+name = "parser_rejects_frame_over_configured_cap_before_payload_use"
+command = "cargo nextest run -p trust-ads-server --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-ads-server) & test(=ams::tests::parser_rejects_frame_over_configured_cap_before_payload_use)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_AMS_TCP_FRAME_CODEC_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-amstcp-frame-codec"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#ads-amstcp-frame-codec"]
+expected_result = "Short prefixes, reserved-byte violations, below-header lengths, over-cap lengths, and truncated declared frames reject at the AMS/TCP envelope boundary."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_092311EA917C2AD0A2D0.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_092311EA917C2AD0A2D0_5F1E53AF1C19"
+mapping_proposal_digest = "sha256:5f1e53af1c19f5f78de62b6dcdb5338015611b7a98558248d123b68ac824ece5"
+mapping_decision_id = "MAP_DEC_034AE7A8B4612D52F09FB4DB"
+mapping_reviewed_source_digest = "sha256:440420e34185042145ab029af6a11e1a2cfb6a9bbac92fff15df432ffa23fce5"
+mapping_assertion_review_digest = "sha256:89f11d5d9dbdcc841eaf71fb6e4091a6f99f9a9fa70df0f13cd910e39b4e399e"
+mapping_assertion_source_digests = { "crates/trust-ads-server/src/ams.rs" = "sha256:440420e34185042145ab029af6a11e1a2cfb6a9bbac92fff15df432ffa23fce5" }
+mapping_behavior_refs = ["RT_ADS_AMS_TCP_FRAME_CODEC_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_5E92A205D4C06F7F9D0D"
+subject_kind = "generated_test"
+discovery_id = "DISC_5E92A205D4C06F7F9D0D"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-ads-server/src/ams.rs"
+name = "parser_rejects_truncated_payload"
+command = "cargo nextest run -p trust-ads-server --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-ads-server) & test(=ams::tests::parser_rejects_truncated_payload)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_AMS_TCP_FRAME_CODEC_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-amstcp-frame-codec"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#ads-amstcp-frame-codec"]
+expected_result = "Short prefixes, reserved-byte violations, below-header lengths, over-cap lengths, and truncated declared frames reject at the AMS/TCP envelope boundary."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_5E92A205D4C06F7F9D0D.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_5E92A205D4C06F7F9D0D_4B15EE205C74"
+mapping_proposal_digest = "sha256:4b15ee205c7485ae61392c4491f85db99787dfd40047461a9c7421113ffe1c6a"
+mapping_decision_id = "MAP_DEC_A90F7210769FC44005BC7D7A"
+mapping_reviewed_source_digest = "sha256:440420e34185042145ab029af6a11e1a2cfb6a9bbac92fff15df432ffa23fce5"
+mapping_assertion_review_digest = "sha256:fc27e07ede904526e86f37b92a3e1f414cca25470db85357bd4c15284a3efc36"
+mapping_assertion_source_digests = { "crates/trust-ads-server/src/ams.rs" = "sha256:440420e34185042145ab029af6a11e1a2cfb6a9bbac92fff15df432ffa23fce5" }
+mapping_behavior_refs = ["RT_ADS_AMS_TCP_FRAME_CODEC_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_6A52B2B733E82F7C3C0D"
+subject_kind = "generated_test"
+discovery_id = "DISC_6A52B2B733E82F7C3C0D"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-ads-server/src/ams.rs"
+name = "response_header_swaps_source_and_target"
+command = "cargo nextest run -p trust-ads-server --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-ads-server) & test(=ams::tests::response_header_swaps_source_and_target)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_AMS_TCP_FRAME_CODEC_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-amstcp-frame-codec"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#ads-amstcp-frame-codec"]
+expected_result = "Response construction swaps source and target endpoints, preserves command and invoke identity, sets response state, and records the supplied payload length."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_6A52B2B733E82F7C3C0D.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_6A52B2B733E82F7C3C0D_38F5B86624B4"
+mapping_proposal_digest = "sha256:38f5b86624b408a53b52d4c53b4ab7b7f05c52f1b04911c10cafad2448bef27f"
+mapping_decision_id = "MAP_DEC_9ACBBE49674312663726AAA3"
+mapping_reviewed_source_digest = "sha256:440420e34185042145ab029af6a11e1a2cfb6a9bbac92fff15df432ffa23fce5"
+mapping_assertion_review_digest = "sha256:1ec674eca8ec7216ed508dcbdfed0b8f505d74e1722c804b90eb09e6699987e4"
+mapping_assertion_source_digests = { "crates/trust-ads-server/src/ams.rs" = "sha256:440420e34185042145ab029af6a11e1a2cfb6a9bbac92fff15df432ffa23fce5" }
+mapping_behavior_refs = ["RT_ADS_AMS_TCP_FRAME_CODEC_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_7CFE43849CD4D888527D"
+subject_kind = "generated_test"
+discovery_id = "DISC_7CFE43849CD4D888527D"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-ads-server/src/ams.rs"
+name = "parser_rejects_truncated_ams_tcp_header"
+command = "cargo nextest run -p trust-ads-server --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-ads-server) & test(=ams::tests::parser_rejects_truncated_ams_tcp_header)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_AMS_TCP_FRAME_CODEC_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-amstcp-frame-codec"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#ads-amstcp-frame-codec"]
+expected_result = "Short prefixes, reserved-byte violations, below-header lengths, over-cap lengths, and truncated declared frames reject at the AMS/TCP envelope boundary."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_7CFE43849CD4D888527D.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_7CFE43849CD4D888527D_83917B61B134"
+mapping_proposal_digest = "sha256:83917b61b134a264582f9acab07534ee119edaeb35881e802d198c0304f2ba2f"
+mapping_decision_id = "MAP_DEC_4D0B86F39CA17D9C35D2EA5A"
+mapping_reviewed_source_digest = "sha256:440420e34185042145ab029af6a11e1a2cfb6a9bbac92fff15df432ffa23fce5"
+mapping_assertion_review_digest = "sha256:7ed1740fc88bfcc7e772ac3c649e5a20fcd1d292754de6b5b203e63ad660a37e"
+mapping_assertion_source_digests = { "crates/trust-ads-server/src/ams.rs" = "sha256:440420e34185042145ab029af6a11e1a2cfb6a9bbac92fff15df432ffa23fce5" }
+mapping_behavior_refs = ["RT_ADS_AMS_TCP_FRAME_CODEC_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_835A0E99643AE75A673A"
+subject_kind = "generated_test"
+discovery_id = "DISC_835A0E99643AE75A673A"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-ads-server/src/ams.rs"
+name = "serializer_rejects_header_payload_mismatch"
+command = "cargo nextest run -p trust-ads-server --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-ads-server) & test(=ams::tests::serializer_rejects_header_payload_mismatch)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_AMS_TCP_FRAME_CODEC_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-amstcp-frame-codec"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#ads-amstcp-frame-codec"]
+expected_result = "Unsupported commands, invalid state flags, header/payload length mismatch, and serialization mismatch reject without a partially accepted frame."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_835A0E99643AE75A673A.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_835A0E99643AE75A673A_58676E418145"
+mapping_proposal_digest = "sha256:58676e4181456195d25c548e6492444dea5beda8d3ee08654af2ccadce1f271e"
+mapping_decision_id = "MAP_DEC_4C76E934985474A7DFB08D90"
+mapping_reviewed_source_digest = "sha256:440420e34185042145ab029af6a11e1a2cfb6a9bbac92fff15df432ffa23fce5"
+mapping_assertion_review_digest = "sha256:f860b97cdd15296d1acbacd34b4eb22b694db70151c9563531a4eb98c84b0ace"
+mapping_assertion_source_digests = { "crates/trust-ads-server/src/ams.rs" = "sha256:440420e34185042145ab029af6a11e1a2cfb6a9bbac92fff15df432ffa23fce5" }
+mapping_behavior_refs = ["RT_ADS_AMS_TCP_FRAME_CODEC_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_99FE2332E12E8705D917"
+subject_kind = "generated_test"
+discovery_id = "DISC_99FE2332E12E8705D917"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-ads-server/src/ams.rs"
+name = "parser_rejects_unknown_command_id"
+command = "cargo nextest run -p trust-ads-server --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-ads-server) & test(=ams::tests::parser_rejects_unknown_command_id)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_AMS_TCP_FRAME_CODEC_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-amstcp-frame-codec"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#ads-amstcp-frame-codec"]
+expected_result = "Unsupported commands, invalid state flags, header/payload length mismatch, and serialization mismatch reject without a partially accepted frame."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_99FE2332E12E8705D917.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_99FE2332E12E8705D917_01A88B7624CD"
+mapping_proposal_digest = "sha256:01a88b7624cdafd811e951ac4b61d21242e5365361b5ef88c5eee3d39e5b03d9"
+mapping_decision_id = "MAP_DEC_C5678E8883C113FE568B8967"
+mapping_reviewed_source_digest = "sha256:440420e34185042145ab029af6a11e1a2cfb6a9bbac92fff15df432ffa23fce5"
+mapping_assertion_review_digest = "sha256:ce8fba132628a3590deff7ebc70005f338f78fef49a10929b83e04544060ca6f"
+mapping_assertion_source_digests = { "crates/trust-ads-server/src/ams.rs" = "sha256:440420e34185042145ab029af6a11e1a2cfb6a9bbac92fff15df432ffa23fce5" }
+mapping_behavior_refs = ["RT_ADS_AMS_TCP_FRAME_CODEC_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_B5A766CA369835DBF015"
+subject_kind = "generated_test"
+discovery_id = "DISC_B5A766CA369835DBF015"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-ads-server/src/ams.rs"
+name = "parser_rejects_length_smaller_than_ams_header"
+command = "cargo nextest run -p trust-ads-server --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-ads-server) & test(=ams::tests::parser_rejects_length_smaller_than_ams_header)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_AMS_TCP_FRAME_CODEC_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-amstcp-frame-codec"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#ads-amstcp-frame-codec"]
+expected_result = "Short prefixes, reserved-byte violations, below-header lengths, over-cap lengths, and truncated declared frames reject at the AMS/TCP envelope boundary."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_B5A766CA369835DBF015.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_B5A766CA369835DBF015_C372E0281D6A"
+mapping_proposal_digest = "sha256:c372e0281d6a3762112c294a852d96109cac2b7ad98d65f93ab8501eda7976c5"
+mapping_decision_id = "MAP_DEC_18C94FEB46908292A4368D23"
+mapping_reviewed_source_digest = "sha256:440420e34185042145ab029af6a11e1a2cfb6a9bbac92fff15df432ffa23fce5"
+mapping_assertion_review_digest = "sha256:70677ae28f940d13d071284bd65cfb0ba4e1da03c7a3fff36b9960a3092820ad"
+mapping_assertion_source_digests = { "crates/trust-ads-server/src/ams.rs" = "sha256:440420e34185042145ab029af6a11e1a2cfb6a9bbac92fff15df432ffa23fce5" }
+mapping_behavior_refs = ["RT_ADS_AMS_TCP_FRAME_CODEC_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_B6384B6437C6E3D10534"
+subject_kind = "generated_test"
+discovery_id = "DISC_B6384B6437C6E3D10534"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-ads-server/src/ams.rs"
+name = "parser_rejects_nonzero_reserved_bytes"
+command = "cargo nextest run -p trust-ads-server --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-ads-server) & test(=ams::tests::parser_rejects_nonzero_reserved_bytes)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_AMS_TCP_FRAME_CODEC_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-amstcp-frame-codec"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#ads-amstcp-frame-codec"]
+expected_result = "Short prefixes, reserved-byte violations, below-header lengths, over-cap lengths, and truncated declared frames reject at the AMS/TCP envelope boundary."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_B6384B6437C6E3D10534.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_B6384B6437C6E3D10534_E2E0894786EB"
+mapping_proposal_digest = "sha256:e2e0894786eb1e02aaf72162b0e812234934f07b6ef659a4843deb3c5fbaa2b4"
+mapping_decision_id = "MAP_DEC_742DD9E16CD99F9A2CAD6902"
+mapping_reviewed_source_digest = "sha256:440420e34185042145ab029af6a11e1a2cfb6a9bbac92fff15df432ffa23fce5"
+mapping_assertion_review_digest = "sha256:a89e1a3cd651365548a4a17a27c0ecdec20c57ed266f080e9bf5d16b8d5a4a3a"
+mapping_assertion_source_digests = { "crates/trust-ads-server/src/ams.rs" = "sha256:440420e34185042145ab029af6a11e1a2cfb6a9bbac92fff15df432ffa23fce5" }
+mapping_behavior_refs = ["RT_ADS_AMS_TCP_FRAME_CODEC_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_E2199B0876F480E769E4"
+subject_kind = "generated_test"
+discovery_id = "DISC_E2199B0876F480E769E4"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-ads-server/src/ams.rs"
+name = "parser_rejects_ams_data_length_mismatch"
+command = "cargo nextest run -p trust-ads-server --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-ads-server) & test(=ams::tests::parser_rejects_ams_data_length_mismatch)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_AMS_TCP_FRAME_CODEC_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-amstcp-frame-codec"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#ads-amstcp-frame-codec"]
+expected_result = "Unsupported commands, invalid state flags, header/payload length mismatch, and serialization mismatch reject without a partially accepted frame."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_E2199B0876F480E769E4.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_E2199B0876F480E769E4_8ABCFB505DB0"
+mapping_proposal_digest = "sha256:8abcfb505db038046ce26422bb21174d9f420288e98f25a67af6fe7e97dc9a51"
+mapping_decision_id = "MAP_DEC_7CF4C0654E719C808D64BBAF"
+mapping_reviewed_source_digest = "sha256:440420e34185042145ab029af6a11e1a2cfb6a9bbac92fff15df432ffa23fce5"
+mapping_assertion_review_digest = "sha256:e15486d4a1485045b1b9236a96cef79569a8d760c09b0cd9ce07e336e7270eb8"
+mapping_assertion_source_digests = { "crates/trust-ads-server/src/ams.rs" = "sha256:440420e34185042145ab029af6a11e1a2cfb6a9bbac92fff15df432ffa23fce5" }
+mapping_behavior_refs = ["RT_ADS_AMS_TCP_FRAME_CODEC_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_FA2E7ED1E85CF453C1DC"
+subject_kind = "generated_test"
+discovery_id = "DISC_FA2E7ED1E85CF453C1DC"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-ads-server/src/ams.rs"
+name = "ams_frame_round_trips_valid_read_request_bytes"
+command = "cargo nextest run -p trust-ads-server --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-ads-server) & test(=ams::tests::ams_frame_round_trips_valid_read_request_bytes)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_AMS_TCP_FRAME_CODEC_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-amstcp-frame-codec"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#ads-amstcp-frame-codec"]
+expected_result = "A valid read request preserves every endpoint, command, state, length, error, invoke, and payload field and serializes back to the canonical reviewed bytes."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_FA2E7ED1E85CF453C1DC.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_FA2E7ED1E85CF453C1DC_203BC4876E95"
+mapping_proposal_digest = "sha256:203bc4876e955e2e8788d2d2b0d3e6e23a13f74123ccf440265d65d75b0b35e5"
+mapping_decision_id = "MAP_DEC_14BA753B8291525F610FA6E9"
+mapping_reviewed_source_digest = "sha256:440420e34185042145ab029af6a11e1a2cfb6a9bbac92fff15df432ffa23fce5"
+mapping_assertion_review_digest = "sha256:ccebb77a97a157500bc1093bde7e426daaa2e4b94fe0f630262b3f67f5fcfa7c"
+mapping_assertion_source_digests = { "crates/trust-ads-server/src/ams.rs" = "sha256:440420e34185042145ab029af6a11e1a2cfb6a9bbac92fff15df432ffa23fce5" }
+mapping_behavior_refs = ["RT_ADS_AMS_TCP_FRAME_CODEC_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]

@@ -13,17 +13,11 @@ source_refs = [
   "docs/specs/11-runtime-engine.md",
   "crates/trust-ads-server/src/ams.rs",
 ]
-tests = []
+tests = ["TEST_AUTO_05D523F0DA7935D57DE2", "TEST_AUTO_092311EA917C2AD0A2D0", "TEST_AUTO_5E92A205D4C06F7F9D0D", "TEST_AUTO_6A52B2B733E82F7C3C0D", "TEST_AUTO_7CFE43849CD4D888527D", "TEST_AUTO_835A0E99643AE75A673A", "TEST_AUTO_99FE2332E12E8705D917", "TEST_AUTO_B5A766CA369835DBF015", "TEST_AUTO_B6384B6437C6E3D10534", "TEST_AUTO_E2199B0876F480E769E4", "TEST_AUTO_FA2E7ED1E85CF453C1DC"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = [
-  "cataloged_tests",
-  "focused_execution_evidence",
-  "trailing_byte_policy",
-  "large_length_arithmetic_boundary",
-  "final_remote_gate",
-]
+missing = ["cataloged_tests", "focused_execution_evidence", "trailing_byte_policy", "large_length_arithmetic_boundary", "final_remote_gate"]
 
 [spec]
 status = "specified"
@@ -71,15 +65,15 @@ rationale = "Unsupported commands, invalid state flags, header/payload length mi
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "The valid roundtrip assertions await generated catalog mapping and focused execution."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in RT_ADS_AMS_TCP_FRAME_CODEC_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
-state = "gap_open"
-rationale = "The response-correlation assertions await generated catalog mapping and focused execution."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in RT_ADS_AMS_TCP_FRAME_CODEC_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "gap_open"
-rationale = "The malformed envelope and header-correlation matrix awaits generated catalog mapping and focused execution."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every wrong_type_or_shape behavior in RT_ADS_AMS_TCP_FRAME_CODEC_001; dynamic proof and broad remote validation remain explicit debt."
