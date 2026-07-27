@@ -546,6 +546,38 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
         self.assertEqual("trust-runtime", profile.binary_id)
         self.assertEqual("memory::tests::", profile.test_prefix)
 
+    def test_runtime_remaining_profile_resolves_evaluator_unit_targets(
+        self,
+    ) -> None:
+        expected = {
+            "crates/trust-runtime/src/host/eval/tests/errors.rs": (
+                "eval::tests::errors::"
+            ),
+            "crates/trust-runtime/src/host/eval/tests/expr_ops.rs": (
+                "eval::tests::expr_ops::"
+            ),
+            "crates/trust-runtime/src/host/eval/tests/pou_fb.rs": (
+                "eval::tests::pou_fb::"
+            ),
+            "crates/trust-runtime/src/host/eval/tests/pou_function.rs": (
+                "eval::tests::pou_function::"
+            ),
+            "crates/trust-runtime/src/host/helper_eval/const_expr.rs": (
+                "helper_eval::const_expr::tests::"
+            ),
+            "crates/trust-runtime/src/host/helper_eval/storage_expr.rs": (
+                "helper_eval::storage_expr::tests::"
+            ),
+            "crates/trust-runtime/src/host/helper_eval/storage_lvalue.rs": (
+                "helper_eval::storage_lvalue::tests::"
+            ),
+        }
+        for path, prefix in expected.items():
+            profile = get_target_profile("runtime-remaining", path=path)
+            self.assertEqual(("--lib",), profile.cargo_target_args)
+            self.assertEqual("trust-runtime", profile.binary_id)
+            self.assertEqual(prefix, profile.test_prefix)
+
     def test_runtime_remaining_profile_resolves_mesh_unit_target(self) -> None:
         profile = get_target_profile(
             "runtime-remaining",

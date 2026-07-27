@@ -699,3 +699,69 @@ IEC or PLCopen deviation log merely because truST owns the behavior.
     filesystem transaction, compatibility versions, or online migration
     policy. These shipped runtime choices need one explicit fail-closed
     authority and are not IEC deviations.
+
+## 2026-07-27 - Host lvalue writes fail closed
+
+- Area: Runtime host-helper storage mutation
+- Decision:
+  - The reviewed host lvalue helper paths update only an already-resolved
+    current-local name or global-root dereference, array element, structure
+    field, or nested aggregate target.
+  - An unresolved root returns `RuntimeError::UndefinedVariable` and creates no
+    fallback global slot.
+- Supersedes:
+  - Any interpretation that an assignment helper may create an undeclared
+    global as a fallback.
+- Reason:
+  - Silent slot creation converts a misspelled or stale target into successful
+    mutation of unrelated state. The helper boundary must fail closed.
+
+## 2026-07-27 - Host helper standard-library capability
+
+- Area: Runtime constant, debugger, and configuration expression helpers
+- Decision:
+  - The reviewed helper evaluates `ABS(DINT#-1)` to `DINT#1` when the caller
+    supplies a `StandardLibrary` capability.
+  - The same reviewed expression attempted without that capability returns
+    `RuntimeError::TypeMismatch`.
+- Supersedes:
+  - Any interpretation that resolver-less helper evaluation inherits the
+    production runtime's standard-library surface automatically.
+- Reason:
+  - Capability injection keeps this bounded helper behavior explicit. Other
+    standard functions require separate specification behavior and proof.
+
+## 2026-07-27 - Numeric exponent result contract
+
+- Area: Structured Text runtime numeric operations
+- Decision:
+  - The host evaluator accepts the intentional integer-base `**` extension;
+    the reviewed representative result is `INT#2 ** INT#3 = INT#8`.
+  - Its reviewed mixed-real result is `LREAL#2.0 ** REAL#3.0 = LREAL#8.0`.
+    Other exponent type combinations and boundary failures require separate
+    specification behaviors and focused proof.
+- Supersedes:
+  - The prior product-spec implication that the host evaluator accepted no
+    integer-base `**` case.
+- Reason:
+  - IEC 61131-3 Ed.3 section 6.6.2.5.8 and Table 29 require `IN1` to be
+    `ANY_REAL`. Accepting an integer base is therefore the intentional
+    normative conflict recorded in
+    `docs/IEC_DEVIATIONS.md#2026-07-27---integer-base-exponentiation`; the
+    two representative typed results above are the bounded host-evaluator
+    contract established by this decision.
+
+## 2026-07-27 - Boolean comparison ordering
+
+- Area: Structured Text runtime comparison operations
+- Decision:
+  - The reviewed host-evaluator comparison `TRUE >= FALSE` returns `TRUE`.
+  - This decision does not use that one comparison to certify every Boolean
+    comparison operator or a complete total-order contract.
+- Supersedes:
+  - The product-spec implication that the host evaluator had no reviewed
+    ordered-Boolean result beyond `=` and `<>`.
+- Reason:
+  - IEC 61131-3 Ed.3 Table 33 admits `ANY_ELEMENTARY` comparison operands.
+    Recording this exact result removes an internal product-spec contradiction
+    and does not create an IEC deviation.

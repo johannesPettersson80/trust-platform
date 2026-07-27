@@ -444,7 +444,16 @@ The portable runtime core SHALL preserve these value and program-model rules:
   supported numeric value. Numeric and Boolean operations use their checked
   runtime contract. Non-numeric comparisons are accepted only for the
   documented comparable value families; unsupported mixed families return a
-  stable error.
+  stable error. Unary negation rejects non-numeric operands with
+  `RuntimeError::TypeMismatch` and rejects the unrepresentable negation of
+  each signed integer minimum with `RuntimeError::Overflow`. The reviewed host
+  evaluator returns `INT#8` for `INT#2 ** INT#3` and `LREAL#8.0` for
+  `LREAL#2.0 ** REAL#3.0`. The integer-base case is an extension beyond IEC
+  61131-3 Ed.3 section 6.6.2.5.8 and Table 29 and is recorded in
+  `docs/IEC_DEVIATIONS.md#2026-07-27---integer-base-exponentiation`. Real
+  and integer exponent boundary failures require separately cataloged
+  behaviors. The reviewed Boolean result is `TRUE >= FALSE = TRUE`; it does
+  not certify other Boolean operand/operator combinations.
 - Elementary defaults retain their declared runtime tags. Unknown type IDs are
   rejected. Partial bit/byte/word reads and writes enforce bounds, and a write
   changes only the selected portion. Reference-path helpers preserve segment
@@ -463,6 +472,11 @@ The portable runtime core SHALL preserve these value and program-model rules:
 - Interface values accept the explicit null representation and compatible
   instance references. Declared assignment materializes only the documented
   safe numeric widening and stores the destination runtime tag.
+- Host expression access rejects an out-of-bounds array index with
+  `RuntimeError::IndexOutOfBounds`, a null dereference with
+  `RuntimeError::NullReference`, and a reference to absent storage with
+  `RuntimeError::UndefinedVariable`. These access assertions establish the
+  exact error variants, not post-state mutation behavior.
 
 These are portable data-model guarantees. A test name, sampled helper, or
 platform-width coincidence is not an oracle for a broader claim.
@@ -571,6 +585,11 @@ contract:
 - Direct-slot and empty-reference-path helpers are equivalent for global,
   current-local-frame, and instance locations. Borrowed and owned `ValueRef`
   helpers observe and update the same slot.
+- The reviewed host helper lvalue paths resolve an existing current-local name
+  or global-root dereference, array-element, structure-field, or nested
+  aggregate target and change only that selected target. If the root name
+  cannot be resolved, the write returns `RuntimeError::UndefinedVariable` and
+  creates no fallback global slot.
 - A nested reference write updates only the selected aggregate path. Shared
   structure values use copy-on-write isolation so a sibling slot that held the
   same pre-write value is unchanged. Array offset calculation is checked before
@@ -1050,6 +1069,28 @@ the destination returns `RuntimeError::TypeMismatch` without producing a
 value. Callers must route those categories through their owning conversion
 boundary.
 
+#### 6.11 Host helper evaluation contract
+
+The non-production host helpers used by constant, debugger, and configuration
+flows evaluate only their explicitly supplied capabilities:
+
+- nested constant arithmetic is evaluated recursively;
+- a named constant is resolved only through the supplied resolver, while a
+  resolver-less non-constant name returns `UnsupportedExpr`;
+- an array repetition initializer expands the repeated sequence in source
+  order and derives the resulting one-based shape from the expanded element
+  count; for example, `[3(1, 2)]` produces the six-element sequence
+  `1, 2, 1, 2, 1, 2` with bounds `(1..6)`, as required by IEC 61131-3 Ed.3
+  section 6.4.4.5.2;
+- with a supplied `StandardLibrary` capability, the reviewed
+  `ABS(DINT#-1)` expression evaluates to `DINT#1`; without that capability the
+  same expression returns `RuntimeError::TypeMismatch`. Other standard
+  functions require separate specification behavior and proof.
+
+This is a bounded host-helper contract. It does not make the old host
+evaluator a production execution path and does not authorize function-block,
+method, I/O, or other side-effecting calls.
+
 ### 7. POU Execution
 
 #### 7.1 FUNCTION
@@ -1140,6 +1181,29 @@ Standard enable/enable-out mechanism:
 
 - `EN` (input): If FALSE, POU not executed, ENO set FALSE
 - `ENO` (output): TRUE if execution succeeded
+
+#### 7.6 Host-stage POU evaluation contract
+
+The test-only host evaluator retains a stage-accurate compatibility contract
+for constructing and executing the portable POU model before bytecode
+lowering:
+
+- the reviewed function call binds the supplied named input, executes the
+  body, and returns the assigned function result;
+- omitted interface inputs, uninitialized local interface variables, and an
+  unassigned interface return value use the explicit runtime `Null` value;
+- function-block instance variables persist across calls;
+- an omitted function-block `VAR_INPUT` uses its declared default on the first
+  call and reuses the last explicitly stored input on later calls;
+- a read-only `VAR_INPUT` pointer slot does not make its referenced storage
+  read-only: dereference/index writes update only the selected caller element;
+  and
+- the reviewed `ARRAY[*]` `VAR_IN_OUT` and pointer callers preserve the
+  asserted whole-element sequences and write through to only the selected
+  element. These assertions do not establish array bounds independently.
+
+These rules specify the host-stage model exercised by focused unit tests.
+Production program execution remains the STBC/VM path.
 
 ### 8. Standard Library
 

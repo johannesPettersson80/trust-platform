@@ -102,11 +102,14 @@ PI := 3.0;  // ERROR: Cannot modify CONSTANT
 |-----------|---------------|----------|
 | +, -, *, / | ANY_NUM | Non-numeric operand |
 | MOD | ANY_INT | Non-integer operand |
-| ** | ANY_REAL base | Non-numeric operands |
+| ** | ANY_REAL base; reviewed host extension `INT#2 ** INT#3` | Non-numeric operands |
 | AND, OR, XOR | BOOL or ANY_BIT | Incompatible types |
 | NOT | BOOL or ANY_BIT | Non-boolean/bit operand |
 | <, >, <=, >= | ANY_ELEMENTARY | Incompatible comparison |
 | =, <> | ANY_ELEMENTARY | Incompatible types |
+
+The exact reviewed integer-base `**` extension is recorded in
+[`IEC_DEVIATIONS.md`](../IEC_DEVIATIONS.md#2026-07-27---integer-base-exponentiation).
 
 ### 3.2 Statement Type Errors
 
@@ -178,7 +181,9 @@ Compile-time defaults obey these rules:
   order;
 - unknown and duplicate fields are rejected;
 - array repeat defaults validate the repeated element against the declared
-  element type; an arbitrary call expression is not an array-repeat default;
+  element type and expand the parenthesized sequence in source order
+  (`[3(1, 2)]` becomes `1, 2, 1, 2, 1, 2`); an arbitrary call expression is
+  not an array-repeat default (IEC 61131-3 Ed.3 §6.4.4.5.2);
 - nested structure and union members are checked against their required type;
 - `NULL` is a valid reference default;
 - truST currently rejects a non-`NULL` reference type/member default,

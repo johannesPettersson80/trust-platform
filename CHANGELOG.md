@@ -9,6 +9,9 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 - Specify the runtime variable-storage contract for instance-field resolution,
   declared layouts, reference-helper equivalence, cache invalidation,
   copy-on-write nested updates, and checked extreme array bounds.
+- Specify fail-closed host lvalue writes, bounded helper capabilities,
+  host-stage POU defaults and write-through behavior, IEC array repetition,
+  representative integer-base exponentiation and Boolean comparison results.
 - Specify retain codec compatibility, filesystem transaction visibility,
   retry semantics, atomic migration, and typed migration/orphan events.
 - Specify mesh envelope metadata, subscription grammar, typed numeric decoding,

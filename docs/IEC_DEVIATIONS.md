@@ -15,6 +15,29 @@ this log. IEC-permitted interpretation choices belong in
 `docs/IEC_DECISIONS.md`. Existing entries are not classification precedent;
 re-check them against this rule when touched.
 
+## 2026-07-27 - Integer-base exponentiation
+
+- ID: DEV-021
+- Area: Structured Text arithmetic expressions
+- Normative IEC requirement: IEC 61131-3 Ed.3 section 6.6.2.5.8 and Table 29
+  define `EXPT`/`**` with `IN1` of generic type `ANY_REAL`, `IN2` of generic
+  type `ANY_NUM`, and an output of the same type as `IN1`.
+- truST behavior and conflict:
+  - truST additionally accepts the reviewed integer expression
+    `INT#2 ** INT#3` and evaluates it to `INT#8`.
+  - Accepting an integer `IN1` extends the normative input domain beyond
+    `ANY_REAL`.
+- Impact:
+  - Source that uses this reviewed integer-base expression is accepted by
+    truST but is not portable to a strictly conforming IEC 61131-3
+    implementation.
+- Mitigation:
+  - Portable source should convert the base to `REAL` or `LREAL` before
+    exponentiation.
+  - The expression and runtime specifications label that reviewed integer
+    form as a truST extension. Other integer operand combinations and
+    boundaries require their own specification behavior and focused proof.
+
 ## 2026-07-26 - `REF(...)` rejects CONSTANT-qualified variables
 
 - ID: DEV-020

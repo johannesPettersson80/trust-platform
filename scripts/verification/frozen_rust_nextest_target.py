@@ -252,6 +252,27 @@ RUNTIME_REMAINING_UNIT_PREFIXES: Mapping[str, str] = {
     "crates/trust-runtime/src/bytecode/validate/resource_limits.rs": (
         "bytecode::validate::resource_limits::tests::"
     ),
+    "crates/trust-runtime/src/host/eval/tests/errors.rs": (
+        "eval::tests::errors::"
+    ),
+    "crates/trust-runtime/src/host/eval/tests/expr_ops.rs": (
+        "eval::tests::expr_ops::"
+    ),
+    "crates/trust-runtime/src/host/eval/tests/pou_fb.rs": (
+        "eval::tests::pou_fb::"
+    ),
+    "crates/trust-runtime/src/host/eval/tests/pou_function.rs": (
+        "eval::tests::pou_function::"
+    ),
+    "crates/trust-runtime/src/host/helper_eval/const_expr.rs": (
+        "helper_eval::const_expr::tests::"
+    ),
+    "crates/trust-runtime/src/host/helper_eval/storage_expr.rs": (
+        "helper_eval::storage_expr::tests::"
+    ),
+    "crates/trust-runtime/src/host/helper_eval/storage_lvalue.rs": (
+        "helper_eval::storage_lvalue::tests::"
+    ),
     "crates/trust-runtime/src/memory/tests.rs": "memory::tests::",
     "crates/trust-runtime/src/host/mesh/tests.rs": "mesh::tests::",
     "crates/trust-runtime/src/openot_authoring/tests.rs": (

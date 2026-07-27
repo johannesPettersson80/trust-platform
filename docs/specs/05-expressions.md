@@ -131,9 +131,16 @@ IntVar := REAL_TO_INT(RealVar);
 | Multiply | `*` | ANY_NUM | ANY_NUM | ANY_NUM | Also TIME*ANY_NUM |
 | Divide | `/` | ANY_NUM | ANY_NUM | ANY_NUM | Also TIME/ANY_NUM |
 | Modulo | `MOD` | ANY_INT | ANY_INT | ANY_INT | |
-| Exponent | `**` | ANY_REAL | ANY_NUM | ANY_REAL | |
+| Exponent | `**` | ANY_REAL | ANY_NUM | ANY_REAL | See deviation note below |
 | Negate | `-` | - | ANY_NUM | ANY_NUM | Unary |
 | Plus | `+` | - | ANY_NUM | ANY_NUM | Unary (identity) |
+
+IEC 61131-3 Ed.3 section 6.6.2.5.8 and Table 29 require the exponentiation
+base to be `ANY_REAL`. The reviewed host evaluator additionally returns
+`INT#8` for `INT#2 ** INT#3`; that exact integer-base form is an intentional
+extension recorded in
+[`IEC_DEVIATIONS.md`](../IEC_DEVIATIONS.md#2026-07-27---integer-base-exponentiation).
+Other integer forms require separate specification behavior and proof.
 
 ### 4.2 Comparison Operators
 
@@ -307,7 +314,7 @@ invent a callable declaration.
 | STRING | STRING | Yes (lexicographic) |
 | TIME | TIME | Yes |
 | DATE | DATE | Yes |
-| BOOL | BOOL | Yes (= and <> only) |
+| BOOL | BOOL | Yes (`=` and `<>`; reviewed host extension: `TRUE >= FALSE` returns `TRUE`) |
 | STRUCT | STRUCT | No (not an elementary type) |
 
 ### 6.3 Boolean Operations

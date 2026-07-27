@@ -395,7 +395,10 @@ mod tests {
         let Value::Array(array) = storage.get_global("arr").cloned().unwrap() else {
             panic!("expected array");
         };
-        assert_eq!(array.elements()[1], Value::DInt(9));
+        assert_eq!(
+            array.elements(),
+            &[Value::DInt(1), Value::DInt(9), Value::DInt(3)]
+        );
     }
 
     #[test]
@@ -425,6 +428,7 @@ mod tests {
         let mut storage = VariableStorage::new();
         let mut fields = indexmap::IndexMap::new();
         fields.insert(SmolStr::new("x"), Value::DInt(1));
+        fields.insert(SmolStr::new("y"), Value::DInt(2));
         storage.set_global(
             "st",
             Value::Struct(Arc::new(crate::value::StructValue::from_untyped_parts(
@@ -451,6 +455,7 @@ mod tests {
             panic!("expected struct");
         };
         assert_eq!(st.field("x"), Some(&Value::DInt(3)));
+        assert_eq!(st.field("y"), Some(&Value::DInt(2)));
     }
 
     #[test]
@@ -498,7 +503,10 @@ mod tests {
         let Value::Array(array) = outer.field("arr").cloned().unwrap() else {
             panic!("expected array field");
         };
-        assert_eq!(array.elements()[1], Value::DInt(9));
+        assert_eq!(
+            array.elements(),
+            &[Value::DInt(1), Value::DInt(9), Value::DInt(3)]
+        );
     }
 
     #[test]
@@ -548,5 +556,9 @@ mod tests {
             panic!("expected struct element");
         };
         assert_eq!(item.field("value"), Some(&Value::DInt(7)));
+        let Value::Struct(sibling) = items.elements()[0].clone() else {
+            panic!("expected sibling struct element");
+        };
+        assert_eq!(sibling.field("value"), Some(&Value::DInt(1)));
     }
 }

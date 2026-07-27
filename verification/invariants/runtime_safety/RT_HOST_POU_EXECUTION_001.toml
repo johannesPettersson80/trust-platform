@@ -1,0 +1,102 @@
+schema_version = 1
+id = "RT_HOST_POU_EXECUTION_001"
+title = "Host-stage POU evaluation preserves function frames and function-block storage"
+area = "runtime_safety"
+risk = "wrong_result"
+status = "specified"
+owner = "trust-runtime"
+last_reviewed = "2026-07-27"
+claim = "The test-only host POU evaluator binds the reviewed function input and result, materializes declared defaults, preserves function-block state and omitted inputs, and proves selected write-through behavior through asserted whole-element sequences."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = [
+  "docs/specs/10-runtime-semantics.md",
+  "docs/PRODUCT_DECISIONS.md",
+  "crates/trust-runtime/src/host/eval",
+]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_tests", "focused_execution_evidence", "final_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_SEMANTICS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_SEMANTICS_001#76-host-stage-pou-evaluation-contract"
+
+[[behavior]]
+partition = { equals = "FUNCTION_NAMED_INPUT_AND_RESULT" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#76-host-stage-pou-evaluation-contract"
+outcome = "accept_value"
+no_partial_apply = false
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "The reviewed function call binds INT#5 to the named input, executes the body, and returns INT#6; it does not establish cross-call frame isolation."
+
+[[behavior]]
+partition = { equals = "FUNCTION_INTERFACE_NULL_DEFAULTS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#76-host-stage-pou-evaluation-contract"
+outcome = "accept_value"
+no_partial_apply = false
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "Omitted interface inputs, uninitialized local interface variables, and unassigned interface returns materialize as the explicit runtime Null value."
+
+[[behavior]]
+partition = { equals = "FUNCTION_BLOCK_PERSISTENT_STATE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#76-host-stage-pou-evaluation-contract"
+outcome = "accept_value"
+no_partial_apply = false
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "Calling the same function-block instance twice observes and updates its persisted instance variable."
+
+[[behavior]]
+partition = { equals = "FUNCTION_BLOCK_OMITTED_INPUT_REUSE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#76-host-stage-pou-evaluation-contract"
+outcome = "accept_value"
+no_partial_apply = false
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "An omitted input uses its declared default before an explicit update and reuses the explicitly stored value on a later omitted call."
+
+[[behavior]]
+partition = { equals = "VAR_INPUT_POINTER_POINTEE_WRITE_THROUGH" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#76-host-stage-pou-evaluation-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "A read-only VAR_INPUT pointer slot permits a dereference/index write to only the selected caller array element."
+
+[[behavior]]
+partition = { equals = "WILDCARD_ARRAY_IN_OUT_WRITE_THROUGH" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#76-host-stage-pou-evaluation-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "ARRAY[*] VAR_IN_OUT writes through to element 1 while the asserted four- and eight-element caller sequences preserve every observed sibling; bounds are not independently asserted."
+
+[[behavior]]
+partition = { equals = "POINTER_TO_WILDCARD_ARRAY_WRITE_THROUGH" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#76-host-stage-pou-evaluation-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "A pointer to ARRAY[*] changes only dereferenced element 2 in the asserted four-element caller sequence; bounds are not independently asserted."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Function binding/default and pointer/wildcard write-through behaviors await generated catalog mapping and focused execution."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "Function-block persistence and omitted-input reuse await generated catalog mapping and focused execution."

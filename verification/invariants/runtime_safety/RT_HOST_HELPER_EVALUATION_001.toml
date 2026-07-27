@@ -1,0 +1,94 @@
+schema_version = 1
+id = "RT_HOST_HELPER_EVALUATION_001"
+title = "Host helpers evaluate only explicit constant and standard-library capabilities"
+area = "runtime_safety"
+risk = "wrong_result"
+status = "specified"
+owner = "trust-runtime"
+last_reviewed = "2026-07-27"
+claim = "Bounded host helpers recursively evaluate the reviewed constant expressions, resolver-backed name, IEC array repetition, and capability-supplied ABS expression while rejecting the reviewed unavailable-name and absent-library cases."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = [
+  "docs/specs/10-runtime-semantics.md",
+  "docs/specs/09-semantic-rules.md",
+  "docs/PRODUCT_DECISIONS.md",
+  "crates/trust-runtime/src/host/helper_eval",
+]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_tests", "focused_execution_evidence", "final_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_SEMANTICS_001", "SPEC_IEC_SEMANTIC_RULES_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_SEMANTICS_001#611-host-helper-evaluation-contract"
+
+[[behavior]]
+partition = { equals = "NESTED_CONSTANT_EVALUATION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#611-host-helper-evaluation-contract"
+outcome = "accept_value"
+no_partial_apply = false
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "Nested constant arithmetic is evaluated recursively to its exact typed value."
+
+[[behavior]]
+partition = { equals = "RESOLVER_BACKED_NAMED_CONSTANT" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#611-host-helper-evaluation-contract"
+outcome = "accept_value"
+no_partial_apply = false
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "A supplied resolver provides the named constant and surrounding arithmetic produces the exact typed value."
+
+[[behavior]]
+partition = { equals = "RESOLVERLESS_NON_CONSTANT_REJECTION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#611-host-helper-evaluation-contract"
+outcome = "reject"
+no_partial_apply = false
+delta = { target = "not_applicable", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "stable_error", status = "not_applicable" }
+rationale = "A name evaluated without a constant resolver returns UnsupportedExpr rather than reading ambient storage."
+
+[[behavior]]
+partition = { equals = "ARRAY_REPETITION_EXPANSION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#611-host-helper-evaluation-contract"
+outcome = "accept_value"
+no_partial_apply = false
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "The repeated initializer sequence expands in source order and its six elements produce the exact one-based array shape."
+
+[[behavior]]
+partition = { equals = "PURE_STDLIB_WITH_CAPABILITY" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#611-host-helper-evaluation-contract"
+outcome = "accept_value"
+no_partial_apply = false
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "With an explicit StandardLibrary capability, ABS(DINT#-1) returns DINT#1; this behavior does not certify other standard functions."
+
+[[behavior]]
+partition = { equals = "ABSENT_STDLIB_CAPABILITY_REJECTION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#611-host-helper-evaluation-contract"
+outcome = "reject"
+no_partial_apply = false
+delta = { target = "not_applicable", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "stable_error", status = "not_applicable" }
+rationale = "Without a StandardLibrary capability, the reviewed ABS(DINT#-1) expression returns RuntimeError::TypeMismatch; the assertion does not observe internal dispatch."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Constant, repetition, and explicit pure-standard-library helper behavior awaits generated catalog mapping and focused execution."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Unavailable resolver and standard-library capability rejection awaits generated catalog mapping and focused execution."

@@ -6,12 +6,14 @@ risk = "wrong_result"
 status = "mapped"
 owner = "trust-runtime"
 last_reviewed = "2026-07-27"
-claim = "Runtime variable storage resolves global, local, and instance references consistently; preserves declared instance layouts and inheritance precedence; invalidates stale lookup results; and applies checked, copy-on-write nested mutation."
+claim = "Runtime variable storage resolves global, local, instance, dereference, field, and indexed references consistently; preserves declared instance layouts and inheritance precedence; invalidates stale lookup results; applies checked, copy-on-write nested mutation; and rejects unresolved writes without creating a fallback global."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = [
   "docs/specs/10-runtime-semantics.md",
+  "docs/PRODUCT_DECISIONS.md",
   "crates/trust-runtime/src/memory",
+  "crates/trust-runtime/src/host/helper_eval/storage_lvalue.rs",
 ]
 tests = ["TEST_AUTO_04C4A7BC104AAEA187FF", "TEST_AUTO_0B2EF754DB448B6AD3AB", "TEST_AUTO_40CA4A0F3E9B495A1A30", "TEST_AUTO_5B2577C9099ED6AC210B", "TEST_AUTO_A122DD61BD08854DA843", "TEST_AUTO_AC10CF406B3B1695588B", "TEST_AUTO_B107BE8F6A6D5BCBE3AE", "TEST_AUTO_BF7E6BB515C5DD73BED7", "TEST_AUTO_BFF56775AA7A39010698", "TEST_AUTO_C40B82EF2E40FB976CA8", "TEST_AUTO_CF68122CFF8B2562AA1D", "TEST_AUTO_D8948B3221BCB14EF064", "TEST_AUTO_E9E51ECA704D26D35216", "TEST_AUTO_FA0F9BAEDAA26D0A7E7D"]
 gates = ["pr"]
@@ -72,6 +74,33 @@ no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
 rationale = "Checked array-offset arithmetic handles a valid element at an extreme signed lower bound without wrapping and reads and writes that selected element exactly."
 
+[[behavior]]
+partition = { equals = "DIRECT_HOST_LVALUE_TARGETING" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#321-variable-storage-reference-and-layout-contract"
+outcome = "accept_value"
+no_partial_apply = false
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "Host helpers resolve existing local, dereference, array, structure, and nested aggregate lvalues and write the selected target."
+
+[[behavior]]
+partition = { equals = "HOST_LVALUE_SIBLING_PRESERVATION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#321-variable-storage-reference-and-layout-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "Whole-container observations prove that an array or structure write changes the selected element or field while preserving the asserted siblings."
+
+[[behavior]]
+partition = { equals = "UNKNOWN_LVALUE_WRITE_REJECTION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#321-variable-storage-reference-and-layout-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "stable_error", status = "not_applicable" }
+rationale = "An unresolved lvalue root returns RuntimeError::UndefinedVariable and creates no fallback global slot."
+
 [[coverage.cells]]
 dimension = "happy_path"
 state = "gap_open"
@@ -91,3 +120,8 @@ rationale = "Poisoned-cache recovery and stale-resolution invalidation await foc
 dimension = "boundary_low"
 state = "gap_open"
 rationale = "Extreme signed array-bound access awaits focused catalog proof."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Unknown lvalue rejection awaits focused catalog proof."

@@ -6,7 +6,7 @@ risk = "wrong_result"
 status = "mapped"
 owner = "trust-runtime"
 last_reviewed = "2026-07-27"
-claim = "Portable date/time, program-model, memory identity, stable error, default, partial-access, reference, array, structure, interface, and assignment values preserve canonical identity, bounds, and checked mutation."
+claim = "Portable date/time, program-model, memory identity, stable error, default, operator, partial-access, reference, array, structure, interface, and assignment values preserve canonical identity, bounds, checked results, and fail-closed mutation."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["docs/specs/10-runtime-semantics.md", "crates/trust-runtime-core/src"]
@@ -213,6 +213,78 @@ no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
 rationale = "Unknown fields, field-type drift, or mutation of an absent field is rejected without changing the structure."
 
+[[behavior]]
+partition = { equals = "SIGNED_NEGATION_OVERFLOW_REJECTION" }
+case_family = "boundary_low"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+outcome = "reject"
+no_partial_apply = false
+delta = { target = "not_applicable", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "stable_error", status = "not_applicable" }
+rationale = "Negating the minimum SINT, INT, DINT, or LINT value returns RuntimeError::Overflow instead of wrapping."
+
+[[behavior]]
+partition = { equals = "UNSUPPORTED_UNARY_OPERAND_REJECTION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+outcome = "reject"
+no_partial_apply = false
+delta = { target = "not_applicable", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "stable_error", status = "not_applicable" }
+rationale = "Unary numeric negation of a Boolean returns RuntimeError::TypeMismatch without a substitute value."
+
+[[behavior]]
+partition = { equals = "ARRAY_AND_REFERENCE_ACCESS_REJECTION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+outcome = "reject"
+no_partial_apply = false
+delta = { target = "not_applicable", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "stable_error", status = "not_applicable" }
+rationale = "Out-of-bounds array access, null dereference, and absent reference targets return their asserted runtime error variants; this behavior does not claim post-state proof."
+
+[[behavior]]
+partition = { equals = "PRE_GROUPED_AST_RECURSION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+outcome = "accept_value"
+no_partial_apply = false
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "Host evaluation recursively evaluates an explicitly nested arithmetic AST; this does not claim parser precedence."
+
+[[behavior]]
+partition = { equals = "DATETIME_TICK_RANGE_REJECTION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+outcome = "reject"
+no_partial_apply = false
+delta = { target = "not_applicable", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "stable_error", status = "not_applicable" }
+rationale = "A DATE tick value above the signed 64-bit representation returns the exact DateTimeRange(OutOfRange) error; this behavior does not claim timezone-composition coverage."
+
+[[behavior]]
+partition = { equals = "REPRESENTATIVE_EXPONENT_RESULTS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+outcome = "accept_value"
+no_partial_apply = false
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "The host evaluator returns exactly INT#8 for INT#2 ** INT#3 and LREAL#8.0 for LREAL#2.0 ** REAL#3.0; it does not certify other exponent boundaries."
+
+[[behavior]]
+partition = { equals = "REPRESENTATIVE_BITWISE_RESULTS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+outcome = "accept_value"
+no_partial_apply = false
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "The host evaluator returns BYTE#0 for BYTE#16#F0 AND BYTE#16#0F, WORD#16#0FFF for WORD#16#00FF XOR WORD#16#0F00, and BYTE#16#0F for NOT BYTE#16#F0."
+
+[[behavior]]
+partition = { equals = "REPRESENTATIVE_STRING_BOOL_ORDERING_RESULTS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+outcome = "accept_value"
+no_partial_apply = false
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "The host evaluator returns TRUE for STRING#'A' < STRING#'B' and TRUE >= FALSE; it does not certify every comparison operator."
+
 [[coverage.cells]]
 dimension = "happy_path"
 state = "gap_open"
@@ -227,3 +299,8 @@ rationale = "Portable rejection, construction, and widening assertions await cat
 dimension = "boundary_high"
 state = "gap_open"
 rationale = "Extreme array-offset representability assertions await catalog binding and focused proof."
+
+[[coverage.cells]]
+dimension = "boundary_low"
+state = "gap_open"
+rationale = "Signed-minimum negation rejection awaits catalog binding and focused proof."

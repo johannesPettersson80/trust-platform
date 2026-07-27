@@ -216,6 +216,12 @@ Angle := ATAN2(DY, DX);   // Four-quadrant arctangent
 
 **Note**: ADD and MUL are extensible (can take more than 2 inputs).
 
+The `EXPT` standard-function signature remains the IEC `ANY_REAL`-base
+contract shown above. The reviewed `INT#2 ** INT#3` host-evaluator extension
+is separate and is recorded in
+[`IEC_DEVIATIONS.md`](../IEC_DEVIATIONS.md#2026-07-27---integer-base-exponentiation);
+it does not widen the standard-function signature.
+
 For finite `REAL` operands, `EXP` and `EXPT` return a value only when the
 result remains finite at IEC basic single width. A result outside that finite
 range raises `RuntimeError::Overflow` before assignment storage and leaves the
