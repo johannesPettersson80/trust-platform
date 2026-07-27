@@ -104929,3 +104929,240 @@ mapping_assertion_review_digest = "sha256:295052adb028d77f9bfce06f585a0eda7eb446
 mapping_assertion_source_digests = { "crates/trust-runtime/tests/tasks.rs" = "sha256:c75c340c4532b847c69e542c5dd9006b1397ab70cb51edb416bc86947fca7927" }
 mapping_behavior_refs = ["RT_CORE_BYTECODE_SCHEDULER_001#behavior:2"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_0831D05B72B23BD0AAF9"
+subject_kind = "generated_test"
+discovery_id = "DISC_0831D05B72B23BD0AAF9"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-ads-server/src/notify.rs"
+name = "server_on_change_coalesces_equal_values"
+command = "cargo nextest run -p trust-ads-server --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-ads-server) & test(=notify::tests::server_on_change_coalesces_equal_values)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_NOTIFICATION_SAMPLING_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-command-dispatch-and-resource-safety"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#ads-server-command-dispatch-and-resource-safety"]
+expected_result = "SERVERCYCLE emits at successive due instants while SERVERONCHA emits, suppresses equal bytes, and emits after a byte change."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_0831D05B72B23BD0AAF9.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_0831D05B72B23BD0AAF9_C62430BA4008"
+mapping_proposal_digest = "sha256:c62430ba4008ec2ec874e649aa337f676a9395c184454ad1e28ddfadf1e085e8"
+mapping_decision_id = "MAP_DEC_B99D9E35ABCD582B458CEE11"
+mapping_reviewed_source_digest = "sha256:5819c6004bb7632184439bf4942ad1a9f47d445f4a26905967b551b0b490034d"
+mapping_assertion_review_digest = "sha256:71cc5dca09a8f56a9dec8bdec809ac6e65b3fd4cee7764c0767aed51e277bcf6"
+mapping_assertion_source_digests = { "crates/trust-ads-server/src/notify.rs" = "sha256:5819c6004bb7632184439bf4942ad1a9f47d445f4a26905967b551b0b490034d" }
+mapping_behavior_refs = ["RT_ADS_SERVER_NOTIFICATION_SAMPLING_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_8D17CD3D42D86B01457C"
+subject_kind = "generated_test"
+discovery_id = "DISC_8D17CD3D42D86B01457C"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-ads-server/src/notify.rs"
+name = "symbol_version_notification_samples_symbol_source_version"
+command = "cargo nextest run -p trust-ads-server --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-ads-server) & test(=notify::tests::symbol_version_notification_samples_symbol_source_version)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_NOTIFICATION_SAMPLING_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-command-dispatch-and-resource-safety"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#ads-server-command-dispatch-and-resource-safety"]
+expected_result = "Runtime symbols, little-endian symbol versions, and static system bytes are truncated to watch length; static targets bypass runtime value reads."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_8D17CD3D42D86B01457C.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_8D17CD3D42D86B01457C_96D82A80AF4D"
+mapping_proposal_digest = "sha256:96d82a80af4d30a174c5021fb6892f44d0ebf0e36c6ee8e9063738079b3bd993"
+mapping_decision_id = "MAP_DEC_80244D70FC4DCC0916C0D417"
+mapping_reviewed_source_digest = "sha256:5819c6004bb7632184439bf4942ad1a9f47d445f4a26905967b551b0b490034d"
+mapping_assertion_review_digest = "sha256:8802134e2f95af0b6f78b92c27a516f25378cbfd2ac5ec1dff71916080279b72"
+mapping_assertion_source_digests = { "crates/trust-ads-server/src/notify.rs" = "sha256:5819c6004bb7632184439bf4942ad1a9f47d445f4a26905967b551b0b490034d" }
+mapping_behavior_refs = ["RT_ADS_SERVER_NOTIFICATION_SAMPLING_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_99D4D4DE65F8AB0DEBD5"
+subject_kind = "generated_test"
+discovery_id = "DISC_99D4D4DE65F8AB0DEBD5"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-ads-server/src/notify.rs"
+name = "read_error_invalidates_handle"
+command = "cargo nextest run -p trust-ads-server --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-ads-server) & test(=notify::tests::read_error_invalidates_handle)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_NOTIFICATION_SAMPLING_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-command-dispatch-and-resource-safety"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#ads-server-command-dispatch-and-resource-safety"]
+expected_result = "A source read failure emits an invalidated sample with the original handle and no fabricated value bytes."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_99D4D4DE65F8AB0DEBD5.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_99D4D4DE65F8AB0DEBD5_239B78C316CA"
+mapping_proposal_digest = "sha256:239b78c316ca50d717125915b955f72d8d71bc247309de486c14f9a159db862b"
+mapping_decision_id = "MAP_DEC_F4A8D9DAB6AFFB07FA41E03E"
+mapping_reviewed_source_digest = "sha256:5819c6004bb7632184439bf4942ad1a9f47d445f4a26905967b551b0b490034d"
+mapping_assertion_review_digest = "sha256:f3ff35f41448fafb8c71106f0efe0c53d9a6d1dfc824be785c30c2c272fa6232"
+mapping_assertion_source_digests = { "crates/trust-ads-server/src/notify.rs" = "sha256:5819c6004bb7632184439bf4942ad1a9f47d445f4a26905967b551b0b490034d" }
+mapping_behavior_refs = ["RT_ADS_SERVER_NOTIFICATION_SAMPLING_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_B1D362169562C6D4070C"
+subject_kind = "generated_test"
+discovery_id = "DISC_B1D362169562C6D4070C"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-ads-server/src/notify.rs"
+name = "sampler_slices_values_to_registered_watch_length"
+command = "cargo nextest run -p trust-ads-server --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-ads-server) & test(=notify::tests::sampler_slices_values_to_registered_watch_length)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_NOTIFICATION_SAMPLING_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-command-dispatch-and-resource-safety"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#ads-server-command-dispatch-and-resource-safety"]
+expected_result = "Runtime symbols, little-endian symbol versions, and static system bytes are truncated to watch length; static targets bypass runtime value reads."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_B1D362169562C6D4070C.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_B1D362169562C6D4070C_D3C1DEA108D1"
+mapping_proposal_digest = "sha256:d3c1dea108d1cf3d36e981cfad1e6fb07a52a4a23be197c1ae97efe7822aa9c2"
+mapping_decision_id = "MAP_DEC_3E8314FB5601F07205A38A2D"
+mapping_reviewed_source_digest = "sha256:5819c6004bb7632184439bf4942ad1a9f47d445f4a26905967b551b0b490034d"
+mapping_assertion_review_digest = "sha256:1b98767b1c9388d4a2189152d37aaeb233261012ddd3e863801944f85d941181"
+mapping_assertion_source_digests = { "crates/trust-ads-server/src/notify.rs" = "sha256:5819c6004bb7632184439bf4942ad1a9f47d445f4a26905967b551b0b490034d" }
+mapping_behavior_refs = ["RT_ADS_SERVER_NOTIFICATION_SAMPLING_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_C583B205C64331F8787B"
+subject_kind = "generated_test"
+discovery_id = "DISC_C583B205C64331F8787B"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-ads-server/src/notify.rs"
+name = "filetime_conversion_matches_unix_epoch_offset"
+command = "cargo nextest run -p trust-ads-server --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-ads-server) & test(=notify::tests::filetime_conversion_matches_unix_epoch_offset)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_NOTIFICATION_SAMPLING_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-command-dispatch-and-resource-safety"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#ads-server-command-dispatch-and-resource-safety"]
+expected_result = "Unix epoch milliseconds zero and one convert to the exact representable Windows FILETIME offset and next millisecond."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_C583B205C64331F8787B.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_C583B205C64331F8787B_0C2D83C7ED7E"
+mapping_proposal_digest = "sha256:0c2d83c7ed7e0939a8bbc7cc43df1e7c9c34c0eeb45a8c8a5cd985756a47a0cb"
+mapping_decision_id = "MAP_DEC_10011D7C8A43BD81A6F7910B"
+mapping_reviewed_source_digest = "sha256:5819c6004bb7632184439bf4942ad1a9f47d445f4a26905967b551b0b490034d"
+mapping_assertion_review_digest = "sha256:645069e94ee0c7455e797f3bff6510e8cfcbaae58f68d02463c31d7eec001ede"
+mapping_assertion_source_digests = { "crates/trust-ads-server/src/notify.rs" = "sha256:5819c6004bb7632184439bf4942ad1a9f47d445f4a26905967b551b0b490034d" }
+mapping_behavior_refs = ["RT_ADS_SERVER_NOTIFICATION_SAMPLING_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_CFE38C649F984DC9993E"
+subject_kind = "generated_test"
+discovery_id = "DISC_CFE38C649F984DC9993E"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-ads-server/src/notify.rs"
+name = "system_bytes_notification_samples_without_runtime_read"
+command = "cargo nextest run -p trust-ads-server --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-ads-server) & test(=notify::tests::system_bytes_notification_samples_without_runtime_read)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_NOTIFICATION_SAMPLING_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-command-dispatch-and-resource-safety"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#ads-server-command-dispatch-and-resource-safety"]
+expected_result = "Runtime symbols, little-endian symbol versions, and static system bytes are truncated to watch length; static targets bypass runtime value reads."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_CFE38C649F984DC9993E.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_CFE38C649F984DC9993E_3D214CBAC2CA"
+mapping_proposal_digest = "sha256:3d214cbac2ca380c93dfb850159f8543e13d55ccfa7618bf82b03f8523637747"
+mapping_decision_id = "MAP_DEC_FFF38B327E3C9CB758F97E53"
+mapping_reviewed_source_digest = "sha256:5819c6004bb7632184439bf4942ad1a9f47d445f4a26905967b551b0b490034d"
+mapping_assertion_review_digest = "sha256:ecf8d9eb42b428fa4d58f50d3b3de1cbf42bb7dec0e9707f16dd392036970e5f"
+mapping_assertion_source_digests = { "crates/trust-ads-server/src/notify.rs" = "sha256:5819c6004bb7632184439bf4942ad1a9f47d445f4a26905967b551b0b490034d" }
+mapping_behavior_refs = ["RT_ADS_SERVER_NOTIFICATION_SAMPLING_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_E34696B5EF594D3633AB"
+subject_kind = "generated_test"
+discovery_id = "DISC_E34696B5EF594D3633AB"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-ads-server/src/notify.rs"
+name = "server_cycle_emits_every_due_tick"
+command = "cargo nextest run -p trust-ads-server --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-ads-server) & test(=notify::tests::server_cycle_emits_every_due_tick)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_NOTIFICATION_SAMPLING_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-command-dispatch-and-resource-safety"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#ads-server-command-dispatch-and-resource-safety"]
+expected_result = "SERVERCYCLE emits at successive due instants while SERVERONCHA emits, suppresses equal bytes, and emits after a byte change."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_E34696B5EF594D3633AB.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_E34696B5EF594D3633AB_BF0C13F9C2B4"
+mapping_proposal_digest = "sha256:bf0c13f9c2b463c0e8e92446c30ad2defbfb36c455164f2843f0da103b1a5ffa"
+mapping_decision_id = "MAP_DEC_EC34CC473D5D44751276518E"
+mapping_reviewed_source_digest = "sha256:5819c6004bb7632184439bf4942ad1a9f47d445f4a26905967b551b0b490034d"
+mapping_assertion_review_digest = "sha256:769dca8c60fa53db2e7b850620e34cd200461bc52ae14daa92f3e727b9a9fa22"
+mapping_assertion_source_digests = { "crates/trust-ads-server/src/notify.rs" = "sha256:5819c6004bb7632184439bf4942ad1a9f47d445f4a26905967b551b0b490034d" }
+mapping_behavior_refs = ["RT_ADS_SERVER_NOTIFICATION_SAMPLING_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
