@@ -6,6 +6,22 @@ in `IEC_DECISIONS.md`; PLCopen profile decisions belong in
 `PLCOPEN_DECISIONS.md`. Product behavior recorded here MUST NOT be copied to an
 IEC or PLCopen deviation log merely because truST owns the behavior.
 
+## 2026-07-27 - ADS server symbol snapshot identity
+
+- Area: ADS server symbol table
+- Decision:
+  - Accepted symbols are sorted by name before contiguous offset assignment,
+    duplicate names reject, and capability flags are preserved.
+  - Deterministic serialization identifies the complete snapshot for the local
+    symbol-version counter; equal serialization retains the version and a
+    changed serialization advances it.
+- Authority:
+  - `docs/specs/11-runtime-engine.md`
+- Reason:
+  - Stable address assignment and complete-snapshot version identity prevent
+    input-order drift and ambiguous change detection. This is ADS product
+    behavior, not an IEC deviation, and does not claim atomic publication.
+
 ## 2026-07-27 - ADS service-port routing and registration endpoint binding
 
 - Area: ADS server TCP listener

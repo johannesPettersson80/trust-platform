@@ -562,6 +562,15 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
         self.assertEqual(("--lib",), profile.cargo_target_args)
         self.assertEqual("listener::tests::", profile.test_prefix)
 
+    def test_ads_server_profile_resolves_symbols_unit_target(self) -> None:
+        profile = get_target_profile(
+            "ads-server-remaining",
+            path="crates/trust-ads-server/src/symbols.rs",
+        )
+        self.assertEqual("trust-ads-server", profile.package)
+        self.assertEqual(("--lib",), profile.cargo_target_args)
+        self.assertEqual("symbols::tests::", profile.test_prefix)
+
     def test_verification_cases_profile_resolves_library_target(self) -> None:
         profile = get_target_profile(
             "verification-cases-remaining",

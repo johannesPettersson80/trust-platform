@@ -1870,6 +1870,16 @@ Namespace mapping is exact and reversible between `<namespace>.global.<name>`
 (or `global.<name>` without a namespace) and its runtime global; a foreign
 namespace is not stripped.
 
+The server-owned symbol-table builder sorts accepted names, rejects duplicate
+names, preserves declared capability flags, and assigns contiguous offsets
+from the configured index group using each descriptor's byte size. The same
+accepted symbol set therefore produces the same snapshot regardless of input
+order. Deterministic snapshot serialization is stable for an unchanged
+snapshot. The local symbol-version counter establishes version 1 on first
+observation, retains it while the complete serialized snapshot is equal, and
+advances when that serialized snapshot changes. This counter contract does not
+prove atomic live publication.
+
 Each value read obtains a runtime snapshot from the configured provider. No
 snapshot returns ADS `NotReady`; a foreign ADS name or absent runtime global
 returns `NotFound`; an unencodable value returns `InvalidData`; and a byte-size

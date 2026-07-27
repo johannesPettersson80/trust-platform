@@ -24,6 +24,8 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   sampling, invalidation, and representable FILETIME conversion.
 - Specify ADS service-port routing, router/system compatibility responses,
   notification receiver binding, and bind-conflict startup failure.
+- Specify deterministic ADS server symbol assignment, duplicate rejection,
+  flag preservation, serialization identity, and local version progression.
 
 Target release: `v0.24.57`
 
