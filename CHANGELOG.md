@@ -11,6 +11,9 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   copy-on-write nested updates, and checked extreme array bounds.
 - Specify retain codec compatibility, filesystem transaction visibility,
   retry semantics, atomic migration, and typed migration/orphan events.
+- Specify mesh envelope metadata, subscription grammar, typed numeric decoding,
+  bounded malformed-input handling, readiness, liveliness, QoS, and snapshot
+  failure contracts without overstating TLS or query/reply proof.
 
 Target release: `v0.24.57`
 

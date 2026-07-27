@@ -6,6 +6,30 @@ in `IEC_DECISIONS.md`; PLCopen profile decisions belong in
 `PLCOPEN_DECISIONS.md`. Product behavior recorded here MUST NOT be copied to an
 IEC or PLCopen deviation log merely because truST owns the behavior.
 
+## 2026-07-27 - Mesh data and control-plane authority
+
+- Area: Runtime mesh transport
+- Decision:
+  - Mesh envelopes preserve source identity and sequence metadata, and inbound
+    subscription keys use a trimmed nonempty `peer:key` grammar.
+  - Numeric payloads are decoded against the configured local type without
+    narrowing, wrapping, non-finite substitution, or partial update.
+  - Control-plane readiness requires session, liveliness, identity-queryable,
+    and catalog-queryable authority. Bounded readiness and snapshot waits fail
+    visibly instead of manufacturing ready or empty-success state.
+  - QoS uses canonical slash-delimited `active`, `cfg`, and `diag` segments in
+    that precedence order; other keys use the fast data profile.
+  - This decision does not establish the unresolved Zenoh version-family policy
+    and does not treat a TLS flag or queryable-ready bit as transport-security
+    or query/reply proof.
+- Authority:
+  - `docs/specs/11-runtime-engine.md`
+- Reason:
+  - Mesh behavior is a truST runtime contract outside IEC 61131-3. Recording
+    the existing envelope, mapping, readiness, liveliness, QoS, and snapshot
+    boundaries gives focused tests exact authority without overstating TLS,
+    interoperability, or payload-exchange evidence.
+
 ## 2026-07-27 - OpenOT translation, publication, and reconciliation boundary
 
 - Area: OpenOT compiler/runtime integration

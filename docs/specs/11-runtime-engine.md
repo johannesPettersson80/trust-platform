@@ -2801,6 +2801,15 @@ Rules:
   identifies that runtime. It removes only the matching entry.
 - **Remote access** supports manual add and invite/QR pairing only.
 - **Data sharing** is explicit (publish/subscribe mapping only).
+
+##### Mesh envelope, mapping, and numeric codec contract
+
+- A published mesh envelope carries the runtime source identity, an unsigned
+  sequence, a publication timestamp, and the encoded PLC value. A successful
+  encode/decode round trip preserves the source, sequence, and supported value.
+- A subscription source uses `peer:key`. Parsing splits at the first colon,
+  trims both parts, and accepts the mapping only when both the peer and remote
+  key remain nonempty.
 - Inbound mesh values are decoded against the current local target type. Integer
   values outside that IEC type's range are rejected rather than wrapped, and a
   JSON number targeting `REAL`/`LREAL` is accepted only when the resulting
@@ -2808,6 +2817,29 @@ Rules:
 - A rejected mesh value queues no local update and leaves the current PLC value
   unchanged. The runtime does not clamp, wrap, normalize, or substitute a
   default value.
+- The supported scalar codec is bounded and total over arbitrary input bytes:
+  malformed bytes may be rejected, but decoding must not panic. This crash-only
+  malformed-input guarantee does not claim a particular diagnostic or that
+  every malformed byte sequence is rejected.
+
+##### Mesh control-plane readiness, liveliness, QoS, and snapshot contract
+
+- Mesh QoS classification uses slash-delimited key-space segments. `active`
+  takes precedence over `cfg`, which takes precedence over `diag`; a key with
+  none of those segments uses the fast data profile.
+- The liveliness registry keeps a unique current peer set and a bounded
+  insertion-ordered join/leave history. A leave removes only that peer and
+  records the transition.
+- Cloud readiness requires an established session, liveliness token/subscriber,
+  and successfully declared identity and catalog queryables. A bounded wait
+  whose deadline expires before all four conditions hold returns an error
+  rather than readiness.
+- Startup readiness flags for identity and catalog mean that the corresponding
+  queryables were declared successfully. Those flags alone do not prove a
+  query/reply payload exchange.
+- A resource snapshot response that times out or disconnects is an error. It
+  must not be returned as a successful empty snapshot.
+
 - TOML remains the source of truth; offline edits are supported.
 
 The local terminal dashboard is a projection of the same control contract. It
