@@ -188,7 +188,7 @@ RUNTIME_REMAINING_UNIT_PREFIXES: Mapping[str, str] = {
         "bytecode::validate::resource_limits::tests::"
     ),
     "crates/trust-runtime/src/memory/tests.rs": "memory::tests::",
-    "crates/trust-runtime/src/host/mesh/tests.rs": "host::mesh::tests::",
+    "crates/trust-runtime/src/host/mesh/tests.rs": "mesh::tests::",
     "crates/trust-runtime/src/openot_authoring/tests.rs": (
         "openot_authoring::tests::"
     ),

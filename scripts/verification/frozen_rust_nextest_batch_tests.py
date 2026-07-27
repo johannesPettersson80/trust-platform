@@ -506,7 +506,7 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
         )
         self.assertEqual(("--lib",), profile.cargo_target_args)
         self.assertEqual("trust-runtime", profile.binary_id)
-        self.assertEqual("host::mesh::tests::", profile.test_prefix)
+        self.assertEqual("mesh::tests::", profile.test_prefix)
         self.assertEqual("rust_unit_test", profile.discovery_source_kind)
 
     def test_runtime_remaining_profile_resolves_retain_targets(self) -> None:
