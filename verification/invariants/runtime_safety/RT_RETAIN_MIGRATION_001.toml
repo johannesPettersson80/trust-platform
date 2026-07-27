@@ -14,15 +14,11 @@ source_refs = [
   "crates/trust-runtime/src/runtime",
   "crates/trust-runtime/src/retain",
 ]
-tests = []
+tests = ["TEST_AUTO_27D4369EB8A25ADDB6A8", "TEST_AUTO_5CE1CFAF7B148E819A77", "TEST_AUTO_75EFF22ADED7B9F53606", "TEST_AUTO_86D6D1369E5C7793C53F", "TEST_AUTO_FC0227884281CC4F9C2C"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = [
-  "cataloged_tests",
-  "focused_execution_evidence",
-  "final_remote_gate",
-]
+missing = ["cataloged_tests", "focused_execution_evidence", "final_remote_gate"]
 
 [spec]
 status = "specified"

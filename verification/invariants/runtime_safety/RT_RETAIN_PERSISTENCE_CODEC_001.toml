@@ -13,15 +13,11 @@ source_refs = [
   "docs/specs/11-runtime-engine.md",
   "crates/trust-runtime/src/retain",
 ]
-tests = []
+tests = ["TEST_AUTO_32E18E31451D4BF469C6", "TEST_AUTO_402CC51B509F2C268C12", "TEST_AUTO_414C6A35015C7813CC49", "TEST_AUTO_4FB5821EF62B7655873F", "TEST_AUTO_55C765213824F6A01A03", "TEST_AUTO_65D98FB688680CA72C3E", "TEST_AUTO_919CC2ACD5005149FFE0", "TEST_AUTO_9CFF33D681B6CEEA6ABA"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = [
-  "cataloged_tests",
-  "focused_execution_evidence",
-  "final_remote_gate",
-]
+missing = ["cataloged_tests", "focused_execution_evidence", "final_remote_gate"]
 
 [spec]
 status = "specified"

@@ -10,7 +10,7 @@ claim = "Retain load and save failures are visible, and a loaded snapshot with a
 proof_level = "G2"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src/retain", "crates/trust-runtime/src/runtime"]
-tests = ["TEST_RUNTIME_RETAIN_FAILURE_ATOMICITY_001"]
+tests = ["TEST_AUTO_181CD2176E3A15433E44", "TEST_RUNTIME_RETAIN_FAILURE_ATOMICITY_001"]
 gates = ["pr"]
 evidence_refs = [
   "EVID_TEST_RUNTIME_RETAIN_FAILURE_ATOMICITY_001_RED",
