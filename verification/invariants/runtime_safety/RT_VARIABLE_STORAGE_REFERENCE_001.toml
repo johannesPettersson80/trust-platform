@@ -13,15 +13,11 @@ source_refs = [
   "docs/specs/10-runtime-semantics.md",
   "crates/trust-runtime/src/memory",
 ]
-tests = []
+tests = ["TEST_AUTO_04C4A7BC104AAEA187FF", "TEST_AUTO_0B2EF754DB448B6AD3AB", "TEST_AUTO_40CA4A0F3E9B495A1A30", "TEST_AUTO_5B2577C9099ED6AC210B", "TEST_AUTO_A122DD61BD08854DA843", "TEST_AUTO_AC10CF406B3B1695588B", "TEST_AUTO_B107BE8F6A6D5BCBE3AE", "TEST_AUTO_BF7E6BB515C5DD73BED7", "TEST_AUTO_BFF56775AA7A39010698", "TEST_AUTO_C40B82EF2E40FB976CA8", "TEST_AUTO_CF68122CFF8B2562AA1D", "TEST_AUTO_D8948B3221BCB14EF064", "TEST_AUTO_E9E51ECA704D26D35216", "TEST_AUTO_FA0F9BAEDAA26D0A7E7D"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = [
-  "cataloged_tests",
-  "focused_execution_evidence",
-  "final_remote_gate",
-]
+missing = ["cataloged_tests", "focused_execution_evidence", "final_remote_gate"]
 
 [spec]
 status = "specified"
