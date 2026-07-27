@@ -883,6 +883,9 @@ fn is_assertion_method(name: &str) -> bool {
 }
 
 fn looks_like_assertion_helper(name: &str) -> bool {
+    if name.starts_with("checked_") {
+        return false;
+    }
     ["assert", "expect", "verify", "check"]
         .iter()
         .any(|prefix| name.starts_with(prefix))

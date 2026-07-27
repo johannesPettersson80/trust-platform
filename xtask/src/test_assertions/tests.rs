@@ -277,6 +277,31 @@ mod tests {
         assert!(true);
     }
 }
+
+#[test]
+fn checked_arithmetic_methods_are_not_assertion_helpers() {
+    let source = r#"
+#[cfg(test)]
+mod tests {
+    fn charge(total: usize) -> Option<usize> {
+        total.checked_add(1)
+    }
+
+    #[test]
+    fn accepts_boundary() {
+        assert_eq!(charge(1), Some(2));
+    }
+}
+"#;
+    let inventory = extract(
+        "crates/example/src/resource_limits.rs",
+        "accepts_boundary",
+        source,
+    )
+    .expect("extract checked arithmetic assertions");
+
+    assert!(inventory.unresolved_assertion_helpers.is_empty());
+}
 "#;
     let inventory = extract("crates/example/src/contract.rs", "reports_contract", source)
         .expect("extract test-only method helper");

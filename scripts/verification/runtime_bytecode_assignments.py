@@ -23,13 +23,6 @@ REFERENCES = "VM_SEAM_REF_001"
 STACK_BOUNDARY = "RT_BYTECODE_STACK_BOUNDARY_001"
 INSTRUCTION_BOUNDARY = "RT_BYTECODE_INSTRUCTION_BOUNDARY_001"
 
-REVIEWED_UNRESOLVED_HELPERS: Mapping[tuple[str, str], frozenset[str]] = {
-    (
-        "crates/trust-runtime/src/bytecode/validate/resource_limits.rs",
-        "instruction_limit_accepts_boundary_and_rejects_next_instruction",
-    ): frozenset({"charge_decoded_instruction::checked_add:unresolved-method"}),
-}
-
 ENCODER_BEHAVIORS: Mapping[str, int] = {
     "encoder_accepts_case_insensitive_names_in_call_heavy_if_blocks": 7,
     "encoder_bytes_roundtrip_from_source": 7,
@@ -97,10 +90,7 @@ def generate_assignments(
             raise ValueError(f"duplicate bytecode test {path}:{name}")
         seen.add(key)
         unresolved = raw.get("unresolved_assertion_helpers")
-        if not isinstance(unresolved, list):
-            raise ValueError(f"{path}:{name} has invalid unresolved helpers")
-        reviewed_unresolved = REVIEWED_UNRESOLVED_HELPERS.get((path, name))
-        if set(unresolved) != set(reviewed_unresolved or ()):
+        if unresolved != []:
             raise ValueError(f"{path}:{name} has unresolved assertion helpers")
         assertions = raw.get("assertions")
         if (
