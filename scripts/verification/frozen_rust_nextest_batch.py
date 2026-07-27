@@ -57,6 +57,7 @@ def derive_frozen_selection(
     expected_reviewed_nonmapping: int,
     expected_catalog_mapped: int,
     profile: FrozenRustTargetProfile = RUNTIME_CONTROL_PROFILE,
+    nonmapping_reason_code: str | None = None,
 ) -> FrozenSelection:
     """Select only frozen nonmapping and catalog-mapped tests for one path."""
 
@@ -89,6 +90,10 @@ def derive_frozen_selection(
         row
         for row in path_reviews
         if row.get("disposition") == "reviewed_nonmapping"
+        and (
+            nonmapping_reason_code is None
+            or row.get("reason_code") == nonmapping_reason_code
+        )
     ]
     denominator_mapped = [
         row
@@ -973,6 +978,10 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=EXPECTED_CATALOG_MAPPED,
     )
+    parser.add_argument(
+        "--nonmapping-reason-code",
+        help="select only reviewed_nonmapping rows with this exact reason code",
+    )
     parser.add_argument("--raw-results", type=Path, required=True)
     parser.add_argument("--execution-metadata", type=Path)
     parser.add_argument(
@@ -1084,6 +1093,7 @@ def main(argv: list[str] | None = None) -> int:
                 ),
                 expected_catalog_mapped=args.expected_catalog_mapped,
                 profile=profile,
+                nonmapping_reason_code=args.nonmapping_reason_code,
             )
             metadata = execute_nextest_batch(
                 root=root,
