@@ -1,0 +1,39 @@
+schema_version = 1
+id = "RT_STDLIB_SELECTION_001"
+title = "Runtime standard selection functions preserve selected values and types"
+area = "bytecode_vm"
+risk = "wrong_result"
+status = "planned"
+owner = "trust-runtime"
+last_reviewed = "2026-07-27"
+claim = "SEL returns the selected input, and MIN and MAX return the ordered extremum without changing the selected runtime value type."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["docs/specs/07-standard-functions.md", "crates/trust-runtime/src/stdlib/selection.rs"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_tests", "focused_execution_evidence", "final_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_IEC_STANDARD_FUNCTIONS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#6-selection-functions-table-32"
+
+[[behavior]]
+partition = { equals = "SEL_MIN_MAX_RUNTIME_VALUES" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#6-selection-functions-table-32"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "SEL chooses IN1 when G is true, MIN returns the least ordered input, and MAX returns the greatest ordered input while preserving the selected runtime value type."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "The written selection-function contract awaits generated catalog mapping and focused execution evidence."
