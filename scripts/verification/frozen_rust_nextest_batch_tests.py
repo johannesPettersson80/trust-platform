@@ -407,7 +407,7 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
         )
 
         self.assertEqual(("--lib",), unit.cargo_target_args)
-        self.assertEqual("retain::store_tests::", unit.test_prefix)
+        self.assertEqual("retain::", unit.test_prefix)
         self.assertEqual(
             ("--test", "retain_integrity"),
             integration.cargo_target_args,

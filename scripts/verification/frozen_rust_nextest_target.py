@@ -191,7 +191,7 @@ RUNTIME_REMAINING_UNIT_PREFIXES: Mapping[str, str] = {
         "openot_authoring::tests::"
     ),
     "crates/trust-runtime/src/retain/store_tests.rs": (
-        "retain::store_tests::"
+        "retain::"
     ),
 }
 
