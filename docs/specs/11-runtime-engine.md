@@ -1130,6 +1130,47 @@ contract:
 - Cold restart does not load the retain store and therefore cannot silently
   reinterpret a failed warm-load attempt as cold-start success.
 
+##### Retain codec compatibility and migration
+
+The file-backed retain store preserves the logical snapshot across a successful
+store/load round trip. The supported codec preserves exact names, order, and
+the concrete values asserted by the compatibility profile: Boolean and integer
+scalars, bounded arrays with their inclusive bounds, structures with their type
+and field identity, and enumeration values with their declared type and
+variant. A missing file alone represents an empty snapshot; a path that exists
+but is not a readable retain file, or a parent path that cannot contain the
+file, returns the underlying retain operation as an error instead of silently
+substituting an empty snapshot.
+
+The current checksum-protected format is version 2. Version-1 `STRN` snapshots
+remain readable for the value tags supported by that format; a decoded value
+materializes with the same logical name and runtime value. Successful
+replacement publishes one complete snapshot and leaves no retain temporary
+file. Parent-directory synchronization occurs after rename. If that final sync
+fails, `store` returns an error and does not claim durability, but a read in the
+same filesystem session may observe the already-renamed new snapshot. The
+manager keeps the snapshot dirty and permits the next due save to retry without
+another mutation notification.
+
+Before applying a loaded snapshot, the runtime resolves every retained name
+and stages all compatible migrations:
+
+- a safe declared numeric widening such as `INT` to `DINT` preserves the
+  mathematical value;
+- a retained `STRING` longer than its current declared bound is canonicalized
+  to that bound using the ordinary scalar-preserving string rule;
+- a structure field added by the current declaration receives its declared
+  initializer or type default, while a field removed from the declaration is
+  dropped; and
+- a retained global absent from the current program is dropped as an orphan.
+
+Each successful value-shape migration emits `RetainMigrationApplied`; each
+dropped orphan emits `RetainOrphanDropped`. These events identify the runtime
+transition, not a stable debug-format string. Migration remains transactional:
+all entries are validated and staged before any retained target changes, so one
+incompatible entry rejects the whole snapshot without exposing earlier staged
+values.
+
 **Power-loss guidance:** retained values are only guaranteed to persist if the most recent
 snapshot has been flushed to the retain store (i.e., at shutdown or after the save cadence).
 Unflushed changes may be lost on sudden power loss (implementer-specific).

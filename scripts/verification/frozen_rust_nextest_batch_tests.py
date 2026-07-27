@@ -396,6 +396,27 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
         self.assertEqual("memory::tests::", profile.test_prefix)
         self.assertEqual("rust_unit_test", profile.discovery_source_kind)
 
+    def test_runtime_remaining_profile_resolves_retain_targets(self) -> None:
+        unit = get_target_profile(
+            "runtime-remaining",
+            path="crates/trust-runtime/src/retain/store_tests.rs",
+        )
+        integration = get_target_profile(
+            "runtime-remaining",
+            path="crates/trust-runtime/tests/retain_integrity.rs",
+        )
+
+        self.assertEqual(("--lib",), unit.cargo_target_args)
+        self.assertEqual("retain::store_tests::", unit.test_prefix)
+        self.assertEqual(
+            ("--test", "retain_integrity"),
+            integration.cargo_target_args,
+        )
+        self.assertEqual(
+            "trust-runtime::retain_integrity",
+            integration.binary_id,
+        )
+
     def test_runtime_remaining_profile_resolves_bytecode_targets(self) -> None:
         self.assertIn("runtime-remaining", TARGET_PROFILES)
         unit = get_target_profile(

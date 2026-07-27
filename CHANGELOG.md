@@ -9,6 +9,8 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 - Specify the runtime variable-storage contract for instance-field resolution,
   declared layouts, reference-helper equivalence, cache invalidation,
   copy-on-write nested updates, and checked extreme array bounds.
+- Specify retain codec compatibility, filesystem transaction visibility,
+  retry semantics, atomic migration, and typed migration/orphan events.
 
 Target release: `v0.24.57`
 

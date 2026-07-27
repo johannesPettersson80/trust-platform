@@ -175,7 +175,10 @@ RUNTIME_REMAINING_INTEGRATION_PATHS = frozenset(
         "crates/trust-runtime/tests/bytecode_sections.rs",
         "crates/trust-runtime/tests/bytecode_validation.rs",
         "crates/trust-runtime/tests/openot_telemetry.rs",
+        "crates/trust-runtime/tests/retain_integrity.rs",
+        "crates/trust-runtime/tests/retain_store.rs",
         "crates/trust-runtime/tests/stdlib_select.rs",
+        "crates/trust-runtime/tests/vars_retain.rs",
     }
 )
 
@@ -186,6 +189,9 @@ RUNTIME_REMAINING_UNIT_PREFIXES: Mapping[str, str] = {
     "crates/trust-runtime/src/memory/tests.rs": "memory::tests::",
     "crates/trust-runtime/src/openot_authoring/tests.rs": (
         "openot_authoring::tests::"
+    ),
+    "crates/trust-runtime/src/retain/store_tests.rs": (
+        "retain::store_tests::"
     ),
 }
 

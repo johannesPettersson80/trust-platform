@@ -1,0 +1,98 @@
+schema_version = 1
+id = "RT_RETAIN_MIGRATION_001"
+title = "Retain migration is typed, visible, and transactional"
+area = "runtime_safety"
+risk = "data_loss"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-27"
+claim = "Warm-load migration safely widens numeric values, canonicalizes bounded strings, reconciles declared structure fields, drops orphan globals, emits typed events, and never exposes a partial rejected snapshot."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = [
+  "docs/specs/11-runtime-engine.md",
+  "crates/trust-runtime/src/runtime",
+  "crates/trust-runtime/src/retain",
+]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = [
+  "cataloged_tests",
+  "focused_execution_evidence",
+  "final_remote_gate",
+]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#retain-codec-compatibility-and-migration"
+
+[[behavior]]
+partition = { equals = "SAFE_NUMERIC_WIDENING" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#retain-codec-compatibility-and-migration"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A safely widenable retained scalar preserves its mathematical value in the current destination type and emits RetainMigrationApplied."
+
+[[behavior]]
+partition = { equals = "BOUNDED_STRING_CANONICALIZATION" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#retain-codec-compatibility-and-migration"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "An overlong retained string is canonicalized to the current declared bound without splitting a scalar and emits RetainMigrationApplied."
+
+[[behavior]]
+partition = { equals = "DECLARED_STRUCTURE_FIELD_ADDITION" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#retain-codec-compatibility-and-migration"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A newly declared structure field receives its declared initializer or type default while preserved fields retain their values, and migration emits RetainMigrationApplied."
+
+[[behavior]]
+partition = { equals = "REMOVED_STRUCTURE_FIELD_DROP" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#retain-codec-compatibility-and-migration"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A field absent from the current structure declaration is dropped while remaining fields preserve their values, and migration emits RetainMigrationApplied."
+
+[[behavior]]
+partition = { equals = "ORPHAN_GLOBAL_DROP" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#retain-codec-compatibility-and-migration"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A retained global absent from the current program is dropped and emits RetainOrphanDropped."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Safe scalar migration awaits focused catalog proof."
+
+[[coverage.cells]]
+dimension = "boundary_high"
+state = "gap_open"
+rationale = "Bounded-string canonicalization awaits focused catalog proof."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "Structure-field addition and removal await focused catalog proof."
+
+[[coverage.cells]]
+dimension = "extra_or_unknown"
+state = "gap_open"
+rationale = "Orphan removal awaits focused catalog proof."

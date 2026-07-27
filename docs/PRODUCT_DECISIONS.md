@@ -516,3 +516,29 @@ IEC or PLCopen deviation log merely because truST owns the behavior.
   - Debug, configuration, initializer, and helper-evaluation paths all use
     `VariableStorage`. A single fail-closed reference contract prevents those
     surfaces from disagreeing about identity, inheritance, or nested mutation.
+
+## 2026-07-27 - Retain codec compatibility and migration authority
+
+- Area: Runtime retain persistence and warm-load migration
+- Decision:
+  - Version-2 retain snapshots preserve supported scalar and aggregate values,
+    names, and order; supported version-1 `STRN` snapshots remain readable.
+  - A missing file means an empty snapshot, while other filesystem failures
+    remain visible. Atomic rename publishes before parent-directory sync, so a
+    sync failure returns an error even if the renamed snapshot is immediately
+    readable, and the manager retains retry eligibility.
+  - Safe numeric widening, bounded-string canonicalization, declared structure
+    additions/removals, and orphan removal are the supported warm-load
+    migrations. Successful migrations and orphan removal emit their typed
+    runtime events.
+  - Snapshot application validates and stages every entry before changing any
+    retained target.
+- Supersedes:
+  - Any interpretation that treats every load failure as an empty snapshot,
+    treats a parent-sync error as durable success, silently discards migration
+    evidence, or exposes a prefix of a rejected snapshot.
+- Reason:
+  - IEC 61131-3 defines retention across restart but not the file format,
+    filesystem transaction, compatibility versions, or online migration
+    policy. These shipped runtime choices need one explicit fail-closed
+    authority and are not IEC deviations.
