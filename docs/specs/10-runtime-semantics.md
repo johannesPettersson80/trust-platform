@@ -549,6 +549,40 @@ pub struct InstanceData {
 }
 ```
 
+#### 3.2.1 Variable-storage reference and layout contract
+
+`VariableStorage` exposes one logical storage model across global, local-frame,
+and instance locations. The following behavior is part of the runtime product
+contract:
+
+- Cloning storage copies the logical values even if an internal lookup-cache
+  lock was poisoned. Cache lock state is not observable storage state.
+- Direct instance-field lookup is scoped by instance identity. A cached miss is
+  invalidated when that instance gains the field. Recursive lookup prefers a
+  field declared on the requested instance over a parent field and invalidates
+  a cached inherited resolution when a child adds a shadowing field. A
+  recursive parent-chain miss is not cached because a later parent insertion
+  may make the same lookup valid.
+- Declared-field offsets describe only fields declared by the instance's own
+  type. Instances of the same declared layout use the same declared offsets;
+  inherited fields are resolved through their owning parent instance rather
+  than being inserted into the child's declared layout. Offset-based reads and
+  writes address exactly the resolved field.
+- Direct-slot and empty-reference-path helpers are equivalent for global,
+  current-local-frame, and instance locations. Borrowed and owned `ValueRef`
+  helpers observe and update the same slot.
+- A nested reference write updates only the selected aggregate path. Shared
+  structure values use copy-on-write isolation so a sibling slot that held the
+  same pre-write value is unchanged. Array offset calculation is checked before
+  conversion to a host index; inclusive bounds at signed extremes must not
+  wrap, and a valid extreme-bound reference reads and writes the selected
+  element exactly.
+
+Lookup caches and lock implementations remain internal optimizations. Their
+contents are evidence only where needed to prove the observable invalidation
+rules above; cache capacity, eviction, and synchronization strategy are not
+product semantics.
+
 #### 3.3 Variable Lifetime Rules
 
 Per IEC 61131-3:

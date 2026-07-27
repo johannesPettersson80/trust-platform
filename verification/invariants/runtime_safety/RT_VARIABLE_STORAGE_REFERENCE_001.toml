@@ -1,0 +1,97 @@
+schema_version = 1
+id = "RT_VARIABLE_STORAGE_REFERENCE_001"
+title = "Variable storage preserves reference identity, layout, and isolated mutation"
+area = "runtime_safety"
+risk = "wrong_result"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-27"
+claim = "Runtime variable storage resolves global, local, and instance references consistently; preserves declared instance layouts and inheritance precedence; invalidates stale lookup results; and applies checked, copy-on-write nested mutation."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = [
+  "docs/specs/10-runtime-semantics.md",
+  "crates/trust-runtime/src/memory",
+]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = [
+  "cataloged_tests",
+  "focused_execution_evidence",
+  "final_remote_gate",
+]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_SEMANTICS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_SEMANTICS_001#321-variable-storage-reference-and-layout-contract"
+
+[[behavior]]
+partition = { equals = "CACHE_RECOVERY_AND_INVALIDATION" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#321-variable-storage-reference-and-layout-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A poisoned cache lock does not prevent logical storage cloning; direct misses and inherited hits invalidate after relevant insertion, while recursive parent-chain misses remain uncached."
+
+[[behavior]]
+partition = { equals = "INSTANCE_FIELD_PRECEDENCE_AND_DECLARED_LAYOUT" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#321-variable-storage-reference-and-layout-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Direct fields precede parent fallback, same-type instances reuse declared offsets, inherited fields remain owned by the parent layout, and offset access reaches the exact resolved field."
+
+[[behavior]]
+partition = { equals = "DIRECT_AND_REFERENCE_HELPER_EQUIVALENCE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#321-variable-storage-reference-and-layout-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Global, current-local-frame, and instance direct slots equal empty-path references, and borrowed and owned reference helpers observe and update the same value."
+
+[[behavior]]
+partition = { equals = "NESTED_COPY_ON_WRITE_ISOLATION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#321-variable-storage-reference-and-layout-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A nested aggregate reference write changes only its selected storage slot and path even when another slot shared the original structure value."
+
+[[behavior]]
+partition = { equals = "CHECKED_EXTREME_ARRAY_REFERENCE" }
+case_family = "boundary_low"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#321-variable-storage-reference-and-layout-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Checked array-offset arithmetic handles a valid element at an extreme signed lower bound without wrapping and reads and writes that selected element exactly."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Direct-slot and reference-helper equivalence plus copy-on-write nested mutation await focused catalog proof."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "Instance-field precedence, declared layout, and invalidation await focused catalog proof."
+
+[[coverage.cells]]
+dimension = "persistence_or_recovery"
+state = "gap_open"
+rationale = "Poisoned-cache recovery and stale-resolution invalidation await focused catalog proof."
+
+[[coverage.cells]]
+dimension = "boundary_low"
+state = "gap_open"
+rationale = "Extreme signed array-bound access awaits focused catalog proof."

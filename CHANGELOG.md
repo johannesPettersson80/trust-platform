@@ -6,6 +6,10 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Specify the runtime variable-storage contract for instance-field resolution,
+  declared layouts, reference-helper equivalence, cache invalidation,
+  copy-on-write nested updates, and checked extreme array bounds.
+
 Target release: `v0.24.57`
 
 ### Fixed

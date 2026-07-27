@@ -490,3 +490,29 @@ IEC or PLCopen deviation log merely because truST owns the behavior.
     validator and runtime actually accept. Keeping proposed and executable
     opcodes in one table created false specification authority for tests and
     made valid emitted modules appear undocumented.
+
+## 2026-07-27 - Variable-storage reference and layout authority
+
+- Area: Runtime variable storage and dynamic references
+- Decision:
+  - Global, current-local-frame, and instance slots share one reference
+    contract; direct-slot, empty-path, borrowed-reference, and owned-reference
+    helpers must address the same logical value.
+  - Instance-field resolution prefers the requested instance before its parent
+    chain. Declared offsets exclude inherited fields and remain consistent for
+    instances with the same declared layout.
+  - Lookup caches may accelerate resolution but must invalidate a direct miss
+    after insertion and an inherited hit after child shadowing. Recursive
+    parent-chain misses are not cached.
+  - Nested aggregate writes are copy-on-write and checked array-offset
+    arithmetic must reject overflow rather than wrap.
+  - Cache structure, capacity, eviction, and synchronization remain internal
+    implementation details.
+- Supersedes:
+  - Any interpretation that treats cache contents as storage authority, places
+    inherited fields in a child's declared layout, or permits a nested write
+    to mutate another slot that shared the old aggregate value.
+- Reason:
+  - Debug, configuration, initializer, and helper-evaluation paths all use
+    `VariableStorage`. A single fail-closed reference contract prevents those
+    surfaces from disagreeing about identity, inheritance, or nested mutation.
