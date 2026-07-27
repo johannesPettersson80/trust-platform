@@ -331,7 +331,7 @@ fn from_source() {
 
     assert!(inventory.unresolved_assertion_helpers.is_empty());
     assert_eq!(
-        vec!["macro:assert", "method:unwrap"],
+        vec!["method:unwrap", "macro:assert"],
         inventory
             .assertions
             .iter()
