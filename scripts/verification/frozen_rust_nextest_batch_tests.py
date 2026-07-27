@@ -386,6 +386,7 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
             )
 
     def test_runtime_remaining_profile_resolves_bytecode_targets(self) -> None:
+        self.assertIn("runtime-remaining", TARGET_PROFILES)
         unit = get_target_profile(
             "runtime-remaining",
             path=(
