@@ -5,7 +5,7 @@ area = "bytecode_vm"
 risk = "silent_corruption"
 status = "implemented"
 owner = "trust-runtime"
-last_reviewed = "2026-07-17"
+last_reviewed = "2026-07-27"
 claim = "Malformed bytecode that violates VM assumptions must fail validation or load before arbitrary execution."
 proof_level = "G1"
 contract_kind = "decision_table"
@@ -59,13 +59,13 @@ delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable
 rationale = "A second occurrence of any standardized section ID from 0x0001 through 0x000C invalidates the container before first-section selection can create order-dependent semantics."
 
 [[behavior]]
-partition = { equals = "UNIMPLEMENTED_RESERVED_OR_UNKNOWN_OPCODE" }
+partition = { equals = "UNIMPLEMENTED_RESERVED_LEGACY_OR_UNKNOWN_OPCODE" }
 case_family = "extra_or_unknown"
 oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
 outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
-rationale = "Reserved and vendor opcode values remain invalid until the accepted bytecode version implements them explicitly."
+rationale = "Legacy, proposed, reserved, and vendor opcode values remain invalid until the accepted bytecode version implements them explicitly."
 
 [[behavior]]
 partition = { equals = "UNKNOWN_OPTIONAL_SECTION_FLAGS_ZERO" }
@@ -92,6 +92,38 @@ outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
 rationale = "Stack underflow, incompatible merge depth or shape, and non-empty normal exits are rejected during validation."
+
+[[behavior]]
+partition = { equals = "IMPLEMENTED_OPCODE_SET" }
+case_family = "happy_path"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#baseline-instruction-set"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Every opcode implemented by the accepted bytecode version passes complete operand and runtime-support validation."
+
+[[behavior]]
+partition = { equals = "INVALID_SECTION_RANGE_OR_METADATA_REFERENCE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Out-of-bounds or overlapping sections and incompatible debug or variable metadata references reject the complete candidate before apply."
+
+[[behavior]]
+partition = { equals = "INVALID_VAR_META_UNIQUENESS_OR_LOCAL_STATE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#6-11-var-meta-0x000b-optional"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Duplicate reference or textual-name metadata and local entries carrying retain or initializer state are rejected instead of creating order-dependent or persistent local state."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Accepted-opcode assertions await catalog binding and focused execution."
 
 [[coverage.cells]]
 dimension = "missing_required"

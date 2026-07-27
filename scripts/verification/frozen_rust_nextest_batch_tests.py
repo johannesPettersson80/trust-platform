@@ -385,6 +385,41 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
                 path="crates/trust-runtime/src/not_reviewed.rs",
             )
 
+    def test_runtime_remaining_profile_resolves_bytecode_targets(self) -> None:
+        unit = get_target_profile(
+            "runtime-remaining",
+            path=(
+                "crates/trust-runtime/src/bytecode/validate/"
+                "resource_limits.rs"
+            ),
+        )
+        nested = get_target_profile(
+            "runtime-remaining",
+            path=(
+                "crates/trust-runtime/tests/bytecode_encoder/"
+                "bytecode_encoder_part_03.rs"
+            ),
+        )
+        integration = get_target_profile(
+            "runtime-remaining",
+            path="crates/trust-runtime/tests/bytecode_sections.rs",
+        )
+
+        self.assertEqual(("--lib",), unit.cargo_target_args)
+        self.assertEqual(
+            "bytecode::validate::resource_limits::tests::",
+            unit.test_prefix,
+        )
+        self.assertEqual(
+            ("--test", "bytecode_encoder"),
+            nested.cargo_target_args,
+        )
+        self.assertEqual("bytecode_encoder_part_03::", nested.test_prefix)
+        self.assertEqual(
+            ("--test", "bytecode_sections"),
+            integration.cargo_target_args,
+        )
+
     def test_hir_selection_requires_integration_discovery_kind(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

@@ -510,6 +510,14 @@ not substitute a generic placeholder when the source declares a resource. A
 source without a `RESOURCE` declaration uses the synthetic name `RESOURCE` for
 the runtime's single implicit execution resource.
 
+For newly encoded bytecode, `inputs_size` and `outputs_size` are derived from
+the highest addressed input and output process-image byte required by the
+encoded `IO_MAP` bindings. Bit and byte bindings occupy at least one byte;
+WORD, DWORD, and LWORD bindings occupy two, four, and eight bytes respectively,
+and byte-array bindings occupy their declared length. A resource with an
+addressed input or output therefore declares a non-zero corresponding process
+image size large enough to contain that binding.
+
 #### 6.8 IO_MAP (0x0008)
 
 Direct I/O bindings between the process image and program variables.
@@ -581,6 +589,12 @@ reference owned by exactly one POU. Return and parameter entry types must match
 the corresponding POU_INDEX signature; the entry type is authoritative for
 declared local variables, whose types are otherwise absent from POU_INDEX.
 
+Within one `VAR_META` section, every `ref_idx` is unique and every resolved
+textual name is unique even when duplicate text appears at different
+`STRING_TABLE` indexes. These constraints prevent order-dependent metadata
+selection. A local entry must not carry retain state or an initializer; those
+states are rejected rather than silently ignored.
+
 Version 1.1 containers produced before local metadata was introduced may omit
 these local entries. A runtime may continue untyped numeric copy-back for such a
 container, but it must reject STRING or WSTRING output copy-back when the
@@ -625,7 +639,11 @@ RetainInit provides cold-start initialization values for retained variables; war
 - `i32` offsets are relative to the next instruction.
 - Stack values are `Value` instances; references are pushed as `Value::Reference`.
 
-#### 7.3 Baseline Instruction Set
+#### 7.3 Accepted Instruction Set
+
+This table is the executable STBC 1.1 contract. An opcode not listed here is
+not accepted merely because an older design document assigned it a mnemonic.
+The validator rejects unimplemented values before dispatch.
 
 Control flow:
 - `0x00 NOP`
@@ -633,25 +651,23 @@ Control flow:
 - `0x02 JMP i32`
 - `0x03 JMP_TRUE i32` (pop bool)
 - `0x04 JMP_FALSE i32` (pop bool)
-- `0x05 CALL u32` (POU id)
 - `0x06 RET`
-- `0x07 CALL_METHOD u32` (pop instance ref, call method by vtable slot)
-- `0x08 CALL_VIRTUAL u32 u32` (interface_type_id, interface_method_slot)
+- `0x09 CALL_NATIVE u32 u32 u32` (`kind`, `symbol_idx`, `arg_count`; pop
+  encoded arguments and push the call result)
 
 Stack and constants:
 - `0x10 CONST u32` (const pool index)
 - `0x11 DUP`
 - `0x12 POP`
 - `0x13 SWAP`
-- `0x14 OVER` (a b -- a b a)
-- `0x15 ROT` (a b c -- b c a)
-- `0x16 PICK u8` (copy nth item to top; 0 = top)
 
 Static references:
 - `0x20 LOAD_REF u32` (ref table index)
 - `0x21 STORE_REF u32` (ref table index)
 - `0x22 PUSH_REF u32` (push `Value::Reference`)
-- `0x23 PUSH_SELF` (push `THIS`/`SELF` reference in a method)
+- `0x23 LOAD_SELF` (push the current instance)
+- `0x24 LOAD_SUPER` (push the current instance's parent)
+- `0x25 LOAD_NULL` (push the null value)
 
 Dynamic references:
 - `0x30 REF_FIELD u32` (field name index; pop ref, push ref)
@@ -670,11 +686,7 @@ Arithmetic and logic:
 - `0x47 OR`
 - `0x48 XOR`
 - `0x49 NOT`
-- `0x4A SHL`
-- `0x4B SHR`
 - `0x4C EXPT`
-- `0x4D ROL`
-- `0x4E ROR`
 
 Comparison:
 - `0x50 EQ`
@@ -684,11 +696,22 @@ Comparison:
 - `0x54 GT`
 - `0x55 GE`
 
-Type conversion:
-- `0x60 CAST u32` (type id)
+Type and partial access:
+- `0x60 SIZEOF_TYPE u32` (type-table index; push byte size as DINT)
+- `0x61 SIZEOF_VALUE` (pop value; push byte size as DINT)
+- `0x62 PARTIAL_READ u32` (pop value; push selected bit/byte/word/dword field)
+- `0x63 PARTIAL_WRITE u32` (pop replacement and value; push updated value)
 
-Standard library:
-- `0x70 CALL_STD u32` (standard function id; resolved by the runtime stdlib)
+Debug marker:
+- `0x70 DEBUG_MARK u32` (consume a debug marker index without changing
+  product state)
+
+The following previously published or legacy values are explicitly
+unimplemented in STBC 1.1 and are rejected before dispatch: `0x05`, `0x07`,
+`0x08`, `0x14`, `0x15`, `0x16`, `0x4A`, `0x4B`, `0x4D`, and `0x4E`.
+Standard-library, function, function-block, and method calls use
+`CALL_NATIVE`; bit shifts and rotates use the registered runtime operations
+rather than those unimplemented bytecode values.
 
 Reserved opcode ranges:
 - `0x80-0xEF` reserved for future core extensions.
@@ -806,6 +829,44 @@ The executor must fault on:
 - FOR loop step expressions that evaluate to 0 (encoder emits a step==0 guard that executes `HALT` before loop entry)
 - Invalid jump targets
 - Method/interface dispatch on NULL or incompatible references
+
+##### 7.5.1 Source-to-Bytecode Projection
+
+Successful source lowering emits one complete module that decodes and passes
+section 7.4 validation. Identifier lookup performed before emission is
+case-insensitive, so accepted call-heavy source remains encodable regardless of
+identifier spelling case; emission preserves the resolved declaration
+identity.
+
+The encoder projects source declarations as follows:
+
+- aliases, arrays, structures, unions, enumerations, subranges, references,
+  classes, function blocks, and interfaces retain their declared type
+  relationships in `TYPE_TABLE`;
+- class inheritance, method ownership, override slots, interface slots,
+  parameter directions, and input defaults retain their relationships in
+  `POU_INDEX` and `CONST_POOL`;
+- function and method return, parameter, and local slots occupy contiguous
+  LOCAL `REF_TABLE` ranges, and their scoped names and declared types are
+  emitted in `VAR_META`;
+- retained initialized storage emits compatible `VAR_META`, `CONST_POOL`, and
+  `RETAIN_INIT` entries;
+- direct variables emit `IO_MAP` bindings and the corresponding
+  `RESOURCE_META` process-image sizes described in sections 6.7 and 6.8;
+- declared resource and task identities are preserved so applying the encoded
+  module materializes the same named runtime resource and tasks;
+- source locations emit `DEBUG_MAP` entries with the owning POU, bytecode
+  offset, file, line, column, and statement kind;
+- a label with an empty statement emits an explicit `NOP`, preserving a
+  valid instruction location;
+- IF/ELSIF, CASE, WHILE, REPEAT, and FOR control flow emits validated relative
+  branch instructions and explicit comparison/stack operations; and
+- instance and method field access emits `LOAD_SELF`, `REF_FIELD`, `LOAD`, and
+  `STORE` operations as required by the resolved lvalue or expression.
+
+An enum initializer must use a constant payload compatible with its enum base
+type. Any unsupported source construct fails lowering; it is not replaced with
+an unrelated placeholder instruction.
 
 #### 7.6 Source-to-Bytecode Fail-Closed Boundary
 
@@ -946,6 +1007,13 @@ The loader must populate runtime metadata from:
 - REF_TABLE -> FB instance references
 - POU_INDEX -> method tables, inheritance, interface dispatch mapping
 - VAR_META / RETAIN_INIT -> variable type metadata and retain initialization (if present)
+
+Loading preserves resource and task names, task priority and interval,
+single-trigger identity, program order, program-to-POU associations, and
+function-block reference associations. Applying validated encoded bytes
+materializes those associations and process-image sizes before execution.
+Unsupported major versions are rejected before any live metadata, process
+image, retain state, task configuration, or executable module is replaced.
 
 ### 10. Debugging Data
 

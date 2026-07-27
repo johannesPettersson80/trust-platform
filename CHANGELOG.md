@@ -10,6 +10,9 @@ Target release: `v0.24.57`
 
 ### Fixed
 
+- Runtime bytecode documentation now matches the executable STBC 1.1 opcode
+  set and specifies source-to-section, resource/process-image, variable
+  metadata, and validation contracts used by the existing encoder and runtime.
 - trust-debug now rejects `stackTrace` requests for thread IDs that are absent
   from the current DAP thread projection instead of returning a synthetic frame
   for another thread; debug evaluation documentation now matches the shipped

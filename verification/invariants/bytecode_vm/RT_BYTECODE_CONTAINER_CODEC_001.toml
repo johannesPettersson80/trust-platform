@@ -1,0 +1,81 @@
+schema_version = 1
+id = "RT_BYTECODE_CONTAINER_CODEC_001"
+title = "STBC container sections round-trip with canonical layout"
+area = "bytecode_vm"
+risk = "silent_corruption"
+status = "planned"
+owner = "trust-runtime"
+last_reviewed = "2026-07-27"
+claim = "The STBC codec preserves every versioned section, table, offset, and padding rule through encode/decode round trips and rejects corrupted container structure."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["docs/specs/12-bytecode.md", "crates/trust-runtime/src/bytecode"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["focused_execution_evidence", "final_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_BYTECODE_FORMAT_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_BYTECODE_FORMAT_001#container-layout"
+
+[[behavior]]
+partition = { equals = "TYPED_SECTION_DECODE" }
+case_family = "encoding_or_unicode"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#section-definitions"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Each required or optional version 1.1 section fixture decodes to its expected typed section kind and asserted fields."
+
+[[behavior]]
+partition = { equals = "STRING_ENTRY_PADDING_AND_OFFSETS" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#6-1-string-table-0x0001"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "String payload length excludes zero padding and every entry advances to the next four-byte boundary."
+
+[[behavior]]
+partition = { equals = "COMPLETE_MODULE_ROUNDTRIP" }
+case_family = "happy_path"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#container-layout"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A valid complete module encodes and decodes to an equivalent module that passes semantic validation."
+
+[[behavior]]
+partition = { equals = "CORRUPTED_CONTAINER_REJECTION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Truncated or structurally corrupted container bytes fail decode instead of yielding a partial module."
+
+[[coverage.cells]]
+dimension = "encoding_or_unicode"
+state = "gap_open"
+rationale = "Section codec assertions await catalog binding and focused execution."
+
+[[coverage.cells]]
+dimension = "boundary_high"
+state = "gap_open"
+rationale = "Padding and offset assertions await catalog binding and focused execution."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Complete roundtrip assertions await catalog binding and focused execution."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Corruption rejection assertions await catalog binding and focused execution."

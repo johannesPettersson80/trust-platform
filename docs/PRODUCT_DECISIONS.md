@@ -464,3 +464,29 @@ IEC or PLCopen deviation log merely because truST owns the behavior.
 - Reason:
   - These choices define deterministic editor recovery and prevent stale,
     cross-platform, or partial state from being presented as authoritative.
+
+## 2026-07-27 - Executable STBC 1.1 opcode authority
+
+- Area: Runtime bytecode format and source lowering
+- Decision:
+  - The accepted STBC 1.1 instruction set is the set documented in
+    `docs/specs/12-bytecode.md` section 7.3 and implemented by the fail-closed
+    validator and canonical stack executor.
+  - `CALL_NATIVE`, self/super/null loads, size queries, partial access, and the
+    debug marker are part of that accepted set.
+  - Legacy or previously proposed values `0x05`, `0x07`, `0x08`, `0x14`,
+    `0x15`, `0x16`, `0x4A`, `0x4B`, `0x4D`, and `0x4E` are not accepted in
+    STBC 1.1 and must fail validation before dispatch.
+  - Source lowering must preserve the typed section, metadata, process-image,
+    resource/task identity, control-flow, and dynamic-reference projections
+    specified in section 7.5; it must fail instead of inventing placeholder
+    bytecode for unsupported source constructs.
+- Supersedes:
+  - The stale baseline instruction table that assigned executable semantics to
+    unimplemented values while omitting opcodes already emitted and executed
+    by the product.
+- Reason:
+  - A versioned bytecode contract must describe the wire format that the
+    validator and runtime actually accept. Keeping proposed and executable
+    opcodes in one table created false specification authority for tests and
+    made valid emitted modules appear undocumented.

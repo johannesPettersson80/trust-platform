@@ -168,15 +168,49 @@ RUNTIME_REMAINING_LIB_PROFILE = FrozenRustTargetProfile(
 RUNTIME_REMAINING_INTEGRATION_PATHS = frozenset(
     {
         "crates/trust-runtime/tests/bounded_value_semantics.rs",
+        "crates/trust-runtime/tests/bytecode_container.rs",
+        "crates/trust-runtime/tests/bytecode_decode_resource_bounds.rs",
+        "crates/trust-runtime/tests/bytecode_metadata.rs",
+        "crates/trust-runtime/tests/bytecode_roundtrip.rs",
+        "crates/trust-runtime/tests/bytecode_sections.rs",
+        "crates/trust-runtime/tests/bytecode_validation.rs",
         "crates/trust-runtime/tests/openot_telemetry.rs",
         "crates/trust-runtime/tests/stdlib_select.rs",
     }
 )
 
 RUNTIME_REMAINING_UNIT_PREFIXES: Mapping[str, str] = {
+    "crates/trust-runtime/src/bytecode/validate/resource_limits.rs": (
+        "bytecode::validate::resource_limits::tests::"
+    ),
     "crates/trust-runtime/src/openot_authoring/tests.rs": (
         "openot_authoring::tests::"
     ),
+}
+
+RUNTIME_REMAINING_NESTED_INTEGRATION_PREFIXES: Mapping[
+    str, tuple[str, str]
+] = {
+    (
+        "crates/trust-runtime/tests/bytecode_encoder/"
+        "bytecode_encoder_part_01.rs"
+    ): ("bytecode_encoder", "bytecode_encoder_part_01::"),
+    (
+        "crates/trust-runtime/tests/bytecode_encoder/"
+        "bytecode_encoder_part_02.rs"
+    ): ("bytecode_encoder", "bytecode_encoder_part_02::"),
+    (
+        "crates/trust-runtime/tests/bytecode_encoder/"
+        "bytecode_encoder_part_03.rs"
+    ): ("bytecode_encoder", "bytecode_encoder_part_03::"),
+    (
+        "crates/trust-runtime/tests/bytecode_encoder/"
+        "bytecode_encoder_part_04.rs"
+    ): ("bytecode_encoder", "bytecode_encoder_part_04::"),
+    (
+        "crates/trust-runtime/tests/bytecode_encoder/"
+        "bytecode_encoder_part_05.rs"
+    ): ("bytecode_encoder", "bytecode_encoder_part_05::"),
 }
 
 HIR_REMAINING_INTEGRATION_PATHS = frozenset(
@@ -466,6 +500,23 @@ def _runtime_remaining_profile(path: str | None) -> FrozenRustTargetProfile:
             RUNTIME_REMAINING_UNIT_PREFIXES,
             path,
             "runtime",
+        )
+    if path in RUNTIME_REMAINING_NESTED_INTEGRATION_PREFIXES:
+        target_name, prefix = RUNTIME_REMAINING_NESTED_INTEGRATION_PREFIXES[
+            path
+        ]
+        return FrozenRustTargetProfile(
+            key=RUNTIME_REMAINING_PROFILE_KEY,
+            package="trust-runtime",
+            target_kind="test",
+            target_name=target_name,
+            binary_id=f"trust-runtime::{target_name}",
+            test_prefix=prefix,
+            encoded_test_name_prefix=f"trust-runtime::{target_name}$",
+            discovery_source_kind="rust_integration_test",
+            allowed_cfg_attributes=frozenset(),
+            no_default_features_cfg=None,
+            no_default_features_shard_name=None,
         )
     if path in RUNTIME_REMAINING_INTEGRATION_PATHS:
         target_name = str(path).removeprefix(
