@@ -19,6 +19,9 @@ Target release: `v0.24.57`
   of silently widening values such as `ULINT` to `REAL`; representable untyped
   numeric literals retain their valid contextual operand or overloaded-argument
   type.
+- Verification assertion extraction now recognizes derived project paths under
+  a test-created temporary root as generated output, avoiding a false
+  unresolved-oracle classification for explicit assertions over that output.
 - OSCAT: decimal rounding, random helpers, array shuffle, random generators,
   and dew-point relative-humidity conversion now preserve their declared
   `INT`/`REAL` types instead of failing at runtime when generic `LIMIT`

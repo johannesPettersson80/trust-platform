@@ -87,21 +87,38 @@ pub(super) fn generated_output_roots(block: &Block) -> BTreeSet<String> {
                 visit::visit_local(self, local);
                 return;
             };
-            let Expr::Call(call) = initializer.expr.as_ref() else {
-                visit::visit_local(self, local);
-                return;
-            };
-            let Expr::Path(path) = call.func.as_ref() else {
-                visit::visit_local(self, local);
-                return;
-            };
-            if path
-                .path
-                .segments
-                .last()
-                .is_some_and(|segment| segment.ident == "temp_dir")
-            {
-                self.roots.insert(binding.ident.to_string());
+            match initializer.expr.as_ref() {
+                Expr::Call(call) => {
+                    let Expr::Path(path) = call.func.as_ref() else {
+                        visit::visit_local(self, local);
+                        return;
+                    };
+                    if path
+                        .path
+                        .segments
+                        .last()
+                        .is_some_and(|segment| segment.ident == "temp_dir")
+                    {
+                        self.roots.insert(binding.ident.to_string());
+                    }
+                }
+                Expr::MethodCall(join)
+                    if join.method == "join"
+                        && matches!(
+                            join.receiver.as_ref(),
+                            Expr::Path(receiver)
+                                if receiver.path.leading_colon.is_none()
+                                    && receiver.path.segments.len() == 1
+                                    && receiver.path.segments.first().is_some_and(
+                                        |segment| self.roots.contains(
+                                            &segment.ident.to_string()
+                                        )
+                                    )
+                        ) =>
+                {
+                    self.roots.insert(binding.ident.to_string());
+                }
+                _ => {}
             }
             visit::visit_local(self, local);
         }
