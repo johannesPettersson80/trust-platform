@@ -103574,3 +103574,342 @@ mapping_assertion_review_digest = "sha256:757be14e7a621209124d024e472a5b564b06a7
 mapping_assertion_source_digests = { "crates/trust-runtime/tests/runtime_safety_fail_closed.rs" = "sha256:229e812585f5d7f97b5252b0019d075f404be0a4f8421db17e33d8a5701e71d0" }
 mapping_behavior_refs = ["RT_SAFE_STOP_001#behavior:1"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_024ABE2EBFBC15F69AC4"
+subject_kind = "generated_test"
+discovery_id = "DISC_024ABE2EBFBC15F69AC4"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/mesh/tests.rs"
+name = "mesh_payload_propagates_source_identity_and_sequence_metadata"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=mesh::tests::mesh_payload_propagates_source_identity_and_sequence_metadata)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MESH_DATA_PLANE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#mesh-envelope-mapping-and-numeric-codec-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#mesh-envelope-mapping-and-numeric-codec-contract"]
+expected_result = "A supported value roundtrip preserves its value plus the exact source identity and sequence."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_024ABE2EBFBC15F69AC4.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_024ABE2EBFBC15F69AC4_44D43AC12621"
+mapping_proposal_digest = "sha256:44d43ac126216d99b7f90221ea5e05047796edb22a1cf0fceafc9ac51d0c873b"
+mapping_decision_id = "MAP_DEC_F6C24AA6C8ED6C22E791F20F"
+mapping_reviewed_source_digest = "sha256:b9945e57668d357539f3f6460c9029b76be49364a91a99ca137951657536dcf1"
+mapping_assertion_review_digest = "sha256:c663a2a260445b8ac4d21f2af92f9b63e92d1465583724d8180fc3746a231cc8"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/host/mesh/tests.rs" = "sha256:b9945e57668d357539f3f6460c9029b76be49364a91a99ca137951657536dcf1" }
+mapping_behavior_refs = ["RT_MESH_DATA_PLANE_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_0798611423046E924E5B"
+subject_kind = "generated_test"
+discovery_id = "DISC_0798611423046E924E5B"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/mesh/tests.rs"
+name = "qos_profile_mapping_aligns_with_active_cfg_and_diag_zones"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=mesh::tests::qos_profile_mapping_aligns_with_active_cfg_and_diag_zones)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MESH_CONTROL_PLANE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#mesh-control-plane-readiness-liveliness-qos-and-snapshot-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#mesh-control-plane-readiness-liveliness-qos-and-snapshot-contract"]
+expected_result = "Canonical active, cfg, and diag segments select their profiles in precedence order and ordinary data uses Fast."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_0798611423046E924E5B.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_0798611423046E924E5B_69EC8D285955"
+mapping_proposal_digest = "sha256:69ec8d285955c90055701e5d091d8ae228069e7a2bfc91a40b8080aa32b494f5"
+mapping_decision_id = "MAP_DEC_D4417A945C47AD301A9D1DC8"
+mapping_reviewed_source_digest = "sha256:b9945e57668d357539f3f6460c9029b76be49364a91a99ca137951657536dcf1"
+mapping_assertion_review_digest = "sha256:a607926a1b0fec74e22e121480eaedf6bff4b5be983d205756039120ad1f60c1"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/host/mesh/tests.rs" = "sha256:b9945e57668d357539f3f6460c9029b76be49364a91a99ca137951657536dcf1" }
+mapping_behavior_refs = ["RT_MESH_CONTROL_PLANE_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_17A3C97ED5EF6F1D342D"
+subject_kind = "generated_test"
+discovery_id = "DISC_17A3C97ED5EF6F1D342D"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/mesh/tests.rs"
+name = "mesh_snapshot_timeout_is_not_a_successful_empty_snapshot"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=mesh::tests::mesh_snapshot_timeout_is_not_a_successful_empty_snapshot)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MESH_CONTROL_PLANE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#mesh-control-plane-readiness-liveliness-qos-and-snapshot-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#mesh-control-plane-readiness-liveliness-qos-and-snapshot-contract"]
+expected_result = "A resource snapshot timeout remains distinguishable from a successful empty snapshot."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_17A3C97ED5EF6F1D342D.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_17A3C97ED5EF6F1D342D_F7D272336A28"
+mapping_proposal_digest = "sha256:f7d272336a2805daf2c35e93bc58511f50b422843b87e483c5560ed9240cc883"
+mapping_decision_id = "MAP_DEC_6D49CB8356C538ABFB30B221"
+mapping_reviewed_source_digest = "sha256:b9945e57668d357539f3f6460c9029b76be49364a91a99ca137951657536dcf1"
+mapping_assertion_review_digest = "sha256:6d9875cdd9a21bccb0781fdf9a713d3392c7a4dfadfd3561004886d955bc7821"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/host/mesh/tests.rs" = "sha256:b9945e57668d357539f3f6460c9029b76be49364a91a99ca137951657536dcf1" }
+mapping_behavior_refs = ["RT_MESH_CONTROL_PLANE_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_264B35B776A6C01675B6"
+subject_kind = "generated_test"
+discovery_id = "DISC_264B35B776A6C01675B6"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/mesh/tests.rs"
+name = "queryables_are_available_when_mesh_session_starts"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=mesh::tests::queryables_are_available_when_mesh_session_starts)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MESH_CONTROL_PLANE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#mesh-control-plane-readiness-liveliness-qos-and-snapshot-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#mesh-control-plane-readiness-liveliness-qos-and-snapshot-contract"]
+expected_result = "Successful startup reports session establishment and accepted identity and catalog queryable declarations without claiming query/reply payload proof."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_264B35B776A6C01675B6.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_264B35B776A6C01675B6_BE6799C72119"
+mapping_proposal_digest = "sha256:be6799c72119fbe78c2c7665ba776bfceaa2d8533601d103ad642c6ae4fc0ebd"
+mapping_decision_id = "MAP_DEC_82D30D57BB7E6A71F1D27FF5"
+mapping_reviewed_source_digest = "sha256:b9945e57668d357539f3f6460c9029b76be49364a91a99ca137951657536dcf1"
+mapping_assertion_review_digest = "sha256:cad75a49fbad654f92b6515d9943eae7d02a17b7704886ca8d8cc00b44d7be1a"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/host/mesh/tests.rs" = "sha256:b9945e57668d357539f3f6460c9029b76be49364a91a99ca137951657536dcf1" }
+mapping_behavior_refs = ["RT_MESH_CONTROL_PLANE_001#behavior:4"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_41148C19CE009B84842F"
+subject_kind = "generated_test"
+discovery_id = "DISC_41148C19CE009B84842F"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/mesh/tests.rs"
+name = "liveliness_registry_tracks_join_and_leave_transitions"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=mesh::tests::liveliness_registry_tracks_join_and_leave_transitions)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MESH_CONTROL_PLANE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#mesh-control-plane-readiness-liveliness-qos-and-snapshot-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#mesh-control-plane-readiness-liveliness-qos-and-snapshot-contract"]
+expected_result = "Join and leave transitions update only the named peer and append the exact transition to bounded history."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_41148C19CE009B84842F.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_41148C19CE009B84842F_D6E44E68E79D"
+mapping_proposal_digest = "sha256:d6e44e68e79d31a854ab8d1a8a96173c655f22d296eef4140d0b18a673ea5cd0"
+mapping_decision_id = "MAP_DEC_10942A6EB6DBA5A64CAB31E0"
+mapping_reviewed_source_digest = "sha256:b9945e57668d357539f3f6460c9029b76be49364a91a99ca137951657536dcf1"
+mapping_assertion_review_digest = "sha256:fa7d224b6fad480484721f835984093c6bec55ca2966d0a09e472d2d65885dd2"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/host/mesh/tests.rs" = "sha256:b9945e57668d357539f3f6460c9029b76be49364a91a99ca137951657536dcf1" }
+mapping_behavior_refs = ["RT_MESH_CONTROL_PLANE_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_67F6EF08D13CF7F1F503"
+subject_kind = "generated_test"
+discovery_id = "DISC_67F6EF08D13CF7F1F503"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/mesh/tests.rs"
+name = "mesh_cloud_ready_wait_times_out_for_degraded_state"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=mesh::tests::mesh_cloud_ready_wait_times_out_for_degraded_state)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MESH_CONTROL_PLANE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#mesh-control-plane-readiness-liveliness-qos-and-snapshot-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#mesh-control-plane-readiness-liveliness-qos-and-snapshot-contract"]
+expected_result = "A service missing any readiness component reaches the caller's bounded deadline as an error instead of false ready state."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_67F6EF08D13CF7F1F503.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_67F6EF08D13CF7F1F503_3B466BCFCC9E"
+mapping_proposal_digest = "sha256:3b466bcfcc9ea13926f6e4e2fd53de267272ad791448cca2c9eed26734555d02"
+mapping_decision_id = "MAP_DEC_06115DF9F308EE0DAC9AF6DE"
+mapping_reviewed_source_digest = "sha256:b9945e57668d357539f3f6460c9029b76be49364a91a99ca137951657536dcf1"
+mapping_assertion_review_digest = "sha256:b17a9881499a6fcbed44bc4fa90df1139956811e9707925505c48a32df7fe1df"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/host/mesh/tests.rs" = "sha256:b9945e57668d357539f3f6460c9029b76be49364a91a99ca137951657536dcf1" }
+mapping_behavior_refs = ["RT_MESH_CONTROL_PLANE_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_6B27D6FD6368F3863353"
+subject_kind = "generated_test"
+discovery_id = "DISC_6B27D6FD6368F3863353"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/mesh/tests.rs"
+name = "mesh_subscribe_mapping_requires_peer_and_remote_key"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=mesh::tests::mesh_subscribe_mapping_requires_peer_and_remote_key)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MESH_DATA_PLANE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#mesh-envelope-mapping-and-numeric-codec-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#mesh-envelope-mapping-and-numeric-codec-contract"]
+expected_result = "Only a trimmed mapping with nonempty peer and remote-key components is accepted."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_6B27D6FD6368F3863353.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_6B27D6FD6368F3863353_A9F963F5987D"
+mapping_proposal_digest = "sha256:a9f963f5987dd0a04266db3b7ca773cb8205c36070075ddf7f509be3f4c13996"
+mapping_decision_id = "MAP_DEC_87DF4A286A2729DE4B43B44E"
+mapping_reviewed_source_digest = "sha256:b9945e57668d357539f3f6460c9029b76be49364a91a99ca137951657536dcf1"
+mapping_assertion_review_digest = "sha256:54f3c8ee540acaceae8b6bd6f54daa07bed2274d6a423cb7394bb48de519bb7d"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/host/mesh/tests.rs" = "sha256:b9945e57668d357539f3f6460c9029b76be49364a91a99ca137951657536dcf1" }
+mapping_behavior_refs = ["RT_MESH_DATA_PLANE_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_8DA120AC16B352A11CE5"
+subject_kind = "generated_test"
+discovery_id = "DISC_8DA120AC16B352A11CE5"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/mesh/tests.rs"
+name = "mesh_payload_accepts_numeric_target_boundaries"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=mesh::tests::mesh_payload_accepts_numeric_target_boundaries)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MESH_DATA_PLANE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#mesh-envelope-mapping-and-numeric-codec-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#mesh-envelope-mapping-and-numeric-codec-contract"]
+expected_result = "The exact signed and unsigned target boundaries decode to the corresponding runtime values."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_8DA120AC16B352A11CE5.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_8DA120AC16B352A11CE5_1BDBC6DE58B0"
+mapping_proposal_digest = "sha256:1bdbc6de58b037c930a78f52e75c76aaa4b59475cd5fc695e649f8c9b7943271"
+mapping_decision_id = "MAP_DEC_2E3D4FE027B5E26F13AAD338"
+mapping_reviewed_source_digest = "sha256:b9945e57668d357539f3f6460c9029b76be49364a91a99ca137951657536dcf1"
+mapping_assertion_review_digest = "sha256:f3eb7c7ab9bdc79615e1678bdae43148ab9d755323d6fa5f082bae31e79a3938"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/host/mesh/tests.rs" = "sha256:b9945e57668d357539f3f6460c9029b76be49364a91a99ca137951657536dcf1" }
+mapping_behavior_refs = ["RT_MESH_DATA_PLANE_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_A6037EE5CFAA0C4994D2"
+subject_kind = "generated_test"
+discovery_id = "DISC_A6037EE5CFAA0C4994D2"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/mesh/tests.rs"
+name = "mesh_payload_encode_decode_fuzz_smoke_budget"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=mesh::tests::mesh_payload_encode_decode_fuzz_smoke_budget)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MESH_DATA_PLANE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#mesh-envelope-mapping-and-numeric-codec-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#mesh-envelope-mapping-and-numeric-codec-contract"]
+expected_result = "The fixed-seed bounded smoke budget round-trips supported envelopes and arbitrary malformed bytes never unwind the decoder."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_A6037EE5CFAA0C4994D2.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_A6037EE5CFAA0C4994D2_B6E00C006801"
+mapping_proposal_digest = "sha256:b6e00c006801ce1094f013f9895530b7080e76019f94075c1cc1d438c68366de"
+mapping_decision_id = "MAP_DEC_F5DF60D6FB9A58A87D3647DE"
+mapping_reviewed_source_digest = "sha256:b9945e57668d357539f3f6460c9029b76be49364a91a99ca137951657536dcf1"
+mapping_assertion_review_digest = "sha256:b1c7ac361fdc15c6457b1bf6f9a308709f1e68d0391d3e4915f7ec97c106bbd1"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/host/mesh/tests.rs" = "sha256:b9945e57668d357539f3f6460c9029b76be49364a91a99ca137951657536dcf1" }
+mapping_behavior_refs = ["RT_MESH_DATA_PLANE_001#behavior:4"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_B04B53DCFB50233B360A"
+subject_kind = "generated_test"
+discovery_id = "DISC_B04B53DCFB50233B360A"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/src/host/mesh/tests.rs"
+name = "mesh_payload_rejects_integer_narrowing_overflow"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=mesh::tests::mesh_payload_rejects_integer_narrowing_overflow)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MESH_DATA_PLANE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#mesh-envelope-mapping-and-numeric-codec-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#mesh-envelope-mapping-and-numeric-codec-contract"]
+expected_result = "A JSON integer outside the selected signed or unsigned target width is rejected rather than narrowed or wrapped."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_B04B53DCFB50233B360A.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_B04B53DCFB50233B360A_FCC87A4833C9"
+mapping_proposal_digest = "sha256:fcc87a4833c97ebbecddc8d410416f70e9628cfebfdf1166b67f68c3b08552a2"
+mapping_decision_id = "MAP_DEC_5C1A26792F3135CA35DCE33A"
+mapping_reviewed_source_digest = "sha256:b9945e57668d357539f3f6460c9029b76be49364a91a99ca137951657536dcf1"
+mapping_assertion_review_digest = "sha256:6c14993456c75326fdbd4a464b962ea82591b314c56b817216a3ffba2f9f5a2d"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/host/mesh/tests.rs" = "sha256:b9945e57668d357539f3f6460c9029b76be49364a91a99ca137951657536dcf1" }
+mapping_behavior_refs = ["RT_MESH_DATA_PLANE_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]

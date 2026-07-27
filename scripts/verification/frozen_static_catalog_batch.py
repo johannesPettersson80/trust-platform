@@ -83,6 +83,17 @@ def compile_batch(
     if proposal_document.get("proposals") != []:
         raise ValueError("frozen static batch requires an empty proposal queue")
 
+    inventories = inventory_document.get("inventories")
+    if not isinstance(inventories, Mapping) or not inventories:
+        raise ValueError("assertion inventory document lacks inventories")
+    inventory_ids = set(inventories)
+    if any(
+        not isinstance(discovery_id, str) or not discovery_id
+        for discovery_id in inventory_ids
+    ):
+        raise ValueError(
+            "assertion inventory IDs must be distinct non-empty strings"
+        )
     reviews = [
         row
         for row in denominator.get("reviews", [])
@@ -90,6 +101,7 @@ def compile_batch(
         and row.get("path") == path
         and row.get("disposition") == "reviewed_nonmapping"
         and row.get("reason_code") == MAPPING_DEBT_REASON
+        and row.get("discovery_id") in inventory_ids
     ]
     if not reviews:
         raise ValueError("frozen denominator selected no reviewed_nonmapping rows")
@@ -115,9 +127,6 @@ def compile_batch(
         for row in reviews
     }
 
-    inventories = inventory_document.get("inventories")
-    if not isinstance(inventories, Mapping):
-        raise ValueError("assertion inventory document lacks inventories")
     if set(inventories) != set(facts):
         raise ValueError("assertion inventory IDs do not equal the selected denominator")
     if plan.get("execution_kind") == "rust_nextest_jsonl_projection":
@@ -1083,6 +1092,10 @@ def main(argv: list[str] | None = None) -> int:
             raise ValueError("--freeze-selection and --apply are separate steps")
         if args.freeze_selection:
             denominator = _toml(root / DENOMINATOR_PATH)
+            inventories = inventory.get("inventories")
+            if not isinstance(inventories, Mapping) or not inventories:
+                raise ValueError("assertion inventory document lacks inventories")
+            inventory_ids = set(inventories)
             selected_reviews = [
                 row
                 for row in denominator.get("reviews", [])
@@ -1090,6 +1103,7 @@ def main(argv: list[str] | None = None) -> int:
                 and row.get("path") == plan.get("path")
                 and row.get("disposition") == "reviewed_nonmapping"
                 and row.get("reason_code") == MAPPING_DEBT_REASON
+                and row.get("discovery_id") in inventory_ids
             ]
             if not selected_reviews:
                 raise ValueError(
@@ -1143,6 +1157,7 @@ def main(argv: list[str] | None = None) -> int:
                 and row.get("path") == plan.get("path")
                 and row.get("disposition") == "reviewed_nonmapping"
                 and row.get("reason_code") == MAPPING_DEBT_REASON
+                and row.get("discovery_id") in inventory.get("inventories", {})
             }
             apply_mapping_transaction(
                 root=root,

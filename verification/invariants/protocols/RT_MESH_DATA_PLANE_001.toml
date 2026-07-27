@@ -13,7 +13,7 @@ source_refs = [
   "docs/specs/11-runtime-engine.md",
   "crates/trust-runtime/src/host/mesh/mapping.rs",
 ]
-tests = []
+tests = ["TEST_AUTO_024ABE2EBFBC15F69AC4", "TEST_AUTO_6B27D6FD6368F3863353", "TEST_AUTO_8DA120AC16B352A11CE5", "TEST_AUTO_A6037EE5CFAA0C4994D2", "TEST_AUTO_B04B53DCFB50233B360A"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
@@ -74,25 +74,25 @@ rationale = "The fixed-seed bounded smoke budget round-trips supported envelopes
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "Existing envelope roundtrip assertions await generated catalog mapping and focused execution."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in RT_MESH_DATA_PLANE_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "boundary_high"
-state = "gap_open"
-rationale = "Existing narrowing-overflow assertions await generated catalog mapping and focused execution."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every boundary_high behavior in RT_MESH_DATA_PLANE_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "boundary_low"
-state = "gap_open"
-rationale = "Existing exact-boundary assertions await generated catalog mapping and focused execution."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every boundary_low behavior in RT_MESH_DATA_PLANE_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "gap_open"
-rationale = "Existing subscription-grammar assertions await generated catalog mapping and focused execution."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every wrong_type_or_shape behavior in RT_MESH_DATA_PLANE_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "resource_limit"
-state = "gap_open"
-rationale = "The bounded fixed-seed crash-only smoke assertion awaits generated catalog mapping and focused execution."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every resource_limit behavior in RT_MESH_DATA_PLANE_001; dynamic proof and broad remote validation remain explicit debt."
