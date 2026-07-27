@@ -3,14 +3,14 @@ id = "DEV_AGENT_WORKSPACE_PATH_001"
 title = "Agent workspace paths normalize lexically without parent escape"
 area = "plcopen_devtools"
 risk = "security"
-status = "planned"
+status = "mapped"
 owner = "trust-dev"
 last_reviewed = "2026-07-27"
 claim = "Agent workspace path parameters collapse current-directory and in-scope parent components while rejecting any parent component that would escape the lexical workspace-relative root with error code -32001."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-dev/src/agent.rs"]
-tests = []
+tests = ["TEST_AUTO_0F6E676B1604DEA82BD7", "TEST_AUTO_42675B2664AA5984F2BC"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
@@ -44,10 +44,10 @@ rationale = "A parent component with no preceding in-scope component is rejected
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "The reviewed lexical normalization behavior awaits generated catalog mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in DEV_AGENT_WORKSPACE_PATH_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "auth_or_permission"
-state = "gap_open"
-rationale = "The reviewed parent-escape rejection behavior awaits generated catalog mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every auth_or_permission behavior in DEV_AGENT_WORKSPACE_PATH_001; dynamic proof and broad remote validation remain explicit debt."

@@ -3,7 +3,7 @@ id = "DEV_TEST_EXECUTION_001"
 title = "Developer tests execute selected bodies from cold prepared state"
 area = "plcopen_devtools"
 risk = "false_status"
-status = "planned"
+status = "mapped"
 owner = "trust-dev"
 last_reviewed = "2026-07-27"
 claim = "The developer test runner invokes the selected test POU, cold-restarts before each case, registers selected test programs without changing production configuration authority, and returns reviewed assertion and deadline results."
@@ -14,7 +14,7 @@ source_refs = [
   "docs/PRODUCT_DECISIONS.md",
   "crates/trust-dev/src/test_cmd",
 ]
-tests = []
+tests = ["TEST_AUTO_123A365A92C6D2454A3C", "TEST_AUTO_3C712A9292ED0E143765", "TEST_AUTO_60C521F0B9A55EB09F58", "TEST_AUTO_67620B4E7A1553062EB3", "TEST_AUTO_6B3FF05ABB6C948EE468", "TEST_AUTO_9AA7DC431E1144E0A7E4", "TEST_AUTO_ACAFF4C2AD9CAB8BCD04", "TEST_AUTO_EBA64FF9E66D25570E07"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
@@ -84,18 +84,18 @@ rationale = "The specification requires a non-assertion runtime failure to remai
 
 [[coverage.cells]]
 dimension = "failure_path"
-state = "gap_open"
-rationale = "The reviewed program and function-block assertion catchers await generated catalog mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every failure_path behavior in DEV_TEST_EXECUTION_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
-state = "gap_open"
-rationale = "The reviewed cold-restart and configured-session behaviors await generated catalog mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in DEV_TEST_EXECUTION_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "timeout"
-state = "gap_open"
-rationale = "The reviewed deadline-overrun behavior awaits generated catalog mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every timeout behavior in DEV_TEST_EXECUTION_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "extra_or_unknown"

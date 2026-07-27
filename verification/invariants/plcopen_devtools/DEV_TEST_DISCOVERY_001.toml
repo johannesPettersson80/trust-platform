@@ -10,7 +10,7 @@ claim = "Developer test discovery must not silently omit a supported source beca
 proof_level = "G1"
 contract_kind = "protocol_trace"
 source_refs = ["crates/trust-dev/src"]
-tests = ["TEST_DEV_TEST_DISCOVERY_TRACE_001"]
+tests = ["TEST_AUTO_024034593826EFD0DC25", "TEST_AUTO_9DA43D9B2EA2A3411356", "TEST_AUTO_EAD77AB30DBE5CC32785", "TEST_DEV_TEST_DISCOVERY_TRACE_001"]
 gates = ["pr"]
 evidence_refs = [
   "EVID_TEST_DEV_TEST_DISCOVERY_TRACE_001_LOCK_BASELINE",

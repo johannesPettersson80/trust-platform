@@ -3,7 +3,7 @@ id = "DEV_TEST_REPORTING_001"
 title = "Developer test reports preserve bounded result and source context"
 area = "plcopen_devtools"
 risk = "false_status"
-status = "planned"
+status = "mapped"
 owner = "trust-dev"
 last_reviewed = "2026-07-27"
 claim = "The developer test runner renders reviewed JSON, TAP, JUnit, human, list, CI-selection, and timeout-message contracts without merging failed tests and runtime errors."
@@ -14,7 +14,7 @@ source_refs = [
   "docs/PRODUCT_DECISIONS.md",
   "crates/trust-dev/src/test_cmd/output.rs",
 ]
-tests = []
+tests = ["TEST_AUTO_00613F30CB0263C50E35", "TEST_AUTO_02C391EA4F1A00481337", "TEST_AUTO_30935290BBA229A21A1C", "TEST_AUTO_50BC83EE8F3F488A7088", "TEST_AUTO_649A189BA85E9C36D6E7", "TEST_AUTO_703DCE897FB1F94D0882", "TEST_AUTO_BB40B7FB0D69EC752F0E", "TEST_AUTO_BF500DA3AFCE3D874EB3"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
@@ -54,10 +54,10 @@ rationale = "CI mode changes only the default human format to JUnit and preserve
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "The reviewed output-family fixtures await generated catalog mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in DEV_TEST_REPORTING_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "configuration"
-state = "gap_open"
-rationale = "The reviewed CI selection behavior awaits generated catalog mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every configuration behavior in DEV_TEST_REPORTING_001; dynamic proof and broad remote validation remain explicit debt."
