@@ -104286,3 +104286,274 @@ mapping_assertion_review_digest = "sha256:ccebb77a97a157500bc1093bde7e426daaa2e4
 mapping_assertion_source_digests = { "crates/trust-ads-server/src/ams.rs" = "sha256:440420e34185042145ab029af6a11e1a2cfb6a9bbac92fff15df432ffa23fce5" }
 mapping_behavior_refs = ["RT_ADS_AMS_TCP_FRAME_CODEC_001#behavior:0"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_34CD5052A10F2588D30B"
+subject_kind = "generated_test"
+discovery_id = "DISC_34CD5052A10F2588D30B"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/scheduler/runner_loop.rs"
+name = "cycle_deadline_from_zero_timeout_is_immediately_expired"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=scheduler::runner_loop_poison_tests::cycle_deadline_from_zero_timeout_is_immediately_expired)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_SAFE_DEADLINE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001"]
+expected_result = "If a zero timeout reaches defensive deadline construction, it becomes an immediately expired deadline rather than disabling or extending enforcement."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_34CD5052A10F2588D30B.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_34CD5052A10F2588D30B_F98AF85883AD"
+mapping_proposal_digest = "sha256:f98af85883ad35f27fd2d192749dc6e8875e0b68adb0cfc9f70e11be052b05e9"
+mapping_decision_id = "MAP_DEC_5D478F9876F31E5556B18261"
+mapping_reviewed_source_digest = "sha256:206c9cc6691c6b8fd462e40667f6c09e709c14611a9ee17a0e24db5a448a1245"
+mapping_assertion_review_digest = "sha256:1ab4247e24c72a3dd91195b1b98c05505cddb210b36026f86b56278380c41b83"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/scheduler/runner_loop.rs" = "sha256:206c9cc6691c6b8fd462e40667f6c09e709c14611a9ee17a0e24db5a448a1245" }
+mapping_behavior_refs = ["RT_SAFE_DEADLINE_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_4F5DDFB0E5B6F9E7F4D4"
+subject_kind = "generated_test"
+discovery_id = "DISC_4F5DDFB0E5B6F9E7F4D4"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/scheduler/runner_loop.rs"
+name = "cycle_deadline_guard_restores_previous_deadlines_after_success"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=scheduler::runner_loop_poison_tests::cycle_deadline_guard_restores_previous_deadlines_after_success)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_SAFE_DEADLINE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001"]
+expected_result = "The explicit restore helper returns both execution and output-commit deadlines to a captured preceding value."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_4F5DDFB0E5B6F9E7F4D4.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_4F5DDFB0E5B6F9E7F4D4_EBA863DAB3FF"
+mapping_proposal_digest = "sha256:eba863dab3ff7a789a96b256b32d3bf0068d10eaaf20ee4708f25a36eb256075"
+mapping_decision_id = "MAP_DEC_DCE1A66ED6CA43F3C1B91C51"
+mapping_reviewed_source_digest = "sha256:206c9cc6691c6b8fd462e40667f6c09e709c14611a9ee17a0e24db5a448a1245"
+mapping_assertion_review_digest = "sha256:c212ece7dce77ec50b3c8f1fcb8492565c97472c3f91280c229aca3f285a7c62"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/scheduler/runner_loop.rs" = "sha256:206c9cc6691c6b8fd462e40667f6c09e709c14611a9ee17a0e24db5a448a1245" }
+mapping_behavior_refs = ["RT_SAFE_DEADLINE_001#behavior:4"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_88A430D6A4852CF7B968"
+subject_kind = "generated_test"
+discovery_id = "DISC_88A430D6A4852CF7B968"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/scheduler/runner_loop.rs"
+name = "automatic_restart_backoff_is_bounded_and_monotonic"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=scheduler::runner_loop_poison_tests::automatic_restart_backoff_is_bounded_and_monotonic)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_AUTOMATIC_RESTART_BOUND_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#fault-overrun-and-watchdog-handling"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#fault-overrun-and-watchdog-handling"]
+expected_result = "Automatic retry delay is nonzero, later attempts do not shorten it, and a large cycle interval plus attempt count saturates at the implementation's cap constant. Literal floor, exponential sequence, and one-second cap proof remain explicit debt."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_88A430D6A4852CF7B968.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_88A430D6A4852CF7B968_E4D35125115E"
+mapping_proposal_digest = "sha256:e4d35125115ecdf35be67727cbd08308789f4915897714d53b5f500d8abccf40"
+mapping_decision_id = "MAP_DEC_DE3DD5C7F25242BB7F51C00D"
+mapping_reviewed_source_digest = "sha256:206c9cc6691c6b8fd462e40667f6c09e709c14611a9ee17a0e24db5a448a1245"
+mapping_assertion_review_digest = "sha256:8dae6cef59e8b784936009a8e1339a30a4d6ffd83175f01f28abfabae43916f0"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/scheduler/runner_loop.rs" = "sha256:206c9cc6691c6b8fd462e40667f6c09e709c14611a9ee17a0e24db5a448a1245" }
+mapping_behavior_refs = ["RT_AUTOMATIC_RESTART_BOUND_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_BD22925B0FA814DDB2F3"
+subject_kind = "generated_test"
+discovery_id = "DISC_BD22925B0FA814DDB2F3"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/scheduler/runner_loop.rs"
+name = "automatic_restart_limiter_escalates_after_retry_budget"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=scheduler::runner_loop_poison_tests::automatic_restart_limiter_escalates_after_retry_budget)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_AUTOMATIC_RESTART_BOUND_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#fault-overrun-and-watchdog-handling"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#fault-overrun-and-watchdog-handling"]
+expected_result = "The limiter admits attempts one through three and rejects the fourth consecutive request with a restart-limit error recording three consumed attempts. This helper behavior does not itself mutate resource state."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_BD22925B0FA814DDB2F3.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_BD22925B0FA814DDB2F3_313A0386C1E2"
+mapping_proposal_digest = "sha256:313a0386c1e2e92857a9b28627a4b56ef81a1a588d8a8a862bd47c903cb09188"
+mapping_decision_id = "MAP_DEC_950997D57CCAAF9914BD2643"
+mapping_reviewed_source_digest = "sha256:206c9cc6691c6b8fd462e40667f6c09e709c14611a9ee17a0e24db5a448a1245"
+mapping_assertion_review_digest = "sha256:6b0fdb123c8b8ffb4e1009badeebdffef495585d863970e17ce764d8b49fa364"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/scheduler/runner_loop.rs" = "sha256:206c9cc6691c6b8fd462e40667f6c09e709c14611a9ee17a0e24db5a448a1245" }
+mapping_behavior_refs = ["RT_AUTOMATIC_RESTART_BOUND_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_BF01EBAA4B0DFA45370D"
+subject_kind = "generated_test"
+discovery_id = "DISC_BF01EBAA4B0DFA45370D"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/scheduler/runner_loop.rs"
+name = "cycle_deadline_guard_restores_after_runtime_error_and_contained_panic"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=scheduler::runner_loop_poison_tests::cycle_deadline_guard_restores_after_runtime_error_and_contained_panic)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_SAFE_DEADLINE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001"]
+expected_result = "An enabled watchdog is observed to arm the execution deadline before cycle execution. This behavior does not claim direct observation of output-deadline arming. After an ordinary error value or locally contained panic stimulus, explicit helper invocation restores absent execution and output-commit deadlines. Automatic scheduler invocation remains separate debt."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_BF01EBAA4B0DFA45370D.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_BF01EBAA4B0DFA45370D_FF908E7FEC96"
+mapping_proposal_digest = "sha256:ff908e7fec96f95318b3b260d552c34dc9951a1bbaf342f6c66ca6b2eceb2108"
+mapping_decision_id = "MAP_DEC_E2BEBB5834C3D042FB92E948"
+mapping_reviewed_source_digest = "sha256:206c9cc6691c6b8fd462e40667f6c09e709c14611a9ee17a0e24db5a448a1245"
+mapping_assertion_review_digest = "sha256:864a4c554ecc209dd6bb77b346136a1792b78d9acef4063186039425a2b950c1"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/scheduler/runner_loop.rs" = "sha256:206c9cc6691c6b8fd462e40667f6c09e709c14611a9ee17a0e24db5a448a1245" }
+mapping_behavior_refs = ["RT_SAFE_DEADLINE_001#behavior:2", "RT_SAFE_DEADLINE_001#behavior:5"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_D18EE90064D1E7FF0AF2"
+subject_kind = "generated_test"
+discovery_id = "DISC_D18EE90064D1E7FF0AF2"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/scheduler/runner_loop.rs"
+name = "update_watchdog_zero_timeout_is_normalized_before_use"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=scheduler::runner_loop_poison_tests::update_watchdog_zero_timeout_is_normalized_before_use)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_WATCHDOG_POLICY_INSTALL_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#watchdog-policy-normalization-and-installation"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#watchdog-policy-normalization-and-installation"]
+expected_result = "An enabled zero or negative timeout becomes one millisecond so installation cannot create an always-expired deadline."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_D18EE90064D1E7FF0AF2.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_D18EE90064D1E7FF0AF2_A6EFE9B1D557"
+mapping_proposal_digest = "sha256:a6efe9b1d557f1c5a45f6e0da2c34cc934de7cdcc1154d6e818fd478679a8811"
+mapping_decision_id = "MAP_DEC_AA0A30F00097C1AA38D6362F"
+mapping_reviewed_source_digest = "sha256:206c9cc6691c6b8fd462e40667f6c09e709c14611a9ee17a0e24db5a448a1245"
+mapping_assertion_review_digest = "sha256:a849ecd1d13531c26320bca90abef40d5e3ed60766312066259e4fd73bfaca62"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/scheduler/runner_loop.rs" = "sha256:206c9cc6691c6b8fd462e40667f6c09e709c14611a9ee17a0e24db5a448a1245" }
+mapping_behavior_refs = ["RT_WATCHDOG_POLICY_INSTALL_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_E72EFAA018DAB54FAAC0"
+subject_kind = "generated_test"
+discovery_id = "DISC_E72EFAA018DAB54FAAC0"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/scheduler/runner_loop.rs"
+name = "disabled_watchdog_does_not_arm_cycle_deadlines"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=scheduler::runner_loop_poison_tests::disabled_watchdog_does_not_arm_cycle_deadlines)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_SAFE_DEADLINE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001"]
+expected_result = "A disabled watchdog leaves absent execution and output-commit deadlines absent before and after restoration."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_E72EFAA018DAB54FAAC0.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_E72EFAA018DAB54FAAC0_C3C66E9BD31F"
+mapping_proposal_digest = "sha256:c3c66e9bd31fa97661f26ef0bc9cbbbab50a7b35d8b751c6202c3fd490f0adb3"
+mapping_decision_id = "MAP_DEC_E80A599DF5AD8FC20F2948CC"
+mapping_reviewed_source_digest = "sha256:206c9cc6691c6b8fd462e40667f6c09e709c14611a9ee17a0e24db5a448a1245"
+mapping_assertion_review_digest = "sha256:7a4c8864206b258e5b573078febaebcee0ed1fbb76509cd766bf3d01ba6ec248"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/scheduler/runner_loop.rs" = "sha256:206c9cc6691c6b8fd462e40667f6c09e709c14611a9ee17a0e24db5a448a1245" }
+mapping_behavior_refs = ["RT_SAFE_DEADLINE_001#behavior:6"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_FB2DC1C843F8F36273CB"
+subject_kind = "generated_test"
+discovery_id = "DISC_FB2DC1C843F8F36273CB"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/scheduler/runner_loop.rs"
+name = "scheduler_arms_execution_deadline_during_cycle"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=scheduler::runner_loop_poison_tests::scheduler_arms_execution_deadline_during_cycle)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_SAFE_DEADLINE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001"]
+expected_result = "An enabled watchdog is observed to arm the execution deadline before cycle execution. This behavior does not claim direct observation of output-deadline arming."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_FB2DC1C843F8F36273CB.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_FB2DC1C843F8F36273CB_07E63B384179"
+mapping_proposal_digest = "sha256:07e63b3841798856f9c8e5c4668cbe9b0986de49bd650d6a8349a61d8f35c986"
+mapping_decision_id = "MAP_DEC_A299C217208023E472AC95EB"
+mapping_reviewed_source_digest = "sha256:206c9cc6691c6b8fd462e40667f6c09e709c14611a9ee17a0e24db5a448a1245"
+mapping_assertion_review_digest = "sha256:6eb21d6f250c052f7656924b0e231202f0cd71c4b3748a9168b4334ba030421a"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/scheduler/runner_loop.rs" = "sha256:206c9cc6691c6b8fd462e40667f6c09e709c14611a9ee17a0e24db5a448a1245" }
+mapping_behavior_refs = ["RT_SAFE_DEADLINE_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]

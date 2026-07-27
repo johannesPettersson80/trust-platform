@@ -13,7 +13,7 @@ source_refs = [
   "crates/trust-runtime/src/runtime",
   "crates/trust-runtime/src/scheduler/runner_loop.rs",
 ]
-tests = ["TEST_AUTO_2D0B462DA31DE705F6EC", "TEST_AUTO_8BAF8461F95A94A773A6", "TEST_REVIEW_SIM_CLOCK_OVERFLOW_001", "TEST_REVIEW_WATCHDOG_PARTIAL_SAFE_STATE_001", "TEST_RUNTIME_WATCHDOG_BEFORE_OUTPUT_COMMIT_001"]
+tests = ["TEST_AUTO_2D0B462DA31DE705F6EC", "TEST_AUTO_34CD5052A10F2588D30B", "TEST_AUTO_4F5DDFB0E5B6F9E7F4D4", "TEST_AUTO_8BAF8461F95A94A773A6", "TEST_AUTO_BF01EBAA4B0DFA45370D", "TEST_AUTO_E72EFAA018DAB54FAAC0", "TEST_AUTO_FB2DC1C843F8F36273CB", "TEST_REVIEW_SIM_CLOCK_OVERFLOW_001", "TEST_REVIEW_WATCHDOG_PARTIAL_SAFE_STATE_001", "TEST_RUNTIME_WATCHDOG_BEFORE_OUTPUT_COMMIT_001"]
 gates = ["pr"]
 evidence_refs = [
   "EVID_TEST_RUNTIME_WATCHDOG_BEFORE_OUTPUT_COMMIT_001_RED",
@@ -23,11 +23,7 @@ evidence_refs = [
   "EVID_SIM_CLOCK_OVERFLOW_GAP_CLOSEOUT_20260718",
 ]
 spec_gap_refs = []
-missing = [
-  "watchdog_configuration_and_recovery_boundaries",
-  "scheduler_output_deadline_arming_and_automatic_restore",
-  "broad_remote_gate",
-]
+missing = ["watchdog_configuration_and_recovery_boundaries", "scheduler_output_deadline_arming_and_automatic_restore", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -114,15 +110,15 @@ rationale = "Accepted catalog mappings bind reviewed assertions to every hardwar
 
 [[coverage.cells]]
 dimension = "boundary_low"
-state = "gap_open"
-rationale = "The zero-timeout defensive boundary awaits generated catalog mapping and focused execution."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every boundary_low behavior in RT_SAFE_DEADLINE_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
-state = "gap_open"
-rationale = "Execution-deadline observation, explicit helper restoration, and disabled-watchdog assertions await generated catalog mapping and focused execution; output arming and automatic scheduler restoration remain explicit debt."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in RT_SAFE_DEADLINE_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "persistence_or_recovery"
-state = "gap_open"
-rationale = "Error and contained-panic restoration assertions await generated catalog mapping and focused execution."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every persistence_or_recovery behavior in RT_SAFE_DEADLINE_001; dynamic proof and broad remote validation remain explicit debt."

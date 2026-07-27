@@ -14,16 +14,11 @@ source_refs = [
   "crates/trust-runtime/src/runtime",
   "crates/trust-runtime/src/scheduler/runner_loop.rs",
 ]
-tests = ["TEST_AUTO_8B901DEF0D4408B99942", "TEST_AUTO_EBC7D491061F23BDD8B6"]
+tests = ["TEST_AUTO_88A430D6A4852CF7B968", "TEST_AUTO_8B901DEF0D4408B99942", "TEST_AUTO_BD22925B0FA814DDB2F3", "TEST_AUTO_EBC7D491061F23BDD8B6"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = [
-  "cataloged_tests",
-  "focused_execution_evidence",
-  "literal_backoff_floor_exponential_and_cap",
-  "final_remote_gate",
-]
+missing = ["cataloged_tests", "focused_execution_evidence", "literal_backoff_floor_exponential_and_cap", "final_remote_gate"]
 
 [spec]
 status = "specified"
@@ -83,5 +78,5 @@ rationale = "Accepted catalog mappings bind reviewed assertions to every time_or
 
 [[coverage.cells]]
 dimension = "boundary_high"
-state = "gap_open"
-rationale = "The exact three-attempt admission and fourth-attempt rejection await generated catalog mapping and focused execution."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every boundary_high behavior in RT_AUTOMATIC_RESTART_BOUND_001; dynamic proof and broad remote validation remain explicit debt."
