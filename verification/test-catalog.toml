@@ -100396,3 +100396,1793 @@ mapping_assertion_review_digest = "sha256:afaf2b6f57d2c103978f2ce64111fd9a1e5d4c
 mapping_assertion_source_digests = { "crates/trust-runtime/tests/openot_telemetry.rs" = "sha256:3a3ada2e5aec2e98c5e39d4263dcd01e82738b123da0ecdf423b4978d276e0c1" }
 mapping_behavior_refs = ["RT_OPENOT_TELEMETRY_PUBLICATION_001#behavior:0"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_17D696332973EB469E9F"
+subject_kind = "generated_test"
+discovery_id = "DISC_17D696332973EB469E9F"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/src/bytecode/validate/resource_limits.rs"
+name = "instruction_limit_accepts_boundary_and_rejects_next_instruction"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=bytecode::validate::resource_limits::tests::instruction_limit_accepts_boundary_and_rejects_next_instruction)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_BYTECODE_INSTRUCTION_BOUNDARY_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#fixed-resource-limits"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001#fixed-resource-limits"]
+expected_result = "Charging the 1,000,000th decoded instruction succeeds and advances the accepted count to the fixed limit. Charging the 1,000,001st decoded instruction is rejected without advancing the accepted count."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_17D696332973EB469E9F.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_17D696332973EB469E9F_464F80AA3019"
+mapping_proposal_digest = "sha256:464f80aa301913a50f23bad04796d5ecfb6bbb1ad983519e4f495b8699df16d7"
+mapping_decision_id = "MAP_DEC_DB3DCB5F0EF03EAAEB8BE9A4"
+mapping_reviewed_source_digest = "sha256:1df6792f6bf241976bf4d482a431a7c3c4a629d3d7a246fd567f7dbed3caa78a"
+mapping_assertion_review_digest = "sha256:ef450c6d0cf729d22f2147c404395ffc3f9c9ef601dffb977d43db3a3a7a0b89"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/bytecode/validate/resource_limits.rs" = "sha256:1df6792f6bf241976bf4d482a431a7c3c4a629d3d7a246fd567f7dbed3caa78a" }
+mapping_behavior_refs = ["RT_BYTECODE_INSTRUCTION_BOUNDARY_001#behavior:0", "RT_BYTECODE_INSTRUCTION_BOUNDARY_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_730482B298A86765CE71"
+subject_kind = "generated_test"
+discovery_id = "DISC_730482B298A86765CE71"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/src/bytecode/validate/resource_limits.rs"
+name = "stack_limit_accepts_boundary_and_rejects_next_value"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=bytecode::validate::resource_limits::tests::stack_limit_accepts_boundary_and_rejects_next_value)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_BYTECODE_STACK_BOUNDARY_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#fixed-resource-limits"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001#fixed-resource-limits"]
+expected_result = "A POU path requiring exactly 16,384 operand values remains valid. A POU path requiring 16,385 operand values is rejected."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_730482B298A86765CE71.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_730482B298A86765CE71_7C78B55E3114"
+mapping_proposal_digest = "sha256:7c78b55e31144cc98ddf8ab13176b47dadf2191ca644e9766bcaa5bb73d53b22"
+mapping_decision_id = "MAP_DEC_4ABFB0E2BE7438B3F3648731"
+mapping_reviewed_source_digest = "sha256:1df6792f6bf241976bf4d482a431a7c3c4a629d3d7a246fd567f7dbed3caa78a"
+mapping_assertion_review_digest = "sha256:f844e77291dd9e7f9e67a58d118175f9d4feb472622ed6e6c7cc9e93307fcda1"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/bytecode/validate/resource_limits.rs" = "sha256:1df6792f6bf241976bf4d482a431a7c3c4a629d3d7a246fd567f7dbed3caa78a" }
+mapping_behavior_refs = ["RT_BYTECODE_STACK_BOUNDARY_001#behavior:0", "RT_BYTECODE_STACK_BOUNDARY_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_B71ADAD1F3E8F1FF0373"
+subject_kind = "generated_test"
+discovery_id = "DISC_B71ADAD1F3E8F1FF0373"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_container.rs"
+name = "section_table_validation"
+command = "cargo nextest run -p trust-runtime --test bytecode_container --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_container) & test(=section_table_validation)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_SEAM_VALID_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001"]
+expected_result = "Out-of-bounds or overlapping sections and incompatible debug or variable metadata references reject the complete candidate before apply."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_B71ADAD1F3E8F1FF0373.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_B71ADAD1F3E8F1FF0373_E67B1B78DB47"
+mapping_proposal_digest = "sha256:e67b1b78db474fb0bd89a0438bad8eb4742c920d5a00955de46db0202156ac18"
+mapping_decision_id = "MAP_DEC_13B82A7E722F0D3DE5C8B966"
+mapping_reviewed_source_digest = "sha256:5f6b952f54d9b1c7c04a26280726672bf53a0692ad6d954bc4d7d7554586201d"
+mapping_assertion_review_digest = "sha256:1e6299eccb5e6b7fb7b2920987d746f855d2fa7c53579cb1eeb59a9bca8b94b8"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_container.rs" = "sha256:5f6b952f54d9b1c7c04a26280726672bf53a0692ad6d954bc4d7d7554586201d", "crates/trust-runtime/tests/bytecode_helpers.rs" = "sha256:915e4dc8403b5baadb55f1a08d8dee42a0a5b04c8ed6fbad8d2a5e98bd37acfe" }
+mapping_behavior_refs = ["VM_SEAM_VALID_001#behavior:7"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_4BABD0A9C6328EC16A6A"
+subject_kind = "generated_test"
+discovery_id = "DISC_4BABD0A9C6328EC16A6A"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_decode_resource_bounds.rs"
+name = "allocation_pressure_from_declared_counts_fails_before_reservation"
+command = "cargo nextest run -p trust-runtime --test bytecode_decode_resource_bounds --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_decode_resource_bounds) & test(=allocation_pressure_from_declared_counts_fails_before_reservation)'"
+owner = "trust-runtime-core"
+status = "mapped"
+invariants = ["VM_SEAM_DETERMINISM_LIMITS_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001"]
+expected_result = "A top-level or nested collection count that cannot fit its minimum encoded entries in the containing bytecode section is rejected before count-sized capacity is reserved."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_4BABD0A9C6328EC16A6A.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_4BABD0A9C6328EC16A6A_F1C1B13BF34E"
+mapping_proposal_digest = "sha256:f1c1b13bf34e1b3607975649de49d7b19c5302dbfb81bd4dcf330cd5bbe74dc4"
+mapping_decision_id = "MAP_DEC_74E8BCFBF3B7B4ECF991543A"
+mapping_reviewed_source_digest = "sha256:d8e224ddd6f6689a2e51b6ab751766999b90ea42c171334be45904e1b305c290"
+mapping_assertion_review_digest = "sha256:db9229fc7244c307afd42e64909c113264225084e208e061c76dfd85c3eef9d8"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_decode_resource_bounds.rs" = "sha256:d8e224ddd6f6689a2e51b6ab751766999b90ea42c171334be45904e1b305c290", "crates/trust-runtime/tests/bytecode_helpers.rs" = "sha256:915e4dc8403b5baadb55f1a08d8dee42a0a5b04c8ed6fbad8d2a5e98bd37acfe" }
+mapping_behavior_refs = ["VM_SEAM_DETERMINISM_LIMITS_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_11C0595A088CC9249A4C"
+subject_kind = "generated_test"
+discovery_id = "DISC_11C0595A088CC9249A4C"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_01.rs"
+name = "encoder_emits_method_tables"
+command = "cargo nextest run -p trust-runtime --test bytecode_encoder --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_encoder) & test(=bytecode_encoder_part_01::encoder_emits_method_tables)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_BYTECODE_ENCODER_PROJECTION_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"]
+expected_result = "Class inheritance, method ownership, override slots, interface slots, parameter directions, and input defaults retain their declared POU_INDEX and CONST_POOL relationships."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_11C0595A088CC9249A4C.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_11C0595A088CC9249A4C_A76C7F612F63"
+mapping_proposal_digest = "sha256:a76c7f612f63957370f4cfc348bf7a0f8b334136b2a758d89187575f6ed84921"
+mapping_decision_id = "MAP_DEC_3705C1E2DAD4DBA51E7E7ACF"
+mapping_reviewed_source_digest = "sha256:656380af67d2e1518fbdd88ed62ca8aa494db4f989d2b3f7167d1204dfec42c2"
+mapping_assertion_review_digest = "sha256:f1a2244e14058ff8e918183571c82633f613b027ede742827618b463489f168e"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_encoder.rs" = "sha256:c27544d1115917f65d20b88a91c956d306ba5b2ad2eb68619d9ee9820f027a12", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_01.rs" = "sha256:656380af67d2e1518fbdd88ed62ca8aa494db4f989d2b3f7167d1204dfec42c2", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_02.rs" = "sha256:f903855d6f0bff9d0abaa21e99ba61ea53fca92964e9244a7a4e77376a7eb033", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_03.rs" = "sha256:6f9b93dd7bc1bbcd78361d26d718fe2a161ed493b4d18c64444d1ddaee07db45", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_04.rs" = "sha256:41267cea2ba95268a8fafdc61bc344f6bfb557f617d389ffe80d6ebf634cdb1b", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_05.rs" = "sha256:c9c2229955f5d78f3b2d1f198c9e2e3046584f5a52494bba670f8fd985f637c8" }
+mapping_behavior_refs = ["RT_BYTECODE_ENCODER_PROJECTION_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_BDED3CC98816CD7074F2"
+subject_kind = "generated_test"
+discovery_id = "DISC_BDED3CC98816CD7074F2"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_01.rs"
+name = "encoder_roundtrip_validates"
+command = "cargo nextest run -p trust-runtime --test bytecode_encoder --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_encoder) & test(=bytecode_encoder_part_01::encoder_roundtrip_validates)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_BYTECODE_ENCODER_PROJECTION_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"]
+expected_result = "Supported source, including case-insensitively resolved calls, produces complete bytes that decode, validate, and preserve configured task identity when loaded."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_BDED3CC98816CD7074F2.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_BDED3CC98816CD7074F2_936E52B261E4"
+mapping_proposal_digest = "sha256:936e52b261e4c4017774abddb337c2cb50354712a4552a6cabd390bd84d894be"
+mapping_decision_id = "MAP_DEC_F5CE4DC789483D1546CE8936"
+mapping_reviewed_source_digest = "sha256:656380af67d2e1518fbdd88ed62ca8aa494db4f989d2b3f7167d1204dfec42c2"
+mapping_assertion_review_digest = "sha256:7501469f75b8625de5fcd1e040144d12d6f9cf55cdfd7f5a7fb941dcfb2bd324"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_encoder.rs" = "sha256:c27544d1115917f65d20b88a91c956d306ba5b2ad2eb68619d9ee9820f027a12", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_01.rs" = "sha256:656380af67d2e1518fbdd88ed62ca8aa494db4f989d2b3f7167d1204dfec42c2", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_02.rs" = "sha256:f903855d6f0bff9d0abaa21e99ba61ea53fca92964e9244a7a4e77376a7eb033", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_03.rs" = "sha256:6f9b93dd7bc1bbcd78361d26d718fe2a161ed493b4d18c64444d1ddaee07db45", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_04.rs" = "sha256:41267cea2ba95268a8fafdc61bc344f6bfb557f617d389ffe80d6ebf634cdb1b", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_05.rs" = "sha256:c9c2229955f5d78f3b2d1f198c9e2e3046584f5a52494bba670f8fd985f637c8" }
+mapping_behavior_refs = ["RT_BYTECODE_ENCODER_PROJECTION_001#behavior:7"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_067960017E02589D06C7"
+subject_kind = "generated_test"
+discovery_id = "DISC_067960017E02589D06C7"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_02.rs"
+name = "encoder_emits_composite_types"
+command = "cargo nextest run -p trust-runtime --test bytecode_encoder --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_encoder) & test(=bytecode_encoder_part_02::encoder_emits_composite_types)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_BYTECODE_ENCODER_PROJECTION_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"]
+expected_result = "Composite, alias, subrange, reference, class, function-block, and interface type relationships preserve their declared identities in TYPE_TABLE."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_067960017E02589D06C7.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_067960017E02589D06C7_0A77E633BF9D"
+mapping_proposal_digest = "sha256:0a77e633bf9d05baf27d1846e9c8dd26015af615a2941bc93f59898e37246917"
+mapping_decision_id = "MAP_DEC_E5E50D0F2BBD57A72C860E4A"
+mapping_reviewed_source_digest = "sha256:f903855d6f0bff9d0abaa21e99ba61ea53fca92964e9244a7a4e77376a7eb033"
+mapping_assertion_review_digest = "sha256:e1ca532999381baf8e06b5545f22f4f5e2f54d4e4cc5b1a1fd45ea9c18f18ec7"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_encoder.rs" = "sha256:c27544d1115917f65d20b88a91c956d306ba5b2ad2eb68619d9ee9820f027a12", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_01.rs" = "sha256:656380af67d2e1518fbdd88ed62ca8aa494db4f989d2b3f7167d1204dfec42c2", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_02.rs" = "sha256:f903855d6f0bff9d0abaa21e99ba61ea53fca92964e9244a7a4e77376a7eb033", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_03.rs" = "sha256:6f9b93dd7bc1bbcd78361d26d718fe2a161ed493b4d18c64444d1ddaee07db45", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_04.rs" = "sha256:41267cea2ba95268a8fafdc61bc344f6bfb557f617d389ffe80d6ebf634cdb1b", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_05.rs" = "sha256:c9c2229955f5d78f3b2d1f198c9e2e3046584f5a52494bba670f8fd985f637c8" }
+mapping_behavior_refs = ["RT_BYTECODE_ENCODER_PROJECTION_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_EE0B39B38488ADEA0E66"
+subject_kind = "generated_test"
+discovery_id = "DISC_EE0B39B38488ADEA0E66"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_02.rs"
+name = "encoder_emits_interface_methods"
+command = "cargo nextest run -p trust-runtime --test bytecode_encoder --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_encoder) & test(=bytecode_encoder_part_02::encoder_emits_interface_methods)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_BYTECODE_ENCODER_PROJECTION_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"]
+expected_result = "Composite, alias, subrange, reference, class, function-block, and interface type relationships preserve their declared identities in TYPE_TABLE."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_EE0B39B38488ADEA0E66.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_EE0B39B38488ADEA0E66_60B23E8F93AF"
+mapping_proposal_digest = "sha256:60b23e8f93af3013e10c1ffd60f766517600b6fe1f6cd0d3dc5b59d59eb01349"
+mapping_decision_id = "MAP_DEC_3660ED5FEFA6C65D0C0CCC6E"
+mapping_reviewed_source_digest = "sha256:f903855d6f0bff9d0abaa21e99ba61ea53fca92964e9244a7a4e77376a7eb033"
+mapping_assertion_review_digest = "sha256:91f866dcfdc50d725ca27841c3c8395446bd83f05c073703e0510ee856a7a7aa"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_encoder.rs" = "sha256:c27544d1115917f65d20b88a91c956d306ba5b2ad2eb68619d9ee9820f027a12", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_01.rs" = "sha256:656380af67d2e1518fbdd88ed62ca8aa494db4f989d2b3f7167d1204dfec42c2", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_02.rs" = "sha256:f903855d6f0bff9d0abaa21e99ba61ea53fca92964e9244a7a4e77376a7eb033", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_03.rs" = "sha256:6f9b93dd7bc1bbcd78361d26d718fe2a161ed493b4d18c64444d1ddaee07db45", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_04.rs" = "sha256:41267cea2ba95268a8fafdc61bc344f6bfb557f617d389ffe80d6ebf634cdb1b", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_05.rs" = "sha256:c9c2229955f5d78f3b2d1f198c9e2e3046584f5a52494bba670f8fd985f637c8" }
+mapping_behavior_refs = ["RT_BYTECODE_ENCODER_PROJECTION_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_06B6FF75287B38841ED5"
+subject_kind = "generated_test"
+discovery_id = "DISC_06B6FF75287B38841ED5"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_03.rs"
+name = "encoder_emits_debug_map"
+command = "cargo nextest run -p trust-runtime --test bytecode_encoder --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_encoder) & test(=bytecode_encoder_part_03::encoder_emits_debug_map)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_BYTECODE_ENCODER_PROJECTION_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"]
+expected_result = "Debug entries retain their owning POU, bytecode offset, source path, line, column, and statement kind."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_06B6FF75287B38841ED5.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_06B6FF75287B38841ED5_932E53E480B9"
+mapping_proposal_digest = "sha256:932e53e480b98db4276f7ef6e4097506e31280f71852573ff2163a2ed0139fc5"
+mapping_decision_id = "MAP_DEC_D0230A1DF3BC3DF119B5FA1E"
+mapping_reviewed_source_digest = "sha256:6f9b93dd7bc1bbcd78361d26d718fe2a161ed493b4d18c64444d1ddaee07db45"
+mapping_assertion_review_digest = "sha256:4515755f269f6c5a9dc48e0f3cc185261b05a4d806b8e3c6aa2f542e08b10ab9"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_encoder.rs" = "sha256:c27544d1115917f65d20b88a91c956d306ba5b2ad2eb68619d9ee9820f027a12", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_01.rs" = "sha256:656380af67d2e1518fbdd88ed62ca8aa494db4f989d2b3f7167d1204dfec42c2", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_02.rs" = "sha256:f903855d6f0bff9d0abaa21e99ba61ea53fca92964e9244a7a4e77376a7eb033", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_03.rs" = "sha256:6f9b93dd7bc1bbcd78361d26d718fe2a161ed493b4d18c64444d1ddaee07db45", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_04.rs" = "sha256:41267cea2ba95268a8fafdc61bc344f6bfb557f617d389ffe80d6ebf634cdb1b", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_05.rs" = "sha256:c9c2229955f5d78f3b2d1f198c9e2e3046584f5a52494bba670f8fd985f637c8" }
+mapping_behavior_refs = ["RT_BYTECODE_ENCODER_PROJECTION_001#behavior:4"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_0BB090B37C66328B2C12"
+subject_kind = "generated_test"
+discovery_id = "DISC_0BB090B37C66328B2C12"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_03.rs"
+name = "encoder_validates_enum_constant_payloads"
+command = "cargo nextest run -p trust-runtime --test bytecode_encoder --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_encoder) & test(=bytecode_encoder_part_03::encoder_validates_enum_constant_payloads)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_BYTECODE_ENCODER_PROJECTION_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"]
+expected_result = "An enum initializer emits a constant payload compatible with its enum base type and the resulting module passes semantic validation."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_0BB090B37C66328B2C12.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_0BB090B37C66328B2C12_2F278BF0F5B2"
+mapping_proposal_digest = "sha256:2f278bf0f5b206777648efd309d8cf4b6df697817cdabcc07a7ca5083ec5e657"
+mapping_decision_id = "MAP_DEC_393C3C02B3F38899EEDAB72B"
+mapping_reviewed_source_digest = "sha256:6f9b93dd7bc1bbcd78361d26d718fe2a161ed493b4d18c64444d1ddaee07db45"
+mapping_assertion_review_digest = "sha256:78bc0b87641cadf3b5d59aa77a50bb47f846c571b933e322b547d98fe616ab13"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_encoder.rs" = "sha256:c27544d1115917f65d20b88a91c956d306ba5b2ad2eb68619d9ee9820f027a12", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_01.rs" = "sha256:656380af67d2e1518fbdd88ed62ca8aa494db4f989d2b3f7167d1204dfec42c2", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_02.rs" = "sha256:f903855d6f0bff9d0abaa21e99ba61ea53fca92964e9244a7a4e77376a7eb033", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_03.rs" = "sha256:6f9b93dd7bc1bbcd78361d26d718fe2a161ed493b4d18c64444d1ddaee07db45", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_04.rs" = "sha256:41267cea2ba95268a8fafdc61bc344f6bfb557f617d389ffe80d6ebf634cdb1b", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_05.rs" = "sha256:c9c2229955f5d78f3b2d1f198c9e2e3046584f5a52494bba670f8fd985f637c8" }
+mapping_behavior_refs = ["RT_BYTECODE_ENCODER_PROJECTION_001#behavior:8"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_2738788B07F09C960EBE"
+subject_kind = "generated_test"
+discovery_id = "DISC_2738788B07F09C960EBE"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_03.rs"
+name = "encoder_emits_program_field_var_meta_for_validation"
+command = "cargo nextest run -p trust-runtime --test bytecode_encoder --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_encoder) & test(=bytecode_encoder_part_03::encoder_emits_program_field_var_meta_for_validation)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_BYTECODE_ENCODER_PROJECTION_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"]
+expected_result = "Function and method slots, scoped variable types, initializers, retain flags, and retain-init references preserve their declared local or persistent storage relationships."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_2738788B07F09C960EBE.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_2738788B07F09C960EBE_1C9C7B2A8190"
+mapping_proposal_digest = "sha256:1c9c7b2a8190d1cd57acaebbc6001ddde8224c6a2e977f7f874adea6fa62f642"
+mapping_decision_id = "MAP_DEC_0189579F5A28CFC62070C014"
+mapping_reviewed_source_digest = "sha256:6f9b93dd7bc1bbcd78361d26d718fe2a161ed493b4d18c64444d1ddaee07db45"
+mapping_assertion_review_digest = "sha256:636ccaee245a3a946b661d932ebb567518461cd6f6ac3c10754d60e61dc40309"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_encoder.rs" = "sha256:c27544d1115917f65d20b88a91c956d306ba5b2ad2eb68619d9ee9820f027a12", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_01.rs" = "sha256:656380af67d2e1518fbdd88ed62ca8aa494db4f989d2b3f7167d1204dfec42c2", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_02.rs" = "sha256:f903855d6f0bff9d0abaa21e99ba61ea53fca92964e9244a7a4e77376a7eb033", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_03.rs" = "sha256:6f9b93dd7bc1bbcd78361d26d718fe2a161ed493b4d18c64444d1ddaee07db45", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_04.rs" = "sha256:41267cea2ba95268a8fafdc61bc344f6bfb557f617d389ffe80d6ebf634cdb1b", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_05.rs" = "sha256:c9c2229955f5d78f3b2d1f198c9e2e3046584f5a52494bba670f8fd985f637c8" }
+mapping_behavior_refs = ["RT_BYTECODE_ENCODER_PROJECTION_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_50150C551F9A0DC86A74"
+subject_kind = "generated_test"
+discovery_id = "DISC_50150C551F9A0DC86A74"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_03.rs"
+name = "encoder_emits_scoped_function_local_var_meta"
+command = "cargo nextest run -p trust-runtime --test bytecode_encoder --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_encoder) & test(=bytecode_encoder_part_03::encoder_emits_scoped_function_local_var_meta)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_BYTECODE_ENCODER_PROJECTION_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"]
+expected_result = "Function and method slots, scoped variable types, initializers, retain flags, and retain-init references preserve their declared local or persistent storage relationships."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_50150C551F9A0DC86A74.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_50150C551F9A0DC86A74_58A2F7B0ED8F"
+mapping_proposal_digest = "sha256:58a2f7b0ed8f6c2eddab66fe05aab7843b470b66825ec4d3936cb320c45db598"
+mapping_decision_id = "MAP_DEC_EA2D86C76DA29BAD219700F5"
+mapping_reviewed_source_digest = "sha256:6f9b93dd7bc1bbcd78361d26d718fe2a161ed493b4d18c64444d1ddaee07db45"
+mapping_assertion_review_digest = "sha256:1cb8679926c07c282ad9a468316a3978cf38767d0eded046c09e14f3c55f49eb"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_encoder.rs" = "sha256:c27544d1115917f65d20b88a91c956d306ba5b2ad2eb68619d9ee9820f027a12", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_01.rs" = "sha256:656380af67d2e1518fbdd88ed62ca8aa494db4f989d2b3f7167d1204dfec42c2", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_02.rs" = "sha256:f903855d6f0bff9d0abaa21e99ba61ea53fca92964e9244a7a4e77376a7eb033", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_03.rs" = "sha256:6f9b93dd7bc1bbcd78361d26d718fe2a161ed493b4d18c64444d1ddaee07db45", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_04.rs" = "sha256:41267cea2ba95268a8fafdc61bc344f6bfb557f617d389ffe80d6ebf634cdb1b", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_05.rs" = "sha256:c9c2229955f5d78f3b2d1f198c9e2e3046584f5a52494bba670f8fd985f637c8" }
+mapping_behavior_refs = ["RT_BYTECODE_ENCODER_PROJECTION_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_F6B002D7F1C29462475E"
+subject_kind = "generated_test"
+discovery_id = "DISC_F6B002D7F1C29462475E"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_03.rs"
+name = "encoder_emits_param_defaults"
+command = "cargo nextest run -p trust-runtime --test bytecode_encoder --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_encoder) & test(=bytecode_encoder_part_03::encoder_emits_param_defaults)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_BYTECODE_ENCODER_PROJECTION_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"]
+expected_result = "Class inheritance, method ownership, override slots, interface slots, parameter directions, and input defaults retain their declared POU_INDEX and CONST_POOL relationships."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_F6B002D7F1C29462475E.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_F6B002D7F1C29462475E_77779B2D4172"
+mapping_proposal_digest = "sha256:77779b2d417296256174c24b7f5f510a616cba445a19196b6d046b58b49c134b"
+mapping_decision_id = "MAP_DEC_350158FFFFFEB79D5B802069"
+mapping_reviewed_source_digest = "sha256:6f9b93dd7bc1bbcd78361d26d718fe2a161ed493b4d18c64444d1ddaee07db45"
+mapping_assertion_review_digest = "sha256:0d8f910e2d41ae4486ad85113c645c7b79690da9041f3201e106c5f954f1f6b5"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_encoder.rs" = "sha256:c27544d1115917f65d20b88a91c956d306ba5b2ad2eb68619d9ee9820f027a12", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_01.rs" = "sha256:656380af67d2e1518fbdd88ed62ca8aa494db4f989d2b3f7167d1204dfec42c2", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_02.rs" = "sha256:f903855d6f0bff9d0abaa21e99ba61ea53fca92964e9244a7a4e77376a7eb033", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_03.rs" = "sha256:6f9b93dd7bc1bbcd78361d26d718fe2a161ed493b4d18c64444d1ddaee07db45", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_04.rs" = "sha256:41267cea2ba95268a8fafdc61bc344f6bfb557f617d389ffe80d6ebf634cdb1b", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_05.rs" = "sha256:c9c2229955f5d78f3b2d1f198c9e2e3046584f5a52494bba670f8fd985f637c8" }
+mapping_behavior_refs = ["RT_BYTECODE_ENCODER_PROJECTION_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_F90C2FDE3F5C7C22034D"
+subject_kind = "generated_test"
+discovery_id = "DISC_F90C2FDE3F5C7C22034D"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_03.rs"
+name = "encoder_emits_var_meta_and_retain_init"
+command = "cargo nextest run -p trust-runtime --test bytecode_encoder --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_encoder) & test(=bytecode_encoder_part_03::encoder_emits_var_meta_and_retain_init)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_BYTECODE_ENCODER_PROJECTION_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"]
+expected_result = "Function and method slots, scoped variable types, initializers, retain flags, and retain-init references preserve their declared local or persistent storage relationships."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_F90C2FDE3F5C7C22034D.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_F90C2FDE3F5C7C22034D_7EBECD2C9DF9"
+mapping_proposal_digest = "sha256:7ebecd2c9df9e77bfb3aa364baf8119397e91d51a5ca4ce2f3528fdd352b90a4"
+mapping_decision_id = "MAP_DEC_43B4F7418B5A2123849C1780"
+mapping_reviewed_source_digest = "sha256:6f9b93dd7bc1bbcd78361d26d718fe2a161ed493b4d18c64444d1ddaee07db45"
+mapping_assertion_review_digest = "sha256:d57dd06b436a93aeb469ba9cbf6c6b1d8769a111032c0f908e2ebe328f7463ec"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_encoder.rs" = "sha256:c27544d1115917f65d20b88a91c956d306ba5b2ad2eb68619d9ee9820f027a12", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_01.rs" = "sha256:656380af67d2e1518fbdd88ed62ca8aa494db4f989d2b3f7167d1204dfec42c2", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_02.rs" = "sha256:f903855d6f0bff9d0abaa21e99ba61ea53fca92964e9244a7a4e77376a7eb033", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_03.rs" = "sha256:6f9b93dd7bc1bbcd78361d26d718fe2a161ed493b4d18c64444d1ddaee07db45", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_04.rs" = "sha256:41267cea2ba95268a8fafdc61bc344f6bfb557f617d389ffe80d6ebf634cdb1b", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_05.rs" = "sha256:c9c2229955f5d78f3b2d1f198c9e2e3046584f5a52494bba670f8fd985f637c8" }
+mapping_behavior_refs = ["RT_BYTECODE_ENCODER_PROJECTION_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_0890944607C63CA2D2AF"
+subject_kind = "generated_test"
+discovery_id = "DISC_0890944607C63CA2D2AF"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_04.rs"
+name = "encoder_preserves_label_only_statement_as_explicit_nop"
+command = "cargo nextest run -p trust-runtime --test bytecode_encoder --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_encoder) & test(=bytecode_encoder_part_04::encoder_preserves_label_only_statement_as_explicit_nop)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_BYTECODE_ENCODER_PROJECTION_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"]
+expected_result = "Labels and supported selection or iteration constructs emit explicit NOP, relative branch, comparison, constant, and stack instructions that pass validation."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_0890944607C63CA2D2AF.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_0890944607C63CA2D2AF_5320538A24DF"
+mapping_proposal_digest = "sha256:5320538a24df72b0f1162ffe7a2e8476ebe6b9ce7198992a92a0244eed20834b"
+mapping_decision_id = "MAP_DEC_F685B764A63A3C695AA7D971"
+mapping_reviewed_source_digest = "sha256:41267cea2ba95268a8fafdc61bc344f6bfb557f617d389ffe80d6ebf634cdb1b"
+mapping_assertion_review_digest = "sha256:7f04318b70a16f786a3b9692082fcf138e0ed840b7ffbd78e46b49db1f2e5786"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_encoder.rs" = "sha256:c27544d1115917f65d20b88a91c956d306ba5b2ad2eb68619d9ee9820f027a12", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_01.rs" = "sha256:656380af67d2e1518fbdd88ed62ca8aa494db4f989d2b3f7167d1204dfec42c2", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_02.rs" = "sha256:f903855d6f0bff9d0abaa21e99ba61ea53fca92964e9244a7a4e77376a7eb033", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_03.rs" = "sha256:6f9b93dd7bc1bbcd78361d26d718fe2a161ed493b4d18c64444d1ddaee07db45", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_04.rs" = "sha256:41267cea2ba95268a8fafdc61bc344f6bfb557f617d389ffe80d6ebf634cdb1b", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_05.rs" = "sha256:c9c2229955f5d78f3b2d1f198c9e2e3046584f5a52494bba670f8fd985f637c8" }
+mapping_behavior_refs = ["RT_BYTECODE_ENCODER_PROJECTION_001#behavior:5"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_46B4E5748C6BE2308F35"
+subject_kind = "generated_test"
+discovery_id = "DISC_46B4E5748C6BE2308F35"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_04.rs"
+name = "encoder_emits_if_with_string_literal_elsif_condition"
+command = "cargo nextest run -p trust-runtime --test bytecode_encoder --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_encoder) & test(=bytecode_encoder_part_04::encoder_emits_if_with_string_literal_elsif_condition)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_BYTECODE_ENCODER_PROJECTION_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"]
+expected_result = "Labels and supported selection or iteration constructs emit explicit NOP, relative branch, comparison, constant, and stack instructions that pass validation."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_46B4E5748C6BE2308F35.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_46B4E5748C6BE2308F35_ABC4B63A35E4"
+mapping_proposal_digest = "sha256:abc4b63a35e40a43e8706cb8ee1f17dd3f4573f1f7f141dc0872045d50c00063"
+mapping_decision_id = "MAP_DEC_FA94C45AF1EC8A9281A88392"
+mapping_reviewed_source_digest = "sha256:41267cea2ba95268a8fafdc61bc344f6bfb557f617d389ffe80d6ebf634cdb1b"
+mapping_assertion_review_digest = "sha256:f5e5be4e1968fea942e46e8d03d58f02f5c57705fdf9129df157ba6ab9dc9b5c"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_encoder.rs" = "sha256:c27544d1115917f65d20b88a91c956d306ba5b2ad2eb68619d9ee9820f027a12", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_01.rs" = "sha256:656380af67d2e1518fbdd88ed62ca8aa494db4f989d2b3f7167d1204dfec42c2", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_02.rs" = "sha256:f903855d6f0bff9d0abaa21e99ba61ea53fca92964e9244a7a4e77376a7eb033", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_03.rs" = "sha256:6f9b93dd7bc1bbcd78361d26d718fe2a161ed493b4d18c64444d1ddaee07db45", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_04.rs" = "sha256:41267cea2ba95268a8fafdc61bc344f6bfb557f617d389ffe80d6ebf634cdb1b", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_05.rs" = "sha256:c9c2229955f5d78f3b2d1f198c9e2e3046584f5a52494bba670f8fd985f637c8" }
+mapping_behavior_refs = ["RT_BYTECODE_ENCODER_PROJECTION_001#behavior:5"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_8283D50A273A87BD859C"
+subject_kind = "generated_test"
+discovery_id = "DISC_8283D50A273A87BD859C"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_04.rs"
+name = "encoder_emits_local_refs_for_functions_and_methods"
+command = "cargo nextest run -p trust-runtime --test bytecode_encoder --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_encoder) & test(=bytecode_encoder_part_04::encoder_emits_local_refs_for_functions_and_methods)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_BYTECODE_ENCODER_PROJECTION_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"]
+expected_result = "Function and method slots, scoped variable types, initializers, retain flags, and retain-init references preserve their declared local or persistent storage relationships."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_8283D50A273A87BD859C.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_8283D50A273A87BD859C_4B9323F8E336"
+mapping_proposal_digest = "sha256:4b9323f8e33620af742e223ea5eee351e7cafaefe133885412077ba2e88fd098"
+mapping_decision_id = "MAP_DEC_F7327B4D99926D599DC8C199"
+mapping_reviewed_source_digest = "sha256:41267cea2ba95268a8fafdc61bc344f6bfb557f617d389ffe80d6ebf634cdb1b"
+mapping_assertion_review_digest = "sha256:098a2242218d54606d4f50a63182810f70d06a3a109c74127cd97b2e4040a22f"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_encoder.rs" = "sha256:c27544d1115917f65d20b88a91c956d306ba5b2ad2eb68619d9ee9820f027a12", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_01.rs" = "sha256:656380af67d2e1518fbdd88ed62ca8aa494db4f989d2b3f7167d1204dfec42c2", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_02.rs" = "sha256:f903855d6f0bff9d0abaa21e99ba61ea53fca92964e9244a7a4e77376a7eb033", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_03.rs" = "sha256:6f9b93dd7bc1bbcd78361d26d718fe2a161ed493b4d18c64444d1ddaee07db45", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_04.rs" = "sha256:41267cea2ba95268a8fafdc61bc344f6bfb557f617d389ffe80d6ebf634cdb1b", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_05.rs" = "sha256:c9c2229955f5d78f3b2d1f198c9e2e3046584f5a52494bba670f8fd985f637c8" }
+mapping_behavior_refs = ["RT_BYTECODE_ENCODER_PROJECTION_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_961A5558A908EDD96486"
+subject_kind = "generated_test"
+discovery_id = "DISC_961A5558A908EDD96486"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_04.rs"
+name = "encoder_emits_control_flow_jumps"
+command = "cargo nextest run -p trust-runtime --test bytecode_encoder --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_encoder) & test(=bytecode_encoder_part_04::encoder_emits_control_flow_jumps)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_BYTECODE_ENCODER_PROJECTION_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"]
+expected_result = "Labels and supported selection or iteration constructs emit explicit NOP, relative branch, comparison, constant, and stack instructions that pass validation."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_961A5558A908EDD96486.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_961A5558A908EDD96486_7FCA9FCF0C9C"
+mapping_proposal_digest = "sha256:7fca9fcf0c9cd6c2e93d431dca922768630883cd047702fc678e8465aafadfc7"
+mapping_decision_id = "MAP_DEC_86135B6C5DEE567DD8D5B3D8"
+mapping_reviewed_source_digest = "sha256:41267cea2ba95268a8fafdc61bc344f6bfb557f617d389ffe80d6ebf634cdb1b"
+mapping_assertion_review_digest = "sha256:7811618f5711f82f1812a118d26f474a8a0b25a21779cf529ddfa81a08c45fd0"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_encoder.rs" = "sha256:c27544d1115917f65d20b88a91c956d306ba5b2ad2eb68619d9ee9820f027a12", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_01.rs" = "sha256:656380af67d2e1518fbdd88ed62ca8aa494db4f989d2b3f7167d1204dfec42c2", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_02.rs" = "sha256:f903855d6f0bff9d0abaa21e99ba61ea53fca92964e9244a7a4e77376a7eb033", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_03.rs" = "sha256:6f9b93dd7bc1bbcd78361d26d718fe2a161ed493b4d18c64444d1ddaee07db45", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_04.rs" = "sha256:41267cea2ba95268a8fafdc61bc344f6bfb557f617d389ffe80d6ebf634cdb1b", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_05.rs" = "sha256:c9c2229955f5d78f3b2d1f198c9e2e3046584f5a52494bba670f8fd985f637c8" }
+mapping_behavior_refs = ["RT_BYTECODE_ENCODER_PROJECTION_001#behavior:5"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_0D28FE4B5184643A4B0E"
+subject_kind = "generated_test"
+discovery_id = "DISC_0D28FE4B5184643A4B0E"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_05.rs"
+name = "encoder_emits_io_map"
+command = "cargo nextest run -p trust-runtime --test bytecode_encoder --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_encoder) & test(=bytecode_encoder_part_05::encoder_emits_io_map)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_BYTECODE_ENCODER_PROJECTION_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"]
+expected_result = "Direct variables emit their exact IO_MAP address and reference bindings, while resource identity and process-image sizes cover the emitted bindings."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_0D28FE4B5184643A4B0E.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_0D28FE4B5184643A4B0E_A519F58B875A"
+mapping_proposal_digest = "sha256:a519f58b875a1497f0a316abd296f3e4937b8f04e001309e4329a6ce31b625e5"
+mapping_decision_id = "MAP_DEC_219F0C4F4400F7A6EDD8E0B9"
+mapping_reviewed_source_digest = "sha256:c9c2229955f5d78f3b2d1f198c9e2e3046584f5a52494bba670f8fd985f637c8"
+mapping_assertion_review_digest = "sha256:e95743d02d7e2185f6783e56422cdf2900152c330472010368b6819f40a7dfa8"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_encoder.rs" = "sha256:c27544d1115917f65d20b88a91c956d306ba5b2ad2eb68619d9ee9820f027a12", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_01.rs" = "sha256:656380af67d2e1518fbdd88ed62ca8aa494db4f989d2b3f7167d1204dfec42c2", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_02.rs" = "sha256:f903855d6f0bff9d0abaa21e99ba61ea53fca92964e9244a7a4e77376a7eb033", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_03.rs" = "sha256:6f9b93dd7bc1bbcd78361d26d718fe2a161ed493b4d18c64444d1ddaee07db45", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_04.rs" = "sha256:41267cea2ba95268a8fafdc61bc344f6bfb557f617d389ffe80d6ebf634cdb1b", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_05.rs" = "sha256:c9c2229955f5d78f3b2d1f198c9e2e3046584f5a52494bba670f8fd985f637c8" }
+mapping_behavior_refs = ["RT_BYTECODE_ENCODER_PROJECTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_520CF24D542197A0E073"
+subject_kind = "generated_test"
+discovery_id = "DISC_520CF24D542197A0E073"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_05.rs"
+name = "encoder_bytes_roundtrip_from_source"
+command = "cargo nextest run -p trust-runtime --test bytecode_encoder --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_encoder) & test(=bytecode_encoder_part_05::encoder_bytes_roundtrip_from_source)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_BYTECODE_ENCODER_PROJECTION_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"]
+expected_result = "Supported source, including case-insensitively resolved calls, produces complete bytes that decode, validate, and preserve configured task identity when loaded."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_520CF24D542197A0E073.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_520CF24D542197A0E073_EE1FE4E0AAB3"
+mapping_proposal_digest = "sha256:ee1fe4e0aab3c973389e3c183d7529602a5cf84c65749496891f5def0add98d3"
+mapping_decision_id = "MAP_DEC_FFFE8CE1DBEE8C319B9CD420"
+mapping_reviewed_source_digest = "sha256:c9c2229955f5d78f3b2d1f198c9e2e3046584f5a52494bba670f8fd985f637c8"
+mapping_assertion_review_digest = "sha256:8c9c3f403c107bf7c84742e316188d7afb0216b562cbba6f5ef481f9bde80b70"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_encoder.rs" = "sha256:c27544d1115917f65d20b88a91c956d306ba5b2ad2eb68619d9ee9820f027a12", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_01.rs" = "sha256:656380af67d2e1518fbdd88ed62ca8aa494db4f989d2b3f7167d1204dfec42c2", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_02.rs" = "sha256:f903855d6f0bff9d0abaa21e99ba61ea53fca92964e9244a7a4e77376a7eb033", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_03.rs" = "sha256:6f9b93dd7bc1bbcd78361d26d718fe2a161ed493b4d18c64444d1ddaee07db45", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_04.rs" = "sha256:41267cea2ba95268a8fafdc61bc344f6bfb557f617d389ffe80d6ebf634cdb1b", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_05.rs" = "sha256:c9c2229955f5d78f3b2d1f198c9e2e3046584f5a52494bba670f8fd985f637c8" }
+mapping_behavior_refs = ["RT_BYTECODE_ENCODER_PROJECTION_001#behavior:7"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_60E4B48300011262D968"
+subject_kind = "generated_test"
+discovery_id = "DISC_60E4B48300011262D968"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_05.rs"
+name = "encoder_accepts_case_insensitive_names_in_call_heavy_if_blocks"
+command = "cargo nextest run -p trust-runtime --test bytecode_encoder --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_encoder) & test(=bytecode_encoder_part_05::encoder_accepts_case_insensitive_names_in_call_heavy_if_blocks)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_BYTECODE_ENCODER_PROJECTION_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"]
+expected_result = "Supported source, including case-insensitively resolved calls, produces complete bytes that decode, validate, and preserve configured task identity when loaded."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_60E4B48300011262D968.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_60E4B48300011262D968_55BA2A623B8B"
+mapping_proposal_digest = "sha256:55ba2a623b8b7417645039509c7f46fcdd46eb1bdf71fd8856d6a7740fc10644"
+mapping_decision_id = "MAP_DEC_A8DC259145CDF15041A6EAD3"
+mapping_reviewed_source_digest = "sha256:c9c2229955f5d78f3b2d1f198c9e2e3046584f5a52494bba670f8fd985f637c8"
+mapping_assertion_review_digest = "sha256:34d0076fed3c917c1a021524c4cee61a41b624983fcaa4b673f1934cbfe91ee5"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_encoder.rs" = "sha256:c27544d1115917f65d20b88a91c956d306ba5b2ad2eb68619d9ee9820f027a12", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_01.rs" = "sha256:656380af67d2e1518fbdd88ed62ca8aa494db4f989d2b3f7167d1204dfec42c2", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_02.rs" = "sha256:f903855d6f0bff9d0abaa21e99ba61ea53fca92964e9244a7a4e77376a7eb033", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_03.rs" = "sha256:6f9b93dd7bc1bbcd78361d26d718fe2a161ed493b4d18c64444d1ddaee07db45", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_04.rs" = "sha256:41267cea2ba95268a8fafdc61bc344f6bfb557f617d389ffe80d6ebf634cdb1b", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_05.rs" = "sha256:c9c2229955f5d78f3b2d1f198c9e2e3046584f5a52494bba670f8fd985f637c8" }
+mapping_behavior_refs = ["RT_BYTECODE_ENCODER_PROJECTION_001#behavior:7"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_B59FD15ABE4CE9EE4D2A"
+subject_kind = "generated_test"
+discovery_id = "DISC_B59FD15ABE4CE9EE4D2A"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_05.rs"
+name = "encoder_emits_dynamic_instance_access"
+command = "cargo nextest run -p trust-runtime --test bytecode_encoder --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_encoder) & test(=bytecode_encoder_part_05::encoder_emits_dynamic_instance_access)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_BYTECODE_ENCODER_PROJECTION_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"]
+expected_result = "Resolved function-block and method field access emits LOAD_SELF, REF_FIELD, LOAD, and STORE operations in the owning POU body."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_B59FD15ABE4CE9EE4D2A.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_B59FD15ABE4CE9EE4D2A_40A61AAA3EB1"
+mapping_proposal_digest = "sha256:40a61aaa3eb17ca0049b4317bbdd690739b99afd9dcab4e7f620654ca34f4d48"
+mapping_decision_id = "MAP_DEC_CA81B46BAE1EE12A04FF4F69"
+mapping_reviewed_source_digest = "sha256:c9c2229955f5d78f3b2d1f198c9e2e3046584f5a52494bba670f8fd985f637c8"
+mapping_assertion_review_digest = "sha256:7cd9f34aafe486362c2033553d4b24e8108c4d88b67bccc310fb3b6f76374695"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_encoder.rs" = "sha256:c27544d1115917f65d20b88a91c956d306ba5b2ad2eb68619d9ee9820f027a12", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_01.rs" = "sha256:656380af67d2e1518fbdd88ed62ca8aa494db4f989d2b3f7167d1204dfec42c2", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_02.rs" = "sha256:f903855d6f0bff9d0abaa21e99ba61ea53fca92964e9244a7a4e77376a7eb033", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_03.rs" = "sha256:6f9b93dd7bc1bbcd78361d26d718fe2a161ed493b4d18c64444d1ddaee07db45", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_04.rs" = "sha256:41267cea2ba95268a8fafdc61bc344f6bfb557f617d389ffe80d6ebf634cdb1b", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_05.rs" = "sha256:c9c2229955f5d78f3b2d1f198c9e2e3046584f5a52494bba670f8fd985f637c8" }
+mapping_behavior_refs = ["RT_BYTECODE_ENCODER_PROJECTION_001#behavior:6"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_C334B5A100F68AD28912"
+subject_kind = "generated_test"
+discovery_id = "DISC_C334B5A100F68AD28912"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_05.rs"
+name = "encoder_resource_meta_preserves_declared_resource_name"
+command = "cargo nextest run -p trust-runtime --test bytecode_encoder --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_encoder) & test(=bytecode_encoder_part_05::encoder_resource_meta_preserves_declared_resource_name)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_BYTECODE_ENCODER_PROJECTION_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"]
+expected_result = "Direct variables emit their exact IO_MAP address and reference bindings, while resource identity and process-image sizes cover the emitted bindings."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_C334B5A100F68AD28912.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_C334B5A100F68AD28912_CF9DC1AAA110"
+mapping_proposal_digest = "sha256:cf9dc1aaa11090cce2101808dbb6fb9d54c606a9a572095a7769dac1e6acbee9"
+mapping_decision_id = "MAP_DEC_2509E7F5C16F8F22536C7E01"
+mapping_reviewed_source_digest = "sha256:c9c2229955f5d78f3b2d1f198c9e2e3046584f5a52494bba670f8fd985f637c8"
+mapping_assertion_review_digest = "sha256:051ed1b39722e91112465a21dd3c5cc31b61b5c5abf71bc0c60894856d1cea6d"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_encoder.rs" = "sha256:c27544d1115917f65d20b88a91c956d306ba5b2ad2eb68619d9ee9820f027a12", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_01.rs" = "sha256:656380af67d2e1518fbdd88ed62ca8aa494db4f989d2b3f7167d1204dfec42c2", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_02.rs" = "sha256:f903855d6f0bff9d0abaa21e99ba61ea53fca92964e9244a7a4e77376a7eb033", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_03.rs" = "sha256:6f9b93dd7bc1bbcd78361d26d718fe2a161ed493b4d18c64444d1ddaee07db45", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_04.rs" = "sha256:41267cea2ba95268a8fafdc61bc344f6bfb557f617d389ffe80d6ebf634cdb1b", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_05.rs" = "sha256:c9c2229955f5d78f3b2d1f198c9e2e3046584f5a52494bba670f8fd985f637c8" }
+mapping_behavior_refs = ["RT_BYTECODE_ENCODER_PROJECTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_CAD04A3C0FEFF0D699E4"
+subject_kind = "generated_test"
+discovery_id = "DISC_CAD04A3C0FEFF0D699E4"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_05.rs"
+name = "encoder_resource_meta_sizes_follow_io_bindings"
+command = "cargo nextest run -p trust-runtime --test bytecode_encoder --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_encoder) & test(=bytecode_encoder_part_05::encoder_resource_meta_sizes_follow_io_bindings)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_BYTECODE_ENCODER_PROJECTION_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"]
+expected_result = "Direct variables emit their exact IO_MAP address and reference bindings, while resource identity and process-image sizes cover the emitted bindings."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_CAD04A3C0FEFF0D699E4.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_CAD04A3C0FEFF0D699E4_1F28239FB28C"
+mapping_proposal_digest = "sha256:1f28239fb28cdcd324f1b1901bdfc8167b9df898fed22e6a931cbdff78298ee3"
+mapping_decision_id = "MAP_DEC_D82EE2DF93DA68274BA11B64"
+mapping_reviewed_source_digest = "sha256:c9c2229955f5d78f3b2d1f198c9e2e3046584f5a52494bba670f8fd985f637c8"
+mapping_assertion_review_digest = "sha256:187f5be1f86562b8f10508495ffd8381960efa24d3dd3f025d878d1c1828bf6a"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_encoder.rs" = "sha256:c27544d1115917f65d20b88a91c956d306ba5b2ad2eb68619d9ee9820f027a12", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_01.rs" = "sha256:656380af67d2e1518fbdd88ed62ca8aa494db4f989d2b3f7167d1204dfec42c2", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_02.rs" = "sha256:f903855d6f0bff9d0abaa21e99ba61ea53fca92964e9244a7a4e77376a7eb033", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_03.rs" = "sha256:6f9b93dd7bc1bbcd78361d26d718fe2a161ed493b4d18c64444d1ddaee07db45", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_04.rs" = "sha256:41267cea2ba95268a8fafdc61bc344f6bfb557f617d389ffe80d6ebf634cdb1b", "crates/trust-runtime/tests/bytecode_encoder/bytecode_encoder_part_05.rs" = "sha256:c9c2229955f5d78f3b2d1f198c9e2e3046584f5a52494bba670f8fd985f637c8" }
+mapping_behavior_refs = ["RT_BYTECODE_ENCODER_PROJECTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_406C3141C3DBCD4AE62F"
+subject_kind = "generated_test"
+discovery_id = "DISC_406C3141C3DBCD4AE62F"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_metadata.rs"
+name = "resources_from_container"
+command = "cargo nextest run -p trust-runtime --test bytecode_metadata --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_metadata) & test(=resources_from_container)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_BYTECODE_METADATA_APPLY_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#metadata-integration-requirements"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001#metadata-integration-requirements"]
+expected_result = "Decoded resources create their declared process-image sizes, tasks, program order, single trigger, and executable cycle associations."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_406C3141C3DBCD4AE62F.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_406C3141C3DBCD4AE62F_E2A37A04CE22"
+mapping_proposal_digest = "sha256:e2a37a04ce224db2b1d40d8e719e37fcc3f7e3941e590986f94cefa0e832a458"
+mapping_decision_id = "MAP_DEC_5532256D341A029A1837B620"
+mapping_reviewed_source_digest = "sha256:d0d37f31f640ceaad19cf5f67600efdad407c9a6df551152351560ca0bab0cb4"
+mapping_assertion_review_digest = "sha256:fcbe735b3740a4ca6384527d009ee81a7a67b72883731027b033b7764662dac8"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_helpers.rs" = "sha256:915e4dc8403b5baadb55f1a08d8dee42a0a5b04c8ed6fbad8d2a5e98bd37acfe", "crates/trust-runtime/tests/bytecode_metadata.rs" = "sha256:d0d37f31f640ceaad19cf5f67600efdad407c9a6df551152351560ca0bab0cb4" }
+mapping_behavior_refs = ["RT_BYTECODE_METADATA_APPLY_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_5660557A5593ABE109FB"
+subject_kind = "generated_test"
+discovery_id = "DISC_5660557A5593ABE109FB"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_metadata.rs"
+name = "version_gate"
+command = "cargo nextest run -p trust-runtime --test bytecode_metadata --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_metadata) & test(=version_gate)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_BYTECODE_METADATA_APPLY_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#metadata-integration-requirements"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001#metadata-integration-requirements"]
+expected_result = "An unsupported bytecode major version is rejected before runtime metadata or executable state changes."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_5660557A5593ABE109FB.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_5660557A5593ABE109FB_B3543CE766E5"
+mapping_proposal_digest = "sha256:b3543ce766e5946e46f05921a759bd4cf8405c985d1ba5f04d7247c4acf0d092"
+mapping_decision_id = "MAP_DEC_33A35F5F15566429AA4CBDFF"
+mapping_reviewed_source_digest = "sha256:d0d37f31f640ceaad19cf5f67600efdad407c9a6df551152351560ca0bab0cb4"
+mapping_assertion_review_digest = "sha256:92a99efbe9ef666785d066427e52b1d420080293f9a26d79eb7719ab35df647f"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_helpers.rs" = "sha256:915e4dc8403b5baadb55f1a08d8dee42a0a5b04c8ed6fbad8d2a5e98bd37acfe", "crates/trust-runtime/tests/bytecode_metadata.rs" = "sha256:d0d37f31f640ceaad19cf5f67600efdad407c9a6df551152351560ca0bab0cb4" }
+mapping_behavior_refs = ["RT_BYTECODE_METADATA_APPLY_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_5976C1A40D0F935CFFE5"
+subject_kind = "generated_test"
+discovery_id = "DISC_5976C1A40D0F935CFFE5"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_metadata.rs"
+name = "pou_associations"
+command = "cargo nextest run -p trust-runtime --test bytecode_metadata --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_metadata) & test(=pou_associations)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_BYTECODE_METADATA_APPLY_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#metadata-integration-requirements"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001#metadata-integration-requirements"]
+expected_result = "Program and function-block instances bind to the decoded POU and reference metadata and remain executable after materialization."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_5976C1A40D0F935CFFE5.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_5976C1A40D0F935CFFE5_097A2E006101"
+mapping_proposal_digest = "sha256:097a2e0061014136e1e1f0dd53ad832e571c9c42b85a663030696ae0dfdd9c70"
+mapping_decision_id = "MAP_DEC_85285ED495000F4E85CBCC70"
+mapping_reviewed_source_digest = "sha256:d0d37f31f640ceaad19cf5f67600efdad407c9a6df551152351560ca0bab0cb4"
+mapping_assertion_review_digest = "sha256:767b1d1647f1a2b1f2958e4a34b0c0a4230ce2d89c5bff2aabca1ea12ebf0668"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_helpers.rs" = "sha256:915e4dc8403b5baadb55f1a08d8dee42a0a5b04c8ed6fbad8d2a5e98bd37acfe", "crates/trust-runtime/tests/bytecode_metadata.rs" = "sha256:d0d37f31f640ceaad19cf5f67600efdad407c9a6df551152351560ca0bab0cb4" }
+mapping_behavior_refs = ["RT_BYTECODE_METADATA_APPLY_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_6FE0F58BEA859BF48739"
+subject_kind = "generated_test"
+discovery_id = "DISC_6FE0F58BEA859BF48739"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_metadata.rs"
+name = "tasks_from_metadata"
+command = "cargo nextest run -p trust-runtime --test bytecode_metadata --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_metadata) & test(=tasks_from_metadata)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_BYTECODE_METADATA_APPLY_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#metadata-integration-requirements"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001#metadata-integration-requirements"]
+expected_result = "Decoded resources create their declared process-image sizes, tasks, program order, single trigger, and executable cycle associations."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_6FE0F58BEA859BF48739.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_6FE0F58BEA859BF48739_BBC13EB410D3"
+mapping_proposal_digest = "sha256:bbc13eb410d3b17ff183794ebd425a762c0d9d2a6493c81ab2c658bd4b02497b"
+mapping_decision_id = "MAP_DEC_3DF8C640D02F7B7052882F75"
+mapping_reviewed_source_digest = "sha256:d0d37f31f640ceaad19cf5f67600efdad407c9a6df551152351560ca0bab0cb4"
+mapping_assertion_review_digest = "sha256:7c8aa8b31d85f33f23c195f1248a5d5827c76059ab8b0159ab3fdafff5d13d3c"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_helpers.rs" = "sha256:915e4dc8403b5baadb55f1a08d8dee42a0a5b04c8ed6fbad8d2a5e98bd37acfe", "crates/trust-runtime/tests/bytecode_metadata.rs" = "sha256:d0d37f31f640ceaad19cf5f67600efdad407c9a6df551152351560ca0bab0cb4" }
+mapping_behavior_refs = ["RT_BYTECODE_METADATA_APPLY_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_78CE926574401B29FA63"
+subject_kind = "generated_test"
+discovery_id = "DISC_78CE926574401B29FA63"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_metadata.rs"
+name = "fb_refs_from_container"
+command = "cargo nextest run -p trust-runtime --test bytecode_metadata --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_metadata) & test(=fb_refs_from_container)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_BYTECODE_METADATA_APPLY_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#metadata-integration-requirements"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001#metadata-integration-requirements"]
+expected_result = "Program and function-block instances bind to the decoded POU and reference metadata and remain executable after materialization."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_78CE926574401B29FA63.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_78CE926574401B29FA63_7C11C4E07CC9"
+mapping_proposal_digest = "sha256:7c11c4e07cc924b24ae285b6753e9bb37396d88d51961871bf3f4bde7ad9f13b"
+mapping_decision_id = "MAP_DEC_D835B36A0EC08C1F2AECF218"
+mapping_reviewed_source_digest = "sha256:d0d37f31f640ceaad19cf5f67600efdad407c9a6df551152351560ca0bab0cb4"
+mapping_assertion_review_digest = "sha256:9cc25096943a07e5964bc15abba0e588918b7239b82839e4b539693ded55fc82"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_helpers.rs" = "sha256:915e4dc8403b5baadb55f1a08d8dee42a0a5b04c8ed6fbad8d2a5e98bd37acfe", "crates/trust-runtime/tests/bytecode_metadata.rs" = "sha256:d0d37f31f640ceaad19cf5f67600efdad407c9a6df551152351560ca0bab0cb4" }
+mapping_behavior_refs = ["RT_BYTECODE_METADATA_APPLY_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_83A61D5405748EA17972"
+subject_kind = "generated_test"
+discovery_id = "DISC_83A61D5405748EA17972"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_metadata.rs"
+name = "apply_bytecode_bytes"
+command = "cargo nextest run -p trust-runtime --test bytecode_metadata --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_metadata) & test(=apply_bytecode_bytes)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_BYTECODE_METADATA_APPLY_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#metadata-integration-requirements"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001#metadata-integration-requirements"]
+expected_result = "Applying a complete validated byte container materializes the candidate module and executes its configured program state."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_83A61D5405748EA17972.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_83A61D5405748EA17972_89696CF05F32"
+mapping_proposal_digest = "sha256:89696cf05f322b310e601b3872d1f0f1a29b998bd3bd575721546f36bb45c2cb"
+mapping_decision_id = "MAP_DEC_3283063F2BC40030059138C5"
+mapping_reviewed_source_digest = "sha256:d0d37f31f640ceaad19cf5f67600efdad407c9a6df551152351560ca0bab0cb4"
+mapping_assertion_review_digest = "sha256:91de6c9def0ce48d5a701ae86627e94cb1fee741719efe32ba9c61ed94fb723c"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_helpers.rs" = "sha256:915e4dc8403b5baadb55f1a08d8dee42a0a5b04c8ed6fbad8d2a5e98bd37acfe", "crates/trust-runtime/tests/bytecode_metadata.rs" = "sha256:d0d37f31f640ceaad19cf5f67600efdad407c9a6df551152351560ca0bab0cb4" }
+mapping_behavior_refs = ["RT_BYTECODE_METADATA_APPLY_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_EDCC9A5FBD857AF162D3"
+subject_kind = "generated_test"
+discovery_id = "DISC_EDCC9A5FBD857AF162D3"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_metadata.rs"
+name = "task_associations"
+command = "cargo nextest run -p trust-runtime --test bytecode_metadata --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_metadata) & test(=task_associations)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_BYTECODE_METADATA_APPLY_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#metadata-integration-requirements"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001#metadata-integration-requirements"]
+expected_result = "Decoded resources create their declared process-image sizes, tasks, program order, single trigger, and executable cycle associations."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_EDCC9A5FBD857AF162D3.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_EDCC9A5FBD857AF162D3_7C6B2BBAF33F"
+mapping_proposal_digest = "sha256:7c6b2bbaf33fa3492e8dfa81ac76d856dde41f0db37b36020987728cb67d11c1"
+mapping_decision_id = "MAP_DEC_DBC12EB742FDAAEEAAFDE81B"
+mapping_reviewed_source_digest = "sha256:d0d37f31f640ceaad19cf5f67600efdad407c9a6df551152351560ca0bab0cb4"
+mapping_assertion_review_digest = "sha256:8850386cc441cae8237bfc9a43afc3082803f289549cf0549a6ac3230581a8c4"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_helpers.rs" = "sha256:915e4dc8403b5baadb55f1a08d8dee42a0a5b04c8ed6fbad8d2a5e98bd37acfe", "crates/trust-runtime/tests/bytecode_metadata.rs" = "sha256:d0d37f31f640ceaad19cf5f67600efdad407c9a6df551152351560ca0bab0cb4" }
+mapping_behavior_refs = ["RT_BYTECODE_METADATA_APPLY_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_64BA741F973C743A5E1D"
+subject_kind = "generated_test"
+discovery_id = "DISC_64BA741F973C743A5E1D"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_roundtrip.rs"
+name = "roundtrip"
+command = "cargo nextest run -p trust-runtime --test bytecode_roundtrip --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_roundtrip) & test(=roundtrip)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_BYTECODE_CONTAINER_CODEC_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#container-layout"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001#container-layout"]
+expected_result = "A valid complete module encodes and decodes to an equivalent module that passes semantic validation."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_64BA741F973C743A5E1D.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_64BA741F973C743A5E1D_215DF24200F1"
+mapping_proposal_digest = "sha256:215df24200f1260111f79162e614a0edb5e9fdd0813d332e2d3b951bc877d576"
+mapping_decision_id = "MAP_DEC_83246FDA01C1863CFB86F01D"
+mapping_reviewed_source_digest = "sha256:19f5f8b524e434875277fe4eed8f09cd6bdedf5c937ba4c611bf8cb4e8bb72e6"
+mapping_assertion_review_digest = "sha256:97e4f5672b81493a0421624d30700be4eccdf024494a717025ab94cd14cdcbf2"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_helpers.rs" = "sha256:915e4dc8403b5baadb55f1a08d8dee42a0a5b04c8ed6fbad8d2a5e98bd37acfe", "crates/trust-runtime/tests/bytecode_roundtrip.rs" = "sha256:19f5f8b524e434875277fe4eed8f09cd6bdedf5c937ba4c611bf8cb4e8bb72e6" }
+mapping_behavior_refs = ["RT_BYTECODE_CONTAINER_CODEC_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_F90D4502D7B68E02847C"
+subject_kind = "generated_test"
+discovery_id = "DISC_F90D4502D7B68E02847C"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_roundtrip.rs"
+name = "corruption_rejected"
+command = "cargo nextest run -p trust-runtime --test bytecode_roundtrip --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_roundtrip) & test(=corruption_rejected)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_BYTECODE_CONTAINER_CODEC_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#container-layout"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001#container-layout"]
+expected_result = "Truncated or structurally corrupted container bytes fail decode instead of yielding a partial module."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_F90D4502D7B68E02847C.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_F90D4502D7B68E02847C_A7A066B1E551"
+mapping_proposal_digest = "sha256:a7a066b1e551768c17e9d5d97095aa039b84e8f5be21372c5b1a10aec1d868c0"
+mapping_decision_id = "MAP_DEC_553003C9624C018C79417197"
+mapping_reviewed_source_digest = "sha256:19f5f8b524e434875277fe4eed8f09cd6bdedf5c937ba4c611bf8cb4e8bb72e6"
+mapping_assertion_review_digest = "sha256:94659110895135fbe64eca4cc386a25d7d672299135c63c81732756baed3962a"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_helpers.rs" = "sha256:915e4dc8403b5baadb55f1a08d8dee42a0a5b04c8ed6fbad8d2a5e98bd37acfe", "crates/trust-runtime/tests/bytecode_roundtrip.rs" = "sha256:19f5f8b524e434875277fe4eed8f09cd6bdedf5c937ba4c611bf8cb4e8bb72e6" }
+mapping_behavior_refs = ["RT_BYTECODE_CONTAINER_CODEC_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_10FC0967AAC88DCD2303"
+subject_kind = "generated_test"
+discovery_id = "DISC_10FC0967AAC88DCD2303"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_sections.rs"
+name = "debug_map_decode"
+command = "cargo nextest run -p trust-runtime --test bytecode_sections --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_sections) & test(=debug_map_decode)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_BYTECODE_CONTAINER_CODEC_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#container-layout"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001#container-layout"]
+expected_result = "Each required or optional version 1.1 section fixture decodes to its expected typed section kind and asserted fields."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_10FC0967AAC88DCD2303.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_10FC0967AAC88DCD2303_A1F1D611A0C9"
+mapping_proposal_digest = "sha256:a1f1d611a0c9f2508ba36e183b504795d095d7436a91ca2350de992494a412d2"
+mapping_decision_id = "MAP_DEC_3196976C212B4F31EDE51895"
+mapping_reviewed_source_digest = "sha256:26d604693ca7417b9ae1ff3343478a95e32b99134bedc9a4ea4363384bcd1711"
+mapping_assertion_review_digest = "sha256:c23a267bce89dea1ed4db3292ad4fbc8d87fa11b12c33b377ef97f4bbd590a93"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_helpers.rs" = "sha256:915e4dc8403b5baadb55f1a08d8dee42a0a5b04c8ed6fbad8d2a5e98bd37acfe", "crates/trust-runtime/tests/bytecode_sections.rs" = "sha256:26d604693ca7417b9ae1ff3343478a95e32b99134bedc9a4ea4363384bcd1711" }
+mapping_behavior_refs = ["RT_BYTECODE_CONTAINER_CODEC_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_112C93A691CA5CE18B7B"
+subject_kind = "generated_test"
+discovery_id = "DISC_112C93A691CA5CE18B7B"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_sections.rs"
+name = "io_map_decode"
+command = "cargo nextest run -p trust-runtime --test bytecode_sections --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_sections) & test(=io_map_decode)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_BYTECODE_CONTAINER_CODEC_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#container-layout"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001#container-layout"]
+expected_result = "Each required or optional version 1.1 section fixture decodes to its expected typed section kind and asserted fields."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_112C93A691CA5CE18B7B.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_112C93A691CA5CE18B7B_98A058E83349"
+mapping_proposal_digest = "sha256:98a058e8334909d859106dc358a456037c8c5de911a5745fb1e8497c5f46c909"
+mapping_decision_id = "MAP_DEC_635FD06B38D0F2AD0F757ABF"
+mapping_reviewed_source_digest = "sha256:26d604693ca7417b9ae1ff3343478a95e32b99134bedc9a4ea4363384bcd1711"
+mapping_assertion_review_digest = "sha256:46111ed40691951ee8413731c1fbacb7932fc5cbfe411804bf5832074880201e"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_helpers.rs" = "sha256:915e4dc8403b5baadb55f1a08d8dee42a0a5b04c8ed6fbad8d2a5e98bd37acfe", "crates/trust-runtime/tests/bytecode_sections.rs" = "sha256:26d604693ca7417b9ae1ff3343478a95e32b99134bedc9a4ea4363384bcd1711" }
+mapping_behavior_refs = ["RT_BYTECODE_CONTAINER_CODEC_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_3215EEE2C7E4BE1F73F4"
+subject_kind = "generated_test"
+discovery_id = "DISC_3215EEE2C7E4BE1F73F4"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_sections.rs"
+name = "const_pool_decode"
+command = "cargo nextest run -p trust-runtime --test bytecode_sections --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_sections) & test(=const_pool_decode)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_BYTECODE_CONTAINER_CODEC_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#container-layout"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001#container-layout"]
+expected_result = "Each required or optional version 1.1 section fixture decodes to its expected typed section kind and asserted fields."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_3215EEE2C7E4BE1F73F4.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_3215EEE2C7E4BE1F73F4_F56CA3EF760F"
+mapping_proposal_digest = "sha256:f56ca3ef760fb022d9e8e35a5957bffcffca77d59727f26b69245444c6df6783"
+mapping_decision_id = "MAP_DEC_57D1538672C3FBF466A1C72B"
+mapping_reviewed_source_digest = "sha256:26d604693ca7417b9ae1ff3343478a95e32b99134bedc9a4ea4363384bcd1711"
+mapping_assertion_review_digest = "sha256:247211ef3c8dda2c96b2e59fb5f55137aba148b9d6482679046753cc9465da0c"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_helpers.rs" = "sha256:915e4dc8403b5baadb55f1a08d8dee42a0a5b04c8ed6fbad8d2a5e98bd37acfe", "crates/trust-runtime/tests/bytecode_sections.rs" = "sha256:26d604693ca7417b9ae1ff3343478a95e32b99134bedc9a4ea4363384bcd1711" }
+mapping_behavior_refs = ["RT_BYTECODE_CONTAINER_CODEC_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_54B9D55A890BE64BBC2C"
+subject_kind = "generated_test"
+discovery_id = "DISC_54B9D55A890BE64BBC2C"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_sections.rs"
+name = "var_meta_decode"
+command = "cargo nextest run -p trust-runtime --test bytecode_sections --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_sections) & test(=var_meta_decode)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_BYTECODE_CONTAINER_CODEC_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#container-layout"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001#container-layout"]
+expected_result = "Each required or optional version 1.1 section fixture decodes to its expected typed section kind and asserted fields."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_54B9D55A890BE64BBC2C.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_54B9D55A890BE64BBC2C_A474FE156DC1"
+mapping_proposal_digest = "sha256:a474fe156dc16ace1d1059f25ecfa23c097b89c91cbfd1430b9eeafca0cbddca"
+mapping_decision_id = "MAP_DEC_E67ADCBF2053030D5C48ACCC"
+mapping_reviewed_source_digest = "sha256:26d604693ca7417b9ae1ff3343478a95e32b99134bedc9a4ea4363384bcd1711"
+mapping_assertion_review_digest = "sha256:cdb9d79aea421d82992dc50cb37dbb0202375b760ecab72d1b293bf1bfc17cb1"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_helpers.rs" = "sha256:915e4dc8403b5baadb55f1a08d8dee42a0a5b04c8ed6fbad8d2a5e98bd37acfe", "crates/trust-runtime/tests/bytecode_sections.rs" = "sha256:26d604693ca7417b9ae1ff3343478a95e32b99134bedc9a4ea4363384bcd1711" }
+mapping_behavior_refs = ["RT_BYTECODE_CONTAINER_CODEC_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_7654E96A31EAA5D4A45B"
+subject_kind = "generated_test"
+discovery_id = "DISC_7654E96A31EAA5D4A45B"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_sections.rs"
+name = "ref_table_decode"
+command = "cargo nextest run -p trust-runtime --test bytecode_sections --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_sections) & test(=ref_table_decode)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_BYTECODE_CONTAINER_CODEC_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#container-layout"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001#container-layout"]
+expected_result = "Each required or optional version 1.1 section fixture decodes to its expected typed section kind and asserted fields."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_7654E96A31EAA5D4A45B.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_7654E96A31EAA5D4A45B_C30D5333AA93"
+mapping_proposal_digest = "sha256:c30d5333aa93e1e43698aa4542637a829fa9300f1146f6b2f0349b00d4db400d"
+mapping_decision_id = "MAP_DEC_6EF3D6C79A89D4B9DFEDEE64"
+mapping_reviewed_source_digest = "sha256:26d604693ca7417b9ae1ff3343478a95e32b99134bedc9a4ea4363384bcd1711"
+mapping_assertion_review_digest = "sha256:cf1a0e67394b774af28ec4269c085f6d4501f8d1f4de1cf142d1909cf8bf3f38"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_helpers.rs" = "sha256:915e4dc8403b5baadb55f1a08d8dee42a0a5b04c8ed6fbad8d2a5e98bd37acfe", "crates/trust-runtime/tests/bytecode_sections.rs" = "sha256:26d604693ca7417b9ae1ff3343478a95e32b99134bedc9a4ea4363384bcd1711" }
+mapping_behavior_refs = ["RT_BYTECODE_CONTAINER_CODEC_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_9A4201E718C7271623D5"
+subject_kind = "generated_test"
+discovery_id = "DISC_9A4201E718C7271623D5"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_sections.rs"
+name = "resource_meta_decode"
+command = "cargo nextest run -p trust-runtime --test bytecode_sections --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_sections) & test(=resource_meta_decode)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_BYTECODE_CONTAINER_CODEC_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#container-layout"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001#container-layout"]
+expected_result = "Each required or optional version 1.1 section fixture decodes to its expected typed section kind and asserted fields."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_9A4201E718C7271623D5.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_9A4201E718C7271623D5_9E7B884E4D17"
+mapping_proposal_digest = "sha256:9e7b884e4d175f3425c4da0c4feccf514482478504f5a0085794ce7ba7ede700"
+mapping_decision_id = "MAP_DEC_FCC6307141E306C49D784611"
+mapping_reviewed_source_digest = "sha256:26d604693ca7417b9ae1ff3343478a95e32b99134bedc9a4ea4363384bcd1711"
+mapping_assertion_review_digest = "sha256:2d18d0ecd74b53f495ed367a9cdb24867fe74dbc4d2e6e8baa03876daeb4bfa2"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_helpers.rs" = "sha256:915e4dc8403b5baadb55f1a08d8dee42a0a5b04c8ed6fbad8d2a5e98bd37acfe", "crates/trust-runtime/tests/bytecode_sections.rs" = "sha256:26d604693ca7417b9ae1ff3343478a95e32b99134bedc9a4ea4363384bcd1711" }
+mapping_behavior_refs = ["RT_BYTECODE_CONTAINER_CODEC_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_C3573E2945A5A4514EEA"
+subject_kind = "generated_test"
+discovery_id = "DISC_C3573E2945A5A4514EEA"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_sections.rs"
+name = "type_table_decode"
+command = "cargo nextest run -p trust-runtime --test bytecode_sections --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_sections) & test(=type_table_decode)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_BYTECODE_CONTAINER_CODEC_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#container-layout"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001#container-layout"]
+expected_result = "Each required or optional version 1.1 section fixture decodes to its expected typed section kind and asserted fields."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_C3573E2945A5A4514EEA.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_C3573E2945A5A4514EEA_F3A41224751E"
+mapping_proposal_digest = "sha256:f3a41224751e7c95e500e84274fc9c3519bd93062120c3efa23b26a2fcdf988c"
+mapping_decision_id = "MAP_DEC_D55A3E1F54B7C3814C3B11B3"
+mapping_reviewed_source_digest = "sha256:26d604693ca7417b9ae1ff3343478a95e32b99134bedc9a4ea4363384bcd1711"
+mapping_assertion_review_digest = "sha256:d5fe305e598b0c73cd358776ed4c99209e63afe31be62650e95da8962688237e"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_helpers.rs" = "sha256:915e4dc8403b5baadb55f1a08d8dee42a0a5b04c8ed6fbad8d2a5e98bd37acfe", "crates/trust-runtime/tests/bytecode_sections.rs" = "sha256:26d604693ca7417b9ae1ff3343478a95e32b99134bedc9a4ea4363384bcd1711" }
+mapping_behavior_refs = ["RT_BYTECODE_CONTAINER_CODEC_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_CB10FB386D6143E4F283"
+subject_kind = "generated_test"
+discovery_id = "DISC_CB10FB386D6143E4F283"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_sections.rs"
+name = "string_table_padding"
+command = "cargo nextest run -p trust-runtime --test bytecode_sections --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_sections) & test(=string_table_padding)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_BYTECODE_CONTAINER_CODEC_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#container-layout"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001#container-layout"]
+expected_result = "String payload length excludes zero padding and every entry advances to the next four-byte boundary."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_CB10FB386D6143E4F283.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_CB10FB386D6143E4F283_F9C84E0DD02B"
+mapping_proposal_digest = "sha256:f9c84e0dd02bd16c7ef8dd6f6ed1add08b35cfda8d01b0a11f77dbd67ae4c558"
+mapping_decision_id = "MAP_DEC_9AF090B175B47D2E28F4C85E"
+mapping_reviewed_source_digest = "sha256:26d604693ca7417b9ae1ff3343478a95e32b99134bedc9a4ea4363384bcd1711"
+mapping_assertion_review_digest = "sha256:e31e42472952f30b61336a44d3b279d6e7f5e175c53c12861b74b8e7a4df7212"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_helpers.rs" = "sha256:915e4dc8403b5baadb55f1a08d8dee42a0a5b04c8ed6fbad8d2a5e98bd37acfe", "crates/trust-runtime/tests/bytecode_sections.rs" = "sha256:26d604693ca7417b9ae1ff3343478a95e32b99134bedc9a4ea4363384bcd1711" }
+mapping_behavior_refs = ["RT_BYTECODE_CONTAINER_CODEC_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_EDFC1245E61FEA06D134"
+subject_kind = "generated_test"
+discovery_id = "DISC_EDFC1245E61FEA06D134"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_sections.rs"
+name = "string_table_decode"
+command = "cargo nextest run -p trust-runtime --test bytecode_sections --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_sections) & test(=string_table_decode)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_BYTECODE_CONTAINER_CODEC_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#container-layout"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001#container-layout"]
+expected_result = "Each required or optional version 1.1 section fixture decodes to its expected typed section kind and asserted fields."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_EDFC1245E61FEA06D134.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_EDFC1245E61FEA06D134_088B508297DD"
+mapping_proposal_digest = "sha256:088b508297ddd1baa8878f5291d702884703a587cd850f12afdf9e8492235805"
+mapping_decision_id = "MAP_DEC_3DB3F6650128E40B8AB0695D"
+mapping_reviewed_source_digest = "sha256:26d604693ca7417b9ae1ff3343478a95e32b99134bedc9a4ea4363384bcd1711"
+mapping_assertion_review_digest = "sha256:15231e2517824d6c25fecc2282e87215c960d3f10f96e11ce510f6f87cdde321"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_helpers.rs" = "sha256:915e4dc8403b5baadb55f1a08d8dee42a0a5b04c8ed6fbad8d2a5e98bd37acfe", "crates/trust-runtime/tests/bytecode_sections.rs" = "sha256:26d604693ca7417b9ae1ff3343478a95e32b99134bedc9a4ea4363384bcd1711" }
+mapping_behavior_refs = ["RT_BYTECODE_CONTAINER_CODEC_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_EEE01FA9C839F448C16E"
+subject_kind = "generated_test"
+discovery_id = "DISC_EEE01FA9C839F448C16E"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_sections.rs"
+name = "debug_string_table_decode"
+command = "cargo nextest run -p trust-runtime --test bytecode_sections --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_sections) & test(=debug_string_table_decode)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_BYTECODE_CONTAINER_CODEC_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#container-layout"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001#container-layout"]
+expected_result = "Each required or optional version 1.1 section fixture decodes to its expected typed section kind and asserted fields."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_EEE01FA9C839F448C16E.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_EEE01FA9C839F448C16E_760D1AB59EF1"
+mapping_proposal_digest = "sha256:760d1ab59ef103c8c4e752a7c07acdba3be56cbc6d0e7ebec669fc51b2679e06"
+mapping_decision_id = "MAP_DEC_08ACC98E645CD615A89C2EC8"
+mapping_reviewed_source_digest = "sha256:26d604693ca7417b9ae1ff3343478a95e32b99134bedc9a4ea4363384bcd1711"
+mapping_assertion_review_digest = "sha256:26936f84ce1859698e69ff6cce3efb870e67f01c2f5ab54493278e4abc1308b9"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_helpers.rs" = "sha256:915e4dc8403b5baadb55f1a08d8dee42a0a5b04c8ed6fbad8d2a5e98bd37acfe", "crates/trust-runtime/tests/bytecode_sections.rs" = "sha256:26d604693ca7417b9ae1ff3343478a95e32b99134bedc9a4ea4363384bcd1711" }
+mapping_behavior_refs = ["RT_BYTECODE_CONTAINER_CODEC_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_FA74E403D9C2B08CF16E"
+subject_kind = "generated_test"
+discovery_id = "DISC_FA74E403D9C2B08CF16E"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_sections.rs"
+name = "pou_index_decode"
+command = "cargo nextest run -p trust-runtime --test bytecode_sections --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_sections) & test(=pou_index_decode)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_BYTECODE_CONTAINER_CODEC_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#container-layout"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001#container-layout"]
+expected_result = "Each required or optional version 1.1 section fixture decodes to its expected typed section kind and asserted fields."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_FA74E403D9C2B08CF16E.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_FA74E403D9C2B08CF16E_7CC7B4235D35"
+mapping_proposal_digest = "sha256:7cc7b4235d35e977e27305f0c08c5bc088ffc4fee38bd04f883c1b76ec99da64"
+mapping_decision_id = "MAP_DEC_DB0DC269D322D51A80D0BAF1"
+mapping_reviewed_source_digest = "sha256:26d604693ca7417b9ae1ff3343478a95e32b99134bedc9a4ea4363384bcd1711"
+mapping_assertion_review_digest = "sha256:145702aa6e5cd8160734710d5c54b4c630123702a3c2d3bfd206ca877d2fd958"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_helpers.rs" = "sha256:915e4dc8403b5baadb55f1a08d8dee42a0a5b04c8ed6fbad8d2a5e98bd37acfe", "crates/trust-runtime/tests/bytecode_sections.rs" = "sha256:26d604693ca7417b9ae1ff3343478a95e32b99134bedc9a4ea4363384bcd1711" }
+mapping_behavior_refs = ["RT_BYTECODE_CONTAINER_CODEC_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_57639696D571884A9785"
+subject_kind = "generated_test"
+discovery_id = "DISC_57639696D571884A9785"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_validation.rs"
+name = "jump_validation"
+command = "cargo nextest run -p trust-runtime --test bytecode_validation --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_validation) & test(=jump_validation)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_SEAM_VALID_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001"]
+expected_result = "A relative jump outside its POU or into an operand byte is rejected before execution."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_57639696D571884A9785.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_57639696D571884A9785_397A55DD3519"
+mapping_proposal_digest = "sha256:397a55dd351938ec96957b58b17c3a1ecbe4c027bd2143c6aa9115bda281f7bf"
+mapping_decision_id = "MAP_DEC_05531B8975CD5085BEBE92AD"
+mapping_reviewed_source_digest = "sha256:6147c625b130f55de9e3c053221973e4dae13787ace3f9c723bf9e797ba7c6e4"
+mapping_assertion_review_digest = "sha256:6b8d051e98d8dbc367a21ece287ff35dc77f0c06c6e5f09b9c88c4358f3d128d"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_helpers.rs" = "sha256:915e4dc8403b5baadb55f1a08d8dee42a0a5b04c8ed6fbad8d2a5e98bd37acfe", "crates/trust-runtime/tests/bytecode_validation.rs" = "sha256:6147c625b130f55de9e3c053221973e4dae13787ace3f9c723bf9e797ba7c6e4" }
+mapping_behavior_refs = ["VM_SEAM_VALID_001#behavior:4"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_644141E632E9E3CD1370"
+subject_kind = "generated_test"
+discovery_id = "DISC_644141E632E9E3CD1370"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_validation.rs"
+name = "opcode_validation"
+command = "cargo nextest run -p trust-runtime --test bytecode_validation --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_validation) & test(=opcode_validation)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_SEAM_VALID_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001"]
+expected_result = "Legacy, proposed, reserved, and vendor opcode values remain invalid until the accepted bytecode version implements them explicitly."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_644141E632E9E3CD1370.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_644141E632E9E3CD1370_BDDDA1125F5A"
+mapping_proposal_digest = "sha256:bddda1125f5ad90f66a09a6762b6b4218eb23ac24f39a389f6eadd37717546c6"
+mapping_decision_id = "MAP_DEC_759EE873569D6FAB2DDD4085"
+mapping_reviewed_source_digest = "sha256:6147c625b130f55de9e3c053221973e4dae13787ace3f9c723bf9e797ba7c6e4"
+mapping_assertion_review_digest = "sha256:8efbbce93301019efb0ad4f58fd1c6066716f1eba4d8f49b41435afae4c2b1ac"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_helpers.rs" = "sha256:915e4dc8403b5baadb55f1a08d8dee42a0a5b04c8ed6fbad8d2a5e98bd37acfe", "crates/trust-runtime/tests/bytecode_validation.rs" = "sha256:6147c625b130f55de9e3c053221973e4dae13787ace3f9c723bf9e797ba7c6e4" }
+mapping_behavior_refs = ["VM_SEAM_VALID_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_6B26ADB3DF20D72F0DB6"
+subject_kind = "generated_test"
+discovery_id = "DISC_6B26ADB3DF20D72F0DB6"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_validation.rs"
+name = "var_meta_rejects_duplicate_textual_name_at_different_string_indices"
+command = "cargo nextest run -p trust-runtime --test bytecode_validation --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_validation) & test(=var_meta_rejects_duplicate_textual_name_at_different_string_indices)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_SEAM_VALID_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001"]
+expected_result = "Duplicate reference or textual-name metadata and local entries carrying retain or initializer state are rejected instead of creating order-dependent or persistent local state."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_6B26ADB3DF20D72F0DB6.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_6B26ADB3DF20D72F0DB6_C9056B7F3AB2"
+mapping_proposal_digest = "sha256:c9056b7f3ab2fcd7b9617a31be6eaf0a852520860bc918dff7b0e95fccb5163b"
+mapping_decision_id = "MAP_DEC_7F439EF7E2549A82B3E0E7AA"
+mapping_reviewed_source_digest = "sha256:6147c625b130f55de9e3c053221973e4dae13787ace3f9c723bf9e797ba7c6e4"
+mapping_assertion_review_digest = "sha256:6c76401fdf3c81ca32b9a59b3c0b272e8d70324775b4b223af5794dc99974818"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_helpers.rs" = "sha256:915e4dc8403b5baadb55f1a08d8dee42a0a5b04c8ed6fbad8d2a5e98bd37acfe", "crates/trust-runtime/tests/bytecode_validation.rs" = "sha256:6147c625b130f55de9e3c053221973e4dae13787ace3f9c723bf9e797ba7c6e4" }
+mapping_behavior_refs = ["VM_SEAM_VALID_001#behavior:8"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_790E7CD2B51AC6800D26"
+subject_kind = "generated_test"
+discovery_id = "DISC_790E7CD2B51AC6800D26"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_validation.rs"
+name = "debug_map_validation"
+command = "cargo nextest run -p trust-runtime --test bytecode_validation --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_validation) & test(=debug_map_validation)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_SEAM_VALID_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001"]
+expected_result = "Out-of-bounds or overlapping sections and incompatible debug or variable metadata references reject the complete candidate before apply."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_790E7CD2B51AC6800D26.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_790E7CD2B51AC6800D26_71D6A92D87EE"
+mapping_proposal_digest = "sha256:71d6a92d87ee5cc9619e80358d6a1ccd1fbdad5d34921511672c89b65f973ef7"
+mapping_decision_id = "MAP_DEC_C4D78C8C5ABCD35550F9B2EB"
+mapping_reviewed_source_digest = "sha256:6147c625b130f55de9e3c053221973e4dae13787ace3f9c723bf9e797ba7c6e4"
+mapping_assertion_review_digest = "sha256:8e8d1dea270ab6f3dfa2d37cebf9abf1728cdea65bf6b0a4e95c4b5bb4fa77b8"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_helpers.rs" = "sha256:915e4dc8403b5baadb55f1a08d8dee42a0a5b04c8ed6fbad8d2a5e98bd37acfe", "crates/trust-runtime/tests/bytecode_validation.rs" = "sha256:6147c625b130f55de9e3c053221973e4dae13787ace3f9c723bf9e797ba7c6e4" }
+mapping_behavior_refs = ["VM_SEAM_VALID_001#behavior:7"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_9466D8EBC1CB0CF5F987"
+subject_kind = "generated_test"
+discovery_id = "DISC_9466D8EBC1CB0CF5F987"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_validation.rs"
+name = "var_meta_rejects_local_ref_outside_every_pou_range"
+command = "cargo nextest run -p trust-runtime --test bytecode_validation --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_validation) & test(=var_meta_rejects_local_ref_outside_every_pou_range)'"
+owner = "trust-runtime-core"
+status = "mapped"
+invariants = ["VM_SEAM_REF_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001"]
+expected_result = "A POU may use a frame-local reference only from its declared local range or a path rooted in that same owner and slot."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_9466D8EBC1CB0CF5F987.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_9466D8EBC1CB0CF5F987_E80E84195DE8"
+mapping_proposal_digest = "sha256:e80e84195de8d507eaf2e74e9d0a482e50d968985cbee0ffa2ab8f713ee2109c"
+mapping_decision_id = "MAP_DEC_FDF991D26B6F14AB02809D0F"
+mapping_reviewed_source_digest = "sha256:6147c625b130f55de9e3c053221973e4dae13787ace3f9c723bf9e797ba7c6e4"
+mapping_assertion_review_digest = "sha256:d53c4c3c9f88542e885d92a5e2f901034807edf7b503387c88684d2287171c56"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_helpers.rs" = "sha256:915e4dc8403b5baadb55f1a08d8dee42a0a5b04c8ed6fbad8d2a5e98bd37acfe", "crates/trust-runtime/tests/bytecode_validation.rs" = "sha256:6147c625b130f55de9e3c053221973e4dae13787ace3f9c723bf9e797ba7c6e4" }
+mapping_behavior_refs = ["VM_SEAM_REF_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_A6FCBE2677A8C090BECF"
+subject_kind = "generated_test"
+discovery_id = "DISC_A6FCBE2677A8C090BECF"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_validation.rs"
+name = "validator_rejects_unsupported_runtime_opcodes_before_dispatch"
+command = "cargo nextest run -p trust-runtime --test bytecode_validation --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_validation) & test(=validator_rejects_unsupported_runtime_opcodes_before_dispatch)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_SEAM_VALID_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001"]
+expected_result = "Legacy, proposed, reserved, and vendor opcode values remain invalid until the accepted bytecode version implements them explicitly."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_A6FCBE2677A8C090BECF.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_A6FCBE2677A8C090BECF_F5074D84B1CE"
+mapping_proposal_digest = "sha256:f5074d84b1ce1c8b996e8ad1209c23cf207c427c9b071af4e06611b6f8177241"
+mapping_decision_id = "MAP_DEC_113376CD27C3E7CF3FCFFE21"
+mapping_reviewed_source_digest = "sha256:6147c625b130f55de9e3c053221973e4dae13787ace3f9c723bf9e797ba7c6e4"
+mapping_assertion_review_digest = "sha256:25788e35f4992dcbeffcedd6bc703270c6aea7470d06297358f614ae112eb242"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_helpers.rs" = "sha256:915e4dc8403b5baadb55f1a08d8dee42a0a5b04c8ed6fbad8d2a5e98bd37acfe", "crates/trust-runtime/tests/bytecode_validation.rs" = "sha256:6147c625b130f55de9e3c053221973e4dae13787ace3f9c723bf9e797ba7c6e4" }
+mapping_behavior_refs = ["VM_SEAM_VALID_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_A7D063C4AAD7DB68FD24"
+subject_kind = "generated_test"
+discovery_id = "DISC_A7D063C4AAD7DB68FD24"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_validation.rs"
+name = "opcode_validation_extended"
+command = "cargo nextest run -p trust-runtime --test bytecode_validation --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_validation) & test(=opcode_validation_extended)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_SEAM_VALID_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001"]
+expected_result = "Every opcode implemented by the accepted bytecode version passes complete operand and runtime-support validation."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_A7D063C4AAD7DB68FD24.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_A7D063C4AAD7DB68FD24_553273D1A8D2"
+mapping_proposal_digest = "sha256:553273d1a8d2fc84892fbe85bab8cb200b27287e924bb2dd7033fce72de05cc3"
+mapping_decision_id = "MAP_DEC_E0681FE7653CD2A7DAD8603B"
+mapping_reviewed_source_digest = "sha256:6147c625b130f55de9e3c053221973e4dae13787ace3f9c723bf9e797ba7c6e4"
+mapping_assertion_review_digest = "sha256:0e48557efd5e55ea9bcd059022e657e00e976919f8ad6dd18b7662160186b761"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_helpers.rs" = "sha256:915e4dc8403b5baadb55f1a08d8dee42a0a5b04c8ed6fbad8d2a5e98bd37acfe", "crates/trust-runtime/tests/bytecode_validation.rs" = "sha256:6147c625b130f55de9e3c053221973e4dae13787ace3f9c723bf9e797ba7c6e4" }
+mapping_behavior_refs = ["VM_SEAM_VALID_001#behavior:6"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_ABC6710BB8234C3E95BB"
+subject_kind = "generated_test"
+discovery_id = "DISC_ABC6710BB8234C3E95BB"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_validation.rs"
+name = "var_meta_rejects_local_retain_and_initializer_state"
+command = "cargo nextest run -p trust-runtime --test bytecode_validation --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_validation) & test(=var_meta_rejects_local_retain_and_initializer_state)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_SEAM_VALID_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001"]
+expected_result = "Duplicate reference or textual-name metadata and local entries carrying retain or initializer state are rejected instead of creating order-dependent or persistent local state."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_ABC6710BB8234C3E95BB.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_ABC6710BB8234C3E95BB_E0E274FB4E84"
+mapping_proposal_digest = "sha256:e0e274fb4e84344fb9ae5054cad3db354046455207fd810bba357b6aee2bec15"
+mapping_decision_id = "MAP_DEC_B016F2FD140AB02EFE567D5F"
+mapping_reviewed_source_digest = "sha256:6147c625b130f55de9e3c053221973e4dae13787ace3f9c723bf9e797ba7c6e4"
+mapping_assertion_review_digest = "sha256:473326b0ce2fb8a9226ee129f4c41d1eb27e80ad72b4cf4beaf8cd5e0b6c4904"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_helpers.rs" = "sha256:915e4dc8403b5baadb55f1a08d8dee42a0a5b04c8ed6fbad8d2a5e98bd37acfe", "crates/trust-runtime/tests/bytecode_validation.rs" = "sha256:6147c625b130f55de9e3c053221973e4dae13787ace3f9c723bf9e797ba7c6e4" }
+mapping_behavior_refs = ["VM_SEAM_VALID_001#behavior:8"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_EE4152F4361F181CB55B"
+subject_kind = "generated_test"
+discovery_id = "DISC_EE4152F4361F181CB55B"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/bytecode_validation.rs"
+name = "var_meta_rejects_duplicate_ref_idx"
+command = "cargo nextest run -p trust-runtime --test bytecode_validation --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_validation) & test(=var_meta_rejects_duplicate_ref_idx)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_SEAM_VALID_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001"]
+expected_result = "Duplicate reference or textual-name metadata and local entries carrying retain or initializer state are rejected instead of creating order-dependent or persistent local state."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_EE4152F4361F181CB55B.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_EE4152F4361F181CB55B_9EC1E385EC2B"
+mapping_proposal_digest = "sha256:9ec1e385ec2bea7c13defad9923b9a2896e81854cd7bce977989a29b7876ebc6"
+mapping_decision_id = "MAP_DEC_EA768AB83600F47AFD2C544A"
+mapping_reviewed_source_digest = "sha256:6147c625b130f55de9e3c053221973e4dae13787ace3f9c723bf9e797ba7c6e4"
+mapping_assertion_review_digest = "sha256:08e2955064948d0217acb08b937d9689a0bd4a7c2bf01af7d2e0967cebcd0706"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_helpers.rs" = "sha256:915e4dc8403b5baadb55f1a08d8dee42a0a5b04c8ed6fbad8d2a5e98bd37acfe", "crates/trust-runtime/tests/bytecode_validation.rs" = "sha256:6147c625b130f55de9e3c053221973e4dae13787ace3f9c723bf9e797ba7c6e4" }
+mapping_behavior_refs = ["VM_SEAM_VALID_001#behavior:8"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
