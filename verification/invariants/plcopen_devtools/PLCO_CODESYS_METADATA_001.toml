@@ -1,0 +1,59 @@
+schema_version = 1
+id = "PLCO_CODESYS_METADATA_001"
+title = "Supported CODESYS metadata has deterministic PLCopen projections"
+area = "plcopen_devtools"
+risk = "silent_corruption"
+status = "gap_open"
+owner = "trust-plcopen"
+last_reviewed = "2026-07-27"
+claim = "The selected profile emits reviewed CODESYS global, project-structure, POU, and method metadata and reconstructs the tested method source."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["docs/guides/PLCOPEN_INTEROP_COMPATIBILITY.md", "crates/trust-plcopen/src/plcopen/codesys_export_meta.rs", "crates/trust-plcopen/src/plcopen/codesys_structure.rs"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_tests", "focused_execution_evidence", "codesys_pou_xml_structure", "property_metadata", "device_tree_semantics", "real_codesys_equivalence", "final_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_PLCOPEN_IMPORT_DECISION_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#codesys-metadata-contract"
+
+[[behavior]]
+partition = { equals = "GLOBAL_VARS_AND_PROJECT_STRUCTURE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#codesys-metadata-contract"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "Export emits the reviewed globalVars and projectstructure markers and import recreates the tested GVL and program source paths."
+
+[[behavior]]
+partition = { equals = "POU_ADDDATA_METADATA" }
+case_family = "happy_path"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#codesys-metadata-contract"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "Program and function POUs include the tested CODESYS POU, interface-as-plain-text, application, and object-ID metadata markers."
+
+[[behavior]]
+partition = { equals = "METHOD_METADATA_ROUND_TRIP" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#codesys-metadata-contract"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "Method metadata is exported on a standard FB POU and import reconstructs the tested FB, method signature, inputs, and assignment."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "The reviewed global/project and POU metadata assertions await generated catalog mapping and focused execution."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "The reviewed CODESYS method metadata round trip awaits generated catalog mapping and focused execution."

@@ -104,10 +104,13 @@ END_CONFIGURATION
                 .expect("export XML with target adapter");
 
         assert_eq!(report.target, "allen-bradley");
+        let expected_adapter_path =
+            project.join("out/plcopen.ab.xml.adapter-report.json");
         let adapter_path = report
             .adapter_report_path
             .as_ref()
             .expect("adapter report path");
+        assert_eq!(adapter_path, &expected_adapter_path);
         assert!(adapter_path.is_file());
         assert!(report
             .adapter_diagnostics
@@ -120,7 +123,8 @@ END_CONFIGURATION
         assert!(xml_text.contains(EXPORT_ADAPTER_DATA_NAME));
         assert!(xml_text.contains("allen-bradley"));
 
-        let adapter_text = std::fs::read_to_string(adapter_path).expect("read adapter report");
+        let adapter_text =
+            std::fs::read_to_string(&expected_adapter_path).expect("read adapter report");
         assert!(adapter_text.contains("\"target\": \"allen-bradley\""));
         assert!(adapter_text.contains("PLCO7AB1"));
 
@@ -168,10 +172,12 @@ END_CONFIGURATION
             export_project_to_xml_with_target(&project, &output, PlcopenExportTarget::Siemens)
                 .expect("export XML with Siemens target");
 
+        let expected_bundle_dir = project.join("out/plcopen.siemens.xml.scl");
         let bundle_dir = report
             .siemens_scl_bundle_dir
             .as_ref()
             .expect("siemens scl bundle dir");
+        assert_eq!(bundle_dir, &expected_bundle_dir);
         assert!(bundle_dir.is_dir(), "expected Siemens SCL bundle directory");
         assert!(
             report.siemens_scl_files.iter().all(|path| path.is_file()),
@@ -185,24 +191,22 @@ END_CONFIGURATION
             "expected at least one .scl file"
         );
 
-        let main_scl = report
-            .siemens_scl_files
-            .iter()
-            .find(|path| {
-                path.file_name()
-                    .and_then(|value| value.to_str())
-                    .is_some_and(|name| name.contains("_ob_Main.scl"))
-            })
-            .expect("main OB file");
-        let main_text = std::fs::read_to_string(main_scl).expect("read main scl file");
+        let expected_main_scl = expected_bundle_dir.join("002_ob_Main.scl");
+        assert!(report.siemens_scl_files.contains(&expected_main_scl));
+        let main_text =
+            std::fs::read_to_string(&expected_main_scl).expect("read main scl file");
         assert!(main_text.contains("ORGANIZATION_BLOCK \"Main\""));
         assert!(main_text.contains("END_ORGANIZATION_BLOCK"));
 
+        let expected_adapter_path =
+            project.join("out/plcopen.siemens.xml.adapter-report.json");
         let adapter_path = report
             .adapter_report_path
             .as_ref()
             .expect("adapter report path");
-        let adapter_text = std::fs::read_to_string(adapter_path).expect("read adapter report");
+        assert_eq!(adapter_path, &expected_adapter_path);
+        let adapter_text =
+            std::fs::read_to_string(&expected_adapter_path).expect("read adapter report");
         assert!(adapter_text.contains("\"target\": \"siemens-tia\""));
         assert!(adapter_text.contains("siemens_scl_bundle_dir"));
 

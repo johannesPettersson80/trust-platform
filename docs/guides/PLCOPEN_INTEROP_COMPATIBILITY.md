@@ -17,6 +17,53 @@ multi-vendor export adapters).
   - FBD/LD/SFC graphical network bodies are out of scope and are rejected
     before any source file is emitted.
 
+## ST-complete Profile Contract
+
+The public profile identity is the TC6 namespace
+`http://www.plcopen.org/xml/tc6_0200` with profile name
+`trust-st-complete-v1`. Both the library profile and
+`trust-runtime plcopen profile --json` expose that identity, at least one
+supported compatibility row, and nonempty round-trip-limit and known-gap
+lists. The library profile additionally publishes the ST POU path in its
+strict subset and a partial compatibility-shim row. These fields describe the
+selected product profile; they do not claim complete TC6 interoperability.
+
+## ST-complete Interchange Contract
+
+For the supported subset, import and export preserve the tested POU signature
+triples of name, POU kind, and normalized ST body across
+`export -> import -> export`. A data-type-only document is also a successful
+import: supported elementary, enumeration, subrange, structure, and
+single-dimension array declarations are emitted together in
+`src/plcopen_data_types.st`.
+
+The current data-type-only test does not establish the migration report's
+semantic-loss percentage or compatibility verdict. Those report values remain
+outside this contract until their zero-POU scoring policy is decided and
+tested.
+
+## ST-only Import Profile
+
+A supported ST POU body is emitted as ST source under `src/`. Benign
+`addData` beside or inside that body does not replace it and is not classified
+as an unknown executable body. Supported and unsupported sibling POUs are
+handled independently.
+
+## Import Failure Contract
+
+Malformed XML returns an import error. The CLI also exits unsuccessfully for a
+missing input path and reports that the input does not exist. Exact error
+types, stable exit-code numbers, and proof that every failure leaves the
+destination untouched remain explicit gaps.
+
+## Non-ST Body Diagnostics
+
+FBD, LD, SFC, and unknown executable bodies are skipped with error diagnostics
+`PLCO215`, `PLCO216`, `PLCO217`, and `PLCO218`, respectively. A document
+containing only one POU of each kind reports four discovered and four skipped
+POUs, imports none, emits no ST source, and returns the reviewed
+`no importable PLCopen ST content` failure.
+
 ## Compatibility Matrix
 
 | Capability | Status | Notes |
@@ -67,7 +114,21 @@ The command also writes:
 Adapter diagnostics are migration guidance only; they are not proof of semantic
 equivalence on target runtimes.
 
-## Migration Report Contract
+## Export Adapter Artifact Contract
+
+An Allen-Bradley-targeted library export records target `allen-bradley`, writes
+the requested XML plus `<xml>.adapter-report.json`, embeds adapter metadata,
+reports `PLCO7AB1`, and exposes nonempty manual-step and limitation lists.
+A Siemens-targeted library export writes `<xml>.scl/`, lists each generated
+SCL artifact, renders the tested `Main` program as an
+`ORGANIZATION_BLOCK`, and writes the matching adapter report.
+
+When the CLI omits `--output`, target `ab` writes
+`interop/plcopen.ab.xml` and a real adapter report whose path is returned in
+JSON. These artifacts are migration aids, not native vendor project packages
+or proof of target-runtime equivalence.
+
+## Migration Report and Vendor Extension Contract
 
 `plcopen import` writes `interop/plcopen-migration-report.json` with:
 
@@ -118,6 +179,33 @@ Non-ST POU body diagnostics are fail-closed:
 When one of these diagnostics is emitted, the POU is skipped and no ST source is
 synthesized from the graphical or unknown XML payload.
 
+For a supported ST POU accompanied by unsupported type metadata and opaque
+vendor `addData`, import reports the unsupported type, returns partial
+compatibility, writes the ST source, and preserves the opaque vendor payload in
+`plcopen.vendor-extensions.imported.xml`. Export re-injects the reviewed
+`plcopen.vendor-extensions.xml` hook into PLCopen `addData`. The generic CLI
+JSON report exposes the tested export counts/source-map path and import
+ecosystem, compatibility verdict, and diagnostic code.
+
+## CODESYS Metadata Contract
+
+Export emits deterministic CODESYS `globalVars`, `projectstructure`, POU
+`addData`, interface-as-plain-text, object-ID, and `METHOD` metadata for the
+tested supported declarations. Importing that exported method metadata
+reconstructs the owning `FUNCTION_BLOCK`, method signature, inputs, and tested
+method body. The contract does not extend to CODESYS properties, device trees,
+or executable equivalence inside CODESYS.
+
+## Vendor Library Shim Contract
+
+For recognized ecosystems, import replaces only the reviewed symbol positions
+with the catalogued alias and records the ecosystem, source symbol,
+replacement symbol, occurrence count, and `PLCO301` migration diagnostic.
+The Siemens fixture maps `SFB3 -> TP` and `SFB4 -> TON` while preserving an
+unrelated variable named `SFB4`. The OpenPLC CLI fixtures detect `openplc`,
+map `R_EDGE -> R_TRIG`, and remain exportable with the source-map sidecar.
+These are symbol-level migration transforms, not semantic-equivalence claims.
+
 ## CODESYS ST Fixture Pack and Parity Gate
 
 Deliverable 5 includes deterministic CODESYS ST fixture packs for
@@ -151,6 +239,7 @@ Detected values currently include:
 - `rockwell-studio5000`
 - `schneider-ecostruxure`
 - `mitsubishi-gxworks3`
+- `openplc`
 - fallback: `generic-plcopen`
 
 ## Round-Trip Limits

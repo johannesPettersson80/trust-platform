@@ -97,12 +97,18 @@ END_PROGRAM
             .unsupported_diagnostics
             .iter()
             .any(|diagnostic| diagnostic.code == "PLCO402"));
-        let source = std::fs::read_to_string(&report.written_sources[0]).expect("read source");
+        let expected_source = project.join("src/Main.st");
+        assert_eq!(report.written_sources, vec![expected_source.clone()]);
+        let source = std::fs::read_to_string(&expected_source).expect("read source");
         assert!(source.contains("PROGRAM Main"));
+        let expected_vendor =
+            project.join("plcopen.vendor-extensions.imported.xml");
         let vendor = report
             .preserved_vendor_extensions
             .expect("vendor extension path");
-        let vendor_text = std::fs::read_to_string(vendor).expect("read vendor ext");
+        assert_eq!(vendor, expected_vendor);
+        let vendor_text =
+            std::fs::read_to_string(&expected_vendor).expect("read vendor ext");
         assert!(vendor_text.contains("vendor.raw"));
 
         let _ = std::fs::remove_dir_all(project);
@@ -151,7 +157,9 @@ END_PROGRAM
             report.unsupported_diagnostics
         );
 
-        let source = std::fs::read_to_string(&report.written_sources[0]).expect("read source");
+        let expected_source = project.join("src/Main.st");
+        assert_eq!(report.written_sources, vec![expected_source.clone()]);
+        let source = std::fs::read_to_string(&expected_source).expect("read source");
         assert!(source.contains("PROGRAM Main"));
         assert!(source.contains("speed : REAL"));
 
@@ -287,8 +295,10 @@ END_PROGRAM
             .iter()
             .any(|diagnostic| diagnostic.code == "PLCO402"));
 
+        let expected_types = project.join("src/plcopen_data_types.st");
+        assert_eq!(report.written_sources, vec![expected_types.clone()]);
         let types_source =
-            std::fs::read_to_string(&report.written_sources[0]).expect("read generated types");
+            std::fs::read_to_string(&expected_types).expect("read generated types");
         assert!(types_source.contains("TYPE"));
         assert!(types_source.contains("Speed : INT;"));
         assert!(types_source.contains("Mode : (Off, Auto);"));

@@ -473,6 +473,41 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
             "trust-runtime::simulation_workflow",
             simulation.binary_id,
         )
+        plcopen_command = get_target_profile(
+            "runtime-remaining",
+            path="crates/trust-runtime/tests/plcopen_command.rs",
+        )
+        self.assertEqual(
+            ("--test", "plcopen_command"),
+            plcopen_command.cargo_target_args,
+        )
+        self.assertEqual(
+            "trust-runtime::plcopen_command",
+            plcopen_command.binary_id,
+        )
+
+    def test_plcopen_remaining_profile_resolves_reviewed_unit_paths(
+        self,
+    ) -> None:
+        for path in (
+            "crates/trust-plcopen/src/plcopen/tests/export_profile.rs",
+            "crates/trust-plcopen/src/plcopen/tests/roundtrip_import.rs",
+            "crates/trust-plcopen/src/plcopen/tests/shims.rs",
+        ):
+            profile = get_target_profile(
+                "plcopen-remaining",
+                path=path,
+            )
+            self.assertEqual("trust-plcopen", profile.package)
+            self.assertEqual(("--lib",), profile.cargo_target_args)
+            self.assertEqual("trust-plcopen", profile.binary_id)
+            self.assertEqual("tests::", profile.test_prefix)
+            self.assertEqual("rust_unit_test", profile.discovery_source_kind)
+        with self.assertRaisesRegex(ValueError, "outside the closed PLCopen"):
+            get_target_profile(
+                "plcopen-remaining",
+                path="crates/trust-plcopen/src/plcopen/import.rs",
+            )
 
     def test_runtime_remaining_profile_resolves_openot_targets(self) -> None:
         unit = get_target_profile(

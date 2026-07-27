@@ -1,0 +1,51 @@
+schema_version = 1
+id = "PLCO_IMPORT_FAILURE_001"
+title = "Malformed or missing PLCopen inputs fail visibly"
+area = "plcopen_devtools"
+risk = "silent_corruption"
+status = "gap_open"
+owner = "trust-plcopen"
+last_reviewed = "2026-07-27"
+claim = "Malformed XML and absent input files cannot be reported as successful imports."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["docs/guides/PLCOPEN_INTEROP_COMPATIBILITY.md", "crates/trust-plcopen/src/plcopen/import.rs", "crates/trust-runtime/src/main.rs"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_tests", "focused_execution_evidence", "exact_error_kind", "stable_cli_exit_code", "failure_no_partial_apply", "final_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_PLCOPEN_IMPORT_DECISION_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#import-failure-contract"
+
+[[behavior]]
+partition = { equals = "MALFORMED_XML" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#import-failure-contract"
+outcome = "reject"
+delta = { target = "not_applicable", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "stable_error", status = "unchanged" }
+rationale = "The library import returns an error for syntactically malformed XML; exact error identity and destination atomicity remain open."
+
+[[behavior]]
+partition = { equals = "MISSING_INPUT_PATH" }
+case_family = "missing_required"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#import-failure-contract"
+outcome = "reject"
+delta = { target = "not_applicable", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "stable_error", status = "expected_delta" }
+rationale = "The CLI returns an unsuccessful status and a does-not-exist message for an absent input path; an exact numeric exit code is not claimed."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "The reviewed malformed-XML rejection awaits generated catalog mapping and focused execution."
+
+[[coverage.cells]]
+dimension = "missing_required"
+state = "gap_open"
+rationale = "The reviewed missing-input CLI rejection awaits generated catalog mapping and focused execution."

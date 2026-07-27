@@ -918,7 +918,7 @@ Runtime exposes an ST-complete PLCopen XML profile through `trust-runtime plcope
 
 - `trust-runtime plcopen profile` prints the supported profile contract.
 - `trust-runtime plcopen export` exports ST project content to PLCopen XML.
-- `trust-runtime plcopen import` imports supported PLCopen ST project content into `sources/`:
+- `trust-runtime plcopen import` imports supported PLCopen ST project content into `src/`:
   - ST POUs (`PROGRAM`, `FUNCTION`, `FUNCTION_BLOCK`)
   - supported `types/dataTypes` subset (`elementary`, `derived`, `array`, `struct`, `enum`, `subrange`) materialized as generated `TYPE` declarations
   - project model declarations in `instances/configurations/resources/tasks/program instances`

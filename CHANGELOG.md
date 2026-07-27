@@ -29,6 +29,9 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 - Specify deterministic simulation-model activation, coupling and physics scan
   boundaries, conflict rejection, replay, scripted faults, and scaled-clock
   watchdog isolation.
+- Specify the `trust-st-complete-v1` PLCopen profile, ST/data-type interchange,
+  fail-closed import diagnostics, migration and CODESYS metadata, reviewed
+  vendor shims, and multi-vendor adapter artifact contracts.
 
 Target release: `v0.24.57`
 
@@ -46,9 +49,9 @@ Target release: `v0.24.57`
   of silently widening values such as `ULINT` to `REAL`; representable untyped
   numeric literals retain their valid contextual operand or overloaded-argument
   type.
-- Verification assertion extraction now recognizes derived project paths under
-  a test-created temporary root as generated output, avoiding a false
-  unresolved-oracle classification for explicit assertions over that output.
+- Verification assertion extraction now recognizes closed path aliases under
+  a test-created temporary root as generated output while keeping dynamic,
+  absolute, parent-escaping, reassigned, and report-derived reads unresolved.
 - OSCAT: decimal rounding, random helpers, array shuffle, random generators,
   and dew-point relative-humidity conversion now preserve their declared
   `INT`/`REAL` types instead of failing at runtime when generic `LIMIT`

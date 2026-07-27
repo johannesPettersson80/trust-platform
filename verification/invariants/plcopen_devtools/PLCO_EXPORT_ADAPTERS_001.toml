@@ -1,0 +1,54 @@
+schema_version = 1
+id = "PLCO_EXPORT_ADAPTERS_001"
+title = "Vendor export adapters emit reviewed migration artifacts"
+area = "plcopen_devtools"
+risk = "silent_corruption"
+status = "gap_open"
+owner = "trust-plcopen"
+last_reviewed = "2026-07-27"
+claim = "Allen-Bradley and Siemens adapter selections produce their documented XML/report metadata and Siemens SCL bundle without implying native project-package equivalence."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["docs/guides/PLCOPEN_INTEROP_COMPATIBILITY.md", "docs/guides/PLCOPEN_EXPORT_ADAPTERS_V1.md", "docs/PLCOPEN_DECISIONS.md", "crates/trust-plcopen/src/plcopen/export_helpers.rs"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_tests", "focused_execution_evidence", "native_vendor_package_generation", "target_runtime_equivalence", "final_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_PLCOPEN_IMPORT_DECISION_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#export-adapter-artifact-contract"
+
+[[behavior]]
+partition = { equals = "ALLEN_BRADLEY_LIBRARY_ADAPTER" }
+case_family = "happy_path"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#export-adapter-artifact-contract"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "The library export writes the requested XML and exact adapter-report path, embeds Allen-Bradley metadata, reports PLCO7AB1, and exposes manual steps and limitations."
+
+[[behavior]]
+partition = { equals = "SIEMENS_LIBRARY_ADAPTER" }
+case_family = "happy_path"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#export-adapter-artifact-contract"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "The library export writes the exact Siemens bundle/report paths, lists real SCL files, and renders the tested Main program as an organization block."
+
+[[behavior]]
+partition = { equals = "ALLEN_BRADLEY_CLI_DEFAULT_PATH" }
+case_family = "happy_path"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#export-adapter-artifact-contract"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "expected_delta" }
+rationale = "CLI target ab without an explicit output writes interop/plcopen.ab.xml and returns a real adapter report with PLCO7AB1, manual steps, and limitations."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "The three reviewed adapter artifact assertions await generated catalog mapping and focused execution."

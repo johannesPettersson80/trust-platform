@@ -5,7 +5,7 @@ use std::path::{Component, Path};
 use anyhow::{bail, Context, Result};
 use proc_macro2::{TokenStream, TokenTree};
 use syn::visit::{self, Visit};
-use syn::{Block, Expr, ExprCall, Local, Macro, Pat};
+use syn::{Block, Expr, ExprAssign, ExprCall, Local, Macro, Pat};
 
 use super::sha256_tag;
 
@@ -75,6 +75,7 @@ pub(super) fn generated_output_roots(block: &Block) -> BTreeSet<String> {
     #[derive(Default)]
     struct GeneratedRootVisitor {
         roots: BTreeSet<String>,
+        unsafe_bindings: BTreeSet<String>,
     }
 
     impl<'ast> Visit<'ast> for GeneratedRootVisitor {
@@ -87,40 +88,26 @@ pub(super) fn generated_output_roots(block: &Block) -> BTreeSet<String> {
                 visit::visit_local(self, local);
                 return;
             };
-            match initializer.expr.as_ref() {
-                Expr::Call(call) => {
-                    let Expr::Path(path) = call.func.as_ref() else {
-                        visit::visit_local(self, local);
-                        return;
-                    };
-                    if path
-                        .path
-                        .segments
-                        .last()
-                        .is_some_and(|segment| segment.ident == "temp_dir")
-                    {
-                        self.roots.insert(binding.ident.to_string());
-                    }
-                }
-                Expr::MethodCall(join)
-                    if join.method == "join"
-                        && matches!(
-                            join.receiver.as_ref(),
-                            Expr::Path(receiver)
-                                if receiver.path.leading_colon.is_none()
-                                    && receiver.path.segments.len() == 1
-                                    && receiver.path.segments.first().is_some_and(
-                                        |segment| self.roots.contains(
-                                            &segment.ident.to_string()
-                                        )
-                                    )
-                        ) =>
-                {
-                    self.roots.insert(binding.ident.to_string());
-                }
-                _ => {}
+            let name = binding.ident.to_string();
+            if self.roots.contains(&name) || !self.unsafe_bindings.insert(name.clone()) {
+                self.roots.remove(&name);
+                visit::visit_local(self, local);
+                return;
+            }
+            if is_temp_dir_call(initializer.expr.as_ref())
+                || is_closed_generated_path(initializer.expr.as_ref(), &self.roots)
+            {
+                self.roots.insert(name);
             }
             visit::visit_local(self, local);
+        }
+
+        fn visit_expr_assign(&mut self, assignment: &'ast ExprAssign) {
+            if let Some(name) = single_path_name(assignment.left.as_ref()) {
+                self.roots.remove(&name);
+                self.unsafe_bindings.insert(name);
+            }
+            visit::visit_expr_assign(self, assignment);
         }
     }
 
@@ -136,29 +123,77 @@ pub(super) fn is_generated_output_read(
     let Some(argument) = expression.args.first() else {
         return false;
     };
-    let Expr::MethodCall(join) = argument else {
+    is_closed_generated_path(argument, generated_roots)
+}
+
+fn is_temp_dir_call(expression: &Expr) -> bool {
+    let Expr::Call(call) = strip_path_wrappers(expression) else {
         return false;
     };
-    if join.method != "join"
-        || join.args.len() != 1
-        || !matches!(
-            join.args.first(),
-            Some(Expr::Lit(value)) if matches!(value.lit, syn::Lit::Str(_))
-        )
-    {
-        return false;
-    }
-    let Expr::Path(receiver) = join.receiver.as_ref() else {
+    let Expr::Path(path) = call.func.as_ref() else {
         return false;
     };
-    if receiver.path.leading_colon.is_some() || receiver.path.segments.len() != 1 {
-        return false;
-    }
-    receiver
-        .path
+    path.path
         .segments
-        .first()
-        .is_some_and(|segment| generated_roots.contains(&segment.ident.to_string()))
+        .last()
+        .is_some_and(|segment| segment.ident == "temp_dir")
+}
+
+fn is_closed_generated_path(
+    expression: &Expr,
+    generated_roots: &BTreeSet<String>,
+) -> bool {
+    let expression = strip_path_wrappers(expression);
+    if let Some(name) = single_path_name(expression) {
+        return generated_roots.contains(&name);
+    }
+    let Expr::MethodCall(join) = expression else {
+        return false;
+    };
+    join.method == "join"
+        && join.args.len() == 1
+        && join
+            .args
+            .first()
+            .is_some_and(is_closed_relative_literal)
+        && is_closed_generated_path(join.receiver.as_ref(), generated_roots)
+}
+
+fn is_closed_relative_literal(expression: &Expr) -> bool {
+    let Expr::Lit(value) = strip_path_wrappers(expression) else {
+        return false;
+    };
+    let syn::Lit::Str(literal) = &value.lit else {
+        return false;
+    };
+    let value = literal.value();
+    let path = Path::new(&value);
+    !path.is_absolute()
+        && !path.components().any(|component| {
+            matches!(
+                component,
+                Component::ParentDir | Component::RootDir | Component::Prefix(_)
+            )
+        })
+}
+
+fn single_path_name(expression: &Expr) -> Option<String> {
+    let Expr::Path(path) = strip_path_wrappers(expression) else {
+        return None;
+    };
+    (path.path.leading_colon.is_none() && path.path.segments.len() == 1)
+        .then(|| path.path.segments.first().unwrap().ident.to_string())
+}
+
+fn strip_path_wrappers(mut expression: &Expr) -> &Expr {
+    loop {
+        expression = match expression {
+            Expr::Reference(reference) => reference.expr.as_ref(),
+            Expr::Paren(paren) => paren.expr.as_ref(),
+            Expr::Group(group) => group.expr.as_ref(),
+            _ => return expression,
+        };
+    }
 }
 
 fn first_string_literal(tokens: &TokenStream) -> Option<String> {

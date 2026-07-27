@@ -92,6 +92,15 @@ outcome = "accept_value"
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
 rationale = "A valid ST POU remains importable while an unsupported sibling POU is skipped with its named error diagnostic."
 
+[[behavior]]
+partition = { equals = "ALL_UNSUPPORTED_EXECUTABLE_BODIES_REJECT" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#non-st-body-diagnostics"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A document containing FBD, LD, SFC, and unknown executable bodies reports four discovered/skipped POUs, imports none, emits PLCO215 through PLCO218 as errors with named skipped entries, writes no ST file, and fails with no importable ST content."
+
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
 state = "covered"

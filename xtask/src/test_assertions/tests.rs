@@ -440,8 +440,47 @@ fn binds_static_runtime_fixture_reads_and_rejects_dynamic_paths() {
             "#[test]\n",
             "fn generated_output() {\n",
             "  let root = temp_dir(\"generated-output\");\n",
-            "  let project = root.join(format!(\"project-{}\", 1));\n",
-            "  let value = std::fs::read_to_string(project.join(\"io.toml\")).unwrap();\n",
+            "  let project = root.join(\"project-1\");\n",
+            "  let output = project.join(\"io.toml\");\n",
+            "  let value = std::fs::read_to_string(&output).unwrap();\n",
+            "  assert!(!value.is_empty());\n",
+            "}\n",
+            "#[test]\n",
+            "fn generated_parent_escape() {\n",
+            "  let root = temp_dir(\"generated-parent\");\n",
+            "  let output = root.join(\"../outside\");\n",
+            "  let value = std::fs::read_to_string(&output).unwrap();\n",
+            "  assert!(!value.is_empty());\n",
+            "}\n",
+            "#[test]\n",
+            "fn generated_absolute_escape() {\n",
+            "  let root = temp_dir(\"generated-absolute\");\n",
+            "  let output = root.join(\"/etc/passwd\");\n",
+            "  let value = std::fs::read_to_string(&output).unwrap();\n",
+            "  assert!(!value.is_empty());\n",
+            "}\n",
+            "#[test]\n",
+            "fn generated_dynamic_escape() {\n",
+            "  let root = temp_dir(\"generated-dynamic\");\n",
+            "  let output = root.join(fixture_path());\n",
+            "  let value = std::fs::read_to_string(&output).unwrap();\n",
+            "  assert!(!value.is_empty());\n",
+            "}\n",
+            "#[test]\n",
+            "fn generated_reassigned_escape() {\n",
+            "  let root = temp_dir(\"generated-reassigned\");\n",
+            "  let mut output = root.join(\"inside\");\n",
+            "  output = fixture_path();\n",
+            "  let value = std::fs::read_to_string(&output).unwrap();\n",
+            "  assert!(!value.is_empty());\n",
+            "}\n",
+            "struct Report { path: std::path::PathBuf }\n",
+            "fn report(_: std::path::PathBuf) -> Report { todo!() }\n",
+            "#[test]\n",
+            "fn generated_report_path_is_not_trusted() {\n",
+            "  let root = temp_dir(\"generated-report\");\n",
+            "  let report = report(root);\n",
+            "  let value = std::fs::read_to_string(&report.path).unwrap();\n",
             "  assert!(!value.is_empty());\n",
             "}\n",
         ),
@@ -480,6 +519,35 @@ fn binds_static_runtime_fixture_reads_and_rejects_dynamic_paths() {
         generated_inventory.unresolved_assertion_helpers.is_empty(),
         "test-created project output is not an external fixture oracle"
     );
+    assert_eq!(
+        static_inventory.source_digests,
+        generated_inventory.source_digests,
+        "generated outputs do not add source-closure dependencies"
+    );
+    for name in [
+        "generated_parent_escape",
+        "generated_absolute_escape",
+        "generated_dynamic_escape",
+        "generated_reassigned_escape",
+        "generated_report_path_is_not_trusted",
+    ] {
+        let inventory = extract_from_repository(
+            &root,
+            test_path,
+            name,
+            "rust_integration_test",
+        )
+        .expect("extract rejected generated-output path");
+        assert!(
+            inventory
+                .unresolved_assertion_helpers
+                .iter()
+                .any(|helper| helper.ends_with(
+                    "std::fs::read_to_string:unresolved-oracle"
+                )),
+            "{name} must remain unresolved"
+        );
+    }
     fs::remove_dir_all(root).unwrap();
 }
 

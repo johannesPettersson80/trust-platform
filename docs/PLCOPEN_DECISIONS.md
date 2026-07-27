@@ -93,3 +93,30 @@ This file tracks implementation decisions made where PLCopen profiles or source 
   - These implementation-dependent choices make the selected software-only
     Phase A profile deterministic without presenting truST-only behavior as
     normative PLCopen behavior.
+
+## 2026-07-27 - ST-complete interchange profile choices
+
+- Area: PLCopen TC6 ST interchange and vendor migration artifacts
+- PLCopen context: TC6 namespace `http://www.plcopen.org/xml/tc6_0200`;
+  graphical-network semantics and native vendor package formats are outside
+  the selected profile
+- Decision:
+  - The public profile identity is `trust-st-complete-v1`, limited to the
+    documented ST, data-type, project-model, and CODESYS metadata subset.
+  - Imported project sources are written under `src/`; a data-type-only import
+    writes `src/plcopen_data_types.st`.
+  - FBD, LD, SFC, and unknown executable bodies fail closed with the documented
+    `PLCO215` through `PLCO218` diagnostics rather than being scraped as ST.
+  - Opaque vendor `addData` is preserved for re-injection but is not
+    semantically interpreted.
+  - The reviewed Siemens, Rockwell, Schneider/CODESYS, Mitsubishi, and OpenPLC
+    symbol shims are migration transforms whose applications are reported;
+    they are not vendor-runtime equivalence claims.
+  - Allen-Bradley, Siemens, and Schneider export adapters emit the documented
+    XML, sidecar report, and optional Siemens SCL bundle. They do not emit
+    native vendor project packages.
+- Reason:
+  - TC6 supplies the interchange container, but the supported subset, source
+    layout, vendor aliases, reports, and adapter artifacts are product/profile
+    choices that must remain explicit and testable without being presented as
+    IEC deviations or full vendor compatibility.

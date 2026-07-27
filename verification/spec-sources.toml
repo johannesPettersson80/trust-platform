@@ -2092,10 +2092,17 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/guides/PLCOPEN_INTEROP_COMPATIBILITY.md"
 version = "current"
-last_reviewed = "2026-07-10"
+last_reviewed = "2026-07-27"
 covers = [
+  "plcopen_adapter_artifacts",
+  "plcopen_codesys_metadata",
+  "plcopen_import_failures",
+  "plcopen_migration_reports",
   "plcopen_non_st_rejection",
+  "plcopen_profile_identity",
   "plcopen_st_import",
+  "plcopen_st_roundtrip",
+  "plcopen_vendor_library_shims",
   "plcopen_fixture_provenance",
 ]
 known_limitations = [

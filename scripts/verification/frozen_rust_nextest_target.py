@@ -25,6 +25,7 @@ DEBUG_REMAINING_PROFILE_KEY = "debug-remaining"
 RUNTIME_CORE_REMAINING_PROFILE_KEY = "runtime-core-remaining"
 ADS_SERVER_REMAINING_PROFILE_KEY = "ads-server-remaining"
 VERIFICATION_CASES_REMAINING_PROFILE_KEY = "verification-cases-remaining"
+PLCOPEN_REMAINING_PROFILE_KEY = "plcopen-remaining"
 TERMINAL_EVENTS = frozenset({"ok", "failed", "ignored", "timeout"})
 
 
@@ -192,6 +193,26 @@ VERIFICATION_CASES_REMAINING_UNIT_PREFIXES: Mapping[str, str] = {
     "crates/verification-cases/src/lib.rs": "tests::",
 }
 
+PLCOPEN_REMAINING_PROFILE = FrozenRustTargetProfile(
+    key=PLCOPEN_REMAINING_PROFILE_KEY,
+    package="trust-plcopen",
+    target_kind="lib",
+    target_name=None,
+    binary_id="trust-plcopen",
+    test_prefix="",
+    encoded_test_name_prefix="trust-plcopen::trust_plcopen$",
+    discovery_source_kind="rust_unit_test",
+    allowed_cfg_attributes=frozenset(),
+    no_default_features_cfg=None,
+    no_default_features_shard_name=None,
+)
+
+PLCOPEN_REMAINING_UNIT_PREFIXES: Mapping[str, str] = {
+    "crates/trust-plcopen/src/plcopen/tests/export_profile.rs": "tests::",
+    "crates/trust-plcopen/src/plcopen/tests/roundtrip_import.rs": "tests::",
+    "crates/trust-plcopen/src/plcopen/tests/shims.rs": "tests::",
+}
+
 RUNTIME_REMAINING_LIB_PROFILE = FrozenRustTargetProfile(
     key=RUNTIME_REMAINING_PROFILE_KEY,
     package="trust-runtime",
@@ -216,6 +237,7 @@ RUNTIME_REMAINING_INTEGRATION_PATHS = frozenset(
         "crates/trust-runtime/tests/bytecode_sections.rs",
         "crates/trust-runtime/tests/bytecode_validation.rs",
         "crates/trust-runtime/tests/openot_telemetry.rs",
+        "crates/trust-runtime/tests/plcopen_command.rs",
         "crates/trust-runtime/tests/retain_integrity.rs",
         "crates/trust-runtime/tests/retain_store.rs",
         "crates/trust-runtime/tests/runtime_safety_fail_closed.rs",
@@ -421,6 +443,7 @@ TARGET_PROFILES: Mapping[str, FrozenRustTargetProfile] = {
         RUNTIME_CORE_REMAINING_PROFILE,
         ADS_SERVER_REMAINING_PROFILE,
         VERIFICATION_CASES_REMAINING_PROFILE,
+        PLCOPEN_REMAINING_PROFILE,
         RUNTIME_REMAINING_LIB_PROFILE,
     )
 }
@@ -464,6 +487,13 @@ def get_target_profile(
             VERIFICATION_CASES_REMAINING_UNIT_PREFIXES,
             path,
             "verification-cases",
+        )
+    if key == PLCOPEN_REMAINING_PROFILE_KEY:
+        return _unit_path_profile(
+            PLCOPEN_REMAINING_PROFILE,
+            PLCOPEN_REMAINING_UNIT_PREFIXES,
+            path,
+            "PLCopen",
         )
     if key == RUNTIME_REMAINING_PROFILE_KEY:
         return _runtime_remaining_profile(path)

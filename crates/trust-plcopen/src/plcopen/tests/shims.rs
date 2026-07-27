@@ -45,7 +45,9 @@ END_PROGRAM
             .iter()
             .any(|diagnostic| diagnostic.code == "PLCO301"));
 
-        let source = std::fs::read_to_string(&report.written_sources[0]).expect("read source");
+        let expected_source = project.join("src/MainOb1.st");
+        assert_eq!(report.written_sources, vec![expected_source.clone()]);
+        let source = std::fs::read_to_string(&expected_source).expect("read source");
         assert!(source.contains("PulseTimer : TP;"));
         assert!(source.contains("DelayTimer : TON;"));
         assert!(!source.contains("SFB3"));
@@ -73,4 +75,3 @@ END_PROGRAM
         assert!(shimmed.contains("DelayTimer : TON;"));
         assert!(shimmed.contains("SFB4 := TRUE;"));
     }
-
