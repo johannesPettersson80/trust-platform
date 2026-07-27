@@ -145,6 +145,51 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
 
             self.assertEqual(("ready_case",), selection.names)
 
+    def test_selection_can_use_exact_assertion_inventory_ids(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            verification = root / "verification"
+            verification.mkdir()
+            _write_toml(
+                verification / "test-catalog-denominator.toml",
+                """
+                [[reviews]]
+                discovery_id = "DISC_SELECTED"
+                discovery_source_kind = "rust_unit_test"
+                path = "tests/core.rs"
+                name = "selected_case"
+                disposition = "reviewed_nonmapping"
+                reason_code = "no_reviewed_spec_or_invariant_binding"
+                ignore_state = "not_ignored"
+
+                [[reviews]]
+                discovery_id = "DISC_DEFERRED"
+                discovery_source_kind = "rust_unit_test"
+                path = "tests/core.rs"
+                name = "deferred_case"
+                disposition = "reviewed_nonmapping"
+                reason_code = "no_reviewed_spec_or_invariant_binding"
+                ignore_state = "not_ignored"
+                """,
+            )
+            _write_toml(
+                verification / "test-catalog.toml",
+                "schema_version = 2\ntests = []",
+            )
+
+            selection = derive_frozen_selection(
+                root=root,
+                path="tests/core.rs",
+                expected_reviewed_nonmapping=1,
+                expected_catalog_mapped=0,
+                nonmapping_reason_code=(
+                    "no_reviewed_spec_or_invariant_binding"
+                ),
+                selected_discovery_ids=frozenset({"DISC_SELECTED"}),
+            )
+
+            self.assertEqual(("selected_case",), selection.names)
+
     def test_selection_rejects_invalid_frozen_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

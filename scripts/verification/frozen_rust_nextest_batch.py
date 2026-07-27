@@ -58,6 +58,7 @@ def derive_frozen_selection(
     expected_catalog_mapped: int,
     profile: FrozenRustTargetProfile = RUNTIME_CONTROL_PROFILE,
     nonmapping_reason_code: str | None = None,
+    selected_discovery_ids: frozenset[str] | None = None,
 ) -> FrozenSelection:
     """Select only frozen nonmapping and catalog-mapped tests for one path."""
 
@@ -86,7 +87,7 @@ def derive_frozen_selection(
     if any(row.get("status") != "mapped" for row in path_tests):
         raise ValueError(f"{path} has catalog rows that are not mapped")
 
-    reviewed = [
+    eligible_reviewed = [
         row
         for row in path_reviews
         if row.get("disposition") == "reviewed_nonmapping"
@@ -95,6 +96,25 @@ def derive_frozen_selection(
             or row.get("reason_code") == nonmapping_reason_code
         )
     ]
+    if selected_discovery_ids is not None:
+        if not selected_discovery_ids:
+            raise ValueError("selected discovery inventory cannot be empty")
+        eligible_ids = {
+            str(row.get("discovery_id")) for row in eligible_reviewed
+        }
+        unknown = sorted(selected_discovery_ids - eligible_ids)
+        if unknown:
+            raise ValueError(
+                "selected discovery inventory contains ineligible rows: "
+                + ", ".join(unknown)
+            )
+        reviewed = [
+            row
+            for row in eligible_reviewed
+            if row.get("discovery_id") in selected_discovery_ids
+        ]
+    else:
+        reviewed = eligible_reviewed
     denominator_mapped = [
         row
         for row in path_reviews
@@ -982,6 +1002,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--nonmapping-reason-code",
         help="select only reviewed_nonmapping rows with this exact reason code",
     )
+    parser.add_argument(
+        "--selection-inventory",
+        type=Path,
+        help=(
+            "select reviewed_nonmapping discovery IDs from one saved assertion "
+            "inventory while retaining mapped companions"
+        ),
+    )
     parser.add_argument("--raw-results", type=Path, required=True)
     parser.add_argument("--execution-metadata", type=Path)
     parser.add_argument(
@@ -1014,6 +1042,22 @@ def main(argv: list[str] | None = None) -> int:
         _checked_repo_file(root, CATALOG_PATH, "test catalog")
         _validate_catalog_path(args.path)
         _checked_repo_file(root, Path(args.path), "test source")
+        selected_discovery_ids = None
+        if args.selection_inventory is not None:
+            selection_inventory_path = _checked_repo_file(
+                root,
+                args.selection_inventory,
+                "selection inventory",
+            )
+            selection_inventory = json.loads(
+                selection_inventory_path.read_text()
+            )
+            if not isinstance(selection_inventory, Mapping):
+                raise ValueError("selection inventory must be a JSON object")
+            inventories = selection_inventory.get("inventories")
+            if not isinstance(inventories, Mapping):
+                raise ValueError("selection inventory lacks inventories")
+            selected_discovery_ids = frozenset(str(key) for key in inventories)
         raw_path = _checked_output_path(root, args.raw_results, "raw results")
         results_path = _checked_output_path(root, args.results, "results")
         metadata_value = args.execution_metadata or Path(
@@ -1094,6 +1138,7 @@ def main(argv: list[str] | None = None) -> int:
                 expected_catalog_mapped=args.expected_catalog_mapped,
                 profile=profile,
                 nonmapping_reason_code=args.nonmapping_reason_code,
+                selected_discovery_ids=selected_discovery_ids,
             )
             metadata = execute_nextest_batch(
                 root=root,
