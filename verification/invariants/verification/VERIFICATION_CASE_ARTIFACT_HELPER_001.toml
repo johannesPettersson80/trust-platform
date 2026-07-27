@@ -13,16 +13,11 @@ source_refs = [
   "docs/internal/testing/checklists/plc-verification-program/metadata-model.md",
   "crates/verification-cases/src/lib.rs",
 ]
-tests = []
+tests = ["TEST_AUTO_1A7BDF97311D84EE779B", "TEST_AUTO_247AAB98DD35F057E1EA", "TEST_AUTO_C932AA981C465EDBACC6"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = [
-  "cataloged_tests",
-  "focused_execution_evidence",
-  "resolved_generated_input_oracles",
-  "final_remote_gate",
-]
+missing = ["cataloged_tests", "focused_execution_evidence", "resolved_generated_input_oracles", "final_remote_gate"]
 
 [spec]
 status = "specified"

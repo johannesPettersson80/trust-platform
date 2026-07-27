@@ -104557,3 +104557,104 @@ mapping_assertion_review_digest = "sha256:6eb21d6f250c052f7656924b0e231202f0cd71
 mapping_assertion_source_digests = { "crates/trust-runtime/src/scheduler/runner_loop.rs" = "sha256:206c9cc6691c6b8fd462e40667f6c09e709c14611a9ee17a0e24db5a448a1245" }
 mapping_behavior_refs = ["RT_SAFE_DEADLINE_001#behavior:2"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_1A7BDF97311D84EE779B"
+subject_kind = "generated_test"
+discovery_id = "DISC_1A7BDF97311D84EE779B"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "verification"
+path = "crates/verification-cases/src/lib.rs"
+name = "default_artifact_dir_is_workspace_target_gate_artifacts"
+command = "cargo nextest run -p verification-cases --lib --no-fail-fast --user-config-file none -E 'binary_id(=verification-cases) & test(=tests::default_artifact_dir_is_workspace_target_gate_artifacts)'"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_CASE_ARTIFACT_HELPER_001"]
+oracle_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#case-artifact"
+oracle_refs = ["SPEC_VERIFICATION_PROGRAM_CONTRACT_001#case-artifact"]
+expected_result = "Standalone runs use the workspace target artifact directory and a complete TRUST_VERIFY directory stamp overrides that default exactly."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_1A7BDF97311D84EE779B.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_1A7BDF97311D84EE779B_66CEC1A74C7E"
+mapping_proposal_digest = "sha256:66cec1a74c7e14ffbf557d837a60d788d806dbf73e912cd918e31e6eab9d21ee"
+mapping_decision_id = "MAP_DEC_50C799AA15604519FD02F2F4"
+mapping_reviewed_source_digest = "sha256:dee6bd5b4b0e1cf5f827956bdb567f50be9317fa84a71dfef20f927d5f502341"
+mapping_assertion_review_digest = "sha256:d9332c3292f1cc831426547e7013a59f1ddcc904fdcce21414733b799f1f1c0a"
+mapping_assertion_source_digests = { "crates/verification-cases/src/lib.rs" = "sha256:dee6bd5b4b0e1cf5f827956bdb567f50be9317fa84a71dfef20f927d5f502341" }
+mapping_behavior_refs = ["VERIFICATION_CASE_ARTIFACT_HELPER_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_247AAB98DD35F057E1EA"
+subject_kind = "generated_test"
+discovery_id = "DISC_247AAB98DD35F057E1EA"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "verification"
+path = "crates/verification-cases/src/lib.rs"
+name = "stamped_artifact_dir_overrides_compile_time_workspace_path"
+command = "cargo nextest run -p verification-cases --lib --no-fail-fast --user-config-file none -E 'binary_id(=verification-cases) & test(=tests::stamped_artifact_dir_overrides_compile_time_workspace_path)'"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_CASE_ARTIFACT_HELPER_001"]
+oracle_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#case-artifact"
+oracle_refs = ["SPEC_VERIFICATION_PROGRAM_CONTRACT_001#case-artifact"]
+expected_result = "Standalone runs use the workspace target artifact directory and a complete TRUST_VERIFY directory stamp overrides that default exactly."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_247AAB98DD35F057E1EA.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_247AAB98DD35F057E1EA_384C466ACBE3"
+mapping_proposal_digest = "sha256:384c466acbe3a94164842b96a950e2b6c2e798005f980c05e6b4095e88af6c31"
+mapping_decision_id = "MAP_DEC_3F5AB4AFAAD8C808EA763B17"
+mapping_reviewed_source_digest = "sha256:dee6bd5b4b0e1cf5f827956bdb567f50be9317fa84a71dfef20f927d5f502341"
+mapping_assertion_review_digest = "sha256:122b43f7677c7dca6e876a91db1f4f8c731c4b65c2146fe96fd422a438bbfbe1"
+mapping_assertion_source_digests = { "crates/verification-cases/src/lib.rs" = "sha256:dee6bd5b4b0e1cf5f827956bdb567f50be9317fa84a71dfef20f927d5f502341" }
+mapping_behavior_refs = ["VERIFICATION_CASE_ARTIFACT_HELPER_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_C932AA981C465EDBACC6"
+subject_kind = "generated_test"
+discovery_id = "DISC_C932AA981C465EDBACC6"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "verification"
+path = "crates/verification-cases/src/lib.rs"
+name = "workspace_absolute_case_path_is_recorded_as_committed_relative_identity"
+command = "cargo nextest run -p verification-cases --lib --no-fail-fast --user-config-file none -E 'binary_id(=verification-cases) & test(=tests::workspace_absolute_case_path_is_recorded_as_committed_relative_identity)'"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_CASE_ARTIFACT_HELPER_001"]
+oracle_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#case-artifact"
+oracle_refs = ["SPEC_VERIFICATION_PROGRAM_CONTRACT_001#case-artifact"]
+expected_result = "A workspace-absolute committed case path is recorded as its stable committed-relative identity."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_C932AA981C465EDBACC6.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_C932AA981C465EDBACC6_1322320ED3B2"
+mapping_proposal_digest = "sha256:1322320ed3b2ba654fff53ea26d42c9677ce1d8134c34aaee435f5f6334773e3"
+mapping_decision_id = "MAP_DEC_147A0460B8E65BA99D743D0E"
+mapping_reviewed_source_digest = "sha256:dee6bd5b4b0e1cf5f827956bdb567f50be9317fa84a71dfef20f927d5f502341"
+mapping_assertion_review_digest = "sha256:d705f624ad2b9ae9e4233884da20b2e40c446abbb4ffdc4b0a4de6b28f810adc"
+mapping_assertion_source_digests = { "crates/verification-cases/src/lib.rs" = "sha256:dee6bd5b4b0e1cf5f827956bdb567f50be9317fa84a71dfef20f927d5f502341" }
+mapping_behavior_refs = ["VERIFICATION_CASE_ARTIFACT_HELPER_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
