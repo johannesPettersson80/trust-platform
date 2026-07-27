@@ -47,7 +47,22 @@ no_partial_apply = true
 delta = { target = "unchanged", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "stable_error", status = "fault_visible" }
 rationale = "When the watchdog deadline expires before physical output commit and no safe outputs are configured, the resource faults visibly and the pending process-image output is not written."
 
+[[behavior]]
+partition = { equals = "WATCHDOG_SAFE_STATE_WRITE_FAILURE_PRESERVES_ROOT" }
+case_family = "hardware_or_network_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#safe-state-handoff-confirmation"
+outcome = "fault_visible"
+fault_surface = "WatchdogTimeout"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "expected_delta", diagnostics = "stable_error", status = "fault_visible" }
+rationale = "A failed safe-state write remains visible while the original watchdog timeout stays the resource's root fault."
+
 [[coverage.cells]]
 dimension = "time_or_clock_fault"
 state = "gap_open"
 rationale = "The partial-safe-state and simulation-clock regressions pass; watchdog configuration and recovery boundaries remain open and the expanded contract has no causal broad-remote proof."
+
+[[coverage.cells]]
+dimension = "hardware_or_network_fault"
+state = "gap_open"
+rationale = "Existing watchdog safe-state failure assertions await generated catalog mapping and focused execution."

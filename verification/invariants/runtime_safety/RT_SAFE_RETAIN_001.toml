@@ -38,6 +38,24 @@ no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
 rationale = "The runtime validates every retained entry before committing any value, so a later incompatible entry rejects the snapshot without exposing an earlier compatible entry."
 
+[[behavior]]
+partition = { equals = "DUE_RETAIN_SAVE_FAILURE_BLOCKS_OUTPUT_COMMIT" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#retain-storage-iec-61131-3-656"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "fault_visible" }
+rationale = "A due retain-save failure ends the scan before any pending physical output is written."
+
+[[behavior]]
+partition = { equals = "REQUESTED_STOP_RETAIN_SAVE_FAILURE_VISIBLE" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#retain-storage-iec-61131-3-656"
+outcome = "fault_visible"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "fault_visible" }
+rationale = "A requested-stop retain-save failure leaves the resource faulted with the retain error instead of reporting a successful stop."
+
 [[coverage.cells]]
 dimension = "persistence_or_recovery"
 state = "covered"

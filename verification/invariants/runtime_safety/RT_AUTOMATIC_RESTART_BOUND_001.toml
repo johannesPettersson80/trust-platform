@@ -1,0 +1,57 @@
+schema_version = 1
+id = "RT_AUTOMATIC_RESTART_BOUND_001"
+title = "Automatic resource restart is bounded and fault-visible"
+area = "runtime_safety"
+risk = "safety_critical"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-27"
+claim = "A persistent non-panic cycle fault or watchdog timeout may follow configured automatic restart policy only for the bounded attempt budget; exhaustion leaves the resource visibly faulted with the root cause and restart-limit context."
+proof_level = "S0"
+contract_kind = "state_machine"
+source_refs = [
+  "docs/specs/11-runtime-engine.md",
+  "crates/trust-runtime/src/runtime",
+]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_tests", "focused_execution_evidence", "final_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#fault-overrun-and-watchdog-handling"
+
+[[behavior]]
+partition = { equals = "PERSISTENT_NONPANIC_FAULT_RESTART_LIMIT" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#fault-overrun-and-watchdog-handling"
+outcome = "fault_visible"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "expected_delta", process_image = "unchanged", diagnostics = "stable_error", status = "fault_visible" }
+rationale = "A persistent ordinary cycle fault receives at most three consecutive restart attempts before visible restart-limit escalation."
+
+[[behavior]]
+partition = { equals = "WATCHDOG_RESTART_LIMIT" }
+case_family = "time_or_clock_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#fault-overrun-and-watchdog-handling"
+outcome = "fault_visible"
+fault_surface = "RestartLimitExceeded"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "expected_delta", process_image = "unchanged", diagnostics = "stable_error", status = "fault_visible" }
+rationale = "A watchdog configured to restart receives exactly the bounded attempt budget before visible restart-limit escalation retains watchdog context."
+
+[[coverage.cells]]
+dimension = "persistence_or_recovery"
+state = "gap_open"
+rationale = "Existing persistent-fault restart assertions await generated catalog mapping and focused execution."
+
+[[coverage.cells]]
+dimension = "time_or_clock_fault"
+state = "gap_open"
+rationale = "Existing watchdog restart-limit assertions await generated catalog mapping and focused execution."

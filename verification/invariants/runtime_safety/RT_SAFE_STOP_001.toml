@@ -38,7 +38,21 @@ fault_surface = "SafeStateUnconfirmed"
 delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "expected_delta", diagnostics = "stable_error", status = "not_safe_reported" }
 rationale = "The safe output image is applied and every configured driver is attempted, but any driver error or non-Ok post-write health makes the overall handoff unconfirmed and prevents a successful stopped state."
 
+[[behavior]]
+partition = { equals = "CONFIRMED_DELIBERATE_STOP_SAFE_STATE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#safe-state-handoff-confirmation"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "expected_delta", diagnostics = "none", status = "status_stopped" }
+rationale = "A deliberate stop writes the configured safe output through the driver before the resource thread exits, then reports Stopped without a last error."
+
 [[coverage.cells]]
 dimension = "hardware_or_network_fault"
 state = "covered"
 rationale = "Producer-authentic red and green proof covers deliberate stop on degraded and faulted handoffs while later configured drivers are still attempted; broad remote and real output-module evidence remain explicit invariant debt."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "Existing deliberate-stop assertions await generated catalog mapping and focused execution."
