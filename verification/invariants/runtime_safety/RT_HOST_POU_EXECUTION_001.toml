@@ -3,7 +3,7 @@ id = "RT_HOST_POU_EXECUTION_001"
 title = "Host-stage POU evaluation preserves function frames and function-block storage"
 area = "runtime_safety"
 risk = "wrong_result"
-status = "specified"
+status = "mapped"
 owner = "trust-runtime"
 last_reviewed = "2026-07-27"
 claim = "The test-only host POU evaluator binds the reviewed function input and result, materializes declared defaults, preserves function-block state and omitted inputs, and proves selected write-through behavior through asserted whole-element sequences."
@@ -14,7 +14,7 @@ source_refs = [
   "docs/PRODUCT_DECISIONS.md",
   "crates/trust-runtime/src/host/eval",
 ]
-tests = []
+tests = ["TEST_AUTO_047702AC35B146A24FFA", "TEST_AUTO_0B7986105E0E71A865A1", "TEST_AUTO_3546DDBC36A22F00D5A5", "TEST_AUTO_59D95E3597564B9958D6", "TEST_AUTO_5FFA262B7BD078E8BA91", "TEST_AUTO_670508222190BB8225DC", "TEST_AUTO_A2B372EFAFFC18A26346", "TEST_AUTO_BDDA9C1300650D82D275", "TEST_AUTO_D69368F3E865C26363E8"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
@@ -93,10 +93,10 @@ rationale = "A pointer to ARRAY[*] changes only dereferenced element 2 in the as
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "Function binding/default and pointer/wildcard write-through behaviors await generated catalog mapping and focused execution."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in RT_HOST_POU_EXECUTION_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
-state = "gap_open"
-rationale = "Function-block persistence and omitted-input reuse await generated catalog mapping and focused execution."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in RT_HOST_POU_EXECUTION_001; dynamic proof and broad remote validation remain explicit debt."

@@ -3,7 +3,7 @@ id = "RT_HOST_HELPER_EVALUATION_001"
 title = "Host helpers evaluate only explicit constant and standard-library capabilities"
 area = "runtime_safety"
 risk = "wrong_result"
-status = "specified"
+status = "mapped"
 owner = "trust-runtime"
 last_reviewed = "2026-07-27"
 claim = "Bounded host helpers recursively evaluate the reviewed constant expressions, resolver-backed name, IEC array repetition, and capability-supplied ABS expression while rejecting the reviewed unavailable-name and absent-library cases."
@@ -15,7 +15,7 @@ source_refs = [
   "docs/PRODUCT_DECISIONS.md",
   "crates/trust-runtime/src/host/helper_eval",
 ]
-tests = []
+tests = ["TEST_AUTO_0EEA83257F8DEA9CBB11", "TEST_AUTO_45AF9C23886B40798672", "TEST_AUTO_56C32A98B0CE62F0D1BE", "TEST_AUTO_76C106F96179CB42CA7F", "TEST_AUTO_98087D9555A778C96FB9", "TEST_AUTO_EF19112CA33319B9B7F0", "TEST_AUTO_FE3CF701DB5C862F2AA8"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
@@ -85,10 +85,10 @@ rationale = "Without a StandardLibrary capability, the reviewed ABS(DINT#-1) exp
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "Constant, repetition, and explicit pure-standard-library helper behavior awaits generated catalog mapping and focused execution."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in RT_HOST_HELPER_EVALUATION_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "gap_open"
-rationale = "Unavailable resolver and standard-library capability rejection awaits generated catalog mapping and focused execution."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every wrong_type_or_shape behavior in RT_HOST_HELPER_EVALUATION_001; dynamic proof and broad remote validation remain explicit debt."
