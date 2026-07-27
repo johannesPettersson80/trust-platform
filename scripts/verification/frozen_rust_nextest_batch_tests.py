@@ -401,6 +401,21 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
             "trust-runtime::bounded_value_semantics",
             profile.binary_id,
         )
+        safety = get_target_profile(
+            "runtime-remaining",
+            path=(
+                "crates/trust-runtime/tests/"
+                "runtime_safety_fail_closed.rs"
+            ),
+        )
+        self.assertEqual(
+            ("--test", "runtime_safety_fail_closed"),
+            safety.cargo_target_args,
+        )
+        self.assertEqual(
+            "trust-runtime::runtime_safety_fail_closed",
+            safety.binary_id,
+        )
 
     def test_runtime_remaining_profile_resolves_openot_targets(self) -> None:
         unit = get_target_profile(

@@ -177,6 +177,7 @@ RUNTIME_REMAINING_INTEGRATION_PATHS = frozenset(
         "crates/trust-runtime/tests/openot_telemetry.rs",
         "crates/trust-runtime/tests/retain_integrity.rs",
         "crates/trust-runtime/tests/retain_store.rs",
+        "crates/trust-runtime/tests/runtime_safety_fail_closed.rs",
         "crates/trust-runtime/tests/stdlib_select.rs",
         "crates/trust-runtime/tests/vars_retain.rs",
     }
