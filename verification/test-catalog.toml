@@ -105166,3 +105166,274 @@ mapping_assertion_review_digest = "sha256:769dca8c60fa53db2e7b850620e34cd200461b
 mapping_assertion_source_digests = { "crates/trust-ads-server/src/notify.rs" = "sha256:5819c6004bb7632184439bf4942ad1a9f47d445f4a26905967b551b0b490034d" }
 mapping_behavior_refs = ["RT_ADS_SERVER_NOTIFICATION_SAMPLING_001#behavior:0"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_0376748F4EDA16DC094A"
+subject_kind = "generated_test"
+discovery_id = "DISC_0376748F4EDA16DC094A"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-ads-server/src/listener.rs"
+name = "tcp_listener_rejects_symbol_read_on_system_service_port"
+command = "cargo nextest run -p trust-ads-server --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-ads-server) & test(=listener::tests::tcp_listener_rejects_symbol_read_on_system_service_port)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_COMMAND_DISPATCH_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-command-dispatch-and-resource-safety"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#ads-server-command-dispatch-and-resource-safety"]
+expected_result = "Unknown configured target ports reject without payload, while the system service accepts ReadState and rejects symbol Read with their exact ADS results."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_0376748F4EDA16DC094A.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_0376748F4EDA16DC094A_66D3416EB65C"
+mapping_proposal_digest = "sha256:66d3416eb65ca98bf488fe3aa0abf225e25b088b6ae330a8f41eeb6dbd6ce8be"
+mapping_decision_id = "MAP_DEC_DB8D00BB4AF62D453292F49A"
+mapping_reviewed_source_digest = "sha256:f456e786579165c7756f063371997af148e0febb0d9f2ca37e02341aa584399e"
+mapping_assertion_review_digest = "sha256:605ac5d6e653765daa05e95645037ef77d9171f73b84f409ff9587f35f423c30"
+mapping_assertion_source_digests = { "crates/trust-ads-server/src/listener.rs" = "sha256:f456e786579165c7756f063371997af148e0febb0d9f2ca37e02341aa584399e" }
+mapping_behavior_refs = ["RT_ADS_SERVER_COMMAND_DISPATCH_001#behavior:6"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_0A2D8A3961E27560BE4C"
+subject_kind = "generated_test"
+discovery_id = "DISC_0A2D8A3961E27560BE4C"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-ads-server/src/listener.rs"
+name = "tcp_listener_reports_bind_conflict"
+command = "cargo nextest run -p trust-ads-server --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-ads-server) & test(=listener::tests::tcp_listener_reports_bind_conflict)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_PUBLICATION_LIFECYCLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle"]
+expected_result = "An unavailable TCP bind address returns the bind-error class without yielding a usable server handle."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_0A2D8A3961E27560BE4C.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_0A2D8A3961E27560BE4C_9235F6DC6F91"
+mapping_proposal_digest = "sha256:9235f6dc6f910aaed8e2940001725c6f61802c8c6112fc3027f45cfb4f297018"
+mapping_decision_id = "MAP_DEC_64650DF51DC3C899587EC796"
+mapping_reviewed_source_digest = "sha256:f456e786579165c7756f063371997af148e0febb0d9f2ca37e02341aa584399e"
+mapping_assertion_review_digest = "sha256:f653975217f66c82b4c1fa28dccb38da749724f6f3556ac428ee0cb7664314f7"
+mapping_assertion_source_digests = { "crates/trust-ads-server/src/listener.rs" = "sha256:f456e786579165c7756f063371997af148e0febb0d9f2ca37e02341aa584399e" }
+mapping_behavior_refs = ["RT_ADS_SERVER_PUBLICATION_LIFECYCLE_001#behavior:8"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_0A97A0F0172B859013CF"
+subject_kind = "generated_test"
+discovery_id = "DISC_0A97A0F0172B859013CF"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-ads-server/src/listener.rs"
+name = "ams_net_id_text_conversion_round_trips"
+command = "cargo nextest run -p trust-ads-server --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-ads-server) & test(=listener::tests::ams_net_id_text_conversion_round_trips)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_ONBOARDING_IDENTITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-identity-authority"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#ads-onboarding-identity-authority"]
+expected_result = "Valid addresses and valid derived or explicit AMS identity produce one canonical authority record. An explicit override must contain exactly six unsigned decimal octets."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_0A97A0F0172B859013CF.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_0A97A0F0172B859013CF_6583E2AF0D0E"
+mapping_proposal_digest = "sha256:6583e2af0d0e1b6ef7f2e311e777d1d5d141ee16244b9ff32cec63aef3b531fd"
+mapping_decision_id = "MAP_DEC_5A01E0F75708617D3A30C03F"
+mapping_reviewed_source_digest = "sha256:f456e786579165c7756f063371997af148e0febb0d9f2ca37e02341aa584399e"
+mapping_assertion_review_digest = "sha256:6023ce93a2272fcdff0b7e22fea43a469f9743c111cd69a90564a7373787321d"
+mapping_assertion_source_digests = { "crates/trust-ads-server/src/listener.rs" = "sha256:f456e786579165c7756f063371997af148e0febb0d9f2ca37e02341aa584399e" }
+mapping_behavior_refs = ["RT_ADS_ONBOARDING_IDENTITY_001#behavior:0", "RT_ADS_ONBOARDING_IDENTITY_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_37BA40215DC8CA1E63B2"
+subject_kind = "generated_test"
+discovery_id = "DISC_37BA40215DC8CA1E63B2"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-ads-server/src/listener.rs"
+name = "tcp_listener_rejects_unknown_router_metadata_offset"
+command = "cargo nextest run -p trust-ads-server --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-ads-server) & test(=listener::tests::tcp_listener_rejects_unknown_router_metadata_offset)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_COMMAND_DISPATCH_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-command-dispatch-and-resource-safety"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#ads-server-command-dispatch-and-resource-safety"]
+expected_result = "Router device info exposes the reviewed version/name, and an unknown metadata offset returns transport success with embedded ADS InvalidOffset and zero data length."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_37BA40215DC8CA1E63B2.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_37BA40215DC8CA1E63B2_A685D348885A"
+mapping_proposal_digest = "sha256:a685d348885a97251c147adee5154be1ab38daea46a3b94125e5930034bf572f"
+mapping_decision_id = "MAP_DEC_4E0292BE8205E3E5AD18D45E"
+mapping_reviewed_source_digest = "sha256:f456e786579165c7756f063371997af148e0febb0d9f2ca37e02341aa584399e"
+mapping_assertion_review_digest = "sha256:9bbe4a1ed0de6903a3ecbb21d8e2d5c83389f26ebc5558189453ad699be036fd"
+mapping_assertion_source_digests = { "crates/trust-ads-server/src/listener.rs" = "sha256:f456e786579165c7756f063371997af148e0febb0d9f2ca37e02341aa584399e" }
+mapping_behavior_refs = ["RT_ADS_SERVER_COMMAND_DISPATCH_001#behavior:7"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_73429B49E1D0F67890B6"
+subject_kind = "generated_test"
+discovery_id = "DISC_73429B49E1D0F67890B6"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-ads-server/src/listener.rs"
+name = "tcp_listener_rejects_wrong_target_port"
+command = "cargo nextest run -p trust-ads-server --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-ads-server) & test(=listener::tests::tcp_listener_rejects_wrong_target_port)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_COMMAND_DISPATCH_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-command-dispatch-and-resource-safety"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#ads-server-command-dispatch-and-resource-safety"]
+expected_result = "Unknown configured target ports reject without payload, while the system service accepts ReadState and rejects symbol Read with their exact ADS results."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_73429B49E1D0F67890B6.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_73429B49E1D0F67890B6_9D4FB51A6623"
+mapping_proposal_digest = "sha256:9d4fb51a6623c0cbec1e5da11bc68a36f943e816ea86626b163e059303a9cfc7"
+mapping_decision_id = "MAP_DEC_A6B107E54EF793D97C755E40"
+mapping_reviewed_source_digest = "sha256:f456e786579165c7756f063371997af148e0febb0d9f2ca37e02341aa584399e"
+mapping_assertion_review_digest = "sha256:7091978fd76d3f8b44d696be60bb14a6177ced06b3f7c2f31c0996e967c29ff4"
+mapping_assertion_source_digests = { "crates/trust-ads-server/src/listener.rs" = "sha256:f456e786579165c7756f063371997af148e0febb0d9f2ca37e02341aa584399e" }
+mapping_behavior_refs = ["RT_ADS_SERVER_COMMAND_DISPATCH_001#behavior:6"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_DAEE09612892723F2F46"
+subject_kind = "generated_test"
+discovery_id = "DISC_DAEE09612892723F2F46"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-ads-server/src/listener.rs"
+name = "tcp_listener_notifications_keep_registering_ads_port_on_multiplexed_connection"
+command = "cargo nextest run -p trust-ads-server --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-ads-server) & test(=listener::tests::tcp_listener_notifications_keep_registering_ads_port_on_multiplexed_connection)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_COMMAND_DISPATCH_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-command-dispatch-and-resource-safety"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#ads-server-command-dispatch-and-resource-safety"]
+expected_result = "A successful registration retains its original receiver port after a later router request on the same multiplexed TCP connection."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_DAEE09612892723F2F46.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_DAEE09612892723F2F46_0EE1B31D625A"
+mapping_proposal_digest = "sha256:0ee1b31d625ad4f71d46c3fc7973a5b06e17e2bbbafff3bb6a7188f03bc23300"
+mapping_decision_id = "MAP_DEC_F16A44C39BE19A7C229BB7BE"
+mapping_reviewed_source_digest = "sha256:f456e786579165c7756f063371997af148e0febb0d9f2ca37e02341aa584399e"
+mapping_assertion_review_digest = "sha256:30383be2be85a598b27b7b37b793ade3015690e41d90c63afc042b2fbb52a67d"
+mapping_assertion_source_digests = { "crates/trust-ads-server/src/listener.rs" = "sha256:f456e786579165c7756f063371997af148e0febb0d9f2ca37e02341aa584399e" }
+mapping_behavior_refs = ["RT_ADS_SERVER_COMMAND_DISPATCH_001#behavior:8"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_DE976A1A8F7E4DBB441D"
+subject_kind = "generated_test"
+discovery_id = "DISC_DE976A1A8F7E4DBB441D"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-ads-server/src/listener.rs"
+name = "tcp_listener_serves_router_device_info"
+command = "cargo nextest run -p trust-ads-server --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-ads-server) & test(=listener::tests::tcp_listener_serves_router_device_info)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_COMMAND_DISPATCH_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-command-dispatch-and-resource-safety"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#ads-server-command-dispatch-and-resource-safety"]
+expected_result = "Router device info exposes the reviewed version/name, and an unknown metadata offset returns transport success with embedded ADS InvalidOffset and zero data length."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_DE976A1A8F7E4DBB441D.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_DE976A1A8F7E4DBB441D_6C7574DB90E0"
+mapping_proposal_digest = "sha256:6c7574db90e0e745896ab78963f56fb81bf7360d31e8ddcfdf974cda99abb50b"
+mapping_decision_id = "MAP_DEC_8F9FF1EE83391965E61BFAAC"
+mapping_reviewed_source_digest = "sha256:f456e786579165c7756f063371997af148e0febb0d9f2ca37e02341aa584399e"
+mapping_assertion_review_digest = "sha256:551093511d339060b71f4227c9ee71fdd4e36b0bce7c9603053f54a82d15d74a"
+mapping_assertion_source_digests = { "crates/trust-ads-server/src/listener.rs" = "sha256:f456e786579165c7756f063371997af148e0febb0d9f2ca37e02341aa584399e" }
+mapping_behavior_refs = ["RT_ADS_SERVER_COMMAND_DISPATCH_001#behavior:7"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_F30BDFE825C2777A6CE7"
+subject_kind = "generated_test"
+discovery_id = "DISC_F30BDFE825C2777A6CE7"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-ads-server/src/listener.rs"
+name = "tcp_listener_serves_system_service_read_state"
+command = "cargo nextest run -p trust-ads-server --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-ads-server) & test(=listener::tests::tcp_listener_serves_system_service_read_state)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_COMMAND_DISPATCH_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-command-dispatch-and-resource-safety"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#ads-server-command-dispatch-and-resource-safety"]
+expected_result = "Unknown configured target ports reject without payload, while the system service accepts ReadState and rejects symbol Read with their exact ADS results."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_F30BDFE825C2777A6CE7.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_F30BDFE825C2777A6CE7_080EB726EB47"
+mapping_proposal_digest = "sha256:080eb726eb4772a062eb1fd7212bb612f7958f1a41407fe8705870ad0572730b"
+mapping_decision_id = "MAP_DEC_7A8019275089EF00CBE8FD94"
+mapping_reviewed_source_digest = "sha256:f456e786579165c7756f063371997af148e0febb0d9f2ca37e02341aa584399e"
+mapping_assertion_review_digest = "sha256:1b3c1625592750136df5783b6e459acaaa4d5f1e78bac98c32ea819056439265"
+mapping_assertion_source_digests = { "crates/trust-ads-server/src/listener.rs" = "sha256:f456e786579165c7756f063371997af148e0febb0d9f2ca37e02341aa584399e" }
+mapping_behavior_refs = ["RT_ADS_SERVER_COMMAND_DISPATCH_001#behavior:6"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
