@@ -151,12 +151,33 @@ RUNTIME_CORE_REMAINING_PROFILE = FrozenRustTargetProfile(
     no_default_features_shard_name=None,
 )
 
+RUNTIME_REMAINING_LIB_PROFILE = FrozenRustTargetProfile(
+    key=RUNTIME_REMAINING_PROFILE_KEY,
+    package="trust-runtime",
+    target_kind="lib",
+    target_name=None,
+    binary_id="trust-runtime",
+    test_prefix="",
+    encoded_test_name_prefix="trust-runtime::trust_runtime$",
+    discovery_source_kind="rust_unit_test",
+    allowed_cfg_attributes=frozenset(),
+    no_default_features_cfg=None,
+    no_default_features_shard_name=None,
+)
+
 RUNTIME_REMAINING_INTEGRATION_PATHS = frozenset(
     {
         "crates/trust-runtime/tests/bounded_value_semantics.rs",
+        "crates/trust-runtime/tests/openot_telemetry.rs",
         "crates/trust-runtime/tests/stdlib_select.rs",
     }
 )
+
+RUNTIME_REMAINING_UNIT_PREFIXES: Mapping[str, str] = {
+    "crates/trust-runtime/src/openot_authoring/tests.rs": (
+        "openot_authoring::tests::"
+    ),
+}
 
 HIR_REMAINING_INTEGRATION_PATHS = frozenset(
     {
@@ -439,6 +460,13 @@ def _syntax_remaining_profile(path: str | None) -> FrozenRustTargetProfile:
 
 
 def _runtime_remaining_profile(path: str | None) -> FrozenRustTargetProfile:
+    if path in RUNTIME_REMAINING_UNIT_PREFIXES:
+        return _unit_path_profile(
+            RUNTIME_REMAINING_LIB_PROFILE,
+            RUNTIME_REMAINING_UNIT_PREFIXES,
+            path,
+            "runtime",
+        )
     if path in RUNTIME_REMAINING_INTEGRATION_PATHS:
         target_name = str(path).removeprefix(
             "crates/trust-runtime/tests/"

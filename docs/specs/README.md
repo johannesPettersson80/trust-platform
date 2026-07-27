@@ -31,7 +31,7 @@ this directory are explicitly identified and do not become IEC requirements.
 | [24-release-evidence.md](24-release-evidence.md) | Platform, source-build, dependency, artifact, version, hardware, and conformance evidence | release tooling, CI, docs |
 | [25-vscode-product-contract.md](25-vscode-product-contract.md) | VS Code shell, Live Values, Devices & Connections, examples, libraries, HMI preview, and visual-editor product behavior | editors/vscode |
 | [26-hir-semantic-kernel.md](26-hir-semantic-kernel.md) | Incremental HIR source identity, invalidation, translation, concurrency, and semantic-query contracts | trust-hir |
-| [27-openot-authoring.md](27-openot-authoring.md) | OpenOT pragma vocabulary, type binding, event relationships, state vocabulary, and bounded authoring records | trust-hir |
+| [27-openot-authoring.md](27-openot-authoring.md) | OpenOT pragma vocabulary, runtime translation, producer publication, event materialization, and fenced reconciliation | trust-hir, trust-runtime |
 | [28-hir-warning-policy.md](28-hir-warning-policy.md) | Product warning policy for unused declarations, conversions, complexity, reachability, determinism, and suspicious operations | trust-hir |
 | [29-hir-sizeof-and-allocation.md](29-hir-sizeof-and-allocation.md) | Product contracts for `SIZEOF`, `NEW`, and `__DELETE` semantic validation | trust-hir |
 | [30-verification-inventory.md](30-verification-inventory.md) | Governance contract for complete IEC table inventory coverage and fail-closed review | verification tooling |

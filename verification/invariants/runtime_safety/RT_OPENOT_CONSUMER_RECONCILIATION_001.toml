@@ -1,0 +1,48 @@
+schema_version = 1
+id = "RT_OPENOT_CONSUMER_RECONCILIATION_001"
+title = "OpenOT consumers reconcile fenced delivery and epoch state"
+area = "runtime_safety"
+risk = "silent_corruption"
+status = "planned"
+owner = "trust-runtime"
+last_reviewed = "2026-07-27"
+claim = "Fenced OpenOT consumers account for every expected record as delivered or lost per run/source and preserve epoch boundaries across processes."
+proof_level = "S0"
+contract_kind = "protocol_trace"
+source_refs = ["docs/specs/27-openot-authoring.md", "crates/trust-runtime/tests/openot_capstone.rs"]
+tests = []
+gates = ["nightly"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["resolved_assertion_oracles", "focused_cross_process_execution", "final_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_OPENOT_AUTHORING_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_OPENOT_AUTHORING_001#14-consumer-reconciliation"
+
+[[behavior]]
+partition = { equals = "FENCED_DELIVERY_AND_LOSS_ACCOUNTING" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_OPENOT_AUTHORING_001#14-1-fenced-loss-accounting"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Per-run/source delivered and lost counts reconcile the expected high-water total, while invalid or partial records never count as delivered."
+
+[[behavior]]
+partition = { equals = "EPOCH_AND_CROSS_PROCESS_RECONCILIATION" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_OPENOT_AUTHORING_001#14-2-epoch-and-cross-process-reconciliation"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Producer and consumer processes share committed ring truth and keep stale prior-epoch observations separate from the current run."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "The reconciliation contract is specified; the capstone helper oracle remains unresolved."

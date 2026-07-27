@@ -1,0 +1,67 @@
+schema_version = 1
+id = "RT_OPENOT_ST_PRODUCER_CONFORMANCE_001"
+title = "OpenOT Structured Text producer commits bounded canonical records"
+area = "runtime_safety"
+risk = "silent_corruption"
+status = "planned"
+owner = "trust-runtime"
+last_reviewed = "2026-07-27"
+claim = "The Structured Text OpenOT producer preserves edge-triggered scan order, byte-exact typed encoding, source time, and fail-closed state transitions within its bounded record buffer."
+proof_level = "S0"
+contract_kind = "protocol_trace"
+source_refs = ["docs/specs/27-openot-authoring.md", "crates/trust-runtime/tests/openot_telemetry.rs"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["resolved_assertion_oracles", "focused_execution_evidence", "final_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_OPENOT_AUTHORING_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_OPENOT_AUTHORING_001#11-structured-text-producer-execution"
+
+[[behavior]]
+partition = { equals = "EDGE_TRIGGERED_SCAN_COMMIT" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_OPENOT_AUTHORING_001#11-1-producer-scan-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "expected_delta" }
+rationale = "One execute edge produces one ordered operation and only fully committed scan records become drainable."
+
+[[behavior]]
+partition = { equals = "TYPED_WIRE_AND_SOURCE_TIME" }
+case_family = "encoding_or_unicode"
+oracle_ref = "SPEC_OPENOT_AUTHORING_001#11-2-typed-wire-encoding-and-source-time"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Canonical types, slot payloads, sequences, and configured source time are emitted byte-exactly."
+
+[[behavior]]
+partition = { equals = "RECORD_CONSTRUCTION_FAILS_CLOSED" }
+case_family = "resource_limit"
+oracle_ref = "SPEC_OPENOT_AUTHORING_001#11-3-fail-closed-record-construction"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "expected_delta" }
+rationale = "Oversize, incomplete, inactive-lifecycle, and invalid-attestation operations publish nothing and do not advance their successful baseline."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "The scan contract is specified; external helper assertion oracles remain unresolved."
+
+[[coverage.cells]]
+dimension = "encoding_or_unicode"
+state = "gap_open"
+rationale = "The byte-exact contract is specified; external helper assertion oracles remain unresolved."
+
+[[coverage.cells]]
+dimension = "resource_limit"
+state = "gap_open"
+rationale = "The producer failure contract is specified; external helper assertion oracles remain unresolved."

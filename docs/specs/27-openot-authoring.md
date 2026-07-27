@@ -268,3 +268,207 @@ authoring validation suite:
 These partitions establish specification authority only. Catalog association,
 dynamic reachability, assertion-strength review, and the final broad gate
 remain separate verification work.
+
+## 10. Runtime authoring translation
+
+### 10.1 Source and value identity allocation
+
+Each attributed `PROGRAM` MUST produce one independently addressable OpenOT
+source. An explicit `sourceid` pins that source identity and MUST be unique
+across all programs in the compilation. Programs without an explicit
+`sourceid` MUST receive distinct positive identities in deterministic program
+declaration order, beginning at 1 while skipping identities already pinned in
+the same compilation.
+
+An explicit `id` or `valueid` pins the corresponding value identity and MUST
+remain stable when declarations are reordered. Unpinned value identities MUST
+be allocated deterministically in declaration order, beginning at 2001 while
+skipping pinned identities. A collision MUST reject the complete OpenOT
+translation; it MUST NOT silently renumber an explicitly pinned identity.
+
+### 10.2 Definition-file projection
+
+Successful translation MUST produce an OpenOT definition document that:
+
+- carries a 64-character hexadecimal content hash computed over the canonical
+  definition content;
+- declares the producer's 256-byte maximum record size;
+- projects each program as a source with its qualified name, file/program
+  hierarchy, path, and allocated source identity;
+- projects supported values, state machines, enum sets, conditions, units, and
+  canonical event-type schemas without changing their reviewed numeric
+  identities;
+- uses the canonical unit registry (`L` = 2, `degC` = 3, `kg` = 8);
+- records explicit sampling as `periodic:<milliseconds>`, `deadband`, or
+  `hysteresis`, while leaving the field absent for the legacy implicit
+  deadband form;
+- defaults an uncategorized state to the process category and no procedural
+  model; and
+- retains the raw-definition tables for recipe, batch, material, and operator
+  vocabulary as empty arrays until those vocabularies receive separately
+  reviewed definition records.
+
+State-machine definitions MUST reference the declared enum set and preserve
+the enum's labels and numeric values. Every emitted event-type definition MUST
+equal the canonical OpenOT schema for that event type.
+
+### 10.3 Deterministic ST instrumentation
+
+Successful translation MUST instrument each attributed program before
+bytecode generation. The generated declarations MUST include one hidden
+`OotProducer : OPENOT_Producer`, a disabled-by-default host source-time input,
+and the previous-value or edge state needed by the declaration kinds in
+sections 2 through 8.
+
+The generated calls MUST preserve the reviewed internal producer operation
+partition:
+
+- message = 0, scalar `REAL` value = 6, alarm = 9;
+- fixed-width scalar value = 10 and bounded-string value = 11;
+- condition lifecycle = 12, procedure/batch/recipe/material = 13; and
+- regulated operator/security event = 14.
+
+The operation number is an internal truST/OpenOT ABI, not user-authored syntax.
+Generated fixed-width value calls MUST carry the exact type tag, payload
+length, and bit-preserving payload for the declared type. Bounded strings MUST
+use the string payload input. State calls MUST preserve the HIR enum type,
+initial member, and declared numeric member values instead of substituting
+ordinal positions.
+
+Sampling, quality, semantic-role, previous-value suppression, lifecycle,
+procedure, regulated-event, authentication, and source-time fields MUST be
+projected explicitly when their source attributes require them. Alarm calls
+MUST be ordered before lifecycle calls that may refer to the alarm activation.
+E-signature calls MUST be ordered after other generated event calls in the
+same scan.
+
+### 10.4 Compilation fail closed
+
+Runtime authoring validation MUST agree with the HIR OpenOT validation contract
+for shared identity and type rules. If validation or definition generation
+fails, compilation MUST return the error and MUST NOT build bytecode from the
+uninstrumented source. Unsupported value types, duplicate pinned identities,
+or an unrepresentable record shape MUST therefore fail the complete
+compilation.
+
+## 11. Structured Text producer execution
+
+### 11.1 Producer scan contract
+
+`OPENOT_Producer` MUST treat a false-to-true `Execute` edge as one operation
+request and MUST NOT duplicate that request while `Execute` remains true.
+Successful operations in one scan MUST retain invocation order. The producer
+MUST expose a bounded scan buffer, the number of committed records, a
+source-high-water record when requested, and an explicit error state.
+
+The runtime drain MUST consume only fully committed producer records. Clearing
+or acknowledging the scan MUST not mutate already published ring records.
+
+### 11.2 Typed wire encoding and source time
+
+Every producer record MUST use the canonical event type, source identity,
+sequence, source time, and typed slot keys required by the requested operation.
+Fixed-width values MUST be encoded byte-exactly according to their type tag and
+payload width. Strings MUST preserve their bounded UTF-8 content.
+
+When the generated host source-time input is enabled, the producer MUST use the
+provided Unix-nanosecond value. Otherwise it MUST use its configured source
+clock. Source sequence MUST increase monotonically within one producer epoch.
+
+### 11.3 Fail-closed record construction
+
+An operation whose required fields are absent, whose encoded record exceeds
+the producer buffer, or whose lifecycle/attestation precondition is not live
+MUST fail without publishing a partial record. The previous-value baseline,
+activation state, and attestation state MUST advance only when their
+corresponding record is successfully committed.
+
+## 12. Runtime telemetry publication
+
+### 12.1 Heartbeat and ST-producer publication
+
+When OpenOT telemetry is enabled with the heartbeat source, each successful
+runtime cycle MUST append one CRC-valid `Heartbeat` record using the system
+source identity, the current run identity, and the cycle sequence/source-time
+value.
+
+When the configured source is `st-fb`, the runtime MUST drain the configured
+producer instance or instances after program execution. Every complete
+producer record MUST be appended in the configured producer order with its
+original source identity, event type, source sequence, source time, and slots.
+
+### 12.2 Publication failure and scan integrity
+
+Failure to create, encode, or append any required heartbeat or producer record
+MUST fail the runtime cycle. The runtime MUST NOT report a successful scan
+after silently dropping a required record. A failed append MUST preserve the
+producer scan state needed to diagnose or retry the uncommitted data; it MUST
+not acknowledge publication that did not occur.
+
+### 12.3 Multi-source sequence and transition
+
+Multiple configured ST producer instances MAY publish to one ring. Publication
+MUST preserve the configured instance order while retaining an independent
+monotonic sequence and source-high-water progression for each `(run_id,
+source_id)` pair. Definition or epoch transition records MUST remain ordered
+with the producer events that establish the transition.
+
+## 13. Event materialization and definition resolution
+
+### 13.1 Value, state, alarm, and message events
+
+The producer MUST materialize value changes, parameter changes, state
+transitions, alarm activation/clear, and messages with the canonical event
+type and required typed slots. A parameter change MUST carry both previous and
+new values plus its reviewed audit context. A state transition MUST carry the
+declared previous and new numeric enum values.
+
+### 13.2 Conditions and attestations
+
+Activation-scoped condition events MUST use the live parent-alarm correlation
+and fail when no matching activation exists. Condition-scoped suppress,
+unsuppress, out-of-service, in-service, and priority-change events MUST be
+allowed without a live activation and MUST omit an invented correlation.
+
+An e-signature MUST identify the attested event's committed sequence. Same-scan
+attestation MUST observe the earlier phased event; cross-scan attestation MAY
+refer to an event committed earlier in the same epoch. A never-emitted target
+or a target from an earlier epoch MUST fail closed.
+
+### 13.3 Procedure and regulated events
+
+Batch, recipe, material, operator, login, logout, and security events MUST use
+their canonical event types and typed bound fields. Authentication symbols
+MUST lower to the codes defined in section 7. Optional fields MUST be marked
+present only when their source binding exists; an absent optional binding MUST
+not produce a fabricated zero-valued field.
+
+### 13.4 Definition resolution
+
+A consumer supplied with the matching definition MUST resolve numeric value,
+state-machine, condition, message-template, enum, and unit identities to the
+definition meaning. Raw procedure and regulated-event bindings remain raw
+until their reserved definition tables are populated. Resolution MUST NOT
+invent a definition entry for an unknown identity.
+
+## 14. Consumer reconciliation
+
+### 14.1 Fenced loss accounting
+
+In fenced mode, the consumer MUST distinguish delivered records from
+overwritten records using the ring's committed sequence and loss evidence.
+For every `(run_id, source_id)` high-water claim, the reconciled delivered and
+lost counts MUST equal the expected total. A CRC-invalid or incompletely
+committed record MUST NOT count as delivered.
+
+Unfenced mode is proof-only and MUST NOT be reported as providing the fenced
+reconciliation guarantee.
+
+### 14.2 Epoch and cross-process reconciliation
+
+Producer and consumer processes MUST reconcile the same committed ring state
+across the shared-memory boundary. Epoch transitions MUST partition source
+sequence and attestation state; stale records from an earlier epoch MUST be
+identified rather than attributed to the current run. A reconciled report MUST
+retain the source/run identity, expected total, delivered count, loss count,
+and stale-observation evidence needed to audit the result.

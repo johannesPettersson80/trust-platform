@@ -358,6 +358,33 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
             profile.binary_id,
         )
 
+    def test_runtime_remaining_profile_resolves_openot_targets(self) -> None:
+        unit = get_target_profile(
+            "runtime-remaining",
+            path="crates/trust-runtime/src/openot_authoring/tests.rs",
+        )
+        integration = get_target_profile(
+            "runtime-remaining",
+            path="crates/trust-runtime/tests/openot_telemetry.rs",
+        )
+
+        self.assertEqual(("--lib",), unit.cargo_target_args)
+        self.assertEqual("openot_authoring::tests::", unit.test_prefix)
+        self.assertEqual("rust_unit_test", unit.discovery_source_kind)
+        self.assertEqual(
+            ("--test", "openot_telemetry"),
+            integration.cargo_target_args,
+        )
+        self.assertEqual(
+            "trust-runtime::openot_telemetry",
+            integration.binary_id,
+        )
+        with self.assertRaisesRegex(ValueError, "outside the closed runtime"):
+            get_target_profile(
+                "runtime-remaining",
+                path="crates/trust-runtime/src/not_reviewed.rs",
+            )
+
     def test_hir_selection_requires_integration_discovery_kind(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

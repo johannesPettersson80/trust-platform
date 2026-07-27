@@ -1,0 +1,85 @@
+schema_version = 1
+id = "RT_OPENOT_EVENT_MATERIALIZATION_001"
+title = "OpenOT events materialize canonical typed meaning"
+area = "runtime_safety"
+risk = "wrong_result"
+status = "planned"
+owner = "trust-runtime"
+last_reviewed = "2026-07-27"
+claim = "OpenOT producer events use canonical event types and typed fields, preserve lifecycle and attestation state, and resolve only meaning present in the matching definition."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["docs/specs/27-openot-authoring.md", "crates/trust-runtime/tests/openot_telemetry.rs"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["resolved_assertion_oracles", "focused_execution_evidence", "final_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_OPENOT_AUTHORING_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_OPENOT_AUTHORING_001#13-event-materialization-and-definition-resolution"
+
+[[behavior]]
+partition = { equals = "CORE_EVENT_MATERIALIZATION" }
+case_family = "encoding_or_unicode"
+oracle_ref = "SPEC_OPENOT_AUTHORING_001#13-1-value-state-alarm-and-message-events"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Value, parameter, state, alarm, and message records contain their canonical event types and typed fields."
+
+[[behavior]]
+partition = { equals = "LIVE_CONDITION_AND_ATTESTATION_STATE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_OPENOT_AUTHORING_001#13-2-conditions-and-attestations"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Condition correlation and e-signature sequence authority follow live activation and current-epoch committed event state."
+
+[[behavior]]
+partition = { equals = "INVALID_CONDITION_OR_ATTESTATION_STATE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_OPENOT_AUTHORING_001#13-2-conditions-and-attestations"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "expected_delta" }
+rationale = "Activation-scoped commands without a live activation and attestations without a current-epoch committed target fail without publishing."
+
+[[behavior]]
+partition = { equals = "PROCEDURE_AND_REGULATED_EVENT_FIELDS" }
+case_family = "encoding_or_unicode"
+oracle_ref = "SPEC_OPENOT_AUTHORING_001#13-3-procedure-and-regulated-events"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Procedure, material, operator, and security events preserve canonical types, bound fields, authentication codes, and optional presence."
+
+[[behavior]]
+partition = { equals = "MATCHING_DEFINITION_RESOLUTION" }
+case_family = "encoding_or_unicode"
+oracle_ref = "SPEC_OPENOT_AUTHORING_001#13-4-definition-resolution"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Only identities present in the matching definition are resolved to semantic names, units, enums, and templates."
+
+[[coverage.cells]]
+dimension = "encoding_or_unicode"
+state = "gap_open"
+rationale = "The event and definition contract is specified; external helper assertion oracles remain unresolved."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "The lifecycle and attestation contract is specified; external helper assertion oracles remain unresolved."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "The invalid lifecycle and attestation contract is specified; external helper assertion oracles remain unresolved."

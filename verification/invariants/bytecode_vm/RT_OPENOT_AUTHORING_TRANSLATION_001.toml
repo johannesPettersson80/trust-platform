@@ -1,0 +1,99 @@
+schema_version = 1
+id = "RT_OPENOT_AUTHORING_TRANSLATION_001"
+title = "OpenOT authoring translates deterministically and fails closed"
+area = "bytecode_vm"
+risk = "wrong_result"
+status = "planned"
+owner = "trust-runtime"
+last_reviewed = "2026-07-27"
+claim = "Accepted OpenOT attributes deterministically allocate identities, produce the canonical definition projection, and instrument typed producer calls before bytecode generation; rejected input cannot fall back to uninstrumented bytecode."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["docs/specs/27-openot-authoring.md", "crates/trust-runtime/src/openot_authoring.rs"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_tests", "focused_execution_evidence", "final_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_OPENOT_AUTHORING_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_OPENOT_AUTHORING_001#10-runtime-authoring-translation"
+
+[[behavior]]
+partition = { equals = "IMPLICIT_IDENTITY_ALLOCATION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_OPENOT_AUTHORING_001#10-1-source-and-value-identity-allocation"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Implicit source and value identities follow deterministic program and declaration order while skipping pinned identities."
+
+[[behavior]]
+partition = { equals = "PINNED_IDENTITY_STABILITY" }
+case_family = "happy_path"
+oracle_ref = "SPEC_OPENOT_AUTHORING_001#10-1-source-and-value-identity-allocation"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Explicitly pinned value identities remain stable when declarations are reordered."
+
+[[behavior]]
+partition = { equals = "IDENTITY_COLLISION_REJECTION" }
+case_family = "duplicate_or_collision"
+oracle_ref = "SPEC_OPENOT_AUTHORING_001#10-1-source-and-value-identity-allocation"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A source or value identity collision rejects the complete translation without renumbering an explicit identity."
+
+[[behavior]]
+partition = { equals = "CANONICAL_DEFINITION_PROJECTION" }
+case_family = "encoding_or_unicode"
+oracle_ref = "SPEC_OPENOT_AUTHORING_001#10-2-definition-file-projection"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The generated definition preserves canonical source, value, unit, enum, condition, event-schema, sampling, and content-hash fields."
+
+[[behavior]]
+partition = { equals = "DETERMINISTIC_TYPED_ST_INSTRUMENTATION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_OPENOT_AUTHORING_001#10-3-deterministic-st-instrumentation"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Instrumentation emits the hidden producer, source-time inputs, typed payloads, semantic fields, and phased event calls required by the accepted declarations."
+
+[[behavior]]
+partition = { equals = "AUTHORING_COMPILATION_FAILS_CLOSED" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_OPENOT_AUTHORING_001#10-4-compilation-fail-closed"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Validation, identity, unsupported-type, and definition failures stop bytecode construction instead of compiling the original uninstrumented source."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "The deterministic allocation and instrumentation contracts are specified; catalog mapping and focused execution are pending."
+
+[[coverage.cells]]
+dimension = "duplicate_or_collision"
+state = "gap_open"
+rationale = "The identity contract is specified; catalog mapping and focused execution are pending."
+
+[[coverage.cells]]
+dimension = "encoding_or_unicode"
+state = "gap_open"
+rationale = "The definition contract is specified; catalog mapping and focused execution are pending."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "The fail-closed compilation contract is specified; catalog mapping and focused execution are pending."

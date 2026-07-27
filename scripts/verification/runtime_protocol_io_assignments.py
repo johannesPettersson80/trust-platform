@@ -19,6 +19,73 @@ NONPRODUCT_TESTS = {
     "opcua_client_subscription_api_surface_is_available_for_phase3_worker",
     "broker_lifetime_outlasts_test_phases",
 }
+OPENOT_TRANSLATION = "RT_OPENOT_AUTHORING_TRANSLATION_001"
+OPENOT_PUBLICATION = "RT_OPENOT_TELEMETRY_PUBLICATION_001"
+OPENOT_TRANSLATION_DEFAULTS: Mapping[str, BehaviorRef] = {
+    "batch_recipe_lowering_uses_procedure_op_and_raw_definition_tables": (
+        OPENOT_TRANSLATION,
+        4,
+    ),
+    "compile_session_surfaces_openot_validation_failure_instead_of_building_uninstrumented_bytecode": (
+        OPENOT_TRANSLATION,
+        5,
+    ),
+    "condition_lifecycle_lowering_inherits_parent_and_emits_after_alarm_phase": (
+        OPENOT_TRANSLATION,
+        4,
+    ),
+    "enum_state_definition_includes_enum_set": (OPENOT_TRANSLATION, 3),
+    "enum_state_lowering_uses_hir_enum_values": (OPENOT_TRANSLATION, 4),
+    "explicit_sourceid_collision_between_programs_is_rejected": (
+        OPENOT_TRANSLATION,
+        2,
+    ),
+    "generated_definition_contains_hash": (OPENOT_TRANSLATION, 3),
+    "generated_definition_rejects_unsupported_value_types": (
+        OPENOT_TRANSLATION,
+        5,
+    ),
+    "generated_definition_uses_canonical_unit_ids": (OPENOT_TRANSLATION, 3),
+    "generated_event_types_match_openot_reference_canonical_schema": (
+        OPENOT_TRANSLATION,
+        3,
+    ),
+    "hir_and_runtime_authoring_accept_omitted_sourceids_units_and_payload_widths": (
+        OPENOT_TRANSLATION,
+        0,
+    ),
+    "hir_and_runtime_authoring_report_explicit_sourceid_collisions_consistently": (
+        OPENOT_TRANSLATION,
+        2,
+    ),
+    "instruments_fixed_width_value_types_with_generic_value_op": (
+        OPENOT_TRANSLATION,
+        4,
+    ),
+    "instruments_simple_program_attributes": (OPENOT_TRANSLATION, 4),
+    "multi_program_omitted_sourceids_are_assigned_distinctly": (
+        OPENOT_TRANSLATION,
+        0,
+    ),
+    "operator_regulated_lowering_uses_regulated_op_and_auth_symbols": (
+        OPENOT_TRANSLATION,
+        4,
+    ),
+    "pinned_ids_are_stable_when_declarations_are_reordered": (
+        OPENOT_TRANSLATION,
+        1,
+    ),
+    "state_category_defaults_to_process": (OPENOT_TRANSLATION, 3),
+    "unpinned_ids_follow_declaration_order": (OPENOT_TRANSLATION, 0),
+    "value_quality_semantic_role_and_previous_lowering_are_explicit": (
+        OPENOT_TRANSLATION,
+        4,
+    ),
+    "value_sampling_policy_lowering_uses_existing_definition_field": (
+        OPENOT_TRANSLATION,
+        4,
+    ),
+}
 
 
 def generate_assignments(
@@ -122,6 +189,29 @@ def generate_assignments(
 
 
 def _default_behavior(path: str, name: str) -> BehaviorRef:
+    if path.endswith("/openot_authoring/tests.rs"):
+        try:
+            return OPENOT_TRANSLATION_DEFAULTS[name]
+        except KeyError as error:
+            raise ValueError(
+                f"no reviewed OpenOT authoring rule for {path}:{name}"
+            ) from error
+    if path.endswith("/tests/openot_telemetry.rs"):
+        rules = (
+            (
+                "authoring_sampling_policy_round_trips_definition",
+                (OPENOT_TRANSLATION, 3),
+            ),
+            (
+                "publish_failure_is_fail_closed",
+                (OPENOT_PUBLICATION, 1),
+            ),
+            (
+                "publishes_crc_valid_heartbeats",
+                (OPENOT_PUBLICATION, 0),
+            ),
+        )
+        return _match_name(name, rules)
     if path.endswith("/apply/validation.rs"):
         return (
             ("RT_COMM_APPLY_MUTATION_001", 0)
@@ -364,6 +454,44 @@ def _behavior_override(
     expression: str,
     default: BehaviorRef,
 ) -> BehaviorRef:
+    if path.endswith("/openot_authoring/tests.rs"):
+        definition_and_instrumentation = {
+            "batch_recipe_lowering_uses_procedure_op_and_raw_definition_tables",
+            "condition_lifecycle_lowering_inherits_parent_and_emits_after_alarm_phase",
+            "operator_regulated_lowering_uses_regulated_op_and_auth_symbols",
+            "value_quality_semantic_role_and_previous_lowering_are_explicit",
+            "value_sampling_policy_lowering_uses_existing_definition_field",
+        }
+        if name in definition_and_instrumentation:
+            if "definition" in expression:
+                return (OPENOT_TRANSLATION, 3)
+            return (OPENOT_TRANSLATION, 4)
+        if (
+            name
+            == "hir_and_runtime_authoring_accept_omitted_sourceids_units_and_payload_widths"
+        ):
+            if any(
+                token in expression
+                for token in (
+                    'definition ["values"]',
+                    'definition ["units"]',
+                    '["unit"]',
+                )
+            ):
+                return (OPENOT_TRANSLATION, 3)
+            if any(
+                token in expression
+                for token in (
+                    "text . contains",
+                    "ValueInt",
+                    "ValueTypeTag",
+                    "ValuePayloadLength",
+                    "ValueBits",
+                    "ValueString",
+                )
+            ):
+                return (OPENOT_TRANSLATION, 4)
+            return (OPENOT_TRANSLATION, 0)
     if name == "io_driver_health_mapping_honors_error_policy":
         if "warn_projection" in expression:
             return ("RT_CONNECTOR_REPORT_PROJECTION_001", 4)
@@ -409,8 +537,13 @@ def _is_setup(expression: str) -> bool:
         "state . lock () . expect",
         'toml :: from_str (& format !',
         ':: from_params (& params) . expect ("driver")',
+        "SystemTime :: now () . duration_since",
+        "u64 :: try_from (expected_seq)",
     )
-    return any(token in expression for token in setup_tokens)
+    return any(token in expression for token in setup_tokens) or (
+        "definition_json_from_sources" in expression
+        and ". expect (" in expression
+    )
 
 
 def _is_non_oracle(expression: str) -> bool:

@@ -2312,8 +2312,8 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/specs/27-openot-authoring.md"
 version = "current"
-last_reviewed = "2026-07-26"
-covers = ["1_diagnostic_boundary", "2_value_attributes", "3_state_attributes", "4_alarm_and_message_attributes", "5_condition_lifecycle_attributes", "6_batch_recipe_and_material_events", "7_operator_and_security_events", "8_e_signatures", "9_decision_partitions"]
+last_reviewed = "2026-07-27"
+covers = ["1_diagnostic_boundary", "2_value_attributes", "3_state_attributes", "4_alarm_and_message_attributes", "5_condition_lifecycle_attributes", "6_batch_recipe_and_material_events", "7_operator_and_security_events", "8_e_signatures", "9_decision_partitions", "10_runtime_authoring_translation", "11_structured_text_producer_execution", "12_runtime_telemetry_publication", "13_event_materialization_and_definition_resolution", "14_consumer_reconciliation"]
 known_limitations = []
 conflicts_with = []
 

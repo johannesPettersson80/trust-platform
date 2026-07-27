@@ -6,6 +6,30 @@ in `IEC_DECISIONS.md`; PLCopen profile decisions belong in
 `PLCOPEN_DECISIONS.md`. Product behavior recorded here MUST NOT be copied to an
 IEC or PLCopen deviation log merely because truST owns the behavior.
 
+## 2026-07-27 - OpenOT translation, publication, and reconciliation boundary
+
+- Area: OpenOT compiler/runtime integration
+- Decision:
+  - Accepted OpenOT attributes are translated deterministically into one hidden
+    producer per attributed program, a canonical definition document, and
+    typed producer calls before bytecode generation.
+  - Explicit identities remain pinned, implicit identities follow deterministic
+    declaration order, and any validation or translation failure rejects the
+    compilation instead of falling back to uninstrumented bytecode.
+  - Runtime heartbeat and ST-producer publication are part of the scan result:
+    a required append failure fails the cycle and never claims a record was
+    published.
+  - Fenced consumers reconcile delivery and loss per run and source. Unfenced
+    operation remains proof-only and carries no equivalent reconciliation
+    claim.
+- Authority:
+  - `docs/specs/27-openot-authoring.md`
+- Reason:
+  - OpenOT is a truST product integration outside IEC 61131-3. Freezing the
+    existing compiler, producer, ring-publication, event, and reconciliation
+    behavior in the product contract gives its tests a real oracle without
+    misclassifying any choice as an IEC deviation.
+
 ## 2026-07-27 - Side-effect-free debug evaluation call boundary
 
 - Area: Debug Adapter Protocol expression evaluation
