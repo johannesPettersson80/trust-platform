@@ -6,6 +6,24 @@ in `IEC_DECISIONS.md`; PLCopen profile decisions belong in
 `PLCOPEN_DECISIONS.md`. Product behavior recorded here MUST NOT be copied to an
 IEC or PLCopen deviation log merely because truST owns the behavior.
 
+## 2026-07-27 - Runtime cycle deadlines and automatic-restart backoff
+
+- Area: Runtime scheduler safety
+- Decision:
+  - An enabled watchdog arms execution and output-commit deadlines for each
+    cycle and restores the preceding values after every contained outcome.
+  - A disabled watchdog does not arm either deadline.
+  - Automatic restart uses an exponential delay based on the cycle interval,
+    clamped to a one-millisecond floor and one-second cap.
+- Authority:
+  - `docs/specs/11-runtime-engine.md`
+- Reason:
+  - Deadline restoration prevents one scan's temporary safety boundary from
+    leaking into later work. Bounded restart delay prevents a persistent fault
+    from becoming a busy retry loop while preserving deterministic recovery.
+    These are truST host-runtime choices outside IEC 61131-3 and therefore are
+    product decisions, not IEC deviations.
+
 ## 2026-07-27 - ADS AMS/TCP frame-length boundary
 
 - Area: ADS server wire codec

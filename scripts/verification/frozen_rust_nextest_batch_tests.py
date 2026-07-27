@@ -508,6 +508,20 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
         self.assertEqual("trust-runtime", profile.binary_id)
         self.assertEqual("mesh::tests::", profile.test_prefix)
 
+    def test_runtime_remaining_profile_resolves_runner_loop_unit_target(
+        self,
+    ) -> None:
+        profile = get_target_profile(
+            "runtime-remaining",
+            path="crates/trust-runtime/src/scheduler/runner_loop.rs",
+        )
+        self.assertEqual(("--lib",), profile.cargo_target_args)
+        self.assertEqual("trust-runtime", profile.binary_id)
+        self.assertEqual(
+            "scheduler::runner_loop_poison_tests::",
+            profile.test_prefix,
+        )
+
     def test_ads_server_profile_resolves_ams_unit_target(self) -> None:
         profile = get_target_profile(
             "ads-server-remaining",

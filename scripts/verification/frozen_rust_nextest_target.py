@@ -214,6 +214,9 @@ RUNTIME_REMAINING_UNIT_PREFIXES: Mapping[str, str] = {
     "crates/trust-runtime/src/retain/store_tests.rs": (
         "retain::"
     ),
+    "crates/trust-runtime/src/scheduler/runner_loop.rs": (
+        "scheduler::runner_loop_poison_tests::"
+    ),
 }
 
 RUNTIME_REMAINING_NESTED_INTEGRATION_PREFIXES: Mapping[

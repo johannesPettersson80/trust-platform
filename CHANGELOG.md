@@ -16,6 +16,8 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   failure contracts without overstating TLS or query/reply proof.
 - Specify the ADS AMS/TCP prefix, frame-length cap, header/payload correlation,
   canonical serialization, and response endpoint/correlation contract.
+- Specify per-cycle watchdog deadline arming/restoration and bounded automatic
+  restart backoff without treating host-runtime policy as an IEC deviation.
 
 Target release: `v0.24.57`
 

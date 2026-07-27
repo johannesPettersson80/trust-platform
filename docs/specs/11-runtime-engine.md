@@ -990,6 +990,22 @@ execution model, not an IEC deviation.
 - Automatic restart attempts are bounded to three consecutive attempts for the
   same unresolved fault. Exhaustion leaves the resource faulted with a
   diagnosable restart-limit error.
+- Consecutive automatic retries use a nonzero monotonic backoff derived from
+  the configured cycle interval. The base is clamped to the inclusive range
+  from one millisecond through one second, later attempts increase
+  exponentially, and the resulting delay never exceeds one second.
+
+**Per-cycle deadline lifecycle:**
+- Before executing a cycle with an enabled watchdog, the scheduler arms both
+  the execution and output-commit deadlines from the same wall-clock start and
+  configured timeout. A disabled watchdog leaves both deadlines unchanged.
+- The scheduler restores the deadlines that existed before the cycle after
+  normal completion, an ordinary runtime error, or a contained cycle panic.
+  Temporary per-cycle deadlines therefore cannot leak into later work.
+- Enabled non-positive policy values are normalized before installation as
+  specified below. As a defensive helper boundary, a zero timeout that reaches
+  deadline construction produces an immediately expired deadline rather than
+  disabling enforcement or extending the cycle.
 
 ##### Fault-state clear lifecycle
 
