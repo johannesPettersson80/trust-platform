@@ -6,10 +6,10 @@ risk = "false_status"
 status = "mapped"
 owner = "trust-debug"
 last_reviewed = "2026-07-26"
-claim = "Runtime debug control resolves and stops at authoritative statement boundaries, preserves step, condition, hit-count, watch, frame, and task-order semantics, emits logpoints without pausing, and retains events when a local receiver disappears."
+claim = "Runtime debug control resolves and stops at authoritative statement boundaries, preserves step, condition, hit-count, watch, frame, and task-order semantics, invokes the host statement hook exactly once when debug instrumentation is enabled, emits logpoints without pausing, and retains events when a local receiver disappears."
 proof_level = "S0"
 contract_kind = "state_machine"
-source_refs = ["crates/trust-runtime/src/host/debug/control"]
+source_refs = ["crates/trust-runtime/src/host/debug/control", "crates/trust-runtime/src/host/eval"]
 tests = ["TEST_AUTO_0D5CD2CD5C500A4B47E5", "TEST_AUTO_0FE21931EF5D71E9C8F4", "TEST_AUTO_28E0524003CC8D14B2C6", "TEST_AUTO_2A96A0E41EBCE64E1BC9", "TEST_AUTO_2ABF394F32784AF2F01F", "TEST_AUTO_2C565AD9DB6A270EB008", "TEST_AUTO_2C744D790225D90AF217", "TEST_AUTO_2FE8A15EB7130A04B428", "TEST_AUTO_32C281174ED571C3F5BA", "TEST_AUTO_34FD40C88CF9835E09CE", "TEST_AUTO_409932463EB8BCB34BAF", "TEST_AUTO_5AA958453C04F575A73F", "TEST_AUTO_6A54BECFBCEE4FD899FE", "TEST_AUTO_6E029464243111D82B64", "TEST_AUTO_6E1D8338155F08DD3A00", "TEST_AUTO_74070CA2ED3F2DF9C39C", "TEST_AUTO_7A66519B6D69169281B8", "TEST_AUTO_85B4ED878073A5E30340", "TEST_AUTO_886FA242D29116F3F256", "TEST_AUTO_8CAB7A4337CA6BE04E7F", "TEST_AUTO_8CC0C32A02C75700E3A8", "TEST_AUTO_92B081AFB9BC90E206D6", "TEST_AUTO_947B741926E9DFCEDD23", "TEST_AUTO_CA0A1F4641F085475FA1", "TEST_AUTO_CD493AEA579984A9D671", "TEST_AUTO_D2E77A9B751E229EBCCE", "TEST_AUTO_E0B5E92D4B643A8AE264", "TEST_AUTO_E2618AAFF9EE0C3C6E82", "TEST_AUTO_E557C58A57187D2B19A4", "TEST_AUTO_E74444F2E944A7346A1B", "TEST_AUTO_E8FF497B1411878B1442", "TEST_AUTO_EED9C5DD30F925D42EE7"]
 gates = ["pr"]
 evidence_refs = []
@@ -18,7 +18,7 @@ missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate"
 
 [spec]
 status = "specified"
-source_refs = ["SPEC_DEBUG_ADAPTER_001"]
+source_refs = ["SPEC_DEBUG_ADAPTER_001", "SPEC_RUNTIME_SEMANTICS_001"]
 
 [oracle]
 kind = "trust_contract"
@@ -78,10 +78,19 @@ no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
 rationale = "A dropped runtime-event or log receiver causes the first record to be retained in the matching in-memory debug-control buffer."
 
+[[behavior]]
+partition = { equals = "STATEMENT_HOOK_ONCE_PER_STATEMENT" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#55-host-stage-statement-debug-hook"
+outcome = "accept_value"
+no_partial_apply = false
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "In the default debug-enabled lane, the reviewed expression statement invokes the supplied hook exactly once; debug-disabled behavior is not claimed by this partition."
+
 [[coverage.cells]]
 dimension = "happy_path"
-state = "covered"
-rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in DEBUG_CONTROL_EXECUTION_001; dynamic proof and broad remote validation remain explicit debt."
+state = "gap_open"
+rationale = "Existing mappings cover the earlier happy-path behaviors; the newly specified host statement-hook partition remains awaiting catalog assignment."
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"

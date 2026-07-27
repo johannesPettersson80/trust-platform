@@ -731,6 +731,30 @@ IEC or PLCopen deviation log merely because truST owns the behavior.
   - Capability injection keeps this bounded helper behavior explicit. Other
     standard functions require separate specification behavior and proof.
 
+## 2026-07-27 - Test-only host evaluator compatibility observations
+
+- Area: Portable runtime program-model construction and host-stage evaluation
+- Decision:
+  - The test-only host evaluator retains only the exact expression, statement,
+    call-binding, POU, and debug-hook observations specified in
+    `docs/specs/10-runtime-semantics.md` sections 5.4, 5.5, 6.12, and 7.6.
+  - Those observations include rejection of the reviewed mixed
+    signed/unsigned numeric operation and the string-selector `CASE` result.
+    They are compatibility authority for the test-only host model, not
+    source-admission authority and not an alternative production execution
+    backend.
+  - Semantic analysis and validated STBC/VM execution remain authoritative for
+    shipped IEC behavior. A host-only observation cannot widen their accepted
+    type matrix or statement grammar.
+- Supersedes:
+  - Any interpretation that one host-evaluator unit test certifies a general
+    language rule or makes that evaluator a supported production backend.
+- Reason:
+  - The portable model is still used by focused construction, initializer,
+    debugger, and behavior-lock tests. Narrow compatibility authority keeps
+    those tests meaningful without converting host-only differences into IEC
+    deviations or silently changing the production language contract.
+
 ## 2026-07-27 - Numeric exponent result contract
 
 - Area: Structured Text runtime numeric operations

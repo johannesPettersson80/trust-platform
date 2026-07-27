@@ -1,0 +1,89 @@
+schema_version = 1
+id = "RT_HOST_STATEMENT_EXECUTION_001"
+title = "Host-stage statements preserve reviewed control-flow results"
+area = "runtime_safety"
+risk = "wrong_result"
+status = "planned"
+owner = "trust-runtime"
+last_reviewed = "2026-07-27"
+claim = "The test-only host statement evaluator preserves the exact reviewed assignment, numeric and string CASE, IF, FOR, WHILE, REPEAT, CONTINUE, EXIT, and RETURN outcomes without promoting the host evaluator to a production execution backend."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["docs/specs/10-runtime-semantics.md", "crates/trust-runtime/src/host/eval"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_tests", "focused_execution_evidence", "final_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_SEMANTICS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_SEMANTICS_001#54-host-stage-statement-execution-contract"
+
+[[behavior]]
+partition = { equals = "ASSIGNMENT_CONTINUE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#54-host-stage-statement-execution-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "The reviewed assignment returns Continue and changes the existing global x from INT#0 to INT#2."
+
+[[behavior]]
+partition = { equals = "CASE_NUMERIC_SELECTION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#54-host-stage-statement-execution-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "The reviewed INT#2 selector chooses the inclusive 2..3 range and assigns INT#9."
+
+[[behavior]]
+partition = { equals = "CASE_STRING_SELECTION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#54-host-stage-statement-execution-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "The reviewed string selector B chooses the matching B label and assigns INT#9."
+
+[[behavior]]
+partition = { equals = "IF_BRANCH_SELECTION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#54-host-stage-statement-execution-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "The reviewed TRUE condition executes the THEN branch and assigns INT#1 rather than the ELSE value."
+
+[[behavior]]
+partition = { equals = "FOR_WHILE_REPEAT_CONTROL" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#54-host-stage-statement-execution-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "The reviewed FOR applies CONTINUE and EXIT to produce sum INT#2, while the reviewed WHILE and REPEAT each reach INT#2."
+
+[[behavior]]
+partition = { equals = "RETURN_VALUE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#54-host-stage-statement-execution-contract"
+outcome = "accept_value"
+no_partial_apply = false
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "The reviewed RETURN expression produces StmtResult::Return(Some(INT#4))."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "The reviewed assignment, selection, branch, and return partitions are specified and await catalog assignment."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "The reviewed loop-control partition is specified and awaits catalog assignment."

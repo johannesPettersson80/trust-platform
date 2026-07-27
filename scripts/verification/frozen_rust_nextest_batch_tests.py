@@ -486,6 +486,34 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
             plcopen_command.binary_id,
         )
 
+    def test_runtime_remaining_profile_resolves_host_evaluator_paths(
+        self,
+    ) -> None:
+        expected = {
+            "crates/trust-runtime/src/host/eval/expr/call/tests.rs": "eval::expr::call::tests::",
+            "crates/trust-runtime/src/host/eval/tests/expr_access.rs": "eval::tests::expr_access::",
+            "crates/trust-runtime/src/host/eval/tests/expr_bool.rs": "eval::tests::expr_bool::",
+            "crates/trust-runtime/src/host/eval/tests/expr_coercion.rs": "eval::tests::expr_coercion::",
+            "crates/trust-runtime/src/host/eval/tests/expr_full.rs": "eval::tests::expr_full::",
+            "crates/trust-runtime/src/host/eval/tests/expr_literals.rs": "eval::tests::expr_literals::",
+            "crates/trust-runtime/src/host/eval/tests/expr_time_ops.rs": "eval::tests::expr_time_ops::",
+            "crates/trust-runtime/src/host/eval/tests/mod.rs": "eval::tests::",
+            "crates/trust-runtime/src/host/eval/tests/pou_en_eno.rs": "eval::tests::pou_en_eno::",
+            "crates/trust-runtime/src/host/eval/tests/pou_params.rs": "eval::tests::pou_params::",
+            "crates/trust-runtime/src/host/eval/tests/reference.rs": "eval::tests::reference::",
+            "crates/trust-runtime/src/host/eval/tests/stmt_basic.rs": "eval::tests::stmt_basic::",
+            "crates/trust-runtime/src/host/eval/tests/stmt_case.rs": "eval::tests::stmt_case::",
+            "crates/trust-runtime/src/host/eval/tests/stmt_if.rs": "eval::tests::stmt_if::",
+            "crates/trust-runtime/src/host/eval/tests/stmt_loops.rs": "eval::tests::stmt_loops::",
+            "crates/trust-runtime/src/host/eval/tests/stmt_return.rs": "eval::tests::stmt_return::",
+            "crates/trust-runtime/src/host/instance.rs": "instance::tests::",
+        }
+        for path, prefix in expected.items():
+            profile = get_target_profile("runtime-remaining", path=path)
+            self.assertEqual(("--lib",), profile.cargo_target_args)
+            self.assertEqual("trust-runtime", profile.binary_id)
+            self.assertEqual(prefix, profile.test_prefix)
+
     def test_plcopen_remaining_profile_resolves_reviewed_unit_paths(
         self,
     ) -> None:

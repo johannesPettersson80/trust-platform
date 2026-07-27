@@ -6,13 +6,14 @@ risk = "wrong_result"
 status = "mapped"
 owner = "trust-runtime"
 last_reviewed = "2026-07-27"
-claim = "The test-only host POU evaluator binds the reviewed function input and result, materializes declared defaults, preserves function-block state and omitted inputs, and proves selected write-through behavior through asserted whole-element sequences."
+claim = "The test-only host POU evaluator rejects an unnamed standard-library named argument and an unnamed split argument after named binding begins, preserves reviewed EN/ENO and input/output/in-out transfer, binds the reviewed function input and result, materializes declared defaults and function-block input initializers, preserves function-block state and omitted inputs, and proves selected write-through behavior through asserted whole-element sequences."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = [
   "docs/specs/10-runtime-semantics.md",
   "docs/PRODUCT_DECISIONS.md",
   "crates/trust-runtime/src/host/eval",
+  "crates/trust-runtime/src/host/instance.rs",
 ]
 tests = ["TEST_AUTO_047702AC35B146A24FFA", "TEST_AUTO_0B7986105E0E71A865A1", "TEST_AUTO_3546DDBC36A22F00D5A5", "TEST_AUTO_59D95E3597564B9958D6", "TEST_AUTO_5FFA262B7BD078E8BA91", "TEST_AUTO_670508222190BB8225DC", "TEST_AUTO_A2B372EFAFFC18A26346", "TEST_AUTO_BDDA9C1300650D82D275", "TEST_AUTO_D69368F3E865C26363E8"]
 gates = ["pr"]
@@ -91,12 +92,67 @@ no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
 rationale = "A pointer to ARRAY[*] changes only dereferenced element 2 in the asserted four-element caller sequence; bounds are not independently asserted."
 
+[[behavior]]
+partition = { equals = "STDLIB_UNNAMED_NAMED_ARGUMENT_REJECTION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#76-host-stage-pou-evaluation-contract"
+outcome = "reject"
+no_partial_apply = false
+delta = { target = "not_applicable", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "stable_error", status = "not_applicable" }
+rationale = "The reviewed fixed standard-library named-argument binder returns InvalidArgumentName(\"<unnamed>\") for an unnamed argument; no post-state is asserted."
+
+[[behavior]]
+partition = { equals = "SPLIT_UNNAMED_AFTER_NAMED_REJECTION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#76-host-stage-pou-evaluation-contract"
+outcome = "reject"
+no_partial_apply = false
+delta = { target = "not_applicable", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "stable_error", status = "not_applicable" }
+rationale = "After the reviewed split binder accepts one named argument, a following unnamed argument returns InvalidArgumentName(\"<unnamed>\"); no post-state is asserted."
+
+[[behavior]]
+partition = { equals = "EN_FALSE_SKIPS_BODY" }
+case_family = "boundary_low"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#76-host-stage-pou-evaluation-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "EN FALSE skips the reviewed function body, preserves the existing counter at zero, and copies FALSE to the caller's ENO target."
+
+[[behavior]]
+partition = { equals = "FUNCTION_OUTPUT_INOUT_BINDING" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#76-host-stage-pou-evaluation-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "The reviewed call returns input INT#2, copies output INT#5 to its target, and copies updated in-out INT#4 to its caller storage."
+
+[[behavior]]
+partition = { equals = "FB_DECLARED_INPUT_INITIALIZER" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#76-host-stage-pou-evaluation-contract"
+outcome = "accept_value"
+no_partial_apply = false
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "Creating the reviewed function-block instance materializes its declared VAR_INPUT initializer as INT#5 in instance storage."
+
 [[coverage.cells]]
 dimension = "happy_path"
-state = "covered"
-rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in RT_HOST_POU_EXECUTION_001; dynamic proof and broad remote validation remain explicit debt."
+state = "gap_open"
+rationale = "Existing mappings cover the earlier happy-path behaviors; the newly specified function transfer and declared-input-initializer partitions remain awaiting catalog assignment."
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
 state = "covered"
 rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in RT_HOST_POU_EXECUTION_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "The fixed-binder unnamed argument and split-binder unnamed-after-named rejections are specified but remain awaiting catalog assignment."
+
+[[coverage.cells]]
+dimension = "boundary_low"
+state = "gap_open"
+rationale = "The EN FALSE execution boundary is specified but remains awaiting catalog assignment."

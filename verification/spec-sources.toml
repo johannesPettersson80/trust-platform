@@ -1442,6 +1442,10 @@ path = "docs/specs/10-runtime-semantics.md"
 version = "current"
 last_reviewed = "2026-07-26"
 covers = [
+  "host_expression_evaluation",
+  "host_pou_evaluation",
+  "host_statement_debug_hook",
+  "host_statement_execution",
   "integer_runtime_operand_normalization",
   "process_image_model",
   "portable_runtime_value_and_program_model_contracts",

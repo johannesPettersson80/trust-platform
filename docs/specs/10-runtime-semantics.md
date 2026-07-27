@@ -902,6 +902,35 @@ pub enum StmtResult {
 - Must be inside a loop (FOR, WHILE, REPEAT)
 - Affects innermost enclosing loop only
 
+#### 5.4 Host-stage statement execution contract
+
+The test-only host evaluator preserves the following bounded statement results
+for the portable program model:
+
+- assigning `INT#2` to the existing global `x` returns
+  `StmtResult::Continue` and leaves `x` equal to `INT#2`;
+- a numeric `CASE` selector equal to `INT#2` selects the reviewed inclusive
+  `2..3` range branch and assigns `INT#9`, while a string selector equal to
+  `"B"` selects the matching single-label branch and assigns `INT#9`;
+- a true `IF` condition executes its `THEN` branch and assigns `INT#1`;
+- the reviewed `FOR` loop skips `INT#1` through `CONTINUE`, exits at `INT#3`,
+  and leaves its sum equal to `INT#2`; the reviewed `WHILE` and `REPEAT`
+  loops each advance their target to `INT#2`; and
+- `RETURN INT#4` produces `StmtResult::Return(Some(INT#4))`.
+
+These are exact observed host-stage partitions, not proof of every statement,
+selector type, branch, loop direction, loop bound, or error case described by
+IEC 61131-3 Ed.3 section 7.3.3. Production execution remains the validated
+STBC/VM path.
+
+#### 5.5 Host-stage statement debug hook
+
+In the default debug-enabled runtime build, executing the reviewed expression
+statement invokes the supplied statement hook exactly once before the
+statement completes. This contract does not establish debug-disabled behavior,
+breakpoint, location, call-depth, or multi-statement ordering; those require
+separate proof or their owning debug-control partitions.
+
 ### 6. Expression Evaluation
 
 #### 6.1 Supported Expressions
@@ -1091,6 +1120,46 @@ This is a bounded host-helper contract. It does not make the old host
 evaluator a production execution path and does not authorize function-block,
 method, I/O, or other side-effecting calls.
 
+#### 6.12 Host-stage expression evaluation contract
+
+The test-only host evaluator preserves these exact reviewed expression
+partitions while constructing and exercising the portable program model:
+
+- a literal `INT#42` evaluates to `INT#42`, and the name `x` resolves the
+  existing global value `INT#7`;
+- indexing `[INT#1, INT#2, INT#3]` at zero-based host-model index `1` returns
+  `INT#2`, and selecting field `a` from the reviewed structure returns
+  `INT#10`;
+- nested index-then-field access returns `INT#20`, while nested
+  field-then-index access returns `INT#4`;
+- `FALSE AND (INT#1 / INT#0)` returns `FALSE` without evaluating the
+  division;
+- the reviewed mixed numeric operations produce, respectively,
+  `INT#1 + DINT#2 = DINT#3`, reject `UINT#2 + INT#3` with
+  `RuntimeError::TypeMismatch`,
+  `LREAL#1.5 * REAL#2.0 = LREAL#3.0`,
+  `REAL#5.0 / INT#2 = REAL#2.5`, `INT#2 < REAL#2.5 = TRUE`, and
+  `INT#5 = DINT#5 = TRUE`;
+- one composed source-and-harness path produces `sum = INT#5`,
+  `neg = INT#-5`, `arr_val = INT#7`, `ref_out = INT#2`,
+  `fb_out = INT#5`, and `size_t = DINT#2` without a cycle error;
+- the reviewed time operations produce `TIME#1500ms` from
+  `TIME#1000ms + TIME#500ms`, a time-of-day value at 1500 milliseconds from
+  the reviewed `TOD + TIME`, `TIME#1500ms` from the reviewed `DT - DT`,
+  `LTIME#6s` from `LTIME#2s * INT#3`, `TIME#500ms` from
+  `TIME#1000ms / INT#2`, `TRUE` from the reviewed `DATE` comparison, and
+  `LTIME#7ns` from the reviewed `LDT - LDT`;
+- `REF(x)^` reads `INT#5`, and writing `INT#9` through that dereference
+  changes the same existing global `x` to `INT#9`; and
+- in a current child instance whose parent is the reviewed base instance,
+  `SUPER` evaluates to that exact parent instance.
+
+This is bounded host-stage product authority for the named observations. It
+does not use one fixture to certify every expression form, numeric type
+combination, temporal boundary, reference lifetime, inheritance graph, or
+failure partition in IEC 61131-3 Ed.3 section 7.3.2. Production execution
+remains the validated STBC/VM path.
+
 ### 7. POU Execution
 
 #### 7.1 FUNCTION
@@ -1197,10 +1266,22 @@ lowering:
   call and reuses the last explicitly stored input on later calls;
 - a read-only `VAR_INPUT` pointer slot does not make its referenced storage
   read-only: dereference/index writes update only the selected caller element;
-  and
 - the reviewed `ARRAY[*]` `VAR_IN_OUT` and pointer callers preserve the
   asserted whole-element sequences and write through to only the selected
-  element. These assertions do not establish array bounds independently.
+  element. These assertions do not establish array bounds independently;
+- the reviewed fixed standard-library named-argument binder rejects an unnamed
+  argument as `RuntimeError::InvalidArgumentName("<unnamed>")`;
+- once the reviewed split binder has accepted a named argument, a following
+  unnamed argument is rejected with that same error rather than being assigned
+  by position;
+- a function call with `EN := FALSE` does not execute its reviewed body, leaves
+  the existing global counter at `INT#0`, and copies `FALSE` to the caller's
+  `ENO` target;
+- the reviewed function binding copies `VAR_INPUT a = INT#2` into the call,
+  copies `VAR_OUTPUT b = INT#5` and `VAR_IN_OUT c = INT#4` back to their
+  caller targets, and returns `INT#2`; and
+- creating the reviewed function-block instance materializes its declared
+  `VAR_INPUT inc := INT#5` initializer in instance storage.
 
 These rules specify the host-stage model exercised by focused unit tests.
 Production program execution remains the STBC/VM path.

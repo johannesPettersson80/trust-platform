@@ -285,6 +285,15 @@ no_partial_apply = false
 delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
 rationale = "The host evaluator returns TRUE for STRING#'A' < STRING#'B' and TRUE >= FALSE; it does not certify every comparison operator."
 
+[[behavior]]
+partition = { equals = "REFERENCE_NULL_DEFAULT" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#2-6-default-values"
+outcome = "accept_value"
+no_partial_apply = false
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "Materializing the default for the reviewed REF_TO INT type returns the explicit null-reference value."
+
 [[coverage.cells]]
 dimension = "happy_path"
 state = "gap_open"

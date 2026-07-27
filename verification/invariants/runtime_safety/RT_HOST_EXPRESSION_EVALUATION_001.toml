@@ -1,0 +1,139 @@
+schema_version = 1
+id = "RT_HOST_EXPRESSION_EVALUATION_001"
+title = "Host-stage expressions preserve reviewed typed values and references"
+area = "runtime_safety"
+risk = "wrong_result"
+status = "planned"
+owner = "trust-runtime"
+last_reviewed = "2026-07-27"
+claim = "The test-only host expression evaluator preserves the exact reviewed literal, name, aggregate access, short-circuit, numeric, temporal, reference, composed-program, and parent-instance results without promoting the host evaluator to a production execution backend."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["docs/specs/10-runtime-semantics.md", "crates/trust-runtime/src/host/eval"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_tests", "focused_execution_evidence", "final_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_SEMANTICS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_SEMANTICS_001#612-host-stage-expression-evaluation-contract"
+
+[[behavior]]
+partition = { equals = "INDEX_AND_FIELD_ACCESS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#612-host-stage-expression-evaluation-contract"
+outcome = "accept_value"
+no_partial_apply = false
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "The reviewed array index returns INT#2 and the reviewed structure field returns INT#10."
+
+[[behavior]]
+partition = { equals = "NESTED_INDEX_FIELD_CHAINS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#612-host-stage-expression-evaluation-contract"
+outcome = "accept_value"
+no_partial_apply = false
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "The reviewed index-then-field chain returns INT#20 and field-then-index chain returns INT#4."
+
+[[behavior]]
+partition = { equals = "BOOLEAN_SHORT_CIRCUIT" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#612-host-stage-expression-evaluation-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "FALSE AND the reviewed divide-by-zero right operand returns FALSE without evaluating that operand."
+
+[[behavior]]
+partition = { equals = "MIXED_NUMERIC_OPERATIONS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#612-host-stage-expression-evaluation-contract"
+outcome = "accept_value"
+no_partial_apply = false
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "The five accepted reviewed mixed numeric arithmetic and comparison operations preserve their exact DINT, LREAL, REAL, and BOOL results."
+
+[[behavior]]
+partition = { equals = "SIGNED_UNSIGNED_CROSS_FAMILY_REJECTION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#612-host-stage-expression-evaluation-contract"
+outcome = "reject"
+no_partial_apply = false
+delta = { target = "not_applicable", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "stable_error", status = "not_applicable" }
+rationale = "The reviewed UINT#2 plus INT#3 host expression returns RuntimeError::TypeMismatch rather than selecting a cross-family result type."
+
+[[behavior]]
+partition = { equals = "REPRESENTATIVE_EXPRESSION_PIPELINE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#612-host-stage-expression-evaluation-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "One composed source cycle has no runtime error and produces the exact reviewed sum, negation, array, reference, function-block, and SIZEOF outputs."
+
+[[behavior]]
+partition = { equals = "LITERAL_EVALUATION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#612-host-stage-expression-evaluation-contract"
+outcome = "accept_value"
+no_partial_apply = false
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "The reviewed literal INT#42 evaluates to the identical typed value."
+
+[[behavior]]
+partition = { equals = "NAME_REFERENCE_EVALUATION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#612-host-stage-expression-evaluation-contract"
+outcome = "accept_value"
+no_partial_apply = false
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "The reviewed name resolves the existing global INT#7."
+
+[[behavior]]
+partition = { equals = "TIME_ARITHMETIC_AND_COMPARISON" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#612-host-stage-expression-evaluation-contract"
+outcome = "accept_value"
+no_partial_apply = false
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "The seven reviewed TIME, LTIME, TOD, DATE, DT, and LDT operations preserve their exact typed duration, clock, and Boolean results."
+
+[[behavior]]
+partition = { equals = "REFERENCE_DEREFERENCE_WRITE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#612-host-stage-expression-evaluation-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "REF(x)^ reads the existing INT#5 and a write through the same reference changes only x to INT#9."
+
+[[behavior]]
+partition = { equals = "SUPER_PARENT_INSTANCE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#612-host-stage-expression-evaluation-contract"
+outcome = "accept_value"
+no_partial_apply = false
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "In the reviewed child context, SUPER evaluates to the exact configured parent instance."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "The reviewed value-producing expression partitions are specified and await catalog assignment."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "The reviewed short-circuit, reference-write, and parent-resolution partitions are specified and await catalog assignment."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "The reviewed signed/unsigned cross-family rejection is specified and awaits catalog assignment."
