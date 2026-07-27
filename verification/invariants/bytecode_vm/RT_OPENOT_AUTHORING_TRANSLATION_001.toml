@@ -3,18 +3,18 @@ id = "RT_OPENOT_AUTHORING_TRANSLATION_001"
 title = "OpenOT authoring translates deterministically and fails closed"
 area = "bytecode_vm"
 risk = "wrong_result"
-status = "planned"
+status = "mapped"
 owner = "trust-runtime"
 last_reviewed = "2026-07-27"
 claim = "Accepted OpenOT attributes deterministically allocate identities, produce the canonical definition projection, and instrument typed producer calls before bytecode generation; rejected input cannot fall back to uninstrumented bytecode."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["docs/specs/27-openot-authoring.md", "crates/trust-runtime/src/openot_authoring.rs"]
-tests = []
+tests = ["TEST_AUTO_03AC685F06772395F05A", "TEST_AUTO_1466DAFE96EF828CB3AF", "TEST_AUTO_16AA1A9D6581D67CE487", "TEST_AUTO_27F37A4E3AA95CD0CB99", "TEST_AUTO_2EB871F64EF0DF0BFAAB", "TEST_AUTO_393BF53218BD4FC17756", "TEST_AUTO_3D6126C1DD08F111BACE", "TEST_AUTO_445B5349EE273251602F", "TEST_AUTO_59A85EA1355E3C706B83", "TEST_AUTO_5B43AF2B1181A8401F05", "TEST_AUTO_5BBB12B235856C1C45CC", "TEST_AUTO_9E26CAE8415CE2A02092", "TEST_AUTO_B91E25CDD98DD7A64FD2", "TEST_AUTO_C3BD87557BC4FF520AC2", "TEST_AUTO_CC8F224B4E548B15AD95", "TEST_AUTO_CD6997A0F5D223035730", "TEST_AUTO_DB3D37B0B8FABFF4F1C7", "TEST_AUTO_E45EABA362C60CF7F26D", "TEST_AUTO_E642186822BCFD962E89", "TEST_AUTO_E979CB5D7A257C7962FD", "TEST_AUTO_EC921A6789B607F963A4", "TEST_AUTO_FAAC8CE08EE4F121BF0B"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_tests", "focused_execution_evidence", "final_remote_gate"]
+missing = ["focused_execution_evidence", "final_remote_gate"]
 
 [spec]
 status = "specified"

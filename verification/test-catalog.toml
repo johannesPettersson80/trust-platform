@@ -99582,3 +99582,817 @@ mapping_assertion_review_digest = "sha256:32233791d2b29c9891857e748f472b22d34720
 mapping_assertion_source_digests = { "crates/trust-runtime-core/src/watchdog.rs" = "sha256:8947a2df258d790184b4431e309955414d3b44fe8e7c36e893b0b1d992f0da7b" }
 mapping_behavior_refs = ["RT_CONFIG_SCHEMA_001#behavior:0", "RT_CONFIG_SCHEMA_001#behavior:1"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_03AC685F06772395F05A"
+subject_kind = "generated_test"
+discovery_id = "DISC_03AC685F06772395F05A"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/src/openot_authoring/tests.rs"
+name = "batch_recipe_lowering_uses_procedure_op_and_raw_definition_tables"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(~batch_recipe_lowering_uses_procedure_op_and_raw_definition_tables)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPENOT_AUTHORING_TRANSLATION_001"]
+oracle_ref = "SPEC_OPENOT_AUTHORING_001#10-runtime-authoring-translation"
+oracle_refs = ["SPEC_OPENOT_AUTHORING_001#10-runtime-authoring-translation"]
+expected_result = "The generated definition preserves canonical source, value, unit, enum, condition, event-schema, sampling, and content-hash fields. Instrumentation emits the hidden producer, source-time inputs, typed payloads, semantic fields, and phased event calls required by the accepted declarations."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_03AC685F06772395F05A.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_03AC685F06772395F05A_B784EFEF7D14"
+mapping_proposal_digest = "sha256:b784efef7d147980f12394f9459cad6fde377a9054d8c6783d3cd10abfa13f04"
+mapping_decision_id = "MAP_DEC_2CD26722CBCFD31773C8F3A0"
+mapping_reviewed_source_digest = "sha256:67aa849ad4902b815d0362487928b7f4e456275323cac78c34c3fa003fc1673b"
+mapping_assertion_review_digest = "sha256:505d75a7af8839a0ae875e92304e953eba15ff5c6f6eefaee7c6fb0366d08c44"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/openot_authoring/tests.rs" = "sha256:67aa849ad4902b815d0362487928b7f4e456275323cac78c34c3fa003fc1673b" }
+mapping_behavior_refs = ["RT_OPENOT_AUTHORING_TRANSLATION_001#behavior:3", "RT_OPENOT_AUTHORING_TRANSLATION_001#behavior:4"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_1466DAFE96EF828CB3AF"
+subject_kind = "generated_test"
+discovery_id = "DISC_1466DAFE96EF828CB3AF"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/src/openot_authoring/tests.rs"
+name = "hir_and_runtime_authoring_report_explicit_sourceid_collisions_consistently"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(~hir_and_runtime_authoring_report_explicit_sourceid_collisions_consistently)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPENOT_AUTHORING_TRANSLATION_001"]
+oracle_ref = "SPEC_OPENOT_AUTHORING_001#10-runtime-authoring-translation"
+oracle_refs = ["SPEC_OPENOT_AUTHORING_001#10-runtime-authoring-translation"]
+expected_result = "A source or value identity collision rejects the complete translation without renumbering an explicit identity."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_1466DAFE96EF828CB3AF.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_1466DAFE96EF828CB3AF_BB92ECE4E9F5"
+mapping_proposal_digest = "sha256:bb92ece4e9f516d482eb6273cf75ac117ac631bafb367dab63d832a2cfd660fc"
+mapping_decision_id = "MAP_DEC_E7C1E52F6FCB33B67A361CBB"
+mapping_reviewed_source_digest = "sha256:67aa849ad4902b815d0362487928b7f4e456275323cac78c34c3fa003fc1673b"
+mapping_assertion_review_digest = "sha256:7a4a3b0763f0cef1cc629e9f5bccc64d62cf5df4c47a5a9fb37184a4f73a4f95"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/openot_authoring/tests.rs" = "sha256:67aa849ad4902b815d0362487928b7f4e456275323cac78c34c3fa003fc1673b" }
+mapping_behavior_refs = ["RT_OPENOT_AUTHORING_TRANSLATION_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_16AA1A9D6581D67CE487"
+subject_kind = "generated_test"
+discovery_id = "DISC_16AA1A9D6581D67CE487"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/src/openot_authoring/tests.rs"
+name = "enum_state_lowering_uses_hir_enum_values"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(~enum_state_lowering_uses_hir_enum_values)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPENOT_AUTHORING_TRANSLATION_001"]
+oracle_ref = "SPEC_OPENOT_AUTHORING_001#10-runtime-authoring-translation"
+oracle_refs = ["SPEC_OPENOT_AUTHORING_001#10-runtime-authoring-translation"]
+expected_result = "Instrumentation emits the hidden producer, source-time inputs, typed payloads, semantic fields, and phased event calls required by the accepted declarations."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_16AA1A9D6581D67CE487.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_16AA1A9D6581D67CE487_BE3C88F21145"
+mapping_proposal_digest = "sha256:be3c88f2114548acd781352da03e71df2625c1505efcbc7c6e4d4f403a5d6595"
+mapping_decision_id = "MAP_DEC_A4059C9E226F236E3D5D0AF3"
+mapping_reviewed_source_digest = "sha256:67aa849ad4902b815d0362487928b7f4e456275323cac78c34c3fa003fc1673b"
+mapping_assertion_review_digest = "sha256:a5048e250f12750393ffcfb62b854ec38763a1b19d87bf7d17fc25ca9cd7adff"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/openot_authoring/tests.rs" = "sha256:67aa849ad4902b815d0362487928b7f4e456275323cac78c34c3fa003fc1673b" }
+mapping_behavior_refs = ["RT_OPENOT_AUTHORING_TRANSLATION_001#behavior:4"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_27F37A4E3AA95CD0CB99"
+subject_kind = "generated_test"
+discovery_id = "DISC_27F37A4E3AA95CD0CB99"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/src/openot_authoring/tests.rs"
+name = "explicit_sourceid_collision_between_programs_is_rejected"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(~explicit_sourceid_collision_between_programs_is_rejected)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPENOT_AUTHORING_TRANSLATION_001"]
+oracle_ref = "SPEC_OPENOT_AUTHORING_001#10-runtime-authoring-translation"
+oracle_refs = ["SPEC_OPENOT_AUTHORING_001#10-runtime-authoring-translation"]
+expected_result = "A source or value identity collision rejects the complete translation without renumbering an explicit identity."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_27F37A4E3AA95CD0CB99.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_27F37A4E3AA95CD0CB99_8775262A4920"
+mapping_proposal_digest = "sha256:8775262a49204b2f01ee562d1b7b4f62e93fc8fee71e15b5e5c27d4dfe49dfd0"
+mapping_decision_id = "MAP_DEC_116DC59BC5602836C52266D5"
+mapping_reviewed_source_digest = "sha256:67aa849ad4902b815d0362487928b7f4e456275323cac78c34c3fa003fc1673b"
+mapping_assertion_review_digest = "sha256:20e7e1e188ff27f21afada2526196996b90728b8201455ec923966d33ecf68a0"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/openot_authoring/tests.rs" = "sha256:67aa849ad4902b815d0362487928b7f4e456275323cac78c34c3fa003fc1673b" }
+mapping_behavior_refs = ["RT_OPENOT_AUTHORING_TRANSLATION_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_2EB871F64EF0DF0BFAAB"
+subject_kind = "generated_test"
+discovery_id = "DISC_2EB871F64EF0DF0BFAAB"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/src/openot_authoring/tests.rs"
+name = "instruments_simple_program_attributes"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(~instruments_simple_program_attributes)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPENOT_AUTHORING_TRANSLATION_001"]
+oracle_ref = "SPEC_OPENOT_AUTHORING_001#10-runtime-authoring-translation"
+oracle_refs = ["SPEC_OPENOT_AUTHORING_001#10-runtime-authoring-translation"]
+expected_result = "Instrumentation emits the hidden producer, source-time inputs, typed payloads, semantic fields, and phased event calls required by the accepted declarations."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_2EB871F64EF0DF0BFAAB.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_2EB871F64EF0DF0BFAAB_7FC79C41D2F8"
+mapping_proposal_digest = "sha256:7fc79c41d2f84ec2c4a9846935116864ea78ce701a03366b8dd951586d395d55"
+mapping_decision_id = "MAP_DEC_95F72962B0668E451CB34A06"
+mapping_reviewed_source_digest = "sha256:67aa849ad4902b815d0362487928b7f4e456275323cac78c34c3fa003fc1673b"
+mapping_assertion_review_digest = "sha256:6fbfca5ad1349d2b44c4f733513c8bc1e2d6c3a523f2e95f180412109c44ed2e"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/openot_authoring/tests.rs" = "sha256:67aa849ad4902b815d0362487928b7f4e456275323cac78c34c3fa003fc1673b" }
+mapping_behavior_refs = ["RT_OPENOT_AUTHORING_TRANSLATION_001#behavior:4"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_393BF53218BD4FC17756"
+subject_kind = "generated_test"
+discovery_id = "DISC_393BF53218BD4FC17756"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/src/openot_authoring/tests.rs"
+name = "pinned_ids_are_stable_when_declarations_are_reordered"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(~pinned_ids_are_stable_when_declarations_are_reordered)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPENOT_AUTHORING_TRANSLATION_001"]
+oracle_ref = "SPEC_OPENOT_AUTHORING_001#10-runtime-authoring-translation"
+oracle_refs = ["SPEC_OPENOT_AUTHORING_001#10-runtime-authoring-translation"]
+expected_result = "Explicitly pinned value identities remain stable when declarations are reordered."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_393BF53218BD4FC17756.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_393BF53218BD4FC17756_DEA9409B8845"
+mapping_proposal_digest = "sha256:dea9409b8845487894fd3a0e735d4f6dda90f0909305552ff609ab2ceb4f492b"
+mapping_decision_id = "MAP_DEC_0E70BA64290448B140F63675"
+mapping_reviewed_source_digest = "sha256:67aa849ad4902b815d0362487928b7f4e456275323cac78c34c3fa003fc1673b"
+mapping_assertion_review_digest = "sha256:22519812f04875a638cfbdd092fdc6e8f374f6de19bf28c6f1a3d69f309fc12e"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/openot_authoring/tests.rs" = "sha256:67aa849ad4902b815d0362487928b7f4e456275323cac78c34c3fa003fc1673b" }
+mapping_behavior_refs = ["RT_OPENOT_AUTHORING_TRANSLATION_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_3D6126C1DD08F111BACE"
+subject_kind = "generated_test"
+discovery_id = "DISC_3D6126C1DD08F111BACE"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/src/openot_authoring/tests.rs"
+name = "operator_regulated_lowering_uses_regulated_op_and_auth_symbols"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(~operator_regulated_lowering_uses_regulated_op_and_auth_symbols)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPENOT_AUTHORING_TRANSLATION_001"]
+oracle_ref = "SPEC_OPENOT_AUTHORING_001#10-runtime-authoring-translation"
+oracle_refs = ["SPEC_OPENOT_AUTHORING_001#10-runtime-authoring-translation"]
+expected_result = "The generated definition preserves canonical source, value, unit, enum, condition, event-schema, sampling, and content-hash fields. Instrumentation emits the hidden producer, source-time inputs, typed payloads, semantic fields, and phased event calls required by the accepted declarations."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_3D6126C1DD08F111BACE.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_3D6126C1DD08F111BACE_8E712427C5BB"
+mapping_proposal_digest = "sha256:8e712427c5bbd742493e2d621d02ddb36b825060dea312d8af56b893b7edb824"
+mapping_decision_id = "MAP_DEC_38E469646B0BB8D91EB06573"
+mapping_reviewed_source_digest = "sha256:67aa849ad4902b815d0362487928b7f4e456275323cac78c34c3fa003fc1673b"
+mapping_assertion_review_digest = "sha256:85cd50b700ff1f5a5a6dacaa4b8999ef7e070410e016ba99a422d8d9c5dc28e8"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/openot_authoring/tests.rs" = "sha256:67aa849ad4902b815d0362487928b7f4e456275323cac78c34c3fa003fc1673b" }
+mapping_behavior_refs = ["RT_OPENOT_AUTHORING_TRANSLATION_001#behavior:3", "RT_OPENOT_AUTHORING_TRANSLATION_001#behavior:4"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_445B5349EE273251602F"
+subject_kind = "generated_test"
+discovery_id = "DISC_445B5349EE273251602F"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/src/openot_authoring/tests.rs"
+name = "state_category_defaults_to_process"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(~state_category_defaults_to_process)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPENOT_AUTHORING_TRANSLATION_001"]
+oracle_ref = "SPEC_OPENOT_AUTHORING_001#10-runtime-authoring-translation"
+oracle_refs = ["SPEC_OPENOT_AUTHORING_001#10-runtime-authoring-translation"]
+expected_result = "The generated definition preserves canonical source, value, unit, enum, condition, event-schema, sampling, and content-hash fields."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_445B5349EE273251602F.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_445B5349EE273251602F_42F4EE18916C"
+mapping_proposal_digest = "sha256:42f4ee18916c705b2005aa21f95e0f184fa543284ddea71b243b41a86fbfa4f5"
+mapping_decision_id = "MAP_DEC_73E320B32253E0E09DDD62EF"
+mapping_reviewed_source_digest = "sha256:67aa849ad4902b815d0362487928b7f4e456275323cac78c34c3fa003fc1673b"
+mapping_assertion_review_digest = "sha256:501deb15737830c9883e855e641a676a38c3eb37ed0da00d60a709f6ef1c0b24"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/openot_authoring/tests.rs" = "sha256:67aa849ad4902b815d0362487928b7f4e456275323cac78c34c3fa003fc1673b" }
+mapping_behavior_refs = ["RT_OPENOT_AUTHORING_TRANSLATION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_59A85EA1355E3C706B83"
+subject_kind = "generated_test"
+discovery_id = "DISC_59A85EA1355E3C706B83"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/src/openot_authoring/tests.rs"
+name = "generated_definition_rejects_unsupported_value_types"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(~generated_definition_rejects_unsupported_value_types)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPENOT_AUTHORING_TRANSLATION_001"]
+oracle_ref = "SPEC_OPENOT_AUTHORING_001#10-runtime-authoring-translation"
+oracle_refs = ["SPEC_OPENOT_AUTHORING_001#10-runtime-authoring-translation"]
+expected_result = "Validation, identity, unsupported-type, and definition failures stop bytecode construction instead of compiling the original uninstrumented source."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_59A85EA1355E3C706B83.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_59A85EA1355E3C706B83_9AF4CD390759"
+mapping_proposal_digest = "sha256:9af4cd3907596797c4c7c48b12ec4861d65456c2723ac2759283f2157f3772a1"
+mapping_decision_id = "MAP_DEC_13761B3B11E29803D8707F8A"
+mapping_reviewed_source_digest = "sha256:67aa849ad4902b815d0362487928b7f4e456275323cac78c34c3fa003fc1673b"
+mapping_assertion_review_digest = "sha256:05d02d83956aec4461e687d389abb955ff7a9be3cab04a69db45bbd1f72b103a"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/openot_authoring/tests.rs" = "sha256:67aa849ad4902b815d0362487928b7f4e456275323cac78c34c3fa003fc1673b" }
+mapping_behavior_refs = ["RT_OPENOT_AUTHORING_TRANSLATION_001#behavior:5"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_5BBB12B235856C1C45CC"
+subject_kind = "generated_test"
+discovery_id = "DISC_5BBB12B235856C1C45CC"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/src/openot_authoring/tests.rs"
+name = "compile_session_surfaces_openot_validation_failure_instead_of_building_uninstrumented_bytecode"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(~compile_session_surfaces_openot_validation_failure_instead_of_building_uninstrumented_bytecode)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPENOT_AUTHORING_TRANSLATION_001"]
+oracle_ref = "SPEC_OPENOT_AUTHORING_001#10-runtime-authoring-translation"
+oracle_refs = ["SPEC_OPENOT_AUTHORING_001#10-runtime-authoring-translation"]
+expected_result = "Validation, identity, unsupported-type, and definition failures stop bytecode construction instead of compiling the original uninstrumented source."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_5BBB12B235856C1C45CC.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_5BBB12B235856C1C45CC_4571B00E0646"
+mapping_proposal_digest = "sha256:4571b00e0646e6fbf997ad9f9c7deafe2243d09dde0f28021d3b549448f15e0e"
+mapping_decision_id = "MAP_DEC_020B23C9A10C331C3F17DF45"
+mapping_reviewed_source_digest = "sha256:67aa849ad4902b815d0362487928b7f4e456275323cac78c34c3fa003fc1673b"
+mapping_assertion_review_digest = "sha256:a5223fc5beaceaada66dbd2ae94d2306b8f1472a22637688924db3491301b36a"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/openot_authoring/tests.rs" = "sha256:67aa849ad4902b815d0362487928b7f4e456275323cac78c34c3fa003fc1673b" }
+mapping_behavior_refs = ["RT_OPENOT_AUTHORING_TRANSLATION_001#behavior:5"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_9E26CAE8415CE2A02092"
+subject_kind = "generated_test"
+discovery_id = "DISC_9E26CAE8415CE2A02092"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/src/openot_authoring/tests.rs"
+name = "value_sampling_policy_lowering_uses_existing_definition_field"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(~value_sampling_policy_lowering_uses_existing_definition_field)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPENOT_AUTHORING_TRANSLATION_001"]
+oracle_ref = "SPEC_OPENOT_AUTHORING_001#10-runtime-authoring-translation"
+oracle_refs = ["SPEC_OPENOT_AUTHORING_001#10-runtime-authoring-translation"]
+expected_result = "The generated definition preserves canonical source, value, unit, enum, condition, event-schema, sampling, and content-hash fields. Instrumentation emits the hidden producer, source-time inputs, typed payloads, semantic fields, and phased event calls required by the accepted declarations."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_9E26CAE8415CE2A02092.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_9E26CAE8415CE2A02092_E6618F43080D"
+mapping_proposal_digest = "sha256:e6618f43080dd35934744a5fc1c141194800217b0ec117550f32392195827fe5"
+mapping_decision_id = "MAP_DEC_F57EA7F1BD743F93F676E5A8"
+mapping_reviewed_source_digest = "sha256:67aa849ad4902b815d0362487928b7f4e456275323cac78c34c3fa003fc1673b"
+mapping_assertion_review_digest = "sha256:4634e269627c241c354c806846f0b37ce9e4b1b3c9a394dc6a3180d732ab219a"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/openot_authoring/tests.rs" = "sha256:67aa849ad4902b815d0362487928b7f4e456275323cac78c34c3fa003fc1673b" }
+mapping_behavior_refs = ["RT_OPENOT_AUTHORING_TRANSLATION_001#behavior:3", "RT_OPENOT_AUTHORING_TRANSLATION_001#behavior:4"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_B91E25CDD98DD7A64FD2"
+subject_kind = "generated_test"
+discovery_id = "DISC_B91E25CDD98DD7A64FD2"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/src/openot_authoring/tests.rs"
+name = "generated_event_types_match_openot_reference_canonical_schema"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(~generated_event_types_match_openot_reference_canonical_schema)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPENOT_AUTHORING_TRANSLATION_001"]
+oracle_ref = "SPEC_OPENOT_AUTHORING_001#10-runtime-authoring-translation"
+oracle_refs = ["SPEC_OPENOT_AUTHORING_001#10-runtime-authoring-translation"]
+expected_result = "The generated definition preserves canonical source, value, unit, enum, condition, event-schema, sampling, and content-hash fields."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_B91E25CDD98DD7A64FD2.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_B91E25CDD98DD7A64FD2_EADFB8C5F614"
+mapping_proposal_digest = "sha256:eadfb8c5f614ba91b826046adfb29b1449bad9d4c0d1160215b4d64f27e0f8d4"
+mapping_decision_id = "MAP_DEC_3EBF9AC80118C26544F1F8CA"
+mapping_reviewed_source_digest = "sha256:67aa849ad4902b815d0362487928b7f4e456275323cac78c34c3fa003fc1673b"
+mapping_assertion_review_digest = "sha256:5f22b8044917b973a658921422ce7ad9e0e16b7d2030a8dc46295c89c0fbd4f0"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/openot_authoring/tests.rs" = "sha256:67aa849ad4902b815d0362487928b7f4e456275323cac78c34c3fa003fc1673b" }
+mapping_behavior_refs = ["RT_OPENOT_AUTHORING_TRANSLATION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_C3BD87557BC4FF520AC2"
+subject_kind = "generated_test"
+discovery_id = "DISC_C3BD87557BC4FF520AC2"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/src/openot_authoring/tests.rs"
+name = "enum_state_definition_includes_enum_set"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(~enum_state_definition_includes_enum_set)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPENOT_AUTHORING_TRANSLATION_001"]
+oracle_ref = "SPEC_OPENOT_AUTHORING_001#10-runtime-authoring-translation"
+oracle_refs = ["SPEC_OPENOT_AUTHORING_001#10-runtime-authoring-translation"]
+expected_result = "The generated definition preserves canonical source, value, unit, enum, condition, event-schema, sampling, and content-hash fields."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_C3BD87557BC4FF520AC2.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_C3BD87557BC4FF520AC2_2BEF68351948"
+mapping_proposal_digest = "sha256:2bef6835194812089dca92ae7da0051d0302991b8cbfc161e59e93a3a1fa9aa4"
+mapping_decision_id = "MAP_DEC_693BCED173A0C0688458BEB0"
+mapping_reviewed_source_digest = "sha256:67aa849ad4902b815d0362487928b7f4e456275323cac78c34c3fa003fc1673b"
+mapping_assertion_review_digest = "sha256:2bbf03f9bc08a99ac170a5ed5aa760b906f69d3de3c30b4a300d70a735dee2e1"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/openot_authoring/tests.rs" = "sha256:67aa849ad4902b815d0362487928b7f4e456275323cac78c34c3fa003fc1673b" }
+mapping_behavior_refs = ["RT_OPENOT_AUTHORING_TRANSLATION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_CC8F224B4E548B15AD95"
+subject_kind = "generated_test"
+discovery_id = "DISC_CC8F224B4E548B15AD95"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/src/openot_authoring/tests.rs"
+name = "generated_definition_contains_hash"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(~generated_definition_contains_hash)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPENOT_AUTHORING_TRANSLATION_001"]
+oracle_ref = "SPEC_OPENOT_AUTHORING_001#10-runtime-authoring-translation"
+oracle_refs = ["SPEC_OPENOT_AUTHORING_001#10-runtime-authoring-translation"]
+expected_result = "The generated definition preserves canonical source, value, unit, enum, condition, event-schema, sampling, and content-hash fields."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_CC8F224B4E548B15AD95.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_CC8F224B4E548B15AD95_9005CA0178E1"
+mapping_proposal_digest = "sha256:9005ca0178e1adadcf514e3656c2338cc36fee1cd09480e49f3042eda5a5458b"
+mapping_decision_id = "MAP_DEC_2FE1F76A26755822474FE966"
+mapping_reviewed_source_digest = "sha256:67aa849ad4902b815d0362487928b7f4e456275323cac78c34c3fa003fc1673b"
+mapping_assertion_review_digest = "sha256:b9a4fe1a93a8b2fdd805668c633c329a15016da31a9219ca2cc84e60f6fe4b94"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/openot_authoring/tests.rs" = "sha256:67aa849ad4902b815d0362487928b7f4e456275323cac78c34c3fa003fc1673b" }
+mapping_behavior_refs = ["RT_OPENOT_AUTHORING_TRANSLATION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_CD6997A0F5D223035730"
+subject_kind = "generated_test"
+discovery_id = "DISC_CD6997A0F5D223035730"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/src/openot_authoring/tests.rs"
+name = "condition_lifecycle_lowering_inherits_parent_and_emits_after_alarm_phase"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(~condition_lifecycle_lowering_inherits_parent_and_emits_after_alarm_phase)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPENOT_AUTHORING_TRANSLATION_001"]
+oracle_ref = "SPEC_OPENOT_AUTHORING_001#10-runtime-authoring-translation"
+oracle_refs = ["SPEC_OPENOT_AUTHORING_001#10-runtime-authoring-translation"]
+expected_result = "The generated definition preserves canonical source, value, unit, enum, condition, event-schema, sampling, and content-hash fields. Instrumentation emits the hidden producer, source-time inputs, typed payloads, semantic fields, and phased event calls required by the accepted declarations."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_CD6997A0F5D223035730.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_CD6997A0F5D223035730_B5324EC21DBE"
+mapping_proposal_digest = "sha256:b5324ec21dbe09e1ae786aae3e1af7cd601d8b8b44ce901fe412358f74b8f239"
+mapping_decision_id = "MAP_DEC_2F4CB4086A6EEE3A35A9F5EE"
+mapping_reviewed_source_digest = "sha256:67aa849ad4902b815d0362487928b7f4e456275323cac78c34c3fa003fc1673b"
+mapping_assertion_review_digest = "sha256:3de73d39ef2ad8bf69c591af6fa35ac59ba75734513efd1767ad51371c55a194"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/openot_authoring/tests.rs" = "sha256:67aa849ad4902b815d0362487928b7f4e456275323cac78c34c3fa003fc1673b" }
+mapping_behavior_refs = ["RT_OPENOT_AUTHORING_TRANSLATION_001#behavior:3", "RT_OPENOT_AUTHORING_TRANSLATION_001#behavior:4"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_DB3D37B0B8FABFF4F1C7"
+subject_kind = "generated_test"
+discovery_id = "DISC_DB3D37B0B8FABFF4F1C7"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/src/openot_authoring/tests.rs"
+name = "unpinned_ids_follow_declaration_order"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(~unpinned_ids_follow_declaration_order)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPENOT_AUTHORING_TRANSLATION_001"]
+oracle_ref = "SPEC_OPENOT_AUTHORING_001#10-runtime-authoring-translation"
+oracle_refs = ["SPEC_OPENOT_AUTHORING_001#10-runtime-authoring-translation"]
+expected_result = "Implicit source and value identities follow deterministic program and declaration order while skipping pinned identities."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_DB3D37B0B8FABFF4F1C7.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_DB3D37B0B8FABFF4F1C7_324745FC2554"
+mapping_proposal_digest = "sha256:324745fc2554a8725e2a2766072c6d79cca5f06d344126edf167d1737c44b7b0"
+mapping_decision_id = "MAP_DEC_AA41CFDE6564F1130EBE7031"
+mapping_reviewed_source_digest = "sha256:67aa849ad4902b815d0362487928b7f4e456275323cac78c34c3fa003fc1673b"
+mapping_assertion_review_digest = "sha256:acdd70aecd7875f742c3471c3657ea800f82aa839993f6c6580fc562a6e3ccac"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/openot_authoring/tests.rs" = "sha256:67aa849ad4902b815d0362487928b7f4e456275323cac78c34c3fa003fc1673b" }
+mapping_behavior_refs = ["RT_OPENOT_AUTHORING_TRANSLATION_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_E45EABA362C60CF7F26D"
+subject_kind = "generated_test"
+discovery_id = "DISC_E45EABA362C60CF7F26D"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/src/openot_authoring/tests.rs"
+name = "instruments_fixed_width_value_types_with_generic_value_op"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(~instruments_fixed_width_value_types_with_generic_value_op)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPENOT_AUTHORING_TRANSLATION_001"]
+oracle_ref = "SPEC_OPENOT_AUTHORING_001#10-runtime-authoring-translation"
+oracle_refs = ["SPEC_OPENOT_AUTHORING_001#10-runtime-authoring-translation"]
+expected_result = "Instrumentation emits the hidden producer, source-time inputs, typed payloads, semantic fields, and phased event calls required by the accepted declarations."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_E45EABA362C60CF7F26D.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_E45EABA362C60CF7F26D_FA8246A287C8"
+mapping_proposal_digest = "sha256:fa8246a287c8858e7b4fac91680b9a3d30bbcb93e0b58dfa8438efabee59c1f7"
+mapping_decision_id = "MAP_DEC_590C3D03F646179D9A42E2C5"
+mapping_reviewed_source_digest = "sha256:67aa849ad4902b815d0362487928b7f4e456275323cac78c34c3fa003fc1673b"
+mapping_assertion_review_digest = "sha256:ffd2085df461469e25cbe4da261ed532cfdfd955c5afaa3f111d2578d0082828"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/openot_authoring/tests.rs" = "sha256:67aa849ad4902b815d0362487928b7f4e456275323cac78c34c3fa003fc1673b" }
+mapping_behavior_refs = ["RT_OPENOT_AUTHORING_TRANSLATION_001#behavior:4"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_E642186822BCFD962E89"
+subject_kind = "generated_test"
+discovery_id = "DISC_E642186822BCFD962E89"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/src/openot_authoring/tests.rs"
+name = "value_quality_semantic_role_and_previous_lowering_are_explicit"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(~value_quality_semantic_role_and_previous_lowering_are_explicit)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPENOT_AUTHORING_TRANSLATION_001"]
+oracle_ref = "SPEC_OPENOT_AUTHORING_001#10-runtime-authoring-translation"
+oracle_refs = ["SPEC_OPENOT_AUTHORING_001#10-runtime-authoring-translation"]
+expected_result = "The generated definition preserves canonical source, value, unit, enum, condition, event-schema, sampling, and content-hash fields. Instrumentation emits the hidden producer, source-time inputs, typed payloads, semantic fields, and phased event calls required by the accepted declarations."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_E642186822BCFD962E89.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_E642186822BCFD962E89_D34C72ABCF9B"
+mapping_proposal_digest = "sha256:d34c72abcf9b97f06c8d0a0a5a3141f75d61eae27a69ba7ab247be17474e2d6e"
+mapping_decision_id = "MAP_DEC_2E50608632D60D67BA00E6D4"
+mapping_reviewed_source_digest = "sha256:67aa849ad4902b815d0362487928b7f4e456275323cac78c34c3fa003fc1673b"
+mapping_assertion_review_digest = "sha256:f612aaf14f6e777d34999460a0ade27027bd6af64b36159b5d18e1f6ccbbc096"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/openot_authoring/tests.rs" = "sha256:67aa849ad4902b815d0362487928b7f4e456275323cac78c34c3fa003fc1673b" }
+mapping_behavior_refs = ["RT_OPENOT_AUTHORING_TRANSLATION_001#behavior:3", "RT_OPENOT_AUTHORING_TRANSLATION_001#behavior:4"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_E979CB5D7A257C7962FD"
+subject_kind = "generated_test"
+discovery_id = "DISC_E979CB5D7A257C7962FD"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/src/openot_authoring/tests.rs"
+name = "hir_and_runtime_authoring_accept_omitted_sourceids_units_and_payload_widths"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(~hir_and_runtime_authoring_accept_omitted_sourceids_units_and_payload_widths)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPENOT_AUTHORING_TRANSLATION_001"]
+oracle_ref = "SPEC_OPENOT_AUTHORING_001#10-runtime-authoring-translation"
+oracle_refs = ["SPEC_OPENOT_AUTHORING_001#10-runtime-authoring-translation"]
+expected_result = "Implicit source and value identities follow deterministic program and declaration order while skipping pinned identities. The generated definition preserves canonical source, value, unit, enum, condition, event-schema, sampling, and content-hash fields. Instrumentation emits the hidden producer, source-time inputs, typed payloads, semantic fields, and phased event calls required by the accepted declarations."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_E979CB5D7A257C7962FD.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_E979CB5D7A257C7962FD_AB861F5A9E50"
+mapping_proposal_digest = "sha256:ab861f5a9e50298a000ff61a8327a2b1420524a79f9ed2c8c5962db532cca2a5"
+mapping_decision_id = "MAP_DEC_ADBEA43F7A2C0A19A44A1471"
+mapping_reviewed_source_digest = "sha256:67aa849ad4902b815d0362487928b7f4e456275323cac78c34c3fa003fc1673b"
+mapping_assertion_review_digest = "sha256:d1811feba7e74c7887e97c821c72de819ec962f597ddb283c00b4ec606256990"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/openot_authoring/tests.rs" = "sha256:67aa849ad4902b815d0362487928b7f4e456275323cac78c34c3fa003fc1673b" }
+mapping_behavior_refs = ["RT_OPENOT_AUTHORING_TRANSLATION_001#behavior:0", "RT_OPENOT_AUTHORING_TRANSLATION_001#behavior:3", "RT_OPENOT_AUTHORING_TRANSLATION_001#behavior:4"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_EC921A6789B607F963A4"
+subject_kind = "generated_test"
+discovery_id = "DISC_EC921A6789B607F963A4"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/src/openot_authoring/tests.rs"
+name = "multi_program_omitted_sourceids_are_assigned_distinctly"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(~multi_program_omitted_sourceids_are_assigned_distinctly)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPENOT_AUTHORING_TRANSLATION_001"]
+oracle_ref = "SPEC_OPENOT_AUTHORING_001#10-runtime-authoring-translation"
+oracle_refs = ["SPEC_OPENOT_AUTHORING_001#10-runtime-authoring-translation"]
+expected_result = "Implicit source and value identities follow deterministic program and declaration order while skipping pinned identities."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_EC921A6789B607F963A4.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_EC921A6789B607F963A4_8D15426295DE"
+mapping_proposal_digest = "sha256:8d15426295def69edbe96d8cb950bf3dbf1a7eeaaf26fdd4a4b827f964e41116"
+mapping_decision_id = "MAP_DEC_A9CA8679A51D5F6780BBA3D4"
+mapping_reviewed_source_digest = "sha256:67aa849ad4902b815d0362487928b7f4e456275323cac78c34c3fa003fc1673b"
+mapping_assertion_review_digest = "sha256:edce7d40ae4f59bf144f42a2512e7010b41e201bbfb228f93278539b7d3b9645"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/openot_authoring/tests.rs" = "sha256:67aa849ad4902b815d0362487928b7f4e456275323cac78c34c3fa003fc1673b" }
+mapping_behavior_refs = ["RT_OPENOT_AUTHORING_TRANSLATION_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_FAAC8CE08EE4F121BF0B"
+subject_kind = "generated_test"
+discovery_id = "DISC_FAAC8CE08EE4F121BF0B"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/src/openot_authoring/tests.rs"
+name = "generated_definition_uses_canonical_unit_ids"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(~generated_definition_uses_canonical_unit_ids)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPENOT_AUTHORING_TRANSLATION_001"]
+oracle_ref = "SPEC_OPENOT_AUTHORING_001#10-runtime-authoring-translation"
+oracle_refs = ["SPEC_OPENOT_AUTHORING_001#10-runtime-authoring-translation"]
+expected_result = "The generated definition preserves canonical source, value, unit, enum, condition, event-schema, sampling, and content-hash fields."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_FAAC8CE08EE4F121BF0B.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_FAAC8CE08EE4F121BF0B_9C136943B4DB"
+mapping_proposal_digest = "sha256:9c136943b4dbba6fc7c1d7438fb49a321bc0610a45e006681777c631876654a7"
+mapping_decision_id = "MAP_DEC_9512F39CBC91ED20191A2652"
+mapping_reviewed_source_digest = "sha256:67aa849ad4902b815d0362487928b7f4e456275323cac78c34c3fa003fc1673b"
+mapping_assertion_review_digest = "sha256:86aba918a43dbc49dc3f66c7ff2c571d05713a5134fdd71d29627005c5ae5778"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/openot_authoring/tests.rs" = "sha256:67aa849ad4902b815d0362487928b7f4e456275323cac78c34c3fa003fc1673b" }
+mapping_behavior_refs = ["RT_OPENOT_AUTHORING_TRANSLATION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_373D303A11B90D676717"
+subject_kind = "generated_test"
+discovery_id = "DISC_373D303A11B90D676717"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/openot_telemetry.rs"
+name = "openot_telemetry_publish_failure_is_fail_closed"
+command = "cargo nextest run -p trust-runtime --test openot_telemetry --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::openot_telemetry) & test(~openot_telemetry_publish_failure_is_fail_closed)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPENOT_TELEMETRY_PUBLICATION_001"]
+oracle_ref = "SPEC_OPENOT_AUTHORING_001#12-runtime-telemetry-publication"
+oracle_refs = ["SPEC_OPENOT_AUTHORING_001#12-runtime-telemetry-publication"]
+expected_result = "A required create, encode, or append failure fails the cycle and never acknowledges uncommitted producer data."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_373D303A11B90D676717.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_373D303A11B90D676717_A71AC8BCFC3E"
+mapping_proposal_digest = "sha256:a71ac8bcfc3ecd27b303792a20ffa1ad3740352246b5e9f8fc7a41bd73a82c77"
+mapping_decision_id = "MAP_DEC_C9246F0557C3D8314C81FF34"
+mapping_reviewed_source_digest = "sha256:3a3ada2e5aec2e98c5e39d4263dcd01e82738b123da0ecdf423b4978d276e0c1"
+mapping_assertion_review_digest = "sha256:85f0cf157dd0a12f7a55e78fc6ff898aa8f029e9717553e1d8892dee8f077a07"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/openot_telemetry.rs" = "sha256:3a3ada2e5aec2e98c5e39d4263dcd01e82738b123da0ecdf423b4978d276e0c1" }
+mapping_behavior_refs = ["RT_OPENOT_TELEMETRY_PUBLICATION_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_5B43AF2B1181A8401F05"
+subject_kind = "generated_test"
+discovery_id = "DISC_5B43AF2B1181A8401F05"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/openot_telemetry.rs"
+name = "openot_telemetry_authoring_sampling_policy_round_trips_definition"
+command = "cargo nextest run -p trust-runtime --test openot_telemetry --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::openot_telemetry) & test(~openot_telemetry_authoring_sampling_policy_round_trips_definition)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPENOT_AUTHORING_TRANSLATION_001"]
+oracle_ref = "SPEC_OPENOT_AUTHORING_001#10-runtime-authoring-translation"
+oracle_refs = ["SPEC_OPENOT_AUTHORING_001#10-runtime-authoring-translation"]
+expected_result = "The generated definition preserves canonical source, value, unit, enum, condition, event-schema, sampling, and content-hash fields."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_5B43AF2B1181A8401F05.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_5B43AF2B1181A8401F05_2790A14E9B8F"
+mapping_proposal_digest = "sha256:2790a14e9b8f4938333e3dd95c7ea96c5efa17c77d9d3c25d4396584adcd4bd6"
+mapping_decision_id = "MAP_DEC_490511D47721FB8A6E95C79A"
+mapping_reviewed_source_digest = "sha256:3a3ada2e5aec2e98c5e39d4263dcd01e82738b123da0ecdf423b4978d276e0c1"
+mapping_assertion_review_digest = "sha256:3ec2796d14d616ec031e8e75836f3754e9048275b5450b5822afaa86cd8eaba0"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/openot_telemetry.rs" = "sha256:3a3ada2e5aec2e98c5e39d4263dcd01e82738b123da0ecdf423b4978d276e0c1" }
+mapping_behavior_refs = ["RT_OPENOT_AUTHORING_TRANSLATION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_9BBDE7C18FAF59882F0F"
+subject_kind = "generated_test"
+discovery_id = "DISC_9BBDE7C18FAF59882F0F"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/openot_telemetry.rs"
+name = "openot_telemetry_publishes_crc_valid_heartbeats"
+command = "cargo nextest run -p trust-runtime --test openot_telemetry --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::openot_telemetry) & test(~openot_telemetry_publishes_crc_valid_heartbeats)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPENOT_TELEMETRY_PUBLICATION_001"]
+oracle_ref = "SPEC_OPENOT_AUTHORING_001#12-runtime-telemetry-publication"
+oracle_refs = ["SPEC_OPENOT_AUTHORING_001#12-runtime-telemetry-publication"]
+expected_result = "A successful cycle appends one canonical heartbeat or drains every complete configured ST producer record in configured order."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_9BBDE7C18FAF59882F0F.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_9BBDE7C18FAF59882F0F_74252D90B9D6"
+mapping_proposal_digest = "sha256:74252d90b9d6611697b246a9d8e1186a6664eac9dafad6f760342eb801ba9fa6"
+mapping_decision_id = "MAP_DEC_302F4197E2DB1BC8D109C54A"
+mapping_reviewed_source_digest = "sha256:3a3ada2e5aec2e98c5e39d4263dcd01e82738b123da0ecdf423b4978d276e0c1"
+mapping_assertion_review_digest = "sha256:afaf2b6f57d2c103978f2ce64111fd9a1e5d4c9a61d81232fb1768e4317b0e18"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/openot_telemetry.rs" = "sha256:3a3ada2e5aec2e98c5e39d4263dcd01e82738b123da0ecdf423b4978d276e0c1" }
+mapping_behavior_refs = ["RT_OPENOT_TELEMETRY_PUBLICATION_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
