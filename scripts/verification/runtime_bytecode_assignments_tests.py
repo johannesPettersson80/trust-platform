@@ -82,6 +82,33 @@ class RuntimeBytecodeAssignmentTests(unittest.TestCase):
             ),
         )
 
+    def test_instruction_boundary_assertions_select_accept_and_reject(
+        self,
+    ) -> None:
+        path = "crates/trust-runtime/src/bytecode/validate/resource_limits.rs"
+        name = (
+            "instruction_limit_accepts_boundary_and_rejects_next_instruction"
+        )
+        self.assertEqual(
+            ("RT_BYTECODE_INSTRUCTION_BOUNDARY_001", 0),
+            _behavior_for_assertion(
+                path=path,
+                name=name,
+                expression="assert_eq ! (total , BYTECODE_MAX_INSTRUCTIONS)",
+            ),
+        )
+        self.assertEqual(
+            ("RT_BYTECODE_INSTRUCTION_BOUNDARY_001", 1),
+            _behavior_for_assertion(
+                path=path,
+                name=name,
+                expression=(
+                    "assert ! (charge_decoded_instruction (& mut total) "
+                    ". is_err ())"
+                ),
+            ),
+        )
+
     def test_validation_fixture_mechanics_are_not_product_oracles(self) -> None:
         path = "crates/trust-runtime/tests/bytecode_validation.rs"
         self.assertTrue(

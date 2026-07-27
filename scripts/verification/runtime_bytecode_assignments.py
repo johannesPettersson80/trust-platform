@@ -18,6 +18,14 @@ VALIDATOR = "VM_SEAM_VALID_001"
 LIMITS = "VM_SEAM_DETERMINISM_LIMITS_001"
 REFERENCES = "VM_SEAM_REF_001"
 STACK_BOUNDARY = "RT_BYTECODE_STACK_BOUNDARY_001"
+INSTRUCTION_BOUNDARY = "RT_BYTECODE_INSTRUCTION_BOUNDARY_001"
+
+REVIEWED_UNRESOLVED_HELPERS: Mapping[tuple[str, str], frozenset[str]] = {
+    (
+        "crates/trust-runtime/src/bytecode/validate/resource_limits.rs",
+        "instruction_limit_accepts_boundary_and_rejects_next_instruction",
+    ): frozenset({"charge_decoded_instruction::checked_add:unresolved-method"}),
+}
 
 ENCODER_BEHAVIORS: Mapping[str, int] = {
     "encoder_accepts_case_insensitive_names_in_call_heavy_if_blocks": 7,
@@ -86,7 +94,10 @@ def generate_assignments(
             raise ValueError(f"duplicate bytecode test {path}:{name}")
         seen.add(key)
         unresolved = raw.get("unresolved_assertion_helpers")
-        if unresolved != []:
+        if not isinstance(unresolved, list):
+            raise ValueError(f"{path}:{name} has invalid unresolved helpers")
+        reviewed_unresolved = REVIEWED_UNRESOLVED_HELPERS.get((path, name))
+        if set(unresolved) != set(reviewed_unresolved or ()):
             raise ValueError(f"{path}:{name} has unresolved assertion helpers")
         assertions = raw.get("assertions")
         if (
@@ -139,6 +150,10 @@ def _default_behavior(path: str, name: str) -> BehaviorRef:
     if path.endswith("/bytecode/validate/resource_limits.rs"):
         if name == "stack_limit_accepts_boundary_and_rejects_next_value":
             return (STACK_BOUNDARY, 0)
+        if name == (
+            "instruction_limit_accepts_boundary_and_rejects_next_instruction"
+        ):
+            return (INSTRUCTION_BOUNDARY, 0)
     if path.endswith("/bytecode_decode_resource_bounds.rs"):
         return (LIMITS, 0)
     if path.endswith("/bytecode_container.rs"):
@@ -186,6 +201,13 @@ def _behavior_for_assertion(
         and "VM_MAX_OPERAND_STACK + 1" in expression
     ):
         return (STACK_BOUNDARY, 1)
+    if (
+        path.endswith("/bytecode/validate/resource_limits.rs")
+        and name
+        == "instruction_limit_accepts_boundary_and_rejects_next_instruction"
+        and "is_err" in expression
+    ):
+        return (INSTRUCTION_BOUNDARY, 1)
     return _default_behavior(path, name)
 
 
