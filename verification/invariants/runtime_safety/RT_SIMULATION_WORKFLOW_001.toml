@@ -3,7 +3,7 @@ id = "RT_SIMULATION_WORKFLOW_001"
 title = "Simulation models preserve deterministic scan-boundary behavior"
 area = "runtime_safety"
 risk = "silent_corruption"
-status = "specified"
+status = "mapped"
 owner = "trust-runtime"
 last_reviewed = "2026-07-27"
 claim = "Accepted simulation models activate predictably, apply coupling and physics effects only at scan boundaries, reject conflicting feedback targets, replay deterministically, expose due faults, and do not manufacture watchdog failures from clock scaling."
@@ -15,7 +15,7 @@ source_refs = [
   "crates/trust-runtime/src/host/simulation.rs",
   "crates/trust-runtime/tests/simulation_workflow.rs",
 ]
-tests = []
+tests = ["TEST_AUTO_2A57C3244B2F34DF39D6", "TEST_AUTO_2BE10D5D71EBD6034F0B", "TEST_AUTO_2F42A392CE80CD36FBB2", "TEST_AUTO_5079C513733275372753", "TEST_AUTO_7CB55CD7268E209C7A59", "TEST_AUTO_8887FE3BA0A4120A7E2F", "TEST_AUTO_D62F2B0357AA33DDC060", "TEST_AUTO_F045598C3E23F947792D", "TEST_AUTO_F6F3665F8B379102EFEE"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
@@ -104,20 +104,20 @@ rationale = "An accelerated scheduler clock does not manufacture a watchdog fail
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "Reviewed simulation configuration and deterministic replay assertions await generated catalog mapping and focused execution."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in RT_SIMULATION_WORKFLOW_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "duplicate_or_collision"
-state = "gap_open"
-rationale = "Reviewed feedback-target conflict assertions await generated catalog mapping and focused execution."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every duplicate_or_collision behavior in RT_SIMULATION_WORKFLOW_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
-state = "gap_open"
-rationale = "Reviewed scan-boundary and physics replay assertions await generated catalog mapping and focused execution."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in RT_SIMULATION_WORKFLOW_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "time_or_clock_fault"
-state = "gap_open"
-rationale = "Reviewed scripted-fault and accelerated-clock clean-stop assertions await generated catalog mapping and focused execution."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every time_or_clock_fault behavior in RT_SIMULATION_WORKFLOW_001; dynamic proof and broad remote validation remain explicit debt."

@@ -105606,3 +105606,308 @@ mapping_assertion_review_digest = "sha256:188beaf975c14eefa8e4f0a8a5bfe1b0009909
 mapping_assertion_source_digests = { "crates/trust-ads-server/src/symbols.rs" = "sha256:eb9ebe4a1d402c605d23a6a56705aa56f3246583907b402b17694289d3a4df00" }
 mapping_behavior_refs = ["RT_ADS_SERVER_SYMBOL_TABLE_001#behavior:0"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_2A57C3244B2F34DF39D6"
+subject_kind = "generated_test"
+discovery_id = "DISC_2A57C3244B2F34DF39D6"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/simulation_workflow.rs"
+name = "physics_revolute_joint_queues_encoder_feedback_through_io_boundary"
+command = "cargo nextest run -p trust-runtime --test simulation_workflow --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::simulation_workflow) & test(=physics_revolute_joint_queues_encoder_feedback_through_io_boundary)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_SIMULATION_WORKFLOW_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#simulation-model-execution"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#simulation-model-execution"]
+expected_result = "A physics step queues encoder feedback after a scan and the following pre-cycle boundary applies the exact due value."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_2A57C3244B2F34DF39D6.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_2A57C3244B2F34DF39D6_0AB69E158BE8"
+mapping_proposal_digest = "sha256:0ab69e158be88c60a6644452cbcb42260fb21d5fd354ab6e895505d9d2cf85c9"
+mapping_decision_id = "MAP_DEC_92EFE7E5C5E4A2A4481822DD"
+mapping_reviewed_source_digest = "sha256:3f82276db23dbe255d4b3c679857942cccc0b14e3e2c41ce618a936e533ae245"
+mapping_assertion_review_digest = "sha256:5de29fedb2a4bfb706d6e6efa6a692fcd7358b2b2ea69401d691b874c57750b2"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/simulation_workflow.rs" = "sha256:3f82276db23dbe255d4b3c679857942cccc0b14e3e2c41ce618a936e533ae245" }
+mapping_behavior_refs = ["RT_SIMULATION_WORKFLOW_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_2BE10D5D71EBD6034F0B"
+subject_kind = "generated_test"
+discovery_id = "DISC_2BE10D5D71EBD6034F0B"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/simulation_workflow.rs"
+name = "scripted_fault_disturbance_faults_runtime"
+command = "cargo nextest run -p trust-runtime --test simulation_workflow --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::simulation_workflow) & test(=scripted_fault_disturbance_faults_runtime)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_SIMULATION_WORKFLOW_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#simulation-model-execution"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#simulation-model-execution"]
+expected_result = "A programmatically constructed scripted fault leaves the runtime unfaulted before its due time and becomes a visible SimulationFault at the due boundary; unrelated state preservation is not claimed."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_2BE10D5D71EBD6034F0B.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_2BE10D5D71EBD6034F0B_07BF8B7171BB"
+mapping_proposal_digest = "sha256:07bf8b7171bb0dce135962715bae13dab91fdb405fbb53a90db5449377d1f513"
+mapping_decision_id = "MAP_DEC_9057BC518E026ACE0E460031"
+mapping_reviewed_source_digest = "sha256:3f82276db23dbe255d4b3c679857942cccc0b14e3e2c41ce618a936e533ae245"
+mapping_assertion_review_digest = "sha256:c86958a8708f573208be7dc8bc2fa38bc000ae6b18c4d98da51421ce48b5e8da"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/simulation_workflow.rs" = "sha256:3f82276db23dbe255d4b3c679857942cccc0b14e3e2c41ce618a936e533ae245" }
+mapping_behavior_refs = ["RT_SIMULATION_WORKFLOW_001#behavior:7"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_2F42A392CE80CD36FBB2"
+subject_kind = "generated_test"
+discovery_id = "DISC_2F42A392CE80CD36FBB2"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/simulation_workflow.rs"
+name = "coupling_applies_threshold_with_delay"
+command = "cargo nextest run -p trust-runtime --test simulation_workflow --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::simulation_workflow) & test(=coupling_applies_threshold_with_delay)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_SIMULATION_WORKFLOW_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#simulation-model-execution"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#simulation-model-execution"]
+expected_result = "A reviewed below-threshold source leaves the false input unchanged, while an above-threshold source remains invisible before the configured delay and becomes true at the due boundary; threshold equality and observable false-branch application remain explicit gaps."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_2F42A392CE80CD36FBB2.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_2F42A392CE80CD36FBB2_8E1546623EBA"
+mapping_proposal_digest = "sha256:8e1546623eba8160b5885ec34d8e2a743c8da75cf6d55b2bc637da9aa1ed58db"
+mapping_decision_id = "MAP_DEC_9D79B9F5E98FFC1079AF5015"
+mapping_reviewed_source_digest = "sha256:3f82276db23dbe255d4b3c679857942cccc0b14e3e2c41ce618a936e533ae245"
+mapping_assertion_review_digest = "sha256:f138a7642e51f68dc712ca65b52a3b1b22e4be827eb74eac79ed3fcbd3236edc"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/simulation_workflow.rs" = "sha256:3f82276db23dbe255d4b3c679857942cccc0b14e3e2c41ce618a936e533ae245" }
+mapping_behavior_refs = ["RT_SIMULATION_WORKFLOW_001#behavior:6"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_5079C513733275372753"
+subject_kind = "generated_test"
+discovery_id = "DISC_5079C513733275372753"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/simulation_workflow.rs"
+name = "deterministic_trace_with_same_simulation_config"
+command = "cargo nextest run -p trust-runtime --test simulation_workflow --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::simulation_workflow) & test(=deterministic_trace_with_same_simulation_config)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_SIMULATION_WORKFLOW_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#simulation-model-execution"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#simulation-model-execution"]
+expected_result = "Two coupling simulations with the same accepted model, time sequence, and output inputs produce equal traces; this behavior does not claim the trace is nonempty or independently correct."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_5079C513733275372753.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_5079C513733275372753_C02C65FD3611"
+mapping_proposal_digest = "sha256:c02c65fd3611795cae9f69d9670b94dc037d0eb170d30820ee7f5ce45d28785d"
+mapping_decision_id = "MAP_DEC_9C69312C797F3B1C3C00654B"
+mapping_reviewed_source_digest = "sha256:3f82276db23dbe255d4b3c679857942cccc0b14e3e2c41ce618a936e533ae245"
+mapping_assertion_review_digest = "sha256:0bc046e35b01ee5e0c9aae59267741bf1422ff3715438d977e853a2d5b820a66"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/simulation_workflow.rs" = "sha256:3f82276db23dbe255d4b3c679857942cccc0b14e3e2c41ce618a936e533ae245" }
+mapping_behavior_refs = ["RT_SIMULATION_WORKFLOW_001#behavior:5"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_7CB55CD7268E209C7A59"
+subject_kind = "generated_test"
+discovery_id = "DISC_7CB55CD7268E209C7A59"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/simulation_workflow.rs"
+name = "physics_feedback_target_conflicts_are_rejected"
+command = "cargo nextest run -p trust-runtime --test simulation_workflow --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::simulation_workflow) & test(=physics_feedback_target_conflicts_are_rejected)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_SIMULATION_WORKFLOW_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#simulation-model-execution"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#simulation-model-execution"]
+expected_result = "A physics feedback target that duplicates a coupling target rejects with the reviewed conflict diagnostic."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_7CB55CD7268E209C7A59.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_7CB55CD7268E209C7A59_D271E7C7C3D7"
+mapping_proposal_digest = "sha256:d271e7c7c3d7313f3c694529b6d7df3ba39b5a098b03f39f3cc5404efab7222d"
+mapping_decision_id = "MAP_DEC_EA6483D7D3CEF052B8D5045E"
+mapping_reviewed_source_digest = "sha256:3f82276db23dbe255d4b3c679857942cccc0b14e3e2c41ce618a936e533ae245"
+mapping_assertion_review_digest = "sha256:263e06b2feb9c5c0dce72d1fafda760e334c39c05d0454a261e3cbbb5fa2e95e"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/simulation_workflow.rs" = "sha256:3f82276db23dbe255d4b3c679857942cccc0b14e3e2c41ce618a936e533ae245" }
+mapping_behavior_refs = ["RT_SIMULATION_WORKFLOW_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_8887FE3BA0A4120A7E2F"
+subject_kind = "generated_test"
+discovery_id = "DISC_8887FE3BA0A4120A7E2F"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/simulation_workflow.rs"
+name = "simulation_toml_model_parses_rules_and_disturbances"
+command = "cargo nextest run -p trust-runtime --test simulation_workflow --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::simulation_workflow) & test(=simulation_toml_model_parses_rules_and_disturbances)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_SIMULATION_WORKFLOW_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#simulation-model-execution"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#simulation-model-execution"]
+expected_result = "The loader preserves an explicitly enabled model's seed, positive time scale, coupling, and disturbance configuration."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_8887FE3BA0A4120A7E2F.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_8887FE3BA0A4120A7E2F_9EF46733A17C"
+mapping_proposal_digest = "sha256:9ef46733a17ca9db98d0d980936fef7db15ddedd21a03e4c857b646122c07743"
+mapping_decision_id = "MAP_DEC_35A44808A6F947027DA9E867"
+mapping_reviewed_source_digest = "sha256:3f82276db23dbe255d4b3c679857942cccc0b14e3e2c41ce618a936e533ae245"
+mapping_assertion_review_digest = "sha256:59a27bc5ec7e5c1148f90b75fee4aabb7443646c5d09692471b9415bc61a2d4b"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/simulation_workflow.rs" = "sha256:3f82276db23dbe255d4b3c679857942cccc0b14e3e2c41ce618a936e533ae245" }
+mapping_behavior_refs = ["RT_SIMULATION_WORKFLOW_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_D62F2B0357AA33DDC060"
+subject_kind = "generated_test"
+discovery_id = "DISC_D62F2B0357AA33DDC060"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/simulation_workflow.rs"
+name = "simulation_toml_model_parses_physics_joints"
+command = "cargo nextest run -p trust-runtime --test simulation_workflow --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::simulation_workflow) & test(=simulation_toml_model_parses_physics_joints)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_SIMULATION_WORKFLOW_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#simulation-model-execution"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#simulation-model-execution"]
+expected_result = "A file with omitted simulation enablement and enabled nonempty physics loads as enabled while preserving backend, step, joint kind, and exact I/O endpoints."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_D62F2B0357AA33DDC060.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_D62F2B0357AA33DDC060_F4DCA74BBF39"
+mapping_proposal_digest = "sha256:f4dca74bbf39f0e9bc962561c0e12776891743fcbc50d8db4037763443318fbd"
+mapping_decision_id = "MAP_DEC_E477FC42E0AA22F9CF21D39C"
+mapping_reviewed_source_digest = "sha256:3f82276db23dbe255d4b3c679857942cccc0b14e3e2c41ce618a936e533ae245"
+mapping_assertion_review_digest = "sha256:76ecefd27f19da267ad4e1a0a34683e8de456cc034857d79b140de5aeb697139"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/simulation_workflow.rs" = "sha256:3f82276db23dbe255d4b3c679857942cccc0b14e3e2c41ce618a936e533ae245" }
+mapping_behavior_refs = ["RT_SIMULATION_WORKFLOW_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_F045598C3E23F947792D"
+subject_kind = "generated_test"
+discovery_id = "DISC_F045598C3E23F947792D"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/simulation_workflow.rs"
+name = "physics_revolute_trace_is_deterministic_for_same_seed"
+command = "cargo nextest run -p trust-runtime --test simulation_workflow --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::simulation_workflow) & test(=physics_revolute_trace_is_deterministic_for_same_seed)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_SIMULATION_WORKFLOW_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#simulation-model-execution"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#simulation-model-execution"]
+expected_result = "Two fixed-step revolute simulations with the same accepted model and inputs produce equal traces whose first and clamped final encoder values follow the specified zero initialization, step, clamp, round, and bound rules; helper-selected length and artifact hash are not compatibility oracles."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_F045598C3E23F947792D.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_F045598C3E23F947792D_2E699F6586BA"
+mapping_proposal_digest = "sha256:2e699f6586ba79051d3a24c40049f0a9d5b0a39cb143b81dc3273982122e8edb"
+mapping_decision_id = "MAP_DEC_05DCD08D3EF5DEC35C9EE565"
+mapping_reviewed_source_digest = "sha256:3f82276db23dbe255d4b3c679857942cccc0b14e3e2c41ce618a936e533ae245"
+mapping_assertion_review_digest = "sha256:8ee889a0b5682853f8674c6113eb5227e9f830f45023dadc4c3341ae5a4b9fc2"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/simulation_workflow.rs" = "sha256:3f82276db23dbe255d4b3c679857942cccc0b14e3e2c41ce618a936e533ae245" }
+mapping_behavior_refs = ["RT_SIMULATION_WORKFLOW_001#behavior:4"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_F6F3665F8B379102EFEE"
+subject_kind = "generated_test"
+discovery_id = "DISC_F6F3665F8B379102EFEE"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/simulation_workflow.rs"
+name = "accelerated_clock_keeps_watchdog_semantics"
+command = "cargo nextest run -p trust-runtime --test simulation_workflow --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::simulation_workflow) & test(=accelerated_clock_keeps_watchdog_semantics)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_SIMULATION_WORKFLOW_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#simulation-model-execution"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#simulation-model-execution"]
+expected_result = "An accelerated scheduler clock does not manufacture a watchdog failure from scaled model time: an explicitly stopped nonoverrunning resource reaches Stopped with no terminal error."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_F6F3665F8B379102EFEE.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_F6F3665F8B379102EFEE_5FBAAC767D68"
+mapping_proposal_digest = "sha256:5fbaac767d68465be9633b12ac40143fbd7746d0cbf6a77b6ef660ff445c9611"
+mapping_decision_id = "MAP_DEC_718DEB09B304A2CBBDF2F0E3"
+mapping_reviewed_source_digest = "sha256:3f82276db23dbe255d4b3c679857942cccc0b14e3e2c41ce618a936e533ae245"
+mapping_assertion_review_digest = "sha256:93ba2431b735d59ecd16123ae772dbc5dca575d935bfcd69e33cbdbd77b8d202"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/simulation_workflow.rs" = "sha256:3f82276db23dbe255d4b3c679857942cccc0b14e3e2c41ce618a936e533ae245" }
+mapping_behavior_refs = ["RT_SIMULATION_WORKFLOW_001#behavior:8"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
