@@ -2718,7 +2718,47 @@ activating the configuration. It does not normalize, clamp, or substitute a
 threshold. This contract does not govern programmatic coupling-rule
 construction or source-value admission.
 
-##### 6.9.4 Runtime control authorization
+##### 6.9.4 Simulation model execution
+
+An explicit `[simulation].enabled` value controls activation. When that field
+is omitted, the loader enables simulation if the file contains at least one
+coupling or disturbance, or enabled physics with at least one joint. An
+explicit `enabled = false` remains authoritative even when model entries are
+present. The loader preserves the configured seed and positive time scale,
+sorts file-backed disturbances by due time, and preserves the declared
+coupling and physics model. The seed is part of replay identity; changing it is
+not required to alter a model that contains no stochastic element.
+
+Post-cycle simulation observes the completed output image. A changed coupling
+value is queued for its configured delay, with `source >= threshold` selecting
+`on_true` and a lower value selecting `on_false`. Physics also queues encoder
+feedback after stepping. Neither path writes the input image during
+post-cycle processing. Pre-cycle processing applies due effects in due-time
+then insertion order, so a zero-delay post-cycle result first becomes visible
+at the following pre-cycle boundary.
+
+A scripted fault disturbance in an accepted file-backed or programmatically
+constructed model does nothing before its due time. At or after that time it
+faults the runtime and returns a visible simulation error.
+Accelerating the scheduler clock does not reinterpret scaled model time as
+active watchdog execution time. An explicitly stopped, non-overrunning
+accelerated resource reaches `Stopped` without a terminal error; genuine active
+execution overruns remain governed by the separate watchdog contract.
+
+The in-tree physics backend accepts revolute joints with output-bit enable
+sources and input-word feedback targets. A physics feedback target that
+duplicates a coupling target or an earlier physics target is rejected before
+activation. Each enabled joint advances by its fixed step, clamps to its
+configured limits, and publishes the rounded product of clamped angle and
+counts-per-radian, bounded to the unsigned 16-bit range, through the queued
+scan-boundary rule. A newly accepted joint starts at angle zero before its first
+fixed step. Replaying the same accepted model and inputs produces the same
+coupling and physics traces. Helper-selected trace length and a serialized
+trace hash are not part of product compatibility. This contract does not yet
+define different-seed behavior, programmatic disturbance reordering, or
+overflow policy beyond the currently specified finite configuration limits.
+
+##### 6.9.5 Runtime control authorization
 
 Runtime control uses the ordered role hierarchy `viewer < operator < engineer <
 admin`; a higher role includes lower-role permissions. Authorization is checked

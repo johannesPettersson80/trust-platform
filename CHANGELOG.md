@@ -26,6 +26,9 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   notification receiver binding, and bind-conflict startup failure.
 - Specify deterministic ADS server symbol assignment, duplicate rejection,
   flag preservation, serialization identity, and local version progression.
+- Specify deterministic simulation-model activation, coupling and physics scan
+  boundaries, conflict rejection, replay, scripted faults, and scaled-clock
+  watchdog isolation.
 
 Target release: `v0.24.57`
 

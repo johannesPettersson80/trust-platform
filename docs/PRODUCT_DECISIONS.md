@@ -6,6 +6,31 @@ in `IEC_DECISIONS.md`; PLCopen profile decisions belong in
 `PLCOPEN_DECISIONS.md`. Product behavior recorded here MUST NOT be copied to an
 IEC or PLCopen deviation log merely because truST owns the behavior.
 
+## 2026-07-27 - Simulation model activation and scan-boundary effects
+
+- Area: Runtime simulation
+- Decision:
+  - An explicit `[simulation].enabled` value is authoritative. When it is
+    omitted, a nonempty coupling or disturbance model, or enabled physics with
+    at least one joint, enables simulation implicitly.
+  - Coupling and physics outputs are queued after a scan and become input-image
+    changes only at a following pre-cycle boundary when due.
+  - File-backed disturbances execute in configured time order, and a scripted
+    fault becomes a visible runtime fault when its due time is reached.
+  - Fixed-step physics and coupling replay are deterministic for the same
+    accepted model and inputs. The seed is retained as replay identity but no
+    claim is made that changing it affects a model with no stochastic element.
+  - Accelerated simulation scheduling does not reinterpret scaled model time
+    as active watchdog execution time or manufacture a watchdog fault.
+- Authority:
+  - `docs/specs/11-runtime-engine.md`
+- Reason:
+  - A declared model must not silently remain inert merely because the optional
+    enable flag was omitted, while an explicit disable must remain respected.
+    Scan-boundary application prevents simulation from bypassing process-image
+    ordering. These are truST runtime choices outside IEC 61131-3 and are not
+    IEC deviations.
+
 ## 2026-07-27 - ADS server symbol snapshot identity
 
 - Area: ADS server symbol table
