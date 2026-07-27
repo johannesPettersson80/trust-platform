@@ -533,6 +533,16 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
         self.assertEqual("ams::tests::", profile.test_prefix)
         self.assertEqual("rust_unit_test", profile.discovery_source_kind)
 
+    def test_verification_cases_profile_resolves_library_target(self) -> None:
+        profile = get_target_profile(
+            "verification-cases-remaining",
+            path="crates/verification-cases/src/lib.rs",
+        )
+        self.assertEqual("verification-cases", profile.package)
+        self.assertEqual(("--lib",), profile.cargo_target_args)
+        self.assertEqual("verification-cases", profile.binary_id)
+        self.assertEqual("tests::", profile.test_prefix)
+
     def test_runtime_remaining_profile_resolves_retain_targets(self) -> None:
         unit = get_target_profile(
             "runtime-remaining",

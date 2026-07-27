@@ -24,6 +24,7 @@ SYNTAX_REMAINING_PROFILE_KEY = "syntax-remaining"
 DEBUG_REMAINING_PROFILE_KEY = "debug-remaining"
 RUNTIME_CORE_REMAINING_PROFILE_KEY = "runtime-core-remaining"
 ADS_SERVER_REMAINING_PROFILE_KEY = "ads-server-remaining"
+VERIFICATION_CASES_REMAINING_PROFILE_KEY = "verification-cases-remaining"
 TERMINAL_EVENTS = frozenset({"ok", "failed", "ignored", "timeout"})
 
 
@@ -168,6 +169,24 @@ ADS_SERVER_REMAINING_PROFILE = FrozenRustTargetProfile(
 
 ADS_SERVER_REMAINING_UNIT_PREFIXES: Mapping[str, str] = {
     "crates/trust-ads-server/src/ams.rs": "ams::tests::",
+}
+
+VERIFICATION_CASES_REMAINING_PROFILE = FrozenRustTargetProfile(
+    key=VERIFICATION_CASES_REMAINING_PROFILE_KEY,
+    package="verification-cases",
+    target_kind="lib",
+    target_name=None,
+    binary_id="verification-cases",
+    test_prefix="",
+    encoded_test_name_prefix="verification-cases::verification_cases$",
+    discovery_source_kind="rust_unit_test",
+    allowed_cfg_attributes=frozenset(),
+    no_default_features_cfg=None,
+    no_default_features_shard_name=None,
+)
+
+VERIFICATION_CASES_REMAINING_UNIT_PREFIXES: Mapping[str, str] = {
+    "crates/verification-cases/src/lib.rs": "tests::",
 }
 
 RUNTIME_REMAINING_LIB_PROFILE = FrozenRustTargetProfile(
@@ -396,6 +415,7 @@ TARGET_PROFILES: Mapping[str, FrozenRustTargetProfile] = {
         DEBUG_REMAINING_PROFILE,
         RUNTIME_CORE_REMAINING_PROFILE,
         ADS_SERVER_REMAINING_PROFILE,
+        VERIFICATION_CASES_REMAINING_PROFILE,
         RUNTIME_REMAINING_LIB_PROFILE,
     )
 }
@@ -432,6 +452,13 @@ def get_target_profile(
             ADS_SERVER_REMAINING_UNIT_PREFIXES,
             path,
             "ads-server",
+        )
+    if key == VERIFICATION_CASES_REMAINING_PROFILE_KEY:
+        return _unit_path_profile(
+            VERIFICATION_CASES_REMAINING_PROFILE,
+            VERIFICATION_CASES_REMAINING_UNIT_PREFIXES,
+            path,
+            "verification-cases",
         )
     if key == RUNTIME_REMAINING_PROFILE_KEY:
         return _runtime_remaining_profile(path)
