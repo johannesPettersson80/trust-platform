@@ -1,0 +1,38 @@
+schema_version = 1
+id = "PLCO_NON_ST_REJECTION_SET_001"
+title = "A document containing only unsupported executable bodies rejects"
+area = "plcopen_devtools"
+risk = "silent_corruption"
+status = "specified"
+owner = "trust-plcopen"
+last_reviewed = "2026-07-27"
+claim = "FBD, LD, SFC, and unknown executable bodies remain named rejected entries and cannot be scraped into emitted ST."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["docs/guides/PLCOPEN_INTEROP_COMPATIBILITY.md", "docs/PLCOPEN_DECISIONS.md", "crates/trust-plcopen/src/plcopen/import.rs"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_tests", "focused_execution_evidence", "preexisting_destination_preservation", "final_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_PLCOPEN_IMPORT_DECISION_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#non-st-body-diagnostics"
+
+[[behavior]]
+partition = { equals = "ALL_UNSUPPORTED_EXECUTABLE_BODIES_REJECT" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#non-st-body-diagnostics"
+outcome = "reject"
+delta = { target = "not_applicable", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A document containing FBD, LD, SFC, and unknown executable bodies reports four discovered/skipped POUs, imports none, emits PLCO215 through PLCO218 as errors with named skipped entries, writes no ST file in the initially empty destination, and fails with no importable ST content."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "The reviewed aggregate non-ST rejection assertions await generated catalog mapping and focused execution."

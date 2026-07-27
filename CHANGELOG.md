@@ -31,7 +31,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   watchdog isolation.
 - Specify the `trust-st-complete-v1` PLCopen profile, ST/data-type interchange,
   fail-closed import diagnostics, migration and CODESYS metadata, reviewed
-  vendor shims, and multi-vendor adapter artifact contracts.
+  vendor shims, and Allen-Bradley/Siemens adapter artifact contracts.
 
 Target release: `v0.24.57`
 

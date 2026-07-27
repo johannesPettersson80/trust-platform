@@ -3,7 +3,7 @@ id = "PLCO_MIGRATION_REPORT_AND_EXTENSION_001"
 title = "Migration reports and opaque vendor extensions remain explicit"
 area = "plcopen_devtools"
 risk = "silent_corruption"
-status = "gap_open"
+status = "specified"
 owner = "trust-plcopen"
 last_reviewed = "2026-07-27"
 claim = "Import/export surfaces report reviewed compatibility facts and preserve opaque vendor extension payloads without treating them as executable semantics."
@@ -30,7 +30,7 @@ case_family = "extra_or_unknown"
 oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#migration-report-and-vendor-extension-contract"
 outcome = "accept_value"
 delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "unchanged" }
-rationale = "A supported ST POU remains importable beside unsupported type metadata, PLCO402 is reported, compatibility is partial, and the opaque vendor payload is written to the canonical preserved-extension path."
+rationale = "A supported ST POU remains importable beside unsupported type metadata, PLCO402 is reported, compatibility is partial, source coverage and semantic loss are both positive, and the opaque vendor payload is written to the canonical preserved-extension path."
 
 [[behavior]]
 partition = { equals = "EXPORT_VENDOR_EXTENSION_HOOK" }
@@ -38,7 +38,7 @@ case_family = "extra_or_unknown"
 oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#migration-report-and-vendor-extension-contract"
 outcome = "accept_value"
 delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
-rationale = "Export includes the reviewed hook file as vendor addData; exact byte preservation and XML placement are not claimed."
+rationale = "Export includes the reviewed vendor-extension marker and payload substrings from the hook file; exact byte preservation and XML placement are not claimed."
 
 [[behavior]]
 partition = { equals = "CLI_JSON_COMPATIBILITY_REPORTS" }

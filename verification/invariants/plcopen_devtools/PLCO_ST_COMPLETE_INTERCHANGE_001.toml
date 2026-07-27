@@ -3,7 +3,7 @@ id = "PLCO_ST_COMPLETE_INTERCHANGE_001"
 title = "Supported ST signatures and data types survive the selected interchange"
 area = "plcopen_devtools"
 risk = "silent_corruption"
-status = "gap_open"
+status = "specified"
 owner = "trust-plcopen"
 last_reviewed = "2026-07-27"
 claim = "The selected profile preserves tested normalized POU signatures across export/import/export and materializes the supported data-type-only subset in the canonical source tree."
@@ -38,7 +38,7 @@ case_family = "ordering_or_lifecycle"
 oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#st-complete-interchange-contract"
 outcome = "accept_value"
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
-rationale = "Two supported POUs retain equal normalized name, kind, and ST body signatures across export, import, and re-export."
+rationale = "Two supported POUs retain equal normalized name, kind, and ST body signatures across export, import, and re-export; source-map and migration-report artifacts exist, with 100 percent source coverage and zero semantic loss for this fixture."
 
 [[coverage.cells]]
 dimension = "happy_path"

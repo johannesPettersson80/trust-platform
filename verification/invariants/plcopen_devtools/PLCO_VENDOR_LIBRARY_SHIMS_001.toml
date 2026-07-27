@@ -3,7 +3,7 @@ id = "PLCO_VENDOR_LIBRARY_SHIMS_001"
 title = "Reviewed vendor aliases are transformed and reported narrowly"
 area = "plcopen_devtools"
 risk = "wrong_result"
-status = "gap_open"
+status = "specified"
 owner = "trust-plcopen"
 last_reviewed = "2026-07-27"
 claim = "Recognized Siemens and OpenPLC aliases are replaced only in reviewed symbol positions and every applied transform remains visible as migration evidence."
@@ -14,7 +14,7 @@ tests = []
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_tests", "focused_execution_evidence", "shim_direct_call_site_proof", "openplc_semantic_roundtrip", "real_vendor_equivalence", "final_remote_gate"]
+missing = ["cataloged_tests", "focused_execution_evidence", "shim_direct_call_site_proof", "remaining_alias_and_ecosystem_matrix", "occurrence_count_evidence", "openplc_semantic_roundtrip", "real_vendor_equivalence", "final_remote_gate"]
 
 [spec]
 status = "specified"

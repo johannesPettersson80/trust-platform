@@ -3,7 +3,7 @@ id = "PLCO_EXPORT_ADAPTERS_001"
 title = "Vendor export adapters emit reviewed migration artifacts"
 area = "plcopen_devtools"
 risk = "silent_corruption"
-status = "gap_open"
+status = "specified"
 owner = "trust-plcopen"
 last_reviewed = "2026-07-27"
 claim = "Allen-Bradley and Siemens adapter selections produce their documented XML/report metadata and Siemens SCL bundle without implying native project-package equivalence."
@@ -14,7 +14,7 @@ tests = []
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_tests", "focused_execution_evidence", "native_vendor_package_generation", "target_runtime_equivalence", "final_remote_gate"]
+missing = ["cataloged_tests", "focused_execution_evidence", "schneider_adapter_artifacts", "native_vendor_package_generation", "target_runtime_equivalence", "final_remote_gate"]
 
 [spec]
 status = "specified"

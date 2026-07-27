@@ -47,8 +47,8 @@ TEST_BINDINGS: Mapping[str, tuple[str, int]] = {
         1,
     ),
     "import_rejects_non_st_bodies_with_named_diagnostics": (
-        "PLCO_IMPORT_001",
-        7,
+        "PLCO_NON_ST_REJECTION_SET_001",
+        0,
     ),
     "import_rejects_malformed_xml": ("PLCO_IMPORT_FAILURE_001", 0),
     "plcopen_import_fails_for_missing_input": (
@@ -271,6 +271,8 @@ def _expected_path_for_name(name: str) -> str:
 
 
 def _is_setup(expression: str) -> bool:
+    if expression.startswith("assert ! (fixture . is_file ()"):
+        return True
     return not expression.startswith(("assert", "panic")) and (
         ". expect_err" not in expression
     )

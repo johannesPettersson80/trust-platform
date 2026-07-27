@@ -37,6 +37,10 @@ import: supported elementary, enumeration, subrange, structure, and
 single-dimension array declarations are emitted together in
 `src/plcopen_data_types.st`.
 
+For the reviewed two-POU round trip, each export writes its source-map
+sidecar, import writes its migration report, source coverage is `100%`, and
+semantic loss is `0%`.
+
 The current data-type-only test does not establish the migration report's
 semantic-loss percentage or compatibility verdict. Those report values remain
 outside this contract until their zero-POU scoring policy is decided and
@@ -182,14 +186,17 @@ synthesized from the graphical or unknown XML payload.
 For a supported ST POU accompanied by unsupported type metadata and opaque
 vendor `addData`, import reports the unsupported type, returns partial
 compatibility, writes the ST source, and preserves the opaque vendor payload in
-`plcopen.vendor-extensions.imported.xml`. Export re-injects the reviewed
-`plcopen.vendor-extensions.xml` hook into PLCopen `addData`. The generic CLI
-JSON report exposes the tested export counts/source-map path and import
-ecosystem, compatibility verdict, and diagnostic code.
+`plcopen.vendor-extensions.imported.xml`. That reviewed mixed fixture reports
+both positive source coverage and positive semantic loss. Export includes the
+reviewed vendor-extension marker and payload from
+`plcopen.vendor-extensions.xml`; exact XML placement and byte preservation are
+not yet proved. The generic CLI JSON report exposes the tested export
+counts/source-map path and import ecosystem, compatibility verdict, and
+diagnostic code.
 
 ## CODESYS Metadata Contract
 
-Export emits deterministic CODESYS `globalVars`, `projectstructure`, POU
+Export emits the reviewed CODESYS `globalVars`, `projectstructure`, POU
 `addData`, interface-as-plain-text, object-ID, and `METHOD` metadata for the
 tested supported declarations. Importing that exported method metadata
 reconstructs the owning `FUNCTION_BLOCK`, method signature, inputs, and tested

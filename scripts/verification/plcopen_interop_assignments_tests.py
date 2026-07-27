@@ -15,6 +15,28 @@ from scripts.verification.plcopen_interop_assignments import (
 
 class PlcopenInteropAssignmentsTests(unittest.TestCase):
     def _inventory(self) -> dict[str, object]:
+        def assertions(index: int, name: str) -> list[dict[str, str]]:
+            rows = [
+                {
+                    "assertion_id": f"ASSERT_{index:02d}",
+                    "expression": "assert ! (observed)",
+                }
+            ]
+            if (
+                name
+                == "plcopen_openplc_fixture_in_st_complete_bundle_import_export_smoke"
+            ):
+                rows.append(
+                    {
+                        "assertion_id": "ASSERT_FIXTURE",
+                        "expression": (
+                            "assert ! (fixture . is_file () , "
+                            '"expected OpenPLC fixture")'
+                        ),
+                    }
+                )
+            return rows
+
         return {
             "schema_version": 2,
             "inventories": {
@@ -22,12 +44,7 @@ class PlcopenInteropAssignmentsTests(unittest.TestCase):
                     "path": _expected_path_for_name(name),
                     "test_name": name,
                     "unresolved_assertion_helpers": [],
-                    "assertions": [
-                        {
-                            "assertion_id": f"ASSERT_{index:02d}",
-                            "expression": "assert ! (observed)",
-                        }
-                    ],
+                    "assertions": assertions(index, name),
                 }
                 for index, name in enumerate(TEST_BINDINGS)
             },
@@ -110,6 +127,13 @@ class PlcopenInteropAssignmentsTests(unittest.TestCase):
                 for row in assignments["assignments"]
             },
         )
+        smoke = next(
+            row
+            for row in assignments["assignments"]
+            if row["name"]
+            == "plcopen_openplc_fixture_in_st_complete_bundle_import_export_smoke"
+        )
+        self.assertEqual(["ASSERT_FIXTURE"], smoke["setup_assertion_ids"])
 
     def test_unresolved_helpers_are_rejected(self) -> None:
         inventory = self._inventory()

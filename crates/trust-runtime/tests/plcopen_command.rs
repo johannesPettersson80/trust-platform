@@ -226,6 +226,8 @@ END_FUNCTION_BLOCK
 #[test]
 fn plcopen_export_import_json_reports_include_compatibility_diagnostics() {
     let project = unique_temp_dir("plcopen-cli-json-report");
+    let _fixture_source =
+        include_str!("fixtures/plcopen/synthetic-codesys.xml");
     std::fs::create_dir_all(project.join("src")).expect("create src");
     std::fs::write(
         project.join("src/main.st"),
@@ -446,6 +448,8 @@ END_PROGRAM
 #[test]
 fn plcopen_import_json_detects_openplc_ecosystem_and_shims() {
     let import_project = unique_temp_dir("plcopen-cli-openplc-import");
+    let _fixture_source =
+        include_str!("fixtures/plcopen/synthetic-openplc.xml");
     let fixture = fixture_path("synthetic-openplc.xml");
     let import = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
         .args([
@@ -486,6 +490,9 @@ fn plcopen_import_json_detects_openplc_ecosystem_and_shims() {
 
 #[test]
 fn plcopen_openplc_fixture_in_st_complete_bundle_import_export_smoke() {
+    let _fixture_source = include_str!(
+        "../../../examples/plcopen_xml_st_complete/interop/openplc.xml"
+    );
     let example_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("..")
         .join("..")

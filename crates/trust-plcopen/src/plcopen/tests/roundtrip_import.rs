@@ -169,6 +169,8 @@ END_PROGRAM
     #[test]
     fn import_rejects_non_st_bodies_with_named_diagnostics() {
         let project = temp_dir("plcopen-import-non-st-bodies");
+        let _fixture_source =
+            include_str!("../../../tests/fixtures/plcopen/non_st_bodies.xml");
         let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("tests")
             .join("fixtures")
