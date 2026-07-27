@@ -18,6 +18,8 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   canonical serialization, and response endpoint/correlation contract.
 - Specify per-cycle watchdog deadline arming/restoration and bounded automatic
   restart backoff without treating host-runtime policy as an IEC deviation.
+- Align runtime scheduling documentation on priority, due-time, stable-index,
+  registered-high SINGLE, and background-program execution order.
 
 Target release: `v0.24.57`
 

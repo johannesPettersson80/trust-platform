@@ -701,9 +701,10 @@ Tasks are scheduled per IEC 61131-3 Ed.3 §6.8.2:
   periodically at the specified interval. If `INTERVAL` is zero (default), no periodic scheduling occurs.
 - **Priority**: Lower numeric priority values run first (0 = highest).
 
-trust-runtime uses **non-preemptive, deterministic scheduling**: due tasks are executed in priority order,
-with declaration order as a tie-breaker for equal priorities. This is permitted by IEC 61131-3 (§6.8.2(c))
-and makes execution reproducible for tests.
+trust-runtime uses **non-preemptive, deterministic scheduling**: ready tasks
+are executed by lower numeric priority first, then by earlier due time, then by
+stable declaration index. This ordering is permitted by IEC 61131-3
+(§6.8.2(c)) and makes execution reproducible.
 
 Event tasks are modeled by tracking the previous value of the SINGLE variable:
 
@@ -720,6 +721,12 @@ Programs with no explicit task association are scheduled at the lowest priority.
 runtime, they execute once per `execute_cycle` (interpreting that call as the smallest scheduling
 granularity). This preserves determinism while aligning with IEC's "reschedule after completion"
 rule for background programs.
+
+When a task with a `SINGLE` input is registered while that input is already
+TRUE, the runtime initializes its saved sample to TRUE. Registration therefore
+does not invent a rising edge. While the sampled value remains TRUE, periodic
+readiness is suppressed; a later FALSE sample rearms event detection and
+permits periodic readiness under the normal interval rules.
 
 ##### 4.3.1 Debugger Thread Mapping
 

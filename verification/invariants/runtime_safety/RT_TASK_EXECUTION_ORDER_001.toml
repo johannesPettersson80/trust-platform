@@ -1,0 +1,57 @@
+schema_version = 1
+id = "RT_TASK_EXECUTION_ORDER_001"
+title = "Task registration and background execution preserve cycle order"
+area = "runtime_safety"
+risk = "wrong_result"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-27"
+claim = "Task registration preserves the sampled SINGLE state without inventing an edge, and each cycle executes unassociated background programs once while task-associated programs remain gated by readiness."
+proof_level = "S0"
+contract_kind = "state_machine"
+source_refs = [
+  "docs/specs/10-runtime-semantics.md",
+  "docs/specs/11-runtime-engine.md",
+  "crates/trust-runtime/tests/tasks.rs",
+]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = [
+  "cataloged_tests",
+  "focused_execution_evidence",
+  "background_relative_order_observation",
+  "final_remote_gate",
+]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001", "SPEC_RUNTIME_SEMANTICS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_SEMANTICS_001#4-3-task-scheduling-periodic-event"
+
+[[behavior]]
+partition = { equals = "REGISTERED_SINGLE_HIGH_INITIALIZATION" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#4-3-task-scheduling-periodic-event"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Registering while SINGLE is already TRUE initializes the previous sample without a spurious activation, suppresses periodic work while high, and permits normal periodic readiness after a FALSE sample."
+
+[[behavior]]
+partition = { equals = "UNASSOCIATED_BACKGROUND_ONCE_PER_CYCLE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-2-task-manager-resource-scheduler"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Every unassociated background program executes once per cycle while a task-associated program executes only when its task becomes ready. Relative lowest-priority ordering is separate debt."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "Registered-high SINGLE and per-cycle background execution assertions await generated catalog mapping and focused execution; direct background relative-order proof remains open."

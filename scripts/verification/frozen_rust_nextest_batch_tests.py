@@ -522,6 +522,17 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
             profile.test_prefix,
         )
 
+    def test_runtime_remaining_profile_resolves_tasks_integration_target(
+        self,
+    ) -> None:
+        profile = get_target_profile(
+            "runtime-remaining",
+            path="crates/trust-runtime/tests/tasks.rs",
+        )
+        self.assertEqual(("--test", "tasks"), profile.cargo_target_args)
+        self.assertEqual("trust-runtime::tasks", profile.binary_id)
+        self.assertEqual("", profile.test_prefix)
+
     def test_ads_server_profile_resolves_ams_unit_target(self) -> None:
         profile = get_target_profile(
             "ads-server-remaining",
