@@ -105437,3 +105437,172 @@ mapping_assertion_review_digest = "sha256:1b3c1625592750136df5783b6e459acaaa4d5f
 mapping_assertion_source_digests = { "crates/trust-ads-server/src/listener.rs" = "sha256:f456e786579165c7756f063371997af148e0febb0d9f2ca37e02341aa584399e" }
 mapping_behavior_refs = ["RT_ADS_SERVER_COMMAND_DISPATCH_001#behavior:6"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_014676BA92F26374FB1B"
+subject_kind = "generated_test"
+discovery_id = "DISC_014676BA92F26374FB1B"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-ads-server/src/symbols.rs"
+name = "symbol_version_bumps_only_when_layout_changes"
+command = "cargo nextest run -p trust-ads-server --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-ads-server) & test(=symbols::tests::symbol_version_bumps_only_when_layout_changes)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_SYMBOL_TABLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle"]
+expected_result = "The first complete serialized snapshot establishes version 1, equal serialization retains 1, changed serialization advances to 2, and repeated changed serialization retains 2."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_014676BA92F26374FB1B.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_014676BA92F26374FB1B_B8F90424B76A"
+mapping_proposal_digest = "sha256:b8f90424b76a1693b45530af428762b51124a334385bd5b03fdc4cc4b2282b02"
+mapping_decision_id = "MAP_DEC_8441248B6D99868DFA2E8D47"
+mapping_reviewed_source_digest = "sha256:eb9ebe4a1d402c605d23a6a56705aa56f3246583907b402b17694289d3a4df00"
+mapping_assertion_review_digest = "sha256:8f4b42ce54f10dbe07b599949dc7e3bf3558d3e99d27b89dd3afd31811f94bd8"
+mapping_assertion_source_digests = { "crates/trust-ads-server/src/symbols.rs" = "sha256:eb9ebe4a1d402c605d23a6a56705aa56f3246583907b402b17694289d3a4df00" }
+mapping_behavior_refs = ["RT_ADS_SERVER_SYMBOL_TABLE_001#behavior:4"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_6949DB3ADCAEC396777B"
+subject_kind = "generated_test"
+discovery_id = "DISC_6949DB3ADCAEC396777B"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-ads-server/src/symbols.rs"
+name = "flags_are_preserved_in_assigned_symbols"
+command = "cargo nextest run -p trust-ads-server --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-ads-server) & test(=symbols::tests::flags_are_preserved_in_assigned_symbols)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_SYMBOL_TABLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle"]
+expected_result = "Readable construction plus an added write capability produces a symbol containing both exact flags."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_6949DB3ADCAEC396777B.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_6949DB3ADCAEC396777B_15F81543A12E"
+mapping_proposal_digest = "sha256:15f81543a12eb569ed8bba3e66b39212cc98807978508053ebb32c4a99972aca"
+mapping_decision_id = "MAP_DEC_534D059F01B0252061021E53"
+mapping_reviewed_source_digest = "sha256:eb9ebe4a1d402c605d23a6a56705aa56f3246583907b402b17694289d3a4df00"
+mapping_assertion_review_digest = "sha256:b46501b83dc404f754cfdb217668c853b625d625fe3b319092b68b380f413411"
+mapping_assertion_source_digests = { "crates/trust-ads-server/src/symbols.rs" = "sha256:eb9ebe4a1d402c605d23a6a56705aa56f3246583907b402b17694289d3a4df00" }
+mapping_behavior_refs = ["RT_ADS_SERVER_SYMBOL_TABLE_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_8F09CAC7CAE02F675C72"
+subject_kind = "generated_test"
+discovery_id = "DISC_8F09CAC7CAE02F675C72"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-ads-server/src/symbols.rs"
+name = "deterministic_snapshot_json_is_stable"
+command = "cargo nextest run -p trust-ads-server --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-ads-server) & test(=symbols::tests::deterministic_snapshot_json_is_stable)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_SYMBOL_TABLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle"]
+expected_result = "Serializing the same accepted snapshot twice produces identical deterministic content; terminal newline formatting is not part of this behavior."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_8F09CAC7CAE02F675C72.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_8F09CAC7CAE02F675C72_8EA3D505C793"
+mapping_proposal_digest = "sha256:8ea3d505c793bef50aff44f42f1f58f5ee18892750a2ba398864a9d4ffa2524e"
+mapping_decision_id = "MAP_DEC_22F0D26ACB7AD81BE26CB19A"
+mapping_reviewed_source_digest = "sha256:eb9ebe4a1d402c605d23a6a56705aa56f3246583907b402b17694289d3a4df00"
+mapping_assertion_review_digest = "sha256:a21c4d294ebdb834e40c9d7c118433549db583ba0efba992e2ebc535e0554b44"
+mapping_assertion_source_digests = { "crates/trust-ads-server/src/symbols.rs" = "sha256:eb9ebe4a1d402c605d23a6a56705aa56f3246583907b402b17694289d3a4df00" }
+mapping_behavior_refs = ["RT_ADS_SERVER_SYMBOL_TABLE_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_D50931A36E03795CD198"
+subject_kind = "generated_test"
+discovery_id = "DISC_D50931A36E03795CD198"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-ads-server/src/symbols.rs"
+name = "duplicate_symbol_names_are_rejected"
+command = "cargo nextest run -p trust-ads-server --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-ads-server) & test(=symbols::tests::duplicate_symbol_names_are_rejected)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_SYMBOL_TABLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle"]
+expected_result = "Two accepted declarations with the same ADS symbol name reject with the duplicate-name error."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_D50931A36E03795CD198.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_D50931A36E03795CD198_FA9C50347D71"
+mapping_proposal_digest = "sha256:fa9c50347d716cf1aacf2e6d3dcc35924e59ab14e13f0600e95b7d4302db08c1"
+mapping_decision_id = "MAP_DEC_97556FD91F2B1509B9B347D9"
+mapping_reviewed_source_digest = "sha256:eb9ebe4a1d402c605d23a6a56705aa56f3246583907b402b17694289d3a4df00"
+mapping_assertion_review_digest = "sha256:334162fe7c6175e50c4628b71b571afbb488d937fba0b753e39b4712cec5d73b"
+mapping_assertion_source_digests = { "crates/trust-ads-server/src/symbols.rs" = "sha256:eb9ebe4a1d402c605d23a6a56705aa56f3246583907b402b17694289d3a4df00" }
+mapping_behavior_refs = ["RT_ADS_SERVER_SYMBOL_TABLE_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_E9D51D3A34F9AEAC865A"
+subject_kind = "generated_test"
+discovery_id = "DISC_E9D51D3A34F9AEAC865A"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-ads-server/src/symbols.rs"
+name = "symbol_assignment_is_stable_across_input_order"
+command = "cargo nextest run -p trust-ads-server --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-ads-server) & test(=symbols::tests::symbol_assignment_is_stable_across_input_order)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_SERVER_SYMBOL_TABLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle"]
+expected_result = "Input order does not change the sorted snapshot, and reviewed BOOL/REAL entries receive contiguous offsets and exact byte size."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_E9D51D3A34F9AEAC865A.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_E9D51D3A34F9AEAC865A_1D3E2E896805"
+mapping_proposal_digest = "sha256:1d3e2e8968057eb3ce9b2a7eabdaa64dc9267db217c076a549dfb1b2e3b9bb46"
+mapping_decision_id = "MAP_DEC_A77B1DDFAD8C0BF65AAAC17F"
+mapping_reviewed_source_digest = "sha256:eb9ebe4a1d402c605d23a6a56705aa56f3246583907b402b17694289d3a4df00"
+mapping_assertion_review_digest = "sha256:188beaf975c14eefa8e4f0a8a5bfe1b00099093a2262b14d7134818ecf411399"
+mapping_assertion_source_digests = { "crates/trust-ads-server/src/symbols.rs" = "sha256:eb9ebe4a1d402c605d23a6a56705aa56f3246583907b402b17694289d3a4df00" }
+mapping_behavior_refs = ["RT_ADS_SERVER_SYMBOL_TABLE_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]

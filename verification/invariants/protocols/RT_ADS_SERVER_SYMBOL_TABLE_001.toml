@@ -13,20 +13,11 @@ source_refs = [
   "docs/specs/11-runtime-engine.md",
   "crates/trust-ads-server/src/symbols.rs",
 ]
-tests = []
+tests = ["TEST_AUTO_014676BA92F26374FB1B", "TEST_AUTO_6949DB3ADCAEC396777B", "TEST_AUTO_8F09CAC7CAE02F675C72", "TEST_AUTO_D50931A36E03795CD198", "TEST_AUTO_E9D51D3A34F9AEAC865A"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = [
-  "cataloged_tests",
-  "focused_execution_evidence",
-  "empty_or_whitespace_name_policy",
-  "case_sensitivity_and_alignment_policy",
-  "overflow_and_invalid_type_boundaries",
-  "version_wrap_and_serialization_failure",
-  "atomic_live_publication",
-  "final_remote_gate",
-]
+missing = ["cataloged_tests", "focused_execution_evidence", "empty_or_whitespace_name_policy", "case_sensitivity_and_alignment_policy", "overflow_and_invalid_type_boundaries", "version_wrap_and_serialization_failure", "atomic_live_publication", "final_remote_gate"]
 
 [spec]
 status = "specified"
@@ -83,20 +74,20 @@ rationale = "The first complete serialized snapshot establishes version 1, equal
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
-state = "gap_open"
-rationale = "Deterministic assignment and serialized-snapshot version assertions await generated catalog mapping; atomic publication remains explicit debt."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in RT_ADS_SERVER_SYMBOL_TABLE_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "duplicate_or_collision"
-state = "gap_open"
-rationale = "Duplicate-name rejection awaits generated catalog mapping and focused execution."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every duplicate_or_collision behavior in RT_ADS_SERVER_SYMBOL_TABLE_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "auth_or_permission"
-state = "gap_open"
-rationale = "Capability-flag preservation awaits generated catalog mapping and focused execution."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every auth_or_permission behavior in RT_ADS_SERVER_SYMBOL_TABLE_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "Stable deterministic serialization awaits generated catalog mapping and focused execution."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in RT_ADS_SERVER_SYMBOL_TABLE_001; dynamic proof and broad remote validation remain explicit debt."
