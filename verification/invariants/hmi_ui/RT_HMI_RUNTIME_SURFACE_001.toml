@@ -5,7 +5,7 @@ area = "hmi_ui"
 risk = "safety_critical"
 status = "mapped"
 owner = "trust-runtime"
-last_reviewed = "2026-07-26"
+last_reviewed = "2026-07-27"
 claim = "HMI schema, value snapshots, writes, descriptor reload, events, trends, alarms, and control errors preserve stable binding identity, declared types, quality, revision, allowlist, read-only, and lifecycle authority."
 proof_level = "S0"
 contract_kind = "state_machine"
@@ -45,6 +45,7 @@ rationale = "HMI reads expose typed runtime values with timestamp and quality th
 [[behavior]]
 partition = { equals = "ALLOWLISTED_WRITE_OR_READ_ONLY_DENIAL" }
 case_family = "auth_or_permission"
+coverage_dimension = "permission_or_policy"
 oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-hmi-descriptor-live-state-and-control-contract"
 outcome = "accept_value"
 no_partial_apply = true

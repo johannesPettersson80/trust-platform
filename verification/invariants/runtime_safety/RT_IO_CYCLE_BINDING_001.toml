@@ -5,7 +5,7 @@ area = "runtime_safety"
 risk = "wrong_result"
 status = "mapped"
 owner = "trust-runtime"
-last_reviewed = "2026-07-26"
+last_reviewed = "2026-07-27"
 claim = "Runtime I/O binding, composition, wildcard resolution, and cycle snapshots must preserve the documented ordering and flattened layout."
 proof_level = "S0"
 contract_kind = "protocol_trace"
@@ -45,6 +45,7 @@ rationale = "Every driver reached on a successful boundary is invoked once; the 
 [[behavior]]
 partition = { equals = "FLATTENED_FB_ARRAY_AND_STRUCT_BINDING" }
 case_family = "happy_path"
+coverage_dimension = "ordering_or_lifecycle"
 oracle_ref = "SPEC_RUNTIME_ENGINE_001#io-drivers"
 outcome = "accept_value"
 no_partial_apply = true
@@ -54,6 +55,7 @@ rationale = "Function-block, array, structure, and project configuration binding
 [[behavior]]
 partition = { equals = "UNRESOLVED_WILDCARD_WITHOUT_VAR_CONFIG" }
 case_family = "missing_required"
+coverage_dimension = "ordering_or_lifecycle"
 oracle_ref = "SPEC_IEC_VARIABLES_001#5-directly-represented-variables-table-16-section-655"
 outcome = "reject"
 no_partial_apply = true
@@ -63,6 +65,7 @@ rationale = "An incomplete direct address without a matching VAR_CONFIG entry re
 [[behavior]]
 partition = { equals = "MISMATCHED_OR_DISALLOWED_WILDCARD" }
 case_family = "wrong_type_or_shape"
+coverage_dimension = "ordering_or_lifecycle"
 oracle_ref = "SPEC_IEC_VARIABLES_001#5-directly-represented-variables-table-16-section-655"
 outcome = "reject"
 no_partial_apply = true
@@ -72,6 +75,7 @@ rationale = "Incomplete direct addresses require an allowed declaration context 
 [[behavior]]
 partition = { equals = "CANONICAL_DRIVER_REGISTRY" }
 case_family = "happy_path"
+coverage_dimension = "ordering_or_lifecycle"
 oracle_ref = "SPEC_RUNTIME_ENGINE_001#io-drivers"
 outcome = "accept_value"
 no_partial_apply = true
@@ -81,6 +85,7 @@ rationale = "Built-in canonical names are stable, sorted, and unique."
 [[behavior]]
 partition = { equals = "DRIVER_ALIAS_RESOLUTION" }
 case_family = "happy_path"
+coverage_dimension = "ordering_or_lifecycle"
 oracle_ref = "SPEC_RUNTIME_ENGINE_001#io-drivers"
 outcome = "accept_value"
 no_partial_apply = true

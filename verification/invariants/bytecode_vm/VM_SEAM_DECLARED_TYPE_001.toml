@@ -5,7 +5,7 @@ area = "bytecode_vm"
 risk = "wrong_result"
 status = "implemented"
 owner = "trust-runtime-core"
-last_reviewed = "2026-07-17"
+last_reviewed = "2026-07-27"
 claim = "Only value-and-accuracy-preserving implicit conversions materialize a declared or common numeric type; lossy or incompatible assignments and operations reject before mutation."
 proof_level = "G1"
 contract_kind = "decision_table"
@@ -135,6 +135,7 @@ rationale = "A REAL expression assigned to an LREAL function result materializes
 
 [[behavior]]
 partition = { wrong_type = "INT_ACTUAL_TO_DINT_INOUT" }
+case_family = "wrong_type_or_shape"
 oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-declared-type-materialization"
 outcome = "reject"
 delta = { target = "not_applicable", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }
@@ -142,6 +143,7 @@ rationale = "Implicit conversion is forbidden for VAR_IN_OUT, so an INT actual c
 
 [[behavior]]
 partition = { wrong_type = "DINT_TO_INT_NARROWING_ASSIGNMENT" }
+case_family = "wrong_type_or_shape"
 oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-declared-type-materialization"
 outcome = "reject"
 delta = { target = "not_applicable", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }
@@ -149,6 +151,7 @@ rationale = "An implicit DINT-to-INT assignment that cannot preserve value and a
 
 [[behavior]]
 partition = { wrong_type = "BOOL_TO_REAL_SLOT" }
+case_family = "wrong_type_or_shape"
 oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-declared-type-materialization"
 outcome = "reject"
 no_partial_apply = true
@@ -165,6 +168,7 @@ rationale = "SINT and INT may materialize as REAL, while SINT, INT, and DINT may
 
 [[behavior]]
 partition = { wrong_type = "DINT_TO_REAL_IMPLICIT" }
+case_family = "wrong_type_or_shape"
 oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-declared-type-materialization"
 outcome = "reject"
 no_partial_apply = true
@@ -173,6 +177,7 @@ rationale = "Typed DINT-to-REAL requires an explicit conversion because not ever
 
 [[behavior]]
 partition = { wrong_type = "LINT_TO_LREAL_IMPLICIT" }
+case_family = "wrong_type_or_shape"
 oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-declared-type-materialization"
 outcome = "reject"
 no_partial_apply = true
@@ -181,6 +186,7 @@ rationale = "Typed LINT-to-LREAL requires an explicit conversion because not eve
 
 [[behavior]]
 partition = { wrong_type = "NONREPRESENTABLE_CONTEXT_INTEGER_TO_REAL" }
+case_family = "wrong_type_or_shape"
 oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-declared-type-materialization"
 outcome = "reject"
 no_partial_apply = true
@@ -197,6 +203,7 @@ rationale = "A representable untyped numeric literal adopts the other typed oper
 
 [[behavior]]
 partition = { wrong_type = "NO_ACCURACY_PRESERVING_COMMON_NUMERIC_TYPE" }
+case_family = "wrong_type_or_shape"
 oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#2-3-declared-type-materialization"
 outcome = "reject"
 no_partial_apply = true
