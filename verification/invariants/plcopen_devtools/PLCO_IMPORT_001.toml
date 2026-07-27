@@ -10,7 +10,7 @@ claim = "Unsupported executable non-ST PLCopen content must reject loudly withou
 proof_level = "G1"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-plcopen/src"]
-tests = ["TEST_PLCOPEN_IMPORT_TRACE_001"]
+tests = ["TEST_AUTO_E842B57853EE4EA7403B", "TEST_PLCOPEN_IMPORT_TRACE_001"]
 gates = ["pr"]
 evidence_refs = [
   "EVID_TEST_PLCOPEN_IMPORT_TRACE_001_LOCK_BASELINE",

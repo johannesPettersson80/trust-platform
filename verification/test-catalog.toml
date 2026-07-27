@@ -105911,3 +105911,747 @@ mapping_assertion_review_digest = "sha256:93ba2431b735d59ecd16123ae772dbc5dca575
 mapping_assertion_source_digests = { "crates/trust-runtime/tests/simulation_workflow.rs" = "sha256:3f82276db23dbe255d4b3c679857942cccc0b14e3e2c41ce618a936e533ae245" }
 mapping_behavior_refs = ["RT_SIMULATION_WORKFLOW_001#behavior:8"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_235287B1F32A8ABCB1E3"
+subject_kind = "generated_test"
+discovery_id = "DISC_235287B1F32A8ABCB1E3"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-plcopen/src/plcopen/tests/export_profile.rs"
+name = "import_rejects_malformed_xml"
+command = "cargo nextest run -p trust-plcopen --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-plcopen) & test(=tests::import_rejects_malformed_xml)'"
+owner = "trust-plcopen"
+status = "mapped"
+invariants = ["PLCO_IMPORT_FAILURE_001"]
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#import-failure-contract"
+oracle_refs = ["SPEC_PLCOPEN_IMPORT_DECISION_001#import-failure-contract"]
+expected_result = "The library import returns an error for syntactically malformed XML; exact error identity and destination atomicity remain open."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_235287B1F32A8ABCB1E3.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_235287B1F32A8ABCB1E3_3BC50E54CA22"
+mapping_proposal_digest = "sha256:3bc50e54ca225930db8dca5069e9a172670c9176b1f77fd2fa329bdddf571103"
+mapping_decision_id = "MAP_DEC_A3A840F31AB712EF96502FB7"
+mapping_reviewed_source_digest = "sha256:97a09fa5322dce39067b51975f324691091174b8472019154e44a98c378beb6a"
+mapping_assertion_review_digest = "sha256:5254c0f0338f84fbc55d412585a45792ec732856d57d49564cfc56900554be4b"
+mapping_assertion_source_digests = { "crates/trust-plcopen/src/plcopen/tests/export_profile.rs" = "sha256:97a09fa5322dce39067b51975f324691091174b8472019154e44a98c378beb6a" }
+mapping_behavior_refs = ["PLCO_IMPORT_FAILURE_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_2E0C4F00C6F5D55A425C"
+subject_kind = "generated_test"
+discovery_id = "DISC_2E0C4F00C6F5D55A425C"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-plcopen/src/plcopen/tests/export_profile.rs"
+name = "export_with_vendor_target_emits_adapter_report_and_metadata"
+command = "cargo nextest run -p trust-plcopen --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-plcopen) & test(=tests::export_with_vendor_target_emits_adapter_report_and_metadata)'"
+owner = "trust-plcopen"
+status = "mapped"
+invariants = ["PLCO_EXPORT_ADAPTERS_001"]
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#export-adapter-artifact-contract"
+oracle_refs = ["SPEC_PLCOPEN_IMPORT_DECISION_001#export-adapter-artifact-contract"]
+expected_result = "The library export writes the requested XML and exact adapter-report path, embeds Allen-Bradley metadata, reports PLCO7AB1, and exposes manual steps and limitations."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_2E0C4F00C6F5D55A425C.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_2E0C4F00C6F5D55A425C_DEDB647EC34D"
+mapping_proposal_digest = "sha256:dedb647ec34dff23a770098dfcc467a8ed3ba2deb6ae909210d000278e8ecde7"
+mapping_decision_id = "MAP_DEC_C8900041E2B3D01C46181C2A"
+mapping_reviewed_source_digest = "sha256:97a09fa5322dce39067b51975f324691091174b8472019154e44a98c378beb6a"
+mapping_assertion_review_digest = "sha256:4e6fbcd2bfbcb2fa85557433b9b13250173cf35c74d0d29af07999a72b3d9285"
+mapping_assertion_source_digests = { "crates/trust-plcopen/src/plcopen/tests/export_profile.rs" = "sha256:97a09fa5322dce39067b51975f324691091174b8472019154e44a98c378beb6a" }
+mapping_behavior_refs = ["PLCO_EXPORT_ADAPTERS_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_4C1F7E6CFDEB8C495CC1"
+subject_kind = "generated_test"
+discovery_id = "DISC_4C1F7E6CFDEB8C495CC1"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-plcopen/src/plcopen/tests/export_profile.rs"
+name = "export_emits_codesys_pou_add_data_metadata"
+command = "cargo nextest run -p trust-plcopen --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-plcopen) & test(=tests::export_emits_codesys_pou_add_data_metadata)'"
+owner = "trust-plcopen"
+status = "mapped"
+invariants = ["PLCO_CODESYS_METADATA_001"]
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#codesys-metadata-contract"
+oracle_refs = ["SPEC_PLCOPEN_IMPORT_DECISION_001#codesys-metadata-contract"]
+expected_result = "Program and function POUs include the tested CODESYS POU, interface-as-plain-text, application, and object-ID metadata markers."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_4C1F7E6CFDEB8C495CC1.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_4C1F7E6CFDEB8C495CC1_5B826A88B70A"
+mapping_proposal_digest = "sha256:5b826a88b70abab6c5f36b4d189183ee21e2da15bd9f46ca57e488998c572fd1"
+mapping_decision_id = "MAP_DEC_1763A37F18C63B3857E0F97E"
+mapping_reviewed_source_digest = "sha256:97a09fa5322dce39067b51975f324691091174b8472019154e44a98c378beb6a"
+mapping_assertion_review_digest = "sha256:97156a2d26166ed3a78af614ec215890dceec94b99fdcfbc5399b1568cf67855"
+mapping_assertion_source_digests = { "crates/trust-plcopen/src/plcopen/tests/export_profile.rs" = "sha256:97a09fa5322dce39067b51975f324691091174b8472019154e44a98c378beb6a" }
+mapping_behavior_refs = ["PLCO_CODESYS_METADATA_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_5F7C56DD80D372BE46BC"
+subject_kind = "generated_test"
+discovery_id = "DISC_5F7C56DD80D372BE46BC"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-plcopen/src/plcopen/tests/export_profile.rs"
+name = "export_emits_codesys_method_metadata_on_standard_pous_and_roundtrips"
+command = "cargo nextest run -p trust-plcopen --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-plcopen) & test(=tests::export_emits_codesys_method_metadata_on_standard_pous_and_roundtrips)'"
+owner = "trust-plcopen"
+status = "mapped"
+invariants = ["PLCO_CODESYS_METADATA_001"]
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#codesys-metadata-contract"
+oracle_refs = ["SPEC_PLCOPEN_IMPORT_DECISION_001#codesys-metadata-contract"]
+expected_result = "Method metadata is exported on a standard FB POU and import reconstructs the tested FB, method signature, inputs, and assignment."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_5F7C56DD80D372BE46BC.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_5F7C56DD80D372BE46BC_D3DAE308B498"
+mapping_proposal_digest = "sha256:d3dae308b498fa039a520f2501e4174d20f02c30c4438827adacb694abaf7b19"
+mapping_decision_id = "MAP_DEC_FB7D83196EE0828B0B48B38E"
+mapping_reviewed_source_digest = "sha256:97a09fa5322dce39067b51975f324691091174b8472019154e44a98c378beb6a"
+mapping_assertion_review_digest = "sha256:26ebf89c9a606c9b1cdd2272d0343d69522c6a5aeeb7c91c25cb79aed4f273d1"
+mapping_assertion_source_digests = { "crates/trust-plcopen/src/plcopen/tests/export_profile.rs" = "sha256:97a09fa5322dce39067b51975f324691091174b8472019154e44a98c378beb6a" }
+mapping_behavior_refs = ["PLCO_CODESYS_METADATA_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_956052E097086C1F1216"
+subject_kind = "generated_test"
+discovery_id = "DISC_956052E097086C1F1216"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-plcopen/src/plcopen/tests/export_profile.rs"
+name = "export_siemens_target_emits_scl_bundle_and_program_ob_mapping"
+command = "cargo nextest run -p trust-plcopen --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-plcopen) & test(=tests::export_siemens_target_emits_scl_bundle_and_program_ob_mapping)'"
+owner = "trust-plcopen"
+status = "mapped"
+invariants = ["PLCO_EXPORT_ADAPTERS_001"]
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#export-adapter-artifact-contract"
+oracle_refs = ["SPEC_PLCOPEN_IMPORT_DECISION_001#export-adapter-artifact-contract"]
+expected_result = "The library export writes the exact Siemens bundle/report paths, lists real SCL files, and renders the tested Main program as an organization block."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_956052E097086C1F1216.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_956052E097086C1F1216_85C149995B4D"
+mapping_proposal_digest = "sha256:85c149995b4d063cec7266e80ce90aa9d65135f2e35f94574154bbd05cb5c645"
+mapping_decision_id = "MAP_DEC_1DE9D7C7210F027CD65DDAEE"
+mapping_reviewed_source_digest = "sha256:97a09fa5322dce39067b51975f324691091174b8472019154e44a98c378beb6a"
+mapping_assertion_review_digest = "sha256:c0277c54ed1f030224126f3c0c4ce67c3dd56b99491368696d31a9fe28f2f6ca"
+mapping_assertion_source_digests = { "crates/trust-plcopen/src/plcopen/tests/export_profile.rs" = "sha256:97a09fa5322dce39067b51975f324691091174b8472019154e44a98c378beb6a" }
+mapping_behavior_refs = ["PLCO_EXPORT_ADAPTERS_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_A108B907F544B3DEAAAD"
+subject_kind = "generated_test"
+discovery_id = "DISC_A108B907F544B3DEAAAD"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-plcopen/src/plcopen/tests/export_profile.rs"
+name = "export_emits_codesys_global_vars_and_project_structure_metadata"
+command = "cargo nextest run -p trust-plcopen --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-plcopen) & test(=tests::export_emits_codesys_global_vars_and_project_structure_metadata)'"
+owner = "trust-plcopen"
+status = "mapped"
+invariants = ["PLCO_CODESYS_METADATA_001"]
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#codesys-metadata-contract"
+oracle_refs = ["SPEC_PLCOPEN_IMPORT_DECISION_001#codesys-metadata-contract"]
+expected_result = "Export emits the reviewed globalVars and projectstructure markers and import recreates the tested GVL and program source paths."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_A108B907F544B3DEAAAD.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_A108B907F544B3DEAAAD_7860717AACA2"
+mapping_proposal_digest = "sha256:7860717aaca29d27e01094c50b153c825dd1ab674acacfc2c9a149f55d95705b"
+mapping_decision_id = "MAP_DEC_F5E112C4A46DDE96016234D9"
+mapping_reviewed_source_digest = "sha256:97a09fa5322dce39067b51975f324691091174b8472019154e44a98c378beb6a"
+mapping_assertion_review_digest = "sha256:03582c603ebd63491430ce5158d2e586bd8d944dee62d9c1a5fc817f3ef2263a"
+mapping_assertion_source_digests = { "crates/trust-plcopen/src/plcopen/tests/export_profile.rs" = "sha256:97a09fa5322dce39067b51975f324691091174b8472019154e44a98c378beb6a" }
+mapping_behavior_refs = ["PLCO_CODESYS_METADATA_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_D1F203125AB5E09674C3"
+subject_kind = "generated_test"
+discovery_id = "DISC_D1F203125AB5E09674C3"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-plcopen/src/plcopen/tests/export_profile.rs"
+name = "profile_declares_strict_subset_contract"
+command = "cargo nextest run -p trust-plcopen --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-plcopen) & test(=tests::profile_declares_strict_subset_contract)'"
+owner = "trust-plcopen"
+status = "mapped"
+invariants = ["PLCO_ST_COMPLETE_PROFILE_001"]
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#st-complete-profile-contract"
+oracle_refs = ["SPEC_PLCOPEN_IMPORT_DECISION_001#st-complete-profile-contract"]
+expected_result = "The library profile exposes the exact namespace/profile, its ST POU subset, supported and partial compatibility rows, and nonempty limits and gaps."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_D1F203125AB5E09674C3.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_D1F203125AB5E09674C3_D793325344D1"
+mapping_proposal_digest = "sha256:d793325344d1313daa4be6cf14a07bc034b8033aba707ce99d6ef66de6f8efc5"
+mapping_decision_id = "MAP_DEC_23C0E4D2D82C28A1C28E85B4"
+mapping_reviewed_source_digest = "sha256:97a09fa5322dce39067b51975f324691091174b8472019154e44a98c378beb6a"
+mapping_assertion_review_digest = "sha256:9137cc5b13fd400bac93d6397d38a5014e6ffcdbdfcfd9338a217d43dcb3e1c2"
+mapping_assertion_source_digests = { "crates/trust-plcopen/src/plcopen/tests/export_profile.rs" = "sha256:97a09fa5322dce39067b51975f324691091174b8472019154e44a98c378beb6a" }
+mapping_behavior_refs = ["PLCO_ST_COMPLETE_PROFILE_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_DB8B3550451ED603EF91"
+subject_kind = "generated_test"
+discovery_id = "DISC_DB8B3550451ED603EF91"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-plcopen/src/plcopen/tests/export_profile.rs"
+name = "export_reinjects_vendor_extension_hook_file"
+command = "cargo nextest run -p trust-plcopen --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-plcopen) & test(=tests::export_reinjects_vendor_extension_hook_file)'"
+owner = "trust-plcopen"
+status = "mapped"
+invariants = ["PLCO_MIGRATION_REPORT_AND_EXTENSION_001"]
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#migration-report-and-vendor-extension-contract"
+oracle_refs = ["SPEC_PLCOPEN_IMPORT_DECISION_001#migration-report-and-vendor-extension-contract"]
+expected_result = "Export includes the reviewed vendor-extension marker and payload substrings from the hook file; exact byte preservation and XML placement are not claimed."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_DB8B3550451ED603EF91.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_DB8B3550451ED603EF91_471C01B05005"
+mapping_proposal_digest = "sha256:471c01b050053994fbb30c372437721e7ea9c9ef0c0cc1f838b9b2ac3ddf4dcd"
+mapping_decision_id = "MAP_DEC_1CE0CE8E22F32EDE6B2DCB75"
+mapping_reviewed_source_digest = "sha256:97a09fa5322dce39067b51975f324691091174b8472019154e44a98c378beb6a"
+mapping_assertion_review_digest = "sha256:b3217aa4c3a6cb4fb42b15ffe7c46e618f7cf0b01993dc8382d64603fd138671"
+mapping_assertion_source_digests = { "crates/trust-plcopen/src/plcopen/tests/export_profile.rs" = "sha256:97a09fa5322dce39067b51975f324691091174b8472019154e44a98c378beb6a" }
+mapping_behavior_refs = ["PLCO_MIGRATION_REPORT_AND_EXTENSION_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_59C58D10EEA63CF2DA67"
+subject_kind = "generated_test"
+discovery_id = "DISC_59C58D10EEA63CF2DA67"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-plcopen/src/plcopen/tests/roundtrip_import.rs"
+name = "import_supports_data_type_subset_and_generates_type_source"
+command = "cargo nextest run -p trust-plcopen --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-plcopen) & test(=tests::import_supports_data_type_subset_and_generates_type_source)'"
+owner = "trust-plcopen"
+status = "mapped"
+invariants = ["PLCO_ST_COMPLETE_INTERCHANGE_001"]
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#st-complete-interchange-contract"
+oracle_refs = ["SPEC_PLCOPEN_IMPORT_DECISION_001#st-complete-interchange-contract"]
+expected_result = "A data-type-only TC6 document writes exactly src/plcopen_data_types.st with the tested elementary, enum, subrange, struct, and array declarations; report scoring is not claimed."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_59C58D10EEA63CF2DA67.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_59C58D10EEA63CF2DA67_93398798CC45"
+mapping_proposal_digest = "sha256:93398798cc45650e289f81e714cd5114193126a4d9d8c0348ffe41ebd07126a8"
+mapping_decision_id = "MAP_DEC_B6AF8CDC35A71DAE45F30D2B"
+mapping_reviewed_source_digest = "sha256:3d8ac3d09f418790977aa0869a943e5943636799004720e8fb48696bc969aaf4"
+mapping_assertion_review_digest = "sha256:6ad70a95440de0f07abd175df161b1fb9a722cbbf21a1dadab3c03c22e72fba0"
+mapping_assertion_source_digests = { "crates/trust-plcopen/src/plcopen/tests/roundtrip_import.rs" = "sha256:3d8ac3d09f418790977aa0869a943e5943636799004720e8fb48696bc969aaf4", "crates/trust-plcopen/tests/fixtures/plcopen/non_st_bodies.xml" = "sha256:9befff01a4bb9ac231af1eb0f27cf5c2dcc659acbf81c72f0de557dafdfe15f8" }
+mapping_behavior_refs = ["PLCO_ST_COMPLETE_INTERCHANGE_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_831A1BDFCC60EA9890D7"
+subject_kind = "generated_test"
+discovery_id = "DISC_831A1BDFCC60EA9890D7"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-plcopen/src/plcopen/tests/roundtrip_import.rs"
+name = "import_reports_unsupported_nodes_and_preserves_vendor_extensions"
+command = "cargo nextest run -p trust-plcopen --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-plcopen) & test(=tests::import_reports_unsupported_nodes_and_preserves_vendor_extensions)'"
+owner = "trust-plcopen"
+status = "mapped"
+invariants = ["PLCO_MIGRATION_REPORT_AND_EXTENSION_001"]
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#migration-report-and-vendor-extension-contract"
+oracle_refs = ["SPEC_PLCOPEN_IMPORT_DECISION_001#migration-report-and-vendor-extension-contract"]
+expected_result = "A supported ST POU remains importable beside unsupported type metadata, PLCO402 is reported, compatibility is partial, source coverage and semantic loss are both positive, and the opaque vendor payload is written to the canonical preserved-extension path."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_831A1BDFCC60EA9890D7.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_831A1BDFCC60EA9890D7_8A1E07219F3A"
+mapping_proposal_digest = "sha256:8a1e07219f3a7d27a46260487e50b495fc635eac8c28556fab08232b08bb5f5f"
+mapping_decision_id = "MAP_DEC_A4DF6CFE6A7870C4AA6E5DDC"
+mapping_reviewed_source_digest = "sha256:3d8ac3d09f418790977aa0869a943e5943636799004720e8fb48696bc969aaf4"
+mapping_assertion_review_digest = "sha256:231a4415ea0b99bd0019eda5d74d673341b2e3ac298829e95648c25a1dc04d65"
+mapping_assertion_source_digests = { "crates/trust-plcopen/src/plcopen/tests/roundtrip_import.rs" = "sha256:3d8ac3d09f418790977aa0869a943e5943636799004720e8fb48696bc969aaf4", "crates/trust-plcopen/tests/fixtures/plcopen/non_st_bodies.xml" = "sha256:9befff01a4bb9ac231af1eb0f27cf5c2dcc659acbf81c72f0de557dafdfe15f8" }
+mapping_behavior_refs = ["PLCO_MIGRATION_REPORT_AND_EXTENSION_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_AE70D7BD1B3A3D4AF3C7"
+subject_kind = "generated_test"
+discovery_id = "DISC_AE70D7BD1B3A3D4AF3C7"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-plcopen/src/plcopen/tests/roundtrip_import.rs"
+name = "import_rejects_non_st_bodies_with_named_diagnostics"
+command = "cargo nextest run -p trust-plcopen --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-plcopen) & test(=tests::import_rejects_non_st_bodies_with_named_diagnostics)'"
+owner = "trust-plcopen"
+status = "mapped"
+invariants = ["PLCO_NON_ST_REJECTION_SET_001"]
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#non-st-body-diagnostics"
+oracle_refs = ["SPEC_PLCOPEN_IMPORT_DECISION_001#non-st-body-diagnostics"]
+expected_result = "A document containing FBD, LD, SFC, and unknown executable bodies reports four discovered/skipped POUs, imports none, emits PLCO215 through PLCO218 as errors with named skipped entries, writes no ST file in the initially empty destination, and fails with no importable ST content."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_AE70D7BD1B3A3D4AF3C7.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_AE70D7BD1B3A3D4AF3C7_24EBFA23FE5C"
+mapping_proposal_digest = "sha256:24ebfa23fe5c09cc6eb189d2223e2f3f8a614bc13e0faf7b0dcdde71210c39b1"
+mapping_decision_id = "MAP_DEC_E4E74636563709FE94F9D247"
+mapping_reviewed_source_digest = "sha256:3d8ac3d09f418790977aa0869a943e5943636799004720e8fb48696bc969aaf4"
+mapping_assertion_review_digest = "sha256:bc6344d3d4173bd9c8a508781070b38e5c1180cd5e0bac7d997366d0294632b7"
+mapping_assertion_source_digests = { "crates/trust-plcopen/src/plcopen/tests/roundtrip_import.rs" = "sha256:3d8ac3d09f418790977aa0869a943e5943636799004720e8fb48696bc969aaf4", "crates/trust-plcopen/tests/fixtures/plcopen/non_st_bodies.xml" = "sha256:9befff01a4bb9ac231af1eb0f27cf5c2dcc659acbf81c72f0de557dafdfe15f8" }
+mapping_behavior_refs = ["PLCO_NON_ST_REJECTION_SET_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_C256D0AA8F2B315BE2DD"
+subject_kind = "generated_test"
+discovery_id = "DISC_C256D0AA8F2B315BE2DD"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-plcopen/src/plcopen/tests/roundtrip_import.rs"
+name = "round_trip_export_import_export_preserves_pou_subset"
+command = "cargo nextest run -p trust-plcopen --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-plcopen) & test(=tests::round_trip_export_import_export_preserves_pou_subset)'"
+owner = "trust-plcopen"
+status = "mapped"
+invariants = ["PLCO_ST_COMPLETE_INTERCHANGE_001"]
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#st-complete-interchange-contract"
+oracle_refs = ["SPEC_PLCOPEN_IMPORT_DECISION_001#st-complete-interchange-contract"]
+expected_result = "Two supported POUs retain equal normalized name, kind, and ST body signatures across export, import, and re-export; source-map and migration-report artifacts exist, with 100 percent source coverage and zero semantic loss for this fixture."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_C256D0AA8F2B315BE2DD.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_C256D0AA8F2B315BE2DD_DC9F63F310B8"
+mapping_proposal_digest = "sha256:dc9f63f310b8a7113c8504a45c04ab10a713b4cf156367fd3215eea33d0ff727"
+mapping_decision_id = "MAP_DEC_B440058D1518EFAB9F6708B0"
+mapping_reviewed_source_digest = "sha256:3d8ac3d09f418790977aa0869a943e5943636799004720e8fb48696bc969aaf4"
+mapping_assertion_review_digest = "sha256:0bb64f9f4da5a3c06f08f225f05751d270a65eb945fcb371e8d67beb19e1eead"
+mapping_assertion_source_digests = { "crates/trust-plcopen/src/plcopen/tests/roundtrip_import.rs" = "sha256:3d8ac3d09f418790977aa0869a943e5943636799004720e8fb48696bc969aaf4", "crates/trust-plcopen/tests/fixtures/plcopen/non_st_bodies.xml" = "sha256:9befff01a4bb9ac231af1eb0f27cf5c2dcc659acbf81c72f0de557dafdfe15f8" }
+mapping_behavior_refs = ["PLCO_ST_COMPLETE_INTERCHANGE_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_E842B57853EE4EA7403B"
+subject_kind = "generated_test"
+discovery_id = "DISC_E842B57853EE4EA7403B"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-plcopen/src/plcopen/tests/roundtrip_import.rs"
+name = "import_accepts_st_body_with_body_level_adddata_metadata"
+command = "cargo nextest run -p trust-plcopen --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-plcopen) & test(=tests::import_accepts_st_body_with_body_level_adddata_metadata)'"
+owner = "trust-plcopen"
+status = "mapped"
+invariants = ["PLCO_IMPORT_001"]
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001"
+oracle_refs = ["SPEC_PLCOPEN_IMPORT_DECISION_001"]
+expected_result = "Opaque addData metadata beside a valid ST body does not hide or replace the ST program."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_E842B57853EE4EA7403B.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_E842B57853EE4EA7403B_BEC920CB3F07"
+mapping_proposal_digest = "sha256:bec920cb3f07fb86ee441c205c4e82b941dfbc37ee3a12d26ca72a5fe67de1f0"
+mapping_decision_id = "MAP_DEC_D2629FC98ACF3C0BC9F468C7"
+mapping_reviewed_source_digest = "sha256:3d8ac3d09f418790977aa0869a943e5943636799004720e8fb48696bc969aaf4"
+mapping_assertion_review_digest = "sha256:4f7397647bee4c0e7ecdb6bef14cfe7c049128088730e3fd7589bfc7ceabc448"
+mapping_assertion_source_digests = { "crates/trust-plcopen/src/plcopen/tests/roundtrip_import.rs" = "sha256:3d8ac3d09f418790977aa0869a943e5943636799004720e8fb48696bc969aaf4", "crates/trust-plcopen/tests/fixtures/plcopen/non_st_bodies.xml" = "sha256:9befff01a4bb9ac231af1eb0f27cf5c2dcc659acbf81c72f0de557dafdfe15f8" }
+mapping_behavior_refs = ["PLCO_IMPORT_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_00B66157915C56E44641"
+subject_kind = "generated_test"
+discovery_id = "DISC_00B66157915C56E44641"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-plcopen/src/plcopen/tests/shims.rs"
+name = "import_applies_siemens_library_shims_and_reports_them"
+command = "cargo nextest run -p trust-plcopen --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-plcopen) & test(=tests::import_applies_siemens_library_shims_and_reports_them)'"
+owner = "trust-plcopen"
+status = "mapped"
+invariants = ["PLCO_VENDOR_LIBRARY_SHIMS_001"]
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#vendor-library-shim-contract"
+oracle_refs = ["SPEC_PLCOPEN_IMPORT_DECISION_001#vendor-library-shim-contract"]
+expected_result = "Siemens import maps SFB3 to TP and SFB4 to TON in the generated source and reports both transforms plus PLCO301."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_00B66157915C56E44641.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_00B66157915C56E44641_F10120ED9C69"
+mapping_proposal_digest = "sha256:f10120ed9c698891aacf769c8d54b86008b88c9b37db15563f063a171ec26967"
+mapping_decision_id = "MAP_DEC_5982AF143FA70B4B5B407CFD"
+mapping_reviewed_source_digest = "sha256:df95998623022dbbce4e9dc87cc7774a0a539c074854e9e5978833d7fb2324e4"
+mapping_assertion_review_digest = "sha256:d4f286374fe3745f8d54d9a08fa952e2693a21c7f8eb5f62837e15884c7c1193"
+mapping_assertion_source_digests = { "crates/trust-plcopen/src/plcopen/tests/shims.rs" = "sha256:df95998623022dbbce4e9dc87cc7774a0a539c074854e9e5978833d7fb2324e4" }
+mapping_behavior_refs = ["PLCO_VENDOR_LIBRARY_SHIMS_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_3BE66B444B69BE64121D"
+subject_kind = "generated_test"
+discovery_id = "DISC_3BE66B444B69BE64121D"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-plcopen/src/plcopen/tests/shims.rs"
+name = "library_shim_rewrites_type_and_call_sites_only"
+command = "cargo nextest run -p trust-plcopen --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-plcopen) & test(=tests::library_shim_rewrites_type_and_call_sites_only)'"
+owner = "trust-plcopen"
+status = "mapped"
+invariants = ["PLCO_VENDOR_LIBRARY_SHIMS_001"]
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#vendor-library-shim-contract"
+oracle_refs = ["SPEC_PLCOPEN_IMPORT_DECISION_001#vendor-library-shim-contract"]
+expected_result = "A type-position SFB4 alias becomes TON while an unrelated variable and assignment named SFB4 remain unchanged; direct FB call-site rewriting is not proved."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_3BE66B444B69BE64121D.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_3BE66B444B69BE64121D_ED9842873C80"
+mapping_proposal_digest = "sha256:ed9842873c8032c1ed559f5619eb9c8309510fce8f9edbbc351847a932453351"
+mapping_decision_id = "MAP_DEC_F35C32A9EACC9AA2BFAB5EBB"
+mapping_reviewed_source_digest = "sha256:df95998623022dbbce4e9dc87cc7774a0a539c074854e9e5978833d7fb2324e4"
+mapping_assertion_review_digest = "sha256:b18ce478da779751844ebf1d7baf13444952f1e877f8801c894f34e6ff4a0cce"
+mapping_assertion_source_digests = { "crates/trust-plcopen/src/plcopen/tests/shims.rs" = "sha256:df95998623022dbbce4e9dc87cc7774a0a539c074854e9e5978833d7fb2324e4" }
+mapping_behavior_refs = ["PLCO_VENDOR_LIBRARY_SHIMS_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_143454B2FC319D8BA62A"
+subject_kind = "generated_test"
+discovery_id = "DISC_143454B2FC319D8BA62A"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/plcopen_command.rs"
+name = "plcopen_export_import_json_reports_include_compatibility_diagnostics"
+command = "cargo nextest run -p trust-runtime --test plcopen_command --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::plcopen_command) & test(=plcopen_export_import_json_reports_include_compatibility_diagnostics)'"
+owner = "trust-plcopen"
+status = "mapped"
+invariants = ["PLCO_MIGRATION_REPORT_AND_EXTENSION_001"]
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#migration-report-and-vendor-extension-contract"
+oracle_refs = ["SPEC_PLCOPEN_IMPORT_DECISION_001#migration-report-and-vendor-extension-contract"]
+expected_result = "Generic export/import JSON reports expose the tested target/count/source-map and ecosystem/partial-verdict/PLCO203 fields."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_143454B2FC319D8BA62A.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_143454B2FC319D8BA62A_E41AA184D6DB"
+mapping_proposal_digest = "sha256:e41aa184d6db7ef296568aff7831cf94c05b385232ea57b7071ad83d0b7ddc62"
+mapping_decision_id = "MAP_DEC_9E4828314CFF3A377357F4D5"
+mapping_reviewed_source_digest = "sha256:cc0d87109f4543a63cb9fe9b71f7b5f3811334a0f975c836b56c302df3d1e342"
+mapping_assertion_review_digest = "sha256:7cdbffb1015215fa3271cc6132d12e7fd4877f0bbfd3fdff3df986df4d13aea6"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen/synthetic-codesys.xml" = "sha256:4ff2abfe03e85ac546fab6cdd5d98c52992327ce6a63af54116e19155b23cf68", "crates/trust-runtime/tests/fixtures/plcopen/synthetic-openplc.xml" = "sha256:2a3fabf4055cc6dfc2fcb08663d6a964162f3cedd98b3634a415cd46b51030c2", "crates/trust-runtime/tests/plcopen_command.rs" = "sha256:cc0d87109f4543a63cb9fe9b71f7b5f3811334a0f975c836b56c302df3d1e342", "examples/plcopen_xml_st_complete/interop/openplc.xml" = "sha256:2a3fabf4055cc6dfc2fcb08663d6a964162f3cedd98b3634a415cd46b51030c2" }
+mapping_behavior_refs = ["PLCO_MIGRATION_REPORT_AND_EXTENSION_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_28B62203DD44F1A78720"
+subject_kind = "generated_test"
+discovery_id = "DISC_28B62203DD44F1A78720"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/plcopen_command.rs"
+name = "plcopen_profile_json_emits_contract"
+command = "cargo nextest run -p trust-runtime --test plcopen_command --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::plcopen_command) & test(=plcopen_profile_json_emits_contract)'"
+owner = "trust-plcopen"
+status = "mapped"
+invariants = ["PLCO_ST_COMPLETE_PROFILE_001"]
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#st-complete-profile-contract"
+oracle_refs = ["SPEC_PLCOPEN_IMPORT_DECISION_001#st-complete-profile-contract"]
+expected_result = "The profile command succeeds and emits parseable JSON with the exact namespace/profile plus supported compatibility, round-trip-limit, and known-gap fields."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_28B62203DD44F1A78720.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_28B62203DD44F1A78720_90486C385A91"
+mapping_proposal_digest = "sha256:90486c385a910fd25e292121b6fb8f08f2b3902980a516dcd3ac89779f0c9dfe"
+mapping_decision_id = "MAP_DEC_533E4E908A6F9CB8B7818A2E"
+mapping_reviewed_source_digest = "sha256:cc0d87109f4543a63cb9fe9b71f7b5f3811334a0f975c836b56c302df3d1e342"
+mapping_assertion_review_digest = "sha256:4e4c8fe3c5afff5c1d9ba8599f15034df5717a0a55f9b1e2aa984c2ec972ed54"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen/synthetic-codesys.xml" = "sha256:4ff2abfe03e85ac546fab6cdd5d98c52992327ce6a63af54116e19155b23cf68", "crates/trust-runtime/tests/fixtures/plcopen/synthetic-openplc.xml" = "sha256:2a3fabf4055cc6dfc2fcb08663d6a964162f3cedd98b3634a415cd46b51030c2", "crates/trust-runtime/tests/plcopen_command.rs" = "sha256:cc0d87109f4543a63cb9fe9b71f7b5f3811334a0f975c836b56c302df3d1e342", "examples/plcopen_xml_st_complete/interop/openplc.xml" = "sha256:2a3fabf4055cc6dfc2fcb08663d6a964162f3cedd98b3634a415cd46b51030c2" }
+mapping_behavior_refs = ["PLCO_ST_COMPLETE_PROFILE_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_6927F7CB479F1A7195AA"
+subject_kind = "generated_test"
+discovery_id = "DISC_6927F7CB479F1A7195AA"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/plcopen_command.rs"
+name = "plcopen_import_fails_for_missing_input"
+command = "cargo nextest run -p trust-runtime --test plcopen_command --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::plcopen_command) & test(=plcopen_import_fails_for_missing_input)'"
+owner = "trust-plcopen"
+status = "mapped"
+invariants = ["PLCO_IMPORT_FAILURE_001"]
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#import-failure-contract"
+oracle_refs = ["SPEC_PLCOPEN_IMPORT_DECISION_001#import-failure-contract"]
+expected_result = "The CLI returns an unsuccessful status and a does-not-exist message for an absent input path; an exact numeric exit code is not claimed."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_6927F7CB479F1A7195AA.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_6927F7CB479F1A7195AA_17D6B966263A"
+mapping_proposal_digest = "sha256:17d6b966263aefde8b992c3d7707ff9ff8e06a81db0adde158e77c6e26c3da25"
+mapping_decision_id = "MAP_DEC_0DABBC7E9E1FCB06CE5614F8"
+mapping_reviewed_source_digest = "sha256:cc0d87109f4543a63cb9fe9b71f7b5f3811334a0f975c836b56c302df3d1e342"
+mapping_assertion_review_digest = "sha256:e41925a8b485659d96fe6a22c29b29880646f1e4e9751c3176243ddfe219ee8a"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen/synthetic-codesys.xml" = "sha256:4ff2abfe03e85ac546fab6cdd5d98c52992327ce6a63af54116e19155b23cf68", "crates/trust-runtime/tests/fixtures/plcopen/synthetic-openplc.xml" = "sha256:2a3fabf4055cc6dfc2fcb08663d6a964162f3cedd98b3634a415cd46b51030c2", "crates/trust-runtime/tests/plcopen_command.rs" = "sha256:cc0d87109f4543a63cb9fe9b71f7b5f3811334a0f975c836b56c302df3d1e342", "examples/plcopen_xml_st_complete/interop/openplc.xml" = "sha256:2a3fabf4055cc6dfc2fcb08663d6a964162f3cedd98b3634a415cd46b51030c2" }
+mapping_behavior_refs = ["PLCO_IMPORT_FAILURE_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_9D2B8EFC26FB91B93EF1"
+subject_kind = "generated_test"
+discovery_id = "DISC_9D2B8EFC26FB91B93EF1"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/plcopen_command.rs"
+name = "plcopen_export_target_generates_adapter_report_and_default_target_path"
+command = "cargo nextest run -p trust-runtime --test plcopen_command --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::plcopen_command) & test(=plcopen_export_target_generates_adapter_report_and_default_target_path)'"
+owner = "trust-plcopen"
+status = "mapped"
+invariants = ["PLCO_EXPORT_ADAPTERS_001"]
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#export-adapter-artifact-contract"
+oracle_refs = ["SPEC_PLCOPEN_IMPORT_DECISION_001#export-adapter-artifact-contract"]
+expected_result = "CLI target ab without an explicit output writes interop/plcopen.ab.xml and returns a real adapter report with PLCO7AB1, manual steps, and limitations."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_9D2B8EFC26FB91B93EF1.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_9D2B8EFC26FB91B93EF1_10C3D012BC82"
+mapping_proposal_digest = "sha256:10c3d012bc82c74b84ab27c0628fe2b491ccfaf2363a733a3308ae13fc2be659"
+mapping_decision_id = "MAP_DEC_F350F8269137B2F7255077CA"
+mapping_reviewed_source_digest = "sha256:cc0d87109f4543a63cb9fe9b71f7b5f3811334a0f975c836b56c302df3d1e342"
+mapping_assertion_review_digest = "sha256:39ae2bc8ff35fa2247e3c7394df52c99bfa551dcf2983d4d13c469008cc4c06e"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen/synthetic-codesys.xml" = "sha256:4ff2abfe03e85ac546fab6cdd5d98c52992327ce6a63af54116e19155b23cf68", "crates/trust-runtime/tests/fixtures/plcopen/synthetic-openplc.xml" = "sha256:2a3fabf4055cc6dfc2fcb08663d6a964162f3cedd98b3634a415cd46b51030c2", "crates/trust-runtime/tests/plcopen_command.rs" = "sha256:cc0d87109f4543a63cb9fe9b71f7b5f3811334a0f975c836b56c302df3d1e342", "examples/plcopen_xml_st_complete/interop/openplc.xml" = "sha256:2a3fabf4055cc6dfc2fcb08663d6a964162f3cedd98b3634a415cd46b51030c2" }
+mapping_behavior_refs = ["PLCO_EXPORT_ADAPTERS_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_9F9C54D5425826CC8238"
+subject_kind = "generated_test"
+discovery_id = "DISC_9F9C54D5425826CC8238"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/plcopen_command.rs"
+name = "plcopen_openplc_fixture_in_st_complete_bundle_import_export_smoke"
+command = "cargo nextest run -p trust-runtime --test plcopen_command --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::plcopen_command) & test(=plcopen_openplc_fixture_in_st_complete_bundle_import_export_smoke)'"
+owner = "trust-plcopen"
+status = "mapped"
+invariants = ["PLCO_VENDOR_LIBRARY_SHIMS_001"]
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#vendor-library-shim-contract"
+oracle_refs = ["SPEC_PLCOPEN_IMPORT_DECISION_001#vendor-library-shim-contract"]
+expected_result = "The shipped OpenPLC bundle imports with the reviewed shim and can be exported to XML with a source-map sidecar; semantic equivalence is not claimed."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_9F9C54D5425826CC8238.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_9F9C54D5425826CC8238_BC615A4A40A3"
+mapping_proposal_digest = "sha256:bc615a4a40a31ed1aceec56b79ea482e2ee336cb0fc0a8b9228bf6ba7a5c767f"
+mapping_decision_id = "MAP_DEC_087E912570315C0CFC572F3C"
+mapping_reviewed_source_digest = "sha256:cc0d87109f4543a63cb9fe9b71f7b5f3811334a0f975c836b56c302df3d1e342"
+mapping_assertion_review_digest = "sha256:113763a1362e44771a49206800d52e7ad0109eaa964a49af08c06d4d7f0e20e9"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen/synthetic-codesys.xml" = "sha256:4ff2abfe03e85ac546fab6cdd5d98c52992327ce6a63af54116e19155b23cf68", "crates/trust-runtime/tests/fixtures/plcopen/synthetic-openplc.xml" = "sha256:2a3fabf4055cc6dfc2fcb08663d6a964162f3cedd98b3634a415cd46b51030c2", "crates/trust-runtime/tests/plcopen_command.rs" = "sha256:cc0d87109f4543a63cb9fe9b71f7b5f3811334a0f975c836b56c302df3d1e342", "examples/plcopen_xml_st_complete/interop/openplc.xml" = "sha256:2a3fabf4055cc6dfc2fcb08663d6a964162f3cedd98b3634a415cd46b51030c2" }
+mapping_behavior_refs = ["PLCO_VENDOR_LIBRARY_SHIMS_001#behavior:4"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_B114AF6BF1B27DD82EB5"
+subject_kind = "generated_test"
+discovery_id = "DISC_B114AF6BF1B27DD82EB5"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/plcopen_command.rs"
+name = "plcopen_import_json_reports_applied_vendor_library_shims"
+command = "cargo nextest run -p trust-runtime --test plcopen_command --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::plcopen_command) & test(=plcopen_import_json_reports_applied_vendor_library_shims)'"
+owner = "trust-plcopen"
+status = "mapped"
+invariants = ["PLCO_VENDOR_LIBRARY_SHIMS_001"]
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#vendor-library-shim-contract"
+oracle_refs = ["SPEC_PLCOPEN_IMPORT_DECISION_001#vendor-library-shim-contract"]
+expected_result = "The CLI detects Siemens and reports the SFB4 to TON transform and PLCO301."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_B114AF6BF1B27DD82EB5.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_B114AF6BF1B27DD82EB5_20EA576C24BF"
+mapping_proposal_digest = "sha256:20ea576c24bf722567a0bc845e070f7bc50180999bacaf1ece92327d35723069"
+mapping_decision_id = "MAP_DEC_BB4409215002A74002C7F414"
+mapping_reviewed_source_digest = "sha256:cc0d87109f4543a63cb9fe9b71f7b5f3811334a0f975c836b56c302df3d1e342"
+mapping_assertion_review_digest = "sha256:acd070cbd5ee743efd9feffe9a2191a554648129db22fea6d57237c0ee66aaf7"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen/synthetic-codesys.xml" = "sha256:4ff2abfe03e85ac546fab6cdd5d98c52992327ce6a63af54116e19155b23cf68", "crates/trust-runtime/tests/fixtures/plcopen/synthetic-openplc.xml" = "sha256:2a3fabf4055cc6dfc2fcb08663d6a964162f3cedd98b3634a415cd46b51030c2", "crates/trust-runtime/tests/plcopen_command.rs" = "sha256:cc0d87109f4543a63cb9fe9b71f7b5f3811334a0f975c836b56c302df3d1e342", "examples/plcopen_xml_st_complete/interop/openplc.xml" = "sha256:2a3fabf4055cc6dfc2fcb08663d6a964162f3cedd98b3634a415cd46b51030c2" }
+mapping_behavior_refs = ["PLCO_VENDOR_LIBRARY_SHIMS_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_EC08DF4942B2E64E8495"
+subject_kind = "generated_test"
+discovery_id = "DISC_EC08DF4942B2E64E8495"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/plcopen_command.rs"
+name = "plcopen_import_json_detects_openplc_ecosystem_and_shims"
+command = "cargo nextest run -p trust-runtime --test plcopen_command --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::plcopen_command) & test(=plcopen_import_json_detects_openplc_ecosystem_and_shims)'"
+owner = "trust-plcopen"
+status = "mapped"
+invariants = ["PLCO_VENDOR_LIBRARY_SHIMS_001"]
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#vendor-library-shim-contract"
+oracle_refs = ["SPEC_PLCOPEN_IMPORT_DECISION_001#vendor-library-shim-contract"]
+expected_result = "The CLI detects OpenPLC and reports R_EDGE to R_TRIG while retaining the fixture's reviewed PLCO203 signal."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_EC08DF4942B2E64E8495.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_EC08DF4942B2E64E8495_B29CB56DA3E4"
+mapping_proposal_digest = "sha256:b29cb56da3e4f7908b15e72131a70cf91f25d7dd9c84489e04b016cd4d810741"
+mapping_decision_id = "MAP_DEC_E422903FAD37A364E9E06140"
+mapping_reviewed_source_digest = "sha256:cc0d87109f4543a63cb9fe9b71f7b5f3811334a0f975c836b56c302df3d1e342"
+mapping_assertion_review_digest = "sha256:7cdc5092023df94a586c56e6bac38f85ada5f026b05179d8ea685d7485c467d7"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen/synthetic-codesys.xml" = "sha256:4ff2abfe03e85ac546fab6cdd5d98c52992327ce6a63af54116e19155b23cf68", "crates/trust-runtime/tests/fixtures/plcopen/synthetic-openplc.xml" = "sha256:2a3fabf4055cc6dfc2fcb08663d6a964162f3cedd98b3634a415cd46b51030c2", "crates/trust-runtime/tests/plcopen_command.rs" = "sha256:cc0d87109f4543a63cb9fe9b71f7b5f3811334a0f975c836b56c302df3d1e342", "examples/plcopen_xml_st_complete/interop/openplc.xml" = "sha256:2a3fabf4055cc6dfc2fcb08663d6a964162f3cedd98b3634a415cd46b51030c2" }
+mapping_behavior_refs = ["PLCO_VENDOR_LIBRARY_SHIMS_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]

@@ -3,14 +3,14 @@ id = "PLCO_ST_COMPLETE_INTERCHANGE_001"
 title = "Supported ST signatures and data types survive the selected interchange"
 area = "plcopen_devtools"
 risk = "silent_corruption"
-status = "specified"
+status = "mapped"
 owner = "trust-plcopen"
 last_reviewed = "2026-07-27"
 claim = "The selected profile preserves tested normalized POU signatures across export/import/export and materializes the supported data-type-only subset in the canonical source tree."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["docs/guides/PLCOPEN_INTEROP_COMPATIBILITY.md", "docs/PLCOPEN_DECISIONS.md", "crates/trust-plcopen/src/plcopen/import.rs", "crates/trust-plcopen/src/plcopen/export.rs"]
-tests = []
+tests = ["TEST_AUTO_59C58D10EEA63CF2DA67", "TEST_AUTO_C256D0AA8F2B315BE2DD"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
@@ -42,10 +42,10 @@ rationale = "Two supported POUs retain equal normalized name, kind, and ST body 
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "The reviewed data-type-only import awaits generated catalog mapping and focused execution."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in PLCO_ST_COMPLETE_INTERCHANGE_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
-state = "gap_open"
-rationale = "The reviewed signature round trip awaits generated catalog mapping and focused execution."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in PLCO_ST_COMPLETE_INTERCHANGE_001; dynamic proof and broad remote validation remain explicit debt."

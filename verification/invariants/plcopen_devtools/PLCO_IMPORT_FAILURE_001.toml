@@ -3,14 +3,14 @@ id = "PLCO_IMPORT_FAILURE_001"
 title = "Malformed or missing PLCopen inputs fail visibly"
 area = "plcopen_devtools"
 risk = "silent_corruption"
-status = "gap_open"
+status = "mapped"
 owner = "trust-plcopen"
 last_reviewed = "2026-07-27"
 claim = "Malformed XML and absent input files cannot be reported as successful imports."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["docs/guides/PLCOPEN_INTEROP_COMPATIBILITY.md", "crates/trust-plcopen/src/plcopen/import.rs", "crates/trust-runtime/src/main.rs"]
-tests = []
+tests = ["TEST_AUTO_235287B1F32A8ABCB1E3", "TEST_AUTO_6927F7CB479F1A7195AA"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
@@ -42,10 +42,10 @@ rationale = "The CLI returns an unsuccessful status and a does-not-exist message
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "gap_open"
-rationale = "The reviewed malformed-XML rejection awaits generated catalog mapping and focused execution."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every wrong_type_or_shape behavior in PLCO_IMPORT_FAILURE_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "missing_required"
-state = "gap_open"
-rationale = "The reviewed missing-input CLI rejection awaits generated catalog mapping and focused execution."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every missing_required behavior in PLCO_IMPORT_FAILURE_001; dynamic proof and broad remote validation remain explicit debt."

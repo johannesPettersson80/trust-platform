@@ -3,14 +3,14 @@ id = "PLCO_EXPORT_ADAPTERS_001"
 title = "Vendor export adapters emit reviewed migration artifacts"
 area = "plcopen_devtools"
 risk = "silent_corruption"
-status = "specified"
+status = "mapped"
 owner = "trust-plcopen"
 last_reviewed = "2026-07-27"
 claim = "Allen-Bradley and Siemens adapter selections produce their documented XML/report metadata and Siemens SCL bundle without implying native project-package equivalence."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["docs/guides/PLCOPEN_INTEROP_COMPATIBILITY.md", "docs/guides/PLCOPEN_EXPORT_ADAPTERS_V1.md", "docs/PLCOPEN_DECISIONS.md", "crates/trust-plcopen/src/plcopen/export_helpers.rs"]
-tests = []
+tests = ["TEST_AUTO_2E0C4F00C6F5D55A425C", "TEST_AUTO_956052E097086C1F1216", "TEST_AUTO_9D2B8EFC26FB91B93EF1"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
@@ -50,5 +50,5 @@ rationale = "CLI target ab without an explicit output writes interop/plcopen.ab.
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "The three reviewed adapter artifact assertions await generated catalog mapping and focused execution."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in PLCO_EXPORT_ADAPTERS_001; dynamic proof and broad remote validation remain explicit debt."

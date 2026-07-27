@@ -3,14 +3,14 @@ id = "PLCO_MIGRATION_REPORT_AND_EXTENSION_001"
 title = "Migration reports and opaque vendor extensions remain explicit"
 area = "plcopen_devtools"
 risk = "silent_corruption"
-status = "specified"
+status = "mapped"
 owner = "trust-plcopen"
 last_reviewed = "2026-07-27"
 claim = "Import/export surfaces report reviewed compatibility facts and preserve opaque vendor extension payloads without treating them as executable semantics."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["docs/guides/PLCOPEN_INTEROP_COMPATIBILITY.md", "docs/PLCOPEN_DECISIONS.md", "crates/trust-plcopen/src/plcopen/contracts.rs"]
-tests = []
+tests = ["TEST_AUTO_143454B2FC319D8BA62A", "TEST_AUTO_831A1BDFCC60EA9890D7", "TEST_AUTO_DB8B3550451ED603EF91"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
@@ -50,10 +50,10 @@ rationale = "Generic export/import JSON reports expose the tested target/count/s
 
 [[coverage.cells]]
 dimension = "extra_or_unknown"
-state = "gap_open"
-rationale = "The reviewed opaque-extension import/export assertions await generated catalog mapping and focused execution."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every extra_or_unknown behavior in PLCO_MIGRATION_REPORT_AND_EXTENSION_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "The reviewed CLI JSON report assertions await generated catalog mapping and focused execution."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in PLCO_MIGRATION_REPORT_AND_EXTENSION_001; dynamic proof and broad remote validation remain explicit debt."

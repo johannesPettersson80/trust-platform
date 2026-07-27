@@ -3,14 +3,14 @@ id = "PLCO_VENDOR_LIBRARY_SHIMS_001"
 title = "Reviewed vendor aliases are transformed and reported narrowly"
 area = "plcopen_devtools"
 risk = "wrong_result"
-status = "specified"
+status = "mapped"
 owner = "trust-plcopen"
 last_reviewed = "2026-07-27"
 claim = "Recognized Siemens and OpenPLC aliases are replaced only in reviewed symbol positions and every applied transform remains visible as migration evidence."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["docs/guides/PLCOPEN_INTEROP_COMPATIBILITY.md", "docs/guides/VENDOR_LIBRARY_COMPATIBILITY.md", "docs/guides/OPENPLC_INTEROP_V1.md", "docs/PLCOPEN_DECISIONS.md", "crates/trust-plcopen/src/plcopen/shims_metrics.rs"]
-tests = []
+tests = ["TEST_AUTO_00B66157915C56E44641", "TEST_AUTO_3BE66B444B69BE64121D", "TEST_AUTO_9F9C54D5425826CC8238", "TEST_AUTO_B114AF6BF1B27DD82EB5", "TEST_AUTO_EC08DF4942B2E64E8495"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
@@ -66,15 +66,15 @@ rationale = "The shipped OpenPLC bundle imports with the reviewed shim and can b
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "The reviewed Siemens and OpenPLC import/report assertions await generated catalog mapping and focused execution."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in PLCO_VENDOR_LIBRARY_SHIMS_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "extra_or_unknown"
-state = "gap_open"
-rationale = "The reviewed narrow token-position assertion awaits generated catalog mapping and focused execution."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every extra_or_unknown behavior in PLCO_VENDOR_LIBRARY_SHIMS_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
-state = "gap_open"
-rationale = "The reviewed OpenPLC import/export smoke assertion awaits generated catalog mapping and focused execution."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in PLCO_VENDOR_LIBRARY_SHIMS_001; dynamic proof and broad remote validation remain explicit debt."
