@@ -2600,7 +2600,7 @@ path = "crates/trust-runtime/tests/iec_examples.rs"
 name = "conversion_usage_examples"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -3400,7 +3400,7 @@ path = "crates/trust-runtime/tests/iec_counters.rs"
 name = "counter_examples"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -6120,7 +6120,7 @@ path = "crates/trust-runtime/tests/harness.rs"
 name = "from_source"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -7670,7 +7670,7 @@ path = "crates/trust-runtime/tests/harness.rs"
 name = "run_until_max_panics_when_limit_is_exceeded"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -9050,7 +9050,7 @@ path = "crates/trust-runtime/tests/stdlib_split_locals.rs"
 name = "split_date_writes_function_local_outputs_in_runtime_and_vm"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -9190,7 +9190,7 @@ path = "crates/trust-runtime/tests/e2e_full_grammar.rs"
 name = "var_and_stmt_coverage"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -9760,7 +9760,7 @@ path = "crates/trust-runtime/src/host/bundle_builder/tests.rs"
 name = "build_fails_for_cyclic_dependencies"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -10110,7 +10110,7 @@ path = "crates/trust-runtime/tests/stmt_assign_attempt.rs"
 name = "assign_attempt"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -10280,7 +10280,7 @@ path = "crates/trust-runtime/tests/pou_methods.rs"
 name = "method_calls"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -10650,7 +10650,7 @@ path = "crates/trust-runtime/tests/platform_std.rs"
 name = "time_builtin_uses_runtime_clock"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -10970,7 +10970,7 @@ path = "crates/trust-runtime/tests/expr_calls.rs"
 name = "function_call_output_positional"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -11200,7 +11200,7 @@ path = "crates/trust-runtime/tests/pou_interface.rs"
 name = "interface_conformance"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -11950,7 +11950,7 @@ path = "crates/trust-runtime/src/host/bundle_builder/tests.rs"
 name = "build_fails_for_missing_dependency_path"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -12050,7 +12050,7 @@ path = "crates/trust-runtime/tests/expr_calls.rs"
 name = "function_call_named_args"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -13060,7 +13060,7 @@ path = "crates/trust-runtime/src/host/bundle_builder/tests.rs"
 name = "build_includes_transitive_dependency_sources"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -13300,7 +13300,7 @@ path = "crates/trust-runtime/src/host/bundle_builder/tests.rs"
 name = "resolve_sources_root_prefers_src_directory"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -15530,7 +15530,7 @@ path = "crates/trust-runtime/tests/pou_interface.rs"
 name = "method_can_return_owned_function_block_as_interface"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -16060,7 +16060,7 @@ path = "crates/trust-runtime/src/host/bundle_builder/tests.rs"
 name = "build_fails_for_version_mismatch"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -18420,7 +18420,7 @@ path = "crates/trust-runtime/src/host/eval/tests/expr_full.rs"
 name = "iec_7_3_2"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -19510,7 +19510,7 @@ path = "crates/trust-runtime/tests/harness.rs"
 name = "io_by_address"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -20370,7 +20370,7 @@ path = "crates/trust-runtime/tests/stdlib_split_locals.rs"
 name = "function_local_initializer_runs_in_runtime_and_vm"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -20600,7 +20600,7 @@ path = "crates/trust-runtime/tests/fb_counters_full.rs"
 name = "generic_counter_uses_call_value_type_after_null_default"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -20650,7 +20650,7 @@ path = "crates/trust-runtime/tests/types_ref.rs"
 name = "iec_table12"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -21950,7 +21950,7 @@ path = "crates/trust-runtime/tests/harness.rs"
 name = "io_by_name"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -22390,7 +22390,7 @@ path = "crates/trust-runtime/tests/fb_counters_full.rs"
 name = "counter_variants"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -23620,7 +23620,7 @@ path = "crates/trust-runtime/tests/e2e_multifile.rs"
 name = "namespaced_pous_resolve_sibling_interfaces"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -25230,7 +25230,7 @@ path = "crates/trust-runtime/tests/compile_time_constants.rs"
 name = "cross_file_global_constants_drive_string_lengths_in_runtime_and_vm"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -26910,7 +26910,7 @@ path = "crates/trust-runtime/tests/e2e_multifile.rs"
 name = "namespaced_programs_are_runtime_entry_points"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -28390,7 +28390,7 @@ path = "crates/trust-runtime/tests/e2e_basic.rs"
 name = "from_source_full_pipeline"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -28490,7 +28490,7 @@ path = "crates/trust-runtime/tests/var_constants.rs"
 name = "parameter_constant_runtime_call_end_to_end"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -28640,7 +28640,7 @@ path = "crates/trust-runtime/tests/e2e_comments.rs"
 name = "comment_tolerance"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -29160,7 +29160,7 @@ path = "crates/trust-runtime/tests/fb_edges.rs"
 name = "difu_difd_aliases_match_edge_behavior"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -29260,7 +29260,7 @@ path = "crates/trust-runtime/tests/e2e_semicolons.rs"
 name = "trailing_semicolons"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -29470,7 +29470,7 @@ path = "crates/trust-runtime/tests/e2e_multifile.rs"
 name = "namespace_resolution"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -30100,7 +30100,7 @@ path = "crates/trust-runtime/tests/expr_calls.rs"
 name = "stdlib_named_args"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -34030,7 +34030,7 @@ path = "crates/trust-runtime/tests/expr_calls.rs"
 name = "function_block_call"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -35360,7 +35360,7 @@ path = "crates/trust-runtime/tests/tutorial_examples.rs"
 name = "tutorial_motor_starter_latch_and_unlatch"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -35650,7 +35650,7 @@ path = "crates/trust-runtime/tests/expr_calls.rs"
 name = "function_call_expr"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -36510,7 +36510,7 @@ path = "crates/trust-runtime/tests/fb_edges.rs"
 name = "r_trig_f_trig"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -37390,7 +37390,7 @@ path = "crates/trust-runtime/src/host/bundle_builder/tests.rs"
 name = "resolve_sources_root_rejects_legacy_sources_directory"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -38510,7 +38510,7 @@ path = "crates/trust-runtime/tests/iec_examples.rs"
 name = "logic_usage_example"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -38880,7 +38880,7 @@ path = "crates/trust-runtime/tests/pou_class.rs"
 name = "class_instances"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -38950,7 +38950,7 @@ path = "crates/trust-runtime/tests/compile_time_constants.rs"
 name = "named_constants_drive_parenthesized_string_lengths_in_runtime_and_vm"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -39240,7 +39240,7 @@ path = "crates/trust-runtime/src/host/bundle_builder/tests.rs"
 name = "build_accepts_cross_file_root_global_struct_field_access"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -39780,7 +39780,7 @@ path = "crates/trust-runtime/tests/pou_oop.rs"
 name = "polymorphism"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -41170,7 +41170,7 @@ path = "crates/trust-runtime/tests/fb_bistable.rs"
 name = "sr_rs"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -41220,7 +41220,7 @@ path = "crates/trust-runtime/tests/harness.rs"
 name = "run_controls"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -41720,7 +41720,7 @@ path = "crates/trust-runtime/tests/tutorial_examples.rs"
 name = "tutorial_blinker_ton_timing_behavior"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -42080,7 +42080,7 @@ path = "crates/trust-runtime/tests/harness.rs"
 name = "run_until_returns_immediately_when_condition_is_already_true"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -42330,7 +42330,7 @@ path = "crates/trust-runtime/tests/iec_examples.rs"
 name = "table_examples"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -42910,7 +42910,7 @@ path = "crates/trust-runtime/tests/types_pointer.rs"
 name = "pointer_to_string_supports_indexed_deref_read_and_write_in_runtime_and_vm"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -43220,7 +43220,7 @@ path = "crates/trust-runtime/tests/iec_timers.rs"
 name = "timing_diagrams"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -43880,7 +43880,7 @@ path = "crates/trust-runtime/tests/types_pointer.rs"
 name = "pointer_types_support_adr_deref_index_and_null_in_runtime_and_vm"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
