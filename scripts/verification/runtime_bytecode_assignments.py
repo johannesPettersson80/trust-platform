@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import subprocess
 import tomllib
+from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
@@ -146,6 +149,208 @@ def generate_assignments(
     }
 
 
+def generate_path_plans(
+    *,
+    root: Path,
+    inventory_document: Mapping[str, Any],
+    assignments_document: Mapping[str, Any],
+    execution_dir: Path,
+    output_dir: Path,
+    reviewed_date: str,
+    timestamp: str,
+) -> dict[str, Any]:
+    """Project reviewed bytecode assignments onto existing path proof."""
+
+    if not reviewed_date or not timestamp:
+        raise ValueError("plan review date and timestamp must be non-empty")
+    inventories = inventory_document.get("inventories")
+    assignments = assignments_document.get("assignments")
+    if not isinstance(inventories, Mapping) or not isinstance(assignments, list):
+        raise ValueError("bytecode plan inputs are invalid")
+    assignment_by_key = {
+        (_string(row, "path", "assignment"), _string(row, "name", "assignment")): row
+        for row in assignments
+        if isinstance(row, Mapping)
+    }
+    inventory_by_key = {
+        (
+            _string(row, "path", str(discovery_id)),
+            _string(row, "test_name", str(discovery_id)),
+        ): (str(discovery_id), row)
+        for discovery_id, row in inventories.items()
+        if isinstance(row, Mapping)
+    }
+    if (
+        len(assignment_by_key) != len(assignments)
+        or len(inventory_by_key) != len(inventories)
+        or set(assignment_by_key) != set(inventory_by_key)
+    ):
+        raise ValueError("bytecode assignments and inventories are not bijective")
+
+    denominator = tomllib.loads(
+        (root / "verification/test-catalog-denominator.toml").read_text()
+    )
+    review_by_key = {
+        (str(row.get("path")), str(row.get("name"))): row
+        for row in denominator.get("reviews", [])
+        if isinstance(row, Mapping)
+        and row.get("disposition") == "reviewed_nonmapping"
+        and row.get("reason_code")
+        == "no_reviewed_spec_or_invariant_binding"
+        and (str(row.get("path")), str(row.get("name")))
+        in assignment_by_key
+    }
+    if set(review_by_key) != set(assignment_by_key):
+        raise ValueError(
+            "bytecode assignments do not equal live mapping-debt rows"
+        )
+
+    evidence_by_path: dict[str, tuple[Mapping[str, Any], Path]] = {}
+    for metadata_path in sorted((execution_dir / "meta").glob("*.json")):
+        metadata = json.loads(metadata_path.read_text())
+        if not isinstance(metadata, Mapping):
+            raise ValueError(f"{metadata_path} is not an object")
+        path = _string(metadata, "path", metadata_path.as_posix())
+        results_path = execution_dir / "results" / metadata_path.name
+        if path in evidence_by_path or not results_path.is_file():
+            raise ValueError(f"duplicate or missing path evidence for {path}")
+        evidence_by_path[path] = (metadata, results_path)
+
+    assignments_by_path: dict[str, list[Mapping[str, Any]]] = defaultdict(list)
+    for (path, _name), row in assignment_by_key.items():
+        assignments_by_path[path].append(row)
+    if set(evidence_by_path) != set(assignments_by_path):
+        raise ValueError("bytecode execution paths do not equal assignment paths")
+
+    invariants = _load_invariants(root)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    path_records = []
+    for path in sorted(assignments_by_path):
+        metadata, results_path = evidence_by_path[path]
+        results = json.loads(results_path.read_text())
+        execution = results.get("execution") if isinstance(results, Mapping) else None
+        if not isinstance(execution, Mapping):
+            raise ValueError(f"{path} results lack execution provenance")
+        path_assignments = sorted(
+            assignments_by_path[path],
+            key=lambda row: str(row["name"]),
+        )
+        names = {str(row["name"]) for row in path_assignments}
+        passed_names = {
+            str(row.get("title"))
+            for row in results.get("tests", [])
+            if isinstance(row, Mapping) and row.get("state") == "passed"
+        }
+        if not names <= passed_names:
+            raise ValueError(f"{path} focused proof lacks assigned tests")
+        path_reviews = [review_by_key[(path, name)] for name in sorted(names)]
+        setup_by_name = {
+            str(row["name"]): set(row["setup_assertion_ids"])
+            for row in path_assignments
+        }
+        non_oracle_by_name = {
+            str(row["name"]): set(row["non_oracle_assertion_ids"])
+            for row in path_assignments
+        }
+        invariant_ids = sorted(
+            {
+                str(assertion["invariant_id"])
+                for row in path_assignments
+                for assertion in row["assertion_assignments"]
+                if assertion["assertion_id"]
+                not in setup_by_name[str(row["name"])]
+                and assertion["assertion_id"]
+                not in non_oracle_by_name[str(row["name"])]
+            }
+        )
+        for invariant_id in invariant_ids:
+            if invariant_id not in invariants:
+                raise ValueError(f"{path} selects unknown invariant {invariant_id}")
+        key = _path_key(path)
+        plan_path = output_dir / f"{key}-plan.json"
+        inventory_path = output_dir / f"{key}-assertions.json"
+        plan = {
+            "schema_version": 1,
+            "execution_kind": "rust_nextest_jsonl",
+            "target_profile": "runtime-remaining",
+            "path": path,
+            "package": _string(execution, "package", path),
+            "target_kind": _string(execution, "target_kind", path),
+            "binary_id": _string(execution, "binary_id", path),
+            "test_prefix": execution.get("test_prefix"),
+            "command": _string(execution, "batch_command", path),
+            "runner_path": _string(execution, "runner_path", path),
+            "raw_results_path": _string(
+                execution, "raw_results_path", path
+            ),
+            "reviewed_date": reviewed_date,
+            "timestamp": timestamp,
+            "reviewer_ids": ["codex-main", "codex-assertion-review"],
+            "expected_count": len(path_reviews),
+            "selection_digest": _selection_digest(path_reviews),
+            "invariant_ids": invariant_ids,
+            "invariant_behavior_digests": {
+                invariant_id: _digest_document(
+                    {"behavior": invariants[invariant_id].get("behavior")}
+                )
+                for invariant_id in invariant_ids
+            },
+            "assertion_assignments": [
+                {
+                    "name": row["name"],
+                    "assertions": row["assertion_assignments"],
+                }
+                for row in path_assignments
+            ],
+            "assertion_dispositions": [
+                {
+                    "name": row["name"],
+                    "setup_assertion_ids": row["setup_assertion_ids"],
+                    "non_oracle_assertion_ids": row["non_oracle_assertion_ids"],
+                }
+                for row in path_assignments
+                if row["setup_assertion_ids"]
+                or row["non_oracle_assertion_ids"]
+            ],
+        }
+        if not isinstance(plan["test_prefix"], str):
+            raise ValueError(f"{path} execution test prefix is invalid")
+        projected_inventory = {
+            "schema_version": inventory_document.get("schema_version", 2),
+            "inventories": {
+                inventory_by_key[(path, name)][0]: inventory_by_key[
+                    (path, name)
+                ][1]
+                for name in sorted(names)
+            },
+        }
+        _write_json(plan_path, plan)
+        _write_json(inventory_path, projected_inventory)
+        path_records.append(
+            {
+                "path": path,
+                "expected_count": len(path_reviews),
+                "plan_path": plan_path.relative_to(root).as_posix(),
+                "inventory_path": inventory_path.relative_to(root).as_posix(),
+                "results_path": results_path.relative_to(root).as_posix(),
+            }
+        )
+    index = {
+        "schema_version": 1,
+        "source_commit": subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=root,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip(),
+        "expected_count": len(assignment_by_key),
+        "paths": path_records,
+    }
+    _write_json(output_dir / "index.json", index)
+    return index
+
+
 def _default_behavior(path: str, name: str) -> BehaviorRef:
     if path.endswith("/bytecode/validate/resource_limits.rs"):
         if name == "stack_limit_accepts_boundary_and_rejects_next_value":
@@ -265,11 +470,55 @@ def _string(row: Mapping[str, Any], field: str, label: str) -> str:
     return value
 
 
+def _digest_document(document: Mapping[str, Any]) -> str:
+    encoded = json.dumps(
+        document,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    ).encode()
+    return "sha256:" + hashlib.sha256(encoded).hexdigest()
+
+
+def _selection_digest(reviews: Sequence[Mapping[str, Any]]) -> str:
+    rows = [
+        {
+            field: _string(row, field, "denominator review")
+            for field in (
+                "discovery_id",
+                "discovery_source_kind",
+                "path",
+                "name",
+                "ignore_state",
+            )
+        }
+        for row in reviews
+    ]
+    rows.sort(key=lambda row: row["discovery_id"])
+    return _digest_document({"reviews": rows})
+
+
+def _path_key(path: str) -> str:
+    return (
+        Path(path).stem.replace("_", "-")
+        + "-"
+        + hashlib.sha256(path.encode()).hexdigest()[:12]
+    )
+
+
+def _write_json(path: Path, document: Mapping[str, Any]) -> None:
+    path.write_text(json.dumps(document, indent=2, sort_keys=True) + "\n")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=Path.cwd())
     parser.add_argument("--inventory", type=Path, required=True)
     parser.add_argument("--assignments-out", type=Path, required=True)
+    parser.add_argument("--execution-dir", type=Path)
+    parser.add_argument("--plans-out", type=Path)
+    parser.add_argument("--reviewed-date")
+    parser.add_argument("--timestamp")
     return parser
 
 
@@ -300,6 +549,35 @@ def main(argv: list[str] | None = None) -> int:
             "runtime bytecode assignments generated: "
             f"{len(assignments['assignments'])} mapped"
         )
+        if (args.execution_dir is None) != (args.plans_out is None):
+            raise ValueError(
+                "--execution-dir and --plans-out must be provided together"
+            )
+        if args.execution_dir is not None and args.plans_out is not None:
+            execution_dir = (
+                args.execution_dir
+                if args.execution_dir.is_absolute()
+                else root / args.execution_dir
+            )
+            plans_out = (
+                args.plans_out
+                if args.plans_out.is_absolute()
+                else root / args.plans_out
+            )
+            index = generate_path_plans(
+                root=root,
+                inventory_document=document,
+                assignments_document=assignments,
+                execution_dir=execution_dir,
+                output_dir=plans_out,
+                reviewed_date=args.reviewed_date or "2026-07-27",
+                timestamp=args.timestamp or "2026-07-27T00:00:00Z",
+            )
+            print(
+                "runtime bytecode catalog plans generated: "
+                f"{index['expected_count']} tests across "
+                f"{len(index['paths'])} paths"
+            )
         return 0
     except (
         OSError,

@@ -71,6 +71,42 @@ class FrozenNonmappingClassificationTests(unittest.TestCase):
                 reviewed_date="2026-07-26",
             )
 
+    def test_owned_reason_can_return_to_mapping_debt_explicitly(self) -> None:
+        denominator = {
+            "reason_definitions": dict(NONMAPPING_REASON_DEFINITIONS),
+            "last_reviewed": "2026-07-26",
+            "reviews": [
+                {
+                    "path": "src/lib.rs",
+                    "name": "boundary",
+                    "disposition": "reviewed_nonmapping",
+                    "reason_code": "assertion_oracle_unresolved",
+                    "last_reviewed": "2026-07-26",
+                }
+            ],
+        }
+        updated = classify_nonmappings(
+            denominator=denominator,
+            classifications=[
+                {
+                    "path": "src/lib.rs",
+                    "name": "boundary",
+                    "reason_code": "no_reviewed_spec_or_invariant_binding",
+                }
+            ],
+            reviewed_date="2026-07-27",
+            allow_mapping_debt=True,
+        )
+        self.assertEqual(
+            "no_reviewed_spec_or_invariant_binding",
+            updated["reviews"][0]["reason_code"],
+        )
+        self.assertEqual(
+            "reviewed_nonmapping",
+            updated["reviews"][0]["disposition"],
+        )
+        self.assertEqual("2026-07-27", updated["last_reviewed"])
+
 
 if __name__ == "__main__":
     unittest.main()

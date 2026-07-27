@@ -26,6 +26,7 @@ def classify_nonmappings(
     denominator: Mapping[str, Any],
     classifications: Sequence[Mapping[str, Any]],
     reviewed_date: str,
+    allow_mapping_debt: bool = False,
 ) -> dict[str, Any]:
     """Return a denominator with the exact reviewed identities reclassified."""
 
@@ -38,7 +39,9 @@ def classify_nonmappings(
         path = _string(row, "path", index)
         name = _string(row, "name", index)
         reason = _string(row, "reason_code", index)
-        if reason not in NONMAPPING_REASON_CODES or reason == MAPPING_DEBT_REASON:
+        if reason not in NONMAPPING_REASON_CODES or (
+            reason == MAPPING_DEBT_REASON and not allow_mapping_debt
+        ):
             raise ValueError(f"classification {index} reason is not owned")
         key = (path, name)
         if key in requested:
@@ -59,10 +62,16 @@ def classify_nonmappings(
         if key in requested:
             if row.get("disposition") != "reviewed_nonmapping":
                 raise ValueError(f"{key} is not reviewed_nonmapping")
-            if row.get("reason_code") not in {
+            allowed_existing = {
                 MAPPING_DEBT_REASON,
                 requested[key],
-            }:
+            }
+            if (
+                allow_mapping_debt
+                and requested[key] == MAPPING_DEBT_REASON
+            ):
+                allowed_existing.update(NONMAPPING_REASON_CODES)
+            if row.get("reason_code") not in allowed_existing:
                 raise ValueError(f"{key} already has a different owned reason")
             row["reason_code"] = requested[key]
             row["last_reviewed"] = reviewed_date
@@ -84,6 +93,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--root", type=Path, default=Path.cwd())
     parser.add_argument("--classifications", type=Path, required=True)
     parser.add_argument("--reviewed-date", required=True)
+    parser.add_argument(
+        "--reopen-mapping-debt",
+        action="store_true",
+        help=(
+            "permit a reviewed owned-nonmapping row to return to mapping debt "
+            "after its oracle has been resolved"
+        ),
+    )
     parser.add_argument("--apply", action="store_true")
     return parser
 
@@ -106,6 +123,7 @@ def main(argv: list[str] | None = None) -> int:
             denominator=document,
             classifications=rows,
             reviewed_date=args.reviewed_date,
+            allow_mapping_debt=args.reopen_mapping_debt,
         )
         rendered = render_denominator_document(updated)
         if args.apply:
