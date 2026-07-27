@@ -6,7 +6,7 @@ risk = "false_status"
 status = "planned"
 owner = "trust-debug"
 last_reviewed = "2026-07-27"
-claim = "DAP framing, initialization, run control, thread and frame projection, safe evaluation, presentation, source discovery, breakpoint input, and reload revalidation preserve the documented session contract."
+claim = "DAP framing, initialization, run control, thread, frame, scope, and variable projection, safe evaluation, presentation, source discovery, breakpoint input, and reload revalidation preserve the documented session contract."
 proof_level = "S0"
 contract_kind = "state_machine"
 source_refs = ["docs/specs/13-debug-adapter.md", "crates/trust-debug/src"]
@@ -122,6 +122,15 @@ outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "expected_delta" }
 rationale = "Reload clears absent breakpoint requests and re-resolves retained requests against the replacement source before reporting validity."
+
+[[behavior]]
+partition = { equals = "THREAD_STACK_SCOPE_AND_STRUCTURED_VARIABLE_PROJECTION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#dap-transport-and-session-projection"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "expected_delta" }
+rationale = "A known thread projects its current stack frame, IEC local/global/instance scopes, structured and array children, references, and declared public instance type names without exposing internal instance IDs."
 
 [[coverage.cells]]
 dimension = "happy_path"
