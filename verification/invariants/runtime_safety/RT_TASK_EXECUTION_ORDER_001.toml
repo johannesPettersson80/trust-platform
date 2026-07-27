@@ -14,16 +14,11 @@ source_refs = [
   "docs/specs/11-runtime-engine.md",
   "crates/trust-runtime/tests/tasks.rs",
 ]
-tests = []
+tests = ["TEST_AUTO_5408231998FAE5B3DBBF", "TEST_AUTO_9ACE52E9206C80559114"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = [
-  "cataloged_tests",
-  "focused_execution_evidence",
-  "background_relative_order_observation",
-  "final_remote_gate",
-]
+missing = ["cataloged_tests", "focused_execution_evidence", "background_relative_order_observation", "final_remote_gate"]
 
 [spec]
 status = "specified"
@@ -53,5 +48,5 @@ rationale = "Every unassociated background program executes once per cycle while
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
-state = "gap_open"
-rationale = "Registered-high SINGLE and per-cycle background execution assertions await generated catalog mapping and focused execution; direct background relative-order proof remains open."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in RT_TASK_EXECUTION_ORDER_001; dynamic proof and broad remote validation remain explicit debt."
