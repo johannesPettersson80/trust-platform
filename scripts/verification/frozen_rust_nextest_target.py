@@ -169,6 +169,7 @@ ADS_SERVER_REMAINING_PROFILE = FrozenRustTargetProfile(
 
 ADS_SERVER_REMAINING_UNIT_PREFIXES: Mapping[str, str] = {
     "crates/trust-ads-server/src/ams.rs": "ams::tests::",
+    "crates/trust-ads-server/src/listener.rs": "listener::tests::",
     "crates/trust-ads-server/src/notify.rs": "notify::tests::",
 }
 

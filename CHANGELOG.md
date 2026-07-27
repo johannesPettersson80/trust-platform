@@ -22,6 +22,8 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   registered-high SINGLE, and background-program execution order.
 - Specify ADS notification cadence, on-change coalescing, watch-length source
   sampling, invalidation, and representable FILETIME conversion.
+- Specify ADS service-port routing, router/system compatibility responses,
+  notification receiver binding, and bind-conflict startup failure.
 
 Target release: `v0.24.57`
 

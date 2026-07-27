@@ -6,6 +6,25 @@ in `IEC_DECISIONS.md`; PLCopen profile decisions belong in
 `PLCOPEN_DECISIONS.md`. Product behavior recorded here MUST NOT be copied to an
 IEC or PLCopen deviation log merely because truST owns the behavior.
 
+## 2026-07-27 - ADS service-port routing and registration endpoint binding
+
+- Area: ADS server TCP listener
+- Decision:
+  - Runtime, system, router, and TCOM service ports form a closed configured
+    routing set; unknown target ports reject with `AccessDenied`.
+  - System and router service ports expose the documented compatibility
+    responses, including two-layer router metadata errors.
+  - A notification receiver endpoint is fixed when registration succeeds and
+    later multiplexed frames cannot retarget it.
+  - TCP bind conflict fails server startup without returning a usable handle.
+- Authority:
+  - `docs/specs/11-runtime-engine.md`
+- Reason:
+  - These ADS compatibility and lifecycle rules are truST product behavior.
+    The unresolved router TCP/IP entry-length exception remains open instead
+    of being accepted implicitly. None of these host rules is an IEC
+    deviation.
+
 ## 2026-07-27 - ADS notification sampling and invalidation
 
 - Area: ADS server notification sampler

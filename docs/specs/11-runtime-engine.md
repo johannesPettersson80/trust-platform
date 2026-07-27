@@ -1823,6 +1823,21 @@ on-change sample, timestamp overflow, clock rollback, sampling at Unix time
 zero, and notification-handle reuse remain explicit behavior gaps rather than
 being inferred from the current focused tests.
 
+Service-port routing is evaluated relative to the configured runtime, system,
+router, and TCOM ports. An unknown target port returns AMS `AccessDenied` with
+no payload. System service port 10000 accepts `ReadState`, responds from port
+10000 with ADS state 5 and device state 0, and rejects symbol `Read` with
+`ServiceNotSupported`. Router port 1 reports device-info version 3.1 named
+`TCROUTER`; an unknown router metadata group/offset returns AMS transport
+success carrying ADS `InvalidOffset` and zero data length.
+
+A notification registration binds its receiver AMS Net ID and port when the
+registration is accepted. Later requests multiplexed on the same TCP
+connection cannot retarget that registration. The router TCP/IP metadata
+entry-length rule remains unresolved: current behavior may return one complete
+48-byte entry for a 40-byte request, while the general read contract preserves
+requested wire length. No catalog claim is made for that conflict.
+
 ###### ADS server runtime publication and lifecycle
 
 ADS server publication is a truST runtime product contract outside IEC
@@ -1835,6 +1850,9 @@ sum-up items, 8,192 write bytes, 4,096 string bytes, 5,000 ms read timeout,
 60,000 ms idle timeout, and 50 ms minimum notification cycle. The default does
 not acknowledge insecure transport, enable writes, permit unpinned clients or
 public binds, or expose, write, or allow any configured entry.
+
+Starting the enabled TCP service on an unavailable bind address returns the
+server bind-error class and no usable server handle.
 
 An empty `runtime.ads_server.expose` publishes no symbols. Otherwise exposure
 and writable globs match either the canonical ADS name or the bare runtime
