@@ -39,6 +39,7 @@ END_FUNCTION
         let xml_b = import_project.join("build/plcopen.xml");
         let export_b = export_project_to_xml(&import_project, &xml_b).expect("export B");
         assert_eq!(export_b.pou_count, 2);
+        assert!(export_b.source_map_path.is_file());
 
         let a_text = std::fs::read_to_string(&xml_a).expect("read xml A");
         let b_text = std::fs::read_to_string(&xml_b).expect("read xml B");
