@@ -590,7 +590,7 @@ path = "crates/trust-runtime/src/host/helper_eval/storage_lvalue.rs"
 name = "writes_deref_target_without_eval_context"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -5860,7 +5860,7 @@ path = "crates/trust-runtime/src/host/debug/resolve.rs"
 name = "resolve_breakpoint_prefers_statement_on_line"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -8800,7 +8800,7 @@ path = "crates/trust-runtime/src/host/helper_eval/storage_lvalue.rs"
 name = "unknown_name_write_fails_without_creating_global"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -9120,7 +9120,7 @@ path = "crates/trust-runtime/src/host/helper_eval/storage_lvalue.rs"
 name = "writes_nested_struct_array_element_without_eval_context"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -14880,7 +14880,7 @@ path = "crates/trust-runtime/src/host/helper_eval/storage_expr.rs"
 name = "allows_pure_stdlib_calls_when_stdlib_is_provided"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -20100,7 +20100,7 @@ path = "crates/trust-runtime/src/host/helper_eval/storage_lvalue.rs"
 name = "writes_struct_field_without_eval_context"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -33170,7 +33170,7 @@ path = "crates/trust-runtime/src/host/helper_eval/storage_lvalue.rs"
 name = "writes_local_name_without_eval_context"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -35350,7 +35350,7 @@ path = "crates/trust-runtime/src/host/helper_eval/storage_lvalue.rs"
 name = "writes_array_element_without_eval_context"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -37260,7 +37260,7 @@ path = "crates/trust-runtime/src/host/helper_eval/storage_lvalue.rs"
 name = "writes_nested_array_of_struct_field_without_eval_context"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
@@ -43630,7 +43630,7 @@ path = "crates/trust-runtime/src/host/helper_eval/storage_expr.rs"
 name = "array_repetition_initializer_uses_expanded_value_shape"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
+reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
