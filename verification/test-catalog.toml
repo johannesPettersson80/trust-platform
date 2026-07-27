@@ -103167,3 +103167,410 @@ mapping_assertion_review_digest = "sha256:a558f770516a1e4a636fa5d201c568f9615ee2
 mapping_assertion_source_digests = { "crates/trust-runtime/tests/vars_retain.rs" = "sha256:b3824e46da8922444cd84b42143818b7b522c1cb6f249636e4abf3d8f01a31e4" }
 mapping_behavior_refs = ["RT_SAFE_RESTART_001#behavior:0", "RT_SAFE_RESTART_001#behavior:1"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_027D1EBF00A35926B528"
+subject_kind = "generated_test"
+discovery_id = "DISC_027D1EBF00A35926B528"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/tests/runtime_safety_fail_closed.rs"
+name = "modbus_warn_and_ignore_policy_do_not_fault_resource_state"
+command = "cargo nextest run -p trust-runtime --test runtime_safety_fail_closed --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::runtime_safety_fail_closed) & test(=modbus_warn_and_ignore_policy_do_not_fault_resource_state)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MODBUS_DRIVER_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#io-drivers"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#io-drivers"]
+expected_result = "Warn and ignore may keep the runtime active only with degraded health."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_027D1EBF00A35926B528.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_027D1EBF00A35926B528_6446E73E736B"
+mapping_proposal_digest = "sha256:6446e73e736b109504f186a969151829962c55b593a328eb6d460a8c2a2fc5a5"
+mapping_decision_id = "MAP_DEC_C1939C1F3DE7B7E059A04339"
+mapping_reviewed_source_digest = "sha256:229e812585f5d7f97b5252b0019d075f404be0a4f8421db17e33d8a5701e71d0"
+mapping_assertion_review_digest = "sha256:0e7774d187053e6f952783a37eb9badeea132dda0b635c3ba80ba736960ba6ef"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/runtime_safety_fail_closed.rs" = "sha256:229e812585f5d7f97b5252b0019d075f404be0a4f8421db17e33d8a5701e71d0" }
+mapping_behavior_refs = ["RT_MODBUS_DRIVER_001#behavior:5"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_2D0B462DA31DE705F6EC"
+subject_kind = "generated_test"
+discovery_id = "DISC_2D0B462DA31DE705F6EC"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/runtime_safety_fail_closed.rs"
+name = "safe_state_write_failure_is_reported_without_losing_root_fault"
+command = "cargo nextest run -p trust-runtime --test runtime_safety_fail_closed --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::runtime_safety_fail_closed) & test(=safe_state_write_failure_is_reported_without_losing_root_fault)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_SAFE_DEADLINE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001"]
+expected_result = "A failed safe-state write remains visible while the original watchdog timeout stays the resource's root fault."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_2D0B462DA31DE705F6EC.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_2D0B462DA31DE705F6EC_8E5FF1524463"
+mapping_proposal_digest = "sha256:8e5ff15244630f8d43f4372c6eea342b62673406dbea6b194e21d7cbe5e930ef"
+mapping_decision_id = "MAP_DEC_9BF835E3D1215CF281C6474A"
+mapping_reviewed_source_digest = "sha256:229e812585f5d7f97b5252b0019d075f404be0a4f8421db17e33d8a5701e71d0"
+mapping_assertion_review_digest = "sha256:aa6c36fabb64be1dd58a27364b2b28d8bba6d11b6e66e6f08fa99750d36f9423"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/runtime_safety_fail_closed.rs" = "sha256:229e812585f5d7f97b5252b0019d075f404be0a4f8421db17e33d8a5701e71d0" }
+mapping_behavior_refs = ["RT_SAFE_DEADLINE_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_6F92DA55FCF24372A33A"
+subject_kind = "generated_test"
+discovery_id = "DISC_6F92DA55FCF24372A33A"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/runtime_safety_fail_closed.rs"
+name = "deliberate_stop_and_fault_safe_state_paths_are_explicit"
+command = "cargo nextest run -p trust-runtime --test runtime_safety_fail_closed --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::runtime_safety_fail_closed) & test(=deliberate_stop_and_fault_safe_state_paths_are_explicit)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_SAFE_PANIC_001", "RT_SAFE_STOP_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001"]
+expected_result = "A deliberate stop writes the configured safe output through the driver before the resource thread exits, then reports Stopped without a last error. A contained panic applies configured safe output before the resource remains faulted."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_6F92DA55FCF24372A33A.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_6F92DA55FCF24372A33A_B251784A790C"
+mapping_proposal_digest = "sha256:b251784a790c7f21f34e5eb79f2b978109f44a29f07ea59958f1b352e42f80d3"
+mapping_decision_id = "MAP_DEC_424758D89BFBEBBF50C4381C"
+mapping_reviewed_source_digest = "sha256:229e812585f5d7f97b5252b0019d075f404be0a4f8421db17e33d8a5701e71d0"
+mapping_assertion_review_digest = "sha256:133bbc1c412c5c9606f0492d6fb7e13f11084a53d1814e6d090a74cc6ddf189c"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/runtime_safety_fail_closed.rs" = "sha256:229e812585f5d7f97b5252b0019d075f404be0a4f8421db17e33d8a5701e71d0" }
+mapping_behavior_refs = ["RT_SAFE_PANIC_001#behavior:1", "RT_SAFE_STOP_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_8B901DEF0D4408B99942"
+subject_kind = "generated_test"
+discovery_id = "DISC_8B901DEF0D4408B99942"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/runtime_safety_fail_closed.rs"
+name = "watchdog_restart_action_escalates_to_visible_fault"
+command = "cargo nextest run -p trust-runtime --test runtime_safety_fail_closed --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::runtime_safety_fail_closed) & test(=watchdog_restart_action_escalates_to_visible_fault)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_AUTOMATIC_RESTART_BOUND_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#fault-overrun-and-watchdog-handling"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#fault-overrun-and-watchdog-handling"]
+expected_result = "A watchdog configured to restart receives exactly the bounded attempt budget before visible restart-limit escalation retains watchdog context."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_8B901DEF0D4408B99942.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_8B901DEF0D4408B99942_E1BE2337349D"
+mapping_proposal_digest = "sha256:e1be2337349d74983a4d65048321b29053def21cd3eaf9d6670d02d13bb02996"
+mapping_decision_id = "MAP_DEC_D82B4712C71630503C523193"
+mapping_reviewed_source_digest = "sha256:229e812585f5d7f97b5252b0019d075f404be0a4f8421db17e33d8a5701e71d0"
+mapping_assertion_review_digest = "sha256:93711ddc2fc82dbe3d6113157d3b3de6d40e4f98a29536634b2e014ca6de9379"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/runtime_safety_fail_closed.rs" = "sha256:229e812585f5d7f97b5252b0019d075f404be0a4f8421db17e33d8a5701e71d0" }
+mapping_behavior_refs = ["RT_AUTOMATIC_RESTART_BOUND_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_8BAF8461F95A94A773A6"
+subject_kind = "generated_test"
+discovery_id = "DISC_8BAF8461F95A94A773A6"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/runtime_safety_fail_closed.rs"
+name = "watchdog_deadline_breach_before_commit_prevents_output_write"
+command = "cargo nextest run -p trust-runtime --test runtime_safety_fail_closed --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::runtime_safety_fail_closed) & test(=watchdog_deadline_breach_before_commit_prevents_output_write)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_SAFE_DEADLINE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001"]
+expected_result = "When the watchdog deadline expires before physical output commit and no safe outputs are configured, the resource faults visibly and the pending process-image output is not written."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_8BAF8461F95A94A773A6.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_8BAF8461F95A94A773A6_2F84C62BA702"
+mapping_proposal_digest = "sha256:2f84c62ba702c4477dbd205935c26d113eed7c0a611028e4806edba6285d1b38"
+mapping_decision_id = "MAP_DEC_BE142E5402A0B79125D0B366"
+mapping_reviewed_source_digest = "sha256:229e812585f5d7f97b5252b0019d075f404be0a4f8421db17e33d8a5701e71d0"
+mapping_assertion_review_digest = "sha256:b99158968a78816d96eee523beb8eb055a29199da66d4c15415a840edb2a908a"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/runtime_safety_fail_closed.rs" = "sha256:229e812585f5d7f97b5252b0019d075f404be0a4f8421db17e33d8a5701e71d0" }
+mapping_behavior_refs = ["RT_SAFE_DEADLINE_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_B25F48AA676D50A29BB2"
+subject_kind = "generated_test"
+discovery_id = "DISC_B25F48AA676D50A29BB2"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/runtime_safety_fail_closed.rs"
+name = "retain_save_failure_prevents_output_commit_when_due"
+command = "cargo nextest run -p trust-runtime --test runtime_safety_fail_closed --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::runtime_safety_fail_closed) & test(=retain_save_failure_prevents_output_commit_when_due)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_SAFE_RETAIN_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001"]
+expected_result = "A due retain-save failure ends the scan before any pending physical output is written."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_B25F48AA676D50A29BB2.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_B25F48AA676D50A29BB2_6025CFF9F261"
+mapping_proposal_digest = "sha256:6025cff9f2615f3284ca9b9151b9f7af81ccb491d22c648691d8154e2707629b"
+mapping_decision_id = "MAP_DEC_766D690CD647D78E0ABF0B9A"
+mapping_reviewed_source_digest = "sha256:229e812585f5d7f97b5252b0019d075f404be0a4f8421db17e33d8a5701e71d0"
+mapping_assertion_review_digest = "sha256:d49d7d6671b5e42f3ef4a6b0c92aa3fa804813feca87919aa2d3f1fc7f4c3dcb"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/runtime_safety_fail_closed.rs" = "sha256:229e812585f5d7f97b5252b0019d075f404be0a4f8421db17e33d8a5701e71d0" }
+mapping_behavior_refs = ["RT_SAFE_RETAIN_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_C946B9FD799F9E4578A3"
+subject_kind = "generated_test"
+discovery_id = "DISC_C946B9FD799F9E4578A3"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/runtime_safety_fail_closed.rs"
+name = "panic_does_not_follow_ordinary_restart_policy"
+command = "cargo nextest run -p trust-runtime --test runtime_safety_fail_closed --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::runtime_safety_fail_closed) & test(=panic_does_not_follow_ordinary_restart_policy)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_SAFE_PANIC_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001"]
+expected_result = "ResourcePanic is not retried by the ordinary restart policy and remains the visible fault."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_C946B9FD799F9E4578A3.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_C946B9FD799F9E4578A3_BC178B0AA382"
+mapping_proposal_digest = "sha256:bc178b0aa3826fbdd322de58859649b98b217c5d9a6834ade1e76121e300845a"
+mapping_decision_id = "MAP_DEC_195347CA6F3134290FEE49F5"
+mapping_reviewed_source_digest = "sha256:229e812585f5d7f97b5252b0019d075f404be0a4f8421db17e33d8a5701e71d0"
+mapping_assertion_review_digest = "sha256:1bbb3e8fae6e260aa1fe680dbcd98b33a525b9b40c7f4170604038f3442f13e8"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/runtime_safety_fail_closed.rs" = "sha256:229e812585f5d7f97b5252b0019d075f404be0a4f8421db17e33d8a5701e71d0" }
+mapping_behavior_refs = ["RT_SAFE_PANIC_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_CAF0750D558B8114BEC6"
+subject_kind = "generated_test"
+discovery_id = "DISC_CAF0750D558B8114BEC6"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/runtime_safety_fail_closed.rs"
+name = "requested_stop_retain_save_failure_is_visible"
+command = "cargo nextest run -p trust-runtime --test runtime_safety_fail_closed --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::runtime_safety_fail_closed) & test(=requested_stop_retain_save_failure_is_visible)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_SAFE_RETAIN_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001"]
+expected_result = "A requested-stop retain-save failure leaves the resource faulted with the retain error instead of reporting a successful stop."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_CAF0750D558B8114BEC6.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_CAF0750D558B8114BEC6_51B56A3A34C6"
+mapping_proposal_digest = "sha256:51b56a3a34c678f292d421d576fadc1253a299e4886da48da231c0389dc9a691"
+mapping_decision_id = "MAP_DEC_502B0C95A97370368C969D4E"
+mapping_reviewed_source_digest = "sha256:229e812585f5d7f97b5252b0019d075f404be0a4f8421db17e33d8a5701e71d0"
+mapping_assertion_review_digest = "sha256:9990a61e91eba9e7c21349ba7d5407bd508368b5d04e7fda742a35242d2a5e41"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/runtime_safety_fail_closed.rs" = "sha256:229e812585f5d7f97b5252b0019d075f404be0a4f8421db17e33d8a5701e71d0" }
+mapping_behavior_refs = ["RT_SAFE_RETAIN_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_CB7C88F571D35D725730"
+subject_kind = "generated_test"
+discovery_id = "DISC_CB7C88F571D35D725730"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/tests/runtime_safety_fail_closed.rs"
+name = "modbus_fault_policy_faults_resource_state"
+command = "cargo nextest run -p trust-runtime --test runtime_safety_fail_closed --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::runtime_safety_fail_closed) & test(=modbus_fault_policy_faults_resource_state)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_MODBUS_DRIVER_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#io-drivers"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#io-drivers"]
+expected_result = "Fault policy returns the typed transport failure and exposes faulted health."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_CB7C88F571D35D725730.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_CB7C88F571D35D725730_621F945C2262"
+mapping_proposal_digest = "sha256:621f945c22624752b556718527655c0c2fa64965ae79358ac8be54b7702394cc"
+mapping_decision_id = "MAP_DEC_5360A0855E17178936A67344"
+mapping_reviewed_source_digest = "sha256:229e812585f5d7f97b5252b0019d075f404be0a4f8421db17e33d8a5701e71d0"
+mapping_assertion_review_digest = "sha256:ee4241731f4830a370c5fd85c85ca9687c03685470130550a340a11f1a37d9d4"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/runtime_safety_fail_closed.rs" = "sha256:229e812585f5d7f97b5252b0019d075f404be0a4f8421db17e33d8a5701e71d0" }
+mapping_behavior_refs = ["RT_MODBUS_DRIVER_001#behavior:4"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_D4793CC01E1740F97415"
+subject_kind = "generated_test"
+discovery_id = "DISC_D4793CC01E1740F97415"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/runtime_safety_fail_closed.rs"
+name = "panic_in_shared_resource_faults_without_poison_detection"
+command = "cargo nextest run -p trust-runtime --test runtime_safety_fail_closed --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::runtime_safety_fail_closed) & test(=panic_in_shared_resource_faults_without_poison_detection)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_SAFE_PANIC_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001"]
+expected_result = "An input-driver panic is contained as ResourcePanic and leaves the resource visibly faulted."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_D4793CC01E1740F97415.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_D4793CC01E1740F97415_0BF5AF2505D1"
+mapping_proposal_digest = "sha256:0bf5af2505d1a8d8946bc8573d52e417bef71df93c01fd9192f309dfb3e01058"
+mapping_decision_id = "MAP_DEC_2CF807672FC0FF833748442C"
+mapping_reviewed_source_digest = "sha256:229e812585f5d7f97b5252b0019d075f404be0a4f8421db17e33d8a5701e71d0"
+mapping_assertion_review_digest = "sha256:25b1ff4d218e94a796b5f19e0f75df073c1d1c97fabd09d77c729fb7fd825982"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/runtime_safety_fail_closed.rs" = "sha256:229e812585f5d7f97b5252b0019d075f404be0a4f8421db17e33d8a5701e71d0" }
+mapping_behavior_refs = ["RT_SAFE_PANIC_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_EBC7D491061F23BDD8B6"
+subject_kind = "generated_test"
+discovery_id = "DISC_EBC7D491061F23BDD8B6"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/runtime_safety_fail_closed.rs"
+name = "persistent_fault_restart_policy_escalates_to_visible_fault"
+command = "cargo nextest run -p trust-runtime --test runtime_safety_fail_closed --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::runtime_safety_fail_closed) & test(=persistent_fault_restart_policy_escalates_to_visible_fault)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_AUTOMATIC_RESTART_BOUND_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#fault-overrun-and-watchdog-handling"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#fault-overrun-and-watchdog-handling"]
+expected_result = "A persistent ordinary cycle fault receives at most three consecutive restart attempts before visible restart-limit escalation."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_EBC7D491061F23BDD8B6.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_EBC7D491061F23BDD8B6_65ED2C1CA88E"
+mapping_proposal_digest = "sha256:65ed2c1ca88e887783e5f1a9e3a4b90aab2d4c832a40fb94d51d51a50053139b"
+mapping_decision_id = "MAP_DEC_351142E3DA8B92A8F7FC128F"
+mapping_reviewed_source_digest = "sha256:229e812585f5d7f97b5252b0019d075f404be0a4f8421db17e33d8a5701e71d0"
+mapping_assertion_review_digest = "sha256:06b94e51fed06eef285ac98337cf226c6a05b440ced24ccc87acdbc40b6656c0"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/runtime_safety_fail_closed.rs" = "sha256:229e812585f5d7f97b5252b0019d075f404be0a4f8421db17e33d8a5701e71d0" }
+mapping_behavior_refs = ["RT_AUTOMATIC_RESTART_BOUND_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_EFB8B3C332B85B1B4615"
+subject_kind = "generated_test"
+discovery_id = "DISC_EFB8B3C332B85B1B4615"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/runtime_safety_fail_closed.rs"
+name = "requested_stop_applies_safe_outputs_before_thread_exits"
+command = "cargo nextest run -p trust-runtime --test runtime_safety_fail_closed --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::runtime_safety_fail_closed) & test(=requested_stop_applies_safe_outputs_before_thread_exits)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_SAFE_STOP_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001"]
+expected_result = "A deliberate stop writes the configured safe output through the driver before the resource thread exits, then reports Stopped without a last error."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_EFB8B3C332B85B1B4615.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_EFB8B3C332B85B1B4615_C16090FA0B3C"
+mapping_proposal_digest = "sha256:c16090fa0b3cef92f1548acecd51886903653d45fec45064f6df46af2254ccff"
+mapping_decision_id = "MAP_DEC_7B83360C75ED286886AA4D3E"
+mapping_reviewed_source_digest = "sha256:229e812585f5d7f97b5252b0019d075f404be0a4f8421db17e33d8a5701e71d0"
+mapping_assertion_review_digest = "sha256:757be14e7a621209124d024e472a5b564b06a7d09da1f10a2f5cc1a7e6b2c137"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/runtime_safety_fail_closed.rs" = "sha256:229e812585f5d7f97b5252b0019d075f404be0a4f8421db17e33d8a5701e71d0" }
+mapping_behavior_refs = ["RT_SAFE_STOP_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]

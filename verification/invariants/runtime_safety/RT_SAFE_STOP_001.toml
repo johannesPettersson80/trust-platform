@@ -10,7 +10,7 @@ claim = "On deliberate stop, configured safe outputs must reach the device or th
 proof_level = "G2"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src/runtime", "crates/trust-runtime/src/io"]
-tests = ["TEST_RUNTIME_SAFE_STATE_HANDOFF_001"]
+tests = ["TEST_AUTO_6F92DA55FCF24372A33A", "TEST_AUTO_EFB8B3C332B85B1B4615", "TEST_RUNTIME_SAFE_STATE_HANDOFF_001"]
 gates = ["pr"]
 evidence_refs = [
   "EVID_TEST_RUNTIME_SAFE_STATE_HANDOFF_001_RED",
@@ -54,5 +54,5 @@ rationale = "Producer-authentic red and green proof covers deliberate stop on de
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
-state = "gap_open"
-rationale = "Existing deliberate-stop assertions await generated catalog mapping and focused execution."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in RT_SAFE_STOP_001; dynamic proof and broad remote validation remain explicit debt."

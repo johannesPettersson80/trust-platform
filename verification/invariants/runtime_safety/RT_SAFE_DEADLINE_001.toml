@@ -10,11 +10,7 @@ claim = "The runtime execution deadline must be armed as documented, its expiry 
 proof_level = "G1"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src/runtime"]
-tests = [
-  "TEST_RUNTIME_WATCHDOG_BEFORE_OUTPUT_COMMIT_001",
-  "TEST_REVIEW_WATCHDOG_PARTIAL_SAFE_STATE_001",
-  "TEST_REVIEW_SIM_CLOCK_OVERFLOW_001",
-]
+tests = ["TEST_AUTO_2D0B462DA31DE705F6EC", "TEST_AUTO_8BAF8461F95A94A773A6", "TEST_REVIEW_SIM_CLOCK_OVERFLOW_001", "TEST_REVIEW_WATCHDOG_PARTIAL_SAFE_STATE_001", "TEST_RUNTIME_WATCHDOG_BEFORE_OUTPUT_COMMIT_001"]
 gates = ["pr"]
 evidence_refs = [
   "EVID_TEST_RUNTIME_WATCHDOG_BEFORE_OUTPUT_COMMIT_001_RED",
@@ -24,10 +20,7 @@ evidence_refs = [
   "EVID_SIM_CLOCK_OVERFLOW_GAP_CLOSEOUT_20260718",
 ]
 spec_gap_refs = []
-missing = [
-  "watchdog_configuration_and_recovery_boundaries",
-  "broad_remote_gate",
-]
+missing = ["watchdog_configuration_and_recovery_boundaries", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -64,5 +57,5 @@ rationale = "The partial-safe-state and simulation-clock regressions pass; watch
 
 [[coverage.cells]]
 dimension = "hardware_or_network_fault"
-state = "gap_open"
-rationale = "Existing watchdog safe-state failure assertions await generated catalog mapping and focused execution."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every hardware_or_network_fault behavior in RT_SAFE_DEADLINE_001; dynamic proof and broad remote validation remain explicit debt."

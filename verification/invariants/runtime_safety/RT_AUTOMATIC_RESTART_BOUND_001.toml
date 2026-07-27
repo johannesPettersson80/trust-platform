@@ -13,7 +13,7 @@ source_refs = [
   "docs/specs/11-runtime-engine.md",
   "crates/trust-runtime/src/runtime",
 ]
-tests = []
+tests = ["TEST_AUTO_8B901DEF0D4408B99942", "TEST_AUTO_EBC7D491061F23BDD8B6"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
@@ -48,10 +48,10 @@ rationale = "A watchdog configured to restart receives exactly the bounded attem
 
 [[coverage.cells]]
 dimension = "persistence_or_recovery"
-state = "gap_open"
-rationale = "Existing persistent-fault restart assertions await generated catalog mapping and focused execution."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every persistence_or_recovery behavior in RT_AUTOMATIC_RESTART_BOUND_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "time_or_clock_fault"
-state = "gap_open"
-rationale = "Existing watchdog restart-limit assertions await generated catalog mapping and focused execution."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every time_or_clock_fault behavior in RT_AUTOMATIC_RESTART_BOUND_001; dynamic proof and broad remote validation remain explicit debt."
