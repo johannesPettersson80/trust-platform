@@ -6,6 +6,23 @@ in `IEC_DECISIONS.md`; PLCopen profile decisions belong in
 `PLCOPEN_DECISIONS.md`. Product behavior recorded here MUST NOT be copied to an
 IEC or PLCopen deviation log merely because truST owns the behavior.
 
+## 2026-07-27 - ADS notification sampling and invalidation
+
+- Area: ADS server notification sampler
+- Decision:
+  - Cyclic samples emit at every due boundary; on-change samples emit first,
+    suppress equal bytes, and emit after change.
+  - Symbol, symbol-version, and static-system sources honor the registered
+    watch length without crossing unrelated runtime-value boundaries.
+  - Failed or undersized reads preserve the handle in an invalidated empty
+    sample, and representable timestamps use Windows FILETIME.
+- Authority:
+  - `docs/specs/11-runtime-engine.md`
+- Reason:
+  - These wire-sampling and failure semantics are truST ADS product behavior.
+    They require explicit authority for catalog oracles but are outside IEC
+    61131-3 and are not IEC deviations.
+
 ## 2026-07-27 - Deterministic ready-task and background-program order
 
 - Area: Runtime task scheduler

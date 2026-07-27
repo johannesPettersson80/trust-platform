@@ -1,0 +1,91 @@
+schema_version = 1
+id = "RT_ADS_SERVER_NOTIFICATION_SAMPLING_001"
+title = "ADS notification sampling preserves cadence, source, and invalidation"
+area = "protocols"
+risk = "silent_corruption"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-27"
+claim = "The ADS server samples due notification registrations with mode-correct change coalescing, exact watch-length source bytes, handle-preserving invalidation, and representable FILETIME timestamps."
+proof_level = "S0"
+contract_kind = "state_machine"
+source_refs = [
+  "docs/specs/11-runtime-engine.md",
+  "crates/trust-ads-server/src/notify.rs",
+]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = [
+  "cataloged_tests",
+  "focused_execution_evidence",
+  "on_change_recovery_after_invalidation",
+  "zero_time_and_handle_reuse_state",
+  "filetime_overflow_and_clock_rollback",
+  "final_remote_gate",
+]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#ads-server-command-dispatch-and-resource-safety"
+
+[[behavior]]
+partition = { equals = "DUE_CADENCE_AND_CHANGE_COALESCING" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-command-dispatch-and-resource-safety"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "SERVERCYCLE emits at successive due instants while SERVERONCHA emits, suppresses equal bytes, and emits after a byte change."
+
+[[behavior]]
+partition = { equals = "WATCH_LENGTH_AND_TARGET_SOURCE" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-command-dispatch-and-resource-safety"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Runtime symbols, little-endian symbol versions, and static system bytes are truncated to watch length; static targets bypass runtime value reads."
+
+[[behavior]]
+partition = { equals = "SOURCE_READ_FAILURE_INVALIDATES_SAMPLE" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-command-dispatch-and-resource-safety"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "A source read failure emits an invalidated sample with the original handle and no fabricated value bytes."
+
+[[behavior]]
+partition = { equals = "FILETIME_TIMESTAMP_CONVERSION" }
+case_family = "boundary_low"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-command-dispatch-and-resource-safety"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Unix epoch milliseconds zero and one convert to the exact representable Windows FILETIME offset and next millisecond."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "Cyclic and on-change cadence assertions await generated catalog mapping and focused execution."
+
+[[coverage.cells]]
+dimension = "boundary_high"
+state = "gap_open"
+rationale = "Watch-length and target-source assertions await generated catalog mapping and focused execution."
+
+[[coverage.cells]]
+dimension = "persistence_or_recovery"
+state = "gap_open"
+rationale = "Read-failure invalidation assertions await generated catalog mapping; recovery after invalidation remains explicit debt."
+
+[[coverage.cells]]
+dimension = "boundary_low"
+state = "gap_open"
+rationale = "Representable epoch conversion awaits generated catalog mapping; overflow and rollback remain explicit debt."

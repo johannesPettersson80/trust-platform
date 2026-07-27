@@ -20,6 +20,8 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   restart backoff without treating host-runtime policy as an IEC deviation.
 - Align runtime scheduling documentation on priority, due-time, stable-index,
   registered-high SINGLE, and background-program execution order.
+- Specify ADS notification cadence, on-change coalescing, watch-length source
+  sampling, invalidation, and representable FILETIME conversion.
 
 Target release: `v0.24.57`
 

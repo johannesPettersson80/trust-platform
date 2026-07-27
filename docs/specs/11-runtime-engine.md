@@ -1808,6 +1808,21 @@ Deletion invalidates only the named live registration. Unsupported
 `WriteControl` and client-sent `DeviceNotification` commands remain
 side-effect-free and return `ServiceNotSupported`.
 
+Notification sampling clamps the requested cycle to the configured minimum.
+`SERVERCYCLE` emits every due sample even when its bytes are unchanged.
+`SERVERONCHA` emits the first due sample, suppresses later equal bytes, and
+emits again after a byte change. Symbol values, little-endian symbol-source
+versions, and static system bytes are truncated to the registered watch
+length. Static system-byte targets do not read runtime value storage.
+
+A failed or undersized source read emits an invalidated sample that preserves
+the notification handle and contains zero value bytes; it does not fabricate a
+value. For representable inputs, sample timestamps use Windows FILETIME ticks:
+`(unix_ms + 11_644_473_600_000) * 10_000`. Recovery after an invalidated
+on-change sample, timestamp overflow, clock rollback, sampling at Unix time
+zero, and notification-handle reuse remain explicit behavior gaps rather than
+being inferred from the current focused tests.
+
 ###### ADS server runtime publication and lifecycle
 
 ADS server publication is a truST runtime product contract outside IEC
