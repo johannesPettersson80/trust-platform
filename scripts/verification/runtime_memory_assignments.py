@@ -220,7 +220,10 @@ def main() -> int:
     parser.add_argument("--timestamp")
     args = parser.parse_args()
     root = args.root.resolve()
-    inventory = json.loads(args.inventory.read_text())
+    inventory_path = _rooted(root, args.inventory)
+    selected_inventory_out = _rooted(root, args.selected_inventory_out)
+    assignments_out = _rooted(root, args.assignments_out)
+    inventory = json.loads(inventory_path.read_text())
     selected = select_live_memory_inventories(
         root=root,
         inventory_document=inventory,
@@ -229,8 +232,8 @@ def main() -> int:
         root=root,
         inventory_document=selected,
     )
-    _write_json(args.selected_inventory_out, selected)
-    _write_json(args.assignments_out, assignments)
+    _write_json(selected_inventory_out, selected)
+    _write_json(assignments_out, assignments)
     print(
         "runtime memory assignments generated: "
         f"{len(assignments['assignments'])} mapped"
@@ -248,8 +251,8 @@ def main() -> int:
             root=root,
             inventory_document=selected,
             assignments_document=assignments,
-            execution_dir=args.execution_dir,
-            output_dir=args.plans_out,
+            execution_dir=_rooted(root, args.execution_dir),
+            output_dir=_rooted(root, args.plans_out),
             reviewed_date=args.reviewed_date,
             timestamp=args.timestamp,
         )
@@ -258,6 +261,10 @@ def main() -> int:
             f"{index['expected_count']} tests across {len(index['paths'])} paths"
         )
     return 0
+
+
+def _rooted(root: Path, path: Path) -> Path:
+    return path if path.is_absolute() else root / path
 
 
 if __name__ == "__main__":
