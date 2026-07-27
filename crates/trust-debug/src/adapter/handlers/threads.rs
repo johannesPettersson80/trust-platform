@@ -8,22 +8,14 @@ use crate::protocol::{Request, Thread, ThreadsResponseBody};
 use super::super::{DebugAdapter, DispatchOutcome};
 
 impl DebugAdapter {
-    pub(in crate::adapter) fn handle_threads(
-        &mut self,
-        request: Request<Value>,
-    ) -> DispatchOutcome {
+    pub(in crate::adapter) fn projected_threads(&self) -> Vec<Thread> {
         if self.remote_session.is_some() {
-            let body = ThreadsResponseBody {
-                threads: vec![Thread {
-                    id: 1,
-                    name: "MainTask".to_string(),
-                }],
-            };
-            return DispatchOutcome {
-                responses: vec![self.ok_response(&request, Some(body))],
-                ..DispatchOutcome::default()
-            };
+            return vec![Thread {
+                id: 1,
+                name: "MainTask".to_string(),
+            }];
         }
+
         let tasks = self.session.metadata().tasks();
         let mut threads = Vec::new();
         if tasks.is_empty() {
@@ -61,7 +53,16 @@ impl DebugAdapter {
                 });
             }
         }
-        let body = ThreadsResponseBody { threads };
+        threads
+    }
+
+    pub(in crate::adapter) fn handle_threads(
+        &mut self,
+        request: Request<Value>,
+    ) -> DispatchOutcome {
+        let body = ThreadsResponseBody {
+            threads: self.projected_threads(),
+        };
         DispatchOutcome {
             responses: vec![self.ok_response(&request, Some(body))],
             ..DispatchOutcome::default()

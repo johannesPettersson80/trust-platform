@@ -1,0 +1,229 @@
+schema_version = 1
+id = "RT_CORE_VALUE_PROGRAM_MODEL_001"
+title = "Portable runtime values preserve declared identity and checked operations"
+area = "bytecode_vm"
+risk = "wrong_result"
+status = "planned"
+owner = "trust-runtime"
+last_reviewed = "2026-07-27"
+claim = "Portable date/time, program-model, memory identity, stable error, default, partial-access, reference, array, structure, interface, and assignment values preserve canonical identity, bounds, and checked mutation."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["docs/specs/10-runtime-semantics.md", "crates/trust-runtime-core/src"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_tests", "focused_execution_evidence", "final_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_SEMANTICS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+
+[[behavior]]
+partition = { equals = "DATE_CALENDAR_VALIDATION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Invalid month lengths and non-leap-year February 29 are rejected."
+
+[[behavior]]
+partition = { equals = "PROGRAM_MODEL_NAME_AND_INITIALIZER_IDENTITY" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "L-value paths, initializer records, hidden setter names, and static-storage prefixes preserve canonical program-model identity."
+
+[[behavior]]
+partition = { equals = "CHECKED_SUPPORTED_NUMERIC_BOOLEAN_AND_COMPARISON_OPERATIONS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Supported numeric, Boolean, and non-numeric comparison families return their checked result."
+
+[[behavior]]
+partition = { equals = "UNSUPPORTED_NUMERIC_COMBINATION_REJECTION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "A numeric operation whose operands have no accuracy-preserving common type is rejected."
+
+[[behavior]]
+partition = { equals = "NUMERIC_KIND_IDENTITY" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Every supported numeric runtime value projects its own declared numeric kind without using a widening rank."
+
+[[behavior]]
+partition = { equals = "DATETIME_TICK_AND_DURATION_ROUNDTRIP" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Date/time ticks and long values round-trip, and duration unit views preserve one stored duration."
+
+[[behavior]]
+partition = { equals = "DATETIME_RANGE_AND_TIMEZONE_REJECTION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Out-of-range ticks and timezone-bearing DATE plus TOD combination are rejected."
+
+[[behavior]]
+partition = { equals = "ELEMENTARY_DEFAULTS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Core elementary defaults retain their declared runtime tags and values."
+
+[[behavior]]
+partition = { equals = "UNKNOWN_TYPE_DEFAULT_REJECTION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "An unknown type ID cannot silently materialize as a generic zero default."
+
+[[behavior]]
+partition = { equals = "PARTIAL_ACCESS_AND_REFERENCE_PATH" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "expected_delta", diagnostics = "none", status = "unchanged" }
+rationale = "Valid partial reads and writes preserve sibling bits, and valid reference paths preserve segment and suffix identity."
+
+[[behavior]]
+partition = { equals = "PARTIAL_ACCESS_FORM_OR_BOUNDS_REJECTION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "An unsupported partial-access suffix, type/width mismatch, or out-of-bounds access is rejected without changing the source value."
+
+[[behavior]]
+partition = { equals = "ARRAY_OFFSET_ROW_MAJOR_AND_REPRESENTABLE" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A representable inclusive row-major offset is returned exactly, including the supported target-width boundary."
+
+[[behavior]]
+partition = { equals = "MEMORY_IDENTITY_EQUALITY_AND_HASH" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#3-1-memory-locations"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Memory identity equality includes the variant and payload, and equal identities hash equally without promising stable persisted hash values."
+
+[[behavior]]
+partition = { equals = "REPRESENTATIVE_STABLE_ERROR_IDENTIFIERS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#10-2-stable-machine-error-identifiers"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The named bytecode, VM, and runtime representatives preserve their exact lower-snake-case machine identifiers without claiming unasserted variants."
+
+[[behavior]]
+partition = { equals = "ARRAY_CONSTRUCTION_CLONE_AND_MUTATION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Valid array construction preserves canonical alias, shape, and element identity; clone/equality and mutation preserve shape and elements."
+
+[[behavior]]
+partition = { equals = "ARRAY_CONSTRUCTION_OR_MUTATION_REJECTION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Array shape, element-type, or mutation-index drift is rejected without changing the array."
+
+[[behavior]]
+partition = { equals = "INTERFACE_RUNTIME_VALUE_COMPATIBILITY" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Interface values accept explicit null and compatible instance references without losing declared interface identity."
+
+[[behavior]]
+partition = { equals = "DECLARED_ASSIGNMENT_WIDENING" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#2-3-declared-type-materialization"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Only the documented safe numeric widening matrix materializes, using the destination runtime tag."
+
+[[behavior]]
+partition = { equals = "DECLARED_ASSIGNMENT_REJECTION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#2-3-declared-type-materialization"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "A narrowing, cross-family, or otherwise unsafe implicit assignment is rejected before materialization."
+
+[[behavior]]
+partition = { equals = "STRUCT_CONSTRUCTION_CLONE_AND_MUTATION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Valid structure construction preserves canonical aliases and fields; clone/equality preserve identity and mutation updates existing fields."
+
+[[behavior]]
+partition = { equals = "STRUCT_CONSTRUCTION_OR_MUTATION_REJECTION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Unknown fields, field-type drift, or mutation of an absent field is rejected without changing the structure."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Portable value identity and round-trip assertions await catalog binding and focused proof."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Portable rejection, construction, and widening assertions await catalog binding and focused proof."
+
+[[coverage.cells]]
+dimension = "boundary_high"
+state = "gap_open"
+rationale = "Extreme array-offset representability assertions await catalog binding and focused proof."

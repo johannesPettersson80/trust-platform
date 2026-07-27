@@ -35,27 +35,40 @@ pub fn numeric_kind(value: &Value) -> Option<NumericKind> {
     }
 }
 
-pub fn wider_numeric(left: NumericKind, right: NumericKind) -> NumericKind {
-    if numeric_rank(left) >= numeric_rank(right) {
-        left
-    } else {
-        right
+pub fn wider_numeric(left: NumericKind, right: NumericKind) -> Option<NumericKind> {
+    if left == right {
+        return Some(left);
     }
+    if is_accuracy_preserving_widening(left, right) {
+        return Some(left);
+    }
+    if is_accuracy_preserving_widening(right, left) {
+        return Some(right);
+    }
+    None
 }
 
-fn numeric_rank(kind: NumericKind) -> u8 {
-    match kind {
-        NumericKind::SInt => 0,
-        NumericKind::Int => 1,
-        NumericKind::DInt => 2,
-        NumericKind::LInt => 3,
-        NumericKind::USInt => 4,
-        NumericKind::UInt => 5,
-        NumericKind::UDInt => 6,
-        NumericKind::ULInt => 7,
-        NumericKind::Real => 8,
-        NumericKind::LReal => 9,
-    }
+fn is_accuracy_preserving_widening(target: NumericKind, source: NumericKind) -> bool {
+    matches!(
+        (target, source),
+        (NumericKind::Int, NumericKind::SInt)
+            | (NumericKind::DInt, NumericKind::SInt | NumericKind::Int)
+            | (
+                NumericKind::LInt,
+                NumericKind::SInt | NumericKind::Int | NumericKind::DInt
+            )
+            | (NumericKind::UInt, NumericKind::USInt)
+            | (NumericKind::UDInt, NumericKind::USInt | NumericKind::UInt)
+            | (
+                NumericKind::ULInt,
+                NumericKind::USInt | NumericKind::UInt | NumericKind::UDInt
+            )
+            | (NumericKind::Real, NumericKind::SInt | NumericKind::Int)
+            | (
+                NumericKind::LReal,
+                NumericKind::SInt | NumericKind::Int | NumericKind::DInt | NumericKind::Real
+            )
+    )
 }
 
 pub fn to_i64(value: &Value) -> Result<i64, RuntimeError> {
@@ -165,23 +178,41 @@ pub fn unsigned_from_u128(target: NumericKind, value: u128) -> Result<Value, Run
 #[cfg(test)]
 mod tests {
     use super::{
-        numeric_kind, signed_from_i128, to_i64, to_u64, unsigned_from_u128, wider_numeric,
-        NumericKind,
+        NumericKind, numeric_kind, signed_from_i128, to_i64, to_u64, unsigned_from_u128,
+        wider_numeric,
     };
     use crate::error::RuntimeError;
     use crate::value::Value;
 
     #[test]
-    fn numeric_kind_and_rank_preserve_existing_widening_order() {
+    fn numeric_kind_identifies_supported_runtime_values() {
         assert_eq!(numeric_kind(&Value::DInt(1)), Some(NumericKind::DInt));
-        assert_eq!(
-            wider_numeric(NumericKind::Int, NumericKind::LReal),
-            NumericKind::LReal
-        );
-        assert_eq!(
-            wider_numeric(NumericKind::ULInt, NumericKind::Real),
-            NumericKind::Real
-        );
+        assert_eq!(numeric_kind(&Value::LReal(1.0)), Some(NumericKind::LReal));
+    }
+
+    #[test]
+    fn common_numeric_kind_is_accuracy_preserving_and_symmetric() {
+        let accepted = [
+            (NumericKind::Int, NumericKind::SInt, NumericKind::Int),
+            (NumericKind::UInt, NumericKind::USInt, NumericKind::UInt),
+            (NumericKind::Real, NumericKind::Int, NumericKind::Real),
+            (NumericKind::LReal, NumericKind::DInt, NumericKind::LReal),
+            (NumericKind::LReal, NumericKind::Real, NumericKind::LReal),
+        ];
+        for (left, right, expected) in accepted {
+            assert_eq!(wider_numeric(left, right), Some(expected));
+            assert_eq!(wider_numeric(right, left), Some(expected));
+        }
+
+        let rejected = [
+            (NumericKind::UInt, NumericKind::SInt),
+            (NumericKind::ULInt, NumericKind::Real),
+            (NumericKind::LInt, NumericKind::LReal),
+        ];
+        for (left, right) in rejected {
+            assert_eq!(wider_numeric(left, right), None);
+            assert_eq!(wider_numeric(right, left), None);
+        }
     }
 
     #[test]

@@ -225,7 +225,12 @@ buffer. Receiver failure must not discard the first fault or log record.
 
 ### Stack Trace and Navigation
 
-1) `StackTraceRequest` returns stack frames for the current thread.
+1) `StackTraceRequest` returns the adapter's current captured stack projection
+   only after confirming that the requested thread ID is present in the current
+   `ThreadsResponse` projection. An absent ID fails with an unknown-thread error
+   and no stack body; it never substitutes another thread or a synthetic Main
+   frame. The current adapter does not claim distinct per-task frame stacks for
+   multiple simultaneously projected task threads.
 2) The **top frame** location is the current statement location.
 3) For multi-file projects, when execution enters a function in another file, the top frame’s
    `source.path` must reflect that file, and the editor should navigate there.
@@ -233,7 +238,10 @@ buffer. Receiver failure must not discard the first fault or log record.
 ### Variables / Evaluate
 
 - `VariablesRequest` and `ScopesRequest` return locals, globals, retain, and instance scopes.
-- `EvaluateRequest` in `hover` or `watch` context must not have side effects. Calls are rejected.
+- `EvaluateRequest` in `hover` or `watch` context must not have side effects.
+  Explicitly whitelisted pure standard functions, conversions, and
+  split-date/time helpers are accepted; user-defined, unknown, and impure calls
+  are rejected.
 - `setVariable` and `setExpression` are allowed only when paused. Attached runtimes use the
   side-effecting Live Values I/O custom requests (`stIoWrite`, `stIoForce`, `stIoRelease`) instead
   of `setExpression` for I/O writes and forcing.
@@ -298,6 +306,64 @@ To avoid breaking step-in/step-out and multi-file navigation, reloads must follo
    - If a `stepIn/stepOver/stepOut` stop just occurred, reload must **not** emit a pause stop
      that replaces the step stop or changes the top frame.
    - If reload happens while paused, it must preserve the existing top frame until the user resumes.
+
+### DAP Transport and Session Projection
+
+The debug adapter SHALL preserve the following protocol and session contracts:
+
+- Standard input/output transport uses DAP `Content-Length` framing, preserves
+  a request's sequence in the response `request_seq` field, and round-trips one
+  complete request without consuming bytes from a following frame.
+- A successful `initialize` request emits the initialized event exactly once.
+  Launching before initialization SHALL NOT manufacture that event.
+- Continue followed immediately by pause produces an ordered pause stop.
+  Pausing without an active storage frame targets the global runtime, and the
+  DAP thread list projects configured runtime tasks without changing their
+  identity.
+- The managed debug runner uses the smallest positive configured task interval
+  as its cycle-pacing deadline. It executes at least one cycle while active,
+  does not hot-loop between deadlines, and remains responsive to stop requests.
+- Stack, scope, and I/O-state projection SHALL use a captured runtime snapshot
+  and SHALL NOT wait on the live runtime mutex after that snapshot is
+  available. When no storage frame or source location exists, a synthetic Main
+  frame remains inspectable for a known thread and its scopes fail gracefully.
+  A thread ID absent from the current DAP thread projection is rejected with no
+  stack body.
+- Evaluate accepts side-effect-free value and type expressions, including
+  names resolved through active `USING` namespaces. Impure or unknown calls are
+  rejected. Primitive values use stable user-facing debugger formatting.
+- Source discovery expands ordinary and nested brace globs. Hit-condition
+  parsing accepts the documented comparison operators, while logpoint
+  templates accept valid interpolation and reject malformed messages.
+- Reload with no breakpoint requests clears prior breakpoints. Reload with
+  retained requests re-resolves them against the new source before reporting
+  them as valid.
+
+These rules describe the DAP/session product boundary. Internal helper success,
+source-text inspection, or a fabricated fallback for an unknown thread does
+not establish this contract.
+
+### Managed Runtime Debug Mutation and Active Reload
+
+Managed-local and attached debugging SHALL preserve these mutation and reload
+boundaries:
+
+- Configured `REAL` and `TIME` values are admitted through typed I/O writes.
+  Attach-mode `setExpression` and custom ST I/O force/release requests forward
+  the same declared address, value, and force action to the remote runtime.
+- Direct instance-field force works in both live and paused sessions. Local
+  output and memory force/release use the declared process-image target;
+  one-shot writes to output I/O are rejected instead of being reported as
+  successful.
+- Launch fails closed if its control endpoint cannot be bound. Project ADS
+  bindings are validated before reload changes the active program.
+- While the runner is active, reload SHALL NOT emit a pre-scan I/O snapshot.
+  The first reported snapshot after reload is produced after a coherent scan
+  of the replacement program.
+
+Mutation forwarding, bind/configuration rejection, and post-reload snapshot
+ordering are independently observable. Success in one partition SHALL NOT be
+used as evidence for another.
 
 ### Required Improvements (Architecture + Behavior)
 

@@ -230,6 +230,11 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
         let rhs_type = self.check_expression(rhs_node);
 
         let op = BinaryOp::from_node(node);
+        let (lhs_type, rhs_type) = if op.is_comparison() || op.is_arithmetic() {
+            self.contextual_numeric_operand_types(lhs_type, lhs_node, rhs_type, rhs_node)
+        } else {
+            (lhs_type, rhs_type)
+        };
 
         if op.is_comparison() {
             self.warn_float_equality(lhs_type, rhs_type, op, node.text_range());
@@ -265,6 +270,28 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
             self.checker
                 .legacy_type_from_outcome(self.checker.unknown_type_outcome(node.text_range()))
         }
+    }
+
+    fn contextual_numeric_operand_types(
+        &mut self,
+        lhs_type: TypeId,
+        lhs_node: &SyntaxNode,
+        rhs_type: TypeId,
+        rhs_node: &SyntaxNode,
+    ) -> (TypeId, TypeId) {
+        if self.checker.is_contextual_int_literal(rhs_type, lhs_node)
+            || self.checker.is_contextual_real_literal(rhs_type, lhs_node)
+        {
+            self.checker.record_expression_type(lhs_node, rhs_type);
+            return (rhs_type, rhs_type);
+        }
+        if self.checker.is_contextual_int_literal(lhs_type, rhs_node)
+            || self.checker.is_contextual_real_literal(lhs_type, rhs_node)
+        {
+            self.checker.record_expression_type(rhs_node, lhs_type);
+            return (lhs_type, lhs_type);
+        }
+        (lhs_type, rhs_type)
     }
 
     fn infer_unary_expr(&mut self, node: &SyntaxNode) -> TypeId {
@@ -334,6 +361,13 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
             self.checker.symbols.type_by_id(rhs),
         ) {
             if l.is_numeric() && r.is_numeric() {
+                if self.checker.wider_numeric(lhs, rhs).is_none() {
+                    self.checker.diagnostics.error(
+                        DiagnosticCode::TypeMismatch,
+                        range,
+                        "numeric operands have no accuracy-preserving common type",
+                    );
+                }
                 return;
             }
             if matches!((l, r), (Type::String { .. }, Type::String { .. }))
@@ -475,8 +509,13 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
 
         match (lhs_ty, rhs_ty) {
             (Some(l), Some(r)) if l.is_numeric() && r.is_numeric() => {
-                // Return the wider type
-                self.checker.wider_numeric(lhs, rhs)
+                self.checker.wider_numeric(lhs, rhs).unwrap_or_else(|| {
+                    self.checker.legacy_diagnostic_type(
+                        DiagnosticCode::TypeMismatch,
+                        range,
+                        "numeric operands have no accuracy-preserving common type",
+                    )
+                })
             }
             (None, _) | (_, None) => self
                 .checker

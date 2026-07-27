@@ -4,8 +4,8 @@
 
 use crate::error::RuntimeError;
 pub use crate::numeric::{
-    numeric_kind, signed_from_i128, to_f64, to_i64, to_u64, unsigned_from_u128, wider_numeric,
-    NumericKind,
+    NumericKind, numeric_kind, signed_from_i128, to_f64, to_i64, to_u64, unsigned_from_u128,
+    wider_numeric,
 };
 use crate::value::{Duration, Value};
 use smol_str::SmolStr;
@@ -70,7 +70,7 @@ pub fn common_kind(values: &[Value]) -> Result<CommonKind, RuntimeError> {
         common = Some(match (common.take(), next) {
             (None, kind) => kind,
             (Some(CommonKind::Numeric(a)), CommonKind::Numeric(b)) => {
-                CommonKind::Numeric(wider_numeric(a, b))
+                CommonKind::Numeric(wider_numeric(a, b).ok_or(RuntimeError::TypeMismatch)?)
             }
             (Some(CommonKind::Bit(a)), CommonKind::Bit(b)) => CommonKind::Bit(a.max(b)),
             (Some(CommonKind::String { wide: a }), CommonKind::String { wide: b }) => {

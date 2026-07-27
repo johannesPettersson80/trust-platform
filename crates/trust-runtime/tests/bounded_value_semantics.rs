@@ -185,6 +185,92 @@ END_PROGRAM
 }
 
 #[test]
+fn contextual_integer_literals_materialize_the_other_operand_type() {
+    let source = r#"
+PROGRAM Main
+VAR
+    uint_value : UINT := UINT#2;
+    arithmetic_left : UINT;
+    arithmetic_right : UINT;
+    equal_left : BOOL;
+    equal_right : BOOL;
+    maximum_left : UINT;
+    maximum_right : UINT;
+    minimum_left : UINT;
+    minimum_right : UINT;
+    real_value : REAL := REAL#2.0;
+    real_arithmetic_left : REAL;
+    real_arithmetic_right : REAL;
+    real_equal_integer : BOOL;
+    real_equal_left : BOOL;
+    real_equal_right : BOOL;
+    real_maximum_left : REAL;
+    real_maximum_right : REAL;
+END_VAR
+arithmetic_left := uint_value + 1;
+arithmetic_right := 1 + uint_value;
+equal_left := uint_value = 1;
+equal_right := 1 = uint_value;
+maximum_left := MAX(uint_value, 1);
+maximum_right := MAX(1, uint_value);
+minimum_left := MIN(uint_value, 1);
+minimum_right := MIN(1, uint_value);
+real_arithmetic_left := real_value + 1.0;
+real_arithmetic_right := 1.0 + real_value;
+real_equal_integer := real_value = 1;
+real_equal_left := real_value = 1.0;
+real_equal_right := 1.0 = real_value;
+real_maximum_left := MAX(real_value, 1.0);
+real_maximum_right := MAX(1.0, real_value);
+END_PROGRAM
+"#;
+
+    let mut harness = TestHarness::from_source(source).expect("compile runtime");
+    let cycle = harness.cycle();
+    assert!(
+        cycle.errors.is_empty(),
+        "unexpected cycle errors: {:?}",
+        cycle.errors
+    );
+    assert_eq!(harness.get_output("arithmetic_left"), Some(Value::UInt(3)));
+    assert_eq!(harness.get_output("arithmetic_right"), Some(Value::UInt(3)));
+    assert_eq!(harness.get_output("equal_left"), Some(Value::Bool(false)));
+    assert_eq!(harness.get_output("equal_right"), Some(Value::Bool(false)));
+    assert_eq!(harness.get_output("maximum_left"), Some(Value::UInt(2)));
+    assert_eq!(harness.get_output("maximum_right"), Some(Value::UInt(2)));
+    assert_eq!(harness.get_output("minimum_left"), Some(Value::UInt(1)));
+    assert_eq!(harness.get_output("minimum_right"), Some(Value::UInt(1)));
+    assert_eq!(
+        harness.get_output("real_arithmetic_left"),
+        Some(Value::Real(3.0))
+    );
+    assert_eq!(
+        harness.get_output("real_arithmetic_right"),
+        Some(Value::Real(3.0))
+    );
+    assert_eq!(
+        harness.get_output("real_equal_integer"),
+        Some(Value::Bool(false))
+    );
+    assert_eq!(
+        harness.get_output("real_equal_left"),
+        Some(Value::Bool(false))
+    );
+    assert_eq!(
+        harness.get_output("real_equal_right"),
+        Some(Value::Bool(false))
+    );
+    assert_eq!(
+        harness.get_output("real_maximum_left"),
+        Some(Value::Real(2.0))
+    );
+    assert_eq!(
+        harness.get_output("real_maximum_right"),
+        Some(Value::Real(2.0))
+    );
+}
+
+#[test]
 fn subrange_accepts_inclusive_bounds_and_rejects_below_min_without_mutation() {
     let source = r#"
 TYPE

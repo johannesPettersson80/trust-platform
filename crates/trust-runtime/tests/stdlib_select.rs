@@ -24,3 +24,17 @@ fn selection_functions() {
         _ => panic!("expected REAL result"),
     }
 }
+
+#[test]
+fn selection_numeric_common_type_does_not_invent_literal_context() {
+    let lib = StandardLibrary::new();
+
+    assert_eq!(
+        lib.call("MAX", &[Value::UInt(2), Value::UInt(1)]).unwrap(),
+        Value::UInt(2)
+    );
+    assert!(
+        lib.call("MAX", &[Value::UInt(2), Value::SInt(1)]).is_err(),
+        "runtime values no longer retain untyped-literal origin"
+    );
+}

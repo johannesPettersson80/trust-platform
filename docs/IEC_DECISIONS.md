@@ -34,13 +34,16 @@ This file tracks implementation decisions made where IEC 61131-3 leaves room for
     becoming ordinary process state while preserving every finite result and
     binary transfer required by the standard.
 
-## 2026-07-15 - Accuracy-preserving implicit conversion matrix
+## 2026-07-15 - Accuracy-preserving implicit conversion and common-type matrix
 
-- Area: Assignment, initialization, function results, and POU parameter transfer
+- Area: Assignment, initialization, function results, POU parameter transfer,
+  expressions, operators, and overloaded standard functions
 - IEC context: IEC 61131-3 Ed.3 section 6.6.1.6 permits implicit conversion in
   assignments and input/output parameter transfer only when it keeps the value
   and accuracy of the source type, and forbids implicit conversion for
-  `VAR_IN_OUT`.
+  `VAR_IN_OUT`. Section 6.6.1.6 rule 7 permits conversion to make operator or
+  overloaded-function operands and results the same type. Section 6.6.1.7.2
+  leaves mixed same-kind input conversion implementer-specific.
 - Decision:
   - Signed integers widen only within `SINT -> INT -> DINT -> LINT`.
   - Unsigned integers widen only within `USINT -> UINT -> UDINT -> ULINT`.
@@ -55,6 +58,15 @@ This file tracks implementation decisions made where IEC 61131-3 leaves room for
     exists.
   - Contextual untyped numeric literals may initialize or assign directly to a
     target type when the literal is representable by that target.
+  - Typed operands of an operator or overloaded standard function have a
+    common type only when they are already identical or one operand can use the
+    closed accuracy-preserving widening matrix above to reach the other
+    operand's type. If neither direction is permitted, semantic analysis and
+    runtime evaluation reject the operation instead of selecting a type by
+    total numeric rank.
+  - A representable untyped numeric literal is contextualized to the other
+    typed operand or to the common typed argument of an overloaded standard
+    function. Explicitly typed literals remain governed by the strict matrix.
   - A value that reaches a declared VM primitive with an incompatible runtime
     tag is rejected with `TypeMismatch` before storage. Stable public error-code
     mapping remains governed by `SPEC_GAP_VM_ERROR_MODEL_001`.

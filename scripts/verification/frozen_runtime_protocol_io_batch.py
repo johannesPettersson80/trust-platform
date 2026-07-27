@@ -22,6 +22,7 @@ from .frozen_rust_nextest_target import (
     ADS_SERVER_CFG,
     ADS_WIRE_DISABLED_CFG,
     FrozenRustTargetProfile,
+    get_target_profile,
     no_default_feature_test_names,
 )
 
@@ -41,6 +42,7 @@ def run_batch(
     output_dir: Path,
     reviewed_date: str,
     normalize_only: bool = False,
+    mixed_debug_runtime_core: bool = False,
 ) -> dict[str, Any]:
     _require_clean_checkout(root)
     inventory_document = _json(inventory_path)
@@ -50,7 +52,11 @@ def run_batch(
         inventory_document=inventory_document,
         assignments_document=assignments_document,
     )
-    shards = selected_feature_shards(root=root, selection=selection)
+    shards = (
+        [("default", list(selection), False)]
+        if mixed_debug_runtime_core
+        else selected_feature_shards(root=root, selection=selection)
+    )
     output_dir.mkdir(parents=True, exist_ok=True)
     list_path = output_dir / "nextest-list.json"
     raw_path = output_dir / "runtime-protocol-io.jsonl"
@@ -91,14 +97,36 @@ def run_batch(
         if len(recorded_shards) != len(raw_recorded_shards):
             raise ValueError("recorded nextest feature shard names are invalid")
     for shard_name, shard_selection, no_default_features in shards:
-        target_args = selected_target_args(shard_selection, root=root)
+        target_args = (
+            [
+                "-p",
+                "trust-debug",
+                "-p",
+                "trust-runtime-core",
+                "-p",
+                "trust-hir",
+                "-p",
+                "trust-runtime",
+                "--lib",
+                "--test",
+                "semantic_type_checking",
+                "--test",
+                "bounded_value_semantics",
+                "--test",
+                "stdlib_select",
+            ]
+            if mixed_debug_runtime_core
+            else [
+                "-p",
+                "trust-runtime",
+                *selected_target_args(shard_selection, root=root),
+            ]
+        )
         feature_args = ["--no-default-features"] if no_default_features else []
         list_command = [
             "cargo",
             "nextest",
             "list",
-            "-p",
-            "trust-runtime",
             *target_args,
             *feature_args,
             "--message-format",
@@ -141,6 +169,14 @@ def run_batch(
         shard_resolved = resolve_nextest_listing(
             listing=listing,
             selected_names={row["name"] for row in shard_selection},
+            expected_packages=(
+                {
+                    row["name"]: _mixed_target_profile(row["path"]).package
+                    for row in shard_selection
+                }
+                if mixed_debug_runtime_core
+                else None
+            ),
         )
         overlap = set(resolved) & set(shard_resolved)
         if overlap:
@@ -162,6 +198,7 @@ def run_batch(
             build_batch_command(
                 shard_resolved,
                 target_args=(*target_args, *feature_args),
+                include_package=False,
             )
         )
     if normalize_only:
@@ -212,6 +249,7 @@ def run_batch(
         results_dir=results_dir,
         nextest_version=version,
         reviewed_date=reviewed_date,
+        mixed_debug_runtime_core=mixed_debug_runtime_core,
         no_default_feature_names={
             row["name"]
             for _shard_name, rows, disabled in shards
@@ -225,7 +263,12 @@ def resolve_nextest_listing(
     *,
     listing: Mapping[str, Any],
     selected_names: set[str],
+    expected_packages: Mapping[str, str] | None = None,
 ) -> dict[str, dict[str, str]]:
+    if expected_packages is not None and set(expected_packages) != selected_names:
+        raise ValueError(
+            "nextest expected-package keys do not equal selected names"
+        )
     suites = listing.get("rust-suites")
     if not isinstance(suites, Mapping):
         raise ValueError("nextest listing lacks rust-suites")
@@ -255,12 +298,20 @@ def resolve_nextest_listing(
             if not isinstance(full_name, str) or not full_name:
                 raise ValueError(f"nextest suite {binary_id} has invalid test name")
             bare = full_name.rsplit("::", 1)[-1]
-            if bare in selected_names:
+            expected_package = (
+                expected_packages.get(bare)
+                if expected_packages is not None
+                else None
+            )
+            if bare in selected_names and (
+                expected_package is None or package_name == expected_package
+            ):
                 candidates[bare].append(
                     {
                         "binary_id": binary_id,
                         "full_name": full_name,
                         "encoded_name": f"{event_suite_id}${full_name}",
+                        "package": package_name,
                     }
                 )
     missing = sorted(selected_names - set(candidates))
@@ -276,6 +327,7 @@ def build_batch_command(
     resolved: Mapping[str, Mapping[str, str]],
     *,
     target_args: Sequence[str] = (),
+    include_package: bool = True,
 ) -> list[str]:
     clauses = []
     for name, row in sorted(resolved.items()):
@@ -290,8 +342,7 @@ def build_batch_command(
         "cargo",
         "nextest",
         "run",
-        "-p",
-        "trust-runtime",
+        *(("-p", "trust-runtime") if include_package else ()),
         *target_args,
         "--no-fail-fast",
         "--message-format",
@@ -437,6 +488,7 @@ def build_outputs(
     nextest_version: str,
     reviewed_date: str,
     no_default_feature_names: set[str],
+    mixed_debug_runtime_core: bool = False,
 ) -> dict[str, Any]:
     raw = raw_path.read_text()
     assignments = {
@@ -486,11 +538,20 @@ def build_outputs(
                 and assertion["assertion_id"] not in non_oracle_by_name[row["name"]]
             }
         )
+        packages = {resolved[name]["package"] for name in names}
+        if len(packages) != 1:
+            raise ValueError(f"{path} resolves to multiple packages")
+        package = next(iter(packages))
+        profile = (
+            _mixed_target_profile(path)
+            if mixed_debug_runtime_core
+            else None
+        )
         plan = {
             "schema_version": 1,
             "execution_kind": "runtime_rust_nextest_projection",
             "path": path,
-            "package": "trust-runtime",
+            "package": package,
             "command": shlex.join(command),
             "runner_path": RUNNER_PATH.as_posix(),
             "reviewed_date": reviewed_date,
@@ -535,7 +596,11 @@ def build_outputs(
         if len(binary_ids) != 1:
             raise ValueError(f"{path} resolves to multiple nextest binaries")
         binary_id = next(iter(binary_ids))
-        catalog_target_args = selected_target_args(rows, root=root)
+        catalog_target_args = (
+            list(profile.cargo_target_args)
+            if profile is not None
+            else selected_target_args(rows, root=root)
+        )
         plan["catalog_command_template"] = (
             shlex.join(
                 [
@@ -543,14 +608,19 @@ def build_outputs(
                     "nextest",
                     "run",
                     "-p",
-                    "trust-runtime",
+                    package,
                     *catalog_target_args,
                 ]
             )
             + " --no-fail-fast "
             "--user-config-file none -E "
             + shlex.quote(
-                f"binary_id(={binary_id}) & test(~{{name}})"
+                (
+                    f"binary_id(={binary_id}) & "
+                    f"test(={profile.test_prefix}{{name}})"
+                    if profile is not None
+                    else f"binary_id(={binary_id}) & test(~{{name}})"
+                )
             )
         )
         if names & no_default_feature_names:
@@ -561,7 +631,7 @@ def build_outputs(
                         "nextest",
                         "run",
                         "-p",
-                        "trust-runtime",
+                        package,
                         *catalog_target_args,
                         "--no-default-features",
                     ]
@@ -604,6 +674,7 @@ def build_outputs(
                 "results_path": _relative(root, results_path),
                 "projected_raw_path": _relative(root, path_raw),
                 "projected_raw_sha256": _digest_file(path_raw),
+                "package": package,
             }
         )
     metadata = {
@@ -641,7 +712,7 @@ def build_outputs(
             "execution_metadata_path": _relative(root, metadata_path),
             "execution_metadata_sha256": metadata_digest,
             "nextest_version": nextest_version,
-            "package": "trust-runtime",
+            "package": record["package"],
         }
         _write_json(root / record["results_path"], result)
     index = {
@@ -684,7 +755,7 @@ def validate_projection_execution(
         "batch_command": _string(plan, "command", "plan"),
         "runner_path": _string(plan, "runner_path", "plan"),
         "source_path": _string(plan, "path", "plan"),
-        "package": "trust-runtime",
+        "package": _string(plan, "package", "plan"),
     }
     for field, value in expected.items():
         if execution.get(field) != value:
@@ -878,6 +949,14 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="reuse existing list and raw evidence without executing tests",
     )
+    parser.add_argument(
+        "--mixed-debug-runtime-core",
+        action="store_true",
+        help=(
+            "run one exact trust-debug, trust-runtime-core, and focused "
+            "trust-hir projection batch"
+        ),
+    )
     return parser
 
 
@@ -892,6 +971,7 @@ def main(argv: list[str] | None = None) -> int:
             output_dir=_root_path(root, args.output_dir),
             reviewed_date=args.reviewed_date,
             normalize_only=args.normalize_only,
+            mixed_debug_runtime_core=args.mixed_debug_runtime_core,
         )
         print(
             "frozen runtime protocol/I/O batch recorded: "
@@ -992,6 +1072,20 @@ def _write_text(path: Path, content: str) -> None:
         handle.write(content)
         temporary = Path(handle.name)
     os.replace(temporary, path)
+
+
+def _mixed_target_profile(path: str) -> FrozenRustTargetProfile:
+    if path.startswith("crates/trust-debug/"):
+        key = "debug-remaining"
+    elif path.startswith("crates/trust-runtime-core/"):
+        key = "runtime-core-remaining"
+    elif path.startswith("crates/trust-hir/"):
+        key = "hir-remaining"
+    elif path.startswith("crates/trust-runtime/"):
+        key = "runtime-remaining"
+    else:
+        raise ValueError(f"unsupported mixed Rust test path {path}")
+    return get_target_profile(key, path=path)
 
 
 if __name__ == "__main__":

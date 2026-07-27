@@ -6,10 +6,10 @@ risk = "wrong_result"
 status = "implemented"
 owner = "trust-runtime-core"
 last_reviewed = "2026-07-17"
-claim = "Only value-and-accuracy-preserving implicit conversions materialize the declared runtime tag; lossy or incompatible assignments reject before storage."
+claim = "Only value-and-accuracy-preserving implicit conversions materialize a declared or common numeric type; lossy or incompatible assignments and operations reject before mutation."
 proof_level = "G1"
 contract_kind = "decision_table"
-source_refs = ["crates/trust-runtime-core/src/value/types.rs"]
+source_refs = ["crates/trust-runtime-core/src/value/types.rs", "docs/specs/10-runtime-semantics.md"]
 tests = [
   "TEST_VM_COERCION_ASSIGNMENT_WIDENING_001",
   "TEST_VM_COERCION_FUNCTION_INPUT_WIDENING_001",
@@ -71,7 +71,7 @@ declared = "target declared type"
 
 [spec]
 status = "specified"
-source_refs = ["SPEC_VM_VALUE_SEMANTICS_001"]
+source_refs = ["SPEC_VM_VALUE_SEMANTICS_001", "SPEC_RUNTIME_SEMANTICS_001"]
 
 [oracle]
 kind = "trust_contract"
@@ -80,7 +80,7 @@ ref = "SPEC_VM_VALUE_SEMANTICS_001"
 [[behavior]]
 partition = { equals = "INT_LITERAL_TO_REAL_SLOT" }
 case_family = "happy_path"
-oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#declared-type-materialization"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-declared-type-materialization"
 outcome = "accept_value"
 delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
 rationale = "A compatible INT literal assigned to REAL storage materializes as the declared REAL runtime value before later arithmetic."
@@ -88,7 +88,7 @@ rationale = "A compatible INT literal assigned to REAL storage materializes as t
 [[behavior]]
 partition = { equals = "INT_VARIABLE_TO_REAL_SLOT" }
 case_family = "happy_path"
-oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#declared-type-materialization"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-declared-type-materialization"
 outcome = "accept_value"
 delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
 rationale = "A compatible INT variable assigned or copied into REAL storage materializes as Value::Real and preserves REAL arithmetic semantics."
@@ -96,7 +96,7 @@ rationale = "A compatible INT variable assigned or copied into REAL storage mate
 [[behavior]]
 partition = { equals = "INT_EXPRESSION_TO_DINT_SLOT" }
 case_family = "happy_path"
-oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#declared-type-materialization"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-declared-type-materialization"
 outcome = "accept_value"
 delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
 rationale = "A compatible INT expression assigned or copied into DINT storage materializes as Value::DInt and preserves DINT arithmetic width."
@@ -104,7 +104,7 @@ rationale = "A compatible INT expression assigned or copied into DINT storage ma
 [[behavior]]
 partition = { equals = "COMPATIBLE_LITERAL_INITIALIZER_WIDENING" }
 case_family = "happy_path"
-oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#declared-type-materialization"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-declared-type-materialization"
 outcome = "accept_value"
 delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
 rationale = "A compatible typed literal initializer materializes as the variable's wider declared runtime type."
@@ -112,7 +112,7 @@ rationale = "A compatible typed literal initializer materializes as the variable
 [[behavior]]
 partition = { equals = "COMPATIBLE_TYPED_ASSIGNMENT_WIDENING" }
 case_family = "happy_path"
-oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#declared-type-materialization"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-declared-type-materialization"
 outcome = "accept_value"
 delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
 rationale = "Compatible DINT-to-LINT and REAL-to-LREAL assignments preserve the value and materialize the wider declared runtime type."
@@ -120,7 +120,7 @@ rationale = "Compatible DINT-to-LINT and REAL-to-LREAL assignments preserve the 
 [[behavior]]
 partition = { equals = "POU_OUTPUT_WIDENING" }
 case_family = "happy_path"
-oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#declared-type-materialization"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-declared-type-materialization"
 outcome = "accept_value"
 delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
 rationale = "A DINT POU output assigned to a LINT caller target materializes as Value::LInt with the same value."
@@ -128,28 +128,28 @@ rationale = "A DINT POU output assigned to a LINT caller target materializes as 
 [[behavior]]
 partition = { equals = "FUNCTION_RESULT_WIDENING" }
 case_family = "happy_path"
-oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#declared-type-materialization"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-declared-type-materialization"
 outcome = "accept_value"
 delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
 rationale = "A REAL expression assigned to an LREAL function result materializes as Value::LReal before the caller observes it."
 
 [[behavior]]
 partition = { wrong_type = "INT_ACTUAL_TO_DINT_INOUT" }
-oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#declared-type-materialization"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-declared-type-materialization"
 outcome = "reject"
 delta = { target = "not_applicable", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }
 rationale = "Implicit conversion is forbidden for VAR_IN_OUT, so an INT actual cannot bind to a DINT formal."
 
 [[behavior]]
 partition = { wrong_type = "DINT_TO_INT_NARROWING_ASSIGNMENT" }
-oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#declared-type-materialization"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-declared-type-materialization"
 outcome = "reject"
 delta = { target = "not_applicable", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }
 rationale = "An implicit DINT-to-INT assignment that cannot preserve value and accuracy is rejected unless explicitly converted."
 
 [[behavior]]
 partition = { wrong_type = "BOOL_TO_REAL_SLOT" }
-oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#declared-type-materialization"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-declared-type-materialization"
 outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }
@@ -158,14 +158,14 @@ rationale = "BOOL is not an implicitly compatible numeric source for REAL storag
 [[behavior]]
 partition = { equals = "ACCURACY_PRESERVING_INTEGER_TO_FLOAT" }
 case_family = "happy_path"
-oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#declared-type-materialization"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-declared-type-materialization"
 outcome = "accept_value"
 delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
 rationale = "SINT and INT may materialize as REAL, while SINT, INT, and DINT may materialize as LREAL because every source value remains exact."
 
 [[behavior]]
 partition = { wrong_type = "DINT_TO_REAL_IMPLICIT" }
-oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#declared-type-materialization"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-declared-type-materialization"
 outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }
@@ -173,7 +173,7 @@ rationale = "Typed DINT-to-REAL requires an explicit conversion because not ever
 
 [[behavior]]
 partition = { wrong_type = "LINT_TO_LREAL_IMPLICIT" }
-oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#declared-type-materialization"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-declared-type-materialization"
 outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }
@@ -181,11 +181,27 @@ rationale = "Typed LINT-to-LREAL requires an explicit conversion because not eve
 
 [[behavior]]
 partition = { wrong_type = "NONREPRESENTABLE_CONTEXT_INTEGER_TO_REAL" }
-oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#declared-type-materialization"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-declared-type-materialization"
 outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }
 rationale = "An untyped integer literal that requires rounding in its REAL or LREAL context requires an explicit conversion."
+
+[[behavior]]
+partition = { equals = "CONTEXTUAL_UNTYPED_NUMERIC_LITERAL_COMMON_TYPE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#2-3-declared-type-materialization"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "A representable untyped numeric literal adopts the other typed operand or common typed overloaded-argument type independently of argument order; an explicitly typed literal remains governed by the strict conversion matrix."
+
+[[behavior]]
+partition = { wrong_type = "NO_ACCURACY_PRESERVING_COMMON_NUMERIC_TYPE" }
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#2-3-declared-type-materialization"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_applicable" }
+rationale = "Typed operators and overloaded standard functions reject mixed numeric operands when neither operand can reach the other's type through the closed accuracy-preserving matrix."
 
 [[coverage.cells]]
 dimension = "happy_path"

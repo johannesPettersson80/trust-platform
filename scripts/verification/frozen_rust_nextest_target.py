@@ -17,9 +17,12 @@ ADS_WIRE_DISABLED_CFG = '#[cfg(not(feature = "ads-wire"))]'
 ADS_SERVER_CFG = '#[cfg(feature = "ads-server")]'
 MESSAGE_FORMAT_VERSION = "0.1"
 RUNTIME_CONTROL_PROFILE_KEY = "runtime-control-lib"
+RUNTIME_REMAINING_PROFILE_KEY = "runtime-remaining"
 HIR_SEMANTIC_CONTROL_FLOW_PROFILE_KEY = "hir-semantic-control-flow"
 HIR_REMAINING_PROFILE_KEY = "hir-remaining"
 SYNTAX_REMAINING_PROFILE_KEY = "syntax-remaining"
+DEBUG_REMAINING_PROFILE_KEY = "debug-remaining"
+RUNTIME_CORE_REMAINING_PROFILE_KEY = "runtime-core-remaining"
 TERMINAL_EVENTS = frozenset({"ok", "failed", "ignored", "timeout"})
 
 
@@ -120,6 +123,41 @@ SYNTAX_REMAINING_PROFILE = FrozenRustTargetProfile(
     no_default_features_shard_name=None,
 )
 
+DEBUG_REMAINING_PROFILE = FrozenRustTargetProfile(
+    key=DEBUG_REMAINING_PROFILE_KEY,
+    package="trust-debug",
+    target_kind="lib",
+    target_name=None,
+    binary_id="trust-debug",
+    test_prefix="",
+    encoded_test_name_prefix="trust-debug::trust_debug$",
+    discovery_source_kind="rust_unit_test",
+    allowed_cfg_attributes=frozenset(),
+    no_default_features_cfg=None,
+    no_default_features_shard_name=None,
+)
+
+RUNTIME_CORE_REMAINING_PROFILE = FrozenRustTargetProfile(
+    key=RUNTIME_CORE_REMAINING_PROFILE_KEY,
+    package="trust-runtime-core",
+    target_kind="lib",
+    target_name=None,
+    binary_id="trust-runtime-core",
+    test_prefix="",
+    encoded_test_name_prefix="trust-runtime-core::trust_runtime_core$",
+    discovery_source_kind="rust_unit_test",
+    allowed_cfg_attributes=frozenset(),
+    no_default_features_cfg=None,
+    no_default_features_shard_name=None,
+)
+
+RUNTIME_REMAINING_INTEGRATION_PATHS = frozenset(
+    {
+        "crates/trust-runtime/tests/bounded_value_semantics.rs",
+        "crates/trust-runtime/tests/stdlib_select.rs",
+    }
+)
+
 HIR_REMAINING_INTEGRATION_PATHS = frozenset(
     {
         "crates/trust-hir/tests/declaration_catalog.rs",
@@ -133,6 +171,7 @@ HIR_REMAINING_INTEGRATION_PATHS = frozenset(
         "crates/trust-hir/tests/semantic_standard_functions.rs",
         "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs",
         "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs",
+        "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs",
         "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs",
         "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs",
         "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs",
@@ -192,6 +231,75 @@ SYNTAX_REMAINING_INTEGRATION_PATHS = frozenset(
     }
 )
 
+DEBUG_REMAINING_UNIT_PREFIXES: Mapping[str, str] = {
+    "crates/trust-debug/src/adapter/stop.rs": "adapter::stop::tests::",
+    "crates/trust-debug/src/adapter/tests_part_01.rs": (
+        "adapter::tests::tests_part_01::"
+    ),
+    "crates/trust-debug/src/adapter/tests_part_02.rs": (
+        "adapter::tests::tests_part_02::"
+    ),
+    "crates/trust-debug/src/adapter/tests_part_03.rs": (
+        "adapter::tests::tests_part_03::"
+    ),
+    "crates/trust-debug/src/adapter/tests_part_04.rs": (
+        "adapter::tests::tests_part_04::"
+    ),
+    "crates/trust-debug/src/adapter/tests_part_05.rs": (
+        "adapter::tests::tests_part_05::"
+    ),
+    "crates/trust-debug/src/adapter/tests_part_06.rs": (
+        "adapter::tests::tests_part_06::"
+    ),
+    "crates/trust-debug/src/adapter/variables/format.rs": (
+        "adapter::variables::format::tests::"
+    ),
+    "crates/trust-debug/src/protocol.rs": "protocol::tests::",
+    "crates/trust-debug/src/session/tests.rs": "session::tests::",
+}
+
+RUNTIME_CORE_REMAINING_UNIT_PREFIXES: Mapping[str, str] = {
+    "crates/trust-runtime-core/src/bytecode/mod.rs": "bytecode::tests::",
+    "crates/trust-runtime-core/src/cycle.rs": "cycle::tests::",
+    "crates/trust-runtime-core/src/datetime.rs": "datetime::tests::",
+    "crates/trust-runtime-core/src/error_code.rs": "error_code::tests::",
+    "crates/trust-runtime-core/src/memory.rs": "memory::tests::",
+    "crates/trust-runtime-core/src/numeric.rs": "numeric::tests::",
+    "crates/trust-runtime-core/src/program_model/expr.rs": (
+        "program_model::expr::tests::"
+    ),
+    "crates/trust-runtime-core/src/program_model/initializers.rs": (
+        "program_model::initializers::tests::"
+    ),
+    "crates/trust-runtime-core/src/program_model/ops.rs": (
+        "program_model::ops::tests::"
+    ),
+    "crates/trust-runtime-core/src/program_model/util.rs": (
+        "program_model::util::tests::"
+    ),
+    "crates/trust-runtime-core/src/retain.rs": "retain::tests::",
+    "crates/trust-runtime-core/src/scheduler.rs": "scheduler::tests::",
+    "crates/trust-runtime-core/src/task.rs": "task::tests::",
+    "crates/trust-runtime-core/src/value/datetime.rs": (
+        "value::datetime::tests::"
+    ),
+    "crates/trust-runtime-core/src/value/defaults.rs": (
+        "value::defaults::tests::"
+    ),
+    "crates/trust-runtime-core/src/value/partial_access.rs": (
+        "value::partial_access::tests::"
+    ),
+    "crates/trust-runtime-core/src/value/reference.rs": (
+        "value::reference::tests::"
+    ),
+    "crates/trust-runtime-core/src/value/size.rs": "value::size::tests::",
+    "crates/trust-runtime-core/src/value/types/tests.rs": (
+        "value::types::tests::"
+    ),
+    "crates/trust-runtime-core/src/vm/mod.rs": "vm::tests::",
+    "crates/trust-runtime-core/src/watchdog.rs": "watchdog::tests::",
+}
+
 TARGET_PROFILES: Mapping[str, FrozenRustTargetProfile] = {
     profile.key: profile
     for profile in (
@@ -199,6 +307,8 @@ TARGET_PROFILES: Mapping[str, FrozenRustTargetProfile] = {
         HIR_SEMANTIC_CONTROL_FLOW_PROFILE,
         HIR_REMAINING_PROFILE,
         SYNTAX_REMAINING_PROFILE,
+        DEBUG_REMAINING_PROFILE,
+        RUNTIME_CORE_REMAINING_PROFILE,
     )
 }
 
@@ -214,6 +324,22 @@ def get_target_profile(
         return _hir_remaining_profile(path)
     if key == SYNTAX_REMAINING_PROFILE_KEY:
         return _syntax_remaining_profile(path)
+    if key == DEBUG_REMAINING_PROFILE_KEY:
+        return _unit_path_profile(
+            DEBUG_REMAINING_PROFILE,
+            DEBUG_REMAINING_UNIT_PREFIXES,
+            path,
+            "debug",
+        )
+    if key == RUNTIME_CORE_REMAINING_PROFILE_KEY:
+        return _unit_path_profile(
+            RUNTIME_CORE_REMAINING_PROFILE,
+            RUNTIME_CORE_REMAINING_UNIT_PREFIXES,
+            path,
+            "runtime-core",
+        )
+    if key == RUNTIME_REMAINING_PROFILE_KEY:
+        return _runtime_remaining_profile(path)
     try:
         return TARGET_PROFILES[key]
     except KeyError as error:
@@ -309,6 +435,49 @@ def _syntax_remaining_profile(path: str | None) -> FrozenRustTargetProfile:
         )
     raise ValueError(
         f"{path!r} is outside the closed syntax remaining path set"
+    )
+
+
+def _runtime_remaining_profile(path: str | None) -> FrozenRustTargetProfile:
+    if path in RUNTIME_REMAINING_INTEGRATION_PATHS:
+        target_name = str(path).removeprefix(
+            "crates/trust-runtime/tests/"
+        ).removesuffix(".rs")
+        return FrozenRustTargetProfile(
+            key=RUNTIME_REMAINING_PROFILE_KEY,
+            package="trust-runtime",
+            target_kind="test",
+            target_name=target_name,
+            binary_id=f"trust-runtime::{target_name}",
+            test_prefix="",
+            encoded_test_name_prefix=f"trust-runtime::{target_name}$",
+            discovery_source_kind="rust_integration_test",
+            allowed_cfg_attributes=frozenset(),
+            no_default_features_cfg=None,
+            no_default_features_shard_name=None,
+        )
+    raise ValueError(
+        f"{path!r} is outside the closed runtime remaining path set"
+    )
+
+
+def _unit_path_profile(
+    base: FrozenRustTargetProfile,
+    prefixes: Mapping[str, str],
+    path: str | None,
+    label: str,
+) -> FrozenRustTargetProfile:
+    try:
+        prefix = prefixes[path]  # type: ignore[index]
+    except KeyError as error:
+        raise ValueError(
+            f"{path!r} is outside the closed {label} remaining path set"
+        ) from error
+    return FrozenRustTargetProfile(
+        **{
+            **base.__dict__,
+            "test_prefix": prefix,
+        }
     )
 
 

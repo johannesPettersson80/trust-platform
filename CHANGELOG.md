@@ -6,10 +6,19 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-Target release: `v0.24.56`
+Target release: `v0.24.57`
 
 ### Fixed
 
+- trust-debug now rejects `stackTrace` requests for thread IDs that are absent
+  from the current DAP thread projection instead of returning a synthetic frame
+  for another thread; debug evaluation documentation now matches the shipped
+  side-effect-free standard-function whitelist.
+- trust-runtime-core and trust-hir now reject explicitly typed mixed numeric
+  operations when the operands have no accuracy-preserving common type instead
+  of silently widening values such as `ULINT` to `REAL`; representable untyped
+  numeric literals retain their valid contextual operand or overloaded-argument
+  type.
 - OSCAT: decimal rounding, random helpers, array shuffle, random generators,
   and dew-point relative-humidity conversion now preserve their declared
   `INT`/`REAL` types instead of failing at runtime when generic `LIMIT`

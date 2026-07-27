@@ -173,18 +173,28 @@ mod tests {
     use super::StableErrorCode;
 
     #[test]
-    fn stable_error_codes_use_lower_snake_case() {
-        for code in [
-            StableErrorCode::BytecodeInvalidMagic,
-            StableErrorCode::VmStackUnderflow,
-            StableErrorCode::RuntimeTypeMismatch,
-            StableErrorCode::RuntimeNonFiniteValue,
+    fn representative_stable_error_codes_use_exact_lower_snake_case() {
+        for (code, expected) in [
+            (
+                StableErrorCode::BytecodeInvalidMagic,
+                "bytecode_invalid_magic",
+            ),
+            (StableErrorCode::VmStackUnderflow, "vm_stack_underflow"),
+            (
+                StableErrorCode::RuntimeTypeMismatch,
+                "runtime_type_mismatch",
+            ),
+            (
+                StableErrorCode::RuntimeNonFiniteValue,
+                "runtime_non_finite_value",
+            ),
         ] {
             let text = code.as_str();
-            assert!(!text.is_empty());
-            assert!(text
-                .bytes()
-                .all(|byte| byte.is_ascii_lowercase() || byte == b'_'));
+            assert_eq!(text, expected);
+            assert!(
+                text.bytes()
+                    .all(|byte| byte.is_ascii_lowercase() || byte == b'_')
+            );
         }
     }
 }

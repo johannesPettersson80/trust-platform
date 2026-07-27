@@ -5,6 +5,7 @@ from __future__ import annotations
 import unittest
 
 from scripts.verification.frozen_runtime_protocol_io_batch import (
+    _mixed_target_profile,
     build_batch_command,
     combined_batch_command,
     normalize_results,
@@ -38,6 +39,7 @@ class FrozenRuntimeProtocolIoBatchTests(unittest.TestCase):
             selected_names={"one", "two"},
         )
         self.assertEqual("trust-runtime", resolved["one"]["binary_id"])
+        self.assertEqual("trust-runtime", resolved["one"]["package"])
         self.assertEqual("io::tests::one", resolved["one"]["full_name"])
         self.assertEqual(
             "trust-runtime::trust_runtime$io::tests::one",
@@ -51,6 +53,64 @@ class FrozenRuntimeProtocolIoBatchTests(unittest.TestCase):
         self.assertIn("test(=two)", command[-1])
         self.assertIn("--lib", command)
         self.assertIn("contract", command)
+
+    def test_listing_uses_reviewed_package_to_disambiguate_reexported_test(self) -> None:
+        listing = {
+            "rust-suites": {
+                package: {
+                    "binary-id": package,
+                    "binary-name": package.replace("-", "_"),
+                    "package-name": package,
+                    "testcases": {
+                        "value::tests::shared_name": {"ignored": False},
+                    },
+                }
+                for package in ("trust-runtime", "trust-runtime-core")
+            }
+        }
+
+        resolved = resolve_nextest_listing(
+            listing=listing,
+            selected_names={"shared_name"},
+            expected_packages={"shared_name": "trust-runtime-core"},
+        )
+
+        self.assertEqual("trust-runtime-core", resolved["shared_name"]["package"])
+
+    def test_mixed_batch_command_uses_explicit_package_selection_once(self) -> None:
+        command = build_batch_command(
+            {
+                "debug_case": {
+                    "binary_id": "trust-debug",
+                    "full_name": "adapter::tests::debug_case",
+                    "encoded_name": (
+                        "trust-debug::trust_debug$"
+                        "adapter::tests::debug_case"
+                    ),
+                    "package": "trust-debug",
+                }
+            },
+            target_args=[
+                "-p",
+                "trust-debug",
+                "-p",
+                "trust-runtime-core",
+                "--lib",
+            ],
+            include_package=False,
+        )
+
+        self.assertEqual(2, command.count("-p"))
+        self.assertEqual(1, command.count("trust-debug"))
+        self.assertIn("binary_id(=trust-debug)", command[-1])
+
+    def test_mixed_profile_resolves_runtime_integration_target(self) -> None:
+        profile = _mixed_target_profile(
+            "crates/trust-runtime/tests/stdlib_select.rs"
+        )
+
+        self.assertEqual("trust-runtime", profile.package)
+        self.assertEqual(("--test", "stdlib_select"), profile.cargo_target_args)
 
     def test_target_selection_excludes_unrelated_runtime_binaries(self) -> None:
         self.assertEqual(

@@ -1444,6 +1444,8 @@ last_reviewed = "2026-07-26"
 covers = [
   "integer_runtime_operand_normalization",
   "process_image_model",
+  "portable_runtime_value_and_program_model_contracts",
+  "portable_bytecode_scheduler_and_vm_helper_contracts",
   "scan_cycle_execution",
   "retain_values",
   "runtime_value_model",
@@ -1516,7 +1518,7 @@ locator_kind = "tracked_file"
 path = "docs/specs/13-debug-adapter.md"
 version = "current"
 last_reviewed = "2026-07-26"
-covers = ["dap_launch_attach", "breakpoint_stop_semantics", "debug_control_execution", "debug_event_fallback", "debug_scope_visibility", "reload_stop_precedence", "managed_debug_floating_point_ingress", "debug_mutation_lifecycle", "online_change_transaction"]
+covers = ["dap_launch_attach", "breakpoint_stop_semantics", "debug_control_execution", "debug_event_fallback", "debug_scope_visibility", "reload_stop_precedence", "managed_debug_floating_point_ingress", "debug_mutation_lifecycle", "online_change_transaction", "dap_transport_and_session_projection", "managed_runtime_debug_mutation_and_active_reload"]
 known_limitations = ["The debug mutation lifecycle is specified, but disconnect, pause, fault, and authorization-change case depth remains unproven; managed-local floating-point admission does not establish attach-mode runtime-control admission."]
 conflicts_with = []
 

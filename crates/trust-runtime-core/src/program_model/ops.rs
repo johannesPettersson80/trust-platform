@@ -4,8 +4,8 @@
 
 use crate::error::RuntimeError;
 use crate::numeric::{
-    numeric_kind, signed_from_i128, to_f64, to_i64, to_u64, unsigned_from_u128, wider_numeric,
-    NumericKind,
+    NumericKind, numeric_kind, signed_from_i128, to_f64, to_i64, to_u64, unsigned_from_u128,
+    wider_numeric,
 };
 use crate::value::{
     DateTimeProfile, DateTimeValue, DateValue, Duration, LDateTimeValue, LDateValue,
@@ -19,7 +19,7 @@ include!("ops/numeric_arith.rs");
 
 #[cfg(test)]
 mod tests {
-    use super::{apply_binary, apply_unary, BinaryOp, UnaryOp};
+    use super::{BinaryOp, UnaryOp, apply_binary, apply_unary};
     use crate::error::RuntimeError;
     use crate::value::{DateTimeProfile, Value};
 
@@ -55,6 +55,29 @@ mod tests {
                 "operator {op:?} must reject single-width overflow"
             );
         }
+    }
+
+    #[test]
+    fn mixed_numeric_operands_require_accuracy_preserving_common_type() {
+        let profile = DateTimeProfile::default();
+
+        assert_eq!(
+            apply_binary(BinaryOp::Add, Value::UInt(2), Value::UInt(1), &profile,),
+            Ok(Value::UInt(3))
+        );
+        assert_eq!(
+            apply_binary(BinaryOp::Add, Value::UInt(2), Value::SInt(1), &profile,),
+            Err(RuntimeError::TypeMismatch)
+        );
+        assert_eq!(
+            apply_binary(
+                BinaryOp::Add,
+                Value::ULInt(u64::MAX),
+                Value::Real(1.0),
+                &profile,
+            ),
+            Err(RuntimeError::TypeMismatch)
+        );
     }
 
     #[test]

@@ -304,6 +304,60 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
                     path=excluded_path,
                 )
 
+    def test_debug_and_runtime_core_profiles_are_closed_over_reviewed_paths(
+        self,
+    ) -> None:
+        debug = get_target_profile(
+            "debug-remaining",
+            path="crates/trust-debug/src/adapter/tests_part_03.rs",
+        )
+        runtime_core = get_target_profile(
+            "runtime-core-remaining",
+            path="crates/trust-runtime-core/src/value/reference.rs",
+        )
+
+        self.assertEqual("trust-debug", debug.package)
+        self.assertEqual(
+            "adapter::tests::tests_part_03::",
+            debug.test_prefix,
+        )
+        self.assertEqual("trust-runtime-core", runtime_core.package)
+        self.assertEqual(
+            "value::reference::tests::",
+            runtime_core.test_prefix,
+        )
+        with self.assertRaisesRegex(ValueError, "outside the closed debug"):
+            get_target_profile(
+                "debug-remaining",
+                path="crates/trust-debug/src/not_reviewed.rs",
+            )
+        with self.assertRaisesRegex(
+            ValueError,
+            "outside the closed runtime-core",
+        ):
+            get_target_profile(
+                "runtime-core-remaining",
+                path="crates/trust-runtime-core/src/not_reviewed.rs",
+            )
+
+    def test_runtime_remaining_profile_resolves_reviewed_integration_path(
+        self,
+    ) -> None:
+        profile = get_target_profile(
+            "runtime-remaining",
+            path="crates/trust-runtime/tests/bounded_value_semantics.rs",
+        )
+
+        self.assertEqual("trust-runtime", profile.package)
+        self.assertEqual(
+            ("--test", "bounded_value_semantics"),
+            profile.cargo_target_args,
+        )
+        self.assertEqual(
+            "trust-runtime::bounded_value_semantics",
+            profile.binary_id,
+        )
+
     def test_hir_selection_requires_integration_discovery_kind(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

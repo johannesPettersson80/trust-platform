@@ -1,7 +1,7 @@
 fn numeric_arith(op: BinaryOp, left: Value, right: Value) -> Result<Value, RuntimeError> {
     let left_kind = numeric_kind(&left).ok_or(RuntimeError::TypeMismatch)?;
     let right_kind = numeric_kind(&right).ok_or(RuntimeError::TypeMismatch)?;
-    let target = wider_numeric(left_kind, right_kind);
+    let target = wider_numeric(left_kind, right_kind).ok_or(RuntimeError::TypeMismatch)?;
     match target {
         NumericKind::Real | NumericKind::LReal => {
             if matches!(op, BinaryOp::Mod) {

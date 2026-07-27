@@ -209,6 +209,20 @@ cross-family, numeric/`BOOL`, and otherwise incompatible conversions are not
 implicit. Contextual untyped literals remain allowed when representable by the
 target.
 
+Typed operands of an operator or overloaded standard function have a common
+numeric type only when they are already identical or one operand can reach the
+other operand's type through that same closed accuracy-preserving matrix. If
+neither direction is permitted, semantic analysis and runtime evaluation
+reject the operation with a type mismatch rather than choosing a type by a
+total numeric rank. Thus `INT + REAL` may use `REAL`, while `DINT + REAL`,
+`ULINT + REAL`, and signed/unsigned cross-family operations require an explicit
+conversion.
+
+A representable untyped numeric literal is contextualized to the other typed
+operand or to the common typed argument of an overloaded standard function,
+independently of argument order. Explicitly typed literals are never treated as
+contextual and remain governed by the strict matrix.
+
 When semantic analysis permits an implicit numeric widening, variable
 initialization, assignment, function-result assignment, and POU input/output
 parameter transfer materialize the value as the declared target type before it
@@ -414,6 +428,45 @@ Per IEC 61131-3, default values for types (IEC 61131-3 Ed.3 ยง6.4.2, Table 10; ย
 | Enum | First enumerator (unless explicitly initialized) |
 | Reference (REF_TO) | NULL |
 
+#### 2.7 Portable Runtime Value and Program-Model Contracts
+
+The portable runtime core SHALL preserve these value and program-model rules:
+
+- Calendar construction rejects an invalid month length or a non-leap-year
+  February 29. Date/time ticks and long date/time values round-trip within
+  their declared range; out-of-range tick conversion and timezone-bearing
+  `DATE` plus `TOD` combination are rejected. Duration nanosecond and
+  millisecond views describe the same stored duration.
+- L-value roots, qualified/indexed paths, initializer lookup, hidden property
+  setter names, and static-storage names preserve their canonical segment and
+  prefix identity. Internal helper names SHALL NOT collide with user symbols.
+- The numeric-kind classifier preserves the declared runtime tag for every
+  supported numeric value. Numeric and Boolean operations use their checked
+  runtime contract. Non-numeric comparisons are accepted only for the
+  documented comparable value families; unsupported mixed families return a
+  stable error.
+- Elementary defaults retain their declared runtime tags. Unknown type IDs are
+  rejected. Partial bit/byte/word reads and writes enforce bounds, and a write
+  changes only the selected portion. Reference-path helpers preserve segment
+  order and accept only the documented IEC partial-access suffixes.
+- Array offsets use inclusive bounds and row-major order. Arity mismatches,
+  out-of-bounds indices, checked-arithmetic failures, and offsets that cannot
+  be represented by the target `usize` are rejected rather than wrapped.
+- Stable runtime error identifiers use the exact lower-snake-case strings
+  defined by section 10.2; a representative-family test proves only the named
+  identifiers it asserts.
+- Array construction resolves aliases and validates shape and element types,
+  including arrays of structures. Clone/equality preserve shape and elements;
+  mutation preserves shape. Structure construction resolves aliases and
+  validates field types; clone/equality preserve field identity and mutation
+  updates existing fields only.
+- Interface values accept the explicit null representation and compatible
+  instance references. Declared assignment materializes only the documented
+  safe numeric widening and stores the destination runtime tag.
+
+These are portable data-model guarantees. A test name, sampled helper, or
+platform-width coincidence is not an oracle for a broader claim.
+
 ### 3. Memory Model
 
 #### 3.1 Memory Locations
@@ -450,6 +503,11 @@ pub struct FrameId(u32);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct InstanceId(u32);
 ```
+
+Memory identity equality is structural: the enum variant and its complete
+payload determine equality, and equal identities produce equal hashes. Hash
+values are in-process collection keys only and are not stable wire, storage,
+or cross-version identifiers.
 
 #### 3.2 Variable Storage
 
@@ -701,6 +759,31 @@ pub struct EvalContext<'a> {
     pub loop_depth: u32,
 }
 ```
+
+#### 4.6 Portable Bytecode, Scheduler, and VM Helper Contracts
+
+The portable runtime core SHALL preserve these bytecode and execution-helper
+contracts:
+
+- Bytecode alignment adds only zero padding. Raw record discriminants are
+  retained for validated decoding. Readers use little-endian field order,
+  report end-of-input without over-reading, and perform case-insensitive
+  resource lookup where the bytecode metadata contract names resources.
+- Ready tasks are ordered by priority, due time, and original stable index.
+  Retain/restart policy, resource lifecycle state, and periodic/event task
+  metadata preserve their declared defaults and transition order.
+- Frame stacks and operand stacks are LIFO, enforce call-depth/underflow
+  boundaries, and preserve pair/swap ordering.
+- Constant-pool decoding preserves primitive, enumeration, and alias runtime
+  identity. Invalid payload widths, tags, and type shapes are rejected before
+  a value is installed.
+- VM dispatch helpers preserve opcode shape, operand decoding, stack/jump
+  effects, and borrow materialization. `SIZEOF` resolves through the validated
+  type table, and VM traps map to the corresponding stable runtime error.
+
+These helper contracts constrain observable runtime results and deterministic
+execution order; they do not promote internal implementation layout to a
+public compatibility promise.
 
 ### 5. Statement Execution
 

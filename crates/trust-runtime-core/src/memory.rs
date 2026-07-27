@@ -37,6 +37,14 @@ pub struct InstanceId(pub u32);
 #[cfg(test)]
 mod tests {
     use super::{FrameId, InstanceId, IoArea, MemoryLocation};
+    use core::hash::{Hash, Hasher};
+    use std::collections::hash_map::DefaultHasher;
+
+    fn hash(value: MemoryLocation) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        value.hash(&mut hasher);
+        hasher.finish()
+    }
 
     #[test]
     fn memory_identity_values_preserve_equality_and_hash_shape() {
@@ -52,6 +60,15 @@ mod tests {
         assert_eq!(
             MemoryLocation::Io(IoArea::Input),
             MemoryLocation::Io(IoArea::Input)
+        );
+        assert_ne!(
+            MemoryLocation::Io(IoArea::Input),
+            MemoryLocation::Io(IoArea::Output)
+        );
+        assert_ne!(MemoryLocation::Global, MemoryLocation::Retain);
+        assert_eq!(
+            hash(MemoryLocation::Local(FrameId(7))),
+            hash(MemoryLocation::Local(FrameId(7)))
         );
     }
 }

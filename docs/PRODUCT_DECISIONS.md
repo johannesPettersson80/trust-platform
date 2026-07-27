@@ -6,6 +6,25 @@ in `IEC_DECISIONS.md`; PLCopen profile decisions belong in
 `PLCOPEN_DECISIONS.md`. Product behavior recorded here MUST NOT be copied to an
 IEC or PLCopen deviation log merely because truST owns the behavior.
 
+## 2026-07-27 - Side-effect-free debug evaluation call boundary
+
+- Area: Debug Adapter Protocol expression evaluation
+- Decision:
+  - `EvaluateRequest` accepts value and type expressions plus the explicitly
+    implemented whitelist of pure standard functions, conversions, and
+    split-date/time helpers.
+  - User-defined, unknown, or impure calls remain rejected before execution.
+    The whitelist does not grant general call execution in hover or watch
+    evaluation.
+- Authority:
+  - `docs/specs/13-debug-adapter.md`
+  - `docs/specs/14-lsp.md`
+- Reason:
+  - DAP is a product/tooling protocol outside IEC 61131-3. The accepted pure
+    calls are useful for inspecting values without allowing debug evaluation
+    to mutate the running program, and recording the closed boundary prevents
+    either an inaccurate all-calls ban or an unsafe general-call claim.
+
 ## 2026-07-26 - Runtime process-image and connector boundary
 
 - Area: Runtime process image, I/O drivers, industrial protocols, and connector

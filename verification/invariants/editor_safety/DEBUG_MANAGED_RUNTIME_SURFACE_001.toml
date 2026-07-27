@@ -1,0 +1,94 @@
+schema_version = 1
+id = "DEBUG_MANAGED_RUNTIME_SURFACE_001"
+title = "Managed debugging preserves typed mutation and coherent active reload"
+area = "editor_safety"
+risk = "safety_critical"
+status = "planned"
+owner = "trust-debug"
+last_reviewed = "2026-07-27"
+claim = "Managed-local and attached debug sessions preserve typed writes, force/release forwarding, output-write safety, fail-closed launch/configuration, and post-scan reload snapshots."
+proof_level = "S0"
+contract_kind = "state_machine"
+source_refs = ["docs/specs/13-debug-adapter.md", "crates/trust-debug/src"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_tests", "focused_execution_evidence", "final_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_DEBUG_ADAPTER_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_DEBUG_ADAPTER_001#managed-runtime-debug-mutation-and-active-reload"
+
+[[behavior]]
+partition = { equals = "MANAGED_TYPED_IO_WRITE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#managed-runtime-debug-mutation-and-active-reload"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_input", siblings = "unchanged", retain = "unchanged", process_image = "expected_delta", diagnostics = "none", status = "unchanged" }
+rationale = "Configured REAL and TIME values are admitted through their declared I/O types."
+
+[[behavior]]
+partition = { equals = "ATTACH_FORCE_RELEASE_FORWARDING" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#managed-runtime-debug-mutation-and-active-reload"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_input", siblings = "unchanged", retain = "unchanged", process_image = "expected_delta", diagnostics = "none", status = "expected_delta" }
+rationale = "Attach-mode setExpression and custom I/O force/release preserve the declared remote action, address, and value."
+
+[[behavior]]
+partition = { equals = "LOCAL_FIELD_AND_PROCESS_IMAGE_FORCE_RELEASE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#managed-runtime-debug-mutation-and-active-reload"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_input", siblings = "unchanged", retain = "unchanged", process_image = "expected_delta", diagnostics = "none", status = "expected_delta" }
+rationale = "Direct instance fields and local output or memory targets preserve force/release lifecycle in live and paused sessions."
+
+[[behavior]]
+partition = { equals = "OUTPUT_WRITE_ONCE_REJECTION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#managed-runtime-debug-mutation-and-active-reload"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "A one-shot output write is rejected rather than bypassing the force/release safety boundary."
+
+[[behavior]]
+partition = { equals = "CONTROL_BIND_AND_ADS_CONFIGURATION_FAIL_CLOSED" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#managed-runtime-debug-mutation-and-active-reload"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "An occupied control endpoint or invalid project ADS binding fails before launch or reload changes the active runtime."
+
+[[behavior]]
+partition = { equals = "ACTIVE_RELOAD_POST_SCAN_SNAPSHOT" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#managed-runtime-debug-mutation-and-active-reload"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "expected_delta", process_image = "expected_delta", diagnostics = "none", status = "expected_delta" }
+rationale = "Active reload suppresses pre-scan state and reports the first replacement-program snapshot only after a coherent scan."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Typed-write assertions await catalog binding and focused proof."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "Force/release and reload-order assertions await catalog binding and focused proof."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Output-write and launch/configuration rejection assertions await catalog binding and focused proof."

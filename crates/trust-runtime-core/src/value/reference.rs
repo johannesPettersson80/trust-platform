@@ -142,8 +142,8 @@ fn parse_access_index(text: &str) -> Option<u8> {
 #[cfg(test)]
 mod tests {
     use super::{
-        array_offset_i64, checked_array_offset_i64, parse_partial_access, ref_indices_from_iter,
-        single_ref_index, PartialAccess, RefPath, RefSegment,
+        PartialAccess, RefPath, RefSegment, array_offset_i64, checked_array_offset_i64,
+        parse_partial_access, ref_indices_from_iter, single_ref_index,
     };
     use crate::error::RuntimeError;
     use alloc::vec;
@@ -156,7 +156,7 @@ mod tests {
         );
         assert_eq!(
             array_offset_i64(&[(i64::MIN, i64::MAX)], &[i64::MAX]),
-            Some(usize::MAX)
+            usize::try_from(u64::MAX).ok()
         );
     }
 
