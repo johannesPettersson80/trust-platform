@@ -578,6 +578,26 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
             self.assertEqual("trust-runtime", profile.binary_id)
             self.assertEqual(prefix, profile.test_prefix)
 
+    def test_dev_remaining_profile_resolves_catalog_unit_targets(self) -> None:
+        expected = {
+            "crates/trust-dev/src/agent.rs": "agent::tests::",
+            "crates/trust-dev/src/ci.rs": "ci::tests::",
+            "crates/trust-dev/src/commit.rs": "commit::tests::",
+            "crates/trust-dev/src/docs/tests.rs": "docs::tests::",
+            "crates/trust-dev/src/test_cmd/tests.rs": "test::tests::",
+        }
+        for path, prefix in expected.items():
+            profile = get_target_profile("dev-remaining", path=path)
+            self.assertEqual(("--bin", "trust-dev"), profile.cargo_target_args)
+            self.assertEqual("trust-dev", profile.package)
+            self.assertEqual("trust-dev::bin/trust-dev", profile.binary_id)
+            self.assertEqual(prefix, profile.test_prefix)
+            self.assertEqual(
+                "trust-dev::trust-dev$",
+                profile.encoded_test_name_prefix,
+            )
+            self.assertEqual(frozenset({"#[cfg(unix)]"}), profile.allowed_cfg_attributes)
+
     def test_runtime_remaining_profile_resolves_mesh_unit_target(self) -> None:
         profile = get_target_profile(
             "runtime-remaining",

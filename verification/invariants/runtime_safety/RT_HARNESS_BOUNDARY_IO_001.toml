@@ -9,7 +9,10 @@ last_reviewed = "2026-07-22"
 claim = "Symbolic, VAR_ACCESS, and direct-address harness commands round-trip typed values through the correct boundary and report invalid or unresolved operations without corrupting session state."
 proof_level = "T1"
 contract_kind = "protocol_trace"
-source_refs = ["crates/trust-runtime/src/bin/trust-harness.rs"]
+source_refs = [
+  "crates/trust-runtime/src/bin/trust-harness.rs",
+  "crates/trust-runtime/src/host/harness/protocol.rs",
+]
 tests = [
   "TEST_RUNTIME_HARNESS_SYMBOLIC_IO_001",
   "TEST_RUNTIME_HARNESS_ACCESS_DIRECT_IO_001",
@@ -58,6 +61,15 @@ outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_applicable" }
 rationale = "Invalid typed values, invalid direct addresses, and missing names retain distinct error kinds and do not partially apply."
+
+[[behavior]]
+partition = { equals = "TYPED_JSON_SCALAR_CODEC" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "The shared harness codec decodes the reviewed BOOL, INT, and STRING payloads to their exact runtime values and encodes the reviewed BOOL value to its exact typed JSON payload."
 
 [[coverage.cells]]
 dimension = "happy_path"

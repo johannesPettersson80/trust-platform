@@ -1733,6 +1733,11 @@ last_reviewed = "2026-07-26"
 covers = [
   "source_discovery",
   "supported_source_extensions",
+  "test_pou_discovery",
+  "test_case_execution",
+  "test_reporting_and_ci_output",
+  "developer_ci_exit_classification",
+  "api_documentation_generation",
   "project_scoped_commit",
   "pre_staged_collision",
   "hmi_scaffold_deterministic_generation",
@@ -1740,6 +1745,30 @@ covers = [
   "hmi_scaffold_update_and_loader_precedence",
 ]
 known_limitations = []
+conflicts_with = []
+
+[[spec_sources]]
+schema_version = 2
+id = "SPEC_AGENT_API_V1_001"
+title = "truST Agent API v1 product contract"
+area = "plcopen_devtools"
+owner = "trust-dev"
+status = "mapped"
+authority = "normative_product"
+source_status = "active"
+oracle_eligible = true
+visibility = "public"
+locator_kind = "tracked_file"
+path = "docs/specs/20-agent-api-v1.md"
+version = "current"
+last_reviewed = "2026-07-27"
+covers = [
+  "agent_workspace_relative_path_lexical_normalization",
+  "agent_workspace_parent_escape_rejection",
+]
+known_limitations = [
+  "This reviewed slice does not specify filesystem containment across symbolic links, junctions, mount points, or later canonical path resolution.",
+]
 conflicts_with = []
 
 [[spec_sources]]

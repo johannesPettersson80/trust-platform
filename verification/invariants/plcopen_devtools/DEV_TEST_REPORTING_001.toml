@@ -1,0 +1,63 @@
+schema_version = 1
+id = "DEV_TEST_REPORTING_001"
+title = "Developer test reports preserve bounded result and source context"
+area = "plcopen_devtools"
+risk = "false_status"
+status = "planned"
+owner = "trust-dev"
+last_reviewed = "2026-07-27"
+claim = "The developer test runner renders reviewed JSON, TAP, JUnit, human, list, CI-selection, and timeout-message contracts without merging failed tests and runtime errors."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = [
+  "docs/specs/22-developer-workflows.md",
+  "docs/PRODUCT_DECISIONS.md",
+  "crates/trust-dev/src/test_cmd/output.rs",
+]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_tests", "focused_execution_evidence", "final_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_DEVELOPER_WORKFLOWS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_DEVELOPER_WORKFLOWS_001#test-reporting-and-ci-output"
+
+[[behavior]]
+partition = { equals = "MACHINE_REPORT_FORMATS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#test-reporting-and-ci-output"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "Reviewed fixtures preserve JSON version/count/status/source/duration fields, TAP plan and selected diagnostics, and JUnit compatibility suite plus failure/error separation and escaping."
+
+[[behavior]]
+partition = { equals = "HUMAN_AND_LIST_REPORTS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#test-reporting-and-ci-output"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "Human failure, zero-filter, list, and timeout-wording fixtures preserve exact reviewed identity, source, count, duration, and singular/plural context."
+
+[[behavior]]
+partition = { equals = "CI_OUTPUT_SELECTION" }
+case_family = "configuration"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#test-reporting-and-ci-output"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "CI mode changes only the default human format to JUnit and preserves each explicitly selected machine format."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "The reviewed output-family fixtures await generated catalog mapping."
+
+[[coverage.cells]]
+dimension = "configuration"
+state = "gap_open"
+rationale = "The reviewed CI selection behavior awaits generated catalog mapping."

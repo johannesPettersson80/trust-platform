@@ -58,6 +58,14 @@ outcome = "accept_value"
 delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
 rationale = "Dry-run and cancellation report the selected scope without mutating index, worktree, or history."
 
+[[behavior]]
+partition = { equals = "STATUS_PATH_FIDELITY" }
+case_family = "platform_or_filesystem_variation"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#project-scoped-commit"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "NUL-delimited Git status preserves a reviewed Unicode path for display, and Unix non-UTF-8 project pathspec handling returns a status entry without panicking; this does not claim quoted-path decoding or exact non-UTF-8 display bytes."
+
 [[coverage.cells]]
 dimension = "duplicate_or_collision"
 state = "covered"

@@ -81,6 +81,95 @@ must not report a successful empty test run. An unreadable supported source or
 an unsupported discovery shape fails visibly rather than disappearing from the
 result.
 
+## Test POU discovery
+
+After loading supported source files, `trust-dev test` discovers only truST
+`TEST_PROGRAM` and `TEST_FUNCTION_BLOCK` declarations. Discovery reports the
+test kind, namespace-qualified name, source path, one-based declaration line,
+and declaration source line. Comments and other parser trivia following a test
+name do not change its identity. Results are ordered by source path, declaration
+offset, and name so repeated discovery of the same source set is deterministic.
+
+`TEST_PROGRAM` and `TEST_FUNCTION_BLOCK` are truST test-workflow extensions,
+not additional IEC 61131-3 POU kinds and not IEC deviations.
+
+## Test case execution
+
+`trust-dev test` prepares one compiled runtime for the selected source set and
+cold-restarts it before every selected case. The cold restart restores declared
+initial values, so state written by one test case is not inherited by the next.
+The selected declaration is then invoked at its own boundary:
+`TEST_PROGRAM` as a program and `TEST_FUNCTION_BLOCK` as a function-block
+instance.
+
+When a production `CONFIGURATION` exists, selected test programs are registered
+as additional program instances for the test session. Ordinary runtime
+construction without that explicit registration continues to reject an
+unconfigured test program; the test runner does not silently alter the
+production configuration.
+
+An `ASSERT_*` failure is a failed test. A non-assertion runtime failure is an
+error. A configured per-case deadline that is reached produces the distinct
+execution-timeout result. Successful execution therefore requires entering the
+selected test body; merely compiling or locating it is not success.
+
+These runner and assertion behaviors are truST product extensions. They do not
+change IEC 61131-3 program execution outside the developer test workflow.
+
+## Test reporting and CI output
+
+The test command preserves three result states: `passed`, `failed`, and
+`error`. JSON output is version 1 and reports aggregate totals, total duration,
+and per-test status, source context, and duration. TAP output uses a version-13
+plan and reports each test by `TEST_PROGRAM::<name>` or
+`TEST_FUNCTION_BLOCK::<name>`, with source diagnostics for non-passing cases.
+JUnit output uses one compatibility suite named `trust-runtime`, reports
+separate failure and error counts, and XML-escapes diagnostic text.
+
+Human output identifies every non-passing test with its kind, name, source
+path, line, duration, reason, and available source line, followed by an ordered
+failure summary and aggregate counts. A filter that removes every discovered
+test reports both the filter and the unfiltered discovery count. List mode
+reports kind, name, project-relative path, line, and final listed count.
+
+`--ci` changes the default human selection to JUnit. An explicitly requested
+JSON, TAP, or JUnit format is preserved. Timeout prose uses singular
+`1 second` and plural `<n> seconds`.
+
+## Developer CI exit classification
+
+The `trust-dev` workbench uses the same stable CI failure classes as the runtime
+entrypoint: invalid project or configuration input is 10, build or compile
+failure is 11, ST assertion or runtime-test failure is 12, timeout is 13, and
+an unclassified internal failure is 20. Matching is ASCII case-insensitive.
+
+Timeout recognition precedes test, build, and configuration recognition. A
+recognized class is not replaced by command context. Only an otherwise
+unclassified message uses command fallback: `build` maps to 11, `test` to 12,
+`validate` to 10, and any other or absent command to 20. The free-form
+substring classifier is a compatibility boundary; it does not imply that
+arbitrary prose containing one of its tokens is semantically typed.
+
+## API documentation generation
+
+`trust-dev docs` associates a directly preceding tagged comment block with its
+Structured Text declaration. The supported tags are `@brief`,
+`@param <name> <description>`, and `@return <description>`. Extraction reports
+the declaration kind, qualified name, source path and line, declared
+parameters, return presence, and collected tag text.
+
+Missing tag descriptions, a parameter absent from the declaration, `@return`
+on a non-returning POU, duplicate recognized tags, and unknown tags produce
+visible documentation diagnostics. The reviewed Markdown and HTML renderers
+emit deterministic document headers, declaration identity, source location,
+parameter and return metadata, and tagged content. HTML rendering escapes
+user-controlled text before inserting it into markup.
+
+The existing focused snapshots define the representative Markdown and HTML
+shape for their fixtures; they do not establish every escaping or malformed
+input partition. Command failure policy for a generated document containing
+diagnostics requires separate specification authority.
+
 ## Interactive numeric prompts
 
 Numeric wizard/setup prompts accept unsigned base-10 values in the complete

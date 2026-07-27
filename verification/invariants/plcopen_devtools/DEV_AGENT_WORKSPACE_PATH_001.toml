@@ -1,0 +1,53 @@
+schema_version = 1
+id = "DEV_AGENT_WORKSPACE_PATH_001"
+title = "Agent workspace paths normalize lexically without parent escape"
+area = "plcopen_devtools"
+risk = "security"
+status = "planned"
+owner = "trust-dev"
+last_reviewed = "2026-07-27"
+claim = "Agent workspace path parameters collapse current-directory and in-scope parent components while rejecting any parent component that would escape the lexical workspace-relative root with error code -32001."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-dev/src/agent.rs"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_tests", "focused_execution_evidence", "final_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_AGENT_API_V1_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_AGENT_API_V1_001#lexical-workspace-relative-paths"
+
+[[behavior]]
+partition = { equals = "RELATIVE_PATH_WITH_CURRENT_OR_IN_SCOPE_PARENT_COMPONENT" }
+case_family = "happy_path"
+oracle_ref = "SPEC_AGENT_API_V1_001#lexical-workspace-relative-paths"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "Current-directory components are removed and an in-scope parent component removes exactly one preceding ordinary component."
+
+[[behavior]]
+partition = { equals = "PARENT_COMPONENT_ESCAPES_LEXICAL_ROOT" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_AGENT_API_V1_001#lexical-workspace-relative-paths"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "stable_error", status = "unchanged" }
+rationale = "A parent component with no preceding in-scope component is rejected with error code -32001."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "The reviewed lexical normalization behavior awaits generated catalog mapping."
+
+[[coverage.cells]]
+dimension = "auth_or_permission"
+state = "gap_open"
+rationale = "The reviewed parent-escape rejection behavior awaits generated catalog mapping."

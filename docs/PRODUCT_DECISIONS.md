@@ -765,3 +765,33 @@ IEC or PLCopen deviation log merely because truST owns the behavior.
   - IEC 61131-3 Ed.3 Table 33 admits `ANY_ELEMENTARY` comparison operands.
     Recording this exact result removes an internal product-spec contradiction
     and does not create an IEC deviation.
+
+## 2026-07-27 - Developer test workflow compatibility authority
+
+- Area: `trust-dev test`, CI classification, and API documentation
+- Decision:
+  - Every selected test case begins from a cold-restarted prepared runtime and
+    must enter its declared program or function-block body.
+  - Assertion failures and deadlines remain distinct failed and timeout
+    outcomes. Non-assertion runtime-error classification remains explicit
+    test debt.
+  - JSON, TAP, JUnit, human, and list rendering preserve the bounded contracts
+    in `docs/specs/22-developer-workflows.md`.
+  - The JUnit suite retains the historical `trust-runtime` name as a
+    compatibility identifier after command ownership moved to `trust-dev`.
+  - The `trust-dev` copy of CI classification retains the runtime entrypoint's
+    stable public codes and precedence.
+  - Tagged ST documentation extraction and deterministic Markdown/HTML
+    rendering are shipped product behavior. The existing snapshots establish
+    only their reviewed fixtures, not every malformed or escaping partition.
+- Supersedes:
+  - Any interpretation that compiling or discovering a test without entering
+    its body is a passing execution result.
+  - Any interpretation that the historical JUnit suite name proves current
+    binary ownership.
+  - Any interpretation that product runner, reporting, Git, agent, or
+    documentation behavior belongs in the IEC deviation register.
+- Reason:
+  - These behaviors are already observable automation contracts. Recording
+    their bounded authority lets existing tests be catalogued without
+    converting compatibility strings or narrow snapshots into broader claims.

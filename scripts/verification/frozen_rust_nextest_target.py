@@ -15,6 +15,7 @@ from .coverage_trace_filter import exact_name_matcher
 
 ADS_WIRE_DISABLED_CFG = '#[cfg(not(feature = "ads-wire"))]'
 ADS_SERVER_CFG = '#[cfg(feature = "ads-server")]'
+UNIX_CFG = "#[cfg(unix)]"
 MESSAGE_FORMAT_VERSION = "0.1"
 RUNTIME_CONTROL_PROFILE_KEY = "runtime-control-lib"
 RUNTIME_REMAINING_PROFILE_KEY = "runtime-remaining"
@@ -22,6 +23,7 @@ HIR_SEMANTIC_CONTROL_FLOW_PROFILE_KEY = "hir-semantic-control-flow"
 HIR_REMAINING_PROFILE_KEY = "hir-remaining"
 SYNTAX_REMAINING_PROFILE_KEY = "syntax-remaining"
 DEBUG_REMAINING_PROFILE_KEY = "debug-remaining"
+DEV_REMAINING_PROFILE_KEY = "dev-remaining"
 RUNTIME_CORE_REMAINING_PROFILE_KEY = "runtime-core-remaining"
 ADS_SERVER_REMAINING_PROFILE_KEY = "ads-server-remaining"
 VERIFICATION_CASES_REMAINING_PROFILE_KEY = "verification-cases-remaining"
@@ -47,6 +49,8 @@ class FrozenRustTargetProfile:
     def cargo_target_args(self) -> tuple[str, ...]:
         if self.target_kind == "lib":
             return ("--lib",)
+        if self.target_kind == "bin" and self.target_name:
+            return ("--bin", self.target_name)
         if self.target_kind == "test" and self.target_name:
             return ("--test", self.target_name)
         raise ValueError(f"{self.key} has an invalid Cargo target")
@@ -136,6 +140,20 @@ DEBUG_REMAINING_PROFILE = FrozenRustTargetProfile(
     encoded_test_name_prefix="trust-debug::trust_debug$",
     discovery_source_kind="rust_unit_test",
     allowed_cfg_attributes=frozenset(),
+    no_default_features_cfg=None,
+    no_default_features_shard_name=None,
+)
+
+DEV_REMAINING_PROFILE = FrozenRustTargetProfile(
+    key=DEV_REMAINING_PROFILE_KEY,
+    package="trust-dev",
+    target_kind="bin",
+    target_name="trust-dev",
+    binary_id="trust-dev::bin/trust-dev",
+    test_prefix="",
+    encoded_test_name_prefix="trust-dev::trust-dev$",
+    discovery_source_kind="rust_unit_test",
+    allowed_cfg_attributes=frozenset({UNIX_CFG}),
     no_default_features_cfg=None,
     no_default_features_shard_name=None,
 )
@@ -411,6 +429,14 @@ DEBUG_REMAINING_UNIT_PREFIXES: Mapping[str, str] = {
     "crates/trust-debug/src/session/tests.rs": "session::tests::",
 }
 
+DEV_REMAINING_UNIT_PREFIXES: Mapping[str, str] = {
+    "crates/trust-dev/src/agent.rs": "agent::tests::",
+    "crates/trust-dev/src/ci.rs": "ci::tests::",
+    "crates/trust-dev/src/commit.rs": "commit::tests::",
+    "crates/trust-dev/src/docs/tests.rs": "docs::tests::",
+    "crates/trust-dev/src/test_cmd/tests.rs": "test::tests::",
+}
+
 RUNTIME_CORE_REMAINING_UNIT_PREFIXES: Mapping[str, str] = {
     "crates/trust-runtime-core/src/bytecode/mod.rs": "bytecode::tests::",
     "crates/trust-runtime-core/src/cycle.rs": "cycle::tests::",
@@ -461,6 +487,7 @@ TARGET_PROFILES: Mapping[str, FrozenRustTargetProfile] = {
         HIR_REMAINING_PROFILE,
         SYNTAX_REMAINING_PROFILE,
         DEBUG_REMAINING_PROFILE,
+        DEV_REMAINING_PROFILE,
         RUNTIME_CORE_REMAINING_PROFILE,
         ADS_SERVER_REMAINING_PROFILE,
         VERIFICATION_CASES_REMAINING_PROFILE,
@@ -487,6 +514,13 @@ def get_target_profile(
             DEBUG_REMAINING_UNIT_PREFIXES,
             path,
             "debug",
+        )
+    if key == DEV_REMAINING_PROFILE_KEY:
+        return _unit_path_profile(
+            DEV_REMAINING_PROFILE,
+            DEV_REMAINING_UNIT_PREFIXES,
+            path,
+            "trust-dev",
         )
     if key == RUNTIME_CORE_REMAINING_PROFILE_KEY:
         return _unit_path_profile(

@@ -45,6 +45,14 @@ no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "unchanged" }
 rationale = "Unsupported extensions are excluded and an empty supported-source set is reported as a visible failure rather than a successful empty run."
 
+[[behavior]]
+partition = { equals = "TEST_POU_DECLARATION_EXTRACTION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#test-pou-discovery"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "Test POU discovery preserves kind, namespace-qualified identity, declaration source line, and deterministic source order independently of following comments or trivia."
+
 [[coverage.cells]]
 dimension = "platform_or_filesystem_variation"
 state = "covered"

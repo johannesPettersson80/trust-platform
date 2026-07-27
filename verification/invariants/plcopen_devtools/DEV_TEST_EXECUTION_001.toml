@@ -1,0 +1,103 @@
+schema_version = 1
+id = "DEV_TEST_EXECUTION_001"
+title = "Developer tests execute selected bodies from cold prepared state"
+area = "plcopen_devtools"
+risk = "false_status"
+status = "planned"
+owner = "trust-dev"
+last_reviewed = "2026-07-27"
+claim = "The developer test runner invokes the selected test POU, cold-restarts before each case, registers selected test programs without changing production configuration authority, and returns reviewed assertion and deadline results."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = [
+  "docs/specs/22-developer-workflows.md",
+  "docs/PRODUCT_DECISIONS.md",
+  "crates/trust-dev/src/test_cmd",
+]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_tests", "focused_execution_evidence", "non_assertion_runtime_error_test", "final_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_DEVELOPER_WORKFLOWS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_DEVELOPER_WORKFLOWS_001#test-case-execution"
+
+[[behavior]]
+partition = { equals = "PROGRAM_ASSERTION_RESULT" }
+case_family = "failure_path"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#test-case-execution"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "failed" }
+rationale = "Entering a TEST_PROGRAM body and reaching a failing ASSERT_* returns the assertion-failure result rather than a false pass."
+
+[[behavior]]
+partition = { equals = "FUNCTION_BLOCK_BODY_EXECUTION" }
+case_family = "failure_path"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#test-case-execution"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "failed" }
+rationale = "The selected TEST_FUNCTION_BLOCK is invoked at its function-block boundary and reaches its deliberate assertion catcher."
+
+[[behavior]]
+partition = { equals = "COLD_CASE_ISOLATION" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#test-case-execution"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "passed" }
+rationale = "Repeated and adjacent cases execute their body after a cold restart and observe declared initial state instead of a predecessor's mutation."
+
+[[behavior]]
+partition = { equals = "CONFIGURATION_TEST_PROGRAM_BINDING" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#test-case-execution"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "An ordinary configured runtime rejects an unbound test program, while explicit session registration and the test command invoke the selected test program without altering the production configuration."
+
+[[behavior]]
+partition = { equals = "CASE_DEADLINE" }
+case_family = "timeout"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#test-case-execution"
+outcome = "timeout"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "error" }
+rationale = "A case that overruns its configured deadline returns ExecutionTimeout rather than hanging or passing."
+
+[[behavior]]
+partition = { equals = "NON_ASSERTION_RUNTIME_ERROR" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#test-case-execution"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "error" }
+rationale = "The specification requires a non-assertion runtime failure to remain an error, but this batch has no direct execution test for that partition."
+
+[[coverage.cells]]
+dimension = "failure_path"
+state = "gap_open"
+rationale = "The reviewed program and function-block assertion catchers await generated catalog mapping."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "The reviewed cold-restart and configured-session behaviors await generated catalog mapping."
+
+[[coverage.cells]]
+dimension = "timeout"
+state = "gap_open"
+rationale = "The reviewed deadline-overrun behavior awaits generated catalog mapping."
+
+[[coverage.cells]]
+dimension = "extra_or_unknown"
+state = "gap_open"
+rationale = "A focused execution test for non-assertion runtime-error classification is still required."
