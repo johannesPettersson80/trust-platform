@@ -14,6 +14,8 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 - Specify mesh envelope metadata, subscription grammar, typed numeric decoding,
   bounded malformed-input handling, readiness, liveliness, QoS, and snapshot
   failure contracts without overstating TLS or query/reply proof.
+- Specify the ADS AMS/TCP prefix, frame-length cap, header/payload correlation,
+  canonical serialization, and response endpoint/correlation contract.
 
 Target release: `v0.24.57`
 

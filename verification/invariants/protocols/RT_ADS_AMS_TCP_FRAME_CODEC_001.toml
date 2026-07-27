@@ -1,0 +1,85 @@
+schema_version = 1
+id = "RT_ADS_AMS_TCP_FRAME_CODEC_001"
+title = "ADS AMS/TCP framing is exact and correlated"
+area = "protocols"
+risk = "silent_corruption"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-27"
+claim = "The ADS server accepts only exactly framed AMS/TCP requests, preserves every correlated header field and payload, serializes canonical bytes, and constructs response headers by swapping endpoints without losing command or invoke identity."
+proof_level = "S0"
+contract_kind = "protocol_trace"
+source_refs = [
+  "docs/specs/11-runtime-engine.md",
+  "crates/trust-ads-server/src/ams.rs",
+]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = [
+  "cataloged_tests",
+  "focused_execution_evidence",
+  "trailing_byte_policy",
+  "large_length_arithmetic_boundary",
+  "final_remote_gate",
+]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#ads-amstcp-frame-codec"
+
+[[behavior]]
+partition = { equals = "VALID_READ_REQUEST_ROUNDTRIP" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-amstcp-frame-codec"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A valid read request preserves every endpoint, command, state, length, error, invoke, and payload field and serializes back to the canonical reviewed bytes."
+
+[[behavior]]
+partition = { equals = "RESPONSE_ENDPOINT_CORRELATION" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-amstcp-frame-codec"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Response construction swaps source and target endpoints, preserves command and invoke identity, sets response state, and records the supplied payload length."
+
+[[behavior]]
+partition = { equals = "INVALID_AMS_TCP_ENVELOPE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-amstcp-frame-codec"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Short prefixes, reserved-byte violations, below-header lengths, over-cap lengths, and truncated declared frames reject at the AMS/TCP envelope boundary."
+
+[[behavior]]
+partition = { equals = "INVALID_AMS_HEADER_OR_LENGTH_CORRELATION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-amstcp-frame-codec"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Unsupported commands, invalid state flags, header/payload length mismatch, and serialization mismatch reject without a partially accepted frame."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "The valid roundtrip assertions await generated catalog mapping and focused execution."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "The response-correlation assertions await generated catalog mapping and focused execution."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "The malformed envelope and header-correlation matrix awaits generated catalog mapping and focused execution."

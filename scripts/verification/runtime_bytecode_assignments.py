@@ -148,6 +148,7 @@ def generate_path_plans(
     output_dir: Path,
     reviewed_date: str,
     timestamp: str,
+    target_profile: str = "runtime-remaining",
 ) -> dict[str, Any]:
     """Project reviewed bytecode assignments onto existing path proof."""
 
@@ -262,7 +263,7 @@ def generate_path_plans(
         plan = {
             "schema_version": 1,
             "execution_kind": "rust_nextest_jsonl",
-            "target_profile": "runtime-remaining",
+            "target_profile": target_profile,
             "path": path,
             "package": _string(execution, "package", path),
             "target_kind": _string(execution, "target_kind", path),

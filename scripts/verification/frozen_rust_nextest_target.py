@@ -23,6 +23,7 @@ HIR_REMAINING_PROFILE_KEY = "hir-remaining"
 SYNTAX_REMAINING_PROFILE_KEY = "syntax-remaining"
 DEBUG_REMAINING_PROFILE_KEY = "debug-remaining"
 RUNTIME_CORE_REMAINING_PROFILE_KEY = "runtime-core-remaining"
+ADS_SERVER_REMAINING_PROFILE_KEY = "ads-server-remaining"
 TERMINAL_EVENTS = frozenset({"ok", "failed", "ignored", "timeout"})
 
 
@@ -150,6 +151,24 @@ RUNTIME_CORE_REMAINING_PROFILE = FrozenRustTargetProfile(
     no_default_features_cfg=None,
     no_default_features_shard_name=None,
 )
+
+ADS_SERVER_REMAINING_PROFILE = FrozenRustTargetProfile(
+    key=ADS_SERVER_REMAINING_PROFILE_KEY,
+    package="trust-ads-server",
+    target_kind="lib",
+    target_name=None,
+    binary_id="trust-ads-server",
+    test_prefix="",
+    encoded_test_name_prefix="trust-ads-server::trust_ads_server$",
+    discovery_source_kind="rust_unit_test",
+    allowed_cfg_attributes=frozenset(),
+    no_default_features_cfg=None,
+    no_default_features_shard_name=None,
+)
+
+ADS_SERVER_REMAINING_UNIT_PREFIXES: Mapping[str, str] = {
+    "crates/trust-ads-server/src/ams.rs": "ams::tests::",
+}
 
 RUNTIME_REMAINING_LIB_PROFILE = FrozenRustTargetProfile(
     key=RUNTIME_REMAINING_PROFILE_KEY,
@@ -373,6 +392,7 @@ TARGET_PROFILES: Mapping[str, FrozenRustTargetProfile] = {
         SYNTAX_REMAINING_PROFILE,
         DEBUG_REMAINING_PROFILE,
         RUNTIME_CORE_REMAINING_PROFILE,
+        ADS_SERVER_REMAINING_PROFILE,
         RUNTIME_REMAINING_LIB_PROFILE,
     )
 }
@@ -402,6 +422,13 @@ def get_target_profile(
             RUNTIME_CORE_REMAINING_UNIT_PREFIXES,
             path,
             "runtime-core",
+        )
+    if key == ADS_SERVER_REMAINING_PROFILE_KEY:
+        return _unit_path_profile(
+            ADS_SERVER_REMAINING_PROFILE,
+            ADS_SERVER_REMAINING_UNIT_PREFIXES,
+            path,
+            "ads-server",
         )
     if key == RUNTIME_REMAINING_PROFILE_KEY:
         return _runtime_remaining_profile(path)

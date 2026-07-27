@@ -1736,6 +1736,29 @@ Static setup-page asset checks establish only that the reviewed onboarding
 labels and route names are shipped. They do not prove rendered interaction,
 authorization, control dispatch, ADS transport, or production readiness.
 
+###### ADS AMS/TCP frame codec
+
+The ADS server's stream boundary uses the six-byte AMS/TCP prefix followed by
+the AMS frame. The prefix contains two zero reserved bytes and a little-endian
+`u32` length. That length and the configured `max_frame_bytes` limit cover the
+32-byte AMS header plus payload and exclude the six-byte prefix.
+
+A valid parsed frame preserves target and source AMS Net IDs and ports,
+command ID, state flags, header data length, AMS error code, invoke ID, and
+payload. Parsing rejects a prefix shorter than six bytes, nonzero reserved
+bytes, a declared AMS length below 32, a declared length above the configured
+cap, a frame shorter than its declared length, an unsupported command ID,
+request state flags without the ADS command bit, or a header data length that
+does not equal the payload length. The codec must reject those boundaries
+before inventing missing bytes or accepting an inconsistent payload.
+
+Serialization requires the header data length to equal the payload length and
+emits the canonical prefix, header, and payload bytes. A response header swaps
+the request source and target endpoints, preserves command and invoke
+correlation, sets the response state, and records the supplied payload length.
+This codec contract does not by itself prove socket lifecycle, authorization,
+command dispatch, or external TwinCAT interoperability.
+
 ###### ADS server command dispatch and resource safety
 
 The ADS server evaluates the client allowlist before decoding or executing a

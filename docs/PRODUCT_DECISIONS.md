@@ -6,6 +6,25 @@ in `IEC_DECISIONS.md`; PLCopen profile decisions belong in
 `PLCOPEN_DECISIONS.md`. Product behavior recorded here MUST NOT be copied to an
 IEC or PLCopen deviation log merely because truST owns the behavior.
 
+## 2026-07-27 - ADS AMS/TCP frame-length boundary
+
+- Area: ADS server wire codec
+- Decision:
+  - The AMS/TCP prefix is six bytes: two zero reserved bytes and a
+    little-endian length.
+  - Both that length and `max_frame_bytes` cover the 32-byte AMS header plus
+    payload and exclude the six-byte prefix.
+  - Parsing and serialization require exact header/payload length correlation;
+    response construction swaps endpoints while preserving command and invoke
+    identity.
+- Authority:
+  - `docs/specs/11-runtime-engine.md`
+- Reason:
+  - ADS framing is a truST product/protocol contract outside IEC 61131-3.
+    Naming the exact configured-length boundary resolves the otherwise
+    ambiguous phrase "AMS/TCP frame size" and gives codec tests one precise
+    oracle without claiming transport or interoperability proof.
+
 ## 2026-07-27 - Mesh data and control-plane authority
 
 - Area: Runtime mesh transport
