@@ -289,6 +289,58 @@ mod tests {
 }
 
 #[test]
+fn assert_eq_method_is_recorded_as_oracle_site() {
+    let source = r#"
+#[test]
+fn compares_runtime_value() {
+    harness.assert_eq("count", 1);
+}
+"#;
+    let inventory = extract(
+        "crates/example/src/harness.rs",
+        "compares_runtime_value",
+        source,
+    )
+    .expect("extract assertion method");
+
+    assert!(inventory.unresolved_assertion_helpers.is_empty());
+    assert_eq!(1, inventory.assertions.len());
+    assert_eq!("method:assert_eq", inventory.assertions[0].kind);
+}
+
+#[test]
+fn qualified_external_calls_do_not_collide_with_local_function_names() {
+    let source = r#"
+fn temp_dir() {
+    let _ = std::env::temp_dir();
+}
+
+#[test]
+fn from_source() {
+    temp_dir();
+    let _harness = TestHarness::from_source("PROGRAM main END_PROGRAM").unwrap();
+    assert!(true);
+}
+"#;
+    let inventory = extract(
+        "crates/example/src/harness.rs",
+        "from_source",
+        source,
+    )
+    .expect("extract qualified external calls");
+
+    assert!(inventory.unresolved_assertion_helpers.is_empty());
+    assert_eq!(
+        vec!["macro:assert", "method:unwrap"],
+        inventory
+            .assertions
+            .iter()
+            .map(|assertion| assertion.kind.as_str())
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
 fn checked_arithmetic_methods_are_not_assertion_helpers() {
     let source = r#"
 #[cfg(test)]

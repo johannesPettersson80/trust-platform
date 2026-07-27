@@ -440,7 +440,8 @@ fn extract_from_built_context(
                 count if count > 1 => {
                     unresolved.insert(format!("{function_name}::{}:ambiguous", called.display()));
                 }
-                0 if by_simple_name.contains_key(called.simple_name())
+                0 if (called.segments.len() == 1
+                    && by_simple_name.contains_key(called.simple_name()))
                     || looks_like_assertion_helper(called.simple_name()) =>
                 {
                     unresolved.insert(format!("{function_name}::{}:unresolved", called.display()));
@@ -879,7 +880,10 @@ fn is_assertion_macro(name: &str) -> bool {
 }
 
 fn is_assertion_method(name: &str) -> bool {
-    matches!(name, "expect" | "expect_err" | "unwrap" | "unwrap_err")
+    matches!(
+        name,
+        "assert_eq" | "expect" | "expect_err" | "unwrap" | "unwrap_err"
+    )
 }
 
 fn looks_like_assertion_helper(name: &str) -> bool {
