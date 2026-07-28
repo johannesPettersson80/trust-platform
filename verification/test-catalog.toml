@@ -112405,3 +112405,104 @@ mapping_assertion_review_digest = "sha256:b3afad868d35410140c12349645514e92854d1
 mapping_assertion_source_digests = { "crates/trust-ads-core/src/symbols.rs" = "sha256:c7dfcd43ca89fbfa988b75d315a0e764589a589157add9867d0fa4c29fee5fc7" }
 mapping_behavior_refs = ["RT_ADS_CORE_VALUE_CODEC_001#behavior:4"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_1B897D7D7FAFF9D11C23"
+subject_kind = "generated_test"
+discovery_id = "DISC_1B897D7D7FAFF9D11C23"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-ads-core/src/quality.rs"
+name = "stale_at_preserves_last_update_timestamp"
+command = "cargo nextest run -p trust-ads-core --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-ads-core) & test(=quality::tests::stale_at_preserves_last_update_timestamp)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CORE_POINT_QUALITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-core-point-quality-lifecycle"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#ads-core-point-quality-lifecycle"]
+expected_result = "The reviewed stale_at constructor stores Stale, timestamp 42, and the supplied snapshot-too-old detail."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_1B897D7D7FAFF9D11C23.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_1B897D7D7FAFF9D11C23_EA259E425CB4"
+mapping_proposal_digest = "sha256:ea259e425cb45b87be67ab9c77f5e97d73248f13e4a8a5e14a8ea293a4e7a7ae"
+mapping_decision_id = "MAP_DEC_EF82A2304B2D7574C9538ED2"
+mapping_reviewed_source_digest = "sha256:257aaeee5fb22fb5c7ab226029849558e3e7c886259b6e5afd3e047fb2864703"
+mapping_assertion_review_digest = "sha256:3a07d632fce76dbad8bd16d247da3a4452f70129459c4bcc9d245b318a519934"
+mapping_assertion_source_digests = { "crates/trust-ads-core/src/quality.rs" = "sha256:257aaeee5fb22fb5c7ab226029849558e3e7c886259b6e5afd3e047fb2864703" }
+mapping_behavior_refs = ["RT_ADS_CORE_POINT_QUALITY_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_51CFC48F4ADD7ADC16CC"
+subject_kind = "generated_test"
+discovery_id = "DISC_51CFC48F4ADD7ADC16CC"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-ads-core/src/quality.rs"
+name = "cold_start_status_is_stale"
+command = "cargo nextest run -p trust-ads-core --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-ads-core) & test(=quality::tests::cold_start_status_is_stale)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CORE_POINT_QUALITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-core-point-quality-lifecycle"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#ads-core-point-quality-lifecycle"]
+expected_result = "The reviewed cold-start constructor preserves line1_temp as the point name and reports Stale; timestamp and detail are not asserted in this partition."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_51CFC48F4ADD7ADC16CC.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_51CFC48F4ADD7ADC16CC_4FFBE0256695"
+mapping_proposal_digest = "sha256:4ffbe0256695591e8069b6acb475dcb61d2bd3688ec33a883accb96409aae63f"
+mapping_decision_id = "MAP_DEC_DC20E2C95E752B14F02BC21B"
+mapping_reviewed_source_digest = "sha256:257aaeee5fb22fb5c7ab226029849558e3e7c886259b6e5afd3e047fb2864703"
+mapping_assertion_review_digest = "sha256:0aa2e41de586685734e1ea6a59c713468a26005643424d171096e05aa3b47013"
+mapping_assertion_source_digests = { "crates/trust-ads-core/src/quality.rs" = "sha256:257aaeee5fb22fb5c7ab226029849558e3e7c886259b6e5afd3e047fb2864703" }
+mapping_behavior_refs = ["RT_ADS_CORE_POINT_QUALITY_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_E77A750D7CCA1DF62C00"
+subject_kind = "generated_test"
+discovery_id = "DISC_E77A750D7CCA1DF62C00"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-ads-core/src/quality.rs"
+name = "quality_transitions_clear_and_preserve_fields"
+command = "cargo nextest run -p trust-ads-core --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-ads-core) & test(=quality::tests::quality_transitions_clear_and_preserve_fields)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_CORE_POINT_QUALITY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-core-point-quality-lifecycle"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#ads-core-point-quality-lifecycle"]
+expected_result = "The reviewed initial stale record has no timestamp; mark_good sets Good with timestamp 10 and no detail. The reviewed mark_error transition sets Error, timestamp 20, and read-failed detail. The reviewed mark_stale transition sets Stale, preserves timestamp 20, and replaces the detail with reconnecting."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_E77A750D7CCA1DF62C00.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_E77A750D7CCA1DF62C00_B9EFA3FFE464"
+mapping_proposal_digest = "sha256:b9efa3ffe464d8990638e09a39219201ef80986bd4e9959d4f2d13dbfb92fdd5"
+mapping_decision_id = "MAP_DEC_54A590ED1AB6986FC1E59B01"
+mapping_reviewed_source_digest = "sha256:257aaeee5fb22fb5c7ab226029849558e3e7c886259b6e5afd3e047fb2864703"
+mapping_assertion_review_digest = "sha256:aa4ddee2a81567e3c72ab5f19b0ab34f0c590c77bc8578e97afddfe6ee50de47"
+mapping_assertion_source_digests = { "crates/trust-ads-core/src/quality.rs" = "sha256:257aaeee5fb22fb5c7ab226029849558e3e7c886259b6e5afd3e047fb2864703" }
+mapping_behavior_refs = ["RT_ADS_CORE_POINT_QUALITY_001#behavior:2", "RT_ADS_CORE_POINT_QUALITY_001#behavior:3", "RT_ADS_CORE_POINT_QUALITY_001#behavior:4"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]

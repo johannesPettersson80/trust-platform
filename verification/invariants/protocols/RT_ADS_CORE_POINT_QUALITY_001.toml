@@ -13,24 +13,11 @@ source_refs = [
   "SPEC_RUNTIME_ENGINE_001",
   "crates/trust-ads-core/src/quality.rs",
 ]
-tests = []
+tests = ["TEST_AUTO_1B897D7D7FAFF9D11C23", "TEST_AUTO_51CFC48F4ADD7ADC16CC", "TEST_AUTO_E77A750D7CCA1DF62C00"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = [
-  "assertion_reachability",
-  "mutation_sensitivity",
-  "broad_remote_gate",
-  "freshness_clock_threshold_or_monotonicity",
-  "connector_lifecycle_projection",
-  "error_to_bad_projection",
-  "serialization_compatibility",
-  "session_or_cache_correctness",
-  "all_start_states_and_idempotence",
-  "backward_timestamp_semantics",
-  "external_ads_target",
-  "twincat_interoperability",
-]
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate", "freshness_clock_threshold_or_monotonicity", "connector_lifecycle_projection", "error_to_bad_projection", "serialization_compatibility", "session_or_cache_correctness", "all_start_states_and_idempotence", "backward_timestamp_semantics", "external_ads_target", "twincat_interoperability"]
 
 [spec]
 status = "specified"
