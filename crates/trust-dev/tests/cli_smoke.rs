@@ -44,8 +44,9 @@ fn trust_dev_subcommand_help_is_stable() {
 fn oscat_replaced_upstream_name_remains_absent() {
     let project = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../trust-runtime/tests/fixtures/oscat/negative_public_surface");
-    let sentinel =
-        std::fs::read_to_string(project.join("src/main.st")).expect("read OSCAT sentinel source");
+    let sentinel = include_str!(
+        "../../trust-runtime/tests/fixtures/oscat/negative_public_surface/src/main.st"
+    );
     assert!(sentinel.contains("OVERRIDE("));
     let output = trust_dev()
         .args(["test", "--project"])

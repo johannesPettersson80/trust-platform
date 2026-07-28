@@ -6,6 +6,10 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Freeze the OpenOT ST conformance inputs inside the runtime test fixture
+  closure and make the fenced capstone reconciliation assertions explicit, so
+  exact verification remains commit-bound instead of depending on mutable
+  sibling-checkout source and opaque helper assertions.
 - Specify the nine shipped tutorial files as executable compile contracts and
   lock the blinker, traffic-light, and motor-starter examples to their reviewed
   clean-cycle timing and I/O sequences.
