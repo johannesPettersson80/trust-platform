@@ -113589,3 +113589,172 @@ mapping_assertion_review_digest = "sha256:f403406259da933a88cdec72043a2f8ac19781
 mapping_assertion_source_digests = { "crates/trust-runtime/tests/harness.rs" = "sha256:b2c41244d1b49ca26e0f1adc7878201a5e882d19d6e8ecdd7db7572efa920ac1" }
 mapping_behavior_refs = ["RT_TEST_HARNESS_API_001#behavior:2"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_182C52FEEC07497CCAED"
+subject_kind = "generated_test"
+discovery_id = "DISC_182C52FEEC07497CCAED"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/runtime/restart.rs"
+name = "restart_instance_construction_failure_preserves_live_state"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=runtime::restart::tests::restart_instance_construction_failure_preserves_live_state)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_SAFE_RESTART_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001"]
+expected_result = "A reviewed missing function-block definition rejects warm restart as UndefinedFunctionBlock while preserving the live instance value, queued debug force, executable path, and cycle counter."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_182C52FEEC07497CCAED.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_182C52FEEC07497CCAED_C1D377985730"
+mapping_proposal_digest = "sha256:c1d377985730ea858fd3cd4bef87aabbaaae62187083cb4fb88e025beaf81a84"
+mapping_decision_id = "MAP_DEC_3904284F314335C803520546"
+mapping_reviewed_source_digest = "sha256:d72b2e96e880d2e5747f655292bd9989eca1353c18d9e374ae1bbfc77df8a5b5"
+mapping_assertion_review_digest = "sha256:ddb7c7330459dd876b58694617f09c81516c25407d5d97a36dc044fe48b46ffd"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/runtime/restart.rs" = "sha256:d72b2e96e880d2e5747f655292bd9989eca1353c18d9e374ae1bbfc77df8a5b5" }
+mapping_behavior_refs = ["RT_SAFE_RESTART_001#behavior:4"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_5B7344B729E5C62F8DE3"
+subject_kind = "generated_test"
+discovery_id = "DISC_5B7344B729E5C62F8DE3"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/runtime/restart.rs"
+name = "apply_retain_snapshot_rejects_struct_field_type_drift"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=runtime::restart::tests::apply_retain_snapshot_rejects_struct_field_type_drift)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_RETAIN_MIGRATION_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#retain-codec-compatibility-and-migration"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#retain-codec-compatibility-and-migration"]
+expected_result = "A BOOL substituted for the reviewed INT structure field or array element rejects retain application with the cause class invalid retained value; these tests do not independently observe atomic unchanged state."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_5B7344B729E5C62F8DE3.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_5B7344B729E5C62F8DE3_0ED9B5605AAD"
+mapping_proposal_digest = "sha256:0ed9b5605aad3c790edfd70b6606feace95f969758b8010fc6f1fd511c264c86"
+mapping_decision_id = "MAP_DEC_CE410FD928F6EDDFE156447A"
+mapping_reviewed_source_digest = "sha256:d72b2e96e880d2e5747f655292bd9989eca1353c18d9e374ae1bbfc77df8a5b5"
+mapping_assertion_review_digest = "sha256:ef41199c0b3b6604e806f37a1cac87c8658a559b578fd38924aa1304d9b0f8a8"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/runtime/restart.rs" = "sha256:d72b2e96e880d2e5747f655292bd9989eca1353c18d9e374ae1bbfc77df8a5b5" }
+mapping_behavior_refs = ["RT_RETAIN_MIGRATION_001#behavior:6"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_5EDF42B452D0B1EDDA96"
+subject_kind = "generated_test"
+discovery_id = "DISC_5EDF42B452D0B1EDDA96"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/runtime/restart.rs"
+name = "apply_retain_snapshot_canonicalizes_array_of_struct_and_rejects_bad_element"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=runtime::restart::tests::apply_retain_snapshot_canonicalizes_array_of_struct_and_rejects_bad_element)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_RETAIN_MIGRATION_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#retain-codec-compatibility-and-migration"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#retain-codec-compatibility-and-migration"]
+expected_result = "Reviewed enum values, a nested enum in one structure, and a one-dimensional array of structures rebuild the current declared type, variant, field, and inclusive-bounds identities. A BOOL substituted for the reviewed INT structure field or array element rejects retain application with the cause class invalid retained value; these tests do not independently observe atomic unchanged state."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_5EDF42B452D0B1EDDA96.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_5EDF42B452D0B1EDDA96_875C6E1B31AF"
+mapping_proposal_digest = "sha256:875c6e1b31af1da3c7a690cb688a0a85b61220d4bc44725d368a25261dea21af"
+mapping_decision_id = "MAP_DEC_7D15F4C8D359051A44EC541D"
+mapping_reviewed_source_digest = "sha256:d72b2e96e880d2e5747f655292bd9989eca1353c18d9e374ae1bbfc77df8a5b5"
+mapping_assertion_review_digest = "sha256:cf47753a87b6377f7434aae67ed355c6e7ab1c47db5ddd27568826d54f384b57"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/runtime/restart.rs" = "sha256:d72b2e96e880d2e5747f655292bd9989eca1353c18d9e374ae1bbfc77df8a5b5" }
+mapping_behavior_refs = ["RT_RETAIN_MIGRATION_001#behavior:5", "RT_RETAIN_MIGRATION_001#behavior:6"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_7CD5D444A8A4F7601610"
+subject_kind = "generated_test"
+discovery_id = "DISC_7CD5D444A8A4F7601610"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/runtime/restart.rs"
+name = "apply_retain_snapshot_canonicalizes_nested_enum_in_struct"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=runtime::restart::tests::apply_retain_snapshot_canonicalizes_nested_enum_in_struct)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_RETAIN_MIGRATION_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#retain-codec-compatibility-and-migration"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#retain-codec-compatibility-and-migration"]
+expected_result = "Reviewed enum values, a nested enum in one structure, and a one-dimensional array of structures rebuild the current declared type, variant, field, and inclusive-bounds identities."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_7CD5D444A8A4F7601610.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_7CD5D444A8A4F7601610_1DED338DFCE5"
+mapping_proposal_digest = "sha256:1ded338dfce5cacfe27fe7cceec02a57fdeb10c509b34705bb21b5c0b4a5081f"
+mapping_decision_id = "MAP_DEC_D44E837EAC05DD9300AD4F3C"
+mapping_reviewed_source_digest = "sha256:d72b2e96e880d2e5747f655292bd9989eca1353c18d9e374ae1bbfc77df8a5b5"
+mapping_assertion_review_digest = "sha256:8e061ed11926d08f8763ac2ce306ce0dd7426da6fa6a336dd59bb356da67513c"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/runtime/restart.rs" = "sha256:d72b2e96e880d2e5747f655292bd9989eca1353c18d9e374ae1bbfc77df8a5b5" }
+mapping_behavior_refs = ["RT_RETAIN_MIGRATION_001#behavior:5"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_82C2C9A40CD6B6417DA6"
+subject_kind = "generated_test"
+discovery_id = "DISC_82C2C9A40CD6B6417DA6"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/runtime/restart.rs"
+name = "apply_retain_snapshot_canonicalizes_legacy_enum_type_name"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=runtime::restart::tests::apply_retain_snapshot_canonicalizes_legacy_enum_type_name)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_RETAIN_MIGRATION_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#retain-codec-compatibility-and-migration"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#retain-codec-compatibility-and-migration"]
+expected_result = "Reviewed enum values, a nested enum in one structure, and a one-dimensional array of structures rebuild the current declared type, variant, field, and inclusive-bounds identities."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_82C2C9A40CD6B6417DA6.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_82C2C9A40CD6B6417DA6_8CA38782DCF8"
+mapping_proposal_digest = "sha256:8ca38782dcf8bda41750acc60822a53d6cab21fdea9a5655c6beb404e10a5432"
+mapping_decision_id = "MAP_DEC_40C324DD2C57C9D018AAD73C"
+mapping_reviewed_source_digest = "sha256:d72b2e96e880d2e5747f655292bd9989eca1353c18d9e374ae1bbfc77df8a5b5"
+mapping_assertion_review_digest = "sha256:0c9543f66e11ed5388b4623b09334bdf907d200fda1646f2de5ef8b5c4f9086e"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/runtime/restart.rs" = "sha256:d72b2e96e880d2e5747f655292bd9989eca1353c18d9e374ae1bbfc77df8a5b5" }
+mapping_behavior_refs = ["RT_RETAIN_MIGRATION_001#behavior:5"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
