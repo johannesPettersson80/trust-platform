@@ -112743,3 +112743,240 @@ mapping_assertion_review_digest = "sha256:b18729a19ebddc2b35cff50e6ff9e724f86c75
 mapping_assertion_source_digests = { "crates/trust-runtime/src/host/bundle_builder/tests.rs" = "sha256:fe886731681533de249e0ce964717e9098c68083430b569a8b26a9aa8440d46a" }
 mapping_behavior_refs = ["RT_BUILD_COMMAND_001#behavior:7"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_0BD76C389DCA0387316F"
+subject_kind = "generated_test"
+discovery_id = "DISC_0BD76C389DCA0387316F"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/st_test_cli_command.rs"
+name = "timeout_flag_reports_error_for_infinite_loop_test"
+command = "cargo nextest run -p trust-runtime --test st_test_cli_command --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::st_test_cli_command) & test(=timeout_flag_reports_error_for_infinite_loop_test)'"
+owner = "trust-dev"
+status = "mapped"
+invariants = ["DEV_TEST_EXECUTION_001", "DEV_TEST_REPORTING_001"]
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#test-case-execution"
+oracle_refs = ["SPEC_DEVELOPER_WORKFLOWS_001#test-case-execution", "SPEC_DEVELOPER_WORKFLOWS_001#test-reporting-and-ci-output"]
+expected_result = "A case that overruns its configured deadline returns ExecutionTimeout rather than hanging or passing. Human failure, zero-filter, list, and timeout-wording fixtures preserve exact reviewed identity, source, count, duration, and singular/plural context."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_0BD76C389DCA0387316F.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_0BD76C389DCA0387316F_9A81044A2849"
+mapping_proposal_digest = "sha256:9a81044a284963c6162486e550862de7a610d1e0181e59554a24c90c37abfd6f"
+mapping_decision_id = "MAP_DEC_15F7D6EA0408CB12D163E88B"
+mapping_reviewed_source_digest = "sha256:cea67f74a852421b48bceb7b9dc27a855068df59823979570bceca4578c99551"
+mapping_assertion_review_digest = "sha256:be678d50e68c568b1623409e11b99ebb656e3deaeeaadc2b47a2ced730402078"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/st_test_cli_command.rs" = "sha256:cea67f74a852421b48bceb7b9dc27a855068df59823979570bceca4578c99551" }
+mapping_behavior_refs = ["DEV_TEST_EXECUTION_001#behavior:4", "DEV_TEST_REPORTING_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_0C37F6CE3A863AA20738"
+subject_kind = "generated_test"
+discovery_id = "DISC_0C37F6CE3A863AA20738"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/st_test_cli_command.rs"
+name = "list_flag_lists_tutorial_10_tests_without_executing"
+command = "cargo nextest run -p trust-runtime --test st_test_cli_command --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::st_test_cli_command) & test(=list_flag_lists_tutorial_10_tests_without_executing)'"
+owner = "trust-dev"
+status = "mapped"
+invariants = ["DEV_TEST_REPORTING_001"]
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#test-reporting-and-ci-output"
+oracle_refs = ["SPEC_DEVELOPER_WORKFLOWS_001#test-reporting-and-ci-output"]
+expected_result = "Human failure, zero-filter, list, and timeout-wording fixtures preserve exact reviewed identity, source, count, duration, and singular/plural context."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_0C37F6CE3A863AA20738.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_0C37F6CE3A863AA20738_7EEAADCD5045"
+mapping_proposal_digest = "sha256:7eeaadcd5045b9fffa81c084679fa977057d2c7eca6534643a2afd77c45087ee"
+mapping_decision_id = "MAP_DEC_6E6EDC22A66171F206B3265A"
+mapping_reviewed_source_digest = "sha256:cea67f74a852421b48bceb7b9dc27a855068df59823979570bceca4578c99551"
+mapping_assertion_review_digest = "sha256:3c5e5e42a3f500b1f9f7d134860cda29c39b199073d827e477e277abd7f47874"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/st_test_cli_command.rs" = "sha256:cea67f74a852421b48bceb7b9dc27a855068df59823979570bceca4578c99551" }
+mapping_behavior_refs = ["DEV_TEST_REPORTING_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_253D75705176F76907C4"
+subject_kind = "generated_test"
+discovery_id = "DISC_253D75705176F76907C4"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "supply_chain_platform"
+path = "crates/trust-runtime/tests/st_test_cli_command.rs"
+name = "build_accepts_recent_language_regression_cases"
+command = "cargo nextest run -p trust-runtime --test st_test_cli_command --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::st_test_cli_command) & test(=build_accepts_recent_language_regression_cases)'"
+owner = "release"
+status = "mapped"
+invariants = ["RT_BUILD_COMMAND_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1d-runtime-build-and-ci-failure-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#6-8-1d-runtime-build-and-ci-failure-contract"]
+expected_result = "A valid build writes bytecode and CI output binds the artifact to the complete selected source and dependency identity."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_253D75705176F76907C4.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_253D75705176F76907C4_AED6F11DBB7B"
+mapping_proposal_digest = "sha256:aed6f11dbb7b8c0c6366de8dec35606718d4641eb1dff401c8f61404afeee31f"
+mapping_decision_id = "MAP_DEC_82923D032C143695BB66A046"
+mapping_reviewed_source_digest = "sha256:cea67f74a852421b48bceb7b9dc27a855068df59823979570bceca4578c99551"
+mapping_assertion_review_digest = "sha256:2d218cee68670499cac4827f4416c039c030b11074f556603f17178552dd0927"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/st_test_cli_command.rs" = "sha256:cea67f74a852421b48bceb7b9dc27a855068df59823979570bceca4578c99551" }
+mapping_behavior_refs = ["RT_BUILD_COMMAND_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_613C825C95E9BD7589DA"
+subject_kind = "generated_test"
+discovery_id = "DISC_613C825C95E9BD7589DA"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/st_test_cli_command.rs"
+name = "json_output_includes_duration_fields"
+command = "cargo nextest run -p trust-runtime --test st_test_cli_command --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::st_test_cli_command) & test(=json_output_includes_duration_fields)'"
+owner = "trust-dev"
+status = "mapped"
+invariants = ["DEV_TEST_REPORTING_001"]
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#test-reporting-and-ci-output"
+oracle_refs = ["SPEC_DEVELOPER_WORKFLOWS_001#test-reporting-and-ci-output"]
+expected_result = "Reviewed fixtures preserve JSON version/count/status/source/duration fields, TAP plan and selected diagnostics, and JUnit compatibility suite plus failure/error separation and escaping."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_613C825C95E9BD7589DA.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_613C825C95E9BD7589DA_74418F823CA5"
+mapping_proposal_digest = "sha256:74418f823ca5df7f507e584bca7c56ad831c837ee242bc7b8059143a5367c153"
+mapping_decision_id = "MAP_DEC_2F4F341540AF44A2DCBE6DD4"
+mapping_reviewed_source_digest = "sha256:cea67f74a852421b48bceb7b9dc27a855068df59823979570bceca4578c99551"
+mapping_assertion_review_digest = "sha256:4b846a6b4a16d08bf74e524f2c01f184a9f59298ea4f00774279759b8e45e107"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/st_test_cli_command.rs" = "sha256:cea67f74a852421b48bceb7b9dc27a855068df59823979570bceca4578c99551" }
+mapping_behavior_refs = ["DEV_TEST_REPORTING_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_660F8403764F3D351C9F"
+subject_kind = "generated_test"
+discovery_id = "DISC_660F8403764F3D351C9F"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/st_test_cli_command.rs"
+name = "timeout_budget_does_not_count_project_recompilation_per_case"
+command = "cargo nextest run -p trust-runtime --test st_test_cli_command --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::st_test_cli_command) & test(=timeout_budget_does_not_count_project_recompilation_per_case)'"
+owner = "trust-dev"
+status = "mapped"
+invariants = ["DEV_TEST_EXECUTION_001"]
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#test-case-execution"
+oracle_refs = ["SPEC_DEVELOPER_WORKFLOWS_001#test-case-execution"]
+expected_result = "The project is compiled before per-case execution timing begins, so the reviewed two-second case deadline measures the selected OSCAT case rather than project recompilation."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "long"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_660F8403764F3D351C9F.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_660F8403764F3D351C9F_7F6C333B02D9"
+mapping_proposal_digest = "sha256:7f6c333b02d907805e1d412d3720e16518fd52ad04530ba4ef0ada379fdc964b"
+mapping_decision_id = "MAP_DEC_AA559E9AB1496FA1FDEA44A1"
+mapping_reviewed_source_digest = "sha256:cea67f74a852421b48bceb7b9dc27a855068df59823979570bceca4578c99551"
+mapping_assertion_review_digest = "sha256:ee317b111132531636a183e1a0773412c78d6fce5437ea2260c7b8a2c6fb76d4"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/st_test_cli_command.rs" = "sha256:cea67f74a852421b48bceb7b9dc27a855068df59823979570bceca4578c99551" }
+mapping_behavior_refs = ["DEV_TEST_EXECUTION_001#behavior:6"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_7D2DD5D31B5A5FC44DBC"
+subject_kind = "generated_test"
+discovery_id = "DISC_7D2DD5D31B5A5FC44DBC"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/st_test_cli_command.rs"
+name = "filter_zero_message_is_clear_in_human_output"
+command = "cargo nextest run -p trust-runtime --test st_test_cli_command --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::st_test_cli_command) & test(=filter_zero_message_is_clear_in_human_output)'"
+owner = "trust-dev"
+status = "mapped"
+invariants = ["DEV_TEST_REPORTING_001"]
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#test-reporting-and-ci-output"
+oracle_refs = ["SPEC_DEVELOPER_WORKFLOWS_001#test-reporting-and-ci-output"]
+expected_result = "Human failure, zero-filter, list, and timeout-wording fixtures preserve exact reviewed identity, source, count, duration, and singular/plural context."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_7D2DD5D31B5A5FC44DBC.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_7D2DD5D31B5A5FC44DBC_AF3DA0A95D42"
+mapping_proposal_digest = "sha256:af3da0a95d42234f4f032ac2b4886ba8526919c30da6e6c8fa75ad81dac646c6"
+mapping_decision_id = "MAP_DEC_6D930BA653EDDCED30FEEB34"
+mapping_reviewed_source_digest = "sha256:cea67f74a852421b48bceb7b9dc27a855068df59823979570bceca4578c99551"
+mapping_assertion_review_digest = "sha256:a29b438c03cc3ae181313519b83603431f6e46929bfb70a6274eec767d3fd468"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/st_test_cli_command.rs" = "sha256:cea67f74a852421b48bceb7b9dc27a855068df59823979570bceca4578c99551" }
+mapping_behavior_refs = ["DEV_TEST_REPORTING_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_97B2FF40560E0E22B910"
+subject_kind = "generated_test"
+discovery_id = "DISC_97B2FF40560E0E22B910"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/st_test_cli_command.rs"
+name = "test_program_runs_when_configuration_is_present"
+command = "cargo nextest run -p trust-runtime --test st_test_cli_command --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::st_test_cli_command) & test(=test_program_runs_when_configuration_is_present)'"
+owner = "trust-dev"
+status = "mapped"
+invariants = ["DEV_TEST_EXECUTION_001"]
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#test-case-execution"
+oracle_refs = ["SPEC_DEVELOPER_WORKFLOWS_001#test-case-execution"]
+expected_result = "An ordinary configured runtime rejects an unbound test program, while explicit session registration and the test command invoke the selected test program without altering the production configuration."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_97B2FF40560E0E22B910.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_97B2FF40560E0E22B910_827CDFE0CA13"
+mapping_proposal_digest = "sha256:827cdfe0ca13c0d0e82ecbcaf356d4877e7d20ba64335d2a99eca90f187886aa"
+mapping_decision_id = "MAP_DEC_40786E2FA563BB2EEB460858"
+mapping_reviewed_source_digest = "sha256:cea67f74a852421b48bceb7b9dc27a855068df59823979570bceca4578c99551"
+mapping_assertion_review_digest = "sha256:2f554eed05fb3b815ccac4b644795135259e6ca86ece5cfadf520cac1d8c2c96"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/st_test_cli_command.rs" = "sha256:cea67f74a852421b48bceb7b9dc27a855068df59823979570bceca4578c99551" }
+mapping_behavior_refs = ["DEV_TEST_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
