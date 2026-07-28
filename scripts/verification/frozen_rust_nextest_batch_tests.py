@@ -549,6 +549,14 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
             ("--test", "ci_cicd_contract"),
             ci_contract.cargo_target_args,
         )
+        multifile = get_target_profile(
+            "runtime-remaining",
+            path="crates/trust-runtime/tests/e2e_multifile.rs",
+        )
+        self.assertEqual(
+            ("--test", "e2e_multifile"),
+            multifile.cargo_target_args,
+        )
         scheduler = get_target_profile(
             "runtime-remaining",
             path="crates/trust-runtime/tests/e2e_scheduler.rs",

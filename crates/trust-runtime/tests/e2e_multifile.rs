@@ -4,11 +4,11 @@ use trust_runtime::harness::TestHarness;
 fn namespace_resolution() {
     let library = r#"
         NAMESPACE Utilities
-        FUNCTION Helper : INT
+        FUNCTION Helper : DINT
         VAR_INPUT
-            x: INT;
+            x: DINT;
         END_VAR
-        Helper := x;
+        Helper := x + 1;
         END_FUNCTION
         END_NAMESPACE
     "#;
@@ -19,7 +19,7 @@ fn namespace_resolution() {
         VAR
             count: DINT := 0;
         END_VAR
-        count := count + 1;
+        count := Helper(count);
         END_PROGRAM
     "#;
 

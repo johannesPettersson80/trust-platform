@@ -6,6 +6,32 @@ in `IEC_DECISIONS.md`; PLCopen profile decisions belong in
 `PLCOPEN_DECISIONS.md`. Product behavior recorded here MUST NOT be copied to an
 IEC or PLCopen deviation log merely because truST owns the behavior.
 
+## 2026-07-28 - Namespace-qualified multifile runtime assembly
+
+- Area: Runtime source assembly and namespace identity
+- Decision:
+  - A direct member imported by `USING` remains callable when its namespace and
+    consuming program are supplied as separate source units.
+  - Runtime registries preserve namespace-qualified identities for programs,
+    functions, function blocks, classes, and interfaces. A namespaced program
+    remains an executable scan entry point.
+  - Within one namespace, sibling functions, function blocks, classes, and
+    interfaces resolve as one semantic graph and execute without dropping the
+    namespace identity.
+  - Program identities are unique under ASCII-case-insensitive comparison
+    across the merged source set. A collision rejects assembly and identifies
+    both the duplicate condition and the reviewed original spelling.
+- Authority:
+  - IEC 61131-3 Ed.3, Section 6.9 and Tables 64-66.
+  - `docs/specs/04-pou-declarations.md`
+  - `docs/specs/11-runtime-engine.md`
+- Reason:
+  - Namespace membership and `USING` resolution follow IEC. Runtime registry
+    naming, scan-entry selection, merged-source collision handling, and
+    diagnostic identity are observable truST product integration rules. They
+    require product authority but do not conflict with IEC and are not an IEC
+    deviation.
+
 ## 2026-07-28 - Native CI fixture and performance authority boundary
 
 - Area: Developer test CI compatibility

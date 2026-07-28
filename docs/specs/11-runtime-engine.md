@@ -1333,6 +1333,29 @@ symlink or concurrent-filesystem behavior, cleanup after partial writes,
 external registries, bytecode semantic equivalence, or cross-platform path
 behavior.
 
+##### Namespace-qualified multifile runtime assembly
+
+IEC 61131-3 Ed.3 Section 6.9 and Tables 64-66 define namespace membership,
+qualified access, and the `USING` directive. The runtime source assembler
+preserves those identities across the merged source set:
+
+- a direct function member imported by `USING` is callable when the namespace
+  and consuming program come from separate source units;
+- namespace-qualified programs are registered by their full name and remain
+  executable scan entry points;
+- sibling functions, function blocks, classes, and interfaces declared inside
+  one namespace are registered by full name, resolve within that namespace,
+  and execute as one semantic graph; and
+- program names are unique under ASCII-case-insensitive comparison across the
+  merged source set. A collision rejects assembly, reports the duplicate
+  condition, and retains the reviewed original spelling in the diagnostic.
+
+These rules do not imply source-order dependence, arbitrary nested-namespace
+import, complete diagnostic prose stability, or registration of declarations
+that fail semantic validation. Namespace and `USING` semantics are IEC
+behavior; runtime registry identities, scan-entry selection, and the bounded
+collision diagnostic are truST integration behavior, not IEC deviations.
+
 ##### Runtime CLI entrypoint, diagnostics, and dispatch contract
 
 The `trust-runtime` entrypoint parses one optional top-level command. A
