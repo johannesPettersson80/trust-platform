@@ -6,6 +6,27 @@ in `IEC_DECISIONS.md`; PLCopen profile decisions belong in
 `PLCOPEN_DECISIONS.md`. Product behavior recorded here MUST NOT be copied to an
 IEC or PLCopen deviation log merely because truST owns the behavior.
 
+## 2026-07-28 - Resource scheduler cycle, fault, and trace semantics
+
+- Area: Runtime resource scheduler
+- Decision:
+  - A resource tick samples the current injected clock and task inputs, then
+    executes each due periodic or rising-edge event program once in the
+    scheduler's deterministic order.
+  - A backward manual-clock sample neither replays periodic work nor creates an
+    overrun; execution resumes from the unchanged periodic baseline.
+  - A task execution error is returned, latches the runtime fault state, and
+    makes a later tick reject as `ResourceFaulted` until an explicit recovery
+    transition occurs.
+  - Replaying the same source, manual-clock steps, and input transitions
+    produces the same ordered runtime-event vector.
+- Authority:
+  - `docs/specs/11-runtime-engine.md`
+- Reason:
+  - IEC defines task triggers and priority, while resource-cycle realization,
+    fault latching, and debug-event trace reproducibility are truST runtime
+    policy. These choices are product authority, not IEC deviations.
+
 ## 2026-07-28 - Direct restart staging and recursive retain identity
 
 - Area: Runtime restart and retained-state migration

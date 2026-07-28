@@ -221,6 +221,33 @@ rules are truST bookkeeping beyond the IEC task-trigger definition; they make
 host-pause, simulation, and test-clock behavior deterministic. They are
 specified here as a truST runtime contract, not as an IEC deviation.
 
+##### Resource-runner cycle transaction
+
+One resource tick samples the current injected clock and task inputs, then
+executes each due periodic or rising-edge event program once in the
+deterministic scheduler order. In the reviewed combined case, the initial
+zero-time tick executes neither program, the ten-millisecond tick executes the
+periodic program and one rising-edge event activation, and the following
+ten-millisecond tick executes only the periodic program after the event input
+falls.
+
+A backward manual-clock sample does not replay periodic work or create an
+overrun. A later sample that reaches the next deadline resumes from the
+unchanged periodic baseline. A forward jump spanning multiple complete
+intervals executes the periodic program once and records the remaining
+intervals as missed, as defined by the readiness contract above.
+
+If due task execution returns an error, the tick returns that typed error and
+latches the runtime fault state. A later tick rejects as
+`RuntimeError::ResourceFaulted` until an explicit recovery transition clears or
+replaces that state. This focused contract does not assert rollback of work
+completed before the fault.
+
+For the same source, initial runtime state, manual-clock samples, and input
+transitions, the ordered `RuntimeEvent` vector is reproducible. Event payload
+debug formatting, wall-clock timing, OS-thread scheduling, and cross-version
+trace compatibility are outside this equality contract.
+
 On Unix, the runtime's graceful-shutdown signal set is exactly `SIGINT` and
 `SIGTERM`. Signals outside that set are not translated into a runtime stop by
 the installed signal source. Their operating-system disposition is outside

@@ -1,0 +1,439 @@
+{
+  "id": "SCHEDULER_5_SEMANTIC_LOCK",
+  "schema_version": 1,
+  "tests": [
+    {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_47268C8027ADABFE65761E39",
+          "behavior_label": "MANUAL_CLOCK_RUNTIME_EVENT_TRACE_REPRODUCIBILITY",
+          "disposition": "setup_or_precondition",
+          "expression": "TestHarness :: from_source (source) . unwrap ()",
+          "function": "trace_determinism",
+          "invariant_id": "RT_RESOURCE_SCHEDULER_E2E_001",
+          "kind": "method:unwrap"
+        },
+        {
+          "assertion_id": "ASSERT_D0E2CE00B681C4B2B9B7C72D",
+          "behavior_label": "MANUAL_CLOCK_RUNTIME_EVENT_TRACE_REPRODUCIBILITY",
+          "disposition": "oracle_bound",
+          "expression": "runner . tick () . unwrap ()",
+          "function": "trace_determinism",
+          "invariant_id": "RT_RESOURCE_SCHEDULER_E2E_001",
+          "kind": "method:unwrap"
+        },
+        {
+          "assertion_id": "ASSERT_5D694812864CE8D393C95FA3",
+          "behavior_label": "MANUAL_CLOCK_RUNTIME_EVENT_TRACE_REPRODUCIBILITY",
+          "disposition": "oracle_bound",
+          "expression": "runner . tick () . unwrap ()",
+          "function": "trace_determinism",
+          "invariant_id": "RT_RESOURCE_SCHEDULER_E2E_001",
+          "kind": "method:unwrap"
+        },
+        {
+          "assertion_id": "ASSERT_1E2260CCC6F0776D6F752510",
+          "behavior_label": "MANUAL_CLOCK_RUNTIME_EVENT_TRACE_REPRODUCIBILITY",
+          "disposition": "oracle_bound",
+          "expression": "runner . tick () . unwrap ()",
+          "function": "trace_determinism",
+          "invariant_id": "RT_RESOURCE_SCHEDULER_E2E_001",
+          "kind": "method:unwrap"
+        },
+        {
+          "assertion_id": "ASSERT_E2EDC659C048C6FE1AC7BA5F",
+          "behavior_label": "MANUAL_CLOCK_RUNTIME_EVENT_TRACE_REPRODUCIBILITY",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (trace_a , trace_b)",
+          "function": "trace_determinism",
+          "invariant_id": "RT_RESOURCE_SCHEDULER_E2E_001",
+          "kind": "macro:assert_eq"
+        }
+      ],
+      "exclusions": [
+        "The test proves equality of two in-process traces for one fixed ManualClock sequence; it does not assert the expected event contents.",
+        "It does not prove durable trace storage, external telemetry ordering, cross-process replay, or cross-platform byte identity.",
+        "These in-process ManualClock tests do not prove operating-system clock behavior, real-time jitter, external I/O, or hardware scheduling."
+      ],
+      "name": "trace_determinism",
+      "path": "crates/trust-runtime/tests/e2e_scheduler.rs"
+    },
+    {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_B89D36FABDFB52B87C8BA3B5",
+          "behavior_label": "FORWARD_CLOCK_COALESCING_RESOURCE_SEQUENCE",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (i64 :: from (* v) , expected)",
+          "function": "assert_counter",
+          "invariant_id": "RT_RESOURCE_SCHEDULER_E2E_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_A128031DE0C28AC2536DADFD",
+          "behavior_label": "FORWARD_CLOCK_COALESCING_RESOURCE_SEQUENCE",
+          "disposition": "non_oracle_observation",
+          "expression": "assert_eq ! (i64 :: from (* v) , expected)",
+          "function": "assert_counter",
+          "invariant_id": "RT_RESOURCE_SCHEDULER_E2E_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_55A903BEE41C0DEEA412BB6C",
+          "behavior_label": "FORWARD_CLOCK_COALESCING_RESOURCE_SEQUENCE",
+          "disposition": "non_oracle_observation",
+          "expression": "assert_eq ! (* v , expected)",
+          "function": "assert_counter",
+          "invariant_id": "RT_RESOURCE_SCHEDULER_E2E_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_BA9156CA9A4C5C858AC6294C",
+          "behavior_label": "FORWARD_CLOCK_COALESCING_RESOURCE_SEQUENCE",
+          "disposition": "oracle_bound",
+          "expression": "panic ! (\"unexpected counter value {other:?}\")",
+          "function": "assert_counter",
+          "invariant_id": "RT_RESOURCE_SCHEDULER_E2E_001",
+          "kind": "macro:panic"
+        },
+        {
+          "assertion_id": "ASSERT_7AE489615305FC85BD9569C9",
+          "behavior_label": "FORWARD_CLOCK_COALESCING_RESOURCE_SEQUENCE",
+          "disposition": "setup_or_precondition",
+          "expression": "TestHarness :: from_source (source) . unwrap ()",
+          "function": "resumed_clock_jump_runs_once_and_records_missed_intervals",
+          "invariant_id": "RT_RESOURCE_SCHEDULER_E2E_001",
+          "kind": "method:unwrap"
+        },
+        {
+          "assertion_id": "ASSERT_8F9B6C5529D0013070CE99B8",
+          "behavior_label": "FORWARD_CLOCK_COALESCING_RESOURCE_SEQUENCE",
+          "disposition": "setup_or_precondition",
+          "expression": "panic ! (\"expected P instance, got {other:?}\")",
+          "function": "resumed_clock_jump_runs_once_and_records_missed_intervals",
+          "invariant_id": "RT_RESOURCE_SCHEDULER_E2E_001",
+          "kind": "macro:panic"
+        },
+        {
+          "assertion_id": "ASSERT_F21F23EF67538674299B282E",
+          "behavior_label": "FORWARD_CLOCK_COALESCING_RESOURCE_SEQUENCE",
+          "disposition": "oracle_bound",
+          "expression": "runner . tick () . unwrap ()",
+          "function": "resumed_clock_jump_runs_once_and_records_missed_intervals",
+          "invariant_id": "RT_RESOURCE_SCHEDULER_E2E_001",
+          "kind": "method:unwrap"
+        },
+        {
+          "assertion_id": "ASSERT_CFDAE48447F0702C0D4EEFF3",
+          "behavior_label": "MULTIPLE_PERIODS_DUE",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (runner . runtime () . task_overrun_count (\"Fast\") , Some (4))",
+          "function": "resumed_clock_jump_runs_once_and_records_missed_intervals",
+          "invariant_id": "RT_TASK_READINESS_001",
+          "kind": "macro:assert_eq"
+        }
+      ],
+      "exclusions": [
+        "The test covers one forward jump to 55 ms for one 10 ms INT task.",
+        "It proves one coalesced execution and four recorded misses, not replay order, saturation, jitter, or multiple-task behavior.",
+        "These in-process ManualClock tests do not prove operating-system clock behavior, real-time jitter, external I/O, or hardware scheduling."
+      ],
+      "name": "resumed_clock_jump_runs_once_and_records_missed_intervals",
+      "path": "crates/trust-runtime/tests/e2e_scheduler.rs"
+    },
+    {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_B15AE761D1A634F486015055",
+          "behavior_label": "PERIODIC_AND_EVENT_RESOURCE_SEQUENCE",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (i64 :: from (* v) , expected)",
+          "function": "assert_counter",
+          "invariant_id": "RT_RESOURCE_SCHEDULER_E2E_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_7B2E2FD046F6927265890213",
+          "behavior_label": "PERIODIC_AND_EVENT_RESOURCE_SEQUENCE",
+          "disposition": "non_oracle_observation",
+          "expression": "assert_eq ! (i64 :: from (* v) , expected)",
+          "function": "assert_counter",
+          "invariant_id": "RT_RESOURCE_SCHEDULER_E2E_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_CEA06C2FF6156619A49DA18F",
+          "behavior_label": "PERIODIC_AND_EVENT_RESOURCE_SEQUENCE",
+          "disposition": "non_oracle_observation",
+          "expression": "assert_eq ! (* v , expected)",
+          "function": "assert_counter",
+          "invariant_id": "RT_RESOURCE_SCHEDULER_E2E_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_D801B793590A524699098C30",
+          "behavior_label": "PERIODIC_AND_EVENT_RESOURCE_SEQUENCE",
+          "disposition": "oracle_bound",
+          "expression": "panic ! (\"unexpected counter value {other:?}\")",
+          "function": "assert_counter",
+          "invariant_id": "RT_RESOURCE_SCHEDULER_E2E_001",
+          "kind": "macro:panic"
+        },
+        {
+          "assertion_id": "ASSERT_C1719FE3873600DF2C265A56",
+          "behavior_label": "PERIODIC_AND_EVENT_RESOURCE_SEQUENCE",
+          "disposition": "setup_or_precondition",
+          "expression": "TestHarness :: from_source (source) . unwrap ()",
+          "function": "periodic_and_event",
+          "invariant_id": "RT_RESOURCE_SCHEDULER_E2E_001",
+          "kind": "method:unwrap"
+        },
+        {
+          "assertion_id": "ASSERT_E953771610B95BA2800DAAB3",
+          "behavior_label": "PERIODIC_AND_EVENT_RESOURCE_SEQUENCE",
+          "disposition": "setup_or_precondition",
+          "expression": "panic ! (\"expected P1 instance, got {other:?}\")",
+          "function": "periodic_and_event",
+          "invariant_id": "RT_RESOURCE_SCHEDULER_E2E_001",
+          "kind": "macro:panic"
+        },
+        {
+          "assertion_id": "ASSERT_BB2795A24631DF9CA57FBEB1",
+          "behavior_label": "PERIODIC_AND_EVENT_RESOURCE_SEQUENCE",
+          "disposition": "setup_or_precondition",
+          "expression": "panic ! (\"expected P2 instance, got {other:?}\")",
+          "function": "periodic_and_event",
+          "invariant_id": "RT_RESOURCE_SCHEDULER_E2E_001",
+          "kind": "macro:panic"
+        },
+        {
+          "assertion_id": "ASSERT_2C7DE32EBB6B07B99EF714B7",
+          "behavior_label": "PERIODIC_AND_EVENT_RESOURCE_SEQUENCE",
+          "disposition": "oracle_bound",
+          "expression": "runner . tick () . unwrap ()",
+          "function": "periodic_and_event",
+          "invariant_id": "RT_RESOURCE_SCHEDULER_E2E_001",
+          "kind": "method:unwrap"
+        },
+        {
+          "assertion_id": "ASSERT_58BDD56EBBAE40EA0AEDFA43",
+          "behavior_label": "PERIODIC_AND_EVENT_RESOURCE_SEQUENCE",
+          "disposition": "oracle_bound",
+          "expression": "runner . tick () . unwrap ()",
+          "function": "periodic_and_event",
+          "invariant_id": "RT_RESOURCE_SCHEDULER_E2E_001",
+          "kind": "method:unwrap"
+        },
+        {
+          "assertion_id": "ASSERT_9A9A528E88C1679C7CC9F85D",
+          "behavior_label": "PERIODIC_AND_EVENT_RESOURCE_SEQUENCE",
+          "disposition": "oracle_bound",
+          "expression": "runner . tick () . unwrap ()",
+          "function": "periodic_and_event",
+          "invariant_id": "RT_RESOURCE_SCHEDULER_E2E_001",
+          "kind": "method:unwrap"
+        }
+      ],
+      "exclusions": [
+        "The test covers one periodic and one event task with INT counters at 0, 10, and 20 ms; it does not prove wider counter types.",
+        "Counter values prove activation counts, not exact same-tick execution order, priority contention, or execution latency.",
+        "These in-process ManualClock tests do not prove operating-system clock behavior, real-time jitter, external I/O, or hardware scheduling."
+      ],
+      "name": "periodic_and_event",
+      "path": "crates/trust-runtime/tests/e2e_scheduler.rs"
+    },
+    {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_640437B6F06ED2535F6238D4",
+          "behavior_label": "EXECUTION_FAULT_LATCH_AND_SUBSEQUENT_REJECTION",
+          "disposition": "setup_or_precondition",
+          "expression": "TestHarness :: from_source (source) . unwrap ()",
+          "function": "overrun_and_fault",
+          "invariant_id": "RT_RESOURCE_SCHEDULER_E2E_001",
+          "kind": "method:unwrap"
+        },
+        {
+          "assertion_id": "ASSERT_A06D8266BAA486E280E301AB",
+          "behavior_label": "EXECUTION_FAULT_LATCH_AND_SUBSEQUENT_REJECTION",
+          "disposition": "oracle_bound",
+          "expression": "runner . tick () . unwrap ()",
+          "function": "overrun_and_fault",
+          "invariant_id": "RT_RESOURCE_SCHEDULER_E2E_001",
+          "kind": "method:unwrap"
+        },
+        {
+          "assertion_id": "ASSERT_044CC0B303AC001971DECD7B",
+          "behavior_label": "MULTIPLE_PERIODS_DUE",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (runner . runtime () . task_overrun_count (\"Fast\") , Some (2))",
+          "function": "overrun_and_fault",
+          "invariant_id": "RT_TASK_READINESS_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_B2A7D6C74F526E5ACD736EFE",
+          "behavior_label": "EXECUTION_FAULT_LATCH_AND_SUBSEQUENT_REJECTION",
+          "disposition": "oracle_bound",
+          "expression": "runner . tick () . unwrap_err ()",
+          "function": "overrun_and_fault",
+          "invariant_id": "RT_RESOURCE_SCHEDULER_E2E_001",
+          "kind": "method:unwrap_err"
+        },
+        {
+          "assertion_id": "ASSERT_370D9B2161A9ED4ECFDA21F1",
+          "behavior_label": "EXECUTION_FAULT_LATCH_AND_SUBSEQUENT_REJECTION",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (matches ! (err , RuntimeError :: DivisionByZero))",
+          "function": "overrun_and_fault",
+          "invariant_id": "RT_RESOURCE_SCHEDULER_E2E_001",
+          "kind": "macro:assert"
+        },
+        {
+          "assertion_id": "ASSERT_E04172C261FACB13778ED395",
+          "behavior_label": "EXECUTION_FAULT_LATCH_AND_SUBSEQUENT_REJECTION",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (runner . runtime () . faulted ())",
+          "function": "overrun_and_fault",
+          "invariant_id": "RT_RESOURCE_SCHEDULER_E2E_001",
+          "kind": "macro:assert"
+        },
+        {
+          "assertion_id": "ASSERT_BBA20E0C7C23E7A03F666377",
+          "behavior_label": "EXECUTION_FAULT_LATCH_AND_SUBSEQUENT_REJECTION",
+          "disposition": "oracle_bound",
+          "expression": "runner . tick () . unwrap_err ()",
+          "function": "overrun_and_fault",
+          "invariant_id": "RT_RESOURCE_SCHEDULER_E2E_001",
+          "kind": "method:unwrap_err"
+        },
+        {
+          "assertion_id": "ASSERT_D8AB4D928BC246EC76CF5799",
+          "behavior_label": "EXECUTION_FAULT_LATCH_AND_SUBSEQUENT_REJECTION",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (matches ! (err , RuntimeError :: ResourceFaulted))",
+          "function": "overrun_and_fault",
+          "invariant_id": "RT_RESOURCE_SCHEDULER_E2E_001",
+          "kind": "macro:assert"
+        }
+      ],
+      "exclusions": [
+        "The test covers a DivisionByZero under the reviewed default resource fault behavior after one periodic overrun.",
+        "It does not prove safe outputs, restart/recovery policy, contained panic, concurrent faults, or persistence of fault evidence.",
+        "These in-process ManualClock tests do not prove operating-system clock behavior, real-time jitter, external I/O, or hardware scheduling."
+      ],
+      "name": "overrun_and_fault",
+      "path": "crates/trust-runtime/tests/e2e_scheduler.rs"
+    },
+    {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_3E638013606E5EE14E6D485A",
+          "behavior_label": "BACKWARD_CLOCK_NO_REPLAY_RESOURCE_SEQUENCE",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (i64 :: from (* v) , expected)",
+          "function": "assert_counter",
+          "invariant_id": "RT_RESOURCE_SCHEDULER_E2E_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_7EA16F5EA854C96B06117431",
+          "behavior_label": "BACKWARD_CLOCK_NO_REPLAY_RESOURCE_SEQUENCE",
+          "disposition": "non_oracle_observation",
+          "expression": "assert_eq ! (i64 :: from (* v) , expected)",
+          "function": "assert_counter",
+          "invariant_id": "RT_RESOURCE_SCHEDULER_E2E_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_87481090FD103AE14118A6D4",
+          "behavior_label": "BACKWARD_CLOCK_NO_REPLAY_RESOURCE_SEQUENCE",
+          "disposition": "non_oracle_observation",
+          "expression": "assert_eq ! (* v , expected)",
+          "function": "assert_counter",
+          "invariant_id": "RT_RESOURCE_SCHEDULER_E2E_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_4549A9DFB7E5D2220D4AF013",
+          "behavior_label": "BACKWARD_CLOCK_NO_REPLAY_RESOURCE_SEQUENCE",
+          "disposition": "oracle_bound",
+          "expression": "panic ! (\"unexpected counter value {other:?}\")",
+          "function": "assert_counter",
+          "invariant_id": "RT_RESOURCE_SCHEDULER_E2E_001",
+          "kind": "macro:panic"
+        },
+        {
+          "assertion_id": "ASSERT_FF785EA7B95BBA8E9FBF8D07",
+          "behavior_label": "BACKWARD_CLOCK_NO_REPLAY_RESOURCE_SEQUENCE",
+          "disposition": "setup_or_precondition",
+          "expression": "TestHarness :: from_source (source) . unwrap ()",
+          "function": "backward_clock_step_does_not_replay_or_overrun_periodic_task",
+          "invariant_id": "RT_RESOURCE_SCHEDULER_E2E_001",
+          "kind": "method:unwrap"
+        },
+        {
+          "assertion_id": "ASSERT_A1FFBB1A608FB9250B6B0D0D",
+          "behavior_label": "BACKWARD_CLOCK_NO_REPLAY_RESOURCE_SEQUENCE",
+          "disposition": "setup_or_precondition",
+          "expression": "panic ! (\"expected P instance, got {other:?}\")",
+          "function": "backward_clock_step_does_not_replay_or_overrun_periodic_task",
+          "invariant_id": "RT_RESOURCE_SCHEDULER_E2E_001",
+          "kind": "macro:panic"
+        },
+        {
+          "assertion_id": "ASSERT_37CDDA3EA71AE2B3F59A4054",
+          "behavior_label": "BACKWARD_CLOCK_NO_REPLAY_RESOURCE_SEQUENCE",
+          "disposition": "oracle_bound",
+          "expression": "runner . tick () . unwrap ()",
+          "function": "backward_clock_step_does_not_replay_or_overrun_periodic_task",
+          "invariant_id": "RT_RESOURCE_SCHEDULER_E2E_001",
+          "kind": "method:unwrap"
+        },
+        {
+          "assertion_id": "ASSERT_A41BFE3FE35A8D8B87E11F5B",
+          "behavior_label": "BACKWARD_CLOCK_NO_REPLAY_RESOURCE_SEQUENCE",
+          "disposition": "oracle_bound",
+          "expression": "runner . tick () . unwrap ()",
+          "function": "backward_clock_step_does_not_replay_or_overrun_periodic_task",
+          "invariant_id": "RT_RESOURCE_SCHEDULER_E2E_001",
+          "kind": "method:unwrap"
+        },
+        {
+          "assertion_id": "ASSERT_B646317DB1A113FD85FBAA7F",
+          "behavior_label": "BACKWARD_CLOCK_NO_REPLAY_RESOURCE_SEQUENCE",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (runner . runtime () . task_overrun_count (\"Fast\") , Some (0))",
+          "function": "backward_clock_step_does_not_replay_or_overrun_periodic_task",
+          "invariant_id": "RT_RESOURCE_SCHEDULER_E2E_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_B642C89987F86CC61FFEE2A9",
+          "behavior_label": "BACKWARD_CLOCK_NO_REPLAY_RESOURCE_SEQUENCE",
+          "disposition": "oracle_bound",
+          "expression": "runner . tick () . unwrap ()",
+          "function": "backward_clock_step_does_not_replay_or_overrun_periodic_task",
+          "invariant_id": "RT_RESOURCE_SCHEDULER_E2E_001",
+          "kind": "method:unwrap"
+        },
+        {
+          "assertion_id": "ASSERT_9A914FCC8998FFFBA24D5CBB",
+          "behavior_label": "BACKWARD_CLOCK_NO_REPLAY_RESOURCE_SEQUENCE",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (runner . runtime () . task_overrun_count (\"Fast\") , Some (0))",
+          "function": "backward_clock_step_does_not_replay_or_overrun_periodic_task",
+          "invariant_id": "RT_RESOURCE_SCHEDULER_E2E_001",
+          "kind": "macro:assert_eq"
+        }
+      ],
+      "exclusions": [
+        "The test covers one 10 ms periodic task and one 10-to-2 ms backward step followed by recovery at 20 ms.",
+        "It does not prove clock wrap, saturation, repeated regressions, multiple-task ordering, or real clock correction.",
+        "These in-process ManualClock tests do not prove operating-system clock behavior, real-time jitter, external I/O, or hardware scheduling."
+      ],
+      "name": "backward_clock_step_does_not_replay_or_overrun_periodic_task",
+      "path": "crates/trust-runtime/tests/e2e_scheduler.rs"
+    }
+  ]
+}

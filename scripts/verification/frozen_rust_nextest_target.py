@@ -313,6 +313,7 @@ RUNTIME_REMAINING_INTEGRATION_PATHS = frozenset(
         "crates/trust-runtime/tests/datetime_range.rs",
         "crates/trust-runtime/tests/datetime_types.rs",
         "crates/trust-runtime/tests/debug_stepping.rs",
+        "crates/trust-runtime/tests/e2e_scheduler.rs",
         "crates/trust-runtime/tests/expr_calls.rs",
         "crates/trust-runtime/tests/fb_bistable.rs",
         "crates/trust-runtime/tests/fb_counters.rs",

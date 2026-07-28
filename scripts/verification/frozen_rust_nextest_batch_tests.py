@@ -536,6 +536,15 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
             ("--test", "bounded_value_semantics"),
             profile.cargo_target_args,
         )
+        scheduler = get_target_profile(
+            "runtime-remaining",
+            path="crates/trust-runtime/tests/e2e_scheduler.rs",
+        )
+        self.assertEqual(
+            ("--test", "e2e_scheduler"),
+            scheduler.cargo_target_args,
+        )
+        self.assertEqual("", scheduler.test_prefix)
         self.assertEqual(
             "trust-runtime::bounded_value_semantics",
             profile.binary_id,

@@ -1,0 +1,80 @@
+schema_version = 1
+id = "RT_RESOURCE_SCHEDULER_E2E_001"
+title = "Resource ticks preserve deterministic task, fault, and trace semantics"
+area = "runtime_safety"
+risk = "safety_critical"
+status = "planned"
+owner = "trust-runtime"
+last_reviewed = "2026-07-28"
+claim = "A resource tick executes due periodic and event work once, handles clock discontinuities without replay, latches execution faults, and reproduces runtime-event order under identical manual-clock inputs."
+proof_level = "S0"
+contract_kind = "state_machine"
+source_refs = ["crates/trust-runtime/src/scheduler", "crates/trust-runtime/src/runtime"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["focused_execution", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#resource-runner-cycle-transaction"
+
+[[behavior]]
+partition = { equals = "PERIODIC_AND_EVENT_RESOURCE_SEQUENCE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#resource-runner-cycle-transaction"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "expected_delta", diagnostics = "none", status = "unchanged" }
+rationale = "The reviewed zero-, ten-, and twenty-millisecond ticks execute neither program, then both the periodic and rising-edge event programs, then only the periodic program."
+
+[[behavior]]
+partition = { equals = "BACKWARD_CLOCK_NO_REPLAY_RESOURCE_SEQUENCE" }
+case_family = "time_or_clock_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#resource-runner-cycle-transaction"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "expected_delta", diagnostics = "none", status = "unchanged" }
+rationale = "After one periodic execution, a backward manual-clock sample neither executes nor records an overrun, and a later next-deadline sample executes exactly once."
+
+[[behavior]]
+partition = { equals = "FORWARD_CLOCK_COALESCING_RESOURCE_SEQUENCE" }
+case_family = "time_or_clock_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#resource-runner-cycle-transaction"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "expected_delta", diagnostics = "none", status = "unchanged" }
+rationale = "A forward manual-clock jump spanning five intervals executes the reviewed periodic program once while the readiness boundary records four missed intervals."
+
+[[behavior]]
+partition = { equals = "EXECUTION_FAULT_LATCH_AND_SUBSEQUENT_REJECTION" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#resource-runner-cycle-transaction"
+outcome = "fault_visible"
+no_partial_apply = false
+delta = { target = "not_applicable", siblings = "not_applicable", retain = "unchanged", process_image = "not_applicable", diagnostics = "stable_error", status = "fault_visible" }
+rationale = "The reviewed division-by-zero task error is returned and latches the runtime fault state; the next tick rejects as ResourceFaulted without claiming rollback of earlier work."
+
+[[behavior]]
+partition = { equals = "MANUAL_CLOCK_RUNTIME_EVENT_TRACE_REPRODUCIBILITY" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#resource-runner-cycle-transaction"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Two fresh executions with the same source, manual-clock steps, and event-input transitions produce equal ordered RuntimeEvent vectors."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "The product authority is reviewed; focused mappings and execution evidence for combined task sequencing, fault latching, and trace reproducibility remain pending."
+
+[[coverage.cells]]
+dimension = "time_or_clock_fault"
+state = "gap_open"
+rationale = "The product authority is reviewed; focused mapping and execution evidence for resource-level backward-clock behavior remain pending."
