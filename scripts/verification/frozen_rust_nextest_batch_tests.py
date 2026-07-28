@@ -549,6 +549,15 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
             "bundle_builder::tests::",
             bundle_builder.test_prefix,
         )
+        restart = get_target_profile(
+            "runtime-remaining",
+            path="crates/trust-runtime/src/runtime/restart.rs",
+        )
+        self.assertEqual(("--lib",), restart.cargo_target_args)
+        self.assertEqual(
+            "runtime::restart::tests::",
+            restart.test_prefix,
+        )
         safety = get_target_profile(
             "runtime-remaining",
             path=(

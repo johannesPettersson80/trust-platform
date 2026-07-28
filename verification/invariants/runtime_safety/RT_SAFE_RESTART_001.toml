@@ -5,7 +5,7 @@ area = "runtime_safety"
 risk = "wrong_result"
 status = "implemented"
 owner = "trust-runtime"
-last_reviewed = "2026-07-14"
+last_reviewed = "2026-07-28"
 claim = "Warm, cold, and fault restart labels must preserve the documented retain behavior deterministically."
 proof_level = "G1"
 contract_kind = "state_machine"
@@ -57,6 +57,15 @@ oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-star
 outcome = "accept_value"
 delta = { target = "set_to_expected", siblings = "expected_delta", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
 rationale = "Cold startup leaves declared retained initialization intact, while warm startup loads the validated retained snapshot before execution."
+
+[[behavior]]
+partition = { equals = "FAILED_WARM_RESTART_INSTANCE_CONSTRUCTION_PRESERVES_LIVE_RUNTIME" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#direct-restart-preparation-transaction"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "A reviewed missing function-block definition rejects warm restart as UndefinedFunctionBlock while preserving the live instance value, queued debug force, executable path, and cycle counter."
 
 [[coverage.cells]]
 dimension = "persistence_or_recovery"

@@ -5,7 +5,7 @@ area = "runtime_safety"
 risk = "data_loss"
 status = "mapped"
 owner = "trust-runtime"
-last_reviewed = "2026-07-27"
+last_reviewed = "2026-07-28"
 claim = "Warm-load migration safely widens numeric values, canonicalizes bounded strings, reconciles declared structure fields, drops orphan globals, emits typed events, and never exposes a partial rejected snapshot."
 proof_level = "S0"
 contract_kind = "decision_table"
@@ -72,6 +72,24 @@ outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
 rationale = "A retained global absent from the current program is dropped and emits RetainOrphanDropped."
+
+[[behavior]]
+partition = { equals = "RECURSIVE_DECLARED_IDENTITY_CANONICALIZATION" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#retain-codec-compatibility-and-migration"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Reviewed enum values, a nested enum in one structure, and a one-dimensional array of structures rebuild the current declared type, variant, field, and inclusive-bounds identities."
+
+[[behavior]]
+partition = { equals = "INCOMPATIBLE_NESTED_VALUE_REJECTION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#retain-codec-compatibility-and-migration"
+outcome = "reject"
+no_partial_apply = false
+delta = { target = "not_applicable", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A BOOL substituted for the reviewed INT structure field or array element rejects retain application with the cause class invalid retained value; these tests do not independently observe atomic unchanged state."
 
 [[coverage.cells]]
 dimension = "happy_path"

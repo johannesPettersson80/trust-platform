@@ -1175,10 +1175,20 @@ and stages all compatible migrations:
   mathematical value;
 - a retained `STRING` longer than its current declared bound is canonicalized
   to that bound using the ordinary scalar-preserving string rule;
+- compatible enumeration values are rebuilt with the current declared enum
+  type and variant identity, including the reviewed case-canonical spelling;
+- compatible structures recursively rebuild the current declared structure
+  and field identities, and compatible one-dimensional arrays preserve their
+  inclusive bounds while recursively rebuilding each element;
 - a structure field added by the current declaration receives its declared
   initializer or type default, while a field removed from the declaration is
   dropped; and
 - a retained global absent from the current program is dropped as an orphan.
+
+An incompatible nested structure field or array element rejects application;
+the runtime does not substitute a default or expose a partially rebuilt
+aggregate. These focused rules do not establish arbitrary-depth,
+multidimensional, renamed, removed-variant, or event-emission behavior.
 
 Each successful value-shape migration emits `RetainMigrationApplied`; each
 dropped orphan emits `RetainOrphanDropped`. These events identify the runtime
@@ -1190,6 +1200,15 @@ values.
 **Power-loss guidance:** retained values are only guaranteed to persist if the most recent
 snapshot has been flushed to the retain store (i.e., at shutdown or after the save cadence).
 Unflushed changes may be lost on sudden power loss (implementer-specific).
+
+##### Direct restart preparation transaction
+
+An in-process warm restart constructs its complete replacement storage and
+instance image before changing live state. If reviewed function-block instance
+construction fails, the restart returns an error and preserves the live
+executable, storage values, queued debug force, and cycle counter. This direct
+restart boundary does not independently specify task schedules, logical time,
+I/O bindings, process-image state, or a stable diagnostic string.
 
 ##### 6.7.1 Online-change transaction
 

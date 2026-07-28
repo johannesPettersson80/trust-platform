@@ -6,6 +6,27 @@ in `IEC_DECISIONS.md`; PLCopen profile decisions belong in
 `PLCOPEN_DECISIONS.md`. Product behavior recorded here MUST NOT be copied to an
 IEC or PLCopen deviation log merely because truST owns the behavior.
 
+## 2026-07-28 - Direct restart staging and recursive retain identity
+
+- Area: Runtime restart and retained-state migration
+- Decision:
+  - An in-process warm restart stages its complete replacement storage and
+    instance image before commit. Instance-construction failure preserves the
+    live executable, storage, queued debug force, and cycle counter.
+  - Compatible retained enum, structure, and one-dimensional array values are
+    rebuilt against the current declared type, variant, field, and inclusive
+    bounds identities. Incompatible nested fields or elements reject
+    application.
+- Supersedes:
+  - Any interpretation that successful scalar migration alone proves recursive
+    aggregate migration, or that a failed direct restart may partially replace
+    live state.
+- Authority:
+  - `docs/specs/11-runtime-engine.md`
+- Reason:
+  - These staging and identity-rebuild rules are truST runtime policy outside
+    IEC 61131-3 and therefore are not IEC deviations.
+
 ## 2026-07-28 - In-process test-harness control semantics
 
 - Area: Runtime testing API

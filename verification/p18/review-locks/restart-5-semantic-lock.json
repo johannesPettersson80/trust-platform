@@ -1,0 +1,457 @@
+{
+  "id": "RESTART_5_SEMANTIC_LOCK",
+  "schema_version": 1,
+  "tests": [
+    {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_C05F0DB3405C99705E64046A",
+          "behavior_label": "FAILED_WARM_RESTART_INSTANCE_CONSTRUCTION_PRESERVES_LIVE_RUNTIME",
+          "disposition": "setup_or_precondition",
+          "expression": "TestHarness :: from_source (source) . expect (\"compile harness\")",
+          "function": "tests::restart_instance_construction_failure_preserves_live_state",
+          "invariant_id": "RT_SAFE_RESTART_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_874BEB8C7623E8C4B6E67D3E",
+          "behavior_label": "FAILED_WARM_RESTART_INSTANCE_CONSTRUCTION_PRESERVES_LIVE_RUNTIME",
+          "disposition": "setup_or_precondition",
+          "expression": "panic ! (\"expected g_fb instance, got {other:?}\")",
+          "function": "tests::restart_instance_construction_failure_preserves_live_state",
+          "invariant_id": "RT_SAFE_RESTART_001",
+          "kind": "macro:panic"
+        },
+        {
+          "assertion_id": "ASSERT_D7FCD931C4CB3E0579570668",
+          "behavior_label": "FAILED_WARM_RESTART_INSTANCE_CONSTRUCTION_PRESERVES_LIVE_RUNTIME",
+          "disposition": "setup_or_precondition",
+          "expression": "harness . runtime () . function_blocks . keys () . find (| name | name . eq_ignore_ascii_case (\"CounterFb\")) . cloned () . expect (\"CounterFb definition key\")",
+          "function": "tests::restart_instance_construction_failure_preserves_live_state",
+          "invariant_id": "RT_SAFE_RESTART_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_BD297B55AAE2699579AFBBC7",
+          "behavior_label": "FAILED_WARM_RESTART_INSTANCE_CONSTRUCTION_PRESERVES_LIVE_RUNTIME",
+          "disposition": "setup_or_precondition",
+          "expression": "harness . runtime_mut () . function_blocks . shift_remove (& fb_key) . expect (\"remove CounterFb definition\")",
+          "function": "tests::restart_instance_construction_failure_preserves_live_state",
+          "invariant_id": "RT_SAFE_RESTART_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_9998A8A4636267B8163A28BC",
+          "behavior_label": "FAILED_WARM_RESTART_INSTANCE_CONSTRUCTION_PRESERVES_LIVE_RUNTIME",
+          "disposition": "oracle_bound",
+          "expression": "harness . runtime_mut () . restart (RestartMode :: Warm) . expect_err (\"missing FB definition must reject restart\")",
+          "function": "tests::restart_instance_construction_failure_preserves_live_state",
+          "invariant_id": "RT_SAFE_RESTART_001",
+          "kind": "method:expect_err"
+        },
+        {
+          "assertion_id": "ASSERT_420E7FD95209CB695EF8FFA4",
+          "behavior_label": "FAILED_WARM_RESTART_INSTANCE_CONSTRUCTION_PRESERVES_LIVE_RUNTIME",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (matches ! (error , error :: RuntimeError :: UndefinedFunctionBlock (_)) , \"expected undefined FB restart failure, got {error:?}\")",
+          "function": "tests::restart_instance_construction_failure_preserves_live_state",
+          "invariant_id": "RT_SAFE_RESTART_001",
+          "kind": "macro:assert"
+        },
+        {
+          "assertion_id": "ASSERT_BE103E1C9A2DC7420DF41782",
+          "behavior_label": "FAILED_WARM_RESTART_INSTANCE_CONSTRUCTION_PRESERVES_LIVE_RUNTIME",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (harness . runtime () . cycle_counter , 9)",
+          "function": "tests::restart_instance_construction_failure_preserves_live_state",
+          "invariant_id": "RT_SAFE_RESTART_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_F97224366D311A4371A23A75",
+          "behavior_label": "FAILED_WARM_RESTART_INSTANCE_CONSTRUCTION_PRESERVES_LIVE_RUNTIME",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (harness . runtime () . storage . get_instance_var (instance_id , \"count\") , Some (& Value :: Int (7)) , \"failed restart must preserve live instance storage\")",
+          "function": "tests::restart_instance_construction_failure_preserves_live_state",
+          "invariant_id": "RT_SAFE_RESTART_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_3DF4D1A16ABCB7B9A0993CB2",
+          "behavior_label": "FAILED_WARM_RESTART_INSTANCE_CONSTRUCTION_PRESERVES_LIVE_RUNTIME",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (cycle . errors . is_empty () , \"old runtime must remain executable\")",
+          "function": "tests::restart_instance_construction_failure_preserves_live_state",
+          "invariant_id": "RT_SAFE_RESTART_001",
+          "kind": "macro:assert"
+        },
+        {
+          "assertion_id": "ASSERT_A5DC25897B8E5CE3D3322545",
+          "behavior_label": "FAILED_WARM_RESTART_INSTANCE_CONSTRUCTION_PRESERVES_LIVE_RUNTIME",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (harness . runtime () . storage . get_instance_var (instance_id , \"count\") , Some (& Value :: Int (99)) , \"failed restart must preserve queued debug forces\")",
+          "function": "tests::restart_instance_construction_failure_preserves_live_state",
+          "invariant_id": "RT_SAFE_RESTART_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_9B1EA804AE49A23FEE309336",
+          "behavior_label": "FAILED_WARM_RESTART_INSTANCE_CONSTRUCTION_PRESERVES_LIVE_RUNTIME",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (harness . runtime () . cycle_counter , 10)",
+          "function": "tests::restart_instance_construction_failure_preserves_live_state",
+          "invariant_id": "RT_SAFE_RESTART_001",
+          "kind": "macro:assert_eq"
+        }
+      ],
+      "exclusions": [
+        "The test covers one warm restart with an internally removed function-block definition, not cold restart or class/program construction failures.",
+        "It does not prove task, time, fault, status, I/O, process-image, retained-global, or concurrent scheduler preservation.",
+        "It observes one queued instance-field force and no stable diagnostic text; queued writes and broader debug state are not covered.",
+        "These in-process unit tests do not prove file-backed persistence, startup integration, power-loss behavior, or external interoperability."
+      ],
+      "name": "restart_instance_construction_failure_preserves_live_state",
+      "path": "crates/trust-runtime/src/runtime/restart.rs"
+    },
+    {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_F5CF25E11D9DE0A11A080C94",
+          "behavior_label": "INCOMPATIBLE_NESTED_VALUE_REJECTION",
+          "disposition": "setup_or_precondition",
+          "expression": "TestHarness :: from_source (source) . expect (\"compile harness\")",
+          "function": "tests::apply_retain_snapshot_rejects_struct_field_type_drift",
+          "invariant_id": "RT_RETAIN_MIGRATION_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_2FB3FB734A0147DA68EE5462",
+          "behavior_label": "INCOMPATIBLE_NESTED_VALUE_REJECTION",
+          "disposition": "setup_or_precondition",
+          "expression": "harness . runtime () . globals . keys () . find (| name | name . as_str () . eq_ignore_ascii_case (\"retained_holder\")) . cloned () . expect (\"holder global key\")",
+          "function": "tests::apply_retain_snapshot_rejects_struct_field_type_drift",
+          "invariant_id": "RT_RETAIN_MIGRATION_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_B0FF92FC9E987863E7854A9A",
+          "behavior_label": "INCOMPATIBLE_NESTED_VALUE_REJECTION",
+          "disposition": "oracle_bound",
+          "expression": "harness . runtime_mut () . apply_retain_snapshot (& snapshot) . expect_err (\"struct field type drift must fail retain apply\")",
+          "function": "tests::apply_retain_snapshot_rejects_struct_field_type_drift",
+          "invariant_id": "RT_RETAIN_MIGRATION_001",
+          "kind": "method:expect_err"
+        },
+        {
+          "assertion_id": "ASSERT_54B89288A70DB3B07F2C6343",
+          "behavior_label": "INCOMPATIBLE_NESTED_VALUE_REJECTION",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (format ! (\"{error}\") . contains (\"invalid retained value\"))",
+          "function": "tests::apply_retain_snapshot_rejects_struct_field_type_drift",
+          "invariant_id": "RT_RETAIN_MIGRATION_001",
+          "kind": "macro:assert"
+        }
+      ],
+      "exclusions": [
+        "The test covers one BOOL-for-INT structure field and only a generic error substring.",
+        "It does not observe unchanged target state, sibling preservation, transactional atomicity, or event absence after rejection.",
+        "These in-process unit tests do not prove file-backed persistence, startup integration, power-loss behavior, or external interoperability."
+      ],
+      "name": "apply_retain_snapshot_rejects_struct_field_type_drift",
+      "path": "crates/trust-runtime/src/runtime/restart.rs"
+    },
+    {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_6BCD3F0E12ED5346648EEF4F",
+          "behavior_label": "RECURSIVE_DECLARED_IDENTITY_CANONICALIZATION",
+          "disposition": "setup_or_precondition",
+          "expression": "TestHarness :: from_source (source) . expect (\"compile harness\")",
+          "function": "tests::apply_retain_snapshot_canonicalizes_array_of_struct_and_rejects_bad_element",
+          "invariant_id": "RT_RETAIN_MIGRATION_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_196B0A16686CDE743D0F05AA",
+          "behavior_label": "RECURSIVE_DECLARED_IDENTITY_CANONICALIZATION",
+          "disposition": "setup_or_precondition",
+          "expression": "harness . runtime () . globals . keys () . find (| name | name . as_str () . eq_ignore_ascii_case (\"retained_points\")) . cloned () . expect (\"points global key\")",
+          "function": "tests::apply_retain_snapshot_canonicalizes_array_of_struct_and_rejects_bad_element",
+          "invariant_id": "RT_RETAIN_MIGRATION_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_6C7CB8E3FC433DE5D8A4A4BC",
+          "behavior_label": "RECURSIVE_DECLARED_IDENTITY_CANONICALIZATION",
+          "disposition": "setup_or_precondition",
+          "expression": "ArrayValue :: from_untyped_parts (vec ! [point (\"X\" , Value :: Int (1)) , point (\"X\" , Value :: Int (2))] , vec ! [(1 , 2)] ,) . expect (\"raw retained point array\")",
+          "function": "tests::apply_retain_snapshot_canonicalizes_array_of_struct_and_rejects_bad_element",
+          "invariant_id": "RT_RETAIN_MIGRATION_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_432801090882DC9FDA8982A6",
+          "behavior_label": "RECURSIVE_DECLARED_IDENTITY_CANONICALIZATION",
+          "disposition": "oracle_bound",
+          "expression": "harness . runtime_mut () . apply_retain_snapshot (& snapshot) . expect (\"apply retained array of struct\")",
+          "function": "tests::apply_retain_snapshot_canonicalizes_array_of_struct_and_rejects_bad_element",
+          "invariant_id": "RT_RETAIN_MIGRATION_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_4A70BC0E0EB94983609C250B",
+          "behavior_label": "RECURSIVE_DECLARED_IDENTITY_CANONICALIZATION",
+          "disposition": "oracle_bound",
+          "expression": "panic ! (\"expected retained points array\")",
+          "function": "tests::apply_retain_snapshot_canonicalizes_array_of_struct_and_rejects_bad_element",
+          "invariant_id": "RT_RETAIN_MIGRATION_001",
+          "kind": "macro:panic"
+        },
+        {
+          "assertion_id": "ASSERT_3461047E1740058932684B59",
+          "behavior_label": "RECURSIVE_DECLARED_IDENTITY_CANONICALIZATION",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (points . dimensions () , & [(1 , 2)])",
+          "function": "tests::apply_retain_snapshot_canonicalizes_array_of_struct_and_rejects_bad_element",
+          "invariant_id": "RT_RETAIN_MIGRATION_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_FC5149978326CC661CD68126",
+          "behavior_label": "RECURSIVE_DECLARED_IDENTITY_CANONICALIZATION",
+          "disposition": "oracle_bound",
+          "expression": "panic ! (\"expected retained point struct\")",
+          "function": "tests::apply_retain_snapshot_canonicalizes_array_of_struct_and_rejects_bad_element",
+          "invariant_id": "RT_RETAIN_MIGRATION_001",
+          "kind": "macro:panic"
+        },
+        {
+          "assertion_id": "ASSERT_63D1F7A716E5D414870F4EB6",
+          "behavior_label": "RECURSIVE_DECLARED_IDENTITY_CANONICALIZATION",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (point . type_name () . as_str () , \"Point\")",
+          "function": "tests::apply_retain_snapshot_canonicalizes_array_of_struct_and_rejects_bad_element",
+          "invariant_id": "RT_RETAIN_MIGRATION_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_BEA22C098B2053F9DF068FD4",
+          "behavior_label": "RECURSIVE_DECLARED_IDENTITY_CANONICALIZATION",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (point . fields () . contains_key (\"x\"))",
+          "function": "tests::apply_retain_snapshot_canonicalizes_array_of_struct_and_rejects_bad_element",
+          "invariant_id": "RT_RETAIN_MIGRATION_001",
+          "kind": "macro:assert"
+        },
+        {
+          "assertion_id": "ASSERT_D68696272815F0D4209686D8",
+          "behavior_label": "INCOMPATIBLE_NESTED_VALUE_REJECTION",
+          "disposition": "setup_or_precondition",
+          "expression": "TestHarness :: from_source (source) . expect (\"compile harness\")",
+          "function": "tests::apply_retain_snapshot_canonicalizes_array_of_struct_and_rejects_bad_element",
+          "invariant_id": "RT_RETAIN_MIGRATION_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_8F80FE3583D8DFC578401C4B",
+          "behavior_label": "INCOMPATIBLE_NESTED_VALUE_REJECTION",
+          "disposition": "setup_or_precondition",
+          "expression": "ArrayValue :: from_untyped_parts (vec ! [point (\"X\" , Value :: Int (1)) , Value :: Bool (false)] , vec ! [(1 , 2)] ,) . expect (\"raw retained bad point array\")",
+          "function": "tests::apply_retain_snapshot_canonicalizes_array_of_struct_and_rejects_bad_element",
+          "invariant_id": "RT_RETAIN_MIGRATION_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_35E1ACFA94D01511FFEB8589",
+          "behavior_label": "INCOMPATIBLE_NESTED_VALUE_REJECTION",
+          "disposition": "oracle_bound",
+          "expression": "bad_harness . runtime_mut () . apply_retain_snapshot (& bad_snapshot) . expect_err (\"array element type drift must fail retain apply\")",
+          "function": "tests::apply_retain_snapshot_canonicalizes_array_of_struct_and_rejects_bad_element",
+          "invariant_id": "RT_RETAIN_MIGRATION_001",
+          "kind": "method:expect_err"
+        },
+        {
+          "assertion_id": "ASSERT_262A431C80FAEF00BD5D1EF6",
+          "behavior_label": "INCOMPATIBLE_NESTED_VALUE_REJECTION",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (format ! (\"{error}\") . contains (\"invalid retained value\"))",
+          "function": "tests::apply_retain_snapshot_canonicalizes_array_of_struct_and_rejects_bad_element",
+          "invariant_id": "RT_RETAIN_MIGRATION_001",
+          "kind": "macro:assert"
+        }
+      ],
+      "exclusions": [
+        "The accepted case covers one one-dimensional [1..2] array of two structures and does not assert the retained x values.",
+        "The rejected case covers one BOOL element and does not observe unchanged state after rejection.",
+        "It does not prove multidimensional arrays, bound drift, deeper nesting, or migration events.",
+        "These in-process unit tests do not prove file-backed persistence, startup integration, power-loss behavior, or external interoperability."
+      ],
+      "name": "apply_retain_snapshot_canonicalizes_array_of_struct_and_rejects_bad_element",
+      "path": "crates/trust-runtime/src/runtime/restart.rs"
+    },
+    {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_09B58B653CD3F71E5BDC5D76",
+          "behavior_label": "RECURSIVE_DECLARED_IDENTITY_CANONICALIZATION",
+          "disposition": "setup_or_precondition",
+          "expression": "TestHarness :: from_source (source) . expect (\"compile harness\")",
+          "function": "tests::apply_retain_snapshot_canonicalizes_nested_enum_in_struct",
+          "invariant_id": "RT_RETAIN_MIGRATION_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_7861AC3E29880203EF4379A3",
+          "behavior_label": "RECURSIVE_DECLARED_IDENTITY_CANONICALIZATION",
+          "disposition": "setup_or_precondition",
+          "expression": "harness . runtime () . globals . keys () . find (| name | name . as_str () . eq_ignore_ascii_case (\"retained_holder\")) . cloned () . expect (\"holder global key\")",
+          "function": "tests::apply_retain_snapshot_canonicalizes_nested_enum_in_struct",
+          "invariant_id": "RT_RETAIN_MIGRATION_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_5B1F56E9B584AE5B8DE1D0B4",
+          "behavior_label": "RECURSIVE_DECLARED_IDENTITY_CANONICALIZATION",
+          "disposition": "oracle_bound",
+          "expression": "harness . runtime_mut () . apply_retain_snapshot (& snapshot) . expect (\"apply retained struct\")",
+          "function": "tests::apply_retain_snapshot_canonicalizes_nested_enum_in_struct",
+          "invariant_id": "RT_RETAIN_MIGRATION_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_F616FF7356223BC13D7C4180",
+          "behavior_label": "RECURSIVE_DECLARED_IDENTITY_CANONICALIZATION",
+          "disposition": "oracle_bound",
+          "expression": "panic ! (\"expected retained holder\")",
+          "function": "tests::apply_retain_snapshot_canonicalizes_nested_enum_in_struct",
+          "invariant_id": "RT_RETAIN_MIGRATION_001",
+          "kind": "macro:panic"
+        },
+        {
+          "assertion_id": "ASSERT_25188CDDC403D8DFE890EEFB",
+          "behavior_label": "RECURSIVE_DECLARED_IDENTITY_CANONICALIZATION",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (holder . type_name () . as_str () , \"Holder\")",
+          "function": "tests::apply_retain_snapshot_canonicalizes_nested_enum_in_struct",
+          "invariant_id": "RT_RETAIN_MIGRATION_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_49635D104B63A3580FD0882F",
+          "behavior_label": "RECURSIVE_DECLARED_IDENTITY_CANONICALIZATION",
+          "disposition": "oracle_bound",
+          "expression": "panic ! (\"expected retained holder.state enum\")",
+          "function": "tests::apply_retain_snapshot_canonicalizes_nested_enum_in_struct",
+          "invariant_id": "RT_RETAIN_MIGRATION_001",
+          "kind": "macro:panic"
+        },
+        {
+          "assertion_id": "ASSERT_B2DFD94C62145D9F1A95C93D",
+          "behavior_label": "RECURSIVE_DECLARED_IDENTITY_CANONICALIZATION",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (state . type_name () . as_str () , \"Solo\")",
+          "function": "tests::apply_retain_snapshot_canonicalizes_nested_enum_in_struct",
+          "invariant_id": "RT_RETAIN_MIGRATION_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_DA89661771904C5843658C93",
+          "behavior_label": "RECURSIVE_DECLARED_IDENTITY_CANONICALIZATION",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (state . variant_name () . as_str () , \"S1\")",
+          "function": "tests::apply_retain_snapshot_canonicalizes_nested_enum_in_struct",
+          "invariant_id": "RT_RETAIN_MIGRATION_001",
+          "kind": "macro:assert_eq"
+        }
+      ],
+      "exclusions": [
+        "The test covers one enum nested in one structure field, not arrays, unions, deeper nesting, or migration events.",
+        "These in-process unit tests do not prove file-backed persistence, startup integration, power-loss behavior, or external interoperability."
+      ],
+      "name": "apply_retain_snapshot_canonicalizes_nested_enum_in_struct",
+      "path": "crates/trust-runtime/src/runtime/restart.rs"
+    },
+    {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_05D6F94644C57C2D7FB52BF3",
+          "behavior_label": "RECURSIVE_DECLARED_IDENTITY_CANONICALIZATION",
+          "disposition": "setup_or_precondition",
+          "expression": "TestHarness :: from_source (source) . expect (\"compile harness\")",
+          "function": "tests::apply_retain_snapshot_canonicalizes_legacy_enum_type_name",
+          "invariant_id": "RT_RETAIN_MIGRATION_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_D01408C1731AA3599B22D0CC",
+          "behavior_label": "RECURSIVE_DECLARED_IDENTITY_CANONICALIZATION",
+          "disposition": "setup_or_precondition",
+          "expression": "harness . runtime () . globals . keys () . find (| name | name . as_str () . eq_ignore_ascii_case (\"state\")) . cloned () . expect (\"state global key\")",
+          "function": "tests::apply_retain_snapshot_canonicalizes_legacy_enum_type_name",
+          "invariant_id": "RT_RETAIN_MIGRATION_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_98469A8BC9BEB221762E3B55",
+          "behavior_label": "RECURSIVE_DECLARED_IDENTITY_CANONICALIZATION",
+          "disposition": "oracle_bound",
+          "expression": "harness . runtime_mut () . apply_retain_snapshot (& snapshot) . expect (\"apply retained enum\")",
+          "function": "tests::apply_retain_snapshot_canonicalizes_legacy_enum_type_name",
+          "invariant_id": "RT_RETAIN_MIGRATION_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_AE9BA1E370BEDA5310186018",
+          "behavior_label": "RECURSIVE_DECLARED_IDENTITY_CANONICALIZATION",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (result . errors . is_empty () , \"unexpected runtime errors: {:?}\" , result . errors)",
+          "function": "tests::apply_retain_snapshot_canonicalizes_legacy_enum_type_name",
+          "invariant_id": "RT_RETAIN_MIGRATION_001",
+          "kind": "macro:assert"
+        },
+        {
+          "assertion_id": "ASSERT_13E75EFF2841C55A374F1DE7",
+          "behavior_label": "RECURSIVE_DECLARED_IDENTITY_CANONICALIZATION",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (harness . get_output (\"matched\") , Some (Value :: Bool (true)))",
+          "function": "tests::apply_retain_snapshot_canonicalizes_legacy_enum_type_name",
+          "invariant_id": "RT_RETAIN_MIGRATION_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_02BB62096A58C019B19008E9",
+          "behavior_label": "RECURSIVE_DECLARED_IDENTITY_CANONICALIZATION",
+          "disposition": "oracle_bound",
+          "expression": "panic ! (\"expected retained enum state\")",
+          "function": "tests::apply_retain_snapshot_canonicalizes_legacy_enum_type_name",
+          "invariant_id": "RT_RETAIN_MIGRATION_001",
+          "kind": "macro:panic"
+        },
+        {
+          "assertion_id": "ASSERT_7CA6470BEB0C86E5B18644D0",
+          "behavior_label": "RECURSIVE_DECLARED_IDENTITY_CANONICALIZATION",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (value . type_name () . as_str () , \"Solo\")",
+          "function": "tests::apply_retain_snapshot_canonicalizes_legacy_enum_type_name",
+          "invariant_id": "RT_RETAIN_MIGRATION_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_AC379E0358C8C9E9EE38EF5E",
+          "behavior_label": "RECURSIVE_DECLARED_IDENTITY_CANONICALIZATION",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (value . variant_name () . as_str () , \"S1\")",
+          "function": "tests::apply_retain_snapshot_canonicalizes_legacy_enum_type_name",
+          "invariant_id": "RT_RETAIN_MIGRATION_001",
+          "kind": "macro:assert_eq"
+        }
+      ],
+      "exclusions": [
+        "The test covers case-canonical compatible enum identity only, not renames, unknown or removed variants, numeric mismatch, or events.",
+        "These in-process unit tests do not prove file-backed persistence, startup integration, power-loss behavior, or external interoperability."
+      ],
+      "name": "apply_retain_snapshot_canonicalizes_legacy_enum_type_name",
+      "path": "crates/trust-runtime/src/runtime/restart.rs"
+    }
+  ]
+}
