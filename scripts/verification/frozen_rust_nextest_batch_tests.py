@@ -592,6 +592,14 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
             ("--test", "tutorial_examples"),
             tutorial_examples.cargo_target_args,
         )
+        var_init = get_target_profile(
+            "runtime-remaining",
+            path="crates/trust-runtime/tests/var_init.rs",
+        )
+        self.assertEqual(
+            ("--test", "var_init"),
+            var_init.cargo_target_args,
+        )
         scheduler = get_target_profile(
             "runtime-remaining",
             path="crates/trust-runtime/tests/e2e_scheduler.rs",

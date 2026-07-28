@@ -37,6 +37,13 @@ END_VAR
 | 5 | Structure init | `S: MyStruct := (field1 := 1, field2 := 2);` |
 | 6 | FB instance init | `Timer: TON := (PT := T#1s);` |
 
+Under IEC 61131-3 Ed.3 Section 6.5.1.3, an explicit variable initial value
+shall be a literal or a constant expression. Constant expressions may compose
+literals, declared constant variables, enumerated values, and operators.
+Referencing an ordinary mutable variable from another variable initializer is
+rejected; declaring the referenced value in a `VAR CONSTANT` section makes the
+same supported expression a valid initializer.
+
 For multi-name declarations, the declared initializer is materialized into
 independent storage for each declared name. Aggregate values rely on the runtime
 `Value::Struct` copy-on-write contract for subsequent field mutation.

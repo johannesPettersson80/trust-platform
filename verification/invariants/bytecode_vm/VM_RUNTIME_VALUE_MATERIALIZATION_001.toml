@@ -34,6 +34,15 @@ delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected
 rationale = "Type, member, variable, FB, direct-address, and VAR_CONFIG initialization compose in the documented precedence order while multi-name aggregate instances remain independent."
 
 [[behavior]]
+partition = { equals = "DECLARATION_SCALAR_AND_ARRAY_INITIALIZER_MATERIALIZATION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_VARIABLES_001#initialization-table-14"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The reviewed runtime startup materializes an uninitialized INT default, a literal INT initializer, a constant-expression INT initializer, and exact, partial default-filled, and repeated one-dimensional INT array initializers with their declared inclusive bounds."
+
+[[behavior]]
 partition = { equals = "CANONICAL_ENUM_RUNTIME_IDENTITY" }
 case_family = "happy_path"
 oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#compound-type-values"

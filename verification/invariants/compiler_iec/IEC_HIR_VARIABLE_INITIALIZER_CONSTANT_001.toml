@@ -1,0 +1,53 @@
+schema_version = 1
+id = "IEC_HIR_VARIABLE_INITIALIZER_CONSTANT_001"
+title = "Integer variable initializers accept constants and reject mutable references"
+area = "compiler_iec"
+risk = "wrong_result"
+status = "specified"
+owner = "trust-hir"
+last_reviewed = "2026-07-28"
+claim = "Explicit integer variable initializers accept literals and supported integer constant expressions but reject an expression that depends on an ordinary mutable integer variable."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-hir/src/db/queries/collector/variables.rs", "docs/specs/03-variables.md"]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["catalog_mapping", "focused_execution", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_IEC_VARIABLES_001"]
+
+[oracle]
+kind = "iec"
+ref = "SPEC_IEC_VARIABLES_001#initialization-table-14"
+
+[[behavior]]
+partition = { equals = "LITERAL_OR_CONSTANT_EXPRESSION_INITIALIZER" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_VARIABLES_001#initialization-table-14"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The reviewed literal and declared-constant arithmetic INT initializers are accepted and materialize their exact values."
+
+[[behavior]]
+partition = { equals = "MUTABLE_VARIABLE_REFERENCE_INITIALIZER_REJECTED" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_VARIABLES_001#initialization-table-14"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "An INT initializer that references the reviewed ordinary mutable INT variable is rejected with InvalidOperation before a runtime is built."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "The literal and declared-constant acceptance assertions await generated catalog mapping and focused execution."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "The mutable-variable rejection assertion awaits generated catalog mapping and focused execution."

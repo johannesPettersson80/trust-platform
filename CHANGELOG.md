@@ -48,6 +48,9 @@ Target release: `v0.24.58`
 
 ### Fixed
 
+- HIR now rejects an explicit integer variable initializer that depends on an
+  ordinary mutable variable, while preserving literal and declared-constant
+  integer expressions required by IEC 61131-3 Section 6.5.1.3.
 - File-backed retain snapshots now persist `PROGRAM` `VAR RETAIN` values under
   collision-free qualified identities, restore the saved value on warm
   restart, and remain unloaded on cold restart; the reliability test now

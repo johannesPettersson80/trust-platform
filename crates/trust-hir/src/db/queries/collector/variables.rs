@@ -82,6 +82,9 @@ impl SymbolCollector<'_> {
             self.check_string_initializer(type_id, &expr);
             self.check_subrange_initializer(type_id, &expr);
             self.check_aggregate_initializer_fields(type_id, &expr);
+            if !is_constant {
+                self.check_variable_initializer_constant_expression(type_id, &expr);
+            }
         }
 
         let direct_address = var_decl_direct_address(node);
@@ -324,6 +327,46 @@ impl SymbolCollector<'_> {
                 );
             }
             _ => self.check_required_scalar_default(resolved, expr),
+        }
+    }
+
+    fn check_variable_initializer_constant_expression(
+        &mut self,
+        type_id: TypeId,
+        expr: &SyntaxNode,
+    ) {
+        let resolved = self.table.resolve_alias_type(type_id);
+        let Some(target) = self.table.type_by_id(resolved) else {
+            return;
+        };
+        if !target.is_integer() {
+            return;
+        }
+
+        let scopes = scope_chain_for_node(expr);
+        let mut guard = FxHashSet::default();
+        match self.try_eval_int_expr(expr, &scopes, &mut guard) {
+            Ok(_) => {}
+            Err(ConstEvalError::UndefinedName(name))
+                if self
+                    .table
+                    .resolve(name.as_str(), self.table.current_scope())
+                    .is_some() =>
+            {
+                self.diagnostics.error(
+                    DiagnosticCode::InvalidOperation,
+                    expr.text_range(),
+                    "variable initializer must be a literal or constant expression",
+                );
+            }
+            Err(ConstEvalError::NotConstant) => {
+                self.diagnostics.error(
+                    DiagnosticCode::InvalidOperation,
+                    expr.text_range(),
+                    "variable initializer must be a literal or constant expression",
+                );
+            }
+            Err(err) => self.report_default_const_eval_error(err, expr.text_range()),
         }
     }
 

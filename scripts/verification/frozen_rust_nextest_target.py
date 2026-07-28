@@ -369,6 +369,7 @@ RUNTIME_REMAINING_INTEGRATION_PATHS = frozenset(
         "crates/trust-runtime/tests/st_test_cli_command.rs",
         "crates/trust-runtime/tests/tasks.rs",
         "crates/trust-runtime/tests/tutorial_examples.rs",
+        "crates/trust-runtime/tests/var_init.rs",
         "crates/trust-runtime/tests/vars_retain.rs",
     }
 )
