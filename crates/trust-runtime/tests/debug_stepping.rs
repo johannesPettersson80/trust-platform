@@ -233,10 +233,10 @@ END_PROGRAM
     let control = runtime.enable_debug();
     let (stop_tx, stop_rx) = channel();
     control.set_stop_sender(stop_tx);
+    control.set_breakpoints_for_file(0, vec![DebugBreakpoint::new(if_location)]);
 
     let runtime = Arc::new(Mutex::new(runtime));
     for cycle in 1..=3 {
-        control.set_breakpoints_for_file(0, vec![DebugBreakpoint::new(if_location)]);
         let runtime_thread = runtime.clone();
         let handle = thread::spawn(move || {
             let mut runtime = runtime_thread.lock().expect("runtime lock poisoned");
@@ -244,13 +244,13 @@ END_PROGRAM
         });
 
         let received = stop_rx.recv_timeout(Duration::from_millis(500));
-        control.clear_breakpoints();
         control.continue_run();
         handle.join().unwrap();
 
         let stop = received.unwrap_or_else(|_| panic!("expected stop on cycle {cycle}"));
         assert_eq!(stop.reason, DebugStopReason::Breakpoint);
     }
+    control.clear_breakpoints();
 }
 
 #[test]
@@ -328,15 +328,23 @@ END_PROGRAM
     let runtime = Arc::new(Mutex::new(runtime));
     let runtime_thread = Arc::clone(&runtime);
     let running_thread = Arc::clone(&running);
+    let (first_cycle_done_tx, first_cycle_done_rx) = channel();
     let handle = thread::spawn(move || {
         let mut runtime = runtime_thread.lock().expect("runtime lock poisoned");
+        let mut first_cycle_pending = true;
         while running_thread.load(Ordering::SeqCst) {
             runtime.execute_cycle().unwrap();
+            if first_cycle_pending {
+                first_cycle_done_tx.send(()).unwrap();
+                first_cycle_pending = false;
+            }
         }
     });
 
-    // Let launch/run proceed without breakpoints first.
-    thread::sleep(Duration::from_millis(50));
+    // Prove launch/run completed a cycle without breakpoints before mutation.
+    first_cycle_done_rx
+        .recv_timeout(Duration::from_millis(500))
+        .unwrap();
     assert!(stop_rx.recv_timeout(Duration::from_millis(100)).is_err());
 
     // Set breakpoint while runtime is already running.

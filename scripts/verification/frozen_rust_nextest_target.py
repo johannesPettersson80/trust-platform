@@ -257,6 +257,7 @@ RUNTIME_REMAINING_INTEGRATION_PATHS = frozenset(
         "crates/trust-runtime/tests/datetime_profile.rs",
         "crates/trust-runtime/tests/datetime_range.rs",
         "crates/trust-runtime/tests/datetime_types.rs",
+        "crates/trust-runtime/tests/debug_stepping.rs",
         "crates/trust-runtime/tests/expr_calls.rs",
         "crates/trust-runtime/tests/fb_bistable.rs",
         "crates/trust-runtime/tests/fb_counters.rs",
@@ -361,6 +362,12 @@ RUNTIME_REMAINING_UNIT_PREFIXES: Mapping[str, str] = {
         "helper_eval::storage_lvalue::tests::"
     ),
     "crates/trust-runtime/src/host/instance.rs": "instance::tests::",
+    "crates/trust-runtime/src/host/debug/control/tests.rs": (
+        "debug::control::tests::"
+    ),
+    "crates/trust-runtime/src/host/debug/resolve.rs": (
+        "debug::resolve::tests::"
+    ),
     "crates/trust-runtime/src/host/realtime/realtime_tests_part_01.rs": (
         "realtime::tests::"
     ),

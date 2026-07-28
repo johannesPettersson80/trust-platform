@@ -899,3 +899,22 @@ IEC or PLCopen deviation log merely because truST owns the behavior.
     Recording them as product authority allows exact catalog oracles without
     misclassifying the host transport as an IEC deviation or overstating its
     timing proof.
+
+## 2026-07-28 - Live cyclic breakpoint eligibility
+
+- Area: Runtime debugger breakpoint lifecycle
+- Decision:
+  - A breakpoint installed after launch, including while cyclic execution is
+    already running, becomes eligible at the next matching statement boundary.
+    It does not retroactively stop work completed before installation.
+  - After continue, an unchanged breakpoint remains eligible on later scans
+    until it is cleared or filtered by its condition or hit-count rule.
+- Supersedes:
+  - Any interpretation that breakpoints are frozen at launch or become
+    one-shot merely because execution continued after a stop.
+- Authority:
+  - `docs/specs/13-debug-adapter.md`
+- Reason:
+  - Live breakpoint mutation and cyclic re-hit behavior are observable truST
+    debugger lifecycle rules outside IEC 61131-3. They therefore belong in
+    product authority, not the IEC deviation register.

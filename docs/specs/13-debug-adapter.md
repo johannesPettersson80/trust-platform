@@ -67,6 +67,9 @@ This document is implementation-agnostic but aligns with the DAP definitions in
 - In cyclic tasks, a breakpoint in a statement that executes every scan **will stop every scan**
   until the breakpoint is cleared or a hit condition/condition filters it.
 - Users should use hit counts or conditional breakpoints for one-shot behavior.
+- A breakpoint installed after launch, including while cyclic execution is
+  already running, applies at the next matching statement boundary. It does not
+  retroactively stop a statement or scan that completed before installation.
 
 ### Run Control
 
@@ -200,6 +203,11 @@ statement at or after the requested position. Runtime resolution returns that
 statement start, and a breakpoint hit pauses before the statement, emits one
 `breakpoint` stop carrying the current breakpoint generation, and resumes only
 after an explicit continue.
+
+After continue, an unchanged breakpoint remains eligible when its statement is
+executed in a later scan. A breakpoint installed after launch or while cyclic
+execution is running becomes eligible at the next matching statement boundary;
+execution completed before installation remains unstopped.
 
 Step In stops at the next executed statement. Step Over ignores deeper frames
 and stops at the next statement at the starting frame depth. Step Out ignores

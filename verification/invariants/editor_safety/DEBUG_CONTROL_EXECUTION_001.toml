@@ -5,7 +5,7 @@ area = "editor_safety"
 risk = "false_status"
 status = "mapped"
 owner = "trust-debug"
-last_reviewed = "2026-07-26"
+last_reviewed = "2026-07-28"
 claim = "Runtime debug control resolves and stops at authoritative statement boundaries, preserves step, condition, hit-count, watch, frame, and task-order semantics, invokes the host statement hook exactly once when debug instrumentation is enabled, emits logpoints without pausing, and retains events when a local receiver disappears."
 proof_level = "S0"
 contract_kind = "state_machine"
@@ -41,6 +41,24 @@ outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }
 rationale = "Resolution selects the innermost containing or next statement start, and a matching current-generation breakpoint pauses before execution and emits one breakpoint stop."
+
+[[behavior]]
+partition = { equals = "CYCLIC_BREAKPOINT_REHIT" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"
+outcome = "accept_value"
+no_partial_apply = false
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "After continue, an unchanged breakpoint remains eligible when its statement executes in later scans until it is cleared or filtered."
+
+[[behavior]]
+partition = { equals = "LIVE_BREAKPOINT_MUTATION" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"
+outcome = "accept_value"
+no_partial_apply = false
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
+rationale = "A breakpoint installed after launch or during cyclic execution becomes eligible at the next matching statement boundary without retroactively stopping completed work."
 
 [[behavior]]
 partition = { equals = "WATCH_FRAME_AND_TASK_ORDER" }
@@ -94,8 +112,8 @@ rationale = "Existing mappings cover the earlier happy-path behaviors; the newly
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
-state = "covered"
-rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in DEBUG_CONTROL_EXECUTION_001; dynamic proof and broad remote validation remain explicit debt."
+state = "gap_open"
+rationale = "Earlier ordering mappings remain accepted; cyclic re-hit and live breakpoint-mutation behaviors await catalog acceptance and focused proof."
 
 [[coverage.cells]]
 dimension = "boundary_high"

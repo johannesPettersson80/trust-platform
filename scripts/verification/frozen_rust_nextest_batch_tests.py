@@ -677,6 +677,38 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
         )
         self.assertEqual("", integration.test_prefix)
 
+    def test_runtime_remaining_profile_resolves_debugger_batch_targets(
+        self,
+    ) -> None:
+        unit_targets = {
+            "crates/trust-runtime/src/host/debug/control/tests.rs": (
+                "debug::control::tests::"
+            ),
+            "crates/trust-runtime/src/host/debug/resolve.rs": (
+                "debug::resolve::tests::"
+            ),
+        }
+        for path, prefix in unit_targets.items():
+            with self.subTest(path=path):
+                profile = get_target_profile("runtime-remaining", path=path)
+                self.assertEqual(("--lib",), profile.cargo_target_args)
+                self.assertEqual("trust-runtime", profile.binary_id)
+                self.assertEqual(prefix, profile.test_prefix)
+
+        integration = get_target_profile(
+            "runtime-remaining",
+            path="crates/trust-runtime/tests/debug_stepping.rs",
+        )
+        self.assertEqual(
+            ("--test", "debug_stepping"),
+            integration.cargo_target_args,
+        )
+        self.assertEqual(
+            "trust-runtime::debug_stepping",
+            integration.binary_id,
+        )
+        self.assertEqual("", integration.test_prefix)
+
     def test_runtime_remaining_profile_resolves_tasks_integration_target(
         self,
     ) -> None:
