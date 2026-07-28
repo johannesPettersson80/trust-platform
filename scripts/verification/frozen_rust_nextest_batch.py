@@ -933,6 +933,40 @@ def _checked_repo_file(root: Path, relative: Path, label: str) -> Path:
     return path
 
 
+def _selected_discovery_ids_for_path(
+    root: Path,
+    inventory_path: Path,
+    source_path: str,
+) -> frozenset[str]:
+    path = _checked_repo_file(root, inventory_path, "selection inventory")
+    document = json.loads(path.read_text())
+    if not isinstance(document, Mapping):
+        raise ValueError("selection inventory must be a JSON object")
+    inventories = document.get("inventories")
+    if not isinstance(inventories, Mapping):
+        raise ValueError("selection inventory lacks inventories")
+    selected = set()
+    for discovery_id, raw in inventories.items():
+        if not isinstance(discovery_id, str) or not discovery_id:
+            raise ValueError("selection inventory has an invalid discovery ID")
+        if not isinstance(raw, Mapping):
+            raise ValueError(
+                f"selection inventory {discovery_id} is not an object"
+            )
+        row_path = raw.get("path")
+        if not isinstance(row_path, str) or not row_path:
+            raise ValueError(
+                f"selection inventory {discovery_id} lacks path"
+            )
+        if row_path == source_path:
+            selected.add(discovery_id)
+    if not selected:
+        raise ValueError(
+            f"selection inventory has no tests for {source_path}"
+        )
+    return frozenset(selected)
+
+
 def _checked_output_path(root: Path, value: Path, label: str) -> Path:
     unresolved = value if value.is_absolute() else root / value
     if unresolved.is_symlink():
@@ -1044,20 +1078,11 @@ def main(argv: list[str] | None = None) -> int:
         _checked_repo_file(root, Path(args.path), "test source")
         selected_discovery_ids = None
         if args.selection_inventory is not None:
-            selection_inventory_path = _checked_repo_file(
+            selected_discovery_ids = _selected_discovery_ids_for_path(
                 root,
                 args.selection_inventory,
-                "selection inventory",
+                args.path,
             )
-            selection_inventory = json.loads(
-                selection_inventory_path.read_text()
-            )
-            if not isinstance(selection_inventory, Mapping):
-                raise ValueError("selection inventory must be a JSON object")
-            inventories = selection_inventory.get("inventories")
-            if not isinstance(inventories, Mapping):
-                raise ValueError("selection inventory lacks inventories")
-            selected_discovery_ids = frozenset(str(key) for key in inventories)
         raw_path = _checked_output_path(root, args.raw_results, "raw results")
         results_path = _checked_output_path(root, args.results, "results")
         metadata_value = args.execution_metadata or Path(

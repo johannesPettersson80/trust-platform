@@ -253,3 +253,12 @@ Issue #51 init benchmark baseline evidence (2026-04-28):
   pass on `trust-builder`, the 15 selected WASM browser-analysis inventories
   have zero unresolved helpers with four exact fixture digests per row, and
   `verification-code-spec-coverage.puml` records the ownership boundary.
+- [x] `ARCH-VERIF-P18-07` Close the functional browser-analysis catalog lane
+  with one path-aware frozen nextest profile and one bounded semantic assignment
+  owner: combined reviewed inventories filter to the requested source path,
+  assertions bind only to named product behavior partitions, malformed JSON
+  rejection remains separate from successful JSON projection, and latency and
+  memory rows cannot enter the functional batch. Evidence: 45 focused Python
+  runner/assignment tests pass locally, all 15 exact native Rust facade tests
+  pass on `trust-builder`, and `verification-code-spec-coverage.puml` records
+  that native facade proof is not wasm32, JavaScript, or browser-render proof.

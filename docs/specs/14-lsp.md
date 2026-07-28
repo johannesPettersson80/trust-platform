@@ -456,6 +456,49 @@ change IEC 61131-3 program semantics.
 - Failure before the delete phase leaves the original source available; no
   command may delete first and attempt recovery afterward.
 
+##### 6.6.11 Browser and WebAssembly analysis projection
+
+The browser analysis engine owns an in-memory document set. A successful
+replacement makes exactly the supplied URI and text pairs the next analysis
+snapshot. Its status reports that snapshot's document count and URI identities.
+Repeated full-set replacements must not retain diagnostics produced only by
+superseded text, including when several documents change in one replacement.
+
+For the same accepted document set and request, the browser projection of
+diagnostics, hover, and completion must preserve the corresponding native
+analysis result. This is a result-projection requirement for the reviewed
+features and fixtures; it does not claim identical performance, allocation, or
+every unreviewed native capability.
+
+Completion preserves visible program variables for partial statement prefixes
+and declared structure members after member access. Function-block hover
+preserves declared input and output types instead of replacing resolved types
+with unknown placeholders.
+
+Browser navigation and refactoring treat supplied source keys as opaque virtual
+document identities. Plain names such as `program.st` are not rewritten into
+filesystem URIs. In the reviewed cases, definition preserves its asserted
+cross-document target identity, references and rename preserve the asserted URI
+membership, and document highlight preserves the asserted occurrence count.
+These feature requests also accept the reviewed cursor positions at an
+identifier boundary or immediately adjacent punctuation. This does not claim
+exact ranges, highlight kinds, edit contents, conflict handling, edit
+application, or atomicity beyond the asserted results.
+
+The WebAssembly JSON adapter is a serialization boundary over the same browser
+engine:
+
+- malformed document JSON returns an explicit error rather than a successful
+  empty snapshot;
+- accepted document JSON returns a parseable replacement result;
+- status JSON returns the current document count and URI identities; and
+- diagnostic JSON returns the current diagnostics for the requested URI.
+
+These are truST product and host-adapter contracts. They do not define IEC
+program semantics and are not IEC 61131-3 deviations. The reviewed tests invoke
+the native Rust facades; they do not by themselves prove a `wasm32`,
+`wasm-bindgen`, JavaScript, or rendered-browser integration lane.
+
 ---
 
 ### 7. LSP Protocol

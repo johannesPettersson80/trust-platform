@@ -23,6 +23,7 @@ from scripts.verification.frozen_rust_nextest_batch import (
     main,
     normalize_nextest_jsonl,
     split_feature_shards,
+    _selected_discovery_ids_for_path,
 )
 from scripts.verification.frozen_rust_nextest_target import (
     HIR_SEMANTIC_CONTROL_FLOW_PROFILE,
@@ -40,6 +41,38 @@ def _sha256(content: bytes) -> str:
 
 
 class FrozenRustNextestBatchTests(unittest.TestCase):
+    def test_combined_selection_inventory_filters_requested_path(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            inventory = root / "selected.json"
+            inventory.write_text(
+                json.dumps(
+                    {
+                        "schema_version": 2,
+                        "inventories": {
+                            "DISC_A": {"path": "tests/a.rs"},
+                            "DISC_B": {"path": "tests/b.rs"},
+                            "DISC_C": {"path": "tests/a.rs"},
+                        },
+                    }
+                )
+            )
+
+            self.assertEqual(
+                frozenset({"DISC_A", "DISC_C"}),
+                _selected_discovery_ids_for_path(
+                    root,
+                    Path("selected.json"),
+                    "tests/a.rs",
+                ),
+            )
+            with self.assertRaisesRegex(ValueError, "no tests"):
+                _selected_discovery_ids_for_path(
+                    root,
+                    Path("selected.json"),
+                    "tests/missing.rs",
+                )
+
     def test_selection_is_exact_reviewed_plus_catalog_mapped_union(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -392,6 +425,36 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
                     "syntax-remaining",
                     path=excluded_path,
                 )
+
+    def test_wasm_analysis_profile_is_closed_over_reviewed_parity_parts(self) -> None:
+        self.assertIn("wasm-analysis-remaining", TARGET_PROFILES)
+        profile = get_target_profile(
+            "wasm-analysis-remaining",
+            path=(
+                "crates/trust-wasm-analysis/tests/mp010_parity/"
+                "mp010_parity_part_03.rs"
+            ),
+        )
+
+        self.assertEqual("trust-wasm-analysis", profile.package)
+        self.assertEqual(("--test", "mp010_parity"), profile.cargo_target_args)
+        self.assertEqual(
+            "trust-wasm-analysis::mp010_parity",
+            profile.binary_id,
+        )
+        self.assertEqual("mp010_parity_part_03::", profile.test_prefix)
+        self.assertEqual(
+            "trust-wasm-analysis::mp010_parity$",
+            profile.encoded_test_name_prefix,
+        )
+        with self.assertRaisesRegex(ValueError, "outside the closed WASM analysis"):
+            get_target_profile(
+                "wasm-analysis-remaining",
+                path=(
+                    "crates/trust-wasm-analysis/tests/mp010_parity/"
+                    "mp010_parity_part_05.rs"
+                ),
+            )
 
     def test_debug_and_runtime_core_profiles_are_closed_over_reviewed_paths(
         self,

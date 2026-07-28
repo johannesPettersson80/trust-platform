@@ -2030,8 +2030,12 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/specs/14-lsp.md"
 version = "current"
-last_reviewed = "2026-07-18"
+last_reviewed = "2026-07-28"
 covers = [
+  "browser_wasm_analysis_projection",
+  "browser_virtual_document_identity",
+  "browser_document_snapshot_replacement",
+  "wasm_json_analysis_adapter",
   "diagnostic_cancellation",
   "document_close_durable_project_truth",
   "lsp_position_encoding",

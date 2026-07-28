@@ -1,0 +1,120 @@
+schema_version = 1
+id = "BROWSER_ANALYSIS_PROJECTION_001"
+title = "Browser and WebAssembly analysis preserve native result and virtual-document truth"
+area = "editor_safety"
+risk = "correctness"
+status = "mapped"
+owner = "trust-wasm-analysis"
+last_reviewed = "2026-07-28"
+claim = "The native browser analysis facade replaces one complete virtual-document snapshot, preserves native results for the reviewed diagnostics, hover, and completion fixtures, keeps reviewed navigation and refactoring results bound to supplied source identities and cursor boundaries, and exposes explicit parseable JSON adapter results without fabricated success."
+proof_level = "S0"
+contract_kind = "state_machine"
+source_refs = [
+  "SPEC_LSP_CONTRACT_001",
+  "crates/trust-wasm-analysis/src",
+]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_LSP_CONTRACT_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_LSP_CONTRACT_001#6611-browser-and-webassembly-analysis-projection"
+
+[[behavior]]
+partition = { equals = "REVIEWED_NATIVE_FEATURE_PARITY" }
+case_family = "happy_path"
+oracle_ref = "SPEC_LSP_CONTRACT_001#6611-browser-and-webassembly-analysis-projection"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected", status = "unchanged" }
+rationale = "For the reviewed fixtures and requests only, browser diagnostics, hover, and completion equal the corresponding native analysis projections."
+
+[[behavior]]
+partition = { equals = "BROWSER_HOVER_COMPLETION_PROJECTION" }
+case_family = "missing_required"
+oracle_ref = "SPEC_LSP_CONTRACT_001#6611-browser-and-webassembly-analysis-projection"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Function-block hover preserves declared input and output types, while completion returns reviewed visible variables and declared structure members."
+
+[[behavior]]
+partition = { equals = "PLAIN_DOCUMENT_IDENTITY_SYMBOL_PROJECTION" }
+case_family = "platform_or_filesystem_variation"
+oracle_ref = "SPEC_LSP_CONTRACT_001#6611-browser-and-webassembly-analysis-projection"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The reviewed definition, references, rename, and document-highlight results preserve asserted plain source identities, targets, URI membership, and occurrence counts without claiming exact ranges, edits, application, or atomicity."
+
+[[behavior]]
+partition = { equals = "PUNCTUATION_ADJACENT_SYMBOL_RESOLUTION" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_LSP_CONTRACT_001#6611-browser-and-webassembly-analysis-projection"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The reviewed definition, references, and rename requests resolve at an identifier end or immediately adjacent '#', '+', or ':' punctuation; ASCII-only fixtures do not prove UTF-16 behavior."
+
+[[behavior]]
+partition = { equals = "MALFORMED_DOCUMENT_JSON_REJECTION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_LSP_CONTRACT_001#6611-browser-and-webassembly-analysis-projection"
+outcome = "reject"
+delta = { target = "not_applicable", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "stable_error", status = "not_applicable" }
+rationale = "Malformed document JSON rejects with the reviewed error fragment; the test does not inspect engine state after rejection, so no post-error state claim is made."
+
+[[behavior]]
+partition = { equals = "JSON_APPLY_STATUS_AND_DIAGNOSTICS" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_LSP_CONTRACT_001#6611-browser-and-webassembly-analysis-projection"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected", status = "set_to_expected" }
+rationale = "Accepted JSON apply, status, and diagnostic calls return parseable reviewed shapes, current URI identity, and the expected unresolved-symbol diagnostic."
+
+[[behavior]]
+partition = { equals = "REPEATED_FULL_DOCUMENT_REPLACEMENT" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_LSP_CONTRACT_001#6611-browser-and-webassembly-analysis-projection"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected", status = "set_to_expected" }
+rationale = "Forty reviewed full-set document replacements keep the asserted three-document status and Main identity while io.st diagnostics follow its current replacement text."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "The reviewed browser/native projection assertions await catalog acceptance and focused execution evidence."
+
+[[coverage.cells]]
+dimension = "missing_required"
+state = "gap_open"
+rationale = "The reviewed declared-hover and contextual-completion assertions await catalog acceptance and focused execution evidence."
+
+[[coverage.cells]]
+dimension = "platform_or_filesystem_variation"
+state = "gap_open"
+rationale = "The reviewed virtual-identity navigation and refactor assertions await catalog acceptance and focused execution evidence."
+
+[[coverage.cells]]
+dimension = "boundary_high"
+state = "gap_open"
+rationale = "The reviewed ASCII identifier-boundary and adjacent-punctuation assertions await catalog acceptance and focused execution evidence."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "The reviewed JSON success and malformed-input assertions await catalog acceptance and focused execution evidence."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "The reviewed repeated document-snapshot replacement assertions await catalog acceptance and focused execution evidence."

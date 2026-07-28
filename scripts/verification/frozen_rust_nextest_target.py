@@ -28,6 +28,7 @@ RUNTIME_CORE_REMAINING_PROFILE_KEY = "runtime-core-remaining"
 ADS_SERVER_REMAINING_PROFILE_KEY = "ads-server-remaining"
 VERIFICATION_CASES_REMAINING_PROFILE_KEY = "verification-cases-remaining"
 PLCOPEN_REMAINING_PROFILE_KEY = "plcopen-remaining"
+WASM_ANALYSIS_REMAINING_PROFILE_KEY = "wasm-analysis-remaining"
 TERMINAL_EVENTS = frozenset({"ok", "failed", "ignored", "timeout"})
 
 
@@ -224,6 +225,39 @@ PLCOPEN_REMAINING_PROFILE = FrozenRustTargetProfile(
     no_default_features_cfg=None,
     no_default_features_shard_name=None,
 )
+
+WASM_ANALYSIS_REMAINING_PROFILE = FrozenRustTargetProfile(
+    key=WASM_ANALYSIS_REMAINING_PROFILE_KEY,
+    package="trust-wasm-analysis",
+    target_kind="test",
+    target_name="mp010_parity",
+    binary_id="trust-wasm-analysis::mp010_parity",
+    test_prefix="",
+    encoded_test_name_prefix="trust-wasm-analysis::mp010_parity$",
+    discovery_source_kind="rust_integration_test",
+    allowed_cfg_attributes=frozenset(),
+    no_default_features_cfg=None,
+    no_default_features_shard_name=None,
+)
+
+WASM_ANALYSIS_REMAINING_PREFIXES: Mapping[str, str] = {
+    (
+        "crates/trust-wasm-analysis/tests/mp010_parity/"
+        "mp010_parity_part_01.rs"
+    ): "mp010_parity_part_01::",
+    (
+        "crates/trust-wasm-analysis/tests/mp010_parity/"
+        "mp010_parity_part_02.rs"
+    ): "mp010_parity_part_02::",
+    (
+        "crates/trust-wasm-analysis/tests/mp010_parity/"
+        "mp010_parity_part_03.rs"
+    ): "mp010_parity_part_03::",
+    (
+        "crates/trust-wasm-analysis/tests/mp010_parity/"
+        "mp010_parity_part_04.rs"
+    ): "mp010_parity_part_04::",
+}
 
 PLCOPEN_REMAINING_UNIT_PREFIXES: Mapping[str, str] = {
     "crates/trust-plcopen/src/plcopen/tests/export_profile.rs": "tests::",
@@ -578,6 +612,7 @@ TARGET_PROFILES: Mapping[str, FrozenRustTargetProfile] = {
         ADS_SERVER_REMAINING_PROFILE,
         VERIFICATION_CASES_REMAINING_PROFILE,
         PLCOPEN_REMAINING_PROFILE,
+        WASM_ANALYSIS_REMAINING_PROFILE,
         RUNTIME_REMAINING_LIB_PROFILE,
     )
 }
@@ -635,6 +670,13 @@ def get_target_profile(
             PLCOPEN_REMAINING_UNIT_PREFIXES,
             path,
             "PLCopen",
+        )
+    if key == WASM_ANALYSIS_REMAINING_PROFILE_KEY:
+        return _unit_path_profile(
+            WASM_ANALYSIS_REMAINING_PROFILE,
+            WASM_ANALYSIS_REMAINING_PREFIXES,
+            path,
+            "WASM analysis",
         )
     if key == RUNTIME_REMAINING_PROFILE_KEY:
         return _runtime_remaining_profile(path)

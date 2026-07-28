@@ -6,6 +6,11 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Specify the native browser-analysis and WebAssembly JSON adapter boundary for
+  reviewed native-result parity, opaque virtual document identity, full-set
+  replacement, and explicit JSON success and failure projections; add a closed
+  exact-test profile and semantic assignment lock for the 15 functional MP010
+  parity tests while leaving latency and memory evidence separate.
 - Specify the runtime variable-storage contract for instance-field resolution,
   declared layouts, reference-helper equivalence, cache invalidation,
   copy-on-write nested updates, and checked extreme array bounds.

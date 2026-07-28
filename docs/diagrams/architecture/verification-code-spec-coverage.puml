@@ -38,6 +38,7 @@ package "Live test denominator" {
 }
 
 package "Execution-guided mapping accelerator" {
+  [closed exact nextest target profiles] as TargetProfiles
   [Rust nextest + LLVM profiles] as RustTrace
   [direct ST / conformance adapter] as DirectTrace
   [VS Code c8 adapter] as VsCodeTrace
@@ -48,6 +49,7 @@ package "Execution-guided mapping accelerator" {
   database "review decisions" as Decisions
   [visibility-safe Rust import graph] as RustImportResolver
   [source-bound assertion inventory] as AssertionInventory
+  [per-subsystem semantic assignment generators] as AssignmentGenerators
   [exact assertion-to-oracle review] as SemanticReview
   [recoverable atomic catalog transaction] as CatalogTransaction
 }
@@ -91,7 +93,8 @@ AreaOwners --> Join : canonical owner for area
 TestScanners --> TestFacts
 TestDenominator --> FocusedResolver : reviewed DISC identity
 TestFacts --> FocusedResolver : final campaign refresh only
-FocusedResolver --> RustTrace : focused Rust files only
+FocusedResolver --> TargetProfiles : exact selected DISC identities
+TargetProfiles --> RustTrace : package + binary + module prefix
 TestFacts --> DirectTrace
 TestFacts --> VsCodeTrace
 TestFacts --> StructuralTrace
@@ -109,7 +112,8 @@ Proposals --> SemanticReview
 Decisions --> CandidateJoin : suppress unchanged rejection
 FocusedResolver --> AssertionInventory : exact requested Rust tests
 RustImportResolver --> AssertionInventory : named imports + visible glob chains
-AssertionInventory --> SemanticReview : assertions + oracle source digests
+AssertionInventory --> AssignmentGenerators : assertions + oracle source digests
+AssignmentGenerators --> SemanticReview : reviewed behavior selectors only
 SemanticReview --> Decisions
 SemanticReview --> CatalogTransaction : explicit accepted batch only
 CatalogTransaction --> TestCatalog
@@ -146,6 +150,12 @@ note bottom of SemanticReview
   Coverage, names, paths, and mutation kills are not semantic proof.
   Each assertion is bound to exact oracle behavior rows;
   high-risk mappings require two distinct reviewers.
+end note
+
+note bottom of TargetProfiles
+  Profiles close package, target, binary, and module-prefix identity.
+  The browser-analysis profile executes native Rust facade tests only;
+  it does not claim wasm32, JavaScript, or rendered-browser proof.
 end note
 
 note bottom of RustImportResolver

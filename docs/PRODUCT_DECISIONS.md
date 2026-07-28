@@ -6,6 +6,34 @@ in `IEC_DECISIONS.md`; PLCopen profile decisions belong in
 `PLCOPEN_DECISIONS.md`. Product behavior recorded here MUST NOT be copied to an
 IEC or PLCopen deviation log merely because truST owns the behavior.
 
+## 2026-07-28 - Browser and WebAssembly analysis projection
+
+- Area: Browser-hosted Structured Text analysis
+- Decision:
+  - The browser engine replaces one complete in-memory document snapshot and
+    reports the accepted URI identities without rewriting virtual or plain
+    source keys as filesystem paths.
+  - For the reviewed diagnostics, hover, and completion cases, browser results
+    preserve native analysis results for the same documents and request.
+  - Definition, references, rename, and document highlight preserve supplied
+    source identities and the asserted targets or counts, and support the
+    reviewed identifier-boundary and punctuation-adjacent cursor positions.
+  - The WebAssembly JSON surface fails explicitly on malformed input and
+    returns parseable apply, status, and diagnostic projections of the same
+    engine state.
+- Authority:
+  - `docs/specs/14-lsp.md`
+- Supersedes:
+  - Any interpretation that filename-only source keys are incomplete file URIs
+    or that adapter success may hide malformed JSON behind an empty result.
+- Reason:
+  - Browser and JSON hosting must not change source identity or fabricate
+    success. This is product adapter behavior outside IEC 61131-3, so it belongs
+    here rather than in `IEC_DEVIATIONS.md`. Performance and memory budgets
+    remain separate evidence and are not implied by this decision. Native
+    facade tests also do not imply `wasm32`, JavaScript, or rendered-browser
+    integration proof.
+
 ## 2026-07-27 - Simulation model activation and scan-boundary effects
 
 - Area: Runtime simulation
