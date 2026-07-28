@@ -1253,6 +1253,36 @@ This host-side launcher policy is a truST product contract. IEC 61131-3 does
 not define hardware-driver selection or OS-level I/O configuration, so the
 policy is not an IEC deviation.
 
+##### Runtime bundle builder source and dependency resolution
+
+Without an explicit source override, the runtime bundle builder selects the
+project's `src/` directory. A project containing only the legacy `sources/`
+directory rejects with the reviewed missing-`src/` diagnostic rather than
+silently changing source roots.
+
+The reviewed local dependency graph resolves direct and transitive
+`trust-lsp.toml` path dependencies, includes the root and dependency source
+files in compilation and inspection, reports the reviewed `LibA`, `LibB`
+dependency identities, and produces `program.stbc` after successful build.
+This graph-specific ordering does not establish the general deterministic-order
+contract whose separate behavior-lock test remains unresolved.
+
+Dependency resolution rejects a missing declared path, a cycle in the local
+dependency graph, and a requested package version that disagrees with the
+dependency manifest. The reviewed diagnostics respectively retain the missing
+dependency name, identify a cyclic dependency, and retain the requested
+version. Rejection returns no successful build report.
+
+For the reviewed root project, a structure type declared in one source, a
+global of that type declared in a second source, and a program accessing the
+global structure field in a third source compile together and produce the
+bundle artifact while retaining all three source identities.
+
+These focused builder rules do not prove arbitrary dependency ordering,
+symlink or concurrent-filesystem behavior, cleanup after partial writes,
+external registries, bytecode semantic equivalence, or cross-platform path
+behavior.
+
 ##### Runtime CLI entrypoint, diagnostics, and dispatch contract
 
 The `trust-runtime` entrypoint parses one optional top-level command. A

@@ -1004,3 +1004,27 @@ IEC or PLCopen deviation log merely because truST owns the behavior.
   - Quality state and field-transition truth are observable truST product
     behavior outside IEC 61131-3 and require exact catalog oracles without an
     IEC deviation entry.
+
+## 2026-07-28 - Runtime bundle source and local dependency resolution
+
+- Area: Runtime project build
+- Decision:
+  - The canonical implicit project source root is `src/`; a legacy
+    `sources/`-only project is rejected instead of silently selected.
+  - The reviewed local dependency graph includes direct and transitive source
+    files and reports its resolved dependency identities. Missing paths,
+    dependency cycles, and requested-version mismatches reject with bounded
+    diagnostic identity.
+  - Root-project types, globals, and field access may be split across the three
+    reviewed source files and compile into one `program.stbc` artifact.
+- Supersedes:
+  - Any interpretation that `sources/` remains an implicit runtime build root.
+  - Any interpretation that a missing, cyclic, or version-incompatible local
+    dependency may be omitted while the root build succeeds.
+  - Any interpretation that these focused native tests prove general ordering,
+    external registries, filesystem races, or cross-platform path behavior.
+- Authority:
+  - `docs/specs/11-runtime-engine.md`
+- Reason:
+  - Project layout, dependency resolution, and build-report behavior are truST
+    host-product contracts outside IEC 61131-3.

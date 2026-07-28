@@ -6,15 +6,15 @@ risk = "supply_chain"
 status = "mapped"
 owner = "release"
 last_reviewed = "2026-07-22"
-claim = "The runtime build command resolves project, source, and dependency inputs deterministically; writes program.stbc only after successful compilation; preserves an existing artifact on compile failure; and reports exact build identity in CI or human output."
+claim = "The runtime build command resolves the canonical project source root and local dependency closure deterministically, compiles reviewed cross-file root sources, rejects malformed dependency graphs, writes program.stbc only after successful compilation, preserves an existing artifact on compile failure, and reports exact build identity in CI or human output."
 proof_level = "T1"
 contract_kind = "protocol_trace"
-source_refs = ["crates/trust-runtime/src/bin/trust-runtime/build.rs"]
+source_refs = ["crates/trust-runtime/src/bin/trust-runtime/build.rs", "crates/trust-runtime/src/host/bundle_builder"]
 tests = ["TEST_AUTO_3E24745EDD37F61AE492", "TEST_RUNTIME_BUILD_CI_DEPENDENCIES_001", "TEST_RUNTIME_BUILD_FAILURE_PRESERVES_ARTIFACT_001", "TEST_RUNTIME_BUILD_HUMAN_DISCOVERY_001"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["assertion_reachability", "mutation_sensitivity", "windows_path_evidence", "broad_remote_gate"]
+missing = ["assertion_reachability", "mutation_sensitivity", "windows_path_evidence", "broad_remote_gate", "general_dependency_ordering", "symlink_and_concurrent_filesystem_behavior", "partial_artifact_cleanup", "external_registry_dependencies", "bytecode_semantic_equivalence"]
 
 [spec]
 status = "specified"
@@ -50,6 +50,51 @@ outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
 rationale = "Bundle discovery can select the current project and human output reports the artifact, count, bounded source list, and omitted count."
+
+[[behavior]]
+partition = { equals = "CANONICAL_SRC_WITHOUT_OVERRIDE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-bundle-builder-source-and-dependency-resolution"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "Without an override, the reviewed canonical src directory resolves successfully."
+
+[[behavior]]
+partition = { equals = "LEGACY_SOURCES_ONLY_REJECTED" }
+case_family = "missing_required"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-bundle-builder-source-and-dependency-resolution"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "A project containing only legacy sources/ rejects with the reviewed missing-src diagnostic."
+
+[[behavior]]
+partition = { equals = "TRANSITIVE_LOCAL_DEPENDENCY_CLOSURE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-bundle-builder-source-and-dependency-resolution"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "The reviewed LibA-to-LibB graph includes root and dependency sources in build and inspection, reports both dependency identities and roots, and produces program.stbc."
+
+[[behavior]]
+partition = { equals = "MISSING_CYCLIC_OR_VERSION_MISMATCH_DEPENDENCY" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-bundle-builder-source-and-dependency-resolution"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "The reviewed missing path, cyclic graph, and requested-version mismatch each reject with bounded cause-identifying diagnostics."
+
+[[behavior]]
+partition = { equals = "MERGED_CROSS_FILE_SOURCE_COMPILE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-bundle-builder-source-and-dependency-resolution"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "The reviewed type, global, and program files compile together, remain in the source report, and produce program.stbc without claiming runtime field-value proof."
 
 [[coverage.cells]]
 dimension = "happy_path"

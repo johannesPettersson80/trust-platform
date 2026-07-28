@@ -540,6 +540,15 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
             "trust-runtime::bounded_value_semantics",
             profile.binary_id,
         )
+        bundle_builder = get_target_profile(
+            "runtime-remaining",
+            path="crates/trust-runtime/src/host/bundle_builder/tests.rs",
+        )
+        self.assertEqual(("--lib",), bundle_builder.cargo_target_args)
+        self.assertEqual(
+            "host::bundle_builder::tests::",
+            bundle_builder.test_prefix,
+        )
         safety = get_target_profile(
             "runtime-remaining",
             path=(

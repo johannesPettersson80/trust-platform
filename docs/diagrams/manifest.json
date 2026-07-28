@@ -9,7 +9,7 @@
   "docs/diagrams/architecture/runtime-execution.puml": "c16ab28ae33c0bd440485d0723fc34914f45c49fc13f1118941807e91e6e7959",
   "docs/diagrams/architecture/runtime-interpreter-removal-map.puml": "a988ae27d45fa3c2ff95698f491ff2f692d166c7d1dd566007a307bb18ba1663",
   "docs/diagrams/architecture/system-architecture.puml": "ac19a9d0475db602cbbbcd7a39c91697852b066317a673b013cbd7c380094ae0",
-  "docs/diagrams/architecture/verification-code-spec-coverage.puml": "f953a89081f9154fe256d740062cbe5b3337c0d3bddfbce39520479df8121795",
+  "docs/diagrams/architecture/verification-code-spec-coverage.puml": "7e0595fdacfbfd4a90e333a061d1051efa4020cf93b61aef06c3f36663c8bc91",
   "docs/diagrams/architecture/verification-mutation-execution.puml": "3d8d835891f95dce7a36281a3ba1ed7b1c05860d7bb22be44bdad46a80e89d12",
   "docs/diagrams/architecture/verification-p18-zero-debt.puml": "e82ebcfcd2b9c282bf1438ed6032f8efa1ffe5d5edd2a6a2fbd2dfd6d9bae18a",
   "docs/diagrams/debug/debug-architecture.puml": "84c062f2e66954df57d38ef3db3a6e185138d43c05c31e3518b728fffa35e9a5",

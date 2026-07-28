@@ -280,3 +280,9 @@ Issue #51 init benchmark baseline evidence (2026-04-28):
   the three exact native Rust unit tests pass on `trust-builder`, and
   `verification-code-spec-coverage.puml` records the explicit profile and proof
   scope.
+- [ ] `ARCH-VERIF-P18-10` Close the seven actionable runtime bundle-builder
+  tests with one exact runtime-lib profile path and one semantic assignment
+  owner. Separate helper filesystem setup from product oracles, and keep the
+  two same-file `assertion_oracle_unresolved` behavior locks outside this batch.
+  Evidence required: focused assignment/profile tests, seven exact native Rust
+  unit tests on `trust-builder`, and explicit diagram scope.
