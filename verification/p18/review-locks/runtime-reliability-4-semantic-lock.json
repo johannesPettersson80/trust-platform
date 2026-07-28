@@ -1,0 +1,265 @@
+{
+  "id": "RUNTIME_RELIABILITY_4_SEMANTIC_LOCK",
+  "schema_version": 1,
+  "tests": [
+    {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_762D6440DC5230262D0DCED5",
+          "behavior_label": "DIRECT_API_BOUND_ADDRESS_ROUND_TRIP",
+          "disposition": "setup_or_precondition",
+          "expression": "TestHarness :: from_source (source) . unwrap ()",
+          "function": "e2e_startup_io_restart",
+          "invariant_id": "RT_HARNESS_BOUNDARY_IO_001",
+          "kind": "method:unwrap"
+        },
+        {
+          "assertion_id": "ASSERT_8E1AA64880685A4C7286CDC1",
+          "behavior_label": "DIRECT_API_BOUND_ADDRESS_ROUND_TRIP",
+          "disposition": "oracle_bound",
+          "expression": "harness . bind_direct (\"input\" , \"%IX0.0\") . unwrap ()",
+          "function": "e2e_startup_io_restart",
+          "invariant_id": "RT_HARNESS_BOUNDARY_IO_001",
+          "kind": "method:unwrap"
+        },
+        {
+          "assertion_id": "ASSERT_454E6285987729FE62F12AF2",
+          "behavior_label": "DIRECT_API_BOUND_ADDRESS_ROUND_TRIP",
+          "disposition": "oracle_bound",
+          "expression": "harness . bind_direct (\"output\" , \"%QX0.0\") . unwrap ()",
+          "function": "e2e_startup_io_restart",
+          "invariant_id": "RT_HARNESS_BOUNDARY_IO_001",
+          "kind": "method:unwrap"
+        },
+        {
+          "assertion_id": "ASSERT_FAC50CE54D4A8E2F2AB44F45",
+          "behavior_label": "DIRECT_API_BOUND_ADDRESS_ROUND_TRIP",
+          "disposition": "oracle_bound",
+          "expression": "harness . set_direct_input (\"%IX0.0\" , Value :: Bool (true)) . unwrap ()",
+          "function": "e2e_startup_io_restart",
+          "invariant_id": "RT_HARNESS_BOUNDARY_IO_001",
+          "kind": "method:unwrap"
+        },
+        {
+          "assertion_id": "ASSERT_83BD456C94A238DE8B46386D",
+          "behavior_label": "DIRECT_API_BOUND_ADDRESS_ROUND_TRIP",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (cycle . errors . is_empty () , \"startup I/O cycle failed: {:?}\" , cycle . errors)",
+          "function": "e2e_startup_io_restart",
+          "invariant_id": "RT_HARNESS_BOUNDARY_IO_001",
+          "kind": "macro:assert"
+        },
+        {
+          "assertion_id": "ASSERT_016D9761E46077AE31861D1E",
+          "behavior_label": "DIRECT_API_BOUND_ADDRESS_ROUND_TRIP",
+          "disposition": "oracle_bound",
+          "expression": "harness . get_direct_output (\"%QX0.0\") . unwrap ()",
+          "function": "e2e_startup_io_restart",
+          "invariant_id": "RT_HARNESS_BOUNDARY_IO_001",
+          "kind": "method:unwrap"
+        },
+        {
+          "assertion_id": "ASSERT_56FD4290842A17DAB5B49A81",
+          "behavior_label": "DIRECT_API_BOUND_ADDRESS_ROUND_TRIP",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (out , Value :: Bool (true))",
+          "function": "e2e_startup_io_restart",
+          "invariant_id": "RT_HARNESS_BOUNDARY_IO_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_58D0B9B90F8F53883F273E1A",
+          "behavior_label": "WARM_RESTART_PRESERVES_TIME_AND_REINITIALIZES_STATE",
+          "disposition": "oracle_bound",
+          "expression": "harness . restart (RestartMode :: Warm) . unwrap ()",
+          "function": "e2e_startup_io_restart",
+          "invariant_id": "RT_SAFE_RESTART_TIME_002",
+          "kind": "method:unwrap"
+        },
+        {
+          "assertion_id": "ASSERT_1120F55A609DB8E5AA5852E6",
+          "behavior_label": "WARM_RESTART_PRESERVES_TIME_AND_REINITIALIZES_STATE",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (harness . current_time () , Duration :: from_millis (10))",
+          "function": "e2e_startup_io_restart",
+          "invariant_id": "RT_SAFE_RESTART_TIME_002",
+          "kind": "macro:assert_eq"
+        }
+      ],
+      "discovery_id": "DISC_B02D0E3CFEC34E755FC0",
+      "exclusions": [
+        "The direct-I/O case is bounded to one BOOL input binding, one BOOL output binding, and one successful explicit cycle. It does not prove physical I/O, arbitrary address or value types, driver faults, or multiple-cycle behavior.",
+        "The restart observation proves only that one warm restart preserves the reviewed ten-millisecond logical time. It does not inspect I/O bindings or values after restart, cold restart, timers, tasks, or restart failure atomicity.",
+        "This four-test batch does not establish arbitrary-source, IEC-wide, cross-platform, physical-I/O, or complete runtime safety correctness."
+      ],
+      "name": "e2e_startup_io_restart",
+      "path": "crates/trust-runtime/tests/runtime_reliability.rs",
+      "source_digest": "sha256:1a91a249fed67baa9faec4b871b337d6af7bc9fd9ec7dfa30f639c9098bce8fc"
+    },
+    {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_8EC5134DC034DFA4707A4869",
+          "behavior_label": "UNFLUSHED_DIRTY_STATE_NOT_PERSISTED_ON_DROP",
+          "disposition": "setup_or_precondition",
+          "expression": "TestHarness :: from_source (source) . unwrap ()",
+          "function": "retain_power_loss_does_not_persist_unsaved",
+          "invariant_id": "RT_RETAIN_PERSISTENCE_CODEC_001",
+          "kind": "method:unwrap"
+        },
+        {
+          "assertion_id": "ASSERT_ACC13F06E8BCFB492FEC9112",
+          "behavior_label": "UNFLUSHED_DIRTY_STATE_NOT_PERSISTED_ON_DROP",
+          "disposition": "oracle_bound",
+          "expression": "store . load () . expect (\"load retain snapshot\")",
+          "function": "retain_power_loss_does_not_persist_unsaved",
+          "invariant_id": "RT_RETAIN_PERSISTENCE_CODEC_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_E3653B762F145D17FAF7D909",
+          "behavior_label": "UNFLUSHED_DIRTY_STATE_NOT_PERSISTED_ON_DROP",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (snapshot . values () . is_empty ())",
+          "function": "retain_power_loss_does_not_persist_unsaved",
+          "invariant_id": "RT_RETAIN_PERSISTENCE_CODEC_001",
+          "kind": "macro:assert"
+        }
+      ],
+      "discovery_id": "DISC_B0616A747435CAE04D2A",
+      "exclusions": [
+        "Plain TestHarness destruction is not a physical power loss or a graceful requested-stop path. This case proves only that the reviewed dirty value is absent after drop; it does not prove that no empty file was created.",
+        "The case provides no filesystem durability, cadence, explicit-save, requested-stop, save-failure, atomic replacement, or crash-consistency proof.",
+        "This four-test batch does not establish arbitrary-source, IEC-wide, cross-platform, physical-I/O, or complete runtime safety correctness."
+      ],
+      "name": "retain_power_loss_does_not_persist_unsaved",
+      "path": "crates/trust-runtime/tests/runtime_reliability.rs",
+      "source_digest": "sha256:1a91a249fed67baa9faec4b871b337d6af7bc9fd9ec7dfa30f639c9098bce8fc"
+    },
+    {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_40D4D15A6F0A003E5F3D3AC4",
+          "behavior_label": "SPAWNED_RESOURCE_WATCHDOG_TIMEOUT_FAULTS",
+          "disposition": "setup_or_precondition",
+          "expression": "TestHarness :: from_source (source) . unwrap ()",
+          "function": "watchdog_faults_resource_on_overrun",
+          "invariant_id": "RT_SAFE_DEADLINE_001",
+          "kind": "method:unwrap"
+        },
+        {
+          "assertion_id": "ASSERT_E52B014D66F48216BFB65463",
+          "behavior_label": "SPAWNED_RESOURCE_WATCHDOG_TIMEOUT_FAULTS",
+          "disposition": "setup_or_precondition",
+          "expression": "runner . spawn (\"watchdog-test\") . unwrap ()",
+          "function": "watchdog_faults_resource_on_overrun",
+          "invariant_id": "RT_SAFE_DEADLINE_001",
+          "kind": "method:unwrap"
+        },
+        {
+          "assertion_id": "ASSERT_09FB9A0827AEAA0B5ADC9E8A",
+          "behavior_label": "SPAWNED_RESOURCE_WATCHDOG_TIMEOUT_FAULTS",
+          "disposition": "oracle_bound",
+          "expression": "panic ! (\"resource did not fault in time (state {:?})\" , handle . state ())",
+          "function": "watchdog_faults_resource_on_overrun",
+          "invariant_id": "RT_SAFE_DEADLINE_001",
+          "kind": "macro:panic"
+        },
+        {
+          "assertion_id": "ASSERT_AED9713054342BC8D406EF5D",
+          "behavior_label": "SPAWNED_RESOURCE_WATCHDOG_TIMEOUT_FAULTS",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (matches ! (last_error , Some (RuntimeError :: WatchdogTimeout)) , \"expected WatchdogTimeout, got {last_error:?}\")",
+          "function": "watchdog_faults_resource_on_overrun",
+          "invariant_id": "RT_SAFE_DEADLINE_001",
+          "kind": "macro:assert"
+        },
+        {
+          "assertion_id": "ASSERT_C8FF1EAEAB827C698D718E02",
+          "behavior_label": "SPAWNED_RESOURCE_WATCHDOG_TIMEOUT_FAULTS",
+          "disposition": "oracle_bound",
+          "expression": "handle . join () . unwrap ()",
+          "function": "watchdog_faults_resource_on_overrun",
+          "invariant_id": "RT_SAFE_DEADLINE_001",
+          "kind": "method:unwrap"
+        }
+      ],
+      "discovery_id": "DISC_C101BBAEC06311987C74",
+      "exclusions": [
+        "The watchdog case uses an effectively-zero wall-clock timeout and a 100 ms polling guard. The guard bounds the test; it is not a product latency guarantee or a generally supported timeout threshold.",
+        "StepClock drives scheduler time only and does not trigger the wall-clock watchdog. This case does not prove output-commit, safe-state, automatic-restart, debugger-pause, or recovery behavior.",
+        "This four-test batch does not establish arbitrary-source, IEC-wide, cross-platform, physical-I/O, or complete runtime safety correctness."
+      ],
+      "name": "watchdog_faults_resource_on_overrun",
+      "path": "crates/trust-runtime/tests/runtime_reliability.rs",
+      "source_digest": "sha256:1a91a249fed67baa9faec4b871b337d6af7bc9fd9ec7dfa30f639c9098bce8fc"
+    },
+    {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_F18708F5B196486556E99305",
+          "behavior_label": "PROGRAM_RETAIN_WARM_ROUNDTRIP",
+          "disposition": "setup_or_precondition",
+          "expression": "TestHarness :: from_source (source) . unwrap ()",
+          "function": "e2e_retain_roundtrip_restart",
+          "invariant_id": "RT_RETAIN_PERSISTENCE_CODEC_001",
+          "kind": "method:unwrap"
+        },
+        {
+          "assertion_id": "ASSERT_D221D1BF992D4D373641D979",
+          "behavior_label": "PROGRAM_RETAIN_WARM_ROUNDTRIP",
+          "disposition": "setup_or_precondition",
+          "expression": "harness . runtime_mut () . save_retain_store () . unwrap ()",
+          "function": "e2e_retain_roundtrip_restart",
+          "invariant_id": "RT_RETAIN_PERSISTENCE_CODEC_001",
+          "kind": "method:unwrap"
+        },
+        {
+          "assertion_id": "ASSERT_6174C37D34E360E4BA3758E5",
+          "behavior_label": "PROGRAM_RETAIN_WARM_ROUNDTRIP",
+          "disposition": "oracle_bound",
+          "expression": "harness . restart_with_retain (RestartMode :: Warm) . unwrap ()",
+          "function": "e2e_retain_roundtrip_restart",
+          "invariant_id": "RT_RETAIN_PERSISTENCE_CODEC_001",
+          "kind": "method:unwrap"
+        },
+        {
+          "assertion_id": "ASSERT_05F686783F7F36102B0E69F7",
+          "behavior_label": "PROGRAM_RETAIN_WARM_ROUNDTRIP",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (harness . get_output (\"r\") , Some (Value :: Int (42)))",
+          "function": "e2e_retain_roundtrip_restart",
+          "invariant_id": "RT_RETAIN_PERSISTENCE_CODEC_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_C03387FB83C16AA26DDF4272",
+          "behavior_label": "COLD_RESTART_WITH_RETAIN_STORE_SKIPS_LOAD",
+          "disposition": "oracle_bound",
+          "expression": "harness . restart_with_retain (RestartMode :: Cold) . unwrap ()",
+          "function": "e2e_retain_roundtrip_restart",
+          "invariant_id": "RT_SAFE_RESTART_001",
+          "kind": "method:unwrap"
+        },
+        {
+          "assertion_id": "ASSERT_86E64245E65676F517F3B4A1",
+          "behavior_label": "COLD_RESTART_WITH_RETAIN_STORE_SKIPS_LOAD",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (harness . get_output (\"r\") , Some (Value :: Int (1)))",
+          "function": "e2e_retain_roundtrip_restart",
+          "invariant_id": "RT_SAFE_RESTART_001",
+          "kind": "macro:assert_eq"
+        }
+      ],
+      "discovery_id": "DISC_EE4014B513F4E29CDCC3",
+      "exclusions": [
+        "The retain case is bounded to one program-scoped RETAIN INT, one file-backed snapshot, and the in-process harness helper. It does not prove arbitrary retain values, multiple programs, migration, filesystem durability, or failure atomicity.",
+        "The warm and cold checks do not cover the spawned resource pending-restart signal path, automatic restart, launcher startup, hot reload, or the internal persisted key encoding.",
+        "This four-test batch does not establish arbitrary-source, IEC-wide, cross-platform, physical-I/O, or complete runtime safety correctness."
+      ],
+      "name": "e2e_retain_roundtrip_restart",
+      "path": "crates/trust-runtime/tests/runtime_reliability.rs",
+      "source_digest": "sha256:1a91a249fed67baa9faec4b871b337d6af7bc9fd9ec7dfa30f639c9098bce8fc"
+    }
+  ]
+}
