@@ -113183,3 +113183,206 @@ mapping_assertion_review_digest = "sha256:856aa9ea79176c0ddd00f14096e0d2da7a41e2
 mapping_assertion_source_digests = { "crates/trust-runtime/tests/expr_calls.rs" = "sha256:7fad496741ac4c92ee36275418ace98afdec229682dec90c32f9211ecbe67a32" }
 mapping_behavior_refs = ["VM_CALL_BINDING_001#behavior:0"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_1A54FB3BD7AFBA32F5B0"
+subject_kind = "generated_test"
+discovery_id = "DISC_1A54FB3BD7AFBA32F5B0"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/hot_reload.rs"
+name = "hot_reload_retain_migration_failure_preserves_live_runtime"
+command = "cargo nextest run -p trust-runtime --test hot_reload --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::hot_reload) & test(=hot_reload_retain_migration_failure_preserves_live_runtime)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_RELOAD_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001"]
+expected_result = "The reviewed out-of-range retained INT rejects with its cause-identifying subrange text while the old executable and scan counter remain live for the next cycle."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_1A54FB3BD7AFBA32F5B0.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_1A54FB3BD7AFBA32F5B0_C3B5315EBB8D"
+mapping_proposal_digest = "sha256:c3b5315ebb8d9c17937a0843b0da22e9ad329ef55d9ba10c41ae98c6555081d8"
+mapping_decision_id = "MAP_DEC_5D7983544FA767EEB97D468E"
+mapping_reviewed_source_digest = "sha256:493d1c7a5de46a98d0b2a8a55d441d4172099d93e0b5ea8a9cb66b3ae57f00ba"
+mapping_assertion_review_digest = "sha256:20cb74743a31ac4d0f0f5700461f113de90a14f5ff4a85656c4992c2419592ef"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/hot_reload.rs" = "sha256:493d1c7a5de46a98d0b2a8a55d441d4172099d93e0b5ea8a9cb66b3ae57f00ba" }
+mapping_behavior_refs = ["RT_RELOAD_001#behavior:5"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_4F2995A2CBD7C4CB4598"
+subject_kind = "generated_test"
+discovery_id = "DISC_4F2995A2CBD7C4CB4598"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/hot_reload.rs"
+name = "hot_reload_rebinds_instance_backed_io_after_warm_restart"
+command = "cargo nextest run -p trust-runtime --test hot_reload --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::hot_reload) & test(=hot_reload_rebinds_instance_backed_io_after_warm_restart)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_RELOAD_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001"]
+expected_result = "Successful warm reload rebinds the reviewed single BOOL output so the next cycle exposes the new program value through its runtime binding."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_4F2995A2CBD7C4CB4598.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_4F2995A2CBD7C4CB4598_F47F173EE6C2"
+mapping_proposal_digest = "sha256:f47f173ee6c2b56558abb73745488faeeb0c555d71a503fb444f7367a85b0c70"
+mapping_decision_id = "MAP_DEC_3E4D88E6C0D3A4447E8769B9"
+mapping_reviewed_source_digest = "sha256:493d1c7a5de46a98d0b2a8a55d441d4172099d93e0b5ea8a9cb66b3ae57f00ba"
+mapping_assertion_review_digest = "sha256:6ccbaef4b27327b96265f59b81d46909be6abad7bcf2392640cfbbbadb14910d"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/hot_reload.rs" = "sha256:493d1c7a5de46a98d0b2a8a55d441d4172099d93e0b5ea8a9cb66b3ae57f00ba" }
+mapping_behavior_refs = ["RT_RELOAD_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_536B258421ADD8E350A4"
+subject_kind = "generated_test"
+discovery_id = "DISC_536B258421ADD8E350A4"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/hot_reload.rs"
+name = "hot_reload_invalid_module_reports_deterministic_error"
+command = "cargo nextest run -p trust-runtime --test hot_reload --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::hot_reload) & test(=hot_reload_invalid_module_reports_deterministic_error)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_RELOAD_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001"]
+expected_result = "The reviewed malformed four-byte module rejects as typed RuntimeError::Bytecode before any reload commit; no stable diagnostic text is claimed."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_536B258421ADD8E350A4.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_536B258421ADD8E350A4_49A3CA760E17"
+mapping_proposal_digest = "sha256:49a3ca760e177f3317e618ccb3d9bb0401d28e1b37868efb17693e39cacfc2c3"
+mapping_decision_id = "MAP_DEC_ABCBAA76ABAC3110E2170BC1"
+mapping_reviewed_source_digest = "sha256:493d1c7a5de46a98d0b2a8a55d441d4172099d93e0b5ea8a9cb66b3ae57f00ba"
+mapping_assertion_review_digest = "sha256:59005b8f0f4dd9a0bc637f89a90cd1eb56cf8afcea6c797ecd4c640f6011a7bd"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/hot_reload.rs" = "sha256:493d1c7a5de46a98d0b2a8a55d441d4172099d93e0b5ea8a9cb66b3ae57f00ba" }
+mapping_behavior_refs = ["RT_RELOAD_001#behavior:6"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_6881AED77BE0CFD99ED5"
+subject_kind = "generated_test"
+discovery_id = "DISC_6881AED77BE0CFD99ED5"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/hot_reload.rs"
+name = "hot_reload_cycle_boundary_contract_holds_for_vm_reload"
+command = "cargo nextest run -p trust-runtime --test hot_reload --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::hot_reload) & test(=hot_reload_cycle_boundary_contract_holds_for_vm_reload)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_RELOAD_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001"]
+expected_result = "A reload waits for the blocked in-flight scan input phase and reports success only after the completed scan boundary becomes available for commit."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_6881AED77BE0CFD99ED5.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_6881AED77BE0CFD99ED5_41FC6969CEA4"
+mapping_proposal_digest = "sha256:41fc6969cea403db3611086e5b75fcc7c555e1a61bfe81d15bba5673fa7a78dd"
+mapping_decision_id = "MAP_DEC_F3E65D0820953A782318D196"
+mapping_reviewed_source_digest = "sha256:493d1c7a5de46a98d0b2a8a55d441d4172099d93e0b5ea8a9cb66b3ae57f00ba"
+mapping_assertion_review_digest = "sha256:1f3d1583de7ca3ec1fad4eafd7b0c65ea4d00b42301bad05e2dcfb05fd7f8436"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/hot_reload.rs" = "sha256:493d1c7a5de46a98d0b2a8a55d441d4172099d93e0b5ea8a9cb66b3ae57f00ba" }
+mapping_behavior_refs = ["RT_RELOAD_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_6D63E21F9D9B39D9AF6D"
+subject_kind = "generated_test"
+discovery_id = "DISC_6D63E21F9D9B39D9AF6D"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/hot_reload.rs"
+name = "hot_reload_migrates_retain_and_resets_nonretain_and_instances"
+command = "cargo nextest run -p trust-runtime --test hot_reload --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::hot_reload) & test(=hot_reload_migrates_retain_and_resets_nonretain_and_instances)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_RELOAD_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001"]
+expected_result = "Successful identical-schema warm reload preserves the reviewed retained globals and program values while resetting non-retained storage and the reviewed function-block instance."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_6D63E21F9D9B39D9AF6D.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_6D63E21F9D9B39D9AF6D_15E983818EFE"
+mapping_proposal_digest = "sha256:15e983818efe5816d73ea1b2f288365688072e328fa6dad459402057f3ed4328"
+mapping_decision_id = "MAP_DEC_A1E5D3AB82BDB6110C67BB4B"
+mapping_reviewed_source_digest = "sha256:493d1c7a5de46a98d0b2a8a55d441d4172099d93e0b5ea8a9cb66b3ae57f00ba"
+mapping_assertion_review_digest = "sha256:1663c0559fb52fcd0af2e2a434c4747c3e59639f8e04d123082d09a5f1a73855"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/hot_reload.rs" = "sha256:493d1c7a5de46a98d0b2a8a55d441d4172099d93e0b5ea8a9cb66b3ae57f00ba" }
+mapping_behavior_refs = ["RT_RELOAD_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_E067B79A22B8500C7619"
+subject_kind = "generated_test"
+discovery_id = "DISC_E067B79A22B8500C7619"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/hot_reload.rs"
+name = "hot_reload_changed_body_restarts_at_entrypoint_policy"
+command = "cargo nextest run -p trust-runtime --test hot_reload --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::hot_reload) & test(=hot_reload_changed_body_restarts_at_entrypoint_policy)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_RELOAD_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001"]
+expected_result = "Successful reload resets the reviewed non-retained value and scan counter to zero, then executes the changed body from its entry point on the following cycle."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_E067B79A22B8500C7619.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_E067B79A22B8500C7619_D7F8C61F2567"
+mapping_proposal_digest = "sha256:d7f8c61f256736b2343b6e8edf0553125fa99e0d5fd6e9ea9f45a3fc28944a02"
+mapping_decision_id = "MAP_DEC_FA198924D96552D44F35A7FE"
+mapping_reviewed_source_digest = "sha256:493d1c7a5de46a98d0b2a8a55d441d4172099d93e0b5ea8a9cb66b3ae57f00ba"
+mapping_assertion_review_digest = "sha256:756eda158d169dd4359b2d78d3d31c6d59dc08da63ec8342100bf5f357456226"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/hot_reload.rs" = "sha256:493d1c7a5de46a98d0b2a8a55d441d4172099d93e0b5ea8a9cb66b3ae57f00ba" }
+mapping_behavior_refs = ["RT_RELOAD_001#behavior:4"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]

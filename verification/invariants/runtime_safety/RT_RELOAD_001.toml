@@ -10,7 +10,7 @@ claim = "Online change and hot reload must not leave live runtime state partiall
 proof_level = "G2"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src/runtime"]
-tests = ["TEST_RUNTIME_RELOAD_TRANSACTION_001"]
+tests = ["TEST_AUTO_1A54FB3BD7AFBA32F5B0", "TEST_AUTO_4F2995A2CBD7C4CB4598", "TEST_AUTO_536B258421ADD8E350A4", "TEST_AUTO_6881AED77BE0CFD99ED5", "TEST_AUTO_6D63E21F9D9B39D9AF6D", "TEST_AUTO_E067B79A22B8500C7619", "TEST_RUNTIME_RELOAD_TRANSACTION_001"]
 gates = ["pr"]
 evidence_refs = [
   "EVID_TEST_RUNTIME_RELOAD_TRANSACTION_001_RED",
@@ -19,7 +19,7 @@ evidence_refs = [
   "EVID_BROAD_REMOTE_PR_20260714_1F7316C15C47",
 ]
 spec_gap_refs = []
-missing = ["bytecode_resource_commit_failure_cases", "retain_migration_failure"]
+missing = ["bytecode_resource_commit_failure_cases"]
 
 [spec]
 status = "specified"
@@ -95,4 +95,4 @@ rationale = "The reviewed malformed four-byte module rejects as typed RuntimeErr
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
 state = "gap_open"
-rationale = "Producer-authentic red/green proof plus the reviewed PR broad gate cover retain-store read failure before live mutation; bytecode/resource commit and retained-migration failure cases remain pending."
+rationale = "Focused mapped tests now cover completed-scan commit, warm storage and I/O replacement, entrypoint/counter restart, retained-migration rejection, and typed malformed-byte rejection. Broader bytecode/resource commit failure cases remain pending."
