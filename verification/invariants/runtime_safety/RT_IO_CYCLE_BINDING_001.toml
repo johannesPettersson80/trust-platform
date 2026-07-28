@@ -5,7 +5,7 @@ area = "runtime_safety"
 risk = "wrong_result"
 status = "mapped"
 owner = "trust-runtime"
-last_reviewed = "2026-07-27"
+last_reviewed = "2026-07-28"
 claim = "Runtime I/O binding, composition, wildcard resolution, and cycle snapshots must preserve the documented ordering and flattened layout."
 proof_level = "S0"
 contract_kind = "protocol_trace"
@@ -40,7 +40,16 @@ oracle_ref = "SPEC_RUNTIME_ENGINE_001#io-drivers"
 outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "expected_delta", diagnostics = "none", status = "unchanged" }
-rationale = "Every driver reached on a successful boundary is invoked once; the current tests do not prove one shared configured-order trace."
+rationale = "Every driver reached on a successful boundary is invoked once."
+
+[[behavior]]
+partition = { equals = "COMPOSED_DRIVER_ALL_READS_BEFORE_ALL_WRITES" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#io-drivers"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "expected_delta", diagnostics = "none", status = "unchanged" }
+rationale = "Configured driver order is preserved globally across a successful boundary: every input read completes before task execution and every output write follows task execution, so no driver write occurs before all driver reads."
 
 [[behavior]]
 partition = { equals = "FLATTENED_FB_ARRAY_AND_STRUCT_BINDING" }

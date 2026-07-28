@@ -440,7 +440,14 @@ fn vm_fixture_execution_image_status_and_values_are_stable() {
         "second run faulted: {:?}",
         second.last_fault()
     );
-    assert_eq!(first.last_fault(), second.last_fault());
+    assert!(
+        first.last_fault().is_none(),
+        "first run must not retain a hidden fault"
+    );
+    assert!(
+        second.last_fault().is_none(),
+        "second run must not retain a hidden fault"
+    );
 
     let phase = main_var(&first, "phase");
     let Value::Enum(phase) = phase else {

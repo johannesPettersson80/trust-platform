@@ -565,6 +565,17 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
             ("--test", "platform_std"),
             platform_std.cargo_target_args,
         )
+        runtime_core_behavior_lock = get_target_profile(
+            "runtime-remaining",
+            path=(
+                "crates/trust-runtime/tests/"
+                "runtime_core_behavior_lock.rs"
+            ),
+        )
+        self.assertEqual(
+            ("--test", "runtime_core_behavior_lock"),
+            runtime_core_behavior_lock.cargo_target_args,
+        )
         scheduler = get_target_profile(
             "runtime-remaining",
             path="crates/trust-runtime/tests/e2e_scheduler.rs",
