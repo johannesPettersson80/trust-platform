@@ -20364,6 +20364,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_PERSISTENT_WORKER_APPLIES_SUBSCRIPTION_UPDATES_WITHOUT_RECONNECTING_PER_SCAN_001.json"
+mapping_behavior_refs = ["RT_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_001#behavior:0"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -20580,6 +20581,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_CURRENT_SESSION_SAMPLES_REQUIRE_EXACT_CONFIGURED_IDENTITY_001.json"
+mapping_behavior_refs = ["RT_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_001#behavior:1"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -20604,6 +20606,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_OLDER_SESSION_CALLBACKS_CANNOT_REGRESS_RECONNECTED_WORKER_001.json"
+mapping_behavior_refs = ["RT_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_001#behavior:2"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -20628,6 +20631,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_OLDER_ACTIVE_SESSION_SAMPLE_CANNOT_REPLACE_NEWER_VALUE_001.json"
+mapping_behavior_refs = ["RT_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_001#behavior:2"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -20652,6 +20656,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_WRITE_COMPLETION_PRESERVES_NEWER_PENDING_GENERATION_001.json"
+mapping_behavior_refs = ["RT_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_001#behavior:3"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -20676,6 +20681,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_NON_FINITE_OUTPUTS_CANCEL_PENDING_AND_ALLOW_LATER_FINITE_VALUE_001.json"
+mapping_behavior_refs = ["RT_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_001#behavior:4"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -20700,6 +20706,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_WORKER_SHUTDOWN_INTERRUPTS_IDLE_WAIT_AND_REVOKES_GOOD_AUTHORITY_001.json"
+mapping_behavior_refs = ["RT_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_001#behavior:6"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -20724,6 +20731,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_WIRE_WRITE_STATUS_CARDINALITY_MUST_MATCH_REQUEST_001.json"
+mapping_behavior_refs = ["RT_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_001#behavior:5"]
 last_reviewed = "2026-07-23"
 [[tests]]
 schema_version = 2
@@ -21425,6 +21433,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_CONFIG_REJECTS_AMBIGUOUS_IDENTITY_AUTH_AND_ACCESS_001.json"
+mapping_behavior_refs = ["RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001#behavior:1"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -21473,6 +21482,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_ACCEPTS_VS_CODE_GLOBAL_VAR_NAMES_001.json"
+mapping_behavior_refs = ["RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001#behavior:0"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -21569,6 +21579,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_OPERATIONS_DO_NOT_FOLLOW_SYMBOLIC_LINKS_001.json"
+mapping_behavior_refs = ["RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001#behavior:2"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -21593,6 +21604,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_ROOT_LINKS_ARE_NOT_TRAVERSED_001.json"
+mapping_behavior_refs = ["RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001#behavior:2", "RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001#behavior:3"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -21617,6 +21629,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_PROMOTION_TARGET_LINK_IS_REJECTED_001.json"
+mapping_behavior_refs = ["RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001#behavior:3"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -21641,6 +21654,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_ONE_SHOT_SERVICE_VECTORS_REQUIRE_EXACT_CARDINALITY_001.json"
+mapping_behavior_refs = ["RT_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_001#behavior:4"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -21808,6 +21822,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_MQTT_DEFAULT_FAULT_LATEST_VALUE_MQTT_STALE_SNAPSHOT_IS_RETURNED_WITHOUT_FRESH_PAYLOAD_001.json"
+mapping_behavior_refs = ["RT_MQTT_DEFAULT_FAULT_LATEST_VALUE_001#behavior:5"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -21928,6 +21943,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_MQTT_DEFAULT_FAULT_LATEST_VALUE_MQTT_POLICY_PRESERVES_SPARKPLUG_OUTPUT_PREFLIGHT_FAILURE_001.json"
+mapping_behavior_refs = ["RT_MQTT_DEFAULT_FAULT_LATEST_VALUE_001#behavior:3", "RT_MQTT_DEFAULT_FAULT_LATEST_VALUE_001#behavior:8"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -21952,6 +21968,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_MQTT_DEFAULT_FAULT_LATEST_VALUE_MQTT_RAW_READ_USES_NEWEST_PAYLOAD_FROM_DRAINED_BATCH_001.json"
+mapping_behavior_refs = ["RT_MQTT_DEFAULT_FAULT_LATEST_VALUE_001#behavior:0"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -21976,6 +21993,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_MQTT_DEFAULT_FAULT_LATEST_VALUE_MQTT_DEFAULT_FAULT_REJECTS_STALE_SNAPSHOT_WHEN_REFRESH_TIMES_OUT_001.json"
+mapping_behavior_refs = ["RT_MQTT_DEFAULT_FAULT_LATEST_VALUE_001#behavior:1"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -22000,6 +22018,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_MQTT_DEFAULT_FAULT_LATEST_VALUE_MQTT_DEFAULT_FAULT_REJECTS_OUTPUT_HANDOFF_TIMEOUT_001.json"
+mapping_behavior_refs = ["RT_MQTT_DEFAULT_FAULT_LATEST_VALUE_001#behavior:4"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -22024,6 +22043,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_MQTT_DEFAULT_FAULT_LATEST_VALUE_MQTT_POLICY_PRESERVES_TYPED_OUTPUT_PREFLIGHT_FAILURE_001.json"
+mapping_behavior_refs = ["RT_MQTT_DEFAULT_FAULT_LATEST_VALUE_001#behavior:2", "RT_MQTT_DEFAULT_FAULT_LATEST_VALUE_001#behavior:7"]
 last_reviewed = "2026-07-23"
 [[tests]]
 schema_version = 2
@@ -22047,6 +22067,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_MODBUS_DECLARED_F32_FINITE_MAPPED_F32_PROCESS_IMAGE_ENCODING_REJECTS_NARROWING_OVERFLOW_001.json"
+mapping_behavior_refs = ["RT_MODBUS_DECLARED_F32_FINITE_001#behavior:0"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -22071,6 +22092,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_MODBUS_DECLARED_F32_FINITE_MAPPED_F32_WIRE_ENCODING_REJECTS_NARROWING_OVERFLOW_001.json"
+mapping_behavior_refs = ["RT_MODBUS_DECLARED_F32_FINITE_001#behavior:0"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -22095,6 +22117,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_MODBUS_DECLARED_F32_FINITE_MODBUS_SCALED_F32_READ_REJECTS_DECLARED_WIDTH_OVERFLOW_WITHOUT_MUTATION_001.json"
+mapping_behavior_refs = ["RT_MODBUS_DECLARED_F32_FINITE_001#behavior:0"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -22119,6 +22142,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_MODBUS_DECLARED_F32_FINITE_MODBUS_INVERSE_SCALED_F32_WRITE_REJECTS_DECLARED_WIDTH_OVERFLOW_BEFORE_SEND_001.json"
+mapping_behavior_refs = ["RT_MODBUS_DECLARED_F32_FINITE_001#behavior:0"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -22314,6 +22338,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_MODBUS_WORKER_DEADLINE_POLICY_INPUT_DEADLINE_FOLLOWS_ERROR_POLICY_WITHOUT_FAULT_COPY_001.json"
+mapping_behavior_refs = ["RT_MODBUS_WORKER_DEADLINE_POLICY_001#behavior:0"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -22338,6 +22363,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_MODBUS_WORKER_DEADLINE_POLICY_OUTPUT_DEADLINE_FOLLOWS_ERROR_POLICY_WITHOUT_CANCELLING_HANDOFF_001.json"
+mapping_behavior_refs = ["RT_MODBUS_WORKER_DEADLINE_POLICY_001#behavior:2"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -22386,6 +22412,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_MODBUS_WORKER_DEADLINE_POLICY_MODBUS_COLD_START_NO_DATA_FOLLOWS_ON_ERROR_POLICY_001.json"
+mapping_behavior_refs = ["RT_MODBUS_WORKER_DEADLINE_POLICY_001#behavior:5"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -22410,6 +22437,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_MODBUS_WORKER_DEADLINE_POLICY_MODBUS_SAFE_STATE_HANDOFF_SUCCEEDS_WHEN_WORKER_CONFIRMS_DELIVERY_001.json"
+mapping_behavior_refs = ["RT_MODBUS_WORKER_DEADLINE_POLICY_001#behavior:7"]
 last_reviewed = "2026-07-23"
 [[tests]]
 schema_version = 2
@@ -62788,7 +62816,7 @@ test_class = "behavior_lock"
 area = "protocols"
 path = "crates/trust-runtime/tests/modbus_driver.rs"
 name = "modbus_reconnect_backoff_is_bounded_and_non_spinning"
-command = "cargo nextest run -p trust-runtime --test modbus_driver --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::modbus_driver) & test(~modbus_reconnect_backoff_is_bounded_and_non_spinning)'"
+command = "cargo nextest run -p trust-runtime --test modbus_driver --no-fail-fast --message-format libtest-json-plus --message-format-version 0.1 --user-config-file none -E '(binary_id(=trust-runtime::modbus_driver) & test(=modbus_reconnect_backoff_is_bounded_and_non_spinning))'"
 owner = "trust-runtime"
 status = "mapped"
 invariants = ["RT_MODBUS_DRIVER_001"]
@@ -62799,16 +62827,16 @@ expected_failure_mode = "The contract accepts missing, stale, contradictory, or 
 suite_tiers = ["pr"]
 requires_hardware = false
 requires_network = false
-duration_class = "very_fast"
+duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_A89C5FA2356D682836D2.json"
-last_reviewed = "2026-07-26"
-mapping_proposal_id = "MAP_CAND_A89C5FA2356D682836D2_81238031DB15"
-mapping_proposal_digest = "sha256:81238031db1597df40d42a2ae84edee99453d14ad256e348b6983e50c886a4d8"
-mapping_decision_id = "MAP_DEC_D464C2CA8AEF3A803400F018"
-mapping_reviewed_source_digest = "sha256:dc61db9280e3c8133a195dc87f57331b763f924f71bf3c36e8e195b22473df89"
-mapping_assertion_review_digest = "sha256:2bd1425930bb4620951fab69db717764a5999fec4bb7384092aba73171ebdf43"
-mapping_assertion_source_digests = { "crates/trust-runtime/tests/modbus_driver.rs" = "sha256:dc61db9280e3c8133a195dc87f57331b763f924f71bf3c36e8e195b22473df89", "crates/trust-runtime/tests/support/modbus.rs" = "sha256:6a789bcf29a6b5062bc63d756832bd952dbb66920b937694920a2256fe8dec25" }
-mapping_behavior_refs = ["RT_MODBUS_DRIVER_001#behavior:8"]
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_A89C5FA2356D682836D2_1F11D2F4CE6F"
+mapping_proposal_digest = "sha256:1f11d2f4ce6f2f9e09298066ac2494b9a5b5f9d2095a75975e43002c11da9233"
+mapping_decision_id = "MAP_DEC_9C3D365939B156DAABCE84EF"
+mapping_reviewed_source_digest = "sha256:394c0acef636a9294ee42bdaffeb53bc5b9385f1f89af42d143ddb63df1329d1"
+mapping_assertion_review_digest = "sha256:5bd4204a228285b520d2c460b17a98ab659d35f8ae3cd2ab6fb72979f15d36b9"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/modbus_driver.rs" = "sha256:394c0acef636a9294ee42bdaffeb53bc5b9385f1f89af42d143ddb63df1329d1", "crates/trust-runtime/tests/support/modbus.rs" = "sha256:6a789bcf29a6b5062bc63d756832bd952dbb66920b937694920a2256fe8dec25" }
+mapping_behavior_refs = ["RT_MODBUS_DRIVER_001#behavior:7", "RT_MODBUS_DRIVER_001#behavior:8"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
 
@@ -122129,4 +122157,105 @@ mapping_reviewed_source_digest = "sha256:5fb338e00595e23ef0f8bc60e79245a6a50f2ea
 mapping_assertion_review_digest = "sha256:a340ef0a22c7da50fa0b951427ad647a7cbd2eb4220b51c63ccbdbdae3f90ba5"
 mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/openot/examples/reactor/Reactor.st.txt" = "sha256:0e7002c5abc4915e67a5a855dcec262913fefc9baef9d878d1d08e8529e34b5b", "crates/trust-runtime/tests/fixtures/openot/iec61131/src/openot_control_block.st.txt" = "sha256:211b21139d4ce1e1fd4ca36f67ff7a4d28504bb89c873a720b974f0e5c11263c", "crates/trust-runtime/tests/fixtures/openot/iec61131/src/openot_crc32c.st.txt" = "sha256:9cac310bb28d53bfcafb61fb680579df4a472e736003aa6e4cfecfc49db7ba9a", "crates/trust-runtime/tests/fixtures/openot/iec61131/src/openot_lifecycle.st.txt" = "sha256:ccbc765531d280421e30659d78da2585461aa6645e7abf4ad172cefa5fae385b", "crates/trust-runtime/tests/fixtures/openot/iec61131/src/openot_message.st.txt" = "sha256:4e5ea903ce368c28d86613ce3fbf7d9143a230befb4ae5576015225c9771ce1f", "crates/trust-runtime/tests/fixtures/openot/iec61131/src/openot_producer.st.txt" = "sha256:af7b844ec2c38fce21c84896b054a9e44851655c41eac78797e0b35a51f1787e", "crates/trust-runtime/tests/fixtures/openot/iec61131/src/openot_records_dropped.st.txt" = "sha256:4e20dc1638f490ed230b1f02b529ddcb8a92d1eabcee79c2bc5ed1f0e9518b4c", "crates/trust-runtime/tests/fixtures/openot/iec61131/src/openot_ring.st.txt" = "sha256:2daee8307f7f0959308812aa4064c9886cfcd0ed7421c85e99a2c265979c6d55", "crates/trust-runtime/tests/fixtures/openot/iec61131/src/openot_ring256_producer.st.txt" = "sha256:01dd9628a01dc746f1248af4c7e7a7cef1ac1f2dfcd1027fa824546461829b63", "crates/trust-runtime/tests/fixtures/openot/iec61131/src/openot_source_high_water.st.txt" = "sha256:8fcfaca07e0ffc398899f125b1f7ce45ead49781ab3da6364918c8a04937b1c6", "crates/trust-runtime/tests/fixtures/openot/iec61131/src/openot_value_state.st.txt" = "sha256:102835054683838f2ceb740ee889e6c5e341020dd29e583d796dbe3779facf65", "crates/trust-runtime/tests/fixtures/openot/iec61131/src/openot_wire_encode.st.txt" = "sha256:f3aafffc4c1d0da014918e633264ca786f009fa668c8afc26b0901522c7e0a60", "crates/trust-runtime/tests/fixtures/openot/iec61131/tests/test_conformant_batch_recipe.st.txt" = "sha256:bbb08a74d5b6675fa7609f5e8cc98558f392a1b95756b9991f59c70b5ee093b4", "crates/trust-runtime/tests/fixtures/openot/iec61131/tests/test_conformant_condition_lifecycle.st.txt" = "sha256:fde7ff29352fcda5479efc01d14d98c73ab79d054ada6c870aaba0a740725da7", "crates/trust-runtime/tests/fixtures/openot/iec61131/tests/test_conformant_regulated.st.txt" = "sha256:ddd172405847ad281a852651afd231b3e608da5f1d8cbca1361a49427d9926e8", "crates/trust-runtime/tests/fixtures/openot/iec61131/tests/test_conformant_value_changed_int.st.txt" = "sha256:cac0eb5131ed5b46d7e0c4d7846fc1dfb2c44139a51bf94e8a557ca16ab23a54", "crates/trust-runtime/tests/fixtures/openot/iec61131/tests/test_conformant_value_changed_real.st.txt" = "sha256:00443ce71df5e935dea065eb790d50cff461868bbe44fd527c0b03fccc39f77b", "crates/trust-runtime/tests/fixtures/openot/iec61131/tests/test_scan_records_burst.st.txt" = "sha256:0e6d3311231b71eda4b1aa23b1f6e7d5e4c8c30cac56bd659d0c6851da542b16", "crates/trust-runtime/tests/openot_support/mod.rs" = "sha256:e4178fa7c9a4870ea9f864bfaa7536497285467709168369a2e802f574067f62", "crates/trust-runtime/tests/openot_telemetry.rs" = "sha256:5fb338e00595e23ef0f8bc60e79245a6a50f2eadc1eadb06e9d310412fdb1d1b" }
 mapping_behavior_refs = ["RT_OPENOT_EVENT_MATERIALIZATION_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_6236F0B25551D48929F7"
+subject_kind = "generated_test"
+discovery_id = "DISC_6236F0B25551D48929F7"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/tests/opcua_integration.rs"
+name = "opcua_server_cold_starts_before_first_runtime_snapshot"
+command = "cargo nextest run -p trust-runtime --test opcua_integration --no-fail-fast --message-format libtest-json-plus --message-format-version 0.1 --user-config-file none -E '(binary_id(=trust-runtime::opcua_integration) & test(=opcua_server_cold_starts_before_first_runtime_snapshot))'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPCUA_SERVER_SURFACE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-server-surface-security-and-cold-start"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#opc-ua-server-surface-security-and-cold-start"]
+expected_result = "The listener starts before snapshot authority and later publishes the first available snapshot without inventing an earlier value."
+expected_failure_mode = "The reviewed contract accepts missing, stale, contradictory, or falsely successful product behavior."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_6236F0B25551D48929F7.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_6236F0B25551D48929F7_3931CD9B4BB4"
+mapping_proposal_digest = "sha256:3931cd9b4bb412eb63aaec19f5e59f12bed3377d8a5aacde44865c1e7096dea2"
+mapping_decision_id = "MAP_DEC_59E6AF44FE7288BA51E604DC"
+mapping_reviewed_source_digest = "sha256:839e22d444688013a086777a30632fe97ab9f8c432e7d85dab6d02d4e79f5042"
+mapping_assertion_review_digest = "sha256:59f5f47bfcce4e8b16b466e71e0c56e6084cbc70fbcb63aa7bcdb8ae16d25f89"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/opcua/interop/runtime.toml" = "sha256:0893ed2d638faeeb61fd3dece97296fb000c95e83ccc23496971a9d540557d3a", "crates/trust-runtime/tests/fixtures/opcua/perf/runtime.toml" = "sha256:ef69cae21b1fd749eecf01aae9277e8ee09815c55e79ef63b92e34c52e02a0b5", "crates/trust-runtime/tests/fixtures/opcua/program/main.st" = "sha256:f1353e72f61fc21cc68fad03ebe61fe0c02a264c9ff8c570a78c87e5ddba7fe9", "crates/trust-runtime/tests/fixtures/opcua/security/runtime.toml" = "sha256:0955b7c414d6ab80d8f97d3defd99e7071ce022113b38e3a2c6ef31020663cb8", "crates/trust-runtime/tests/opcua_integration.rs" = "sha256:839e22d444688013a086777a30632fe97ab9f8c432e7d85dab6d02d4e79f5042" }
+mapping_behavior_refs = ["RT_OPCUA_SERVER_SURFACE_001#behavior:4"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_6847FE4C45F88000E0B4"
+subject_kind = "generated_test"
+discovery_id = "DISC_6847FE4C45F88000E0B4"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/tests/opcua_integration.rs"
+name = "opcua_interop_reads_exposed_scalars_with_reference_client"
+command = "cargo nextest run -p trust-runtime --test opcua_integration --no-fail-fast --message-format libtest-json-plus --message-format-version 0.1 --user-config-file none -E '(binary_id(=trust-runtime::opcua_integration) & test(=opcua_interop_reads_exposed_scalars_with_reference_client))'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPCUA_SERVER_SURFACE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-server-surface-security-and-cold-start"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#opc-ua-server-surface-security-and-cold-start"]
+expected_result = "The loopback reference client reads an exported supported scalar with read-only authority."
+expected_failure_mode = "The reviewed contract accepts missing, stale, contradictory, or falsely successful product behavior."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_6847FE4C45F88000E0B4.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_6847FE4C45F88000E0B4_67EA4D5DB493"
+mapping_proposal_digest = "sha256:67ea4d5db4932170f9c42e2ff7e7b0ddb5c48c74e0a7952cd25c8f69b1fab8fb"
+mapping_decision_id = "MAP_DEC_5C89BE4223D5CDF60B2EF1A1"
+mapping_reviewed_source_digest = "sha256:839e22d444688013a086777a30632fe97ab9f8c432e7d85dab6d02d4e79f5042"
+mapping_assertion_review_digest = "sha256:d3ebf512685fd6dadf7f875778500b16fdd3a828cabab515e2ec053c266fe2be"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/opcua/interop/runtime.toml" = "sha256:0893ed2d638faeeb61fd3dece97296fb000c95e83ccc23496971a9d540557d3a", "crates/trust-runtime/tests/fixtures/opcua/perf/runtime.toml" = "sha256:ef69cae21b1fd749eecf01aae9277e8ee09815c55e79ef63b92e34c52e02a0b5", "crates/trust-runtime/tests/fixtures/opcua/program/main.st" = "sha256:f1353e72f61fc21cc68fad03ebe61fe0c02a264c9ff8c570a78c87e5ddba7fe9", "crates/trust-runtime/tests/fixtures/opcua/security/runtime.toml" = "sha256:0955b7c414d6ab80d8f97d3defd99e7071ce022113b38e3a2c6ef31020663cb8", "crates/trust-runtime/tests/opcua_integration.rs" = "sha256:839e22d444688013a086777a30632fe97ab9f8c432e7d85dab6d02d4e79f5042" }
+mapping_behavior_refs = ["RT_OPCUA_SERVER_SURFACE_001#behavior:5"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_B45DE574A2218F802B88"
+subject_kind = "generated_test"
+discovery_id = "DISC_B45DE574A2218F802B88"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "protocols"
+path = "crates/trust-runtime/tests/opcua_integration.rs"
+name = "opcua_security_enforces_user_auth_and_certificate_trust"
+command = "cargo nextest run -p trust-runtime --test opcua_integration --no-fail-fast --message-format libtest-json-plus --message-format-version 0.1 --user-config-file none -E '(binary_id(=trust-runtime::opcua_integration) & test(=opcua_security_enforces_user_auth_and_certificate_trust))'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_OPCUA_SERVER_SURFACE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#opc-ua-server-surface-security-and-cold-start"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#opc-ua-server-surface-security-and-cold-start"]
+expected_result = "Anonymous and untrusted clients fail while the configured trusted username path may read the node."
+expected_failure_mode = "The reviewed contract accepts missing, stale, contradictory, or falsely successful product behavior."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_B45DE574A2218F802B88.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_B45DE574A2218F802B88_1A3F35933570"
+mapping_proposal_digest = "sha256:1a3f359335700dcbc43bfcc6c59546fa836a6df29da4f02282d102a8a52664cf"
+mapping_decision_id = "MAP_DEC_C43C0197D9A12A8E1608F7CC"
+mapping_reviewed_source_digest = "sha256:839e22d444688013a086777a30632fe97ab9f8c432e7d85dab6d02d4e79f5042"
+mapping_assertion_review_digest = "sha256:de8ab5dadb21d72a9e7c0710521f6dda67ce7b900378fffd4c16eea65cbdf6bf"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/opcua/interop/runtime.toml" = "sha256:0893ed2d638faeeb61fd3dece97296fb000c95e83ccc23496971a9d540557d3a", "crates/trust-runtime/tests/fixtures/opcua/perf/runtime.toml" = "sha256:ef69cae21b1fd749eecf01aae9277e8ee09815c55e79ef63b92e34c52e02a0b5", "crates/trust-runtime/tests/fixtures/opcua/program/main.st" = "sha256:f1353e72f61fc21cc68fad03ebe61fe0c02a264c9ff8c570a78c87e5ddba7fe9", "crates/trust-runtime/tests/fixtures/opcua/security/runtime.toml" = "sha256:0955b7c414d6ab80d8f97d3defd99e7071ce022113b38e3a2c6ef31020663cb8", "crates/trust-runtime/tests/opcua_integration.rs" = "sha256:839e22d444688013a086777a30632fe97ab9f8c432e7d85dab6d02d4e79f5042" }
+mapping_behavior_refs = ["RT_OPCUA_SERVER_SURFACE_001#behavior:6"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]

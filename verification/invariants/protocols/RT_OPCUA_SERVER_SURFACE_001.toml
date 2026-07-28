@@ -10,11 +10,11 @@ claim = "The OPC UA server must expose only reviewed read-only scalar and enum v
 proof_level = "S0"
 contract_kind = "protocol_trace"
 source_refs = ["crates/trust-runtime/src/host/opcua", "crates/trust-runtime/tests/opcua_integration.rs", "docs/specs/11-runtime-engine.md"]
-tests = ["TEST_AUTO_21730EA1408811561B32", "TEST_AUTO_A2F34DF30D8EC15DD686", "TEST_AUTO_BE2359D13DCE953DC558", "TEST_AUTO_CA24079FB9ACE8346755", "TEST_AUTO_DA883AC380548C276E7F"]
+tests = ["TEST_AUTO_21730EA1408811561B32", "TEST_AUTO_6236F0B25551D48929F7", "TEST_AUTO_6847FE4C45F88000E0B4", "TEST_AUTO_A2F34DF30D8EC15DD686", "TEST_AUTO_B45DE574A2218F802B88", "TEST_AUTO_BE2359D13DCE953DC558", "TEST_AUTO_CA24079FB9ACE8346755", "TEST_AUTO_DA883AC380548C276E7F"]
 gates = ["veryquick", "pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_behavior_tests", "focused_remote_execution", "external_opcua_vendor", "production_certificate_topology", "broad_remote_gate"]
+missing = ["external_opcua_vendor", "production_certificate_topology", "broad_remote_gate"]
 
 [spec]
 status = "specified"

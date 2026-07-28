@@ -14,6 +14,7 @@ from scripts.verification.mapping_catalog_updates import (
     build_accepted_catalog_record,
     map_denominator_review,
     reconcile_invariant_catalog_state,
+    remove_invariant_missing_items,
     render_denominator_document,
 )
 
@@ -78,6 +79,23 @@ def _decision() -> dict[str, object]:
 
 
 class MappingCatalogUpdateTests(unittest.TestCase):
+    def test_invariant_missing_items_are_removed_without_reordering_debt(
+        self,
+    ) -> None:
+        source = """
+schema_version = 1
+id = "INV_ONE"
+missing = ["focused_remote_execution", "retry_attempt_observation", "broad_remote_gate"]
+"""
+        updated = remove_invariant_missing_items(
+            source,
+            ["retry_attempt_observation", "focused_remote_execution"],
+        )
+        self.assertEqual(
+            ["broad_remote_gate"],
+            tomllib.loads(updated)["missing"],
+        )
+
     def test_catalog_record_generates_id_provenance_and_oracle_fields(self) -> None:
         record = build_accepted_catalog_record(
             proposal=_proposal(),

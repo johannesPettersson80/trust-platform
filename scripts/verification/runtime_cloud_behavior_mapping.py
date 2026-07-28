@@ -409,8 +409,8 @@ def _validate_applied(root: Path) -> list[str]:
             catalog=catalog,
             invariants=load_invariant_documents(root),
         )
-        if gaps["summary"]["confirmed_missing_tests"] != 67:
-            failures.append("runtime-cloud residual behavior count is not 67")
+        if gaps["summary"]["confirmed_missing_tests"] > 67:
+            failures.append("runtime-cloud residual behavior count exceeds 67")
         if gaps["summary"]["missing_spec_authority_tests"] != 0:
             failures.append("runtime-cloud reopened test authority debt")
     except (

@@ -273,6 +273,31 @@ def append_invariant_tests(
     return result
 
 
+def remove_invariant_missing_items(
+    source: str,
+    items: Sequence[str],
+) -> str:
+    """Remove completed named debt while preserving the remaining order."""
+
+    document = tomllib.loads(source)
+    missing = document.get("missing")
+    if (
+        not isinstance(missing, list)
+        or any(not isinstance(item, str) or not item for item in missing)
+    ):
+        raise ValueError("invariant must contain a non-empty string missing array")
+    removals = set(_strings(items, "invariant missing items"))
+    updated = [item for item in missing if item not in removals]
+    result = _replace_top_level_array(
+        source,
+        field="missing",
+        values=updated,
+    )
+    if tomllib.loads(result).get("missing") != updated:
+        raise ValueError("invariant missing-item removal failed")
+    return result
+
+
 def reconcile_invariant_catalog_state(
     source: str,
     *,
