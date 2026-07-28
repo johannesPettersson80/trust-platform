@@ -557,6 +557,14 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
             ("--test", "e2e_multifile"),
             multifile.cargo_target_args,
         )
+        platform_std = get_target_profile(
+            "runtime-remaining",
+            path="crates/trust-runtime/tests/platform_std.rs",
+        )
+        self.assertEqual(
+            ("--test", "platform_std"),
+            platform_std.cargo_target_args,
+        )
         scheduler = get_target_profile(
             "runtime-remaining",
             path="crates/trust-runtime/tests/e2e_scheduler.rs",

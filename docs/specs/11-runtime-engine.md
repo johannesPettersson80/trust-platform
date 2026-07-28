@@ -118,6 +118,31 @@ representable `Duration` range clamps to the corresponding bound and never
 wraps or panics. Explicit `set_current_time` remains the separate mechanism for
 placing a test clock at an earlier instant.
 
+#### 5.2.1 Runtime logical time and non-pacing tick
+
+`StdClock::now` exposes nondecreasing elapsed monotonic time. No strict progress
+or minimum resolution is guaranteed between adjacent samples.
+
+`ResourceRunner::tick` is one non-pacing scheduler step. It samples the
+injected clock and executes one resource cycle without calling
+`Clock::sleep_until`; pacing and deadline sleeps belong to the spawned resource
+loop. A `ManualClock` therefore remains fixed until explicitly advanced.
+
+The zero-argument truST compatibility call `TIME()` returns the runtime's
+current injected logical elapsed time as a `TIME` value. It does not read civil
+wall time. Harness and simulation advances affect the result only through the
+runtime or manual clock.
+
+Periodic task readiness likewise uses only the injected clock. A direct tick
+with a fixed manual clock does not make the task ready; advancing that clock to
+the task deadline makes one activation eligible under the readiness contract
+below.
+
+`CURRENT_DT` is separate: it reads the host civil-clock path, and its epoch,
+timezone, precision, range, failure, simulation, and replay behavior remains
+open under `SPEC_GAP_CURRENT_DT_CLOCK_BOUNDARY_001`. Specifying deterministic
+`TIME()` elapsed-time behavior does not close or weaken that gap.
+
 #### 5.3 Embedded Clock (Planned)
 
 An RTOS-backed clock (e.g., FreeRTOS) is planned for embedded targets. The runtime core remains unchanged; only the `Clock` implementation differs.

@@ -6,6 +6,32 @@ in `IEC_DECISIONS.md`; PLCopen profile decisions belong in
 `PLCOPEN_DECISIONS.md`. Product behavior recorded here MUST NOT be copied to an
 IEC or PLCopen deviation log merely because truST owns the behavior.
 
+## 2026-07-28 - Runtime logical clock and non-pacing tick boundary
+
+- Area: Runtime clock injection and scheduler stepping
+- Decision:
+  - `StdClock::now` exposes nondecreasing elapsed monotonic time.
+  - A direct `ResourceRunner::tick` is one non-pacing step: it samples the
+    injected clock and executes one scheduler cycle without calling
+    `Clock::sleep_until`. Pacing belongs to the spawned resource loop.
+  - The zero-argument truST compatibility call `TIME()` returns the runtime's
+    current injected logical elapsed time as a `TIME` value. Harness and
+    simulation time affect it only through the runtime/manual clock.
+  - Task readiness is derived from the injected clock. Holding a manual clock
+    fixed does not make a periodic task ready; explicitly advancing it to the
+    deadline does.
+  - `CURRENT_DT` remains a separate host-clock function. Its epoch, timezone,
+    precision, range, failure, simulation, and replay contract remains owned
+    by `SPEC_GAP_CURRENT_DT_CLOCK_BOUNDARY_001`.
+- Authority:
+  - `docs/specs/11-runtime-engine.md`
+- Reason:
+  - Clock injection, direct-step pacing, and the compatibility `TIME()` call
+    are truST runtime behavior outside IEC's standard function set.
+    Separating them from `CURRENT_DT` prevents deterministic elapsed time from
+    inheriting an unrelated civil-clock specification gap. This is product
+    authority, not an IEC deviation.
+
 ## 2026-07-28 - Namespace-qualified multifile runtime assembly
 
 - Area: Runtime source assembly and namespace identity

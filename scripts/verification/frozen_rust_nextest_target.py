@@ -346,6 +346,7 @@ RUNTIME_REMAINING_INTEGRATION_PATHS = frozenset(
         "crates/trust-runtime/tests/iec_examples.rs",
         "crates/trust-runtime/tests/iec_timers.rs",
         "crates/trust-runtime/tests/openot_telemetry.rs",
+        "crates/trust-runtime/tests/platform_std.rs",
         "crates/trust-runtime/tests/plcopen_command.rs",
         "crates/trust-runtime/tests/retain_integrity.rs",
         "crates/trust-runtime/tests/retain_store.rs",
