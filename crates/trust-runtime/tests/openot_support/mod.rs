@@ -56,6 +56,9 @@ pub(crate) fn st_test_source(name: &str) -> &'static str {
         "test_conformant_value_changed_int.st" => include_str!(
             "../fixtures/openot/iec61131/tests/test_conformant_value_changed_int.st.txt"
         ),
+        "test_conformant_value_changed_real.st" => include_str!(
+            "../fixtures/openot/iec61131/tests/test_conformant_value_changed_real.st.txt"
+        ),
         "test_conformant_condition_lifecycle.st" => include_str!(
             "../fixtures/openot/iec61131/tests/test_conformant_condition_lifecycle.st.txt"
         ),
