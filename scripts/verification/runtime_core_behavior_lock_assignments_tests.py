@@ -75,8 +75,10 @@ class RuntimeCoreBehaviorLockAssignmentsTests(unittest.TestCase):
                 (subject.METADATA, subject.APPLY_BYTES): 1,
                 (subject.METADATA, subject.CLEAN_VM_LOAD): 6,
                 (subject.VM_VALUES, subject.TYPED_VM_CYCLE): 30,
-                (subject.RESTART, subject.WARM_STORAGE): 3,
-                (subject.RESTART, subject.COLD_STORAGE): 2,
+                (
+                    subject.VM_VALUES,
+                    subject.TYPED_VM_RETAIN_RESTART,
+                ): 5,
                 (subject.IO_CYCLE, subject.CYCLE_SNAPSHOT): 12,
                 (subject.IO_CYCLE, subject.ALL_READS_BEFORE_WRITES): 9,
             },
@@ -112,21 +114,24 @@ class RuntimeCoreBehaviorLockAssignmentsTests(unittest.TestCase):
                 assertion_id="ASSERT_4A308AD1FC7F091254697002",
             )
 
-    def test_restart_baseline_and_transitions_use_restart_authority(
+    def test_restart_baseline_and_transitions_use_vm_vertical_authority(
         self,
     ) -> None:
         subject = self.subject()
-        expected = {
-            "ASSERT_98A87FEB323DB10D35C2BCC0": subject.WARM_STORAGE,
-            "ASSERT_EF205D9B11BB11AD53EE33BB": subject.WARM_STORAGE,
-            "ASSERT_ADC7046985D7877B1D7FF935": subject.WARM_STORAGE,
-            "ASSERT_48E42FA84ADB897E419968AD": subject.COLD_STORAGE,
-            "ASSERT_108AB550896C334082B23172": subject.COLD_STORAGE,
-        }
-        for assertion_id, behavior in expected.items():
+        for assertion_id in (
+            "ASSERT_98A87FEB323DB10D35C2BCC0",
+            "ASSERT_EF205D9B11BB11AD53EE33BB",
+            "ASSERT_ADC7046985D7877B1D7FF935",
+            "ASSERT_48E42FA84ADB897E419968AD",
+            "ASSERT_108AB550896C334082B23172",
+        ):
             with self.subTest(assertion_id=assertion_id):
                 self.assertEqual(
-                    (subject.RESTART, behavior, "oracle_bound"),
+                    (
+                        subject.VM_VALUES,
+                        subject.TYPED_VM_RETAIN_RESTART,
+                        "oracle_bound",
+                    ),
                     subject._route(
                         test_name=subject.VM_TEST,
                         assertion_id=assertion_id,
@@ -255,8 +260,12 @@ class RuntimeCoreBehaviorLockAssignmentsTests(unittest.TestCase):
         self.assertEqual(2, indexes[(subject.METADATA, subject.APPLY_BYTES)])
         self.assertEqual(3, indexes[(subject.METADATA, subject.CLEAN_VM_LOAD)])
         self.assertEqual(2, indexes[(subject.VM_VALUES, subject.TYPED_VM_CYCLE)])
-        self.assertEqual(0, indexes[(subject.RESTART, subject.COLD_STORAGE)])
-        self.assertEqual(1, indexes[(subject.RESTART, subject.WARM_STORAGE)])
+        self.assertEqual(
+            3,
+            indexes[
+                (subject.VM_VALUES, subject.TYPED_VM_RETAIN_RESTART)
+            ],
+        )
         self.assertEqual(0, indexes[(subject.IO_CYCLE, subject.CYCLE_SNAPSHOT)])
         self.assertEqual(
             2,

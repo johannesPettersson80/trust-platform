@@ -18,7 +18,7 @@ missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate"
 
 [spec]
 status = "specified"
-source_refs = ["SPEC_RUNTIME_SEMANTICS_001", "SPEC_VM_VALUE_SEMANTICS_001", "SPEC_IEC_VARIABLES_001"]
+source_refs = ["SPEC_RUNTIME_SEMANTICS_001", "SPEC_VM_VALUE_SEMANTICS_001", "SPEC_IEC_VARIABLES_001", "SPEC_RUNTIME_ENGINE_001"]
 
 [oracle]
 kind = "trust_contract"
@@ -50,6 +50,15 @@ outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "expected_delta", retain = "expected_delta", process_image = "expected_delta", diagnostics = "none", status = "expected_delta" }
 rationale = "One reviewed current-source fixture executes one bytecode-VM cycle with exact output, counter, healthy status, enum, array element, structure field, live-reference, function-block output, and retained-value observations; a second fresh run proves output, counter, and healthy-status parity only."
+
+[[behavior]]
+partition = { equals = "TYPED_VM_RETAIN_RESTART_TRANSITIONS" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#retain-storage-iec-61131-3-656"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "For the reviewed bytecode-VM fixture, a warm restart preserves the retained DINT value and a following cold restart restores its declared initializer; this does not claim restart-time, task-baseline, NON_RETAIN, or failed-restart behavior."
 
 [[coverage.cells]]
 dimension = "happy_path"
