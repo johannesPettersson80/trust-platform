@@ -43,7 +43,6 @@ from .runtime_other_behavior_mapping_support import (
     records,
     records_by_id,
     require_unique_catalog_provenance,
-    scan_facts,
     string,
     strings,
     toml_document,
@@ -68,7 +67,7 @@ LOCK_PATH = Path(
 CAMPAIGN_PLAN_PATH = ARTIFACT_ROOT / "campaign-plan.json"
 CAMPAIGN_PATH = ARTIFACT_ROOT / "campaign.json"
 ASSERTIONS_PATH = ARTIFACT_ROOT / "assertions.json"
-SOURCE_COMMIT = "SOURCE_COMMIT_PENDING"
+SOURCE_COMMIT = "1338cd7a48e690c43b65c7239216f651a97178b3"
 REVIEWED_DATE = "2026-07-29"
 REVIEWED_TIMESTAMP = "2026-07-28T23:30:00Z"
 REFRESHED_TEST_IDS = frozenset(
@@ -133,11 +132,16 @@ def compile_verification_owned_mapping(
             "verification-owned mapping requires an empty proposal queue"
         )
     invariant_sources, invariant_documents = load_invariants(root)
-    facts = scan_facts(scan)
+    facts = _live_scan_facts(scan)
     assignments = [
         dict(row)
         for row in records(assignment.get("assignments"), "assignments")
     ]
+    denominator = _register_new_denominator_facts(
+        denominator=denominator,
+        assignments=assignments,
+        facts=facts,
+    )
     trace_records = _trace_records(
         campaign_plan=campaign_plan,
         campaign=campaign,
@@ -665,6 +669,96 @@ def _trace_records(
             "duration_ms": durations[campaign_test_id],
         }
     return result
+
+
+def _live_scan_facts(
+    scan: Mapping[str, Any],
+) -> dict[str, dict[str, Any]]:
+    facts = {}
+    for row in records(scan.get("inferred_facts"), "scanner facts"):
+        discovery_id = string(row, "stable_id", "scanner fact")
+        if discovery_id in facts:
+            raise ValueError(
+                f"verification-owned scanner duplicates {discovery_id}"
+            )
+        facts[discovery_id] = {
+            "discovery_id": discovery_id,
+            "discovery_source_kind": string(
+                row,
+                "source_kind",
+                discovery_id,
+            ),
+            "path": string(row, "path", discovery_id),
+            "name": string(row, "name", discovery_id),
+            "ignore_state": string(row, "ignore_state", discovery_id),
+            "command_hint": row.get("command_hint"),
+        }
+    if len(facts) != 4401:
+        raise ValueError(
+            f"verification-owned scanner fact count drifted: {len(facts)}"
+        )
+    return facts
+
+
+def _register_new_denominator_facts(
+    *,
+    denominator: Mapping[str, Any],
+    assignments: Sequence[Mapping[str, Any]],
+    facts: Mapping[str, Mapping[str, Any]],
+) -> dict[str, Any]:
+    registered = {
+        string(row, "discovery_id", "denominator review")
+        for row in records(
+            denominator.get("reviews"),
+            "denominator reviews",
+        )
+    }
+    absent = {
+        string(row, "discovery_id", "assignment")
+        for row in assignments
+        if row.get("denominator_disposition") is None
+    }
+    if len(absent) != 2 or absent & registered:
+        raise ValueError(
+            "verification-owned new denominator population drifted"
+        )
+    reviews = [
+        dict(row)
+        for row in records(
+            denominator.get("reviews"),
+            "denominator reviews",
+        )
+    ]
+    for discovery_id in sorted(absent):
+        fact = facts[discovery_id]
+        reviews.append(
+            {
+                "discovery_id": discovery_id,
+                "discovery_source_kind": string(
+                    fact,
+                    "discovery_source_kind",
+                    discovery_id,
+                ),
+                "path": string(fact, "path", discovery_id),
+                "name": string(fact, "name", discovery_id),
+                "ignore_state": string(
+                    fact,
+                    "ignore_state",
+                    discovery_id,
+                ),
+                "disposition": "reviewed_nonmapping",
+                "reason_code": "no_reviewed_spec_or_invariant_binding",
+                "last_reviewed": REVIEWED_DATE,
+            }
+        )
+    return {
+        **denominator,
+        "last_reviewed": REVIEWED_DATE,
+        "reviews": sorted(
+            reviews,
+            key=lambda row: str(row["discovery_id"]),
+        ),
+    }
 
 
 def _assignment_test_links(

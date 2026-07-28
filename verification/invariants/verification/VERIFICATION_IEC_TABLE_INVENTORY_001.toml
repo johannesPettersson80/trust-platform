@@ -3,7 +3,7 @@ id = "VERIFICATION_IEC_TABLE_INVENTORY_001"
 title = "IEC table test inventory remains resolvable and deterministic"
 area = "verification"
 risk = "silent_corruption"
-status = "specified"
+status = "mapped"
 owner = "verification"
 last_reviewed = "2026-07-26"
 claim = "The IEC table coverage inventory must parse its canonical tracked map, resolve every listed Rust test name, render resolving paths deterministically, and reject missing names without creating IEC product proof."
@@ -14,15 +14,11 @@ source_refs = [
   "docs/specs/coverage/iec-table-test-map.toml",
   "crates/trust-hir/tests/iec_table_coverage.rs",
 ]
-tests = []
+tests = ["TEST_AUTO_39AB329C1EF74B96CF4F", "TEST_AUTO_5D89E65CEF226C4AEACE", "TEST_AUTO_D1AD323E73A94C68FFF1"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = [
-  "cataloged_inventory_test",
-  "focused_execution_evidence",
-  "final_remote_gate",
-]
+missing = ["final_remote_gate"]
 
 [spec]
 status = "specified"
