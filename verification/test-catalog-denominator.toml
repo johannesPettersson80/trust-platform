@@ -38761,7 +38761,7 @@ name = "for_loop_bounds_materialize_the_control_variable_type"
 ignore_state = "not_ignored"
 disposition = "catalog_mapped"
 catalog_test_id = "TEST_VM_FOR_CONTROL_TYPE_MATERIALIZATION_001"
-last_reviewed = "2026-07-18"
+last_reviewed = "2026-07-28"
 
 [[reviews]]
 discovery_id = "DISC_E4A27307965153DFADA9"

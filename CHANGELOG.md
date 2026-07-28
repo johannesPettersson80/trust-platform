@@ -48,6 +48,9 @@ Target release: `v0.24.59`
 
 ### Fixed
 
+- Bytecode `FOR` loops now derive their internal zero sentinel from the
+  evaluated step value, so valid unsigned control variables and steps no
+  longer fail strict numeric comparison with an unrelated `LINT` sentinel.
 - `trust-runtime play` now creates a project only for ordinary project
   absence; current-directory and system-I/O configuration failures remain
   visible instead of being treated as a first-run setup request.

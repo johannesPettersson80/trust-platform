@@ -911,6 +911,10 @@ pub enum StmtResult {
 - Control variable must NOT be modified in loop body
 - Termination test at start: `var > final` (positive step) or `var < final` (negative step)
 - Step of zero is a runtime error
+- The production VM performs its internal zero-step and direction comparisons
+  in the evaluated step value's integer type; it must not introduce a
+  differently typed numeric sentinel that makes a valid signed or unsigned
+  loop fail common-type validation.
 
 **WHILE/REPEAT**:
 - Condition must evaluate to BOOL

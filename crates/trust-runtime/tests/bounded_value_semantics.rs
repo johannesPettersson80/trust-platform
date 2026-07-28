@@ -1,5 +1,7 @@
-use trust_runtime::harness::{CompileSession, TestHarness};
+use trust_runtime::execution_backend::ExecutionBackend;
+use trust_runtime::harness::{bytecode_bytes_from_source, CompileSession, TestHarness};
 use trust_runtime::value::Value;
+use trust_runtime::RestartMode;
 
 #[test]
 fn function_return_arithmetic_materializes_the_declared_integer_type() {
@@ -37,10 +39,10 @@ fn for_loop_bounds_materialize_the_control_variable_type() {
     let source = r#"
 PROGRAM Main
 VAR
-    index : SINT;
+    index : UINT;
     iterations : INT;
 END_VAR
-FOR index := 0 TO 2 DO
+FOR index := UINT#0 TO UINT#2 BY UINT#1 DO
     iterations := iterations + INT#1;
 END_FOR;
 END_PROGRAM
@@ -54,6 +56,28 @@ END_PROGRAM
         cycle.errors
     );
     assert_eq!(harness.get_output("iterations"), Some(Value::Int(3)));
+
+    let mut vm_harness = TestHarness::from_source(source).expect("compile VM runtime");
+    let bytecode = bytecode_bytes_from_source(source).expect("build VM bytecode");
+    vm_harness
+        .runtime_mut()
+        .apply_bytecode_bytes(&bytecode, None)
+        .expect("apply VM bytecode");
+    vm_harness
+        .runtime_mut()
+        .set_execution_backend(ExecutionBackend::BytecodeVm)
+        .expect("select VM backend");
+    vm_harness
+        .runtime_mut()
+        .restart(RestartMode::Cold)
+        .expect("restart VM runtime");
+    let cycle = vm_harness.cycle();
+    assert!(
+        cycle.errors.is_empty(),
+        "unexpected VM cycle errors: {:?}",
+        cycle.errors
+    );
+    assert_eq!(vm_harness.get_output("iterations"), Some(Value::Int(3)));
 }
 
 #[test]

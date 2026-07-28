@@ -67,7 +67,7 @@ class RuntimeOtherBehaviorCampaignTests(unittest.TestCase):
         }
         self.assertEqual(
             (
-                "trust-runtime::trust-runtime",
+                "trust-runtime::bin/trust-runtime",
                 "run::tests::play_project_resolution_distinguishes_absence_from_detection_failure",
             ),
             (
@@ -93,6 +93,40 @@ class RuntimeOtherBehaviorCampaignTests(unittest.TestCase):
             (
                 selected["DISC_FD2311D3995B059E552D"][0]["binary_id"],
                 selected["DISC_FD2311D3995B059E552D"][1],
+            ),
+        )
+        self.assertEqual(
+            (
+                "trust-ide::ide_features",
+                "ide_features_part_02::test_rename_refuses_cross_file_reference_capture",
+            ),
+            (
+                selected["TEST_EDITOR_RENAME_CROSS_FILE_CAPTURE_001"][0][
+                    "binary_id"
+                ],
+                selected["TEST_EDITOR_RENAME_CROSS_FILE_CAPTURE_001"][1],
+            ),
+        )
+        self.assertEqual(
+            (
+                "trust-ide::ide_features",
+                "ide_features_part_02::test_rename_refuses_shadow_capture_with_named_reason",
+            ),
+            (
+                selected["TEST_EDITOR_RENAME_SHADOW_CAPTURE_001"][0][
+                    "binary_id"
+                ],
+                selected["TEST_EDITOR_RENAME_SHADOW_CAPTURE_001"][1],
+            ),
+        )
+        self.assertEqual(
+            (
+                "trust-runtime",
+                "hmi::tests::scaffold_output_is_deterministic_for_same_input",
+            ),
+            (
+                selected["TEST_AUTO_514A3C7CD34EA66EF422"][0]["binary_id"],
+                selected["TEST_AUTO_514A3C7CD34EA66EF422"][1],
             ),
         )
 

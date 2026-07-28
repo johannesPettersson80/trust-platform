@@ -54,8 +54,16 @@ EXACT_FULL_NAME_OVERRIDES: Mapping[str, str] = {
         "oscat_replaced_upstream_name_remains_absent"
     ),
     "TEST_AUTO_514A3C7CD34EA66EF422": (
-        "hmi::tests::scaffold_generation::core_tests::"
+        "hmi::tests::"
         "scaffold_output_is_deterministic_for_same_input"
+    ),
+    "TEST_EDITOR_RENAME_CROSS_FILE_CAPTURE_001": (
+        "ide_features_part_02::"
+        "test_rename_refuses_cross_file_reference_capture"
+    ),
+    "TEST_EDITOR_RENAME_SHADOW_CAPTURE_001": (
+        "ide_features_part_02::"
+        "test_rename_refuses_shadow_capture_with_named_reason"
     ),
     "TEST_AUTO_5B43AF2B1181A8401F05": (
         "openot_telemetry_authoring_sampling_policy_round_trips_definition"
@@ -243,7 +251,7 @@ def _cargo_test_identity(
         package=package,
         target_kind=target_kind,
         target_name=target_name,
-        full_name=full_name,
+        full_name=EXACT_FULL_NAME_OVERRIDES.get(test_id, full_name),
     )
 
 
@@ -265,10 +273,9 @@ def _nextest_identity(
         package=package,
         target_kind=target_kind,
         target_name=target_name,
-        full_name=(
-            EXACT_FULL_NAME_OVERRIDES[test_id]
-            if test_match.group(1) == "~"
-            else test_match.group(2)
+        full_name=EXACT_FULL_NAME_OVERRIDES.get(
+            test_id,
+            test_match.group(2),
         ),
     )
     if identity["binary_id"] != binary_match.group(1):
@@ -332,7 +339,11 @@ def _identity(
     else:
         if not target_name:
             raise ValueError(f"{package} {target_kind} target lacks a name")
-        binary_id = f"{package}::{target_name}"
+        binary_id = (
+            f"{package}::bin/{target_name}"
+            if target_kind == "bin"
+            else f"{package}::{target_name}"
+        )
         encoded_prefix = f"{binary_id}$"
     return {
         "package": package,
