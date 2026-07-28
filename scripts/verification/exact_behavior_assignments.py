@@ -17,7 +17,7 @@ DENOMINATOR_PATH = Path("verification/test-catalog-denominator.toml")
 def build_exact_assignment_plan(
     *,
     root: Path,
-    gap_report: Path,
+    gap_report: Path | Mapping[str, Any],
     scan_report: Path,
     routes: Mapping[str, tuple[str, ...]],
     expected_remaining: int,
@@ -25,7 +25,11 @@ def build_exact_assignment_plan(
     """Resolve a reviewed route map without mutating repository metadata."""
 
     root = root.resolve()
-    report = _json(gap_report)
+    report = (
+        _json(gap_report)
+        if isinstance(gap_report, Path)
+        else dict(gap_report)
+    )
     frozen_demands = _records(
         report.get("confirmed_missing_tests"),
         "confirmed missing tests",

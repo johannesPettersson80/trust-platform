@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from .exact_behavior_assignments import build_exact_assignment_plan
+from .frozen_catalog_gaps import generate_report
 from .runtime_cloud_behavior_routes import BEHAVIOR_TEST_NAMES
 
 def build_assignment_plan(
@@ -18,7 +19,11 @@ def build_assignment_plan(
 
     return build_exact_assignment_plan(
         root=root,
-        gap_report=gap_report,
+        gap_report=(
+            gap_report
+            if gap_report.is_file()
+            else generate_report(root)
+        ),
         scan_report=scan_report,
         routes=BEHAVIOR_TEST_NAMES,
         expected_remaining=67,
