@@ -112506,3 +112506,240 @@ mapping_assertion_review_digest = "sha256:aa4ddee2a81567e3c72ab5f19b0ab34f0c590c
 mapping_assertion_source_digests = { "crates/trust-ads-core/src/quality.rs" = "sha256:257aaeee5fb22fb5c7ab226029849558e3e7c886259b6e5afd3e047fb2864703" }
 mapping_behavior_refs = ["RT_ADS_CORE_POINT_QUALITY_001#behavior:2", "RT_ADS_CORE_POINT_QUALITY_001#behavior:3", "RT_ADS_CORE_POINT_QUALITY_001#behavior:4"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_36E7E7C235C77FD764A5"
+subject_kind = "generated_test"
+discovery_id = "DISC_36E7E7C235C77FD764A5"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "supply_chain_platform"
+path = "crates/trust-runtime/src/host/bundle_builder/tests.rs"
+name = "build_fails_for_cyclic_dependencies"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=bundle_builder::tests::build_fails_for_cyclic_dependencies)'"
+owner = "release"
+status = "mapped"
+invariants = ["RT_BUILD_COMMAND_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1d-runtime-build-and-ci-failure-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#6-8-1d-runtime-build-and-ci-failure-contract"]
+expected_result = "The reviewed missing path, cyclic graph, and requested-version mismatch each reject with bounded cause-identifying diagnostics."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_36E7E7C235C77FD764A5.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_36E7E7C235C77FD764A5_391B93A96069"
+mapping_proposal_digest = "sha256:391b93a960697e345a1b7862faf0cf223b62a361a0fbc8f08cdf7d52e87f6b70"
+mapping_decision_id = "MAP_DEC_21F8E9FBC132B59A427E8E03"
+mapping_reviewed_source_digest = "sha256:fe886731681533de249e0ce964717e9098c68083430b569a8b26a9aa8440d46a"
+mapping_assertion_review_digest = "sha256:0ff241e057cc4fba60008917be1f57e1ce755a49519263dc800fef4e656d7ab5"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/host/bundle_builder/tests.rs" = "sha256:fe886731681533de249e0ce964717e9098c68083430b569a8b26a9aa8440d46a" }
+mapping_behavior_refs = ["RT_BUILD_COMMAND_001#behavior:6"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_45CB6C9BAD8DCCF0A59F"
+subject_kind = "generated_test"
+discovery_id = "DISC_45CB6C9BAD8DCCF0A59F"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "supply_chain_platform"
+path = "crates/trust-runtime/src/host/bundle_builder/tests.rs"
+name = "build_fails_for_missing_dependency_path"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=bundle_builder::tests::build_fails_for_missing_dependency_path)'"
+owner = "release"
+status = "mapped"
+invariants = ["RT_BUILD_COMMAND_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1d-runtime-build-and-ci-failure-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#6-8-1d-runtime-build-and-ci-failure-contract"]
+expected_result = "The reviewed missing path, cyclic graph, and requested-version mismatch each reject with bounded cause-identifying diagnostics."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_45CB6C9BAD8DCCF0A59F.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_45CB6C9BAD8DCCF0A59F_C6DE60E50D33"
+mapping_proposal_digest = "sha256:c6de60e50d33c367dbf3cf7efce62fcbb4cb8453a73c9488e25780bc1a644f27"
+mapping_decision_id = "MAP_DEC_30822D87E250CB24549F0694"
+mapping_reviewed_source_digest = "sha256:fe886731681533de249e0ce964717e9098c68083430b569a8b26a9aa8440d46a"
+mapping_assertion_review_digest = "sha256:13e0a44754dd693890dc06480679c954e7f63a7462f81213fbb7793bc513696c"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/host/bundle_builder/tests.rs" = "sha256:fe886731681533de249e0ce964717e9098c68083430b569a8b26a9aa8440d46a" }
+mapping_behavior_refs = ["RT_BUILD_COMMAND_001#behavior:6"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_4CFAF7598FF6ED520833"
+subject_kind = "generated_test"
+discovery_id = "DISC_4CFAF7598FF6ED520833"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "supply_chain_platform"
+path = "crates/trust-runtime/src/host/bundle_builder/tests.rs"
+name = "build_includes_transitive_dependency_sources"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=bundle_builder::tests::build_includes_transitive_dependency_sources)'"
+owner = "release"
+status = "mapped"
+invariants = ["RT_BUILD_COMMAND_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1d-runtime-build-and-ci-failure-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#6-8-1d-runtime-build-and-ci-failure-contract"]
+expected_result = "The reviewed LibA-to-LibB graph includes root and dependency sources in build and inspection, reports both dependency identities and roots, and produces program.stbc."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_4CFAF7598FF6ED520833.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_4CFAF7598FF6ED520833_FE21709E7E92"
+mapping_proposal_digest = "sha256:fe21709e7e92c2dd640e35983c106beaaf2408896c17e32da83eff38921db6af"
+mapping_decision_id = "MAP_DEC_BA842E45346C55B2B5775480"
+mapping_reviewed_source_digest = "sha256:fe886731681533de249e0ce964717e9098c68083430b569a8b26a9aa8440d46a"
+mapping_assertion_review_digest = "sha256:bb92347a6ee78357d0c9c29c500551e57f70c81c62c4154abb761133d9db6c5d"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/host/bundle_builder/tests.rs" = "sha256:fe886731681533de249e0ce964717e9098c68083430b569a8b26a9aa8440d46a" }
+mapping_behavior_refs = ["RT_BUILD_COMMAND_001#behavior:5"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_4E78FA1FE054B4A0AD08"
+subject_kind = "generated_test"
+discovery_id = "DISC_4E78FA1FE054B4A0AD08"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "supply_chain_platform"
+path = "crates/trust-runtime/src/host/bundle_builder/tests.rs"
+name = "resolve_sources_root_prefers_src_directory"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=bundle_builder::tests::resolve_sources_root_prefers_src_directory)'"
+owner = "release"
+status = "mapped"
+invariants = ["RT_BUILD_COMMAND_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1d-runtime-build-and-ci-failure-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#6-8-1d-runtime-build-and-ci-failure-contract"]
+expected_result = "Without an override, the reviewed canonical src directory resolves successfully."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_4E78FA1FE054B4A0AD08.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_4E78FA1FE054B4A0AD08_8A138306C248"
+mapping_proposal_digest = "sha256:8a138306c24891fdb3f78d841a61bd616b1e14a87b33f7c7ca6ac79308feedc4"
+mapping_decision_id = "MAP_DEC_CEA128102A296CD44892FE12"
+mapping_reviewed_source_digest = "sha256:fe886731681533de249e0ce964717e9098c68083430b569a8b26a9aa8440d46a"
+mapping_assertion_review_digest = "sha256:16317f8bcc016ed3795ba870e83569128bf220903771409a29515b1af7b3d9f6"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/host/bundle_builder/tests.rs" = "sha256:fe886731681533de249e0ce964717e9098c68083430b569a8b26a9aa8440d46a" }
+mapping_behavior_refs = ["RT_BUILD_COMMAND_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_5D5805D749354AFB4996"
+subject_kind = "generated_test"
+discovery_id = "DISC_5D5805D749354AFB4996"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "supply_chain_platform"
+path = "crates/trust-runtime/src/host/bundle_builder/tests.rs"
+name = "build_fails_for_version_mismatch"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=bundle_builder::tests::build_fails_for_version_mismatch)'"
+owner = "release"
+status = "mapped"
+invariants = ["RT_BUILD_COMMAND_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1d-runtime-build-and-ci-failure-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#6-8-1d-runtime-build-and-ci-failure-contract"]
+expected_result = "The reviewed missing path, cyclic graph, and requested-version mismatch each reject with bounded cause-identifying diagnostics."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_5D5805D749354AFB4996.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_5D5805D749354AFB4996_30EE4585A01B"
+mapping_proposal_digest = "sha256:30ee4585a01ba0b26dbe793a140417912573bb08cdee3b813d51ad14abdb9b1b"
+mapping_decision_id = "MAP_DEC_EBAFE01CF9A09C7DA46FA74E"
+mapping_reviewed_source_digest = "sha256:fe886731681533de249e0ce964717e9098c68083430b569a8b26a9aa8440d46a"
+mapping_assertion_review_digest = "sha256:c59aa65b99eea43c08c4aa8a25d52f8f64decbc22b8b45c55305800730f6d0c8"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/host/bundle_builder/tests.rs" = "sha256:fe886731681533de249e0ce964717e9098c68083430b569a8b26a9aa8440d46a" }
+mapping_behavior_refs = ["RT_BUILD_COMMAND_001#behavior:6"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_DC6A59A72613FBA3CFA8"
+subject_kind = "generated_test"
+discovery_id = "DISC_DC6A59A72613FBA3CFA8"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "supply_chain_platform"
+path = "crates/trust-runtime/src/host/bundle_builder/tests.rs"
+name = "resolve_sources_root_rejects_legacy_sources_directory"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=bundle_builder::tests::resolve_sources_root_rejects_legacy_sources_directory)'"
+owner = "release"
+status = "mapped"
+invariants = ["RT_BUILD_COMMAND_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1d-runtime-build-and-ci-failure-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#6-8-1d-runtime-build-and-ci-failure-contract"]
+expected_result = "A project containing only legacy sources/ rejects with the reviewed missing-src diagnostic."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_DC6A59A72613FBA3CFA8.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_DC6A59A72613FBA3CFA8_54CF0B2FCFC0"
+mapping_proposal_digest = "sha256:54cf0b2fcfc06e0709830b1bb0aba569f6d82772be6b6424b620b573e7e5adee"
+mapping_decision_id = "MAP_DEC_248BEA4607F25D941D45FBD7"
+mapping_reviewed_source_digest = "sha256:fe886731681533de249e0ce964717e9098c68083430b569a8b26a9aa8440d46a"
+mapping_assertion_review_digest = "sha256:cace5f952c961a19befd6260de2df6c05e3363d0d64d308bc1822e2dfb97da75"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/host/bundle_builder/tests.rs" = "sha256:fe886731681533de249e0ce964717e9098c68083430b569a8b26a9aa8440d46a" }
+mapping_behavior_refs = ["RT_BUILD_COMMAND_001#behavior:4"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_E726DF21E9F7F87134B0"
+subject_kind = "generated_test"
+discovery_id = "DISC_E726DF21E9F7F87134B0"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "supply_chain_platform"
+path = "crates/trust-runtime/src/host/bundle_builder/tests.rs"
+name = "build_accepts_cross_file_root_global_struct_field_access"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=bundle_builder::tests::build_accepts_cross_file_root_global_struct_field_access)'"
+owner = "release"
+status = "mapped"
+invariants = ["RT_BUILD_COMMAND_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1d-runtime-build-and-ci-failure-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#6-8-1d-runtime-build-and-ci-failure-contract"]
+expected_result = "The reviewed type, global, and program files compile together, remain in the source report, and produce program.stbc without claiming runtime field-value proof."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_E726DF21E9F7F87134B0.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_E726DF21E9F7F87134B0_4089BA49651B"
+mapping_proposal_digest = "sha256:4089ba49651beeb3815c8b85ef2a877ce16c3b4db1260a1db0506bc2e80d276f"
+mapping_decision_id = "MAP_DEC_FD34EE6B67B44F7147C088F0"
+mapping_reviewed_source_digest = "sha256:fe886731681533de249e0ce964717e9098c68083430b569a8b26a9aa8440d46a"
+mapping_assertion_review_digest = "sha256:b18729a19ebddc2b35cff50e6ff9e724f86c75df15280832de8220addc57f774"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/host/bundle_builder/tests.rs" = "sha256:fe886731681533de249e0ce964717e9098c68083430b569a8b26a9aa8440d46a" }
+mapping_behavior_refs = ["RT_BUILD_COMMAND_001#behavior:7"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
