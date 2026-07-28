@@ -1678,6 +1678,20 @@ impl TestHarness {
 }
 ```
 
+`from_source` constructs a fresh initialized runtime before executing any
+cycle; its simulated time and completed-cycle count both begin at zero.
+Symbolic input/output and explicitly bound direct-address input/output values
+cross the same harness cycle boundary. `run_cycles(n)` executes exactly `n`
+cycles without advancing simulated time by itself. `run_until` evaluates its
+predicate against the current runtime before the first cycle, returns only the
+cycles it executed, and leaves the completed-cycle count equal to the total
+cycles run by that harness. `run_until_max` uses the same pre-cycle predicate
+order and, after exhausting the reviewed bound without a match, panics with
+`run_until exceeded <N> cycles`.
+
+These rules specify the in-process Rust testing API. They do not establish the
+JSON-line transport contract, physical I/O behavior, or wall-clock timing.
+
 #### 11.2 Harness automation JSON-line contract
 
 `trust-harness` exposes the deterministic test harness as newline-delimited

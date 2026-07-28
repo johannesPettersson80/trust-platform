@@ -5,12 +5,13 @@ area = "runtime_safety"
 risk = "wrong_result"
 status = "mapped"
 owner = "trust-runtime"
-last_reviewed = "2026-07-22"
+last_reviewed = "2026-07-28"
 claim = "Symbolic, VAR_ACCESS, and direct-address harness commands round-trip typed values through the correct boundary and report invalid or unresolved operations without corrupting session state."
 proof_level = "T1"
 contract_kind = "protocol_trace"
 source_refs = [
   "crates/trust-runtime/src/bin/trust-harness.rs",
+  "crates/trust-runtime/src/host/harness/harness.rs",
   "crates/trust-runtime/src/host/harness/protocol.rs",
 ]
 tests = ["TEST_AUTO_651A49CDA6DA6C0F24CB", "TEST_AUTO_7F8703362219E8B48F52", "TEST_RUNTIME_HARNESS_ACCESS_DIRECT_IO_001", "TEST_RUNTIME_HARNESS_ERROR_CLASSIFICATION_001", "TEST_RUNTIME_HARNESS_SYMBOLIC_IO_001"]
@@ -62,6 +63,24 @@ outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
 rationale = "The shared harness codec decodes the reviewed BOOL, INT, and STRING payloads to their exact runtime values and encodes the reviewed BOOL value to its exact typed JSON payload."
+
+[[behavior]]
+partition = { equals = "DIRECT_API_SYMBOLIC_IO_ROUND_TRIP" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#11-1-test-harness"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "expected_delta", diagnostics = "none", status = "not_applicable" }
+rationale = "The in-process harness applies the reviewed symbolic BOOL input and exposes the copied symbolic output after one explicit cycle."
+
+[[behavior]]
+partition = { equals = "DIRECT_API_BOUND_ADDRESS_ROUND_TRIP" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#11-1-test-harness"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "expected_delta", diagnostics = "none", status = "not_applicable" }
+rationale = "The in-process harness accepts the reviewed input/output bindings and typed direct input, then returns the copied direct output after one explicit cycle."
 
 [[coverage.cells]]
 dimension = "happy_path"

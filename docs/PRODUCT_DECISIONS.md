@@ -6,6 +6,28 @@ in `IEC_DECISIONS.md`; PLCopen profile decisions belong in
 `PLCOPEN_DECISIONS.md`. Product behavior recorded here MUST NOT be copied to an
 IEC or PLCopen deviation log merely because truST owns the behavior.
 
+## 2026-07-28 - In-process test-harness control semantics
+
+- Area: Runtime testing API
+- Decision:
+  - `TestHarness::from_source` constructs a fresh initialized runtime before
+    any cycle, with zero simulated time and zero completed cycles.
+  - Symbolic and bound direct I/O are applied through the harness cycle
+    boundary. `run_cycles` executes the requested count, and `run_until` checks
+    its predicate before the first cycle and returns only cycles it executed.
+  - Bounded `run_until_max` panics after exhausting its reviewed limit with
+    `run_until exceeded <N> cycles`; an already-true predicate executes no
+    cycle.
+- Supersedes:
+  - Any interpretation that the in-process Rust API proves the JSON-line
+    transport, wall-clock advancement, physical I/O, or arbitrary runtime
+    execution beyond the reviewed fixtures.
+- Authority:
+  - `docs/specs/10-runtime-semantics.md`
+- Reason:
+  - These are deterministic truST testing-API choices outside IEC 61131-3 and
+    therefore belong in product authority rather than `IEC_DEVIATIONS.md`.
+
 ## 2026-07-28 - Runtime hot-reload transaction boundary
 
 - Area: Runtime online change
