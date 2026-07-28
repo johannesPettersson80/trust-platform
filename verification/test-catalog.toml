@@ -114602,3 +114602,138 @@ mapping_assertion_review_digest = "sha256:8039dfc36c527a5487705ea37c86ec8ee2dc8a
 mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/runtime_core_behavior_lock/program.st" = "sha256:f20c9c4a84d04cfc2407815518f5d9e907c30a39e0c33827021c9bbca0955f69", "crates/trust-runtime/tests/runtime_core_behavior_lock.rs" = "sha256:38d0a77285d34f9841e92c65129c5589c61cff23fe59e02f8c317cb24b6a8359" }
 mapping_behavior_refs = ["RT_IO_CYCLE_BINDING_001#behavior:0"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_B02D0E3CFEC34E755FC0"
+subject_kind = "generated_test"
+discovery_id = "DISC_B02D0E3CFEC34E755FC0"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/runtime_reliability.rs"
+name = "e2e_startup_io_restart"
+command = "cargo nextest run -p trust-runtime --test runtime_reliability --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::runtime_reliability) & test(=e2e_startup_io_restart)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_HARNESS_BOUNDARY_IO_001", "RT_SAFE_RESTART_TIME_002"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001", "SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"]
+expected_result = "The in-process harness accepts the reviewed input/output bindings and typed direct input, then returns the copied direct output after one explicit cycle. An in-process warm restart preserves monotonic runtime time, retains RETAIN values, initializes non-retained values, and gives the recreated timer a zero elapsed-time baseline at the preserved time."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_B02D0E3CFEC34E755FC0.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_B02D0E3CFEC34E755FC0_66F39B0C20F1"
+mapping_proposal_digest = "sha256:66f39b0c20f1ee99785a61a7d42f7028af4f47ed4c2712daaa1e3e3679b60320"
+mapping_decision_id = "MAP_DEC_EA061DFEB16281F70A5514C9"
+mapping_reviewed_source_digest = "sha256:1a91a249fed67baa9faec4b871b337d6af7bc9fd9ec7dfa30f639c9098bce8fc"
+mapping_assertion_review_digest = "sha256:ff8534ea4cf169e637b082c0126a0af4fa277200fda55ebd65c1f2e3445b560f"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/runtime_reliability.rs" = "sha256:1a91a249fed67baa9faec4b871b337d6af7bc9fd9ec7dfa30f639c9098bce8fc" }
+mapping_behavior_refs = ["RT_HARNESS_BOUNDARY_IO_001#behavior:5", "RT_SAFE_RESTART_TIME_002#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_B0616A747435CAE04D2A"
+subject_kind = "generated_test"
+discovery_id = "DISC_B0616A747435CAE04D2A"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/runtime_reliability.rs"
+name = "retain_power_loss_does_not_persist_unsaved"
+command = "cargo nextest run -p trust-runtime --test runtime_reliability --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::runtime_reliability) & test(=retain_power_loss_does_not_persist_unsaved)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_RETAIN_PERSISTENCE_CODEC_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#retain-codec-compatibility-and-migration"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#retain-codec-compatibility-and-migration"]
+expected_result = "Marking retained state dirty without a due or explicit save does not write a snapshot merely because the runtime is dropped."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_B0616A747435CAE04D2A.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_B0616A747435CAE04D2A_1857D8863BB3"
+mapping_proposal_digest = "sha256:1857d8863bb38b7e44bda37ecc501174aa31ba6fa9c84778ef65afac34201f85"
+mapping_decision_id = "MAP_DEC_54D4C05DB65AA333E4EED293"
+mapping_reviewed_source_digest = "sha256:1a91a249fed67baa9faec4b871b337d6af7bc9fd9ec7dfa30f639c9098bce8fc"
+mapping_assertion_review_digest = "sha256:fdfa203836de108e264fbddf189e0e87eabc86c35e8569cf69c6c9d79c2f8eea"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/runtime_reliability.rs" = "sha256:1a91a249fed67baa9faec4b871b337d6af7bc9fd9ec7dfa30f639c9098bce8fc" }
+mapping_behavior_refs = ["RT_RETAIN_PERSISTENCE_CODEC_001#behavior:4"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_C101BBAEC06311987C74"
+subject_kind = "generated_test"
+discovery_id = "DISC_C101BBAEC06311987C74"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/runtime_reliability.rs"
+name = "watchdog_faults_resource_on_overrun"
+command = "cargo nextest run -p trust-runtime --test runtime_reliability --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::runtime_reliability) & test(=watchdog_faults_resource_on_overrun)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_SAFE_DEADLINE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001"]
+expected_result = "A spawned resource whose scan exceeds an enabled wall-clock watchdog timeout reaches Faulted, preserves WatchdogTimeout as its terminal error, and joins cleanly."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_C101BBAEC06311987C74.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_C101BBAEC06311987C74_139B213F4C57"
+mapping_proposal_digest = "sha256:139b213f4c5792d3849e12839a638b914b6d6699e3f3cc025950e8e8eb443c23"
+mapping_decision_id = "MAP_DEC_BC1E8F50304BFC78DC9AED3D"
+mapping_reviewed_source_digest = "sha256:1a91a249fed67baa9faec4b871b337d6af7bc9fd9ec7dfa30f639c9098bce8fc"
+mapping_assertion_review_digest = "sha256:3b6bf7904c76049c235555e2c1d0d6e632456a8b2ae16fdf11274df761470be7"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/runtime_reliability.rs" = "sha256:1a91a249fed67baa9faec4b871b337d6af7bc9fd9ec7dfa30f639c9098bce8fc" }
+mapping_behavior_refs = ["RT_SAFE_DEADLINE_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_EE4014B513F4E29CDCC3"
+subject_kind = "generated_test"
+discovery_id = "DISC_EE4014B513F4E29CDCC3"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/runtime_reliability.rs"
+name = "e2e_retain_roundtrip_restart"
+command = "cargo nextest run -p trust-runtime --test runtime_reliability --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::runtime_reliability) & test(=e2e_retain_roundtrip_restart)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_RETAIN_PERSISTENCE_CODEC_001", "RT_SAFE_RESTART_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001", "SPEC_RUNTIME_ENGINE_001#retain-codec-compatibility-and-migration"]
+expected_result = "A saved retained PROGRAM variable uses its qualified snapshot identity and replaces a different unsaved live value when the warm restart loads the store. A cold restart through the harness initializes retained variables and does not apply the configured persisted snapshot."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_EE4014B513F4E29CDCC3.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_EE4014B513F4E29CDCC3_6083527CBD1A"
+mapping_proposal_digest = "sha256:6083527cbd1adbf9cf1884f7fc67678ce9699c540042fade35836762c6681c1b"
+mapping_decision_id = "MAP_DEC_0D81EB470C6C12BDC032DF85"
+mapping_reviewed_source_digest = "sha256:1a91a249fed67baa9faec4b871b337d6af7bc9fd9ec7dfa30f639c9098bce8fc"
+mapping_assertion_review_digest = "sha256:969c49ac0149ad8b63cbe5f388afc7ae7ea8d38b01018206dcff86a7967d0b15"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/runtime_reliability.rs" = "sha256:1a91a249fed67baa9faec4b871b337d6af7bc9fd9ec7dfa30f639c9098bce8fc" }
+mapping_behavior_refs = ["RT_RETAIN_PERSISTENCE_CODEC_001#behavior:3", "RT_SAFE_RESTART_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]

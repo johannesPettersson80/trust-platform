@@ -10,7 +10,7 @@ claim = "An in-process warm or cold restart preserves monotonic runtime time, re
 proof_level = "G2"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src/runtime", "crates/trust-runtime/src/retain"]
-tests = ["TEST_RUNTIME_RESTART_TRACE_001"]
+tests = ["TEST_AUTO_B02D0E3CFEC34E755FC0", "TEST_RUNTIME_RESTART_TRACE_001"]
 gates = ["pr"]
 evidence_refs = [
   "EVID_TEST_RUNTIME_RESTART_TRACE_001_RED",
