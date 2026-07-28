@@ -1,0 +1,1751 @@
+{
+  "assertion_reviews": [
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_CONFIG_RECONCILE_001#behavior:2"
+      ],
+      "discovery_id": "DISC_1B4B357B85CB2C7FD77A",
+      "inventory_digest": "sha256:9b32bd46893903b8750ad0962979121c2b032ad9a0e9f8dff620de76938dd707",
+      "oracle_assertion_ids": [
+        "ASSERT_1020ACBD484407E0C630F96A",
+        "ASSERT_51B335A7D88AEE3A3A9861C6",
+        "ASSERT_7EBCB08DB6571B2CE37600DC",
+        "ASSERT_86F62E11B6D26D37E4798BDF",
+        "ASSERT_A8875865BD3664A9AF46F5E6",
+        "ASSERT_C3BF5B45BC7ED043DD299DE4",
+        "ASSERT_EBF4CC24B2142ECCEA961773"
+      ],
+      "test_id": "TEST_CONFIG_POLICY_SUPERSEDED_APPLY_FAILURE_KEEPS_NEWER_DESIRED_REVISION_PENDING_001",
+      "unresolved_assertion_helpers": []
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_CONFIG_RECONCILE_001#behavior:1"
+      ],
+      "discovery_id": "DISC_1F106D9AB38E1868D64B",
+      "inventory_digest": "sha256:e86f3a658e7e17e9a0f3f30ed5efd01840d37d8c2269e220ebdf08c8f8a3e707",
+      "oracle_assertion_ids": [
+        "ASSERT_0866BC2A6C5714CB7058112D",
+        "ASSERT_1DA5475C0E05420F29C1DD5D",
+        "ASSERT_2853DC0F9CB6904005A5C80F",
+        "ASSERT_293C5E280394056B1BB99A22",
+        "ASSERT_668757FB34E9C4D34F5161BD",
+        "ASSERT_868914C72CE9AC0D66380916",
+        "ASSERT_A56786BE0C0021BCA4AE7FCE",
+        "ASSERT_A6DA277D2194C5B2E157B17D"
+      ],
+      "test_id": "TEST_CONFIG_POLICY_SUPERSEDED_APPLY_SUCCESS_KEEPS_NEWER_DESIRED_REVISION_PENDING_001",
+      "unresolved_assertion_helpers": []
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_SCHEMA_KEYSPACE_001#behavior:0"
+      ],
+      "discovery_id": "DISC_073A7799860E865C0654",
+      "inventory_digest": "sha256:ac7d806a566fc7e3716b870938b068acd08ae469f100b313a1844f2128bd1b74",
+      "oracle_assertion_ids": [
+        "ASSERT_8502BCD88523E0E6E5F16A4E",
+        "ASSERT_ECAFA623C915B3BFC34016C9"
+      ],
+      "test_id": "TEST_CONTRACTS_SCHEMA_LAYOUT_ACCEPTS_FORWARD_ADDITIVE_CHANGES_AND_REJECTS_BREAKING_CHANGES_001",
+      "unresolved_assertion_helpers": []
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_SCHEMA_KEYSPACE_001#behavior:1"
+      ],
+      "discovery_id": "DISC_67D513FFE4F7720C92F2",
+      "inventory_digest": "sha256:cda68265f5f495e100dfdda585eb86255e37028dd6bc131f4cd854f59164c908",
+      "oracle_assertion_ids": [
+        "ASSERT_1C1B5B515CD8D90ADA7F14AB"
+      ],
+      "test_id": "TEST_CONTRACTS_SCHEMA_LAYOUT_REJECTS_AMBIGUOUS_OR_NON_APPENDED_FIELDS_001",
+      "unresolved_assertion_helpers": []
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_PROXY_PLAN_001#behavior:1"
+      ],
+      "discovery_id": "DISC_0C6D6A2C6934A1A53026",
+      "inventory_digest": "sha256:803aa9ac2961c77d146e1af58b856c6dabc7c239b591b13f92f18620fda67e60",
+      "oracle_assertion_ids": [
+        "ASSERT_6627F19AB870A127988DFA86",
+        "ASSERT_8E30724B720E872AC869CF59",
+        "ASSERT_E90A05BF4C9E3597F7C62706"
+      ],
+      "test_id": "TEST_CONTROL_PROXY_POLICY_PROXY_PLAN_REJECTS_BLANK_REQUEST_ID_WHEN_SUPPLIED_001",
+      "unresolved_assertion_helpers": []
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_PROXY_PLAN_001#behavior:2"
+      ],
+      "discovery_id": "DISC_3345DCAA227ED6CDA264",
+      "inventory_digest": "sha256:665c4b76ee268acfe6e15610db7755ec20602e1b1eb33fa2e10fa566aa03a0cb",
+      "oracle_assertion_ids": [
+        "ASSERT_DBAAEC36184E3961A4408DFB",
+        "ASSERT_E57B875D59C1FDC2CAF1E179",
+        "ASSERT_F9CDECAA6E275CEEC651A7BD"
+      ],
+      "test_id": "TEST_CONTROL_PROXY_POLICY_PROXY_PLAN_REJECTS_BREAKING_API_VERSION_001",
+      "unresolved_assertion_helpers": []
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_ACTION_POLICY_001#behavior:2"
+      ],
+      "discovery_id": "DISC_BA570667935BC5ADFF6B",
+      "inventory_digest": "sha256:c0e4780489dde10c5cf4807634d7827eaf6bb52a9e471e55298ddc665fc8a4b9",
+      "oracle_assertion_ids": [
+        "ASSERT_8A49E923B94249AFCD4FE966"
+      ],
+      "test_id": "TEST_DEV_AND_PLANT_PROFILES_DO_NOT_REQUIRE_WAN_WRITE_ALLOWLIST_001",
+      "unresolved_assertion_helpers": []
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_HA_FENCING_001#behavior:4"
+      ],
+      "discovery_id": "DISC_C6180DB055825AFDF39E",
+      "inventory_digest": "sha256:8c07c9ba51d6f678a0d990d9b33d9f17a3d264c877dc5251e7ec3741d61595da",
+      "oracle_assertion_ids": [
+        "ASSERT_AF174E36B752C6194B696D71"
+      ],
+      "test_id": "TEST_HA_CRASH_MID_COMMAND_CAN_RETRY_AFTER_STATE_ROUNDTRIP_001",
+      "unresolved_assertion_helpers": []
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_HA_FENCING_001#behavior:1"
+      ],
+      "discovery_id": "DISC_163AA34BC9E780208B26",
+      "inventory_digest": "sha256:2935517f191f02905750e69cd0158fd30d0474669eec55d7dcf00a124a3a2eb5",
+      "oracle_assertion_ids": [
+        "ASSERT_04EFECE5A76711C9825C66D7",
+        "ASSERT_DA9AAE0505A8DF7223C86372"
+      ],
+      "test_id": "TEST_HA_DUAL_HOST_REQUIRES_EXTERNAL_CONSISTENT_LEASE_AUTHORITY_001",
+      "unresolved_assertion_helpers": []
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_HA_FENCING_001#behavior:1"
+      ],
+      "discovery_id": "DISC_9DBC029B6F5A323DB0F1",
+      "inventory_digest": "sha256:ed79d6e027b619228390fe932161fb5d9af0dd71978352a0e81cddc35d302bc2",
+      "oracle_assertion_ids": [
+        "ASSERT_7DC4AA4367241C6761DC50F0",
+        "ASSERT_834FD0ED31E4FBD1E6EC5BA7",
+        "ASSERT_E611CDF5AA48D5A502BFEF0C"
+      ],
+      "test_id": "TEST_HA_LEASE_LOSS_FOR_ACTIVE_RUNTIME_REQUIRES_DEMOTED_SAFE_BEHAVIOR_001",
+      "unresolved_assertion_helpers": []
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_HA_FENCING_001#behavior:3"
+      ],
+      "discovery_id": "DISC_8D9C2336859F737EAEAF",
+      "inventory_digest": "sha256:298efb1def17f09dfd9650fb2197c46822ddfd958a068b81d8ddb3d7e7259da3",
+      "oracle_assertion_ids": [
+        "ASSERT_7FA096E8376A837F9B5DC353",
+        "ASSERT_996D8B9766F9C946FE42D340",
+        "ASSERT_A7389AFF23B54D45B0BBFE91"
+      ],
+      "test_id": "TEST_HA_LIVE_IN_FLIGHT_DUPLICATE_IS_DENIED_BUT_RECOVERY_CAN_RESUME_ONCE_001",
+      "unresolved_assertion_helpers": []
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_HA_FENCING_001#behavior:0"
+      ],
+      "discovery_id": "DISC_2B7F7617315F5D2755DC",
+      "inventory_digest": "sha256:c01d6444dd8c536bee93bf3d2cd9befff51ecfd28e27355a7c7b568edd1e4d76",
+      "oracle_assertion_ids": [
+        "ASSERT_3875B9CD76F394317F96F8B5",
+        "ASSERT_50C62A654AA52B2B8297D31F",
+        "ASSERT_52E16855E2F0469E48BAC412",
+        "ASSERT_ED350984784CA19B8857EA2A"
+      ],
+      "test_id": "TEST_HA_REPLAY_GUARD_DEDUPLICATES_AND_REJECTS_STALE_SEQUENCES_001",
+      "unresolved_assertion_helpers": []
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_HA_FENCING_001#behavior:2"
+      ],
+      "discovery_id": "DISC_4D7E58F0B6F5D569062C",
+      "inventory_digest": "sha256:45eedf8dbabe357cf9ede2dcd12445fbe0f53a10946c09ff5ed964e894ffcd20",
+      "oracle_assertion_ids": [
+        "ASSERT_2060C8B95FE2B1BC1D814C81",
+        "ASSERT_6AD3D8F237D27E6997E406C0",
+        "ASSERT_C931BD50FAB2CF7632F220A9"
+      ],
+      "test_id": "TEST_HA_SPLIT_BRAIN_CANDIDATES_ARE_DETECTED_AND_REJECTED_001",
+      "unresolved_assertion_helpers": []
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_HA_FENCING_001#behavior:2"
+      ],
+      "discovery_id": "DISC_16A3A706FBF9EBAB63FB",
+      "inventory_digest": "sha256:f28e5ac619061afad6df672eee1a8ce9807a656af30f8bfb1e5714a75ee4f1d0",
+      "oracle_assertion_ids": [
+        "ASSERT_6B7D5C08B89E1797E2BC3C18",
+        "ASSERT_B85E4A99143FC7A07BEDBBF1",
+        "ASSERT_CF9913E959EBD69CD93A6220"
+      ],
+      "test_id": "TEST_HA_SPLIT_BRAIN_DETECTION_USES_COMPLETE_GROUP_VIEW_NOT_ACTION_SUBSET_001",
+      "unresolved_assertion_helpers": []
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_TOPOLOGY_LINK_POLICY_001#behavior:1",
+        "RT_RUNTIME_CLOUD_TOPOLOGY_LINK_POLICY_001#behavior:3"
+      ],
+      "discovery_id": "DISC_999A7BAE310BC7C506F6",
+      "inventory_digest": "sha256:3457c265522f608504b701229264e44ed59d3d7953aa8f4e83e51c787e62df46",
+      "oracle_assertion_ids": [
+        "ASSERT_18B29E2D894AD4C612E08E11",
+        "ASSERT_234F302280878FE69FB1DCBC",
+        "ASSERT_3585F47F3B01283B95F51AC2",
+        "ASSERT_4379E6180195FD594B658A80",
+        "ASSERT_713DF7B98409A163121CCAC5",
+        "ASSERT_75616F919A501C1BF0F53E35",
+        "ASSERT_8A917065B79F033850367558",
+        "ASSERT_98280BCB2AF410982C2C8807",
+        "ASSERT_A1C50B3899044743FB3F8C26",
+        "ASSERT_A9C80573768597951A9A0A25",
+        "ASSERT_CDA496D98031A03A7F974902",
+        "ASSERT_FE37F1EE616226F4B81359DD"
+      ],
+      "test_id": "TEST_INTEGRATION_WEB_IO_CONFIG_INTEGRATION_PART_03_RUNTIME_CLOUD_LINK_TRANSPORT_ENDPOINT_SWITCHES_EDGE_MODE_AND_CHECKS_SAME_HOST_001",
+      "unresolved_assertion_helpers": [
+        "web_io_config_integration_part_03::runtime_cloud_link_transport_endpoint_switches_edge_mode_and_checks_same_host::control_state_named:unresolved",
+        "web_io_config_integration_part_03::runtime_cloud_link_transport_endpoint_switches_edge_mode_and_checks_same_host::make_project:unresolved",
+        "web_io_config_integration_part_03::runtime_cloud_link_transport_endpoint_switches_edge_mode_and_checks_same_host::source_fixture:unresolved",
+        "web_io_config_integration_part_03::runtime_cloud_link_transport_endpoint_switches_edge_mode_and_checks_same_host::start_test_server_with_discovery:unresolved"
+      ]
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_HA_FENCING_001#behavior:2"
+      ],
+      "discovery_id": "DISC_8B4F2F787DA5FB037805",
+      "inventory_digest": "sha256:722761bd49fc620685d308b9ff3b8d1ed74bd24330ced90e447dae6ec868e9ff",
+      "oracle_assertion_ids": [
+        "ASSERT_233A91727C5C9D4D721E8BE9",
+        "ASSERT_F1CF1E397E85B1760DB40FEA",
+        "ASSERT_F73A7F98B9100B2641D35017",
+        "ASSERT_FB10EE8F4AB703D3ADEA38D5",
+        "ASSERT_FBD6CFB3F9F773457C578B91"
+      ],
+      "test_id": "TEST_INTEGRATION_WEB_IO_CONFIG_INTEGRATION_PART_19_RUNTIME_CLOUD_HA_SPLIT_BRAIN_PREFLIGHT_CHECKS_CANDIDATES_OUTSIDE_ACTION_SUBSET_001",
+      "unresolved_assertion_helpers": [
+        "web_io_config_integration_part_19::runtime_cloud_ha_split_brain_preflight_checks_candidates_outside_action_subset::control_state_named:unresolved",
+        "web_io_config_integration_part_19::runtime_cloud_ha_split_brain_preflight_checks_candidates_outside_action_subset::make_project:unresolved",
+        "web_io_config_integration_part_19::runtime_cloud_ha_split_brain_preflight_checks_candidates_outside_action_subset::source_fixture:unresolved",
+        "web_io_config_integration_part_19::runtime_cloud_ha_split_brain_preflight_checks_candidates_outside_action_subset::start_test_server:unresolved"
+      ]
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_HA_FENCING_001#behavior:2"
+      ],
+      "discovery_id": "DISC_F32834939D3E45E83A60",
+      "inventory_digest": "sha256:91e0d4551db0afa051010637e07c4670fd75f86971174f1604f774993e298fa2",
+      "oracle_assertion_ids": [
+        "ASSERT_35AD7B862C3EF78B73C0BFAD",
+        "ASSERT_408078F89EFAF50A07A31FB3",
+        "ASSERT_5A4B9290F29D9FE7485E10FC",
+        "ASSERT_E9EB05872CED5BA227187C71"
+      ],
+      "test_id": "TEST_INTEGRATION_WEB_IO_CONFIG_INTEGRATION_PART_19_RUNTIME_CLOUD_HA_SPLIT_BRAIN_PREFLIGHT_DENIES_DUAL_ACTIVE_CANDIDATES_001",
+      "unresolved_assertion_helpers": [
+        "web_io_config_integration_part_19::runtime_cloud_ha_split_brain_preflight_denies_dual_active_candidates::control_state_named:unresolved",
+        "web_io_config_integration_part_19::runtime_cloud_ha_split_brain_preflight_denies_dual_active_candidates::make_project:unresolved",
+        "web_io_config_integration_part_19::runtime_cloud_ha_split_brain_preflight_denies_dual_active_candidates::source_fixture:unresolved",
+        "web_io_config_integration_part_19::runtime_cloud_ha_split_brain_preflight_denies_dual_active_candidates::start_test_server_with_discovery:unresolved"
+      ]
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_PROXY_PLAN_001#behavior:2"
+      ],
+      "discovery_id": "DISC_5031BE2120B0629487DF",
+      "inventory_digest": "sha256:52952d9df9d0041d72fd0299b1f9e45503ac7fc594e8eb4509dbbc86d23b4166",
+      "oracle_assertion_ids": [
+        "ASSERT_14AF0A193CF2726762462B2B",
+        "ASSERT_72D38D13DBA495615A45A3B3"
+      ],
+      "test_id": "TEST_IO_PROXY_POLICY_PROXY_PLAN_REJECTS_INVALID_API_VERSIONS_001",
+      "unresolved_assertion_helpers": []
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_PROXY_PLAN_001#behavior:1"
+      ],
+      "discovery_id": "DISC_3167F00C647153D0BC6A",
+      "inventory_digest": "sha256:c19531275fbc222f9a10374b0966389f33dbcc69623072c9dfddc638a4d2573f",
+      "oracle_assertion_ids": [
+        "ASSERT_81C7EE234229F88F0F7F3F9F",
+        "ASSERT_9E1D1C794DEFB426636B9DF3",
+        "ASSERT_EA7E4A893AD22B7DE720D595"
+      ],
+      "test_id": "TEST_IO_PROXY_POLICY_WRITE_PLAN_REJECTS_EMPTY_ACTOR_001",
+      "unresolved_assertion_helpers": []
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_PROXY_PLAN_001#behavior:1"
+      ],
+      "discovery_id": "DISC_0FE676D2386971450A4E",
+      "inventory_digest": "sha256:a438957ce0fb1b6278c289082fc04f6bc1c3545926f1d338a6b2388d8647659e",
+      "oracle_assertion_ids": [
+        "ASSERT_0FC1222ACA843D98418251C4",
+        "ASSERT_3D01E7D20D76DEA2315305FD",
+        "ASSERT_9D9BD092826197BC3C96C75F"
+      ],
+      "test_id": "TEST_IO_PROXY_POLICY_WRITE_PLAN_VALIDATES_TARGET_BEFORE_ACTOR_001",
+      "unresolved_assertion_helpers": []
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_ACTION_POLICY_001#behavior:0"
+      ],
+      "discovery_id": "DISC_918313E59A57623590DC",
+      "inventory_digest": "sha256:c1070b8f8364532a981cf2c87ec710101a4a7609d6a3762b747a89cc4ebe16b3",
+      "oracle_assertion_ids": [
+        "ASSERT_09820259372428A93DE3DB6F",
+        "ASSERT_91202DF8A9238F60D2D438FA",
+        "ASSERT_A60A88124FED0ECBF1F1A478"
+      ],
+      "test_id": "TEST_PREFLIGHT_DISTINGUISHES_STALE_TARGET_AND_ALLOWS_LOCAL_TARGET_001",
+      "unresolved_assertion_helpers": []
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_ACTION_POLICY_001#behavior:1"
+      ],
+      "discovery_id": "DISC_B1E08B599F8512C7B66D",
+      "inventory_digest": "sha256:575f2439146f389fe76eacfbd74d249435d438bae8113014ebf3df3d31447fe8",
+      "oracle_assertion_ids": [
+        "ASSERT_3DB260D1F09D78D2502F6BB7",
+        "ASSERT_4867D7F3E118EB3EFD738686",
+        "ASSERT_74D496858594A50183DDFF3E",
+        "ASSERT_8F68C32BF85309B4E223FB4F",
+        "ASSERT_9CE15594FA41A9196BBD3636",
+        "ASSERT_D6C4BA576D28B950E9CC932F"
+      ],
+      "test_id": "TEST_PREFLIGHT_REJECTS_EMPTY_BLANK_OR_DUPLICATE_TARGET_LISTS_001",
+      "unresolved_assertion_helpers": []
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_TOPOLOGY_LINK_POLICY_001#behavior:0"
+      ],
+      "discovery_id": "DISC_9066050A3ECFD3606627",
+      "inventory_digest": "sha256:ff6a42ee41a3472e5e05827c60b85d5aed3cbd46e8a3027c46798aa0a50f15be",
+      "oracle_assertion_ids": [
+        "ASSERT_12C68920EAEAE34E7E71D123",
+        "ASSERT_1B84C16F6B49C337B299DB7C",
+        "ASSERT_20B278A9EAAFB3E1F5ED26E2",
+        "ASSERT_27F9EC4A9E4E19AE2049A7A6",
+        "ASSERT_3315EE5F200E65FEAF1E2610",
+        "ASSERT_424939EEA6C486E9B6009CA3",
+        "ASSERT_42A4CC3BB0BC0A9D5089839B",
+        "ASSERT_4B7AC8D015AE620623DFE996",
+        "ASSERT_5395507C661742CCF92A3A5A",
+        "ASSERT_572D7541CF9F795336FE7A66",
+        "ASSERT_58E9158311CE91DCDA4376E8",
+        "ASSERT_6083EBB32E18D90CC595E420",
+        "ASSERT_689128F8FEF94D36E8E706ED",
+        "ASSERT_6BA954B58E369B05BA12B999",
+        "ASSERT_6C6E66778D0A0CB5018314FE",
+        "ASSERT_749309D96A8A44C49D182B69",
+        "ASSERT_7A9C53EE9725178D020B1F74",
+        "ASSERT_7C843D3A5DAB4D3A1268A792",
+        "ASSERT_7D2269F25BEB130A1B7C39EC",
+        "ASSERT_82D1826C0CF94E7236396D9A",
+        "ASSERT_83019DB3F0D1C7B25378716A",
+        "ASSERT_8ECA35632CB495AB04EE18BC",
+        "ASSERT_91E7CA0E04DC5CEF25B92A7B",
+        "ASSERT_9C5AF5235DDFF4FB8A0F4C77",
+        "ASSERT_9C6EB5DAC06FF44EF593AA8A",
+        "ASSERT_A0C72250C382D3A78AC2A177",
+        "ASSERT_A60F361B72BC916EFCE19A4E",
+        "ASSERT_B58B0A27A0C3C19A372E085D",
+        "ASSERT_BEB64D101366E7A5543BF175",
+        "ASSERT_C1B4E40ACD6ECB092F6C1704",
+        "ASSERT_C22DB799B67771B227BC76D2",
+        "ASSERT_C4DC7BE3000ED8C21F67EE8A",
+        "ASSERT_CA8D06B4C0465FB37C8C7913",
+        "ASSERT_CD8B28AABB3D4B5C28258E63",
+        "ASSERT_D98C10E94CA3F8EAC1BDAEC3",
+        "ASSERT_DD85D3074A553798CC78F5C7",
+        "ASSERT_E967E62DCEEE7B1C0904BB04",
+        "ASSERT_E9AAB348AB6E7A028F285B62",
+        "ASSERT_EBE4E8690071AC2EDBEA540A",
+        "ASSERT_F366C939C5EAF884FB94D111",
+        "ASSERT_FA03A116FA696EAE028F71E9",
+        "ASSERT_FDB0B7E3C9F2BDA9C0E3BC48",
+        "ASSERT_FF65859DAB29379A67872AE4"
+      ],
+      "test_id": "TEST_PROJECTION_RUNTIME_CLOUD_PROJECTION_CONTRACT_REPORTS_TOPOLOGY_EDGES_AND_WARNINGS_001",
+      "unresolved_assertion_helpers": []
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_CONFIG_RECONCILE_001#behavior:0"
+      ],
+      "discovery_id": "DISC_C3132F3F3FE9F9343A74",
+      "inventory_digest": "sha256:fe482bb8749f1f4870e26e5a0eb7700dc619b26a100261a264899c3caf23be69",
+      "oracle_assertion_ids": [
+        "ASSERT_2C762F2FEE4A4CCEF3E4335A",
+        "ASSERT_86E56C60D48D14E69196455D",
+        "ASSERT_9D10F979525AB2B4F73C51AD",
+        "ASSERT_D215746A103E1C1261BFF3A5",
+        "ASSERT_DACDC7C12E61009BB4FAA970",
+        "ASSERT_DE0EBB7C6CBFD7B6FCAC8D39",
+        "ASSERT_F64D6885C1E3453930E6526F"
+      ],
+      "test_id": "TEST_RUNTIME_CLOUD_CONFIG_AGENT_RECONCILES_DESIRED_REPORTED_META_AND_STATUS_001",
+      "unresolved_assertion_helpers": [
+        "web_io_config_integration_part_08::runtime_cloud_config_agent_reconciles_desired_reported_meta_and_status::control_state:unresolved",
+        "web_io_config_integration_part_08::runtime_cloud_config_agent_reconciles_desired_reported_meta_and_status::make_project:unresolved",
+        "web_io_config_integration_part_08::runtime_cloud_config_agent_reconciles_desired_reported_meta_and_status::source_fixture:unresolved",
+        "web_io_config_integration_part_08::runtime_cloud_config_agent_reconciles_desired_reported_meta_and_status::start_test_server:unresolved"
+      ]
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_ACTION_POLICY_001#behavior:0"
+      ],
+      "discovery_id": "DISC_1B94D1E7121F3D517CD2",
+      "inventory_digest": "sha256:3980622446357b1677bf7be3ab6dbdbb185a86a8c7a0110fc045f084ea766586",
+      "oracle_assertion_ids": [
+        "ASSERT_70EC65160140B31CB1A6965E",
+        "ASSERT_BCD461C8228134860FE867F9"
+      ],
+      "test_id": "TEST_RUNTIME_CLOUD_PREFLIGHT_ALLOWS_CROSS_SITE_CFG_APPLY_WITH_ALLOWLIST_001",
+      "unresolved_assertion_helpers": [
+        "web_io_config_integration_part_14::runtime_cloud_preflight_allows_cross_site_cfg_apply_with_allowlist::control_state_named:unresolved",
+        "web_io_config_integration_part_14::runtime_cloud_preflight_allows_cross_site_cfg_apply_with_allowlist::make_project:unresolved",
+        "web_io_config_integration_part_14::runtime_cloud_preflight_allows_cross_site_cfg_apply_with_allowlist::source_fixture:unresolved",
+        "web_io_config_integration_part_14::runtime_cloud_preflight_allows_cross_site_cfg_apply_with_allowlist::start_test_server_with_discovery:unresolved"
+      ]
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_ACTION_POLICY_001#behavior:2"
+      ],
+      "discovery_id": "DISC_FEAC9D13175C7764B1D3",
+      "inventory_digest": "sha256:9841e2015145dde622f1c6f395ddbc0624034d8e6cb7c89d58fb0865538fa169",
+      "oracle_assertion_ids": [
+        "ASSERT_0BD06D0CC4C446F3A64449D3",
+        "ASSERT_860B26272EFF6F11415717BA"
+      ],
+      "test_id": "TEST_RUNTIME_CLOUD_PREFLIGHT_DEV_ALLOWS_CROSS_SITE_CFG_APPLY_WITHOUT_ALLOWLIST_001",
+      "unresolved_assertion_helpers": [
+        "web_io_config_integration_part_14::runtime_cloud_preflight_dev_allows_cross_site_cfg_apply_without_allowlist::control_state_named:unresolved",
+        "web_io_config_integration_part_14::runtime_cloud_preflight_dev_allows_cross_site_cfg_apply_without_allowlist::make_project:unresolved",
+        "web_io_config_integration_part_14::runtime_cloud_preflight_dev_allows_cross_site_cfg_apply_without_allowlist::source_fixture:unresolved",
+        "web_io_config_integration_part_14::runtime_cloud_preflight_dev_allows_cross_site_cfg_apply_without_allowlist::start_test_server_with_discovery:unresolved"
+      ]
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:2"
+      ],
+      "discovery_id": "DISC_5CCCD623606CF814D6E7",
+      "inventory_digest": "sha256:b59d530bb8720ec10d781e47b0c82e5e75c17f426f59c0911991d57c24855b3a",
+      "oracle_assertion_ids": [
+        "ASSERT_E1711E92DB95FF1EB3D0606F",
+        "ASSERT_F4FA5C59D880C6B59CF3D37C"
+      ],
+      "test_id": "TEST_RUNTIME_MANAGED_FLEET_CONTROL_REQUEST_REJECTS_A_MISMATCHED_RESPONSE_ID_001",
+      "unresolved_assertion_helpers": []
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:2"
+      ],
+      "discovery_id": "DISC_080910207F527BF99600",
+      "inventory_digest": "sha256:0f33157a24a51f08784e4e62a70ea7b1648006d884d730904c182824a0cd9e00",
+      "oracle_assertion_ids": [
+        "ASSERT_1C5B616A211F558AA8204297",
+        "ASSERT_644486C78835B76A58F6B766"
+      ],
+      "test_id": "TEST_RUNTIME_MANAGED_FLEET_CONTROL_REQUEST_REJECTS_MALFORMED_OR_AMBIGUOUS_RESPONSE_ENVELOPES_001",
+      "unresolved_assertion_helpers": []
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:2"
+      ],
+      "discovery_id": "DISC_158BB93F8A34BDB932E5",
+      "inventory_digest": "sha256:8ac6bd312c9c511cc8ee5f84efd748df0661847ffdca85fa8020e5a82b564dd2",
+      "oracle_assertion_ids": [
+        "ASSERT_39D5F545831BCA878A0E3666",
+        "ASSERT_BE6BBC02B7E684E0479474A4"
+      ],
+      "test_id": "TEST_RUNTIME_MANAGED_FLEET_CONTROL_RESPONSE_READER_REJECTS_AN_OVERSIZED_LINE_001",
+      "unresolved_assertion_helpers": []
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:1"
+      ],
+      "discovery_id": "DISC_9084222DD3B1EA4E1DA5",
+      "inventory_digest": "sha256:5ea540feeba94dea099d96f3c72029582fdeab6787a098c7277a2da74649618d",
+      "oracle_assertion_ids": [
+        "ASSERT_0EB12504589D25DC1602A506",
+        "ASSERT_4DCA524ED3E382EF55356BD6",
+        "ASSERT_E5D35DB470E6DC9DD41A0C2E"
+      ],
+      "test_id": "TEST_RUNTIME_MANAGED_FLEET_CONTROL_TOKEN_GENERATION_FAILS_CLOSED_WHEN_SECURE_RANDOMNESS_FAILS_001",
+      "unresolved_assertion_helpers": []
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:0"
+      ],
+      "discovery_id": "DISC_24384BED6AEB52A7F254",
+      "inventory_digest": "sha256:93ca3a49aec12d71247ec54853deb0d364cf8d8cfef0488c1fe3cfc903676e40",
+      "oracle_assertion_ids": [
+        "ASSERT_A912AC92FC63DE51B3A5C108"
+      ],
+      "test_id": "TEST_RUNTIME_MANAGED_FLEET_EMPTY_TEMPLATE_USES_VALID_LOOPBACK_IO_001",
+      "unresolved_assertion_helpers": [
+        "add_runtime::load_manifest:unresolved"
+      ]
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:0"
+      ],
+      "discovery_id": "DISC_9C28982BB9E8A3B1546F",
+      "inventory_digest": "sha256:f96ff806c0cf0131dd31c32759e9e2150fcc910132b8c324de01b7b933de9c8f",
+      "oracle_assertion_ids": [
+        "ASSERT_3EB7871090F9861AAFEA3CF3",
+        "ASSERT_3FF6A3A06CCB942E61BC20BD",
+        "ASSERT_E8CBD8CE562D1953A40992A7"
+      ],
+      "test_id": "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_AUTO_SELECTS_DISTINCT_AVAILABLE_LOOPBACK_PORTS_001",
+      "unresolved_assertion_helpers": [
+        "add_runtime::load_manifest:unresolved"
+      ]
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:0"
+      ],
+      "discovery_id": "DISC_98A2692A0CDA76565FE7",
+      "inventory_digest": "sha256:5ecb63d801633f95be2cd9168d0107d2145aec33eae98e5fc1d2caa964080b7c",
+      "oracle_assertion_ids": [
+        "ASSERT_25C2F3BC3BEA5808114D58EB",
+        "ASSERT_42AD52441EBBD93EC61D8C4C",
+        "ASSERT_44144A7980B13F1F19D5709B",
+        "ASSERT_4FBC74D0D6ACCAC4BF748875",
+        "ASSERT_54768C855E1BE2EA6DE84520",
+        "ASSERT_5A95018C5D7844E9170FEFF6",
+        "ASSERT_6B52C71E55EA3F08F17ED930",
+        "ASSERT_830A461FA017D255DCD3BAA4",
+        "ASSERT_A0F7595FBFBDFE499CE6A675",
+        "ASSERT_A36B89DCC3C31D463EB7F595",
+        "ASSERT_A7637ADAC58B2726272313E6",
+        "ASSERT_AED8AA0C4FE451BF80FB67D1",
+        "ASSERT_BD8C3F5850A68431CD449B9A",
+        "ASSERT_CA9F4B43F0D0C45CD1EDF2CD",
+        "ASSERT_DA80C781A488BF5CBC92F8E3"
+      ],
+      "test_id": "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_CREATES_SIMULATED_PROJECT_AND_MANIFEST_001",
+      "unresolved_assertion_helpers": [
+        "add_runtime::load_manifest:unresolved",
+        "list_runtimes::load_manifest:unresolved"
+      ]
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:1"
+      ],
+      "discovery_id": "DISC_A7DD53CC8FD10F25B5E4",
+      "inventory_digest": "sha256:0f333da70b2196ed655a4a3e78136c8c2c950353df0f6e430b2903cc22ca8b91",
+      "oracle_assertion_ids": [
+        "ASSERT_1CFC7E489F9F8222F9BEBE17",
+        "ASSERT_76E3824AE17B0312D4B6B48C",
+        "ASSERT_C911E10B49383040D2ACCA4D",
+        "ASSERT_DF384E03299A425AAE13E210"
+      ],
+      "test_id": "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_ANY_MANIFEST_PORT_COLLISION_001",
+      "unresolved_assertion_helpers": [
+        "add_runtime::load_manifest:unresolved"
+      ]
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:1"
+      ],
+      "discovery_id": "DISC_0BCC1154B4C4689BF731",
+      "inventory_digest": "sha256:e127b1d86bcfc4a2276833f02ec1cd215cb7b70a88a86a1ff84144e4a63473c5",
+      "oracle_assertion_ids": [
+        "ASSERT_73471590D62FEA40C743E2ED",
+        "ASSERT_A5315C8AF58E47DC52BD64BF",
+        "ASSERT_AB0BFE9DB13A64348B3AD34E",
+        "ASSERT_F9B78C0F5D872EAA12FCA91C"
+      ],
+      "test_id": "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_DUPLICATE_NAME_WITHOUT_REWRITING_001",
+      "unresolved_assertion_helpers": [
+        "add_runtime::load_manifest:unresolved",
+        "list_runtimes::load_manifest:unresolved"
+      ]
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:1"
+      ],
+      "discovery_id": "DISC_8534D47289751E2BE119",
+      "inventory_digest": "sha256:e70a6a2b988fb571869ca06479b1c3d825973e14060e0ade65623e587efbadd0",
+      "oracle_assertion_ids": [
+        "ASSERT_0ADE62B024B420238FE2CCFB",
+        "ASSERT_17220A6044176B7C73B6A3AC",
+        "ASSERT_50D4C5F086F614268DD68D59",
+        "ASSERT_5B756440BE8EB90C7B54F8AA"
+      ],
+      "test_id": "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_MALFORMED_MANIFEST_BEFORE_PROJECT_MUTATION_001",
+      "unresolved_assertion_helpers": [
+        "add_runtime::load_manifest:unresolved"
+      ]
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:1"
+      ],
+      "discovery_id": "DISC_96A2C7264E4ED4288863",
+      "inventory_digest": "sha256:f10309eca418f771bf8d8ddbf0cfc044e8e381652cf4736a39e5b5ec230e5093",
+      "oracle_assertion_ids": [
+        "ASSERT_0D0373B4911FB1AA44DC5C5E",
+        "ASSERT_3D139A8424B2F416F0A3E98A",
+        "ASSERT_4535A31ECACDF29258257EDB",
+        "ASSERT_8C6A644825E6FBC7FD7F5FA4",
+        "ASSERT_B9669134CBAF354E19067654",
+        "ASSERT_EB7DA3F0065E2ADCD3F97BD1"
+      ],
+      "test_id": "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_WHITESPACE_NAME_BEFORE_MUTATION_001",
+      "unresolved_assertion_helpers": [
+        "add_runtime::load_manifest:unresolved",
+        "tests::fleet_runtime_add_rejects_whitespace_name_before_mutation::fs::read:unresolved-oracle"
+      ]
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:3"
+      ],
+      "discovery_id": "DISC_BD46DE8F7A7923BE2A3F",
+      "inventory_digest": "sha256:67d37a12689a9df5d45cabbc397736a95054f5a309daec7e48ffd1793a28f672",
+      "oracle_assertion_ids": [
+        "ASSERT_CAE8C0F0909862B1CDD41712"
+      ],
+      "test_id": "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_LOGS_RETURN_REQUESTED_TAIL_001",
+      "unresolved_assertion_helpers": [
+        "tests::fleet_runtime_logs_return_requested_tail::runtime_logs:unresolved"
+      ]
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:3"
+      ],
+      "discovery_id": "DISC_854F5707FF7CD9C515B6",
+      "inventory_digest": "sha256:b8d57b2a732d6d714e2ce1ab4397947adfcc13cb09acd193c60ab844aee145b2",
+      "oracle_assertion_ids": [
+        "ASSERT_C197A941779BDDF95DACCA25",
+        "ASSERT_DA9CCB9EF5F3D4FD2742A30A"
+      ],
+      "test_id": "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_START_ABORTS_WHEN_PID_PERSISTENCE_FAILS_001",
+      "unresolved_assertion_helpers": [
+        "tests::fleet_runtime_start_aborts_when_pid_persistence_fails::start_runtime:unresolved"
+      ]
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:3"
+      ],
+      "discovery_id": "DISC_15A410BF7000186F450D",
+      "inventory_digest": "sha256:0f3536571d6b99a28158cfc7fc87923135ec76a08ed0a0e7876a82f77df8eb1f",
+      "oracle_assertion_ids": [
+        "ASSERT_37DC7AD9E3B14AA5E6523773",
+        "ASSERT_B1A7D480A0712B5FF723F531",
+        "ASSERT_DE96087E2B599ABF770A26B8"
+      ],
+      "test_id": "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_START_REMOVES_PID_WHEN_CHILD_EXITS_BEFORE_READY_001",
+      "unresolved_assertion_helpers": [
+        "tests::fleet_runtime_start_removes_pid_when_child_exits_before_ready::start_runtime:unresolved"
+      ]
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:2"
+      ],
+      "discovery_id": "DISC_FC563874E148E67E37C6",
+      "inventory_digest": "sha256:6d530186be734056cb06cbf9b3262d75a5f3184e1977eb5d8e3bdcf1f27749eb",
+      "oracle_assertion_ids": [
+        "ASSERT_9397453DAFBC34436D5D2D05",
+        "ASSERT_DFFA041ADEAAE3A15D4DC481"
+      ],
+      "test_id": "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REJECTS_A_CONNECTED_CONTROL_ERROR_001",
+      "unresolved_assertion_helpers": [
+        "tests::fleet_runtime_status_rejects_a_connected_control_error::status_runtime:unresolved"
+      ]
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:2"
+      ],
+      "discovery_id": "DISC_1A983969F719D5FAE8F2",
+      "inventory_digest": "sha256:42531986e42e232adeb002a77272fe2a6df306d1e005bafd8185d9316902faf8",
+      "oracle_assertion_ids": [
+        "ASSERT_0D0ACA6804451288D347F8AA",
+        "ASSERT_3645D5649092F16E1099EE50",
+        "ASSERT_5236F8D4162022771A2340C5",
+        "ASSERT_65AFB12472E82EE4F7E7E885",
+        "ASSERT_6B7CD47CBA94B738D50181FC",
+        "ASSERT_93C31869AF5C6EDD7ADEC99A",
+        "ASSERT_C950427501B91E2A55E6EE69",
+        "ASSERT_DBDCA6B1DF7B2669DC2C7946",
+        "ASSERT_F01C230D9F34A7AD75E7C5A4",
+        "ASSERT_F2FB2D3D750C7D78194EF533"
+      ],
+      "test_id": "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REJECTS_MALFORMED_RUNTIME_AUTH_CONFIG_001",
+      "unresolved_assertion_helpers": [
+        "tests::fleet_runtime_status_rejects_malformed_runtime_auth_config::status_runtime:unresolved"
+      ]
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:3"
+      ],
+      "discovery_id": "DISC_EA1F36511801C6B5FC9E",
+      "inventory_digest": "sha256:3929af397231a56b0ab4a2d376eebe3b8dc242caf4fa119956c94961d695a9ef",
+      "oracle_assertion_ids": [
+        "ASSERT_27DFF55BA099F519EE6B34CD",
+        "ASSERT_66966D61130782FF327B5A2A",
+        "ASSERT_AAD844EAC91391186F1CAF3C",
+        "ASSERT_DF5A5ECDF5CBD06A43A70008",
+        "ASSERT_FE38185385C4B2F717CA89D5"
+      ],
+      "test_id": "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REPORTS_STOPPED_WHEN_ENDPOINT_UNREACHABLE_001",
+      "unresolved_assertion_helpers": [
+        "tests::fleet_runtime_status_reports_stopped_when_endpoint_unreachable::status_runtime:unresolved"
+      ]
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:3"
+      ],
+      "discovery_id": "DISC_E11ABDA573127DFD2DCF",
+      "inventory_digest": "sha256:1ed26c70f4300524460f662539168991bf5c754b6a3970d6afdd62a5c3e409ba",
+      "oracle_assertion_ids": [
+        "ASSERT_6A874059869B4FC0B82B3BF9",
+        "ASSERT_E64F3F6DD8E97D5CB42F502F",
+        "ASSERT_FDA93EC65AAE3010B20A150B"
+      ],
+      "test_id": "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_USES_ENDPOINT_EVIDENCE_NOT_A_STALE_PID_001",
+      "unresolved_assertion_helpers": [
+        "tests::fleet_runtime_status_uses_endpoint_evidence_not_a_stale_pid::status_runtime:unresolved"
+      ]
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:0"
+      ],
+      "discovery_id": "DISC_4893BE716CDAD3A2CFCE",
+      "inventory_digest": "sha256:21a79da4262f36cf67ec7fb9d1e0b75ac9be28381c01743b33e982a872d46952",
+      "oracle_assertion_ids": [
+        "ASSERT_EE632CFAB09E64EC8AD7245C",
+        "ASSERT_F746F4B7D240B5FB4E0A5640"
+      ],
+      "test_id": "TEST_RUNTIME_MANAGED_FLEET_GENERATED_CONTROL_TOKEN_CONTAINS_32_RANDOM_BYTES_001",
+      "unresolved_assertion_helpers": []
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:1"
+      ],
+      "discovery_id": "DISC_A247941E9FF649EE2CBA",
+      "inventory_digest": "sha256:a82ca97d2485a9cc02e91039147fbda5f5caaf415b035b8db099a1d79ccb008f",
+      "oracle_assertion_ids": [
+        "ASSERT_006340161C9C2F483E06B349",
+        "ASSERT_093A89D00A74FA521E750FBB",
+        "ASSERT_0B101A566CBB70FB246E3E30",
+        "ASSERT_1FD9951C39D0D4C55E0CD567",
+        "ASSERT_6CC7FAD5B59401E1E3CA7285",
+        "ASSERT_B16BEA014FAF00A55EBCB101"
+      ],
+      "test_id": "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_INVALID_ENDPOINTS_AND_PORT_COLLISIONS_001",
+      "unresolved_assertion_helpers": [
+        "tests::load_manifest_rejects_invalid_endpoints_and_port_collisions::load_manifest:unresolved"
+      ]
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:1"
+      ],
+      "discovery_id": "DISC_86936E1B628E156428DE",
+      "inventory_digest": "sha256:b7949b417793e5c6f250e66ed310de1d30baecd702f4d4a63d0f9913d8130239",
+      "oracle_assertion_ids": [
+        "ASSERT_14115C175C73FC5E18AC4958",
+        "ASSERT_5066D17B8419590AA772D821",
+        "ASSERT_706D12C439FC0141F70CDD45",
+        "ASSERT_8158D779A7D182421BC96BF0",
+        "ASSERT_B25322BC287FBEB52B458006",
+        "ASSERT_C77020888F4A53BF2183EA67"
+      ],
+      "test_id": "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_UNSAFE_OR_DUPLICATE_RUNTIME_NAMES_001",
+      "unresolved_assertion_helpers": [
+        "tests::load_manifest_rejects_unsafe_or_duplicate_runtime_names::load_manifest:unresolved"
+      ]
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:3"
+      ],
+      "discovery_id": "DISC_C2396909732452FAE9DE",
+      "inventory_digest": "sha256:1674d8cd4cdebd5c772be880efe2835b9f40de48d4536bd75fef234e8d771926",
+      "oracle_assertion_ids": [
+        "ASSERT_01C1EF8A538B0558E7E1FBB5",
+        "ASSERT_07BFD60EEB7F004304FBFF0F",
+        "ASSERT_24E361F846365E104EEFE735",
+        "ASSERT_27B3EE0170DC05FFB0D90104",
+        "ASSERT_57359E8CB98346B825644D7D",
+        "ASSERT_57A10DFD79E08866BBACCBB5",
+        "ASSERT_6D21C9A08AC0271E9D0701C0",
+        "ASSERT_AA881AB014A493CB1D3CC45F",
+        "ASSERT_B2A390B8755E524ADDE1F223",
+        "ASSERT_CFB2E457ED00E5344E0AF150",
+        "ASSERT_DB6810E2A571892444B0953E",
+        "ASSERT_DFC2F36687194A904AC9EB50",
+        "ASSERT_EB1BE6159B748AF86AFABD22",
+        "ASSERT_F995EA1F115E8C0E3040BB40"
+      ],
+      "test_id": "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_LIFECYCLE_RUNS_THROUGH_THE_SHIPPED_CLI_001",
+      "unresolved_assertion_helpers": []
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:3"
+      ],
+      "discovery_id": "DISC_A1147C37954714456712",
+      "inventory_digest": "sha256:6f245a6cd9926d7a7e124b9e9adb43b2ff39fbd2069180009d3b9de13483a2c9",
+      "oracle_assertion_ids": [
+        "ASSERT_04CE2F587524245B6B9A09BB",
+        "ASSERT_4FBB3D94F310FFC438E5F5B1"
+      ],
+      "test_id": "TEST_RUNTIME_MANAGED_FLEET_MISSING_RUNTIME_LOGS_ARE_EMPTY_WITHOUT_CREATING_STATE_001",
+      "unresolved_assertion_helpers": [
+        "tests::missing_runtime_logs_are_empty_without_creating_state::runtime_logs:unresolved"
+      ]
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:0"
+      ],
+      "discovery_id": "DISC_F80CF206E53E15DB2316",
+      "inventory_digest": "sha256:34b2bba1b8a1b7b4e2bdc3677f03527083c1644c2031020ba56477bafabc60bb",
+      "oracle_assertion_ids": [
+        "ASSERT_06372464647ABB7BD7E21DDD",
+        "ASSERT_7882E1041970611E37634128",
+        "ASSERT_DA47A4E54F08521C77F561A0"
+      ],
+      "test_id": "TEST_RUNTIME_MANAGED_FLEET_RESOURCE_NAMES_ARE_DETERMINISTIC_AND_NEVER_START_WITH_A_DIGIT_001",
+      "unresolved_assertion_helpers": []
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:3"
+      ],
+      "discovery_id": "DISC_123C418AD2B153371776",
+      "inventory_digest": "sha256:6911dcb57e3c8313917bce5e4a5b0cf9c6c45b67df65b7565daf4ce05356c8c0",
+      "oracle_assertion_ids": [
+        "ASSERT_62D69711263F19276DE6756A",
+        "ASSERT_9B931582F32D1797F5F8E321",
+        "ASSERT_EC4CAD61FD12CB065A42F64E"
+      ],
+      "test_id": "TEST_RUNTIME_MANAGED_FLEET_TERMINATE_STARTED_CHILD_KILLS_AND_REAPS_A_LIVE_PROCESS_001",
+      "unresolved_assertion_helpers": []
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_ACTION_POLICY_001#behavior:3"
+      ],
+      "discovery_id": "DISC_B7198EDB89BA61543797",
+      "inventory_digest": "sha256:e0e0343ef95f0294ceb5de95ef8c2ee83154fd184209d3bd8bdf39908f4e8a9a",
+      "oracle_assertion_ids": [
+        "ASSERT_0839BBF69EA97EEB7BB5F838",
+        "ASSERT_F2594BC2143A898390837610"
+      ],
+      "test_id": "TEST_WAN_PROFILE_DENIES_WRITE_WITHOUT_MATCHING_RULE_001",
+      "unresolved_assertion_helpers": []
+    }
+  ],
+  "assertion_source_commit": "dce893b021f95d2156ce882c1d43c9c0a19ca7df",
+  "assignments": [
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_SCHEMA_KEYSPACE_001#behavior:0"
+      ],
+      "catalog_test_id": "TEST_CONTRACTS_SCHEMA_LAYOUT_ACCEPTS_FORWARD_ADDITIVE_CHANGES_AND_REJECTS_BREAKING_CHANGES_001",
+      "command_hint": "cargo test -p trust-runtime schema_layout_accepts_forward_additive_changes_and_rejects_breaking_changes",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_073A7799860E865C0654",
+      "invariant_ids": [
+        "RT_RUNTIME_CLOUD_SCHEMA_KEYSPACE_001"
+      ],
+      "name": "schema_layout_accepts_forward_additive_changes_and_rejects_breaking_changes",
+      "path": "crates/trust-runtime/src/runtime_cloud/contracts.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:2"
+      ],
+      "catalog_test_id": "TEST_RUNTIME_MANAGED_FLEET_CONTROL_REQUEST_REJECTS_MALFORMED_OR_AMBIGUOUS_RESPONSE_ENVELOPES_001",
+      "command_hint": "cargo test -p trust-runtime control_request_rejects_malformed_or_ambiguous_response_envelopes",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_080910207F527BF99600",
+      "invariant_ids": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001"
+      ],
+      "name": "control_request_rejects_malformed_or_ambiguous_response_envelopes",
+      "path": "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:1"
+      ],
+      "catalog_test_id": "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_DUPLICATE_NAME_WITHOUT_REWRITING_001",
+      "command_hint": "cargo test -p trust-runtime fleet_runtime_add_rejects_duplicate_name_without_rewriting",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_0BCC1154B4C4689BF731",
+      "invariant_ids": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001"
+      ],
+      "name": "fleet_runtime_add_rejects_duplicate_name_without_rewriting",
+      "path": "crates/trust-runtime/src/bin/trust-runtime/fleet.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_PROXY_PLAN_001#behavior:1"
+      ],
+      "catalog_test_id": "TEST_CONTROL_PROXY_POLICY_PROXY_PLAN_REJECTS_BLANK_REQUEST_ID_WHEN_SUPPLIED_001",
+      "command_hint": "cargo test -p trust-runtime proxy_plan_rejects_blank_request_id_when_supplied",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_0C6D6A2C6934A1A53026",
+      "invariant_ids": [
+        "RT_RUNTIME_CLOUD_PROXY_PLAN_001"
+      ],
+      "name": "proxy_plan_rejects_blank_request_id_when_supplied",
+      "path": "crates/trust-runtime/src/runtime_cloud/control_proxy_policy.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_PROXY_PLAN_001#behavior:1"
+      ],
+      "catalog_test_id": "TEST_IO_PROXY_POLICY_WRITE_PLAN_VALIDATES_TARGET_BEFORE_ACTOR_001",
+      "command_hint": "cargo test -p trust-runtime write_plan_validates_target_before_actor",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_0FE676D2386971450A4E",
+      "invariant_ids": [
+        "RT_RUNTIME_CLOUD_PROXY_PLAN_001"
+      ],
+      "name": "write_plan_validates_target_before_actor",
+      "path": "crates/trust-runtime/src/runtime_cloud/io_proxy_policy.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:3"
+      ],
+      "catalog_test_id": "TEST_RUNTIME_MANAGED_FLEET_TERMINATE_STARTED_CHILD_KILLS_AND_REAPS_A_LIVE_PROCESS_001",
+      "command_hint": "cargo test -p trust-runtime terminate_started_child_kills_and_reaps_a_live_process",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_123C418AD2B153371776",
+      "invariant_ids": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001"
+      ],
+      "name": "terminate_started_child_kills_and_reaps_a_live_process",
+      "path": "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:2"
+      ],
+      "catalog_test_id": "TEST_RUNTIME_MANAGED_FLEET_CONTROL_RESPONSE_READER_REJECTS_AN_OVERSIZED_LINE_001",
+      "command_hint": "cargo test -p trust-runtime control_response_reader_rejects_an_oversized_line",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_158BB93F8A34BDB932E5",
+      "invariant_ids": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001"
+      ],
+      "name": "control_response_reader_rejects_an_oversized_line",
+      "path": "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:3"
+      ],
+      "catalog_test_id": "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_START_REMOVES_PID_WHEN_CHILD_EXITS_BEFORE_READY_001",
+      "command_hint": "cargo test -p trust-runtime fleet_runtime_start_removes_pid_when_child_exits_before_ready",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_15A410BF7000186F450D",
+      "invariant_ids": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001"
+      ],
+      "name": "fleet_runtime_start_removes_pid_when_child_exits_before_ready",
+      "path": "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_HA_FENCING_001#behavior:1"
+      ],
+      "catalog_test_id": "TEST_HA_DUAL_HOST_REQUIRES_EXTERNAL_CONSISTENT_LEASE_AUTHORITY_001",
+      "command_hint": "cargo test -p trust-runtime dual_host_requires_external_consistent_lease_authority",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_163AA34BC9E780208B26",
+      "invariant_ids": [
+        "RT_RUNTIME_CLOUD_HA_FENCING_001"
+      ],
+      "name": "dual_host_requires_external_consistent_lease_authority",
+      "path": "crates/trust-runtime/src/runtime_cloud/ha/tests.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_HA_FENCING_001#behavior:2"
+      ],
+      "catalog_test_id": "TEST_HA_SPLIT_BRAIN_DETECTION_USES_COMPLETE_GROUP_VIEW_NOT_ACTION_SUBSET_001",
+      "command_hint": "cargo test -p trust-runtime split_brain_detection_uses_complete_group_view_not_action_subset",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_16A3A706FBF9EBAB63FB",
+      "invariant_ids": [
+        "RT_RUNTIME_CLOUD_HA_FENCING_001"
+      ],
+      "name": "split_brain_detection_uses_complete_group_view_not_action_subset",
+      "path": "crates/trust-runtime/src/runtime_cloud/ha/tests.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:2"
+      ],
+      "catalog_test_id": "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REJECTS_MALFORMED_RUNTIME_AUTH_CONFIG_001",
+      "command_hint": "cargo test -p trust-runtime fleet_runtime_status_rejects_malformed_runtime_auth_config",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_1A983969F719D5FAE8F2",
+      "invariant_ids": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001"
+      ],
+      "name": "fleet_runtime_status_rejects_malformed_runtime_auth_config",
+      "path": "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_CONFIG_RECONCILE_001#behavior:2"
+      ],
+      "catalog_test_id": "TEST_CONFIG_POLICY_SUPERSEDED_APPLY_FAILURE_KEEPS_NEWER_DESIRED_REVISION_PENDING_001",
+      "command_hint": "cargo test -p trust-runtime superseded_apply_failure_keeps_newer_desired_revision_pending",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_1B4B357B85CB2C7FD77A",
+      "invariant_ids": [
+        "RT_RUNTIME_CLOUD_CONFIG_RECONCILE_001"
+      ],
+      "name": "superseded_apply_failure_keeps_newer_desired_revision_pending",
+      "path": "crates/trust-runtime/src/runtime_cloud/config_policy.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_ACTION_POLICY_001#behavior:0"
+      ],
+      "catalog_test_id": "TEST_RUNTIME_CLOUD_PREFLIGHT_ALLOWS_CROSS_SITE_CFG_APPLY_WITH_ALLOWLIST_001",
+      "command_hint": "cargo test -p trust-runtime --test web_io_config_integration runtime_cloud_preflight_allows_cross_site_cfg_apply_with_allowlist",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_1B94D1E7121F3D517CD2",
+      "invariant_ids": [
+        "RT_RUNTIME_CLOUD_ACTION_POLICY_001"
+      ],
+      "name": "runtime_cloud_preflight_allows_cross_site_cfg_apply_with_allowlist",
+      "path": "crates/trust-runtime/tests/web_io_config_integration/web_io_config_integration_part_14.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_integration_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_CONFIG_RECONCILE_001#behavior:1"
+      ],
+      "catalog_test_id": "TEST_CONFIG_POLICY_SUPERSEDED_APPLY_SUCCESS_KEEPS_NEWER_DESIRED_REVISION_PENDING_001",
+      "command_hint": "cargo test -p trust-runtime superseded_apply_success_keeps_newer_desired_revision_pending",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_1F106D9AB38E1868D64B",
+      "invariant_ids": [
+        "RT_RUNTIME_CLOUD_CONFIG_RECONCILE_001"
+      ],
+      "name": "superseded_apply_success_keeps_newer_desired_revision_pending",
+      "path": "crates/trust-runtime/src/runtime_cloud/config_policy.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:0"
+      ],
+      "catalog_test_id": "TEST_RUNTIME_MANAGED_FLEET_EMPTY_TEMPLATE_USES_VALID_LOOPBACK_IO_001",
+      "command_hint": "cargo test -p trust-runtime empty_template_uses_valid_loopback_io",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_24384BED6AEB52A7F254",
+      "invariant_ids": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001"
+      ],
+      "name": "empty_template_uses_valid_loopback_io",
+      "path": "crates/trust-runtime/src/bin/trust-runtime/fleet.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_HA_FENCING_001#behavior:0"
+      ],
+      "catalog_test_id": "TEST_HA_REPLAY_GUARD_DEDUPLICATES_AND_REJECTS_STALE_SEQUENCES_001",
+      "command_hint": "cargo test -p trust-runtime replay_guard_deduplicates_and_rejects_stale_sequences",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_2B7F7617315F5D2755DC",
+      "invariant_ids": [
+        "RT_RUNTIME_CLOUD_HA_FENCING_001"
+      ],
+      "name": "replay_guard_deduplicates_and_rejects_stale_sequences",
+      "path": "crates/trust-runtime/src/runtime_cloud/ha/tests.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_PROXY_PLAN_001#behavior:1"
+      ],
+      "catalog_test_id": "TEST_IO_PROXY_POLICY_WRITE_PLAN_REJECTS_EMPTY_ACTOR_001",
+      "command_hint": "cargo test -p trust-runtime write_plan_rejects_empty_actor",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_3167F00C647153D0BC6A",
+      "invariant_ids": [
+        "RT_RUNTIME_CLOUD_PROXY_PLAN_001"
+      ],
+      "name": "write_plan_rejects_empty_actor",
+      "path": "crates/trust-runtime/src/runtime_cloud/io_proxy_policy.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_PROXY_PLAN_001#behavior:2"
+      ],
+      "catalog_test_id": "TEST_CONTROL_PROXY_POLICY_PROXY_PLAN_REJECTS_BREAKING_API_VERSION_001",
+      "command_hint": "cargo test -p trust-runtime proxy_plan_rejects_breaking_api_version",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_3345DCAA227ED6CDA264",
+      "invariant_ids": [
+        "RT_RUNTIME_CLOUD_PROXY_PLAN_001"
+      ],
+      "name": "proxy_plan_rejects_breaking_api_version",
+      "path": "crates/trust-runtime/src/runtime_cloud/control_proxy_policy.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:0"
+      ],
+      "catalog_test_id": "TEST_RUNTIME_MANAGED_FLEET_GENERATED_CONTROL_TOKEN_CONTAINS_32_RANDOM_BYTES_001",
+      "command_hint": "cargo test -p trust-runtime generated_control_token_contains_32_random_bytes",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_4893BE716CDAD3A2CFCE",
+      "invariant_ids": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001"
+      ],
+      "name": "generated_control_token_contains_32_random_bytes",
+      "path": "crates/trust-runtime/src/bin/trust-runtime/fleet.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_HA_FENCING_001#behavior:2"
+      ],
+      "catalog_test_id": "TEST_HA_SPLIT_BRAIN_CANDIDATES_ARE_DETECTED_AND_REJECTED_001",
+      "command_hint": "cargo test -p trust-runtime split_brain_candidates_are_detected_and_rejected",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_4D7E58F0B6F5D569062C",
+      "invariant_ids": [
+        "RT_RUNTIME_CLOUD_HA_FENCING_001"
+      ],
+      "name": "split_brain_candidates_are_detected_and_rejected",
+      "path": "crates/trust-runtime/src/runtime_cloud/ha/tests.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_PROXY_PLAN_001#behavior:2"
+      ],
+      "catalog_test_id": "TEST_IO_PROXY_POLICY_PROXY_PLAN_REJECTS_INVALID_API_VERSIONS_001",
+      "command_hint": "cargo test -p trust-runtime proxy_plan_rejects_invalid_api_versions",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_5031BE2120B0629487DF",
+      "invariant_ids": [
+        "RT_RUNTIME_CLOUD_PROXY_PLAN_001"
+      ],
+      "name": "proxy_plan_rejects_invalid_api_versions",
+      "path": "crates/trust-runtime/src/runtime_cloud/io_proxy_policy.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:2"
+      ],
+      "catalog_test_id": "TEST_RUNTIME_MANAGED_FLEET_CONTROL_REQUEST_REJECTS_A_MISMATCHED_RESPONSE_ID_001",
+      "command_hint": "cargo test -p trust-runtime control_request_rejects_a_mismatched_response_id",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_5CCCD623606CF814D6E7",
+      "invariant_ids": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001"
+      ],
+      "name": "control_request_rejects_a_mismatched_response_id",
+      "path": "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_SCHEMA_KEYSPACE_001#behavior:1"
+      ],
+      "catalog_test_id": "TEST_CONTRACTS_SCHEMA_LAYOUT_REJECTS_AMBIGUOUS_OR_NON_APPENDED_FIELDS_001",
+      "command_hint": "cargo test -p trust-runtime schema_layout_rejects_ambiguous_or_non_appended_fields",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_67D513FFE4F7720C92F2",
+      "invariant_ids": [
+        "RT_RUNTIME_CLOUD_SCHEMA_KEYSPACE_001"
+      ],
+      "name": "schema_layout_rejects_ambiguous_or_non_appended_fields",
+      "path": "crates/trust-runtime/src/runtime_cloud/contracts.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:1"
+      ],
+      "catalog_test_id": "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_MALFORMED_MANIFEST_BEFORE_PROJECT_MUTATION_001",
+      "command_hint": "cargo test -p trust-runtime fleet_runtime_add_rejects_malformed_manifest_before_project_mutation",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_8534D47289751E2BE119",
+      "invariant_ids": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001"
+      ],
+      "name": "fleet_runtime_add_rejects_malformed_manifest_before_project_mutation",
+      "path": "crates/trust-runtime/src/bin/trust-runtime/fleet.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:3"
+      ],
+      "catalog_test_id": "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_START_ABORTS_WHEN_PID_PERSISTENCE_FAILS_001",
+      "command_hint": "cargo test -p trust-runtime fleet_runtime_start_aborts_when_pid_persistence_fails",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_854F5707FF7CD9C515B6",
+      "invariant_ids": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001"
+      ],
+      "name": "fleet_runtime_start_aborts_when_pid_persistence_fails",
+      "path": "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:1"
+      ],
+      "catalog_test_id": "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_UNSAFE_OR_DUPLICATE_RUNTIME_NAMES_001",
+      "command_hint": "cargo test -p trust-runtime load_manifest_rejects_unsafe_or_duplicate_runtime_names",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_86936E1B628E156428DE",
+      "invariant_ids": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001"
+      ],
+      "name": "load_manifest_rejects_unsafe_or_duplicate_runtime_names",
+      "path": "crates/trust-runtime/src/bin/trust-runtime/fleet.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_HA_FENCING_001#behavior:2"
+      ],
+      "catalog_test_id": "TEST_INTEGRATION_WEB_IO_CONFIG_INTEGRATION_PART_19_RUNTIME_CLOUD_HA_SPLIT_BRAIN_PREFLIGHT_CHECKS_CANDIDATES_OUTSIDE_ACTION_SUBSET_001",
+      "command_hint": "cargo test -p trust-runtime --test web_io_config_integration runtime_cloud_ha_split_brain_preflight_checks_candidates_outside_action_subset",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_8B4F2F787DA5FB037805",
+      "invariant_ids": [
+        "RT_RUNTIME_CLOUD_HA_FENCING_001"
+      ],
+      "name": "runtime_cloud_ha_split_brain_preflight_checks_candidates_outside_action_subset",
+      "path": "crates/trust-runtime/tests/web_io_config_integration/web_io_config_integration_part_19.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_integration_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_HA_FENCING_001#behavior:3"
+      ],
+      "catalog_test_id": "TEST_HA_LIVE_IN_FLIGHT_DUPLICATE_IS_DENIED_BUT_RECOVERY_CAN_RESUME_ONCE_001",
+      "command_hint": "cargo test -p trust-runtime live_in_flight_duplicate_is_denied_but_recovery_can_resume_once",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_8D9C2336859F737EAEAF",
+      "invariant_ids": [
+        "RT_RUNTIME_CLOUD_HA_FENCING_001"
+      ],
+      "name": "live_in_flight_duplicate_is_denied_but_recovery_can_resume_once",
+      "path": "crates/trust-runtime/src/runtime_cloud/ha/tests.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_TOPOLOGY_LINK_POLICY_001#behavior:0"
+      ],
+      "catalog_test_id": "TEST_PROJECTION_RUNTIME_CLOUD_PROJECTION_CONTRACT_REPORTS_TOPOLOGY_EDGES_AND_WARNINGS_001",
+      "command_hint": "cargo test -p trust-runtime runtime_cloud_projection_contract_reports_topology_edges_and_warnings",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_9066050A3ECFD3606627",
+      "invariant_ids": [
+        "RT_RUNTIME_CLOUD_TOPOLOGY_LINK_POLICY_001"
+      ],
+      "name": "runtime_cloud_projection_contract_reports_topology_edges_and_warnings",
+      "path": "crates/trust-runtime/src/runtime_cloud/projection.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:1"
+      ],
+      "catalog_test_id": "TEST_RUNTIME_MANAGED_FLEET_CONTROL_TOKEN_GENERATION_FAILS_CLOSED_WHEN_SECURE_RANDOMNESS_FAILS_001",
+      "command_hint": "cargo test -p trust-runtime control_token_generation_fails_closed_when_secure_randomness_fails",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_9084222DD3B1EA4E1DA5",
+      "invariant_ids": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001"
+      ],
+      "name": "control_token_generation_fails_closed_when_secure_randomness_fails",
+      "path": "crates/trust-runtime/src/bin/trust-runtime/fleet.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_ACTION_POLICY_001#behavior:0"
+      ],
+      "catalog_test_id": "TEST_PREFLIGHT_DISTINGUISHES_STALE_TARGET_AND_ALLOWS_LOCAL_TARGET_001",
+      "command_hint": "cargo test -p trust-runtime preflight_distinguishes_stale_target_and_allows_local_target",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_918313E59A57623590DC",
+      "invariant_ids": [
+        "RT_RUNTIME_CLOUD_ACTION_POLICY_001"
+      ],
+      "name": "preflight_distinguishes_stale_target_and_allows_local_target",
+      "path": "crates/trust-runtime/src/runtime_cloud/routing.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:1"
+      ],
+      "catalog_test_id": "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_WHITESPACE_NAME_BEFORE_MUTATION_001",
+      "command_hint": "cargo test -p trust-runtime fleet_runtime_add_rejects_whitespace_name_before_mutation",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_96A2C7264E4ED4288863",
+      "invariant_ids": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001"
+      ],
+      "name": "fleet_runtime_add_rejects_whitespace_name_before_mutation",
+      "path": "crates/trust-runtime/src/bin/trust-runtime/fleet.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:0"
+      ],
+      "catalog_test_id": "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_CREATES_SIMULATED_PROJECT_AND_MANIFEST_001",
+      "command_hint": "cargo test -p trust-runtime fleet_runtime_add_creates_simulated_project_and_manifest",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_98A2692A0CDA76565FE7",
+      "invariant_ids": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001"
+      ],
+      "name": "fleet_runtime_add_creates_simulated_project_and_manifest",
+      "path": "crates/trust-runtime/src/bin/trust-runtime/fleet.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_TOPOLOGY_LINK_POLICY_001#behavior:1",
+        "RT_RUNTIME_CLOUD_TOPOLOGY_LINK_POLICY_001#behavior:3"
+      ],
+      "catalog_test_id": "TEST_INTEGRATION_WEB_IO_CONFIG_INTEGRATION_PART_03_RUNTIME_CLOUD_LINK_TRANSPORT_ENDPOINT_SWITCHES_EDGE_MODE_AND_CHECKS_SAME_HOST_001",
+      "command_hint": "cargo test -p trust-runtime --test web_io_config_integration runtime_cloud_link_transport_endpoint_switches_edge_mode_and_checks_same_host",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_999A7BAE310BC7C506F6",
+      "invariant_ids": [
+        "RT_RUNTIME_CLOUD_TOPOLOGY_LINK_POLICY_001"
+      ],
+      "name": "runtime_cloud_link_transport_endpoint_switches_edge_mode_and_checks_same_host",
+      "path": "crates/trust-runtime/tests/web_io_config_integration/web_io_config_integration_part_03.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_integration_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:0"
+      ],
+      "catalog_test_id": "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_AUTO_SELECTS_DISTINCT_AVAILABLE_LOOPBACK_PORTS_001",
+      "command_hint": "cargo test -p trust-runtime fleet_runtime_add_auto_selects_distinct_available_loopback_ports",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_9C28982BB9E8A3B1546F",
+      "invariant_ids": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001"
+      ],
+      "name": "fleet_runtime_add_auto_selects_distinct_available_loopback_ports",
+      "path": "crates/trust-runtime/src/bin/trust-runtime/fleet.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_HA_FENCING_001#behavior:1"
+      ],
+      "catalog_test_id": "TEST_HA_LEASE_LOSS_FOR_ACTIVE_RUNTIME_REQUIRES_DEMOTED_SAFE_BEHAVIOR_001",
+      "command_hint": "cargo test -p trust-runtime lease_loss_for_active_runtime_requires_demoted_safe_behavior",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_9DBC029B6F5A323DB0F1",
+      "invariant_ids": [
+        "RT_RUNTIME_CLOUD_HA_FENCING_001"
+      ],
+      "name": "lease_loss_for_active_runtime_requires_demoted_safe_behavior",
+      "path": "crates/trust-runtime/src/runtime_cloud/ha/tests.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:3"
+      ],
+      "catalog_test_id": "TEST_RUNTIME_MANAGED_FLEET_MISSING_RUNTIME_LOGS_ARE_EMPTY_WITHOUT_CREATING_STATE_001",
+      "command_hint": "cargo test -p trust-runtime missing_runtime_logs_are_empty_without_creating_state",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_A1147C37954714456712",
+      "invariant_ids": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001"
+      ],
+      "name": "missing_runtime_logs_are_empty_without_creating_state",
+      "path": "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:1"
+      ],
+      "catalog_test_id": "TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_INVALID_ENDPOINTS_AND_PORT_COLLISIONS_001",
+      "command_hint": "cargo test -p trust-runtime load_manifest_rejects_invalid_endpoints_and_port_collisions",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_A247941E9FF649EE2CBA",
+      "invariant_ids": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001"
+      ],
+      "name": "load_manifest_rejects_invalid_endpoints_and_port_collisions",
+      "path": "crates/trust-runtime/src/bin/trust-runtime/fleet.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:1"
+      ],
+      "catalog_test_id": "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_ANY_MANIFEST_PORT_COLLISION_001",
+      "command_hint": "cargo test -p trust-runtime fleet_runtime_add_rejects_any_manifest_port_collision",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_A7DD53CC8FD10F25B5E4",
+      "invariant_ids": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001"
+      ],
+      "name": "fleet_runtime_add_rejects_any_manifest_port_collision",
+      "path": "crates/trust-runtime/src/bin/trust-runtime/fleet.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_ACTION_POLICY_001#behavior:1"
+      ],
+      "catalog_test_id": "TEST_PREFLIGHT_REJECTS_EMPTY_BLANK_OR_DUPLICATE_TARGET_LISTS_001",
+      "command_hint": "cargo test -p trust-runtime preflight_rejects_empty_blank_or_duplicate_target_lists",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_B1E08B599F8512C7B66D",
+      "invariant_ids": [
+        "RT_RUNTIME_CLOUD_ACTION_POLICY_001"
+      ],
+      "name": "preflight_rejects_empty_blank_or_duplicate_target_lists",
+      "path": "crates/trust-runtime/src/runtime_cloud/routing.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_ACTION_POLICY_001#behavior:3"
+      ],
+      "catalog_test_id": "TEST_WAN_PROFILE_DENIES_WRITE_WITHOUT_MATCHING_RULE_001",
+      "command_hint": "cargo test -p trust-runtime wan_profile_denies_write_without_matching_rule",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_B7198EDB89BA61543797",
+      "invariant_ids": [
+        "RT_RUNTIME_CLOUD_ACTION_POLICY_001"
+      ],
+      "name": "wan_profile_denies_write_without_matching_rule",
+      "path": "crates/trust-runtime/src/runtime_cloud/profile_policy.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_ACTION_POLICY_001#behavior:2"
+      ],
+      "catalog_test_id": "TEST_DEV_AND_PLANT_PROFILES_DO_NOT_REQUIRE_WAN_WRITE_ALLOWLIST_001",
+      "command_hint": "cargo test -p trust-runtime dev_and_plant_profiles_do_not_require_wan_write_allowlist",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_BA570667935BC5ADFF6B",
+      "invariant_ids": [
+        "RT_RUNTIME_CLOUD_ACTION_POLICY_001"
+      ],
+      "name": "dev_and_plant_profiles_do_not_require_wan_write_allowlist",
+      "path": "crates/trust-runtime/src/runtime_cloud/profile_policy.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:3"
+      ],
+      "catalog_test_id": "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_LOGS_RETURN_REQUESTED_TAIL_001",
+      "command_hint": "cargo test -p trust-runtime fleet_runtime_logs_return_requested_tail",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_BD46DE8F7A7923BE2A3F",
+      "invariant_ids": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001"
+      ],
+      "name": "fleet_runtime_logs_return_requested_tail",
+      "path": "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:3"
+      ],
+      "catalog_test_id": "TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_LIFECYCLE_RUNS_THROUGH_THE_SHIPPED_CLI_001",
+      "command_hint": "cargo test -p trust-runtime --test fleet_lifecycle_command managed_runtime_lifecycle_runs_through_the_shipped_cli",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_C2396909732452FAE9DE",
+      "invariant_ids": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001"
+      ],
+      "name": "managed_runtime_lifecycle_runs_through_the_shipped_cli",
+      "path": "crates/trust-runtime/tests/fleet_lifecycle_command.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_integration_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_CONFIG_RECONCILE_001#behavior:0"
+      ],
+      "catalog_test_id": "TEST_RUNTIME_CLOUD_CONFIG_AGENT_RECONCILES_DESIRED_REPORTED_META_AND_STATUS_001",
+      "command_hint": "cargo test -p trust-runtime --test web_io_config_integration runtime_cloud_config_agent_reconciles_desired_reported_meta_and_status",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_C3132F3F3FE9F9343A74",
+      "invariant_ids": [
+        "RT_RUNTIME_CLOUD_CONFIG_RECONCILE_001"
+      ],
+      "name": "runtime_cloud_config_agent_reconciles_desired_reported_meta_and_status",
+      "path": "crates/trust-runtime/tests/web_io_config_integration/web_io_config_integration_part_08.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_integration_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_HA_FENCING_001#behavior:4"
+      ],
+      "catalog_test_id": "TEST_HA_CRASH_MID_COMMAND_CAN_RETRY_AFTER_STATE_ROUNDTRIP_001",
+      "command_hint": "cargo test -p trust-runtime crash_mid_command_can_retry_after_state_roundtrip",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_C6180DB055825AFDF39E",
+      "invariant_ids": [
+        "RT_RUNTIME_CLOUD_HA_FENCING_001"
+      ],
+      "name": "crash_mid_command_can_retry_after_state_roundtrip",
+      "path": "crates/trust-runtime/src/runtime_cloud/ha/tests.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:3"
+      ],
+      "catalog_test_id": "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_USES_ENDPOINT_EVIDENCE_NOT_A_STALE_PID_001",
+      "command_hint": "cargo test -p trust-runtime fleet_runtime_status_uses_endpoint_evidence_not_a_stale_pid",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_E11ABDA573127DFD2DCF",
+      "invariant_ids": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001"
+      ],
+      "name": "fleet_runtime_status_uses_endpoint_evidence_not_a_stale_pid",
+      "path": "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:3"
+      ],
+      "catalog_test_id": "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REPORTS_STOPPED_WHEN_ENDPOINT_UNREACHABLE_001",
+      "command_hint": "cargo test -p trust-runtime fleet_runtime_status_reports_stopped_when_endpoint_unreachable",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_EA1F36511801C6B5FC9E",
+      "invariant_ids": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001"
+      ],
+      "name": "fleet_runtime_status_reports_stopped_when_endpoint_unreachable",
+      "path": "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_HA_FENCING_001#behavior:2"
+      ],
+      "catalog_test_id": "TEST_INTEGRATION_WEB_IO_CONFIG_INTEGRATION_PART_19_RUNTIME_CLOUD_HA_SPLIT_BRAIN_PREFLIGHT_DENIES_DUAL_ACTIVE_CANDIDATES_001",
+      "command_hint": "cargo test -p trust-runtime --test web_io_config_integration runtime_cloud_ha_split_brain_preflight_denies_dual_active_candidates",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_F32834939D3E45E83A60",
+      "invariant_ids": [
+        "RT_RUNTIME_CLOUD_HA_FENCING_001"
+      ],
+      "name": "runtime_cloud_ha_split_brain_preflight_denies_dual_active_candidates",
+      "path": "crates/trust-runtime/tests/web_io_config_integration/web_io_config_integration_part_19.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_integration_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:0"
+      ],
+      "catalog_test_id": "TEST_RUNTIME_MANAGED_FLEET_RESOURCE_NAMES_ARE_DETERMINISTIC_AND_NEVER_START_WITH_A_DIGIT_001",
+      "command_hint": "cargo test -p trust-runtime resource_names_are_deterministic_and_never_start_with_a_digit",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_F80CF206E53E15DB2316",
+      "invariant_ids": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001"
+      ],
+      "name": "resource_names_are_deterministic_and_never_start_with_a_digit",
+      "path": "crates/trust-runtime/src/bin/trust-runtime/fleet.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001#behavior:2"
+      ],
+      "catalog_test_id": "TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REJECTS_A_CONNECTED_CONTROL_ERROR_001",
+      "command_hint": "cargo test -p trust-runtime fleet_runtime_status_rejects_a_connected_control_error",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_FC563874E148E67E37C6",
+      "invariant_ids": [
+        "RT_MANAGED_FLEET_LIFECYCLE_001"
+      ],
+      "name": "fleet_runtime_status_rejects_a_connected_control_error",
+      "path": "crates/trust-runtime/src/bin/trust-runtime/lifecycle.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_RUNTIME_CLOUD_ACTION_POLICY_001#behavior:2"
+      ],
+      "catalog_test_id": "TEST_RUNTIME_CLOUD_PREFLIGHT_DEV_ALLOWS_CROSS_SITE_CFG_APPLY_WITHOUT_ALLOWLIST_001",
+      "command_hint": "cargo test -p trust-runtime --test web_io_config_integration runtime_cloud_preflight_dev_allows_cross_site_cfg_apply_without_allowlist",
+      "denominator_disposition": "catalog_mapped",
+      "discovery_id": "DISC_FEAC9D13175C7764B1D3",
+      "invariant_ids": [
+        "RT_RUNTIME_CLOUD_ACTION_POLICY_001"
+      ],
+      "name": "runtime_cloud_preflight_dev_allows_cross_site_cfg_apply_without_allowlist",
+      "path": "crates/trust-runtime/tests/web_io_config_integration/web_io_config_integration_part_14.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_integration_test"
+    }
+  ],
+  "campaign_source_commit": "dce893b021f95d2156ce882c1d43c9c0a19ca7df",
+  "evidence_digests": {
+    "target/gate-artifacts/verification/p18-runtime-cloud-23/assertions.json": "sha256:b89eb62f6c545e0d2b02fdfa14daad63b430018ac9bb2459ecd3d9015156c9f8",
+    "target/gate-artifacts/verification/p18-runtime-cloud-23/campaign-plan.json": "sha256:28bbaee13779c969cb9422dfa2e9c1f263d6b43521ed7e2cab7955a0b920e72b",
+    "target/gate-artifacts/verification/p18-runtime-cloud-23/campaign.json": "sha256:96f7ddf53c3c3efa368c9e908664e914dfce09339f13167d3842ebe79bbea273"
+  },
+  "id": "RUNTIME_CLOUD_23_SEMANTIC_LOCK",
+  "reviewed_date": "2026-07-29",
+  "schema_version": 1,
+  "summary": {
+    "behavior_demand_count": 23,
+    "campaign_test_count": 52,
+    "confirmed_missing_test_count": 67,
+    "existing_catalog_test_count": 52,
+    "touched_invariant_count": 7
+  },
+  "touched_invariant_paths": [
+    "verification/invariants/control_security/RT_RUNTIME_CLOUD_HA_FENCING_001.toml",
+    "verification/invariants/runtime_safety/RT_MANAGED_FLEET_LIFECYCLE_001.toml",
+    "verification/invariants/runtime_safety/RT_RUNTIME_CLOUD_ACTION_POLICY_001.toml",
+    "verification/invariants/runtime_safety/RT_RUNTIME_CLOUD_CONFIG_RECONCILE_001.toml",
+    "verification/invariants/runtime_safety/RT_RUNTIME_CLOUD_PROXY_PLAN_001.toml",
+    "verification/invariants/runtime_safety/RT_RUNTIME_CLOUD_SCHEMA_KEYSPACE_001.toml",
+    "verification/invariants/runtime_safety/RT_RUNTIME_CLOUD_TOPOLOGY_LINK_POLICY_001.toml"
+  ]
+}

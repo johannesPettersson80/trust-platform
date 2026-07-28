@@ -901,8 +901,8 @@ def _validate_applied(root: Path) -> list[str]:
             catalog=catalog,
             invariants=invariants,
         )
-        if gaps["summary"]["confirmed_missing_tests"] != 90:
-            failures.append("runtime-other residual behavior count is not 90")
+        if gaps["summary"]["confirmed_missing_tests"] > 90:
+            failures.append("runtime-other residual behavior count exceeds 90")
         if gaps["summary"]["missing_spec_authority_tests"] != 0:
             failures.append("runtime-other reopened test authority debt")
     except (OSError, ValueError, KeyError, tomllib.TOMLDecodeError) as error:

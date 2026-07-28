@@ -12171,6 +12171,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_DEV_AND_PLANT_PROFILES_DO_NOT_REQUIRE_WAN_WRITE_ALLOWLIST_001.json"
+mapping_behavior_refs = ["RT_RUNTIME_CLOUD_ACTION_POLICY_001#behavior:2"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -12267,6 +12268,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_WAN_PROFILE_DENIES_WRITE_WITHOUT_MATCHING_RULE_001.json"
+mapping_behavior_refs = ["RT_RUNTIME_CLOUD_ACTION_POLICY_001#behavior:3"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -12531,6 +12533,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_PREFLIGHT_DISTINGUISHES_STALE_TARGET_AND_ALLOWS_LOCAL_TARGET_001.json"
+mapping_behavior_refs = ["RT_RUNTIME_CLOUD_ACTION_POLICY_001#behavior:0"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -12579,6 +12582,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_PREFLIGHT_REJECTS_EMPTY_BLANK_OR_DUPLICATE_TARGET_LISTS_001.json"
+mapping_behavior_refs = ["RT_RUNTIME_CLOUD_ACTION_POLICY_001#behavior:1"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -12747,6 +12751,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_CLOUD_PREFLIGHT_ALLOWS_CROSS_SITE_CFG_APPLY_WITH_ALLOWLIST_001.json"
+mapping_behavior_refs = ["RT_RUNTIME_CLOUD_ACTION_POLICY_001#behavior:0"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -12771,6 +12776,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_CLOUD_PREFLIGHT_DEV_ALLOWS_CROSS_SITE_CFG_APPLY_WITHOUT_ALLOWLIST_001.json"
+mapping_behavior_refs = ["RT_RUNTIME_CLOUD_ACTION_POLICY_001#behavior:2"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -12915,6 +12921,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_CONTROL_PROXY_POLICY_PROXY_PLAN_REJECTS_BLANK_REQUEST_ID_WHEN_SUPPLIED_001.json"
+mapping_behavior_refs = ["RT_RUNTIME_CLOUD_PROXY_PLAN_001#behavior:1"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -12939,6 +12946,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_CONTROL_PROXY_POLICY_PROXY_PLAN_REJECTS_BREAKING_API_VERSION_001.json"
+mapping_behavior_refs = ["RT_RUNTIME_CLOUD_PROXY_PLAN_001#behavior:2"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -13083,6 +13091,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_IO_PROXY_POLICY_PROXY_PLAN_REJECTS_INVALID_API_VERSIONS_001.json"
+mapping_behavior_refs = ["RT_RUNTIME_CLOUD_PROXY_PLAN_001#behavior:2"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -13155,6 +13164,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_IO_PROXY_POLICY_WRITE_PLAN_REJECTS_EMPTY_ACTOR_001.json"
+mapping_behavior_refs = ["RT_RUNTIME_CLOUD_PROXY_PLAN_001#behavior:1"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -13203,6 +13213,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_IO_PROXY_POLICY_WRITE_PLAN_VALIDATES_TARGET_BEFORE_ACTOR_001.json"
+mapping_behavior_refs = ["RT_RUNTIME_CLOUD_PROXY_PLAN_001#behavior:1"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -13275,6 +13286,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_CONFIG_POLICY_SUPERSEDED_APPLY_FAILURE_KEEPS_NEWER_DESIRED_REVISION_PENDING_001.json"
+mapping_behavior_refs = ["RT_RUNTIME_CLOUD_CONFIG_RECONCILE_001#behavior:2"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -13299,6 +13311,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_CONFIG_POLICY_SUPERSEDED_APPLY_SUCCESS_KEEPS_NEWER_DESIRED_REVISION_PENDING_001.json"
+mapping_behavior_refs = ["RT_RUNTIME_CLOUD_CONFIG_RECONCILE_001#behavior:1"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -13347,6 +13360,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_CLOUD_CONFIG_AGENT_RECONCILES_DESIRED_REPORTED_META_AND_STATUS_001.json"
+mapping_behavior_refs = ["RT_RUNTIME_CLOUD_CONFIG_RECONCILE_001#behavior:0"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -13563,6 +13577,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_CONTRACTS_SCHEMA_LAYOUT_ACCEPTS_FORWARD_ADDITIVE_CHANGES_AND_REJECTS_BREAKING_CHANGES_001.json"
+mapping_behavior_refs = ["RT_RUNTIME_CLOUD_SCHEMA_KEYSPACE_001#behavior:0"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -13587,6 +13602,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_CONTRACTS_SCHEMA_LAYOUT_REJECTS_AMBIGUOUS_OR_NON_APPENDED_FIELDS_001.json"
+mapping_behavior_refs = ["RT_RUNTIME_CLOUD_SCHEMA_KEYSPACE_001#behavior:1"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -14067,6 +14083,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_PROJECTION_RUNTIME_CLOUD_PROJECTION_CONTRACT_REPORTS_TOPOLOGY_EDGES_AND_WARNINGS_001.json"
+mapping_behavior_refs = ["RT_RUNTIME_CLOUD_TOPOLOGY_LINK_POLICY_001#behavior:0"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -14403,6 +14420,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_INTEGRATION_WEB_IO_CONFIG_INTEGRATION_PART_03_RUNTIME_CLOUD_LINK_TRANSPORT_ENDPOINT_SWITCHES_EDGE_MODE_AND_CHECKS_SAME_HOST_001.json"
+mapping_behavior_refs = ["RT_RUNTIME_CLOUD_TOPOLOGY_LINK_POLICY_001#behavior:1", "RT_RUNTIME_CLOUD_TOPOLOGY_LINK_POLICY_001#behavior:3"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -14451,6 +14469,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_HA_CRASH_MID_COMMAND_CAN_RETRY_AFTER_STATE_ROUNDTRIP_001.json"
+mapping_behavior_refs = ["RT_RUNTIME_CLOUD_HA_FENCING_001#behavior:4"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -14475,6 +14494,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_HA_DUAL_HOST_REQUIRES_EXTERNAL_CONSISTENT_LEASE_AUTHORITY_001.json"
+mapping_behavior_refs = ["RT_RUNTIME_CLOUD_HA_FENCING_001#behavior:1"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -14499,6 +14519,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_HA_LEASE_LOSS_FOR_ACTIVE_RUNTIME_REQUIRES_DEMOTED_SAFE_BEHAVIOR_001.json"
+mapping_behavior_refs = ["RT_RUNTIME_CLOUD_HA_FENCING_001#behavior:1"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -14523,6 +14544,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_HA_LIVE_IN_FLIGHT_DUPLICATE_IS_DENIED_BUT_RECOVERY_CAN_RESUME_ONCE_001.json"
+mapping_behavior_refs = ["RT_RUNTIME_CLOUD_HA_FENCING_001#behavior:3"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -14571,6 +14593,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_HA_REPLAY_GUARD_DEDUPLICATES_AND_REJECTS_STALE_SEQUENCES_001.json"
+mapping_behavior_refs = ["RT_RUNTIME_CLOUD_HA_FENCING_001#behavior:0"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -14595,6 +14618,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_HA_SPLIT_BRAIN_CANDIDATES_ARE_DETECTED_AND_REJECTED_001.json"
+mapping_behavior_refs = ["RT_RUNTIME_CLOUD_HA_FENCING_001#behavior:2"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -14619,6 +14643,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_HA_SPLIT_BRAIN_DETECTION_USES_COMPLETE_GROUP_VIEW_NOT_ACTION_SUBSET_001.json"
+mapping_behavior_refs = ["RT_RUNTIME_CLOUD_HA_FENCING_001#behavior:2"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -14691,6 +14716,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_INTEGRATION_WEB_IO_CONFIG_INTEGRATION_PART_19_RUNTIME_CLOUD_HA_SPLIT_BRAIN_PREFLIGHT_CHECKS_CANDIDATES_OUTSIDE_ACTION_SUBSET_001.json"
+mapping_behavior_refs = ["RT_RUNTIME_CLOUD_HA_FENCING_001#behavior:2"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -14715,6 +14741,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_INTEGRATION_WEB_IO_CONFIG_INTEGRATION_PART_19_RUNTIME_CLOUD_HA_SPLIT_BRAIN_PREFLIGHT_DENIES_DUAL_ACTIVE_CANDIDATES_001.json"
+mapping_behavior_refs = ["RT_RUNTIME_CLOUD_HA_FENCING_001#behavior:2"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -23949,6 +23976,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_CONTROL_TOKEN_GENERATION_FAILS_CLOSED_WHEN_SECURE_RANDOMNESS_FAILS_001.json"
+mapping_behavior_refs = ["RT_MANAGED_FLEET_LIFECYCLE_001#behavior:1"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -23973,6 +24001,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_EMPTY_TEMPLATE_USES_VALID_LOOPBACK_IO_001.json"
+mapping_behavior_refs = ["RT_MANAGED_FLEET_LIFECYCLE_001#behavior:0"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -23997,6 +24026,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_AUTO_SELECTS_DISTINCT_AVAILABLE_LOOPBACK_PORTS_001.json"
+mapping_behavior_refs = ["RT_MANAGED_FLEET_LIFECYCLE_001#behavior:0"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -24021,6 +24051,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_CREATES_SIMULATED_PROJECT_AND_MANIFEST_001.json"
+mapping_behavior_refs = ["RT_MANAGED_FLEET_LIFECYCLE_001#behavior:0"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -24045,6 +24076,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_ANY_MANIFEST_PORT_COLLISION_001.json"
+mapping_behavior_refs = ["RT_MANAGED_FLEET_LIFECYCLE_001#behavior:1"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -24069,6 +24101,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_DUPLICATE_NAME_WITHOUT_REWRITING_001.json"
+mapping_behavior_refs = ["RT_MANAGED_FLEET_LIFECYCLE_001#behavior:1"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -24093,6 +24126,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_MALFORMED_MANIFEST_BEFORE_PROJECT_MUTATION_001.json"
+mapping_behavior_refs = ["RT_MANAGED_FLEET_LIFECYCLE_001#behavior:1"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -24117,6 +24151,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_ADD_REJECTS_WHITESPACE_NAME_BEFORE_MUTATION_001.json"
+mapping_behavior_refs = ["RT_MANAGED_FLEET_LIFECYCLE_001#behavior:1"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -24141,6 +24176,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_GENERATED_CONTROL_TOKEN_CONTAINS_32_RANDOM_BYTES_001.json"
+mapping_behavior_refs = ["RT_MANAGED_FLEET_LIFECYCLE_001#behavior:0"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -24165,6 +24201,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_INVALID_ENDPOINTS_AND_PORT_COLLISIONS_001.json"
+mapping_behavior_refs = ["RT_MANAGED_FLEET_LIFECYCLE_001#behavior:1"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -24189,6 +24226,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_LOAD_MANIFEST_REJECTS_UNSAFE_OR_DUPLICATE_RUNTIME_NAMES_001.json"
+mapping_behavior_refs = ["RT_MANAGED_FLEET_LIFECYCLE_001#behavior:1"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -24213,6 +24251,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_RESOURCE_NAMES_ARE_DETERMINISTIC_AND_NEVER_START_WITH_A_DIGIT_001.json"
+mapping_behavior_refs = ["RT_MANAGED_FLEET_LIFECYCLE_001#behavior:0"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -24237,6 +24276,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_CONTROL_REQUEST_REJECTS_A_MISMATCHED_RESPONSE_ID_001.json"
+mapping_behavior_refs = ["RT_MANAGED_FLEET_LIFECYCLE_001#behavior:2"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -24261,6 +24301,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_CONTROL_REQUEST_REJECTS_MALFORMED_OR_AMBIGUOUS_RESPONSE_ENVELOPES_001.json"
+mapping_behavior_refs = ["RT_MANAGED_FLEET_LIFECYCLE_001#behavior:2"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -24285,6 +24326,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_CONTROL_RESPONSE_READER_REJECTS_AN_OVERSIZED_LINE_001.json"
+mapping_behavior_refs = ["RT_MANAGED_FLEET_LIFECYCLE_001#behavior:2"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -24333,6 +24375,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_LOGS_RETURN_REQUESTED_TAIL_001.json"
+mapping_behavior_refs = ["RT_MANAGED_FLEET_LIFECYCLE_001#behavior:3"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -24357,6 +24400,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_START_ABORTS_WHEN_PID_PERSISTENCE_FAILS_001.json"
+mapping_behavior_refs = ["RT_MANAGED_FLEET_LIFECYCLE_001#behavior:3"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -24381,6 +24425,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_START_REMOVES_PID_WHEN_CHILD_EXITS_BEFORE_READY_001.json"
+mapping_behavior_refs = ["RT_MANAGED_FLEET_LIFECYCLE_001#behavior:3"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -24405,6 +24450,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REJECTS_A_CONNECTED_CONTROL_ERROR_001.json"
+mapping_behavior_refs = ["RT_MANAGED_FLEET_LIFECYCLE_001#behavior:2"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -24429,6 +24475,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REJECTS_MALFORMED_RUNTIME_AUTH_CONFIG_001.json"
+mapping_behavior_refs = ["RT_MANAGED_FLEET_LIFECYCLE_001#behavior:2"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -24453,6 +24500,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_REPORTS_STOPPED_WHEN_ENDPOINT_UNREACHABLE_001.json"
+mapping_behavior_refs = ["RT_MANAGED_FLEET_LIFECYCLE_001#behavior:3"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -24477,6 +24525,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_FLEET_RUNTIME_STATUS_USES_ENDPOINT_EVIDENCE_NOT_A_STALE_PID_001.json"
+mapping_behavior_refs = ["RT_MANAGED_FLEET_LIFECYCLE_001#behavior:3"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -24525,6 +24574,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_MISSING_RUNTIME_LOGS_ARE_EMPTY_WITHOUT_CREATING_STATE_001.json"
+mapping_behavior_refs = ["RT_MANAGED_FLEET_LIFECYCLE_001#behavior:3"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -24549,6 +24599,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_TERMINATE_STARTED_CHILD_KILLS_AND_REAPS_A_LIVE_PROCESS_001.json"
+mapping_behavior_refs = ["RT_MANAGED_FLEET_LIFECYCLE_001#behavior:3"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -24573,6 +24624,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_MANAGED_FLEET_MANAGED_RUNTIME_LIFECYCLE_RUNS_THROUGH_THE_SHIPPED_CLI_001.json"
+mapping_behavior_refs = ["RT_MANAGED_FLEET_LIFECYCLE_001#behavior:3"]
 last_reviewed = "2026-07-23"
 [[tests]]
 schema_version = 2
