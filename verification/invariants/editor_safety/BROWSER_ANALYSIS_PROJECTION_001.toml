@@ -2,9 +2,9 @@ schema_version = 1
 id = "BROWSER_ANALYSIS_PROJECTION_001"
 title = "Browser and WebAssembly analysis preserve native result and virtual-document truth"
 area = "editor_safety"
-risk = "correctness"
+risk = "wrong_result"
 status = "mapped"
-owner = "trust-wasm-analysis"
+owner = "trust-ide"
 last_reviewed = "2026-07-28"
 claim = "The native browser analysis facade replaces one complete virtual-document snapshot, preserves native results for the reviewed diagnostics, hover, and completion fixtures, keeps reviewed navigation and refactoring results bound to supplied source identities and cursor boundaries, and exposes explicit parseable JSON adapter results without fabricated success."
 proof_level = "S0"
@@ -33,7 +33,7 @@ case_family = "happy_path"
 oracle_ref = "SPEC_LSP_CONTRACT_001#6611-browser-and-webassembly-analysis-projection"
 outcome = "accept_value"
 no_partial_apply = true
-delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected", status = "unchanged" }
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
 rationale = "For the reviewed fixtures and requests only, browser diagnostics, hover, and completion equal the corresponding native analysis projections."
 
 [[behavior]]
@@ -77,7 +77,7 @@ case_family = "wrong_type_or_shape"
 oracle_ref = "SPEC_LSP_CONTRACT_001#6611-browser-and-webassembly-analysis-projection"
 outcome = "accept_value"
 no_partial_apply = true
-delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected", status = "set_to_expected" }
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "expected_delta" }
 rationale = "Accepted JSON apply, status, and diagnostic calls return parseable reviewed shapes, current URI identity, and the expected unresolved-symbol diagnostic."
 
 [[behavior]]
@@ -86,7 +86,7 @@ case_family = "ordering_or_lifecycle"
 oracle_ref = "SPEC_LSP_CONTRACT_001#6611-browser-and-webassembly-analysis-projection"
 outcome = "accept_value"
 no_partial_apply = true
-delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected", status = "set_to_expected" }
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "expected_delta" }
 rationale = "Forty reviewed full-set document replacements keep the asserted three-document status and Main identity while io.st diagnostics follow its current replacement text."
 
 [[coverage.cells]]
