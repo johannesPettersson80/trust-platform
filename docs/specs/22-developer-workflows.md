@@ -139,6 +139,40 @@ reports kind, name, project-relative path, line, and final listed count.
 JSON, TAP, or JUnit format is preserved. Timeout prose uses singular
 `1 second` and plural `<n> seconds`.
 
+### Native runtime CI fixture compatibility
+
+The runtime compatibility entrypoint preserves the following reviewed native
+project-fixture contract:
+
+- successful `build --ci` emits version 1, command `build`, status `ok`, the
+  selected project path, and a source count of at least the two fixture source
+  files;
+- successful `validate --ci` emits version 1, command `validate`, status `ok`,
+  the selected project path, and resource `Res`;
+- successful `test --ci --output json` reports the selected project, zero
+  failures and errors, numeric aggregate and per-case durations, at least one
+  discovered test, and the `CI_Passes` case;
+- the green fixture's explicit JUnit run contains a test suite with zero
+  failures; and
+- the broken fixture's explicit JUnit run returns process class 12, contains a
+  failure entry, and reports `ST test(s) failed` on stderr.
+
+These are bounded compatibility fixtures. They do not certify arbitrary
+projects, every JSON field, XML schema conformance, or stable diagnostic prose
+beyond the named failure marker.
+
+### CI performance reference-environment gap
+
+Elapsed-time thresholds for first feedback, one filtered test, and small-suite
+scaling are not portable product oracles until a reference environment names
+the CPU and memory, operating system, prebuilt-versus-clean state, cache state,
+test concurrency, sample count, warmup, and aggregation statistic. The current
+“clean setup” test invokes already built binaries against a copied fixture; it
+does not measure installation or compilation from a clean toolchain state.
+
+Until that authority exists, those timing assertions remain runnable
+environment probes and must not be counted as performance coverage.
+
 ## Developer CI exit classification
 
 The `trust-dev` workbench uses the same stable CI failure classes as the runtime

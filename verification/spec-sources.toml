@@ -1742,6 +1742,8 @@ covers = [
   "test_case_execution",
   "per_case_deadline_scope",
   "test_reporting_and_ci_output",
+  "native_runtime_ci_fixture_compatibility",
+  "ci_performance_reference_environment_gap",
   "developer_ci_exit_classification",
   "api_documentation_generation",
   "project_scoped_commit",

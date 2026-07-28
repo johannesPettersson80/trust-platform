@@ -327,6 +327,7 @@ RUNTIME_REMAINING_INTEGRATION_PATHS = frozenset(
         "crates/trust-runtime/tests/bytecode_roundtrip.rs",
         "crates/trust-runtime/tests/bytecode_sections.rs",
         "crates/trust-runtime/tests/bytecode_validation.rs",
+        "crates/trust-runtime/tests/ci_cicd_contract.rs",
         "crates/trust-runtime/tests/datetime_profile.rs",
         "crates/trust-runtime/tests/datetime_range.rs",
         "crates/trust-runtime/tests/datetime_types.rs",

@@ -6,6 +6,27 @@ in `IEC_DECISIONS.md`; PLCopen profile decisions belong in
 `PLCOPEN_DECISIONS.md`. Product behavior recorded here MUST NOT be copied to an
 IEC or PLCopen deviation log merely because truST owns the behavior.
 
+## 2026-07-28 - Native CI fixture and performance authority boundary
+
+- Area: Developer test CI compatibility
+- Decision:
+  - The runtime compatibility entrypoint preserves the reviewed version-1
+    build, validate, and test JSON fields plus green and broken JUnit fixture
+    outcomes documented in `docs/specs/22-developer-workflows.md`.
+  - The broken fixture returns test-failure class 12, emits a JUnit failure
+    entry, and identifies failed ST tests on stderr.
+  - The existing elapsed-time assertions are not product performance oracles
+    until a reference environment defines hardware, operating system,
+    prebuilt-versus-clean state, cache state, concurrency, repetitions, and
+    aggregation. In particular, the test named “clean setup” uses already
+    built binaries and is not clean-install evidence.
+- Authority:
+  - `docs/specs/22-developer-workflows.md`
+- Reason:
+  - Machine-report compatibility is deterministic product behavior.
+    Unqualified wall-clock thresholds are environment observations and cannot
+    honestly establish portable performance budgets.
+
 ## 2026-07-28 - Syntax-kind classifier authority
 
 - Area: Lexer and concrete syntax tree

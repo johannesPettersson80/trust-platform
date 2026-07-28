@@ -1,0 +1,62 @@
+schema_version = 1
+id = "DEV_NATIVE_CI_FIXTURE_001"
+title = "Native CI fixtures preserve versioned success and failure reports"
+area = "plcopen_devtools"
+risk = "false_status"
+status = "planned"
+owner = "trust-dev"
+last_reviewed = "2026-07-28"
+claim = "The runtime compatibility entrypoint preserves the reviewed build, validate, JSON test, green JUnit, and broken JUnit CI fixture outcomes."
+proof_level = "S0"
+contract_kind = "protocol_trace"
+source_refs = ["crates/trust-runtime/tests/ci_cicd_contract.rs"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["focused_execution", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_DEVELOPER_WORKFLOWS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_DEVELOPER_WORKFLOWS_001#native-runtime-ci-fixture-compatibility"
+
+[[behavior]]
+partition = { equals = "VERSIONED_BUILD_VALIDATE_TEST_JSON_SUCCESS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#native-runtime-ci-fixture-compatibility"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The reviewed green fixture succeeds through build, validate, and JSON test while exposing the named version, identity, count, status, resource, case, and duration fields."
+
+[[behavior]]
+partition = { equals = "GREEN_PROJECT_JUNIT_SUCCESS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#native-runtime-ci-fixture-compatibility"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The reviewed green fixture succeeds through build and validate, and its explicit JUnit test report contains a suite with zero failures."
+
+[[behavior]]
+partition = { equals = "BROKEN_PROJECT_JUNIT_FAILURE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#native-runtime-ci-fixture-compatibility"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "The reviewed broken fixture builds and validates, then returns process class 12 with a JUnit failure entry and the named failed-ST-test stderr marker."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "The product authority is reviewed; focused mappings and execution evidence for JSON and green JUnit success remain pending."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "The product authority is reviewed; focused mapping and execution evidence for the broken JUnit fixture remain pending."

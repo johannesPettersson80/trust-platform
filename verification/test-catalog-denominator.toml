@@ -6890,8 +6890,8 @@ path = "crates/trust-runtime/tests/ci_cicd_contract.rs"
 name = "ci_run_all_tests_scales_roughly_linearly_for_small_projects"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+reason_code = "not_catalogable_product_oracle"
+last_reviewed = "2026-07-28"
 
 [[reviews]]
 discovery_id = "DISC_26DE6D321E0FA18651C2"
@@ -16920,8 +16920,8 @@ path = "crates/trust-runtime/tests/ci_cicd_contract.rs"
 name = "ci_clean_setup_first_passing_test_is_under_ten_minutes"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+reason_code = "not_catalogable_product_oracle"
+last_reviewed = "2026-07-28"
 
 [[reviews]]
 discovery_id = "DISC_627DE6D71C0A08570A9A"
@@ -28620,8 +28620,8 @@ path = "crates/trust-runtime/tests/ci_cicd_contract.rs"
 name = "ci_single_test_feedback_is_under_two_seconds_for_small_project"
 ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
-reason_code = "no_reviewed_spec_or_invariant_binding"
-last_reviewed = "2026-07-18"
+reason_code = "not_catalogable_product_oracle"
+last_reviewed = "2026-07-28"
 
 [[reviews]]
 discovery_id = "DISC_A7154671A2D6EC7E8616"

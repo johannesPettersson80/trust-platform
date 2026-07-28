@@ -1,0 +1,596 @@
+{
+  "excluded_timing_identities": {
+    "DISC_26D85E382B6B90BB76E6": "ci_run_all_tests_scales_roughly_linearly_for_small_projects",
+    "DISC_627DBD026621561D0A46": "ci_clean_setup_first_passing_test_is_under_ten_minutes",
+    "DISC_A7027A42E2C68847E276": "ci_single_test_feedback_is_under_two_seconds_for_small_project"
+  },
+  "id": "CI_CICD_3_SEMANTIC_LOCK",
+  "schema_version": 1,
+  "tests": [
+    {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_DC2AF8D768D8A45F04F8C606",
+          "behavior_label": "GREEN_PROJECT_JUNIT_SUCCESS",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (output . status . success () , \"{context} should succeed.\\nstdout:\\n{}\\nstderr:\\n{}\" , String :: from_utf8_lossy (& output . stdout) , String :: from_utf8_lossy (& output . stderr))",
+          "function": "assert_success",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "macro:assert"
+        },
+        {
+          "assertion_id": "ASSERT_FE0554456BDC6D0DA56665A0",
+          "behavior_label": "GREEN_PROJECT_JUNIT_SUCCESS",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (junit . contains (\"<testsuite\") , \"expected junit testsuite output\")",
+          "function": "ci_template_workflow_passes_on_green_fixture",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "macro:assert"
+        },
+        {
+          "assertion_id": "ASSERT_FBDF1090E0AA2E5E37C360AA",
+          "behavior_label": "GREEN_PROJECT_JUNIT_SUCCESS",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (junit . contains (\"failures=\\\"0\\\"\") , \"expected no junit failures\")",
+          "function": "ci_template_workflow_passes_on_green_fixture",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "macro:assert"
+        },
+        {
+          "assertion_id": "ASSERT_41290EEEBB780E24FDDD46EF",
+          "behavior_label": "GREEN_PROJECT_JUNIT_SUCCESS",
+          "disposition": "setup_or_precondition",
+          "expression": "std :: fs :: create_dir_all (dst) . expect (\"create destination fixture directory\")",
+          "function": "copy_dir_recursive",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_1119FE85F97A7533BB7A4752",
+          "behavior_label": "GREEN_PROJECT_JUNIT_SUCCESS",
+          "disposition": "setup_or_precondition",
+          "expression": "std :: fs :: read_dir (src) . expect (\"read fixture directory\")",
+          "function": "copy_dir_recursive",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_1DBB87C7F76DB4D85ACA9001",
+          "behavior_label": "GREEN_PROJECT_JUNIT_SUCCESS",
+          "disposition": "setup_or_precondition",
+          "expression": "entry . expect (\"read fixture entry\")",
+          "function": "copy_dir_recursive",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_ED812C45C1BC9000169B0D5F",
+          "behavior_label": "GREEN_PROJECT_JUNIT_SUCCESS",
+          "disposition": "setup_or_precondition",
+          "expression": "panic ! (\"copy fixture file {} -> {}: {err}\" , src_path . display () , dst_path . display ())",
+          "function": "copy_file_with_retry",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "macro:panic"
+        },
+        {
+          "assertion_id": "ASSERT_FE3337E75523643C1304B181",
+          "behavior_label": "GREEN_PROJECT_JUNIT_SUCCESS",
+          "disposition": "setup_or_precondition",
+          "expression": "unreachable ! (\"copy_file_with_retry exhausted retries\")",
+          "function": "copy_file_with_retry",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "macro:unreachable"
+        },
+        {
+          "assertion_id": "ASSERT_29A60F1B1D116CE5D739C239",
+          "behavior_label": "GREEN_PROJECT_JUNIT_SUCCESS",
+          "disposition": "setup_or_precondition",
+          "expression": "project . to_str () . expect (\"project path utf-8\")",
+          "function": "run_trust_runtime",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_4AA9821882E981850D2F12A2",
+          "behavior_label": "GREEN_PROJECT_JUNIT_SUCCESS",
+          "disposition": "setup_or_precondition",
+          "expression": "command . output () . expect (\"run trust-runtime\")",
+          "function": "run_trust_runtime",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_0DB9A690AA595C4DB30FAFD5",
+          "behavior_label": "GREEN_PROJECT_JUNIT_SUCCESS",
+          "disposition": "setup_or_precondition",
+          "expression": "SystemTime :: now () . duration_since (UNIX_EPOCH) . expect (\"system time before unix epoch\")",
+          "function": "unique_temp_dir",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_FB9FD6900A817CE193E5DA17",
+          "behavior_label": "GREEN_PROJECT_JUNIT_SUCCESS",
+          "disposition": "setup_or_precondition",
+          "expression": "panic ! (\"create temp fixture dir {}: {err}\" , dir . display ())",
+          "function": "unique_temp_dir",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "macro:panic"
+        },
+        {
+          "assertion_id": "ASSERT_F4A60EBD89E34D574C281DDF",
+          "behavior_label": "GREEN_PROJECT_JUNIT_SUCCESS",
+          "disposition": "setup_or_precondition",
+          "expression": "panic ! (\"failed to allocate unique temp dir for fixture '{prefix}'\")",
+          "function": "unique_temp_dir",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "macro:panic"
+        }
+      ],
+      "discovery_id": "DISC_4692745A9A337DAF089C",
+      "exclusions": [
+        "The green JUnit test observes one testsuite marker and zero failures; it does not validate the complete XML document.",
+        "These are bounded green and broken fixture contracts. They do not certify arbitrary projects, every JSON field, JUnit XML schema conformance, or diagnostic prose beyond the reviewed marker.",
+        "These mappings establish no timing, performance, throughput, scaling, latency, clean-install, or clean-toolchain authority."
+      ],
+      "name": "ci_template_workflow_passes_on_green_fixture",
+      "path": "crates/trust-runtime/tests/ci_cicd_contract.rs"
+    },
+    {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_FB9A7EA222D874228650E343",
+          "behavior_label": "VERSIONED_BUILD_VALIDATE_TEST_JSON_SUCCESS",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (output . status . success () , \"{context} should succeed.\\nstdout:\\n{}\\nstderr:\\n{}\" , String :: from_utf8_lossy (& output . stdout) , String :: from_utf8_lossy (& output . stderr))",
+          "function": "assert_success",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "macro:assert"
+        },
+        {
+          "assertion_id": "ASSERT_57BBC5831F532BE90275D338",
+          "behavior_label": "VERSIONED_BUILD_VALIDATE_TEST_JSON_SUCCESS",
+          "disposition": "setup_or_precondition",
+          "expression": "serde_json :: from_slice (& build . stdout) . expect (\"parse build --ci JSON\")",
+          "function": "ci_json_summary_mode_contract_is_stable",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_61E5AA50F3B2FD63B95E257A",
+          "behavior_label": "VERSIONED_BUILD_VALIDATE_TEST_JSON_SUCCESS",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (build_json [\"version\"] , 1)",
+          "function": "ci_json_summary_mode_contract_is_stable",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_3BFD10915283B6CF252757F9",
+          "behavior_label": "VERSIONED_BUILD_VALIDATE_TEST_JSON_SUCCESS",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (build_json [\"command\"] , \"build\")",
+          "function": "ci_json_summary_mode_contract_is_stable",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_CE2DA5E158D85AD01480E2D3",
+          "behavior_label": "VERSIONED_BUILD_VALIDATE_TEST_JSON_SUCCESS",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (build_json [\"status\"] , \"ok\")",
+          "function": "ci_json_summary_mode_contract_is_stable",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_CBA2E3857866CCB4D045E9DC",
+          "behavior_label": "VERSIONED_BUILD_VALIDATE_TEST_JSON_SUCCESS",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (build_json [\"project\"] , project . display () . to_string ())",
+          "function": "ci_json_summary_mode_contract_is_stable",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_830FFA33DC54E69506AE5C30",
+          "behavior_label": "VERSIONED_BUILD_VALIDATE_TEST_JSON_SUCCESS",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (build_json [\"source_count\"] . as_u64 () . is_some_and (| count | count >= 2) , \"expected at least two source files in build output\")",
+          "function": "ci_json_summary_mode_contract_is_stable",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "macro:assert"
+        },
+        {
+          "assertion_id": "ASSERT_79DF5D2282F7F87A528DA43E",
+          "behavior_label": "VERSIONED_BUILD_VALIDATE_TEST_JSON_SUCCESS",
+          "disposition": "setup_or_precondition",
+          "expression": "serde_json :: from_slice (& validate . stdout) . expect (\"parse validate --ci JSON\")",
+          "function": "ci_json_summary_mode_contract_is_stable",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_026BAE883EA85D0E6F2CEBCA",
+          "behavior_label": "VERSIONED_BUILD_VALIDATE_TEST_JSON_SUCCESS",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (validate_json [\"version\"] , 1)",
+          "function": "ci_json_summary_mode_contract_is_stable",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_0A0E9F4308A0194995E2790E",
+          "behavior_label": "VERSIONED_BUILD_VALIDATE_TEST_JSON_SUCCESS",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (validate_json [\"command\"] , \"validate\")",
+          "function": "ci_json_summary_mode_contract_is_stable",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_120FD8B3EE9BCCB07830C3F5",
+          "behavior_label": "VERSIONED_BUILD_VALIDATE_TEST_JSON_SUCCESS",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (validate_json [\"status\"] , \"ok\")",
+          "function": "ci_json_summary_mode_contract_is_stable",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_C7507CF07BFE119AEE865BEC",
+          "behavior_label": "VERSIONED_BUILD_VALIDATE_TEST_JSON_SUCCESS",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (validate_json [\"project\"] , project . display () . to_string ())",
+          "function": "ci_json_summary_mode_contract_is_stable",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_DB1D8BC2BCE4C3EA1F738904",
+          "behavior_label": "VERSIONED_BUILD_VALIDATE_TEST_JSON_SUCCESS",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (validate_json [\"resource\"] , \"Res\")",
+          "function": "ci_json_summary_mode_contract_is_stable",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_32AF5E9065860CEB548E2236",
+          "behavior_label": "VERSIONED_BUILD_VALIDATE_TEST_JSON_SUCCESS",
+          "disposition": "setup_or_precondition",
+          "expression": "serde_json :: from_slice (& test . stdout) . expect (\"parse test --ci --output json\")",
+          "function": "ci_json_summary_mode_contract_is_stable",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_578DD6400E8FA3F31D7464DE",
+          "behavior_label": "VERSIONED_BUILD_VALIDATE_TEST_JSON_SUCCESS",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (test_json [\"version\"] , 1)",
+          "function": "ci_json_summary_mode_contract_is_stable",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_6892734E44E17D02141F3992",
+          "behavior_label": "VERSIONED_BUILD_VALIDATE_TEST_JSON_SUCCESS",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (test_json [\"project\"] , project . display () . to_string ())",
+          "function": "ci_json_summary_mode_contract_is_stable",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_39DACF8FA01A526201AC7543",
+          "behavior_label": "VERSIONED_BUILD_VALIDATE_TEST_JSON_SUCCESS",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (test_json [\"summary\"] [\"failed\"] , 0)",
+          "function": "ci_json_summary_mode_contract_is_stable",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_AD905E1D8CB57B6CC7C0C49F",
+          "behavior_label": "VERSIONED_BUILD_VALIDATE_TEST_JSON_SUCCESS",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (test_json [\"summary\"] [\"errors\"] , 0)",
+          "function": "ci_json_summary_mode_contract_is_stable",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_BD048153A7A9C4952EC9D794",
+          "behavior_label": "VERSIONED_BUILD_VALIDATE_TEST_JSON_SUCCESS",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (test_json [\"summary\"] [\"duration_ms\"] . is_number () , \"expected summary duration_ms in JSON output\")",
+          "function": "ci_json_summary_mode_contract_is_stable",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "macro:assert"
+        },
+        {
+          "assertion_id": "ASSERT_8328513E4FAD8FBBBF26D939",
+          "behavior_label": "VERSIONED_BUILD_VALIDATE_TEST_JSON_SUCCESS",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (test_json [\"summary\"] [\"total\"] . as_u64 () . is_some_and (| total | total >= 1) , \"expected at least one discovered test\")",
+          "function": "ci_json_summary_mode_contract_is_stable",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "macro:assert"
+        },
+        {
+          "assertion_id": "ASSERT_F3D56E676407361D30471707",
+          "behavior_label": "VERSIONED_BUILD_VALIDATE_TEST_JSON_SUCCESS",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (test_json [\"tests\"] . as_array () . is_some_and (| tests | tests . iter () . any (| case | case [\"name\"] == \"CI_Passes\")))",
+          "function": "ci_json_summary_mode_contract_is_stable",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "macro:assert"
+        },
+        {
+          "assertion_id": "ASSERT_104EF62209FD2B6EF1C7D36A",
+          "behavior_label": "VERSIONED_BUILD_VALIDATE_TEST_JSON_SUCCESS",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (test_json [\"tests\"] . as_array () . is_some_and (| tests | tests . iter () . all (| case | case [\"duration_ms\"] . is_number ())))",
+          "function": "ci_json_summary_mode_contract_is_stable",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "macro:assert"
+        },
+        {
+          "assertion_id": "ASSERT_6B93CAD4E9B5261B2A89A93D",
+          "behavior_label": "VERSIONED_BUILD_VALIDATE_TEST_JSON_SUCCESS",
+          "disposition": "setup_or_precondition",
+          "expression": "std :: fs :: create_dir_all (dst) . expect (\"create destination fixture directory\")",
+          "function": "copy_dir_recursive",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_61D115018DB3E0F505C12E9E",
+          "behavior_label": "VERSIONED_BUILD_VALIDATE_TEST_JSON_SUCCESS",
+          "disposition": "setup_or_precondition",
+          "expression": "std :: fs :: read_dir (src) . expect (\"read fixture directory\")",
+          "function": "copy_dir_recursive",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_6F9006F5A4602F516A3CBEDC",
+          "behavior_label": "VERSIONED_BUILD_VALIDATE_TEST_JSON_SUCCESS",
+          "disposition": "setup_or_precondition",
+          "expression": "entry . expect (\"read fixture entry\")",
+          "function": "copy_dir_recursive",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_3A64E369C13413D275FC4579",
+          "behavior_label": "VERSIONED_BUILD_VALIDATE_TEST_JSON_SUCCESS",
+          "disposition": "setup_or_precondition",
+          "expression": "panic ! (\"copy fixture file {} -> {}: {err}\" , src_path . display () , dst_path . display ())",
+          "function": "copy_file_with_retry",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "macro:panic"
+        },
+        {
+          "assertion_id": "ASSERT_344A1EC1B509B213640590DF",
+          "behavior_label": "VERSIONED_BUILD_VALIDATE_TEST_JSON_SUCCESS",
+          "disposition": "setup_or_precondition",
+          "expression": "unreachable ! (\"copy_file_with_retry exhausted retries\")",
+          "function": "copy_file_with_retry",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "macro:unreachable"
+        },
+        {
+          "assertion_id": "ASSERT_773B40CC14CD374E7E2F44FC",
+          "behavior_label": "VERSIONED_BUILD_VALIDATE_TEST_JSON_SUCCESS",
+          "disposition": "setup_or_precondition",
+          "expression": "project . to_str () . expect (\"project path utf-8\")",
+          "function": "run_trust_runtime",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_5DA66DB03DEC26A40B40FAA6",
+          "behavior_label": "VERSIONED_BUILD_VALIDATE_TEST_JSON_SUCCESS",
+          "disposition": "setup_or_precondition",
+          "expression": "command . output () . expect (\"run trust-runtime\")",
+          "function": "run_trust_runtime",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_E31BEB2AE2B71F0528E0C670",
+          "behavior_label": "VERSIONED_BUILD_VALIDATE_TEST_JSON_SUCCESS",
+          "disposition": "setup_or_precondition",
+          "expression": "SystemTime :: now () . duration_since (UNIX_EPOCH) . expect (\"system time before unix epoch\")",
+          "function": "unique_temp_dir",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_7EC777520666E2DF00D8EE5D",
+          "behavior_label": "VERSIONED_BUILD_VALIDATE_TEST_JSON_SUCCESS",
+          "disposition": "setup_or_precondition",
+          "expression": "panic ! (\"create temp fixture dir {}: {err}\" , dir . display ())",
+          "function": "unique_temp_dir",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "macro:panic"
+        },
+        {
+          "assertion_id": "ASSERT_6C2863C0E2C693DA3AE1622A",
+          "behavior_label": "VERSIONED_BUILD_VALIDATE_TEST_JSON_SUCCESS",
+          "disposition": "setup_or_precondition",
+          "expression": "panic ! (\"failed to allocate unique temp dir for fixture '{prefix}'\")",
+          "function": "unique_temp_dir",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "macro:panic"
+        }
+      ],
+      "discovery_id": "DISC_85AF4E1985BEEBE3A2A6",
+      "exclusions": [
+        "The JSON test covers only the named version-1 build, validate, and test fields for the reviewed green fixture.",
+        "These are bounded green and broken fixture contracts. They do not certify arbitrary projects, every JSON field, JUnit XML schema conformance, or diagnostic prose beyond the reviewed marker.",
+        "These mappings establish no timing, performance, throughput, scaling, latency, clean-install, or clean-toolchain authority."
+      ],
+      "name": "ci_json_summary_mode_contract_is_stable",
+      "path": "crates/trust-runtime/tests/ci_cicd_contract.rs"
+    },
+    {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_743F5ECE9248E42B2CF81599",
+          "behavior_label": "BROKEN_PROJECT_JUNIT_FAILURE",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (output . status . success () , \"{context} should succeed.\\nstdout:\\n{}\\nstderr:\\n{}\" , String :: from_utf8_lossy (& output . stdout) , String :: from_utf8_lossy (& output . stderr))",
+          "function": "assert_success",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "macro:assert"
+        },
+        {
+          "assertion_id": "ASSERT_FA2FD30130E946E0605170AF",
+          "behavior_label": "BROKEN_PROJECT_JUNIT_FAILURE",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (! tests . status . success () , \"broken fixture test command should fail\")",
+          "function": "ci_template_workflow_fails_on_broken_fixture_with_expected_code_and_report",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "macro:assert"
+        },
+        {
+          "assertion_id": "ASSERT_D156F03F8C8446400A7D630D",
+          "behavior_label": "BROKEN_PROJECT_JUNIT_FAILURE",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (tests . status . code () , Some (12) , \"expected deterministic CI test-failure exit code\")",
+          "function": "ci_template_workflow_fails_on_broken_fixture_with_expected_code_and_report",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_B4786EAED7192215454B8B41",
+          "behavior_label": "BROKEN_PROJECT_JUNIT_FAILURE",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (junit . contains (\"<testsuite\") , \"expected junit testsuite output\")",
+          "function": "ci_template_workflow_fails_on_broken_fixture_with_expected_code_and_report",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "macro:assert"
+        },
+        {
+          "assertion_id": "ASSERT_190559B687D24DABA77A5C82",
+          "behavior_label": "BROKEN_PROJECT_JUNIT_FAILURE",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (junit . contains (\"<failure\") , \"expected junit failure entry for broken fixture\")",
+          "function": "ci_template_workflow_fails_on_broken_fixture_with_expected_code_and_report",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "macro:assert"
+        },
+        {
+          "assertion_id": "ASSERT_6934A407E175A3A5DDAFC863",
+          "behavior_label": "BROKEN_PROJECT_JUNIT_FAILURE",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (stderr . contains (\"ST test(s) failed\") , \"expected deterministic CI error message in stderr\")",
+          "function": "ci_template_workflow_fails_on_broken_fixture_with_expected_code_and_report",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "macro:assert"
+        },
+        {
+          "assertion_id": "ASSERT_3720BC7F577E8D14A18C97FC",
+          "behavior_label": "BROKEN_PROJECT_JUNIT_FAILURE",
+          "disposition": "setup_or_precondition",
+          "expression": "std :: fs :: create_dir_all (dst) . expect (\"create destination fixture directory\")",
+          "function": "copy_dir_recursive",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_4622D8DE1678633BE48235DE",
+          "behavior_label": "BROKEN_PROJECT_JUNIT_FAILURE",
+          "disposition": "setup_or_precondition",
+          "expression": "std :: fs :: read_dir (src) . expect (\"read fixture directory\")",
+          "function": "copy_dir_recursive",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_3AF4C4CA8D6948AB26A559C7",
+          "behavior_label": "BROKEN_PROJECT_JUNIT_FAILURE",
+          "disposition": "setup_or_precondition",
+          "expression": "entry . expect (\"read fixture entry\")",
+          "function": "copy_dir_recursive",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_D0445292C343ABA229126B06",
+          "behavior_label": "BROKEN_PROJECT_JUNIT_FAILURE",
+          "disposition": "setup_or_precondition",
+          "expression": "panic ! (\"copy fixture file {} -> {}: {err}\" , src_path . display () , dst_path . display ())",
+          "function": "copy_file_with_retry",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "macro:panic"
+        },
+        {
+          "assertion_id": "ASSERT_526BEBFDE1D550E590CD1E8F",
+          "behavior_label": "BROKEN_PROJECT_JUNIT_FAILURE",
+          "disposition": "setup_or_precondition",
+          "expression": "unreachable ! (\"copy_file_with_retry exhausted retries\")",
+          "function": "copy_file_with_retry",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "macro:unreachable"
+        },
+        {
+          "assertion_id": "ASSERT_F4A6C95E8F2C952B8A5288A7",
+          "behavior_label": "BROKEN_PROJECT_JUNIT_FAILURE",
+          "disposition": "setup_or_precondition",
+          "expression": "project . to_str () . expect (\"project path utf-8\")",
+          "function": "run_trust_runtime",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_422EA2B6C4B445ABB89C939A",
+          "behavior_label": "BROKEN_PROJECT_JUNIT_FAILURE",
+          "disposition": "setup_or_precondition",
+          "expression": "command . output () . expect (\"run trust-runtime\")",
+          "function": "run_trust_runtime",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_2DD11A105C41720F9AB82D2A",
+          "behavior_label": "BROKEN_PROJECT_JUNIT_FAILURE",
+          "disposition": "setup_or_precondition",
+          "expression": "SystemTime :: now () . duration_since (UNIX_EPOCH) . expect (\"system time before unix epoch\")",
+          "function": "unique_temp_dir",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_4269C8D4590C24FF6CF72588",
+          "behavior_label": "BROKEN_PROJECT_JUNIT_FAILURE",
+          "disposition": "setup_or_precondition",
+          "expression": "panic ! (\"create temp fixture dir {}: {err}\" , dir . display ())",
+          "function": "unique_temp_dir",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "macro:panic"
+        },
+        {
+          "assertion_id": "ASSERT_D6AB2C618F64804092ED04E1",
+          "behavior_label": "BROKEN_PROJECT_JUNIT_FAILURE",
+          "disposition": "setup_or_precondition",
+          "expression": "panic ! (\"failed to allocate unique temp dir for fixture '{prefix}'\")",
+          "function": "unique_temp_dir",
+          "invariant_id": "DEV_NATIVE_CI_FIXTURE_001",
+          "kind": "macro:panic"
+        }
+      ],
+      "discovery_id": "DISC_AFC7F8F303A4F231290C",
+      "exclusions": [
+        "The broken JUnit test covers process class 12, one failure marker, and the named failed-ST-test stderr marker only.",
+        "These are bounded green and broken fixture contracts. They do not certify arbitrary projects, every JSON field, JUnit XML schema conformance, or diagnostic prose beyond the reviewed marker.",
+        "These mappings establish no timing, performance, throughput, scaling, latency, clean-install, or clean-toolchain authority."
+      ],
+      "name": "ci_template_workflow_fails_on_broken_fixture_with_expected_code_and_report",
+      "path": "crates/trust-runtime/tests/ci_cicd_contract.rs"
+    }
+  ]
+}

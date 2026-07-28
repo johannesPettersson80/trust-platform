@@ -541,6 +541,14 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
             ("--test", "bounded_value_semantics"),
             profile.cargo_target_args,
         )
+        ci_contract = get_target_profile(
+            "runtime-remaining",
+            path="crates/trust-runtime/tests/ci_cicd_contract.rs",
+        )
+        self.assertEqual(
+            ("--test", "ci_cicd_contract"),
+            ci_contract.cargo_target_args,
+        )
         scheduler = get_target_profile(
             "runtime-remaining",
             path="crates/trust-runtime/tests/e2e_scheduler.rs",
