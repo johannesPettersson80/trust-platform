@@ -280,6 +280,11 @@ def normalize_nextest_jsonl(
             raise ValueError(f"test event on line {line_number} lacks a name")
         name = normalize_event_test_name(profile, raw_name)
         if name not in expected_full_names:
+            # Nextest's libtest JSON stream reports source-level ignored tests
+            # even when an exact expression selects other tests only. They did
+            # not execute and therefore are not proof-bearing results.
+            if event_name in {"started", "ignored"}:
+                continue
             raise ValueError(f"unexpected test result {name}")
         if event_name == "started":
             if name in started:

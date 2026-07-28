@@ -418,18 +418,25 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
             "syntax-remaining",
             path="crates/trust-syntax/src/syntax/mod.rs",
         )
+        project_examples = get_target_profile(
+            "syntax-remaining",
+            path=(
+                "crates/trust-syntax/tests/"
+                "parser_project_examples.rs"
+            ),
+        )
         self.assertEqual(("--lib",), syntax_kind.cargo_target_args)
         self.assertEqual("syntax::tests::", syntax_kind.test_prefix)
+        self.assertEqual(
+            ("--test", "parser_project_examples"),
+            project_examples.cargo_target_args,
+        )
 
-        for excluded_path in (
-            "crates/trust-syntax/tests/parser_project_examples.rs",
-            "crates/trust-syntax/tests/not_reviewed.rs",
-        ):
-            with self.assertRaisesRegex(ValueError, "outside the closed syntax"):
-                get_target_profile(
-                    "syntax-remaining",
-                    path=excluded_path,
-                )
+        with self.assertRaisesRegex(ValueError, "outside the closed syntax"):
+            get_target_profile(
+                "syntax-remaining",
+                path="crates/trust-syntax/tests/not_reviewed.rs",
+            )
 
     def test_wasm_analysis_profile_is_closed_over_reviewed_parity_parts(self) -> None:
         self.assertIn("wasm-analysis-remaining", TARGET_PROFILES)
@@ -1244,6 +1251,44 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
             ),
         )
 
+    def test_normalizer_ignores_unselected_ignored_test_events(self) -> None:
+        expected = f"{TEST_NAME_PREFIX}selected"
+        ignored = f"{TEST_NAME_PREFIX}ignored_by_source"
+        raw = "\n".join(
+            [
+                json.dumps(
+                    {
+                        "type": "test",
+                        "event": "started",
+                        "name": ignored,
+                    }
+                ),
+                json.dumps(
+                    {
+                        "type": "test",
+                        "event": "ignored",
+                        "name": ignored,
+                    }
+                ),
+                json.dumps(
+                    {
+                        "type": "test",
+                        "event": "ok",
+                        "name": expected,
+                        "exec_time": 0.001,
+                    }
+                ),
+            ]
+        )
+
+        self.assertEqual(
+            [{"title": "selected", "duration": 1, "state": "passed"}],
+            normalize_nextest_jsonl(
+                raw,
+                expected_full_names={expected},
+            ),
+        )
+
     def test_normalizer_accepts_only_hir_profile_encoded_name(self) -> None:
         raw = json.dumps(
             {
@@ -1568,6 +1613,68 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
                 ),
             )
             self.assertTrue((root / results_path).is_file())
+
+    def test_evidence_selection_excludes_unselected_ignored_tests(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source_path = Path(
+                "crates/trust-runtime/src/control/tests/core.rs"
+            )
+            raw_path = root / "target/gate-artifacts/combined.jsonl"
+            source_content = b"#[test]\nfn selected() {}\n"
+            selected = f"{TEST_NAME_PREFIX}selected"
+            raw_content = (
+                "\n".join(
+                    [
+                        json.dumps(
+                            {
+                                "type": "test",
+                                "event": "ignored",
+                                "name": f"{TEST_NAME_PREFIX}source_ignored",
+                            }
+                        ),
+                        json.dumps(
+                            {
+                                "type": "test",
+                                "event": "ok",
+                                "name": selected,
+                                "exec_time": 0.001,
+                            }
+                        ),
+                    ]
+                )
+                + "\n"
+            ).encode()
+            source = root / source_path
+            source.parent.mkdir(parents=True)
+            source.write_bytes(source_content)
+            raw_path.parent.mkdir(parents=True)
+            raw_path.write_bytes(raw_content)
+            metadata = {
+                "path": source_path.as_posix(),
+                "raw_results_path": raw_path.relative_to(root).as_posix(),
+                "raw_results_sha256": _sha256(raw_content),
+                "source_sha256": _sha256(source_content),
+                "selected_test_count": 1,
+                "selected_names_sha256": _sha256(
+                    json.dumps(
+                        [selected],
+                        ensure_ascii=False,
+                        separators=(",", ":"),
+                    ).encode()
+                ),
+                "reviewed_nonmapping_count": 1,
+                "catalog_mapped_count": 0,
+            }
+
+            selection = derive_frozen_selection_from_evidence(
+                root=root,
+                path=source_path.as_posix(),
+                raw_path=raw_path,
+                metadata=metadata,
+            )
+
+            self.assertEqual((selected,), selection.full_names)
 
 
 if __name__ == "__main__":

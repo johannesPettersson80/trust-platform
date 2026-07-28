@@ -1,0 +1,39 @@
+schema_version = 1
+id = "DEV_WORKBENCH_CONFORMANCE_001"
+title = "Developer workbench and shipped library gates report stable truth"
+area = "plcopen_devtools"
+risk = "false_status"
+status = "mapped"
+owner = "trust-dev"
+last_reviewed = "2026-07-28"
+claim = "Developer CLI help, commit dry-run reporting, OSCAT example gates, PLCopen migration scoring, and PLCopen Motion OOP library execution preserve their reviewed operator-visible contracts."
+proof_level = "S0"
+contract_kind = "protocol_trace"
+source_refs = ["docs/specs/09-developer-workflows.md", "docs/specs/31-oscat-library-profile.md", "docs/guides/PLCOPEN_INTEROP_COMPATIBILITY.md"]
+tests = ["TEST_AUTO_2C78FE7C3C3E99984F0A", "TEST_AUTO_478B61E2A9C81B1BD0F3", "TEST_AUTO_C237C360912937D935CF", "TEST_AUTO_CB317388FEC6A3A731FC", "TEST_AUTO_DC570CD7C3B32C99226A", "TEST_AUTO_EA2023180F78FA392438", "TEST_AUTO_EF4F4CDF033D80C69B87", "TEST_AUTO_F22B2C0601B2CEF89B24"]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["focused_execution", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_DEVELOPER_WORKFLOWS_001", "SPEC_OSCAT_LIBRARY_PROFILE_001", "SPEC_PLCOPEN_IMPORT_DECISION_001", "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_DEVELOPER_WORKFLOWS_001"
+
+[[behavior]]
+partition = { equals = "REVIEWED_WORKBENCH_AND_LIBRARY_GATE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Each selected workbench or shipped-library test is bound to its exact frozen identity and complete extracted assertion set; help and dry-run output stay stable, child-gate context stays truthful, migration loss is explicit, and reviewed library cases pass through their real runner."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "The workbench and library contracts and frozen assertion routes are reviewed; exact focused execution and final broad validation remain pending."

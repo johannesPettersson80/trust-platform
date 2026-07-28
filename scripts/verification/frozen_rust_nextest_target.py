@@ -208,6 +208,9 @@ ADS_SERVER_REMAINING_PROFILE = FrozenRustTargetProfile(
 
 ADS_SERVER_REMAINING_UNIT_PREFIXES: Mapping[str, str] = {
     "crates/trust-ads-server/src/ams.rs": "ams::tests::",
+    "crates/trust-ads-server/src/error.rs": "error::tests::",
+    "crates/trust-ads-server/src/identify.rs": "identify::tests::",
+    "crates/trust-ads-server/src/lib.rs": "tests::",
     "crates/trust-ads-server/src/listener.rs": "listener::tests::",
     "crates/trust-ads-server/src/notify.rs": "notify::tests::",
     "crates/trust-ads-server/src/symbols.rs": "symbols::tests::",
@@ -230,6 +233,7 @@ ADS_CORE_REMAINING_PROFILE = FrozenRustTargetProfile(
 ADS_CORE_REMAINING_UNIT_PREFIXES: Mapping[str, str] = {
     "crates/trust-ads-core/src/mapping.rs": "mapping::tests::",
     "crates/trust-ads-core/src/quality.rs": "quality::tests::",
+    "crates/trust-ads-core/src/routing.rs": "routing::tests::",
     "crates/trust-ads-core/src/symbols.rs": "symbols::tests::",
 }
 
@@ -248,7 +252,11 @@ VERIFICATION_CASES_REMAINING_PROFILE = FrozenRustTargetProfile(
 )
 
 VERIFICATION_CASES_REMAINING_UNIT_PREFIXES: Mapping[str, str] = {
+    "crates/verification-cases/src/case_trace.rs": (
+        "case_trace::tests::"
+    ),
     "crates/verification-cases/src/lib.rs": "tests::",
+    "crates/verification-cases/src/model.rs": "model::tests::",
 }
 
 PLCOPEN_REMAINING_PROFILE = FrozenRustTargetProfile(
@@ -279,6 +287,22 @@ WASM_ANALYSIS_REMAINING_PROFILE = FrozenRustTargetProfile(
     no_default_features_shard_name=None,
 )
 
+WASM_ANALYSIS_REMAINING_LIB_PROFILE = FrozenRustTargetProfile(
+    key=WASM_ANALYSIS_REMAINING_PROFILE_KEY,
+    package="trust-wasm-analysis",
+    target_kind="lib",
+    target_name=None,
+    binary_id="trust-wasm-analysis",
+    test_prefix="",
+    encoded_test_name_prefix=(
+        "trust-wasm-analysis::trust_wasm_analysis$"
+    ),
+    discovery_source_kind="rust_unit_test",
+    allowed_cfg_attributes=frozenset(),
+    no_default_features_cfg=None,
+    no_default_features_shard_name=None,
+)
+
 WASM_ANALYSIS_REMAINING_PREFIXES: Mapping[str, str] = {
     (
         "crates/trust-wasm-analysis/tests/mp010_parity/"
@@ -296,6 +320,20 @@ WASM_ANALYSIS_REMAINING_PREFIXES: Mapping[str, str] = {
         "crates/trust-wasm-analysis/tests/mp010_parity/"
         "mp010_parity_part_04.rs"
     ): "mp010_parity_part_04::",
+    (
+        "crates/trust-wasm-analysis/tests/mp010_parity/"
+        "mp010_parity_part_05_part_01.rs"
+    ): (
+        "mp010_parity_part_05::"
+        "mp010_parity_part_05_part_01::"
+    ),
+}
+
+WASM_ANALYSIS_REMAINING_UNIT_PREFIXES: Mapping[str, str] = {
+    "crates/trust-wasm-analysis/src/lib/lib_part_05.rs": "tests::",
+    "crates/trust-wasm-analysis/src/lib/lib_part_06.rs": (
+        "canonical_ast_tests::"
+    ),
 }
 
 PLCOPEN_REMAINING_UNIT_PREFIXES: Mapping[str, str] = {
@@ -376,6 +414,74 @@ RUNTIME_REMAINING_INTEGRATION_PATHS = frozenset(
         "crates/trust-runtime/tests/var_init.rs",
         "crates/trust-runtime/tests/vars_retain.rs",
     }
+)
+
+RUNTIME_REMAINING_INTEGRATION_PATHS = (
+    RUNTIME_REMAINING_INTEGRATION_PATHS
+    | frozenset(
+        {
+            "crates/trust-runtime/tests/build.rs",
+            "crates/trust-runtime/tests/build_unbound_program.rs",
+            "crates/trust-runtime/tests/commit_command.rs",
+            "crates/trust-runtime/tests/compile_time_constants.rs",
+            "crates/trust-runtime/tests/complete_program.rs",
+            "crates/trust-runtime/tests/config_schema_command.rs",
+            "crates/trust-runtime/tests/determinism.rs",
+            "crates/trust-runtime/tests/e2e_basic.rs",
+            "crates/trust-runtime/tests/e2e_comments.rs",
+            "crates/trust-runtime/tests/e2e_configuration.rs",
+            "crates/trust-runtime/tests/e2e_full_grammar.rs",
+            "crates/trust-runtime/tests/e2e_semicolons.rs",
+            "crates/trust-runtime/tests/errors_policy.rs",
+            "crates/trust-runtime/tests/example_runtime_configs.rs",
+            "crates/trust-runtime/tests/instances.rs",
+            "crates/trust-runtime/tests/memory_frames.rs",
+            "crates/trust-runtime/tests/memory_globals.rs",
+            "crates/trust-runtime/tests/memory_lifetime.rs",
+            "crates/trust-runtime/tests/oscat_oop_examples.rs",
+            "crates/trust-runtime/tests/phase11_seam_contract.rs",
+            "crates/trust-runtime/tests/plcopen_migration.rs",
+            (
+                "crates/trust-runtime/tests/"
+                "plcopen_motion_oop_library.rs"
+            ),
+            "crates/trust-runtime/tests/pou_class.rs",
+            "crates/trust-runtime/tests/pou_interface.rs",
+            "crates/trust-runtime/tests/pou_methods.rs",
+            "crates/trust-runtime/tests/pou_oop.rs",
+            "crates/trust-runtime/tests/pou_program.rs",
+            "crates/trust-runtime/tests/prometheus_integration.rs",
+            "crates/trust-runtime/tests/protocol_envelope.rs",
+            "crates/trust-runtime/tests/real_world.rs",
+            "crates/trust-runtime/tests/registry_command.rs",
+            "crates/trust-runtime/tests/resources.rs",
+            "crates/trust-runtime/tests/runtime_events.rs",
+            "crates/trust-runtime/tests/runtime_restart.rs",
+            "crates/trust-runtime/tests/scheduler_harness.rs",
+            "crates/trust-runtime/tests/scheduler_resource.rs",
+            "crates/trust-runtime/tests/scheduler_state.rs",
+            "crates/trust-runtime/tests/signal_smoke.rs",
+            "crates/trust-runtime/tests/st_test_runtime_determinism.rs",
+            "crates/trust-runtime/tests/stmt_assign_attempt.rs",
+            "crates/trust-runtime/tests/stmt_full.rs",
+            "crates/trust-runtime/tests/stmt_jmp.rs",
+            "crates/trust-runtime/tests/tasks_fb.rs",
+            "crates/trust-runtime/tests/types_bit_access.rs",
+            "crates/trust-runtime/tests/types_pointer.rs",
+            "crates/trust-runtime/tests/types_ref.rs",
+            "crates/trust-runtime/tests/types_struct_at.rs",
+            "crates/trust-runtime/tests/types_user.rs",
+            "crates/trust-runtime/tests/ui_no_input_smoke.rs",
+            "crates/trust-runtime/tests/value_defaults.rs",
+            "crates/trust-runtime/tests/value_types.rs",
+            "crates/trust-runtime/tests/var_constants.rs",
+            "crates/trust-runtime/tests/var_stat.rs",
+            "crates/trust-runtime/tests/var_vla.rs",
+            "crates/trust-runtime/tests/vars_at.rs",
+            "crates/trust-runtime/tests/web_dispatch_hol_probe.rs",
+            "crates/trust-runtime/tests/web_tls_integration.rs",
+        }
+    )
 )
 
 RUNTIME_REMAINING_UNIT_PREFIXES: Mapping[str, str] = {
@@ -494,6 +600,29 @@ RUNTIME_REMAINING_UNIT_PREFIXES: Mapping[str, str] = {
     ),
 }
 
+RUNTIME_REMAINING_UNIT_PREFIXES = {
+    **RUNTIME_REMAINING_UNIT_PREFIXES,
+    "crates/trust-runtime/src/host/debug/breakpoints.rs": (
+        "debug::breakpoints::tests::"
+    ),
+    "crates/trust-runtime/src/host/mesh/version.rs": (
+        "mesh::version::tests::"
+    ),
+    "crates/trust-runtime/src/host/registry/tests.rs": (
+        "registry::tests::"
+    ),
+    "crates/trust-runtime/src/host/security/pairing.rs": (
+        "security::pairing::tests::"
+    ),
+    "crates/trust-runtime/src/runtime_cloud/rollout_policy.rs": (
+        "runtime_cloud::rollout_policy::tests::"
+    ),
+    "crates/trust-runtime/src/scheduler/clock.rs": (
+        "scheduler::clock_poison_tests::"
+    ),
+    "crates/trust-runtime/src/scheduler/tests.rs": "scheduler::tests::",
+}
+
 RUNTIME_REMAINING_NESTED_INTEGRATION_PREFIXES: Mapping[
     str, tuple[str, str]
 ] = {
@@ -517,6 +646,30 @@ RUNTIME_REMAINING_NESTED_INTEGRATION_PREFIXES: Mapping[
         "crates/trust-runtime/tests/bytecode_encoder/"
         "bytecode_encoder_part_05.rs"
     ): ("bytecode_encoder", "bytecode_encoder_part_05::"),
+    "crates/trust-runtime/tests/agent_command/harness_execute.rs": (
+        "agent_command",
+        "",
+    ),
+    "crates/trust-runtime/tests/agent_command/lsp.rs": (
+        "agent_command",
+        "",
+    ),
+    (
+        "crates/trust-runtime/tests/agent_command/"
+        "runtime_harness_loop.rs"
+    ): ("agent_command", ""),
+    "crates/trust-runtime/tests/agent_command/runtime_reload.rs": (
+        "agent_command",
+        "",
+    ),
+    "crates/trust-runtime/tests/agent_command/workspace_info.rs": (
+        "agent_command",
+        "",
+    ),
+    "crates/trust-runtime/tests/agent_command/workspace_protocol.rs": (
+        "agent_command",
+        "",
+    ),
 }
 
 HIR_REMAINING_INTEGRATION_PATHS = frozenset(
@@ -586,6 +739,7 @@ SYNTAX_REMAINING_INTEGRATION_PATHS = frozenset(
         "crates/trust-syntax/tests/parser_expressions.rs",
         "crates/trust-syntax/tests/parser_literals.rs",
         "crates/trust-syntax/tests/parser_pous.rs",
+        "crates/trust-syntax/tests/parser_project_examples.rs",
         "crates/trust-syntax/tests/parser_statements.rs",
         "crates/trust-syntax/tests/parser_types.rs",
         "crates/trust-syntax/tests/parser_variables.rs",
@@ -627,6 +781,10 @@ DEV_REMAINING_UNIT_PREFIXES: Mapping[str, str] = {
     "crates/trust-dev/src/test_cmd/tests.rs": "test::tests::",
 }
 
+DEV_REMAINING_INTEGRATION_PATHS = frozenset(
+    {"crates/trust-dev/tests/cli_smoke.rs"}
+)
+
 RUNTIME_CORE_REMAINING_UNIT_PREFIXES: Mapping[str, str] = {
     "crates/trust-runtime-core/src/bytecode/mod.rs": "bytecode::tests::",
     "crates/trust-runtime-core/src/cycle.rs": "cycle::tests::",
@@ -647,6 +805,7 @@ RUNTIME_CORE_REMAINING_UNIT_PREFIXES: Mapping[str, str] = {
         "program_model::util::tests::"
     ),
     "crates/trust-runtime-core/src/retain.rs": "retain::tests::",
+    "crates/trust-runtime-core/src/scaffold.rs": "scaffold::tests::",
     "crates/trust-runtime-core/src/scheduler.rs": "scheduler::tests::",
     "crates/trust-runtime-core/src/task.rs": "task::tests::",
     "crates/trust-runtime-core/src/value/datetime.rs": (
@@ -708,12 +867,7 @@ def get_target_profile(
             "debug",
         )
     if key == DEV_REMAINING_PROFILE_KEY:
-        return _unit_path_profile(
-            DEV_REMAINING_PROFILE,
-            DEV_REMAINING_UNIT_PREFIXES,
-            path,
-            "trust-dev",
-        )
+        return _dev_remaining_profile(path)
     if key == RUNTIME_CORE_REMAINING_PROFILE_KEY:
         return _unit_path_profile(
             RUNTIME_CORE_REMAINING_PROFILE,
@@ -750,12 +904,7 @@ def get_target_profile(
             "PLCopen",
         )
     if key == WASM_ANALYSIS_REMAINING_PROFILE_KEY:
-        return _unit_path_profile(
-            WASM_ANALYSIS_REMAINING_PROFILE,
-            WASM_ANALYSIS_REMAINING_PREFIXES,
-            path,
-            "WASM analysis",
-        )
+        return _wasm_analysis_remaining_profile(path)
     if key == RUNTIME_REMAINING_PROFILE_KEY:
         return _runtime_remaining_profile(path)
     try:
@@ -860,6 +1009,54 @@ def _syntax_remaining_profile(path: str | None) -> FrozenRustTargetProfile:
         )
     raise ValueError(
         f"{path!r} is outside the closed syntax remaining path set"
+    )
+
+
+def _dev_remaining_profile(path: str | None) -> FrozenRustTargetProfile:
+    if path in DEV_REMAINING_UNIT_PREFIXES:
+        return _unit_path_profile(
+            DEV_REMAINING_PROFILE,
+            DEV_REMAINING_UNIT_PREFIXES,
+            path,
+            "trust-dev",
+        )
+    if path in DEV_REMAINING_INTEGRATION_PATHS:
+        target_name = str(path).removeprefix(
+            "crates/trust-dev/tests/"
+        ).removesuffix(".rs")
+        return FrozenRustTargetProfile(
+            key=DEV_REMAINING_PROFILE_KEY,
+            package="trust-dev",
+            target_kind="test",
+            target_name=target_name,
+            binary_id=f"trust-dev::{target_name}",
+            test_prefix="",
+            encoded_test_name_prefix=f"trust-dev::{target_name}$",
+            discovery_source_kind="rust_integration_test",
+            allowed_cfg_attributes=frozenset(),
+            no_default_features_cfg=None,
+            no_default_features_shard_name=None,
+        )
+    raise ValueError(
+        f"{path!r} is outside the closed trust-dev remaining path set"
+    )
+
+
+def _wasm_analysis_remaining_profile(
+    path: str | None,
+) -> FrozenRustTargetProfile:
+    if path in WASM_ANALYSIS_REMAINING_UNIT_PREFIXES:
+        return _unit_path_profile(
+            WASM_ANALYSIS_REMAINING_LIB_PROFILE,
+            WASM_ANALYSIS_REMAINING_UNIT_PREFIXES,
+            path,
+            "WASM analysis",
+        )
+    return _unit_path_profile(
+        WASM_ANALYSIS_REMAINING_PROFILE,
+        WASM_ANALYSIS_REMAINING_PREFIXES,
+        path,
+        "WASM analysis",
     )
 
 
@@ -987,6 +1184,10 @@ def selection_from_combined_evidence(
             continue
         event_name = event.get("event")
         if event_name not in TERMINAL_EVENTS:
+            continue
+        # Exact nextest selections can still emit source-level ignored tests.
+        # They did not execute and are outside the proof-bearing selected set.
+        if event_name == "ignored":
             continue
         raw_name = event.get("name")
         if not isinstance(raw_name, str) or not raw_name:

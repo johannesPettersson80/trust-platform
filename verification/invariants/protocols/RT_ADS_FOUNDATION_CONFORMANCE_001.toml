@@ -1,0 +1,39 @@
+schema_version = 1
+id = "RT_ADS_FOUNDATION_CONFORMANCE_001"
+title = "ADS foundation types and router compatibility preserve wire authority"
+area = "protocols"
+risk = "security"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-28"
+claim = "ADS security policy, imported-point snapshots, server boundaries, identity responses, router compatibility, and TCP metadata reads preserve deterministic reviewed wire and authority semantics."
+proof_level = "S0"
+contract_kind = "protocol_trace"
+source_refs = ["docs/specs/11-runtime-engine.md", "crates/trust-ads-core/src", "crates/trust-ads-server/src"]
+tests = ["TEST_AUTO_0375AA510F7EFD9916A1", "TEST_AUTO_39F8B45C2D735347C01B", "TEST_AUTO_3ACEF1562B2872038FA3", "TEST_AUTO_4CED1DB1E4217E1FB272", "TEST_AUTO_9FA7CF293A0795E86309", "TEST_AUTO_B16F94677813FF77F579", "TEST_AUTO_B49A0E320309773224CF", "TEST_AUTO_C0715309D41FFB6A342D", "TEST_AUTO_CD96125A074599D0AF34", "TEST_AUTO_EC49721E7051C47358F2"]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["focused_execution", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate", "twincat_lab"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#ads-server-command-dispatch-and-resource-safety"
+
+[[behavior]]
+partition = { equals = "REVIEWED_ADS_FOUNDATION_AND_ROUTER_TRACE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-command-dispatch-and-resource-safety"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Each selected ADS foundation test is bound to its exact frozen identity and complete extracted assertion set; policy and snapshots serialize deterministically, wire constants and boundary types stay compatible, and route acknowledgement never grants runtime access."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "The product contract and frozen assertion routes are reviewed; exact focused execution, external TwinCAT proof, and the final broad gate remain pending."

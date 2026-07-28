@@ -1,0 +1,39 @@
+schema_version = 1
+id = "VERIFICATION_CASE_MODEL_CONFORMANCE_001"
+title = "Verification case models and trace provenance fail closed"
+area = "verification"
+risk = "false_status"
+status = "mapped"
+owner = "verification"
+last_reviewed = "2026-07-28"
+claim = "Verification case documents, trace provenance, canonical digests, and schema decoding accept only the reviewed closed representations and reject ambiguous or non-finite inputs before evidence publication."
+proof_level = "S0"
+contract_kind = "protocol_trace"
+source_refs = ["docs/internal/testing/specs/verification-program-contract.md", "crates/verification-cases/src"]
+tests = ["TEST_AUTO_31C7CA5475CFABF17E4A", "TEST_AUTO_A6A172528FBDB9B2EF6F", "TEST_AUTO_B88734C266501D2AF32C", "TEST_AUTO_C19E83C321C481A8A26B", "TEST_AUTO_DE0884DB9274146F41BB"]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["focused_execution", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_VERIFICATION_PROGRAM_CONTRACT_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001"
+
+[[behavior]]
+partition = { equals = "REVIEWED_CASE_MODEL_AND_TRACE_BOUNDARY" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Each selected case-model or trace test is bound to its exact frozen identity and complete extracted assertion set; accepted provenance and canonical digests round-trip, while unknown fields and non-finite TOML floats reject before a proof artifact can be published."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "The contract and frozen assertion routes are reviewed; exact focused execution and final broad validation remain pending."
