@@ -111697,3 +111697,509 @@ mapping_assertion_review_digest = "sha256:195ae274f4bf6b10622efceefc5a7ebf35d772
 mapping_assertion_source_digests = { "crates/trust-runtime/tests/debug_stepping.rs" = "sha256:cc2ce5aac6e23ee230428fb758225a5d19ca63520a3d0d89d413b18beba10eb7" }
 mapping_behavior_refs = ["DEBUG_DAP_PROTOCOL_SESSION_001#behavior:3"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_444644407843BD3E78CF"
+subject_kind = "generated_test"
+discovery_id = "DISC_444644407843BD3E78CF"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_01.rs"
+name = "hover_function_block_signature_in_wasm_uses_declared_types"
+command = "cargo nextest run -p trust-wasm-analysis --test mp010_parity --no-fail-fast --user-config-file none -E 'binary_id(=trust-wasm-analysis::mp010_parity) & test(=mp010_parity_part_01::hover_function_block_signature_in_wasm_uses_declared_types)'"
+owner = "trust-ide"
+status = "mapped"
+invariants = ["BROWSER_ANALYSIS_PROJECTION_001"]
+oracle_ref = "SPEC_LSP_CONTRACT_001#6611-browser-and-webassembly-analysis-projection"
+oracle_refs = ["SPEC_LSP_CONTRACT_001#6611-browser-and-webassembly-analysis-projection"]
+expected_result = "Function-block hover preserves declared input and output types, while completion returns reviewed visible variables and declared structure members."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_444644407843BD3E78CF.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_444644407843BD3E78CF_8D3C5DE243C3"
+mapping_proposal_digest = "sha256:8d3c5de243c3b1e614b38ea097041f98ddd40187a460b55dd1418834c6878614"
+mapping_decision_id = "MAP_DEC_EF418211A9F2F1C78B3548E8"
+mapping_reviewed_source_digest = "sha256:bac68a73947be47ad0b53feb032145734ef43656a55da48bb1417645fee502fa"
+mapping_assertion_review_digest = "sha256:be4da40ce2b25b371b3d9653c70ec9179a2c94479d99cd0e5f9202f7869aca42"
+mapping_assertion_source_digests = { "crates/trust-wasm-analysis/tests/mp010_parity.rs" = "sha256:2c04b1515b5ed08b81bc8a567aea6295c5a22261982b8cda0d91020b583a809f", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_01.rs" = "sha256:bac68a73947be47ad0b53feb032145734ef43656a55da48bb1417645fee502fa", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_02.rs" = "sha256:ead98f2fe24d1b2d35420c78817c57e89967d567aed9c8d22f41882bd4027202", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_03.rs" = "sha256:5ffd65bb29303def74bec159bf2af8bad3d32c5a08813002da7b87accbd8fb8a", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_04.rs" = "sha256:6b59e56b205da3bc23e19371510498957a64e20ccf707c28c4d599fddce7e0d4", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05.rs" = "sha256:7e8df3fde2dd12174fdd3fea6172f8189e9c3cb349297fad50919aed7e0cb3c7", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05_part_01.rs" = "sha256:1302b88241bebc9c343855e875d5802452230f0c51622ef05b9df44ce55978c5", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05_support_01.rs" = "sha256:a3233fde18660de0e6fc09779a851c0967d7f06bfffa8cf71c986af4efc4dca8", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05_support_02.rs" = "sha256:f50f6cf08422116147404622acd2b0190e48d054fbbafa1a80a7092d85bf2b40", "examples/plant_demo/src/config.st" = "sha256:eb5d9af157d8eb3cfc08977bfd8be23600d3f6b4ac70024689850b4c767e7b5b", "examples/plant_demo/src/fb_pump.st" = "sha256:c3d235a5eccff11680bd811a7e9a11253ab4137a053d3b87d89ca4c2b8f8bd5b", "examples/plant_demo/src/program.st" = "sha256:e302d87da4805242f083e113fdc30f9f1bd4d8a4cb4a91ff394563f22611df54", "examples/plant_demo/src/types.st" = "sha256:05294912e6c0fcf75b1225f21287c6647f7ea1676f20510032577c24b1f00b2e" }
+mapping_behavior_refs = ["BROWSER_ANALYSIS_PROJECTION_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_69339D4C4A34D9C89FA5"
+subject_kind = "generated_test"
+discovery_id = "DISC_69339D4C4A34D9C89FA5"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_01.rs"
+name = "hover_and_completion_parity_matches_native_analysis"
+command = "cargo nextest run -p trust-wasm-analysis --test mp010_parity --no-fail-fast --user-config-file none -E 'binary_id(=trust-wasm-analysis::mp010_parity) & test(=mp010_parity_part_01::hover_and_completion_parity_matches_native_analysis)'"
+owner = "trust-ide"
+status = "mapped"
+invariants = ["BROWSER_ANALYSIS_PROJECTION_001"]
+oracle_ref = "SPEC_LSP_CONTRACT_001#6611-browser-and-webassembly-analysis-projection"
+oracle_refs = ["SPEC_LSP_CONTRACT_001#6611-browser-and-webassembly-analysis-projection"]
+expected_result = "For the reviewed fixtures and requests only, browser diagnostics, hover, and completion equal the corresponding native analysis projections."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_69339D4C4A34D9C89FA5.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_69339D4C4A34D9C89FA5_6D0FAAEAB212"
+mapping_proposal_digest = "sha256:6d0faaeab2127e289a6bc805aa9c65dad82a8d1b16bc94ca94add2a9f7cb0495"
+mapping_decision_id = "MAP_DEC_9D17D9AC93875ADA7B524CBB"
+mapping_reviewed_source_digest = "sha256:bac68a73947be47ad0b53feb032145734ef43656a55da48bb1417645fee502fa"
+mapping_assertion_review_digest = "sha256:cfbac364c45d131e4e366da9cda2dbc127acd05c3a0d7e27a25bad7b0591ec4b"
+mapping_assertion_source_digests = { "crates/trust-wasm-analysis/tests/mp010_parity.rs" = "sha256:2c04b1515b5ed08b81bc8a567aea6295c5a22261982b8cda0d91020b583a809f", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_01.rs" = "sha256:bac68a73947be47ad0b53feb032145734ef43656a55da48bb1417645fee502fa", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_02.rs" = "sha256:ead98f2fe24d1b2d35420c78817c57e89967d567aed9c8d22f41882bd4027202", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_03.rs" = "sha256:5ffd65bb29303def74bec159bf2af8bad3d32c5a08813002da7b87accbd8fb8a", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_04.rs" = "sha256:6b59e56b205da3bc23e19371510498957a64e20ccf707c28c4d599fddce7e0d4", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05.rs" = "sha256:7e8df3fde2dd12174fdd3fea6172f8189e9c3cb349297fad50919aed7e0cb3c7", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05_part_01.rs" = "sha256:1302b88241bebc9c343855e875d5802452230f0c51622ef05b9df44ce55978c5", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05_support_01.rs" = "sha256:a3233fde18660de0e6fc09779a851c0967d7f06bfffa8cf71c986af4efc4dca8", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05_support_02.rs" = "sha256:f50f6cf08422116147404622acd2b0190e48d054fbbafa1a80a7092d85bf2b40", "examples/plant_demo/src/config.st" = "sha256:eb5d9af157d8eb3cfc08977bfd8be23600d3f6b4ac70024689850b4c767e7b5b", "examples/plant_demo/src/fb_pump.st" = "sha256:c3d235a5eccff11680bd811a7e9a11253ab4137a053d3b87d89ca4c2b8f8bd5b", "examples/plant_demo/src/program.st" = "sha256:e302d87da4805242f083e113fdc30f9f1bd4d8a4cb4a91ff394563f22611df54", "examples/plant_demo/src/types.st" = "sha256:05294912e6c0fcf75b1225f21287c6647f7ea1676f20510032577c24b1f00b2e" }
+mapping_behavior_refs = ["BROWSER_ANALYSIS_PROJECTION_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_C95ABDE21A1B821DAE52"
+subject_kind = "generated_test"
+discovery_id = "DISC_C95ABDE21A1B821DAE52"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_01.rs"
+name = "completion_for_statement_prefixes_exposes_program_variables"
+command = "cargo nextest run -p trust-wasm-analysis --test mp010_parity --no-fail-fast --user-config-file none -E 'binary_id(=trust-wasm-analysis::mp010_parity) & test(=mp010_parity_part_01::completion_for_statement_prefixes_exposes_program_variables)'"
+owner = "trust-ide"
+status = "mapped"
+invariants = ["BROWSER_ANALYSIS_PROJECTION_001"]
+oracle_ref = "SPEC_LSP_CONTRACT_001#6611-browser-and-webassembly-analysis-projection"
+oracle_refs = ["SPEC_LSP_CONTRACT_001#6611-browser-and-webassembly-analysis-projection"]
+expected_result = "Function-block hover preserves declared input and output types, while completion returns reviewed visible variables and declared structure members."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_C95ABDE21A1B821DAE52.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_C95ABDE21A1B821DAE52_B0B95E559AF7"
+mapping_proposal_digest = "sha256:b0b95e559af7f9b67220d647899371c1e6d8695e8d06d0b4a89f0e8486584a44"
+mapping_decision_id = "MAP_DEC_DE10F4D81D3ABA7258A86DE6"
+mapping_reviewed_source_digest = "sha256:bac68a73947be47ad0b53feb032145734ef43656a55da48bb1417645fee502fa"
+mapping_assertion_review_digest = "sha256:524f5398ecbeced0d50d757702ef0454566c53756e79df8208cbe2b11fcdd5f5"
+mapping_assertion_source_digests = { "crates/trust-wasm-analysis/tests/mp010_parity.rs" = "sha256:2c04b1515b5ed08b81bc8a567aea6295c5a22261982b8cda0d91020b583a809f", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_01.rs" = "sha256:bac68a73947be47ad0b53feb032145734ef43656a55da48bb1417645fee502fa", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_02.rs" = "sha256:ead98f2fe24d1b2d35420c78817c57e89967d567aed9c8d22f41882bd4027202", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_03.rs" = "sha256:5ffd65bb29303def74bec159bf2af8bad3d32c5a08813002da7b87accbd8fb8a", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_04.rs" = "sha256:6b59e56b205da3bc23e19371510498957a64e20ccf707c28c4d599fddce7e0d4", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05.rs" = "sha256:7e8df3fde2dd12174fdd3fea6172f8189e9c3cb349297fad50919aed7e0cb3c7", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05_part_01.rs" = "sha256:1302b88241bebc9c343855e875d5802452230f0c51622ef05b9df44ce55978c5", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05_support_01.rs" = "sha256:a3233fde18660de0e6fc09779a851c0967d7f06bfffa8cf71c986af4efc4dca8", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05_support_02.rs" = "sha256:f50f6cf08422116147404622acd2b0190e48d054fbbafa1a80a7092d85bf2b40", "examples/plant_demo/src/config.st" = "sha256:eb5d9af157d8eb3cfc08977bfd8be23600d3f6b4ac70024689850b4c767e7b5b", "examples/plant_demo/src/fb_pump.st" = "sha256:c3d235a5eccff11680bd811a7e9a11253ab4137a053d3b87d89ca4c2b8f8bd5b", "examples/plant_demo/src/program.st" = "sha256:e302d87da4805242f083e113fdc30f9f1bd4d8a4cb4a91ff394563f22611df54", "examples/plant_demo/src/types.st" = "sha256:05294912e6c0fcf75b1225f21287c6647f7ea1676f20510032577c24b1f00b2e" }
+mapping_behavior_refs = ["BROWSER_ANALYSIS_PROJECTION_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_E989A5E3C6EEBA05C959"
+subject_kind = "generated_test"
+discovery_id = "DISC_E989A5E3C6EEBA05C959"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_01.rs"
+name = "completion_for_struct_member_access_returns_expected_members"
+command = "cargo nextest run -p trust-wasm-analysis --test mp010_parity --no-fail-fast --user-config-file none -E 'binary_id(=trust-wasm-analysis::mp010_parity) & test(=mp010_parity_part_01::completion_for_struct_member_access_returns_expected_members)'"
+owner = "trust-ide"
+status = "mapped"
+invariants = ["BROWSER_ANALYSIS_PROJECTION_001"]
+oracle_ref = "SPEC_LSP_CONTRACT_001#6611-browser-and-webassembly-analysis-projection"
+oracle_refs = ["SPEC_LSP_CONTRACT_001#6611-browser-and-webassembly-analysis-projection"]
+expected_result = "Function-block hover preserves declared input and output types, while completion returns reviewed visible variables and declared structure members."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_E989A5E3C6EEBA05C959.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_E989A5E3C6EEBA05C959_AB74D8D734EF"
+mapping_proposal_digest = "sha256:ab74d8d734ef7415cd28fc8db62031e5c4caa23d7ec793a6c45e871e3d4ac04a"
+mapping_decision_id = "MAP_DEC_08B83F3155FE9CA688CDC06F"
+mapping_reviewed_source_digest = "sha256:bac68a73947be47ad0b53feb032145734ef43656a55da48bb1417645fee502fa"
+mapping_assertion_review_digest = "sha256:c7967ffc33e56b7c72d836499cc6dec5fcc2304602bb341455bc209301b9efd6"
+mapping_assertion_source_digests = { "crates/trust-wasm-analysis/tests/mp010_parity.rs" = "sha256:2c04b1515b5ed08b81bc8a567aea6295c5a22261982b8cda0d91020b583a809f", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_01.rs" = "sha256:bac68a73947be47ad0b53feb032145734ef43656a55da48bb1417645fee502fa", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_02.rs" = "sha256:ead98f2fe24d1b2d35420c78817c57e89967d567aed9c8d22f41882bd4027202", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_03.rs" = "sha256:5ffd65bb29303def74bec159bf2af8bad3d32c5a08813002da7b87accbd8fb8a", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_04.rs" = "sha256:6b59e56b205da3bc23e19371510498957a64e20ccf707c28c4d599fddce7e0d4", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05.rs" = "sha256:7e8df3fde2dd12174fdd3fea6172f8189e9c3cb349297fad50919aed7e0cb3c7", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05_part_01.rs" = "sha256:1302b88241bebc9c343855e875d5802452230f0c51622ef05b9df44ce55978c5", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05_support_01.rs" = "sha256:a3233fde18660de0e6fc09779a851c0967d7f06bfffa8cf71c986af4efc4dca8", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05_support_02.rs" = "sha256:f50f6cf08422116147404622acd2b0190e48d054fbbafa1a80a7092d85bf2b40", "examples/plant_demo/src/config.st" = "sha256:eb5d9af157d8eb3cfc08977bfd8be23600d3f6b4ac70024689850b4c767e7b5b", "examples/plant_demo/src/fb_pump.st" = "sha256:c3d235a5eccff11680bd811a7e9a11253ab4137a053d3b87d89ca4c2b8f8bd5b", "examples/plant_demo/src/program.st" = "sha256:e302d87da4805242f083e113fdc30f9f1bd4d8a4cb4a91ff394563f22611df54", "examples/plant_demo/src/types.st" = "sha256:05294912e6c0fcf75b1225f21287c6647f7ea1676f20510032577c24b1f00b2e" }
+mapping_behavior_refs = ["BROWSER_ANALYSIS_PROJECTION_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_F4BFE0A1FF6217DDE594"
+subject_kind = "generated_test"
+discovery_id = "DISC_F4BFE0A1FF6217DDE594"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_01.rs"
+name = "diagnostics_parity_matches_native_analysis"
+command = "cargo nextest run -p trust-wasm-analysis --test mp010_parity --no-fail-fast --user-config-file none -E 'binary_id(=trust-wasm-analysis::mp010_parity) & test(=mp010_parity_part_01::diagnostics_parity_matches_native_analysis)'"
+owner = "trust-ide"
+status = "mapped"
+invariants = ["BROWSER_ANALYSIS_PROJECTION_001"]
+oracle_ref = "SPEC_LSP_CONTRACT_001#6611-browser-and-webassembly-analysis-projection"
+oracle_refs = ["SPEC_LSP_CONTRACT_001#6611-browser-and-webassembly-analysis-projection"]
+expected_result = "For the reviewed fixtures and requests only, browser diagnostics, hover, and completion equal the corresponding native analysis projections."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_F4BFE0A1FF6217DDE594.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_F4BFE0A1FF6217DDE594_539B0A91294E"
+mapping_proposal_digest = "sha256:539b0a91294e57fef55b4c14817cbf2a45f7dcbce70e17e734bf24127f230d22"
+mapping_decision_id = "MAP_DEC_1E685011FE86796395B5B1E2"
+mapping_reviewed_source_digest = "sha256:bac68a73947be47ad0b53feb032145734ef43656a55da48bb1417645fee502fa"
+mapping_assertion_review_digest = "sha256:00055eb55ba0233a04b8dfbad8fdfda72ad4b6d08929d3cc41adc0de22d988da"
+mapping_assertion_source_digests = { "crates/trust-wasm-analysis/tests/mp010_parity.rs" = "sha256:2c04b1515b5ed08b81bc8a567aea6295c5a22261982b8cda0d91020b583a809f", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_01.rs" = "sha256:bac68a73947be47ad0b53feb032145734ef43656a55da48bb1417645fee502fa", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_02.rs" = "sha256:ead98f2fe24d1b2d35420c78817c57e89967d567aed9c8d22f41882bd4027202", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_03.rs" = "sha256:5ffd65bb29303def74bec159bf2af8bad3d32c5a08813002da7b87accbd8fb8a", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_04.rs" = "sha256:6b59e56b205da3bc23e19371510498957a64e20ccf707c28c4d599fddce7e0d4", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05.rs" = "sha256:7e8df3fde2dd12174fdd3fea6172f8189e9c3cb349297fad50919aed7e0cb3c7", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05_part_01.rs" = "sha256:1302b88241bebc9c343855e875d5802452230f0c51622ef05b9df44ce55978c5", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05_support_01.rs" = "sha256:a3233fde18660de0e6fc09779a851c0967d7f06bfffa8cf71c986af4efc4dca8", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05_support_02.rs" = "sha256:f50f6cf08422116147404622acd2b0190e48d054fbbafa1a80a7092d85bf2b40", "examples/plant_demo/src/config.st" = "sha256:eb5d9af157d8eb3cfc08977bfd8be23600d3f6b4ac70024689850b4c767e7b5b", "examples/plant_demo/src/fb_pump.st" = "sha256:c3d235a5eccff11680bd811a7e9a11253ab4137a053d3b87d89ca4c2b8f8bd5b", "examples/plant_demo/src/program.st" = "sha256:e302d87da4805242f083e113fdc30f9f1bd4d8a4cb4a91ff394563f22611df54", "examples/plant_demo/src/types.st" = "sha256:05294912e6c0fcf75b1225f21287c6647f7ea1676f20510032577c24b1f00b2e" }
+mapping_behavior_refs = ["BROWSER_ANALYSIS_PROJECTION_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_1B95A902523C7F562253"
+subject_kind = "generated_test"
+discovery_id = "DISC_1B95A902523C7F562253"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_02.rs"
+name = "definition_references_and_rename_work_with_plain_demo_uris"
+command = "cargo nextest run -p trust-wasm-analysis --test mp010_parity --no-fail-fast --user-config-file none -E 'binary_id(=trust-wasm-analysis::mp010_parity) & test(=mp010_parity_part_02::definition_references_and_rename_work_with_plain_demo_uris)'"
+owner = "trust-ide"
+status = "mapped"
+invariants = ["BROWSER_ANALYSIS_PROJECTION_001"]
+oracle_ref = "SPEC_LSP_CONTRACT_001#6611-browser-and-webassembly-analysis-projection"
+oracle_refs = ["SPEC_LSP_CONTRACT_001#6611-browser-and-webassembly-analysis-projection"]
+expected_result = "The reviewed definition, references, rename, and document-highlight results preserve asserted plain source identities, targets, URI membership, and occurrence counts without claiming exact ranges, edits, application, or atomicity."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_1B95A902523C7F562253.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_1B95A902523C7F562253_97A55559662A"
+mapping_proposal_digest = "sha256:97a55559662a7bca998e389f4c30d1e54d6f0017ea558d58563e1a5d9a4cf142"
+mapping_decision_id = "MAP_DEC_C851AD1A67A0A7476D547BF2"
+mapping_reviewed_source_digest = "sha256:ead98f2fe24d1b2d35420c78817c57e89967d567aed9c8d22f41882bd4027202"
+mapping_assertion_review_digest = "sha256:3f0a0f45a9c89a1a04cadee90a6af1c701c471de4fe782b1d348c382daf81c3b"
+mapping_assertion_source_digests = { "crates/trust-wasm-analysis/tests/mp010_parity.rs" = "sha256:2c04b1515b5ed08b81bc8a567aea6295c5a22261982b8cda0d91020b583a809f", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_01.rs" = "sha256:bac68a73947be47ad0b53feb032145734ef43656a55da48bb1417645fee502fa", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_02.rs" = "sha256:ead98f2fe24d1b2d35420c78817c57e89967d567aed9c8d22f41882bd4027202", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_03.rs" = "sha256:5ffd65bb29303def74bec159bf2af8bad3d32c5a08813002da7b87accbd8fb8a", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_04.rs" = "sha256:6b59e56b205da3bc23e19371510498957a64e20ccf707c28c4d599fddce7e0d4", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05.rs" = "sha256:7e8df3fde2dd12174fdd3fea6172f8189e9c3cb349297fad50919aed7e0cb3c7", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05_part_01.rs" = "sha256:1302b88241bebc9c343855e875d5802452230f0c51622ef05b9df44ce55978c5", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05_support_01.rs" = "sha256:a3233fde18660de0e6fc09779a851c0967d7f06bfffa8cf71c986af4efc4dca8", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05_support_02.rs" = "sha256:f50f6cf08422116147404622acd2b0190e48d054fbbafa1a80a7092d85bf2b40", "examples/plant_demo/src/config.st" = "sha256:eb5d9af157d8eb3cfc08977bfd8be23600d3f6b4ac70024689850b4c767e7b5b", "examples/plant_demo/src/fb_pump.st" = "sha256:c3d235a5eccff11680bd811a7e9a11253ab4137a053d3b87d89ca4c2b8f8bd5b", "examples/plant_demo/src/program.st" = "sha256:e302d87da4805242f083e113fdc30f9f1bd4d8a4cb4a91ff394563f22611df54", "examples/plant_demo/src/types.st" = "sha256:05294912e6c0fcf75b1225f21287c6647f7ea1676f20510032577c24b1f00b2e" }
+mapping_behavior_refs = ["BROWSER_ANALYSIS_PROJECTION_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_99FF235CF921E4EAC7BD"
+subject_kind = "generated_test"
+discovery_id = "DISC_99FF235CF921E4EAC7BD"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_02.rs"
+name = "definition_supports_boundary_cursor_positions_with_plain_demo_uris"
+command = "cargo nextest run -p trust-wasm-analysis --test mp010_parity --no-fail-fast --user-config-file none -E 'binary_id(=trust-wasm-analysis::mp010_parity) & test(=mp010_parity_part_02::definition_supports_boundary_cursor_positions_with_plain_demo_uris)'"
+owner = "trust-ide"
+status = "mapped"
+invariants = ["BROWSER_ANALYSIS_PROJECTION_001"]
+oracle_ref = "SPEC_LSP_CONTRACT_001#6611-browser-and-webassembly-analysis-projection"
+oracle_refs = ["SPEC_LSP_CONTRACT_001#6611-browser-and-webassembly-analysis-projection"]
+expected_result = "The reviewed definition, references, and rename requests resolve at an identifier end or immediately adjacent '#', '+', or ':' punctuation; ASCII-only fixtures do not prove UTF-16 behavior."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_99FF235CF921E4EAC7BD.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_99FF235CF921E4EAC7BD_F152DCAD9A81"
+mapping_proposal_digest = "sha256:f152dcad9a81603a8737ed346c6be112c8ddf80333b3678b1e56ee7083b6a6d1"
+mapping_decision_id = "MAP_DEC_E8221B601AD63DA987260925"
+mapping_reviewed_source_digest = "sha256:ead98f2fe24d1b2d35420c78817c57e89967d567aed9c8d22f41882bd4027202"
+mapping_assertion_review_digest = "sha256:ba748649f4f4e20f596f41b3041d90cf9e111ecf015a2724075a670f11a3124d"
+mapping_assertion_source_digests = { "crates/trust-wasm-analysis/tests/mp010_parity.rs" = "sha256:2c04b1515b5ed08b81bc8a567aea6295c5a22261982b8cda0d91020b583a809f", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_01.rs" = "sha256:bac68a73947be47ad0b53feb032145734ef43656a55da48bb1417645fee502fa", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_02.rs" = "sha256:ead98f2fe24d1b2d35420c78817c57e89967d567aed9c8d22f41882bd4027202", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_03.rs" = "sha256:5ffd65bb29303def74bec159bf2af8bad3d32c5a08813002da7b87accbd8fb8a", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_04.rs" = "sha256:6b59e56b205da3bc23e19371510498957a64e20ccf707c28c4d599fddce7e0d4", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05.rs" = "sha256:7e8df3fde2dd12174fdd3fea6172f8189e9c3cb349297fad50919aed7e0cb3c7", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05_part_01.rs" = "sha256:1302b88241bebc9c343855e875d5802452230f0c51622ef05b9df44ce55978c5", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05_support_01.rs" = "sha256:a3233fde18660de0e6fc09779a851c0967d7f06bfffa8cf71c986af4efc4dca8", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05_support_02.rs" = "sha256:f50f6cf08422116147404622acd2b0190e48d054fbbafa1a80a7092d85bf2b40", "examples/plant_demo/src/config.st" = "sha256:eb5d9af157d8eb3cfc08977bfd8be23600d3f6b4ac70024689850b4c767e7b5b", "examples/plant_demo/src/fb_pump.st" = "sha256:c3d235a5eccff11680bd811a7e9a11253ab4137a053d3b87d89ca4c2b8f8bd5b", "examples/plant_demo/src/program.st" = "sha256:e302d87da4805242f083e113fdc30f9f1bd4d8a4cb4a91ff394563f22611df54", "examples/plant_demo/src/types.st" = "sha256:05294912e6c0fcf75b1225f21287c6647f7ea1676f20510032577c24b1f00b2e" }
+mapping_behavior_refs = ["BROWSER_ANALYSIS_PROJECTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_A8F7307EC90531FA4E6E"
+subject_kind = "generated_test"
+discovery_id = "DISC_A8F7307EC90531FA4E6E"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_02.rs"
+name = "references_and_rename_work_with_plain_demo_uris"
+command = "cargo nextest run -p trust-wasm-analysis --test mp010_parity --no-fail-fast --user-config-file none -E 'binary_id(=trust-wasm-analysis::mp010_parity) & test(=mp010_parity_part_02::references_and_rename_work_with_plain_demo_uris)'"
+owner = "trust-ide"
+status = "mapped"
+invariants = ["BROWSER_ANALYSIS_PROJECTION_001"]
+oracle_ref = "SPEC_LSP_CONTRACT_001#6611-browser-and-webassembly-analysis-projection"
+oracle_refs = ["SPEC_LSP_CONTRACT_001#6611-browser-and-webassembly-analysis-projection"]
+expected_result = "The reviewed definition, references, rename, and document-highlight results preserve asserted plain source identities, targets, URI membership, and occurrence counts without claiming exact ranges, edits, application, or atomicity."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_A8F7307EC90531FA4E6E.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_A8F7307EC90531FA4E6E_CDB25CDD8AE0"
+mapping_proposal_digest = "sha256:cdb25cdd8ae0aac531d675d266149fc57476877dbb1bc975e11e631dae89cabd"
+mapping_decision_id = "MAP_DEC_6ABC96FFC65350579369D01C"
+mapping_reviewed_source_digest = "sha256:ead98f2fe24d1b2d35420c78817c57e89967d567aed9c8d22f41882bd4027202"
+mapping_assertion_review_digest = "sha256:a97d14d4f456bc3c0d415c60f47fadbec5678cea3efb7ad2fb3f6ea985e6cf06"
+mapping_assertion_source_digests = { "crates/trust-wasm-analysis/tests/mp010_parity.rs" = "sha256:2c04b1515b5ed08b81bc8a567aea6295c5a22261982b8cda0d91020b583a809f", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_01.rs" = "sha256:bac68a73947be47ad0b53feb032145734ef43656a55da48bb1417645fee502fa", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_02.rs" = "sha256:ead98f2fe24d1b2d35420c78817c57e89967d567aed9c8d22f41882bd4027202", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_03.rs" = "sha256:5ffd65bb29303def74bec159bf2af8bad3d32c5a08813002da7b87accbd8fb8a", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_04.rs" = "sha256:6b59e56b205da3bc23e19371510498957a64e20ccf707c28c4d599fddce7e0d4", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05.rs" = "sha256:7e8df3fde2dd12174fdd3fea6172f8189e9c3cb349297fad50919aed7e0cb3c7", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05_part_01.rs" = "sha256:1302b88241bebc9c343855e875d5802452230f0c51622ef05b9df44ce55978c5", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05_support_01.rs" = "sha256:a3233fde18660de0e6fc09779a851c0967d7f06bfffa8cf71c986af4efc4dca8", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05_support_02.rs" = "sha256:f50f6cf08422116147404622acd2b0190e48d054fbbafa1a80a7092d85bf2b40", "examples/plant_demo/src/config.st" = "sha256:eb5d9af157d8eb3cfc08977bfd8be23600d3f6b4ac70024689850b4c767e7b5b", "examples/plant_demo/src/fb_pump.st" = "sha256:c3d235a5eccff11680bd811a7e9a11253ab4137a053d3b87d89ca4c2b8f8bd5b", "examples/plant_demo/src/program.st" = "sha256:e302d87da4805242f083e113fdc30f9f1bd4d8a4cb4a91ff394563f22611df54", "examples/plant_demo/src/types.st" = "sha256:05294912e6c0fcf75b1225f21287c6647f7ea1676f20510032577c24b1f00b2e" }
+mapping_behavior_refs = ["BROWSER_ANALYSIS_PROJECTION_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_26C78820E692F5088A29"
+subject_kind = "generated_test"
+discovery_id = "DISC_26C78820E692F5088A29"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_03.rs"
+name = "definition_for_pump_controller_type_with_plain_demo_uris_returns_target_uri"
+command = "cargo nextest run -p trust-wasm-analysis --test mp010_parity --no-fail-fast --user-config-file none -E 'binary_id(=trust-wasm-analysis::mp010_parity) & test(=mp010_parity_part_03::definition_for_pump_controller_type_with_plain_demo_uris_returns_target_uri)'"
+owner = "trust-ide"
+status = "mapped"
+invariants = ["BROWSER_ANALYSIS_PROJECTION_001"]
+oracle_ref = "SPEC_LSP_CONTRACT_001#6611-browser-and-webassembly-analysis-projection"
+oracle_refs = ["SPEC_LSP_CONTRACT_001#6611-browser-and-webassembly-analysis-projection"]
+expected_result = "The reviewed definition, references, rename, and document-highlight results preserve asserted plain source identities, targets, URI membership, and occurrence counts without claiming exact ranges, edits, application, or atomicity."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_26C78820E692F5088A29.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_26C78820E692F5088A29_85EA0487421E"
+mapping_proposal_digest = "sha256:85ea0487421e8555b7fd764d035b2014ed5ac1a8478ba567db585956150d8740"
+mapping_decision_id = "MAP_DEC_EDD132E04DFF30D95E080576"
+mapping_reviewed_source_digest = "sha256:5ffd65bb29303def74bec159bf2af8bad3d32c5a08813002da7b87accbd8fb8a"
+mapping_assertion_review_digest = "sha256:581675a159a63fa76742d7624b91d027c3d9d7bbcdf7cd0acc9d0cdfe784e61c"
+mapping_assertion_source_digests = { "crates/trust-wasm-analysis/tests/mp010_parity.rs" = "sha256:2c04b1515b5ed08b81bc8a567aea6295c5a22261982b8cda0d91020b583a809f", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_01.rs" = "sha256:bac68a73947be47ad0b53feb032145734ef43656a55da48bb1417645fee502fa", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_02.rs" = "sha256:ead98f2fe24d1b2d35420c78817c57e89967d567aed9c8d22f41882bd4027202", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_03.rs" = "sha256:5ffd65bb29303def74bec159bf2af8bad3d32c5a08813002da7b87accbd8fb8a", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_04.rs" = "sha256:6b59e56b205da3bc23e19371510498957a64e20ccf707c28c4d599fddce7e0d4", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05.rs" = "sha256:7e8df3fde2dd12174fdd3fea6172f8189e9c3cb349297fad50919aed7e0cb3c7", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05_part_01.rs" = "sha256:1302b88241bebc9c343855e875d5802452230f0c51622ef05b9df44ce55978c5", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05_support_01.rs" = "sha256:a3233fde18660de0e6fc09779a851c0967d7f06bfffa8cf71c986af4efc4dca8", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05_support_02.rs" = "sha256:f50f6cf08422116147404622acd2b0190e48d054fbbafa1a80a7092d85bf2b40", "examples/plant_demo/src/config.st" = "sha256:eb5d9af157d8eb3cfc08977bfd8be23600d3f6b4ac70024689850b4c767e7b5b", "examples/plant_demo/src/fb_pump.st" = "sha256:c3d235a5eccff11680bd811a7e9a11253ab4137a053d3b87d89ca4c2b8f8bd5b", "examples/plant_demo/src/program.st" = "sha256:e302d87da4805242f083e113fdc30f9f1bd4d8a4cb4a91ff394563f22611df54", "examples/plant_demo/src/types.st" = "sha256:05294912e6c0fcf75b1225f21287c6647f7ea1676f20510032577c24b1f00b2e" }
+mapping_behavior_refs = ["BROWSER_ANALYSIS_PROJECTION_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_54137EE63E1773E87DC7"
+subject_kind = "generated_test"
+discovery_id = "DISC_54137EE63E1773E87DC7"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_03.rs"
+name = "references_for_program_variable_work_with_plain_demo_uris"
+command = "cargo nextest run -p trust-wasm-analysis --test mp010_parity --no-fail-fast --user-config-file none -E 'binary_id(=trust-wasm-analysis::mp010_parity) & test(=mp010_parity_part_03::references_for_program_variable_work_with_plain_demo_uris)'"
+owner = "trust-ide"
+status = "mapped"
+invariants = ["BROWSER_ANALYSIS_PROJECTION_001"]
+oracle_ref = "SPEC_LSP_CONTRACT_001#6611-browser-and-webassembly-analysis-projection"
+oracle_refs = ["SPEC_LSP_CONTRACT_001#6611-browser-and-webassembly-analysis-projection"]
+expected_result = "The reviewed definition, references, rename, and document-highlight results preserve asserted plain source identities, targets, URI membership, and occurrence counts without claiming exact ranges, edits, application, or atomicity."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_54137EE63E1773E87DC7.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_54137EE63E1773E87DC7_9610318D779B"
+mapping_proposal_digest = "sha256:9610318d779b3561594bea27fe53513eab8195d74a9b22b25a1751a816768516"
+mapping_decision_id = "MAP_DEC_28F2E384AF237198B1AF8216"
+mapping_reviewed_source_digest = "sha256:5ffd65bb29303def74bec159bf2af8bad3d32c5a08813002da7b87accbd8fb8a"
+mapping_assertion_review_digest = "sha256:390252ce8e3f43c78ce6a02025479a91bd3b952f2554611ce4dbefe62eff966f"
+mapping_assertion_source_digests = { "crates/trust-wasm-analysis/tests/mp010_parity.rs" = "sha256:2c04b1515b5ed08b81bc8a567aea6295c5a22261982b8cda0d91020b583a809f", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_01.rs" = "sha256:bac68a73947be47ad0b53feb032145734ef43656a55da48bb1417645fee502fa", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_02.rs" = "sha256:ead98f2fe24d1b2d35420c78817c57e89967d567aed9c8d22f41882bd4027202", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_03.rs" = "sha256:5ffd65bb29303def74bec159bf2af8bad3d32c5a08813002da7b87accbd8fb8a", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_04.rs" = "sha256:6b59e56b205da3bc23e19371510498957a64e20ccf707c28c4d599fddce7e0d4", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05.rs" = "sha256:7e8df3fde2dd12174fdd3fea6172f8189e9c3cb349297fad50919aed7e0cb3c7", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05_part_01.rs" = "sha256:1302b88241bebc9c343855e875d5802452230f0c51622ef05b9df44ce55978c5", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05_support_01.rs" = "sha256:a3233fde18660de0e6fc09779a851c0967d7f06bfffa8cf71c986af4efc4dca8", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05_support_02.rs" = "sha256:f50f6cf08422116147404622acd2b0190e48d054fbbafa1a80a7092d85bf2b40", "examples/plant_demo/src/config.st" = "sha256:eb5d9af157d8eb3cfc08977bfd8be23600d3f6b4ac70024689850b4c767e7b5b", "examples/plant_demo/src/fb_pump.st" = "sha256:c3d235a5eccff11680bd811a7e9a11253ab4137a053d3b87d89ca4c2b8f8bd5b", "examples/plant_demo/src/program.st" = "sha256:e302d87da4805242f083e113fdc30f9f1bd4d8a4cb4a91ff394563f22611df54", "examples/plant_demo/src/types.st" = "sha256:05294912e6c0fcf75b1225f21287c6647f7ea1676f20510032577c24b1f00b2e" }
+mapping_behavior_refs = ["BROWSER_ANALYSIS_PROJECTION_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_5A3DC26ADD3078D93400"
+subject_kind = "generated_test"
+discovery_id = "DISC_5A3DC26ADD3078D93400"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_03.rs"
+name = "browser_host_smoke_apply_documents_then_diagnostics_round_trip"
+command = "cargo nextest run -p trust-wasm-analysis --test mp010_parity --no-fail-fast --user-config-file none -E 'binary_id(=trust-wasm-analysis::mp010_parity) & test(=mp010_parity_part_03::browser_host_smoke_apply_documents_then_diagnostics_round_trip)'"
+owner = "trust-ide"
+status = "mapped"
+invariants = ["BROWSER_ANALYSIS_PROJECTION_001"]
+oracle_ref = "SPEC_LSP_CONTRACT_001#6611-browser-and-webassembly-analysis-projection"
+oracle_refs = ["SPEC_LSP_CONTRACT_001#6611-browser-and-webassembly-analysis-projection"]
+expected_result = "Accepted JSON apply, status, and diagnostic calls return parseable reviewed shapes, current URI identity, and the expected unresolved-symbol diagnostic."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_5A3DC26ADD3078D93400.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_5A3DC26ADD3078D93400_91470BFD3048"
+mapping_proposal_digest = "sha256:91470bfd3048c8fbc75d77e88d7662a96c3aeb2966e3c39f6f645071d76e7a4b"
+mapping_decision_id = "MAP_DEC_6D776CC7F7A43FB7CDA8AB80"
+mapping_reviewed_source_digest = "sha256:5ffd65bb29303def74bec159bf2af8bad3d32c5a08813002da7b87accbd8fb8a"
+mapping_assertion_review_digest = "sha256:f5ec6e038a8052281a3f6b60183c61b0e70300342cc716f00ccb36449d4d91b7"
+mapping_assertion_source_digests = { "crates/trust-wasm-analysis/tests/mp010_parity.rs" = "sha256:2c04b1515b5ed08b81bc8a567aea6295c5a22261982b8cda0d91020b583a809f", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_01.rs" = "sha256:bac68a73947be47ad0b53feb032145734ef43656a55da48bb1417645fee502fa", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_02.rs" = "sha256:ead98f2fe24d1b2d35420c78817c57e89967d567aed9c8d22f41882bd4027202", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_03.rs" = "sha256:5ffd65bb29303def74bec159bf2af8bad3d32c5a08813002da7b87accbd8fb8a", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_04.rs" = "sha256:6b59e56b205da3bc23e19371510498957a64e20ccf707c28c4d599fddce7e0d4", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05.rs" = "sha256:7e8df3fde2dd12174fdd3fea6172f8189e9c3cb349297fad50919aed7e0cb3c7", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05_part_01.rs" = "sha256:1302b88241bebc9c343855e875d5802452230f0c51622ef05b9df44ce55978c5", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05_support_01.rs" = "sha256:a3233fde18660de0e6fc09779a851c0967d7f06bfffa8cf71c986af4efc4dca8", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05_support_02.rs" = "sha256:f50f6cf08422116147404622acd2b0190e48d054fbbafa1a80a7092d85bf2b40", "examples/plant_demo/src/config.st" = "sha256:eb5d9af157d8eb3cfc08977bfd8be23600d3f6b4ac70024689850b4c767e7b5b", "examples/plant_demo/src/fb_pump.st" = "sha256:c3d235a5eccff11680bd811a7e9a11253ab4137a053d3b87d89ca4c2b8f8bd5b", "examples/plant_demo/src/program.st" = "sha256:e302d87da4805242f083e113fdc30f9f1bd4d8a4cb4a91ff394563f22611df54", "examples/plant_demo/src/types.st" = "sha256:05294912e6c0fcf75b1225f21287c6647f7ea1676f20510032577c24b1f00b2e" }
+mapping_behavior_refs = ["BROWSER_ANALYSIS_PROJECTION_001#behavior:5"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_7332F28B7116535E5F30"
+subject_kind = "generated_test"
+discovery_id = "DISC_7332F28B7116535E5F30"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_03.rs"
+name = "document_highlight_for_local_symbol_returns_multiple_occurrences"
+command = "cargo nextest run -p trust-wasm-analysis --test mp010_parity --no-fail-fast --user-config-file none -E 'binary_id(=trust-wasm-analysis::mp010_parity) & test(=mp010_parity_part_03::document_highlight_for_local_symbol_returns_multiple_occurrences)'"
+owner = "trust-ide"
+status = "mapped"
+invariants = ["BROWSER_ANALYSIS_PROJECTION_001"]
+oracle_ref = "SPEC_LSP_CONTRACT_001#6611-browser-and-webassembly-analysis-projection"
+oracle_refs = ["SPEC_LSP_CONTRACT_001#6611-browser-and-webassembly-analysis-projection"]
+expected_result = "The reviewed definition, references, rename, and document-highlight results preserve asserted plain source identities, targets, URI membership, and occurrence counts without claiming exact ranges, edits, application, or atomicity."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_7332F28B7116535E5F30.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_7332F28B7116535E5F30_ADCCD4E4AEFA"
+mapping_proposal_digest = "sha256:adccd4e4aefa4fb591cf6b26f12a92d209c3a015022345086afdece63cbd727a"
+mapping_decision_id = "MAP_DEC_ADCB5217DD4101A8937F4715"
+mapping_reviewed_source_digest = "sha256:5ffd65bb29303def74bec159bf2af8bad3d32c5a08813002da7b87accbd8fb8a"
+mapping_assertion_review_digest = "sha256:c21ecf5b557333362d78f6eaf7557175dd20c4e589d32fac260c27a993c1ef26"
+mapping_assertion_source_digests = { "crates/trust-wasm-analysis/tests/mp010_parity.rs" = "sha256:2c04b1515b5ed08b81bc8a567aea6295c5a22261982b8cda0d91020b583a809f", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_01.rs" = "sha256:bac68a73947be47ad0b53feb032145734ef43656a55da48bb1417645fee502fa", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_02.rs" = "sha256:ead98f2fe24d1b2d35420c78817c57e89967d567aed9c8d22f41882bd4027202", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_03.rs" = "sha256:5ffd65bb29303def74bec159bf2af8bad3d32c5a08813002da7b87accbd8fb8a", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_04.rs" = "sha256:6b59e56b205da3bc23e19371510498957a64e20ccf707c28c4d599fddce7e0d4", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05.rs" = "sha256:7e8df3fde2dd12174fdd3fea6172f8189e9c3cb349297fad50919aed7e0cb3c7", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05_part_01.rs" = "sha256:1302b88241bebc9c343855e875d5802452230f0c51622ef05b9df44ce55978c5", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05_support_01.rs" = "sha256:a3233fde18660de0e6fc09779a851c0967d7f06bfffa8cf71c986af4efc4dca8", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05_support_02.rs" = "sha256:f50f6cf08422116147404622acd2b0190e48d054fbbafa1a80a7092d85bf2b40", "examples/plant_demo/src/config.st" = "sha256:eb5d9af157d8eb3cfc08977bfd8be23600d3f6b4ac70024689850b4c767e7b5b", "examples/plant_demo/src/fb_pump.st" = "sha256:c3d235a5eccff11680bd811a7e9a11253ab4137a053d3b87d89ca4c2b8f8bd5b", "examples/plant_demo/src/program.st" = "sha256:e302d87da4805242f083e113fdc30f9f1bd4d8a4cb4a91ff394563f22611df54", "examples/plant_demo/src/types.st" = "sha256:05294912e6c0fcf75b1225f21287c6647f7ea1676f20510032577c24b1f00b2e" }
+mapping_behavior_refs = ["BROWSER_ANALYSIS_PROJECTION_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_B7BD910E8880AC232E6C"
+subject_kind = "generated_test"
+discovery_id = "DISC_B7BD910E8880AC232E6C"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_03.rs"
+name = "definition_references_and_rename_accept_punctuation_adjacent_cursor_positions"
+command = "cargo nextest run -p trust-wasm-analysis --test mp010_parity --no-fail-fast --user-config-file none -E 'binary_id(=trust-wasm-analysis::mp010_parity) & test(=mp010_parity_part_03::definition_references_and_rename_accept_punctuation_adjacent_cursor_positions)'"
+owner = "trust-ide"
+status = "mapped"
+invariants = ["BROWSER_ANALYSIS_PROJECTION_001"]
+oracle_ref = "SPEC_LSP_CONTRACT_001#6611-browser-and-webassembly-analysis-projection"
+oracle_refs = ["SPEC_LSP_CONTRACT_001#6611-browser-and-webassembly-analysis-projection"]
+expected_result = "The reviewed definition, references, and rename requests resolve at an identifier end or immediately adjacent '#', '+', or ':' punctuation; ASCII-only fixtures do not prove UTF-16 behavior."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_B7BD910E8880AC232E6C.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_B7BD910E8880AC232E6C_8A8B6FD98290"
+mapping_proposal_digest = "sha256:8a8b6fd98290d847c6460f881d0068f31b689cf115040d19a4cbdafb3bf0e4a4"
+mapping_decision_id = "MAP_DEC_67D870AD56AD0D3ECE036C0F"
+mapping_reviewed_source_digest = "sha256:5ffd65bb29303def74bec159bf2af8bad3d32c5a08813002da7b87accbd8fb8a"
+mapping_assertion_review_digest = "sha256:247ba4db143ba7d78194a89f320227513fbd66dd9155e5896078c9780cf780e8"
+mapping_assertion_source_digests = { "crates/trust-wasm-analysis/tests/mp010_parity.rs" = "sha256:2c04b1515b5ed08b81bc8a567aea6295c5a22261982b8cda0d91020b583a809f", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_01.rs" = "sha256:bac68a73947be47ad0b53feb032145734ef43656a55da48bb1417645fee502fa", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_02.rs" = "sha256:ead98f2fe24d1b2d35420c78817c57e89967d567aed9c8d22f41882bd4027202", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_03.rs" = "sha256:5ffd65bb29303def74bec159bf2af8bad3d32c5a08813002da7b87accbd8fb8a", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_04.rs" = "sha256:6b59e56b205da3bc23e19371510498957a64e20ccf707c28c4d599fddce7e0d4", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05.rs" = "sha256:7e8df3fde2dd12174fdd3fea6172f8189e9c3cb349297fad50919aed7e0cb3c7", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05_part_01.rs" = "sha256:1302b88241bebc9c343855e875d5802452230f0c51622ef05b9df44ce55978c5", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05_support_01.rs" = "sha256:a3233fde18660de0e6fc09779a851c0967d7f06bfffa8cf71c986af4efc4dca8", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05_support_02.rs" = "sha256:f50f6cf08422116147404622acd2b0190e48d054fbbafa1a80a7092d85bf2b40", "examples/plant_demo/src/config.st" = "sha256:eb5d9af157d8eb3cfc08977bfd8be23600d3f6b4ac70024689850b4c767e7b5b", "examples/plant_demo/src/fb_pump.st" = "sha256:c3d235a5eccff11680bd811a7e9a11253ab4137a053d3b87d89ca4c2b8f8bd5b", "examples/plant_demo/src/program.st" = "sha256:e302d87da4805242f083e113fdc30f9f1bd4d8a4cb4a91ff394563f22611df54", "examples/plant_demo/src/types.st" = "sha256:05294912e6c0fcf75b1225f21287c6647f7ea1676f20510032577c24b1f00b2e" }
+mapping_behavior_refs = ["BROWSER_ANALYSIS_PROJECTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_DEC01B9AB53AB9359DC7"
+subject_kind = "generated_test"
+discovery_id = "DISC_DEC01B9AB53AB9359DC7"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_03.rs"
+name = "wasm_json_adapter_contract_is_stable"
+command = "cargo nextest run -p trust-wasm-analysis --test mp010_parity --no-fail-fast --user-config-file none -E 'binary_id(=trust-wasm-analysis::mp010_parity) & test(=mp010_parity_part_03::wasm_json_adapter_contract_is_stable)'"
+owner = "trust-ide"
+status = "mapped"
+invariants = ["BROWSER_ANALYSIS_PROJECTION_001"]
+oracle_ref = "SPEC_LSP_CONTRACT_001#6611-browser-and-webassembly-analysis-projection"
+oracle_refs = ["SPEC_LSP_CONTRACT_001#6611-browser-and-webassembly-analysis-projection"]
+expected_result = "Malformed document JSON rejects with the reviewed error fragment; the test does not inspect engine state after rejection, so no post-error state claim is made. Accepted JSON apply, status, and diagnostic calls return parseable reviewed shapes, current URI identity, and the expected unresolved-symbol diagnostic."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_DEC01B9AB53AB9359DC7.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_DEC01B9AB53AB9359DC7_CC61355D778B"
+mapping_proposal_digest = "sha256:cc61355d778b14bbb61b7401a6c805e551ad9d6c75c55e636e7e38fd54e7a788"
+mapping_decision_id = "MAP_DEC_EA5B728FA58BB4DBD6A9C7C2"
+mapping_reviewed_source_digest = "sha256:5ffd65bb29303def74bec159bf2af8bad3d32c5a08813002da7b87accbd8fb8a"
+mapping_assertion_review_digest = "sha256:36d9035466041285fb7a4f7a9e0f41ce36383098bf7f7dc37e625277f9cfc3ca"
+mapping_assertion_source_digests = { "crates/trust-wasm-analysis/tests/mp010_parity.rs" = "sha256:2c04b1515b5ed08b81bc8a567aea6295c5a22261982b8cda0d91020b583a809f", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_01.rs" = "sha256:bac68a73947be47ad0b53feb032145734ef43656a55da48bb1417645fee502fa", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_02.rs" = "sha256:ead98f2fe24d1b2d35420c78817c57e89967d567aed9c8d22f41882bd4027202", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_03.rs" = "sha256:5ffd65bb29303def74bec159bf2af8bad3d32c5a08813002da7b87accbd8fb8a", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_04.rs" = "sha256:6b59e56b205da3bc23e19371510498957a64e20ccf707c28c4d599fddce7e0d4", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05.rs" = "sha256:7e8df3fde2dd12174fdd3fea6172f8189e9c3cb349297fad50919aed7e0cb3c7", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05_part_01.rs" = "sha256:1302b88241bebc9c343855e875d5802452230f0c51622ef05b9df44ce55978c5", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05_support_01.rs" = "sha256:a3233fde18660de0e6fc09779a851c0967d7f06bfffa8cf71c986af4efc4dca8", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05_support_02.rs" = "sha256:f50f6cf08422116147404622acd2b0190e48d054fbbafa1a80a7092d85bf2b40", "examples/plant_demo/src/config.st" = "sha256:eb5d9af157d8eb3cfc08977bfd8be23600d3f6b4ac70024689850b4c767e7b5b", "examples/plant_demo/src/fb_pump.st" = "sha256:c3d235a5eccff11680bd811a7e9a11253ab4137a053d3b87d89ca4c2b8f8bd5b", "examples/plant_demo/src/program.st" = "sha256:e302d87da4805242f083e113fdc30f9f1bd4d8a4cb4a91ff394563f22611df54", "examples/plant_demo/src/types.st" = "sha256:05294912e6c0fcf75b1225f21287c6647f7ea1676f20510032577c24b1f00b2e" }
+mapping_behavior_refs = ["BROWSER_ANALYSIS_PROJECTION_001#behavior:4", "BROWSER_ANALYSIS_PROJECTION_001#behavior:5"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_56EE618A96CC07A8EE56"
+subject_kind = "generated_test"
+discovery_id = "DISC_56EE618A96CC07A8EE56"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_04.rs"
+name = "multi_document_incremental_update_flow_handles_realistic_edit_streams"
+command = "cargo nextest run -p trust-wasm-analysis --test mp010_parity --no-fail-fast --user-config-file none -E 'binary_id(=trust-wasm-analysis::mp010_parity) & test(=mp010_parity_part_04::multi_document_incremental_update_flow_handles_realistic_edit_streams)'"
+owner = "trust-ide"
+status = "mapped"
+invariants = ["BROWSER_ANALYSIS_PROJECTION_001"]
+oracle_ref = "SPEC_LSP_CONTRACT_001#6611-browser-and-webassembly-analysis-projection"
+oracle_refs = ["SPEC_LSP_CONTRACT_001#6611-browser-and-webassembly-analysis-projection"]
+expected_result = "Forty reviewed full-set document replacements keep the asserted three-document status and Main identity while io.st diagnostics follow its current replacement text."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_56EE618A96CC07A8EE56.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_56EE618A96CC07A8EE56_C77526E7485B"
+mapping_proposal_digest = "sha256:c77526e7485bc56831052197527921d58e7d120060dc9a98c452be98beb65f96"
+mapping_decision_id = "MAP_DEC_A2C21A7BF7DA61EEF8265B22"
+mapping_reviewed_source_digest = "sha256:6b59e56b205da3bc23e19371510498957a64e20ccf707c28c4d599fddce7e0d4"
+mapping_assertion_review_digest = "sha256:a96a84c918dfd7b286c408e3f89720ea81d4337b59bbbbb31cac86aefef51bea"
+mapping_assertion_source_digests = { "crates/trust-wasm-analysis/tests/mp010_parity.rs" = "sha256:2c04b1515b5ed08b81bc8a567aea6295c5a22261982b8cda0d91020b583a809f", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_01.rs" = "sha256:bac68a73947be47ad0b53feb032145734ef43656a55da48bb1417645fee502fa", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_02.rs" = "sha256:ead98f2fe24d1b2d35420c78817c57e89967d567aed9c8d22f41882bd4027202", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_03.rs" = "sha256:5ffd65bb29303def74bec159bf2af8bad3d32c5a08813002da7b87accbd8fb8a", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_04.rs" = "sha256:6b59e56b205da3bc23e19371510498957a64e20ccf707c28c4d599fddce7e0d4", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05.rs" = "sha256:7e8df3fde2dd12174fdd3fea6172f8189e9c3cb349297fad50919aed7e0cb3c7", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05_part_01.rs" = "sha256:1302b88241bebc9c343855e875d5802452230f0c51622ef05b9df44ce55978c5", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05_support_01.rs" = "sha256:a3233fde18660de0e6fc09779a851c0967d7f06bfffa8cf71c986af4efc4dca8", "crates/trust-wasm-analysis/tests/mp010_parity/mp010_parity_part_05_support_02.rs" = "sha256:f50f6cf08422116147404622acd2b0190e48d054fbbafa1a80a7092d85bf2b40", "examples/plant_demo/src/config.st" = "sha256:eb5d9af157d8eb3cfc08977bfd8be23600d3f6b4ac70024689850b4c767e7b5b", "examples/plant_demo/src/fb_pump.st" = "sha256:c3d235a5eccff11680bd811a7e9a11253ab4137a053d3b87d89ca4c2b8f8bd5b", "examples/plant_demo/src/program.st" = "sha256:e302d87da4805242f083e113fdc30f9f1bd4d8a4cb4a91ff394563f22611df54", "examples/plant_demo/src/types.st" = "sha256:05294912e6c0fcf75b1225f21287c6647f7ea1676f20510032577c24b1f00b2e" }
+mapping_behavior_refs = ["BROWSER_ANALYSIS_PROJECTION_001#behavior:6"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
