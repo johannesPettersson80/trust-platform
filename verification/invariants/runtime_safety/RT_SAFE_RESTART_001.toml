@@ -35,6 +35,15 @@ delta = { target = "set_to_expected", siblings = "expected_delta", retain = "exp
 rationale = "Cold restart initializes retained, NON_RETAIN, and ordinary storage from declared values."
 
 [[behavior]]
+partition = { equals = "COLD_RESTART_WITH_RETAIN_STORE_SKIPS_LOAD" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#retain-storage-iec-61131-3-656"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A cold restart through the harness initializes retained variables and does not apply the configured persisted snapshot."
+
+[[behavior]]
 partition = { equals = "WARM_RESTART_STORAGE" }
 case_family = "persistence_or_recovery"
 oracle_ref = "SPEC_RUNTIME_ENGINE_001#retain-storage-iec-61131-3-656"

@@ -6,6 +6,33 @@ in `IEC_DECISIONS.md`; PLCopen profile decisions belong in
 `PLCOPEN_DECISIONS.md`. Product behavior recorded here MUST NOT be copied to an
 IEC or PLCopen deviation log merely because truST owns the behavior.
 
+## 2026-07-28 - Qualified program retain persistence
+
+- Area: Runtime retain snapshots and restart
+- Decision:
+  - File-backed snapshots include retentive variables declared inside a
+    `PROGRAM`, not only configuration/global retained variables.
+  - Program-variable entries use the reserved internal key
+    `@program/<program-identity>/<variable-identity>`. The reserved prefix
+    cannot collide with an IEC identifier; namespace punctuation in a program
+    identity remains part of that identity.
+  - Snapshot creation follows runtime program order and declaration order.
+    Warm load resolves program and variable identity case-insensitively,
+    validates and migrates every entry before applying any retained target,
+    then restores the selected instance variable.
+  - A cold restart through the test harness initializes retained variables and
+    does not load the configured retain store.
+  - Plain destruction of a runtime or test harness is not a requested graceful
+    stop and does not implicitly publish dirty retained state.
+- Authority:
+  - IEC 61131-3 Ed.3, Section 6.5.6 and Figure 9.
+  - `docs/specs/11-runtime-engine.md`
+- Reason:
+  - IEC defines the warm/cold retentive behavior, while persisted key encoding,
+    deterministic snapshot order, and the harness/store boundary are truST
+    product choices. These choices implement the IEC behavior and are not IEC
+    deviations.
+
 ## 2026-07-28 - Runtime logical clock and non-pacing tick boundary
 
 - Area: Runtime clock injection and scheduler stepping

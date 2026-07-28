@@ -10,7 +10,7 @@ use crate::value::Value;
 pub(super) use trust_runtime_core::cycle::ReadyTask;
 pub(super) use trust_runtime_core::retain::{RestartMode, RetainPolicy};
 
-/// Snapshot of retained global values for hot reload.
+/// Snapshot of retained values for restart, persistence, and hot reload.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct RetainSnapshot {
     pub(crate) inner: trust_runtime_core::retain::RetainSnapshot,

@@ -54,7 +54,9 @@ package "Runtime Core" as runtimeCore #LightGreen {
     }
 
     component "online_change.rs\n(bytecode swap + warm-restart migration contract)" as runtimeOnlineChange
-    component "restart.rs\nPreparedRestart + PreparedRetainSnapshot\n(fallible staging, infallible commit)" as runtimeRestart
+    component "restart.rs\nPreparedRestart\n(fallible restart staging)" as runtimeRestart
+    component "retain_snapshot.rs\nqualified global/program capture\n+ atomic cloned-storage apply" as runtimeRetainSnapshot
+    component "retain_store.rs\nWarm load transaction\nCold store bypass" as runtimeRetainStore
     component "harness::lower_configuration\nRESOURCE identity lowering" as resourceLowering
     component "bytecode::encoder::RESOURCE_META\nexact active resource identity" as resourceEncoder
     component "runtime::bytecode\nexact named selection + one-entry\nlegacy placeholder compatibility" as resourceSelection
@@ -63,7 +65,11 @@ package "Runtime Core" as runtimeCore #LightGreen {
     component "program_model::InitializerCatalog\n(lowered Expr records)" as runtimeInitCatalog
     runtime ..> runtimeOnlineChange : hot-reload contract owner
     runtimeOnlineChange --> runtimeRestart : prepare before bytecode replacement
-    runtimeRestart --> runtime : commit storage, retain, lifecycle resets
+    runtimeOnlineChange --> runtimeRetainSnapshot : validate against prepared storage
+    runtimeRetainStore --> runtimeRestart : prepare restart before store commit
+    runtimeRetainStore --> runtimeRetainSnapshot : Warm only
+    runtimeRestart --> runtime : commit storage + lifecycle resets
+    runtimeRetainSnapshot --> runtime : commit one prepared storage image
     resourceLowering --> runtime : set_resource_name()
     runtime --> resourceEncoder : resource_name()
     resourceSelection --> runtime : apply selected identity only after validation
@@ -244,9 +250,10 @@ package "Lifecycle" as lifecyclePkg #LightGray {
     note right of start1
         Retain restore contract:
         • decode persisted Value tree
-        • use declared GlobalVarMeta type
-          and TypeRegistry to canonicalize
-          retained compound values before storage
+        • resolve global or qualified PROGRAM
+          variable identity and declared type
+        • clone candidate storage and canonicalize
+          every retained value before one swap
         • stale serialized enum type casing
           is repaired on load
         • enum mismatches, struct field drift,

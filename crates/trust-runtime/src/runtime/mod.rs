@@ -15,6 +15,7 @@ mod online_change;
 mod opcua_client_subsystem;
 mod openot_telemetry;
 mod restart;
+mod retain_snapshot;
 mod retain_store;
 pub(crate) mod types;
 mod vm;

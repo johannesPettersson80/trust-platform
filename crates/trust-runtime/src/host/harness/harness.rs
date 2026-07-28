@@ -177,9 +177,7 @@ impl TestHarness {
 
     /// Restart the runtime and reload the retain store.
     pub fn restart_with_retain(&mut self, mode: crate::RestartMode) -> Result<(), RuntimeError> {
-        self.runtime.restart(mode)?;
-        self.runtime.load_retain_store()?;
-        Ok(())
+        self.runtime.restart_with_retain_store(mode)
     }
 
     /// Reload a single source file, preserving retained variables when possible.

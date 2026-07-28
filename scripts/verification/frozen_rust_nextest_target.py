@@ -352,6 +352,7 @@ RUNTIME_REMAINING_INTEGRATION_PATHS = frozenset(
         "crates/trust-runtime/tests/retain_store.rs",
         "crates/trust-runtime/tests/realtime_t0_integration.rs",
         "crates/trust-runtime/tests/runtime_core_behavior_lock.rs",
+        "crates/trust-runtime/tests/runtime_reliability.rs",
         "crates/trust-runtime/tests/runtime_safety_fail_closed.rs",
         "crates/trust-runtime/tests/simulation_workflow.rs",
         "crates/trust-runtime/tests/stdlib_assertions.rs",

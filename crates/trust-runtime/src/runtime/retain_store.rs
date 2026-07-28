@@ -8,6 +8,24 @@ use crate::RetainSnapshot;
 use super::core::Runtime;
 
 impl Runtime {
+    /// Restart and apply the configured retain store as one warm transaction.
+    ///
+    /// Cold restart intentionally skips the store.
+    pub fn restart_with_retain_store(
+        &mut self,
+        mode: crate::RestartMode,
+    ) -> Result<(), RuntimeError> {
+        if matches!(mode, crate::RestartMode::Cold) {
+            return self.restart(mode);
+        }
+        let restart = self.prepare_restart(mode)?;
+        let snapshot = self.retain.load()?;
+        let retained = self.prepare_retain_snapshot_for_restart(&snapshot, &restart)?;
+        self.commit_restart(restart);
+        self.commit_retain_snapshot(retained);
+        Ok(())
+    }
+
     /// Load retained values from the configured store.
     pub fn load_retain_store(&mut self) -> Result<(), RuntimeError> {
         let snapshot = self.retain.load()?;

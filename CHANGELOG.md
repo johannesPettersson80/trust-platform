@@ -45,6 +45,10 @@ Target release: `v0.24.58`
 
 ### Fixed
 
+- File-backed retain snapshots now persist `PROGRAM` `VAR RETAIN` values under
+  collision-free qualified identities, restore the saved value on warm
+  restart, and remain unloaded on cold restart; the reliability test now
+  distinguishes a real store reload from unchanged live memory.
 - Debug breakpoints now emit at most one stop per breakpoint identity within a
   runtime scan, preventing overlapping debug-map entries from repeatedly
   stopping the same scan while preserving breakpoint re-hits on later scans.

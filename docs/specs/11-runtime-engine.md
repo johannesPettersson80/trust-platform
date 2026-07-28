@@ -1152,6 +1152,16 @@ original position: snapshot cardinality, sibling values, and sibling order do
 not change. A different name remains a distinct entry and appends in call
 order.
 
+Configuration/global retained variables keep their resolved logical name.
+Retentive variables declared inside a `PROGRAM` use the reserved internal
+identity `@program/<program-identity>/<variable-identity>`. The `@program/`
+prefix cannot be an IEC identifier, so it cannot collide with a declared
+global. Program and variable identities retain their reviewed spelling in the
+file and resolve ASCII-case-insensitively on load. Snapshot creation visits
+programs in runtime registration order and variables in declaration order.
+Program-variable entries participate in the same full-snapshot validation,
+migration, orphan reporting, and atomic apply boundary as retained globals.
+
 Insertion stores the complete runtime `Value` without changing its concrete
 variant or nested contents. This is a deterministic snapshot-construction
 contract, not a validation bypass: declared-type migration, non-finite value
@@ -1205,7 +1215,10 @@ store/load round trip. The supported codec preserves exact names, order, and
 the concrete values asserted by the compatibility profile: Boolean and integer
 scalars, bounded arrays with their inclusive bounds, structures with their type
 and field identity, and enumeration values with their declared type and
-variant. A missing file alone represents an empty snapshot; a path that exists
+variant. This includes qualified retained `PROGRAM` variables. A warm restart
+loads and applies the saved snapshot after rebuilding program instances; a
+cold restart initializes retained variables and does not load the store. A
+missing file alone represents an empty snapshot; a path that exists
 but is not a readable retain file, or a parent path that cannot contain the
 file, returns the underlying retain operation as an error instead of silently
 substituting an empty snapshot.
@@ -1251,7 +1264,10 @@ values.
 
 **Power-loss guidance:** retained values are only guaranteed to persist if the most recent
 snapshot has been flushed to the retain store (i.e., at shutdown or after the save cadence).
-Unflushed changes may be lost on sudden power loss (implementer-specific).
+Here, shutdown means the explicit requested-stop path. Plain destruction of a
+`Runtime` or `TestHarness` is not a graceful-stop request and does not
+implicitly publish dirty retained state. Unflushed changes may be lost on
+sudden power loss (implementer-specific).
 
 ##### Direct restart preparation transaction
 

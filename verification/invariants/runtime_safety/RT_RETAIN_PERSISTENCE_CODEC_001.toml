@@ -5,7 +5,7 @@ area = "runtime_safety"
 risk = "data_loss"
 status = "mapped"
 owner = "trust-runtime"
-last_reviewed = "2026-07-27"
+last_reviewed = "2026-07-28"
 claim = "The file-backed retain store round-trips supported snapshots, reads supported legacy framing, distinguishes a missing file from real filesystem failure, publishes atomically, reports post-publish sync failure, and retains retry eligibility."
 proof_level = "S0"
 contract_kind = "decision_table"
@@ -53,6 +53,24 @@ outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
 rationale = "Successful replacement makes exactly the new complete snapshot readable and leaves no retain temporary file."
+
+[[behavior]]
+partition = { equals = "PROGRAM_RETAIN_WARM_ROUNDTRIP" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#retain-codec-compatibility-and-migration"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A saved retained PROGRAM variable uses its qualified snapshot identity and replaces a different unsaved live value when the warm restart loads the store."
+
+[[behavior]]
+partition = { equals = "UNFLUSHED_DIRTY_STATE_NOT_PERSISTED_ON_DROP" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#retain-storage-iec-61131-3-656"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Marking retained state dirty without a due or explicit save does not write a snapshot merely because the runtime is dropped."
 
 [[behavior]]
 partition = { equals = "PARENT_SYNC_FAILURE_AFTER_PUBLISH" }

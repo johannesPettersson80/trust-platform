@@ -576,6 +576,14 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
             ("--test", "runtime_core_behavior_lock"),
             runtime_core_behavior_lock.cargo_target_args,
         )
+        runtime_reliability = get_target_profile(
+            "runtime-remaining",
+            path="crates/trust-runtime/tests/runtime_reliability.rs",
+        )
+        self.assertEqual(
+            ("--test", "runtime_reliability"),
+            runtime_reliability.cargo_target_args,
+        )
         scheduler = get_target_profile(
             "runtime-remaining",
             path="crates/trust-runtime/tests/e2e_scheduler.rs",

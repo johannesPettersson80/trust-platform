@@ -5,7 +5,7 @@ area = "runtime_safety"
 risk = "safety_critical"
 status = "implemented"
 owner = "trust-runtime"
-last_reviewed = "2026-07-18"
+last_reviewed = "2026-07-28"
 claim = "The runtime execution deadline must be armed as documented, its expiry must be visible, and a pre-commit watchdog fault must not physically write the pending output image."
 proof_level = "G1"
 contract_kind = "state_machine"
@@ -61,6 +61,16 @@ outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
 rationale = "An enabled watchdog is observed to arm the execution deadline before cycle execution. This behavior does not claim direct observation of output-deadline arming."
+
+[[behavior]]
+partition = { equals = "SPAWNED_RESOURCE_WATCHDOG_TIMEOUT_FAULTS" }
+case_family = "time_or_clock_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#fault-overrun-and-watchdog-handling"
+outcome = "fault_visible"
+fault_surface = "WatchdogTimeout"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "fault_visible" }
+rationale = "A spawned resource whose scan exceeds an enabled wall-clock watchdog timeout reaches Faulted, preserves WatchdogTimeout as its terminal error, and joins cleanly."
 
 [[behavior]]
 partition = { equals = "ZERO_TIMEOUT_IMMEDIATE_EXPIRY" }
