@@ -114737,3 +114737,138 @@ mapping_assertion_review_digest = "sha256:969c49ac0149ad8b63cbe5f388afc7ae7ea8d3
 mapping_assertion_source_digests = { "crates/trust-runtime/tests/runtime_reliability.rs" = "sha256:1a91a249fed67baa9faec4b871b337d6af7bc9fd9ec7dfa30f639c9098bce8fc" }
 mapping_behavior_refs = ["RT_RETAIN_PERSISTENCE_CODEC_001#behavior:3", "RT_SAFE_RESTART_001#behavior:1"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_B1B41EFAE7B35700E367"
+subject_kind = "generated_test"
+discovery_id = "DISC_B1B41EFAE7B35700E367"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/tutorial_examples.rs"
+name = "tutorial_examples_parse_typecheck_and_compile_to_bytecode"
+command = "cargo nextest run -p trust-runtime --test tutorial_examples --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::tutorial_examples) & test(=tutorial_examples_parse_typecheck_and_compile_to_bytecode)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_TUTORIAL_EXAMPLES_001"]
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#executable-tutorial-examples"
+oracle_refs = ["SPEC_DEVELOPER_WORKFLOWS_001#executable-tutorial-examples"]
+expected_result = "Every reviewed tutorial source compiles through both the runtime harness and current source-to-bytecode path without error."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_B1B41EFAE7B35700E367.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_B1B41EFAE7B35700E367_504E447E1F79"
+mapping_proposal_digest = "sha256:504e447e1f79078285e103133c38195de2f3748d0045bdd23975a8ac655678de"
+mapping_decision_id = "MAP_DEC_90083A37BD653CAD79A419C8"
+mapping_reviewed_source_digest = "sha256:28058688fc13c25984a3869988b996c1bd14395093838a77d890ad21f6c4a527"
+mapping_assertion_review_digest = "sha256:47415ae6290ba818d943d24271df04c429e5d3bcae72f503444683ed4db06091"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/tutorial_examples.rs" = "sha256:28058688fc13c25984a3869988b996c1bd14395093838a77d890ad21f6c4a527", "examples/tutorials/01_hello_counter.st" = "sha256:2b0a10832e6ace1c5ad1b90c201536ff381da6f1b0cf2640e76384ecefcdaa9d", "examples/tutorials/02_blinker.st" = "sha256:1384571b18ec755f0b6cd9b9ab78cde68e330bd824a24a0f940e4f5369b74e36", "examples/tutorials/03_traffic_light.st" = "sha256:e88629b8fc0719e2a70fd8cc9ba23691e2fc480fdc55876ce93e218dd5d455e3", "examples/tutorials/04_tank_level.st" = "sha256:8c80be0b9f4f29dc77747ca36c7b7337f08354bc0faa64aa381f7ec4d8bc2fe6", "examples/tutorials/05_motor_starter.st" = "sha256:149c35a5c73a843a55c978bcdb98af406e8e5d344a487b622712f11b8bf7c185", "examples/tutorials/06_recipe_manager.st" = "sha256:8c2bea15464e820273c2c0dfc60fa9e3dac3a2670710e3a647973624c8ba3cc6", "examples/tutorials/07_pid_loop.st" = "sha256:68af651da3bde23608b9b69ff5c8b4c35fbd3bf2ed69bd1cbccb3967af3adaf7", "examples/tutorials/08_conveyor_system.st" = "sha256:b35eb1dc60f6eecfbb114bb21115c493b735114a41ec4105a4b218b03db9d7be", "examples/tutorials/09_simulation_coupling.st" = "sha256:e3a29522b9f58b567e37efb5be7f33335f8b708530ed25910c198324e7e08ea1" }
+mapping_behavior_refs = ["RT_TUTORIAL_EXAMPLES_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_CA2458841CE10965BD22"
+subject_kind = "generated_test"
+discovery_id = "DISC_CA2458841CE10965BD22"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/tutorial_examples.rs"
+name = "tutorial_traffic_light_state_sequence"
+command = "cargo nextest run -p trust-runtime --test tutorial_examples --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::tutorial_examples) & test(=tutorial_traffic_light_state_sequence)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_TUTORIAL_EXAMPLES_001"]
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#executable-tutorial-examples"
+oracle_refs = ["SPEC_DEVELOPER_WORKFLOWS_001#executable-tutorial-examples"]
+expected_result = "The reviewed traffic fixture advances through red, red+yellow, green, yellow, and red after the specified clean-cycle phase transitions."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_CA2458841CE10965BD22.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_CA2458841CE10965BD22_5A01C8ECC69B"
+mapping_proposal_digest = "sha256:5a01c8ecc69bc197ae003dd45f0bd39b63691dc59cb0c9bed77937b4fa39ecb4"
+mapping_decision_id = "MAP_DEC_CDB533B6EA560C919A2E5F99"
+mapping_reviewed_source_digest = "sha256:28058688fc13c25984a3869988b996c1bd14395093838a77d890ad21f6c4a527"
+mapping_assertion_review_digest = "sha256:714c3c5aebe78f1d8c029ec927be646c5d137bd7f8f5c1abc00a7c92920d394f"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/tutorial_examples.rs" = "sha256:28058688fc13c25984a3869988b996c1bd14395093838a77d890ad21f6c4a527", "examples/tutorials/01_hello_counter.st" = "sha256:2b0a10832e6ace1c5ad1b90c201536ff381da6f1b0cf2640e76384ecefcdaa9d", "examples/tutorials/02_blinker.st" = "sha256:1384571b18ec755f0b6cd9b9ab78cde68e330bd824a24a0f940e4f5369b74e36", "examples/tutorials/03_traffic_light.st" = "sha256:e88629b8fc0719e2a70fd8cc9ba23691e2fc480fdc55876ce93e218dd5d455e3", "examples/tutorials/04_tank_level.st" = "sha256:8c80be0b9f4f29dc77747ca36c7b7337f08354bc0faa64aa381f7ec4d8bc2fe6", "examples/tutorials/05_motor_starter.st" = "sha256:149c35a5c73a843a55c978bcdb98af406e8e5d344a487b622712f11b8bf7c185", "examples/tutorials/06_recipe_manager.st" = "sha256:8c2bea15464e820273c2c0dfc60fa9e3dac3a2670710e3a647973624c8ba3cc6", "examples/tutorials/07_pid_loop.st" = "sha256:68af651da3bde23608b9b69ff5c8b4c35fbd3bf2ed69bd1cbccb3967af3adaf7", "examples/tutorials/08_conveyor_system.st" = "sha256:b35eb1dc60f6eecfbb114bb21115c493b735114a41ec4105a4b218b03db9d7be", "examples/tutorials/09_simulation_coupling.st" = "sha256:e3a29522b9f58b567e37efb5be7f33335f8b708530ed25910c198324e7e08ea1" }
+mapping_behavior_refs = ["RT_TUTORIAL_EXAMPLES_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_CE8EBF020908F5AAF44F"
+subject_kind = "generated_test"
+discovery_id = "DISC_CE8EBF020908F5AAF44F"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/tutorial_examples.rs"
+name = "tutorial_motor_starter_latch_and_unlatch"
+command = "cargo nextest run -p trust-runtime --test tutorial_examples --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::tutorial_examples) & test(=tutorial_motor_starter_latch_and_unlatch)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_TUTORIAL_EXAMPLES_001"]
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#executable-tutorial-examples"
+oracle_refs = ["SPEC_DEVELOPER_WORKFLOWS_001#executable-tutorial-examples"]
+expected_result = "The reviewed motor fixture starts stopped, seals in on StartPb, remains sealed after release, drops on StopPb, restarts, and drops on OverloadTrip with no cycle error."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_CE8EBF020908F5AAF44F.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_CE8EBF020908F5AAF44F_51F33865831F"
+mapping_proposal_digest = "sha256:51f33865831fef8838ea48fb76e22bbd3ab0913713e37585f2a8218427db1f20"
+mapping_decision_id = "MAP_DEC_5B432AAD0C68143C1245AE50"
+mapping_reviewed_source_digest = "sha256:28058688fc13c25984a3869988b996c1bd14395093838a77d890ad21f6c4a527"
+mapping_assertion_review_digest = "sha256:4731e3cc7593c0853224e1e1420a859066208ac670b693b61ad98adf8c4c8109"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/tutorial_examples.rs" = "sha256:28058688fc13c25984a3869988b996c1bd14395093838a77d890ad21f6c4a527", "examples/tutorials/01_hello_counter.st" = "sha256:2b0a10832e6ace1c5ad1b90c201536ff381da6f1b0cf2640e76384ecefcdaa9d", "examples/tutorials/02_blinker.st" = "sha256:1384571b18ec755f0b6cd9b9ab78cde68e330bd824a24a0f940e4f5369b74e36", "examples/tutorials/03_traffic_light.st" = "sha256:e88629b8fc0719e2a70fd8cc9ba23691e2fc480fdc55876ce93e218dd5d455e3", "examples/tutorials/04_tank_level.st" = "sha256:8c80be0b9f4f29dc77747ca36c7b7337f08354bc0faa64aa381f7ec4d8bc2fe6", "examples/tutorials/05_motor_starter.st" = "sha256:149c35a5c73a843a55c978bcdb98af406e8e5d344a487b622712f11b8bf7c185", "examples/tutorials/06_recipe_manager.st" = "sha256:8c2bea15464e820273c2c0dfc60fa9e3dac3a2670710e3a647973624c8ba3cc6", "examples/tutorials/07_pid_loop.st" = "sha256:68af651da3bde23608b9b69ff5c8b4c35fbd3bf2ed69bd1cbccb3967af3adaf7", "examples/tutorials/08_conveyor_system.st" = "sha256:b35eb1dc60f6eecfbb114bb21115c493b735114a41ec4105a4b218b03db9d7be", "examples/tutorials/09_simulation_coupling.st" = "sha256:e3a29522b9f58b567e37efb5be7f33335f8b708530ed25910c198324e7e08ea1" }
+mapping_behavior_refs = ["RT_TUTORIAL_EXAMPLES_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_F46BC74C7DE6111123BE"
+subject_kind = "generated_test"
+discovery_id = "DISC_F46BC74C7DE6111123BE"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/tutorial_examples.rs"
+name = "tutorial_blinker_ton_timing_behavior"
+command = "cargo nextest run -p trust-runtime --test tutorial_examples --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::tutorial_examples) & test(=tutorial_blinker_ton_timing_behavior)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_TUTORIAL_EXAMPLES_001"]
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#executable-tutorial-examples"
+oracle_refs = ["SPEC_DEVELOPER_WORKFLOWS_001#executable-tutorial-examples"]
+expected_result = "The reviewed blinker fixture produces FALSE, TRUE, TRUE, FALSE across its initial, 250 ms, 1 ms, and second 250 ms clean-cycle observations."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_F46BC74C7DE6111123BE.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_F46BC74C7DE6111123BE_535B6CEF41A1"
+mapping_proposal_digest = "sha256:535b6cef41a13687cf77130e28276116d342eaa194f43d96bf7c98e7eecbbc06"
+mapping_decision_id = "MAP_DEC_F2169FF2F28ED676C9CCDF56"
+mapping_reviewed_source_digest = "sha256:28058688fc13c25984a3869988b996c1bd14395093838a77d890ad21f6c4a527"
+mapping_assertion_review_digest = "sha256:a3fa75097b5c991ec0172267922b9ec174597c99ae16bad8b3fc22a5655a8404"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/tutorial_examples.rs" = "sha256:28058688fc13c25984a3869988b996c1bd14395093838a77d890ad21f6c4a527", "examples/tutorials/01_hello_counter.st" = "sha256:2b0a10832e6ace1c5ad1b90c201536ff381da6f1b0cf2640e76384ecefcdaa9d", "examples/tutorials/02_blinker.st" = "sha256:1384571b18ec755f0b6cd9b9ab78cde68e330bd824a24a0f940e4f5369b74e36", "examples/tutorials/03_traffic_light.st" = "sha256:e88629b8fc0719e2a70fd8cc9ba23691e2fc480fdc55876ce93e218dd5d455e3", "examples/tutorials/04_tank_level.st" = "sha256:8c80be0b9f4f29dc77747ca36c7b7337f08354bc0faa64aa381f7ec4d8bc2fe6", "examples/tutorials/05_motor_starter.st" = "sha256:149c35a5c73a843a55c978bcdb98af406e8e5d344a487b622712f11b8bf7c185", "examples/tutorials/06_recipe_manager.st" = "sha256:8c2bea15464e820273c2c0dfc60fa9e3dac3a2670710e3a647973624c8ba3cc6", "examples/tutorials/07_pid_loop.st" = "sha256:68af651da3bde23608b9b69ff5c8b4c35fbd3bf2ed69bd1cbccb3967af3adaf7", "examples/tutorials/08_conveyor_system.st" = "sha256:b35eb1dc60f6eecfbb114bb21115c493b735114a41ec4105a4b218b03db9d7be", "examples/tutorials/09_simulation_coupling.st" = "sha256:e3a29522b9f58b567e37efb5be7f33335f8b708530ed25910c198324e7e08ea1" }
+mapping_behavior_refs = ["RT_TUTORIAL_EXAMPLES_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
