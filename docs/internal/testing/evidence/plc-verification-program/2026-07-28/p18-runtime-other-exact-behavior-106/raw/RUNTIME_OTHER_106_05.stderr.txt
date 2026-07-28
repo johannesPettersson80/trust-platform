@@ -1,0 +1,10 @@
+info: experimental features enabled: wrapper-scripts
+   Compiling trust-runtime v0.24.59 (/home/johannes/projects/trust-platform-p18-runtime-other-106-1dc84908/crates/trust-runtime)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 9.20s
+────────────
+ Nextest run ID 0c25d4a6-7e3c-47e3-929a-9ca40b21c4d2 with nextest profile: default
+    Starting 2 tests across 1 binary (1 test skipped)
+        PASS [   0.038s] (1/2) trust-runtime::build_command build_compile_failure_preserves_existing_program_and_exits_11
+        PASS [   0.121s] (2/2) trust-runtime::build_command build_human_mode_discovers_current_project_and_summarizes_sources
+────────────
+     Summary [   0.131s] 2 tests run: 2 passed, 1 skipped

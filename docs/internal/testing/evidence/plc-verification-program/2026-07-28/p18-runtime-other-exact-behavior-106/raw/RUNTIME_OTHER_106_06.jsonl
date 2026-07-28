@@ -1,0 +1,12 @@
+{"type":"suite","event":"started","test_count":5,"nextest":{"crate":"trust-runtime","test_binary":"check_command","kind":"test"}}
+{"type":"test","event":"started","name":"trust-runtime::check_command$check_mixed_config_and_compile_errors_uses_config_exit_and_reports_both"}
+{"type":"test","event":"started","name":"trust-runtime::check_command$check_aggregates_required_and_optional_config_errors_with_stable_exit_code"}
+{"type":"test","event":"started","name":"trust-runtime::check_command$check_ci_reports_sources_override_and_local_dependencies"}
+{"type":"test","event":"started","name":"trust-runtime::check_command$check_accepts_project_without_writing_program_stbc"}
+{"type":"test","event":"started","name":"trust-runtime::check_command$check_reports_source_layout_error_with_invalid_config_exit_code"}
+{"type":"test","event":"ok","name":"trust-runtime::check_command$check_ci_reports_sources_override_and_local_dependencies","exec_time":0.055502307}
+{"type":"test","event":"ok","name":"trust-runtime::check_command$check_reports_source_layout_error_with_invalid_config_exit_code","exec_time":0.057950535}
+{"type":"test","event":"ok","name":"trust-runtime::check_command$check_mixed_config_and_compile_errors_uses_config_exit_and_reports_both","exec_time":0.07350164}
+{"type":"test","event":"ok","name":"trust-runtime::check_command$check_accepts_project_without_writing_program_stbc","exec_time":0.078385134}
+{"type":"test","event":"ok","name":"trust-runtime::check_command$check_aggregates_required_and_optional_config_errors_with_stable_exit_code","exec_time":0.09207956}
+{"type":"suite","event":"ok","passed":5,"failed":0,"ignored":0,"measured":0,"filtered_out":3,"exec_time":0.357419176,"nextest":{"crate":"trust-runtime","test_binary":"check_command","kind":"test"}}

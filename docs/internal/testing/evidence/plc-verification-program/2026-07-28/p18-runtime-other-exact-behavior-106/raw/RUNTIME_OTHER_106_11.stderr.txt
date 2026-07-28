@@ -1,0 +1,13 @@
+info: experimental features enabled: wrapper-scripts
+   Compiling trust-runtime v0.24.59 (/home/johannes/projects/trust-platform-p18-runtime-other-106-1dc84908/crates/trust-runtime)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.88s
+────────────
+ Nextest run ID 8b392ab2-dc2e-41f7-8bad-5c9091c1a804 with nextest profile: default
+    Starting 5 tests across 1 binary (1 test skipped)
+        PASS [   0.030s] (1/5) trust-runtime::docs_command docs_alias_reports_an_unlaunchable_explicit_trust_dev
+        PASS [   0.033s] (2/5) trust-runtime::docs_command docs_alias_maps_a_signaled_child_to_shell_status
+        PASS [   0.034s] (3/5) trust-runtime::docs_command docs_alias_propagates_a_normal_child_exit_code
+        PASS [   0.063s] (4/5) trust-runtime::docs_command trust_runtime_docs_alias_forwards_to_trust_dev
+        PASS [   0.655s] (5/5) trust-runtime::docs_command docs_alias_ignores_an_unusable_sibling_and_uses_path
+────────────
+     Summary [   0.657s] 5 tests run: 5 passed, 1 skipped

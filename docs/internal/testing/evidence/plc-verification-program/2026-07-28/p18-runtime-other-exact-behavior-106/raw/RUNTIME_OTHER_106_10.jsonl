@@ -1,0 +1,8 @@
+{"type":"suite","event":"started","test_count":3,"nextest":{"crate":"trust-runtime","test_binary":"deploy_cli_command","kind":"test"}}
+{"type":"test","event":"started","name":"trust-runtime::deploy_cli_command$deployment_summary_reports_current_bundle_and_any_runtime_file_change"}
+{"type":"test","event":"started","name":"trust-runtime::deploy_cli_command$deploy_without_a_current_bundle_clears_a_stale_previous_pointer"}
+{"type":"test","event":"started","name":"trust-runtime::deploy_cli_command$deploy_with_relative_root_keeps_current_and_immediate_previous_for_rollback"}
+{"type":"test","event":"ok","name":"trust-runtime::deploy_cli_command$deployment_summary_reports_current_bundle_and_any_runtime_file_change","exec_time":0.079511831}
+{"type":"test","event":"ok","name":"trust-runtime::deploy_cli_command$deploy_without_a_current_bundle_clears_a_stale_previous_pointer","exec_time":0.087038036}
+{"type":"test","event":"ok","name":"trust-runtime::deploy_cli_command$deploy_with_relative_root_keeps_current_and_immediate_previous_for_rollback","exec_time":0.121022183}
+{"type":"suite","event":"ok","passed":3,"failed":0,"ignored":0,"measured":0,"filtered_out":9,"exec_time":0.28757205,"nextest":{"crate":"trust-runtime","test_binary":"deploy_cli_command","kind":"test"}}

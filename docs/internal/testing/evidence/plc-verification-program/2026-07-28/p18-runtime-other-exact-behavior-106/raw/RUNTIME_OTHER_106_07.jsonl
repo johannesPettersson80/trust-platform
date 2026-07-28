@@ -1,0 +1,8 @@
+{"type":"suite","event":"started","test_count":3,"nextest":{"crate":"trust-runtime","test_binary":"communication_examples_cli","kind":"test"}}
+{"type":"test","event":"started","name":"trust-runtime::communication_examples_cli$comm_cli_validates_payloads_and_manages_the_selected_opcua_trust_store"}
+{"type":"test","event":"started","name":"trust-runtime::communication_examples_cli$comm_cli_rejects_malformed_local_authoring_inputs"}
+{"type":"test","event":"started","name":"trust-runtime::communication_examples_cli$comm_cli_runs_schema_apply_topology_and_cached_browse_offline"}
+{"type":"test","event":"ok","name":"trust-runtime::communication_examples_cli$comm_cli_validates_payloads_and_manages_the_selected_opcua_trust_store","exec_time":0.045599673}
+{"type":"test","event":"ok","name":"trust-runtime::communication_examples_cli$comm_cli_rejects_malformed_local_authoring_inputs","exec_time":0.049762907}
+{"type":"test","event":"ok","name":"trust-runtime::communication_examples_cli$comm_cli_runs_schema_apply_topology_and_cached_browse_offline","exec_time":0.055403848}
+{"type":"suite","event":"ok","passed":3,"failed":0,"ignored":0,"measured":0,"filtered_out":1,"exec_time":0.150766428,"nextest":{"crate":"trust-runtime","test_binary":"communication_examples_cli","kind":"test"}}

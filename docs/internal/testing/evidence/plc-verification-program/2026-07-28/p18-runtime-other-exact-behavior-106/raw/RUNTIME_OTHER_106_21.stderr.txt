@@ -1,0 +1,9 @@
+info: experimental features enabled: wrapper-scripts
+   Compiling trust-runtime v0.24.59 (/home/johannes/projects/trust-platform-p18-runtime-other-106-1dc84908/crates/trust-runtime)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.31s
+────────────
+ Nextest run ID bfc9319e-fb0f-40eb-8929-bbd2b3c993d6 with nextest profile: default
+    Starting 1 test across 1 binary (1 test skipped)
+        PASS [   0.008s] (1/1) trust-runtime::retain_store retain_store_roundtrip
+────────────
+     Summary [   0.008s] 1 test run: 1 passed, 1 skipped

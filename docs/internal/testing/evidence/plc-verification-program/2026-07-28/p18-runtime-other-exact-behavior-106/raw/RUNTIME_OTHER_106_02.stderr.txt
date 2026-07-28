@@ -1,0 +1,12 @@
+info: experimental features enabled: wrapper-scripts
+   Compiling trust-syntax v0.24.59 (/home/johannes/projects/trust-platform-p18-runtime-other-106-1dc84908/crates/trust-syntax)
+   Compiling trust-hir v0.24.59 (/home/johannes/projects/trust-platform-p18-runtime-other-106-1dc84908/crates/trust-hir)
+   Compiling trust-ide v0.24.59 (/home/johannes/projects/trust-platform-p18-runtime-other-106-1dc84908/crates/trust-ide)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 11.61s
+────────────
+ Nextest run ID 6103a3c0-b0bb-41e4-b9ed-b32567c9bf1d with nextest profile: default
+    Starting 2 tests across 1 binary (51 tests skipped)
+        PASS [   0.017s] (1/2) trust-ide::ide_features ide_features_part_02::test_rename_refuses_shadow_capture_with_named_reason
+        PASS [   0.022s] (2/2) trust-ide::ide_features ide_features_part_02::test_rename_refuses_cross_file_reference_capture
+────────────
+     Summary [   0.022s] 2 tests run: 2 passed, 51 skipped

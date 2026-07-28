@@ -1,0 +1,12 @@
+{"type":"suite","event":"started","test_count":5,"nextest":{"crate":"trust-runtime","test_binary":"docs_command","kind":"test"}}
+{"type":"test","event":"started","name":"trust-runtime::docs_command$docs_alias_reports_an_unlaunchable_explicit_trust_dev"}
+{"type":"test","event":"started","name":"trust-runtime::docs_command$docs_alias_maps_a_signaled_child_to_shell_status"}
+{"type":"test","event":"started","name":"trust-runtime::docs_command$docs_alias_propagates_a_normal_child_exit_code"}
+{"type":"test","event":"started","name":"trust-runtime::docs_command$docs_alias_ignores_an_unusable_sibling_and_uses_path"}
+{"type":"test","event":"started","name":"trust-runtime::docs_command$trust_runtime_docs_alias_forwards_to_trust_dev"}
+{"type":"test","event":"ok","name":"trust-runtime::docs_command$docs_alias_reports_an_unlaunchable_explicit_trust_dev","exec_time":0.029867934}
+{"type":"test","event":"ok","name":"trust-runtime::docs_command$docs_alias_maps_a_signaled_child_to_shell_status","exec_time":0.033245608}
+{"type":"test","event":"ok","name":"trust-runtime::docs_command$docs_alias_propagates_a_normal_child_exit_code","exec_time":0.034102265}
+{"type":"test","event":"ok","name":"trust-runtime::docs_command$trust_runtime_docs_alias_forwards_to_trust_dev","exec_time":0.062919098}
+{"type":"test","event":"ok","name":"trust-runtime::docs_command$docs_alias_ignores_an_unusable_sibling_and_uses_path","exec_time":0.655057808}
+{"type":"suite","event":"ok","passed":5,"failed":0,"ignored":0,"measured":0,"filtered_out":1,"exec_time":0.815192713,"nextest":{"crate":"trust-runtime","test_binary":"docs_command","kind":"test"}}

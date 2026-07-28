@@ -1,0 +1,6 @@
+{"type":"suite","event":"started","test_count":2,"nextest":{"crate":"trust-runtime-core","test_binary":"trust_runtime_core","kind":"lib"}}
+{"type":"test","event":"started","name":"trust-runtime-core::trust_runtime_core$watchdog::tests::watchdog_policy_normalization_and_installation_cover_boundaries"}
+{"type":"test","event":"started","name":"trust-runtime-core::trust_runtime_core$value::types::tests::normalize_assignment_materializes_safe_numeric_widening_tags"}
+{"type":"test","event":"ok","name":"trust-runtime-core::trust_runtime_core$value::types::tests::normalize_assignment_materializes_safe_numeric_widening_tags","exec_time":0.005744357}
+{"type":"test","event":"ok","name":"trust-runtime-core::trust_runtime_core$watchdog::tests::watchdog_policy_normalization_and_installation_cover_boundaries","exec_time":0.010710217}
+{"type":"suite","event":"ok","passed":2,"failed":0,"ignored":0,"measured":0,"filtered_out":68,"exec_time":0.016454574,"nextest":{"crate":"trust-runtime-core","test_binary":"trust_runtime_core","kind":"lib"}}

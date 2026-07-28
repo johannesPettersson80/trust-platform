@@ -1,0 +1,9 @@
+info: experimental features enabled: wrapper-scripts
+   Compiling trust-runtime v0.24.59 (/home/johannes/projects/trust-platform-p18-runtime-other-106-1dc84908/crates/trust-runtime)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.76s
+────────────
+ Nextest run ID 82230acb-bce6-4b9b-ab64-4321e1d9e0d6 with nextest profile: default
+    Starting 1 test across 1 binary
+        PASS [   0.163s] (1/1) trust-runtime::conformance_cli_command conformance_command_supports_update_verify_and_mismatch_taxonomy
+────────────
+     Summary [   0.164s] 1 test run: 1 passed, 0 skipped

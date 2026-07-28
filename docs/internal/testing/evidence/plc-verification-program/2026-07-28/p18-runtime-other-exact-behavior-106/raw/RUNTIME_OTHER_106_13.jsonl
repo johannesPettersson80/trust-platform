@@ -1,0 +1,10 @@
+{"type":"suite","event":"started","test_count":4,"nextest":{"crate":"trust-runtime","test_binary":"hmi_cli_command","kind":"test"}}
+{"type":"test","event":"started","name":"trust-runtime::hmi_cli_command$hmi_without_project_preserves_bundle_detection_failure"}
+{"type":"test","event":"started","name":"trust-runtime::hmi_cli_command$hmi_init_treats_glob_metacharacters_in_project_path_literally"}
+{"type":"test","event":"started","name":"trust-runtime::hmi_cli_command$hmi_init_compiles_resolved_local_dependency_sources"}
+{"type":"test","event":"started","name":"trust-runtime::hmi_cli_command$hmi_source_and_compile_failures_leave_descriptor_unchanged"}
+{"type":"test","event":"ok","name":"trust-runtime::hmi_cli_command$hmi_without_project_preserves_bundle_detection_failure","exec_time":0.044996942}
+{"type":"test","event":"ok","name":"trust-runtime::hmi_cli_command$hmi_init_treats_glob_metacharacters_in_project_path_literally","exec_time":0.070110727}
+{"type":"test","event":"ok","name":"trust-runtime::hmi_cli_command$hmi_init_compiles_resolved_local_dependency_sources","exec_time":0.085511345}
+{"type":"test","event":"ok","name":"trust-runtime::hmi_cli_command$hmi_source_and_compile_failures_leave_descriptor_unchanged","exec_time":0.084718254}
+{"type":"suite","event":"ok","passed":4,"failed":0,"ignored":0,"measured":0,"filtered_out":2,"exec_time":0.285337268,"nextest":{"crate":"trust-runtime","test_binary":"hmi_cli_command","kind":"test"}}

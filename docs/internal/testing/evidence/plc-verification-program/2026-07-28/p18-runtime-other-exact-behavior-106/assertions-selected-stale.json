@@ -1,0 +1,166 @@
+{
+  "inventories": {
+    "DISC_182C52FEEC07497CCAED": {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_A4D5B00A39B3A7922BEC5879",
+          "expression": "TestHarness :: from_source (source) . expect (\"compile harness\")",
+          "expression_digest": "sha256:8cc4f383e5d617f1628972805ffeb5284145509dbc16945c6cb3a790810f1d06",
+          "function": "tests::restart_instance_construction_failure_preserves_live_state",
+          "kind": "method:expect",
+          "line": 190,
+          "source_path": "crates/trust-runtime/src/runtime/restart.rs"
+        },
+        {
+          "assertion_id": "ASSERT_AE5DD2FB4411E5EE337B02F7",
+          "expression": "panic ! (\"expected g_fb instance, got {other:?}\")",
+          "expression_digest": "sha256:a42c70c79b2f103b104e2719b95a48dacda890870e183074b69ac8d6560ae341",
+          "function": "tests::restart_instance_construction_failure_preserves_live_state",
+          "kind": "macro:panic",
+          "line": 193,
+          "source_path": "crates/trust-runtime/src/runtime/restart.rs"
+        },
+        {
+          "assertion_id": "ASSERT_1DC902C9CED38127F9CC6574",
+          "expression": "harness . runtime () . function_blocks . keys () . find (| name | name . eq_ignore_ascii_case (\"CounterFb\")) . cloned () . expect (\"CounterFb definition key\")",
+          "expression_digest": "sha256:c300c6add2c0d6189a6f9f94dae8707afb131314b9e074f77849d5027170a716",
+          "function": "tests::restart_instance_construction_failure_preserves_live_state",
+          "kind": "method:expect",
+          "line": 203,
+          "source_path": "crates/trust-runtime/src/runtime/restart.rs"
+        },
+        {
+          "assertion_id": "ASSERT_D8B10CF8E9C92CB2F7BCE1F2",
+          "expression": "harness . runtime_mut () . function_blocks . shift_remove (& fb_key) . expect (\"remove CounterFb definition\")",
+          "expression_digest": "sha256:a6b1bef56d2ce8e97a51bccba942fb58c7d8ba4518902020051c352ea50a5c3d",
+          "function": "tests::restart_instance_construction_failure_preserves_live_state",
+          "kind": "method:expect",
+          "line": 210,
+          "source_path": "crates/trust-runtime/src/runtime/restart.rs"
+        },
+        {
+          "assertion_id": "ASSERT_B2D6621DE2CE31827E222FBA",
+          "expression": "harness . runtime_mut () . restart (RestartMode :: Warm) . expect_err (\"missing FB definition must reject restart\")",
+          "expression_digest": "sha256:913a709b707390f3fcd1bf580b3190035a22b8c3e356a9dfc4f773def145d810",
+          "function": "tests::restart_instance_construction_failure_preserves_live_state",
+          "kind": "method:expect_err",
+          "line": 216,
+          "source_path": "crates/trust-runtime/src/runtime/restart.rs"
+        },
+        {
+          "assertion_id": "ASSERT_BE63133C92D3FD127FE638C9",
+          "expression": "assert ! (matches ! (error , error :: RuntimeError :: UndefinedFunctionBlock (_)) , \"expected undefined FB restart failure, got {error:?}\")",
+          "expression_digest": "sha256:fc6a1b9bc1b9131b92f1c0f6bd97a30047763957bd62b406fc81a7b51ca4173b",
+          "function": "tests::restart_instance_construction_failure_preserves_live_state",
+          "kind": "macro:assert",
+          "line": 220,
+          "source_path": "crates/trust-runtime/src/runtime/restart.rs"
+        },
+        {
+          "assertion_id": "ASSERT_7BAC1C59A99C31411D751427",
+          "expression": "assert_eq ! (harness . runtime () . cycle_counter , 9)",
+          "expression_digest": "sha256:4d6717cffb537d71185b968898749d1e723f256002064195ca382cb7d1c719ae",
+          "function": "tests::restart_instance_construction_failure_preserves_live_state",
+          "kind": "macro:assert_eq",
+          "line": 224,
+          "source_path": "crates/trust-runtime/src/runtime/restart.rs"
+        },
+        {
+          "assertion_id": "ASSERT_F5F143DBC659C76288CCAB27",
+          "expression": "assert_eq ! (harness . runtime () . storage . get_instance_var (instance_id , \"count\") , Some (& Value :: Int (7)) , \"failed restart must preserve live instance storage\")",
+          "expression_digest": "sha256:3dc8193ae853401e7d0d8b2299770410bf7a28bd29be59dfc628e4d0d2bf3779",
+          "function": "tests::restart_instance_construction_failure_preserves_live_state",
+          "kind": "macro:assert_eq",
+          "line": 225,
+          "source_path": "crates/trust-runtime/src/runtime/restart.rs"
+        },
+        {
+          "assertion_id": "ASSERT_871A4910F9882FB96F56D3AF",
+          "expression": "assert ! (cycle . errors . is_empty () , \"old runtime must remain executable\")",
+          "expression_digest": "sha256:430dc9605badd2f3692e5a3c768efa59a15f07e0cc2a361f99f0cb23a841fb37",
+          "function": "tests::restart_instance_construction_failure_preserves_live_state",
+          "kind": "macro:assert",
+          "line": 236,
+          "source_path": "crates/trust-runtime/src/runtime/restart.rs"
+        },
+        {
+          "assertion_id": "ASSERT_619765B8C6A95FEC7D792751",
+          "expression": "assert_eq ! (harness . runtime () . storage . get_instance_var (instance_id , \"count\") , Some (& Value :: Int (99)) , \"failed restart must preserve queued debug forces\")",
+          "expression_digest": "sha256:c2f9d5434723d677572886cd0d8e5463bdc2158faa7db70a51de181dcbd797bf",
+          "function": "tests::restart_instance_construction_failure_preserves_live_state",
+          "kind": "macro:assert_eq",
+          "line": 240,
+          "source_path": "crates/trust-runtime/src/runtime/restart.rs"
+        },
+        {
+          "assertion_id": "ASSERT_2784D38C8B3413713B45DD83",
+          "expression": "assert_eq ! (harness . runtime () . cycle_counter , 10)",
+          "expression_digest": "sha256:a8b3bce95c58d03c0f20c9d363c594aeadb93dd895cdc6108ff5c5f09c4a1452",
+          "function": "tests::restart_instance_construction_failure_preserves_live_state",
+          "kind": "macro:assert_eq",
+          "line": 248,
+          "source_path": "crates/trust-runtime/src/runtime/restart.rs"
+        }
+      ],
+      "inventory_digest": "sha256:ad91bb80140d7bbc65e1d89985801eb3060c97dd12103ef289ef14ea9ed041a2",
+      "path": "crates/trust-runtime/src/runtime/restart.rs",
+      "schema_version": 2,
+      "source_digest": "sha256:ecb33b15d659a9c124a3c05ff56e5fcbb4410a755593db5312c49fdd65d2df89",
+      "source_digests": {
+        "crates/trust-runtime/src/runtime/restart.rs": "sha256:ecb33b15d659a9c124a3c05ff56e5fcbb4410a755593db5312c49fdd65d2df89"
+      },
+      "test_name": "restart_instance_construction_failure_preserves_live_state",
+      "unresolved_assertion_helpers": []
+    },
+    "DISC_E72EFAA018DAB54FAAC0": {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_2AB5A2286811F78CF3667FE4",
+          "expression": "assert_eq ! (runtime . execution_deadline () , None)",
+          "expression_digest": "sha256:710153c7f3b22939c1ff23c3082fe768107e5c2eb9050dbda04cb33cf5c1383e",
+          "function": "runner_loop_poison_tests::disabled_watchdog_does_not_arm_cycle_deadlines",
+          "kind": "macro:assert_eq",
+          "line": 607,
+          "source_path": "crates/trust-runtime/src/scheduler/runner_loop.rs"
+        },
+        {
+          "assertion_id": "ASSERT_D96243E7F950F4CDE46DAA69",
+          "expression": "assert_eq ! (runtime . output_commit_deadline () , None)",
+          "expression_digest": "sha256:f51258da54ff13e4709926d8d3f23f132600d90c4be369a637d74f1bf9b284fd",
+          "function": "runner_loop_poison_tests::disabled_watchdog_does_not_arm_cycle_deadlines",
+          "kind": "macro:assert_eq",
+          "line": 608,
+          "source_path": "crates/trust-runtime/src/scheduler/runner_loop.rs"
+        },
+        {
+          "assertion_id": "ASSERT_38B3F1A1D0A4D6FB9BBA5316",
+          "expression": "assert_eq ! (runtime . execution_deadline () , None)",
+          "expression_digest": "sha256:710153c7f3b22939c1ff23c3082fe768107e5c2eb9050dbda04cb33cf5c1383e",
+          "function": "runner_loop_poison_tests::disabled_watchdog_does_not_arm_cycle_deadlines",
+          "kind": "macro:assert_eq",
+          "line": 610,
+          "source_path": "crates/trust-runtime/src/scheduler/runner_loop.rs"
+        },
+        {
+          "assertion_id": "ASSERT_E9515E3DF7DC59AA9C759C88",
+          "expression": "assert_eq ! (runtime . output_commit_deadline () , None)",
+          "expression_digest": "sha256:f51258da54ff13e4709926d8d3f23f132600d90c4be369a637d74f1bf9b284fd",
+          "function": "runner_loop_poison_tests::disabled_watchdog_does_not_arm_cycle_deadlines",
+          "kind": "macro:assert_eq",
+          "line": 611,
+          "source_path": "crates/trust-runtime/src/scheduler/runner_loop.rs"
+        }
+      ],
+      "inventory_digest": "sha256:5d1755f673e01367afe9d06000d2b5fb90ca17a0d322a99cf9946e568cdd5736",
+      "path": "crates/trust-runtime/src/scheduler/runner_loop.rs",
+      "schema_version": 2,
+      "source_digest": "sha256:20289f8f8a7475b158ffc376603cde82a8d8bb2627c030ba01b091a922f77d56",
+      "source_digests": {
+        "crates/trust-runtime/src/scheduler/runner_loop.rs": "sha256:20289f8f8a7475b158ffc376603cde82a8d8bb2627c030ba01b091a922f77d56"
+      },
+      "test_name": "disabled_watchdog_does_not_arm_cycle_deadlines",
+      "unresolved_assertion_helpers": []
+    }
+  },
+  "schema_version": 2
+}

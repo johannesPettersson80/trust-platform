@@ -1,0 +1,13 @@
+{"type":"suite","event":"started","test_count":4,"nextest":{"crate":"trust-runtime","test_binary":"openot_capstone","kind":"test"}}
+{"type":"test","event":"started","name":"trust-runtime::openot_capstone$openot_capstone_consumer_process"}
+{"type":"suite","event":"ok","passed":0,"failed":0,"ignored":3,"measured":0,"filtered_out":0,"exec_time":0,"nextest":{"crate":"trust-runtime","test_binary":"openot_capstone","kind":"test"}}
+{"type":"suite","event":"started","test_count":4,"nextest":{"crate":"trust-runtime","test_binary":"openot_capstone","kind":"test"}}
+{"type":"test","event":"started","name":"trust-runtime::openot_capstone$openot_capstone_producer_process"}
+{"type":"suite","event":"ok","passed":0,"failed":0,"ignored":3,"measured":0,"filtered_out":0,"exec_time":0,"nextest":{"crate":"trust-runtime","test_binary":"openot_capstone","kind":"test"}}
+{"type":"suite","event":"started","test_count":4,"nextest":{"crate":"trust-runtime","test_binary":"openot_capstone","kind":"test"}}
+{"type":"test","event":"started","name":"trust-runtime::openot_capstone$openot_capstone_unfenced_contrast"}
+{"type":"suite","event":"ok","passed":0,"failed":0,"ignored":3,"measured":0,"filtered_out":0,"exec_time":0,"nextest":{"crate":"trust-runtime","test_binary":"openot_capstone","kind":"test"}}
+{"type":"suite","event":"started","test_count":4,"nextest":{"crate":"trust-runtime","test_binary":"openot_capstone","kind":"test"}}
+{"type":"test","event":"started","name":"trust-runtime::openot_capstone$openot_capstone_fenced_cross_process"}
+{"type":"test","event":"ok","name":"trust-runtime::openot_capstone$openot_capstone_fenced_cross_process","exec_time":38.910302263}
+{"type":"suite","event":"ok","passed":1,"failed":0,"ignored":3,"measured":0,"filtered_out":0,"exec_time":38.910302263,"nextest":{"crate":"trust-runtime","test_binary":"openot_capstone","kind":"test"}}

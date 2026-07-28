@@ -1,0 +1,15 @@
+info: experimental features enabled: wrapper-scripts
+   Compiling trust-runtime v0.24.59 (/home/johannes/projects/trust-platform-p18-runtime-other-106-1dc84908/crates/trust-runtime)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.11s
+────────────
+ Nextest run ID 8889bfac-bcf4-4f43-be15-0f8f8890d9f0 with nextest profile: default
+    Starting 7 tests across 1 binary
+        PASS [   0.030s] (1/7) trust-runtime::control_cli_command ctl_status_sends_authenticated_request_and_prints_summary
+        PASS [   0.032s] (2/7) trust-runtime::control_cli_command ctl_stats_renders_each_task_in_stable_compact_form
+        PASS [   0.030s] (3/7) trust-runtime::control_cli_command ctl_returns_nonzero_for_rejected_control_response
+        PASS [   0.051s] (4/7) trust-runtime::control_cli_command ctl_returns_nonzero_when_control_response_omits_ok
+        PASS [   0.056s] (5/7) trust-runtime::control_cli_command ctl_endpoint_override_preserves_project_token
+        PASS [   0.071s] (6/7) trust-runtime::control_cli_command ctl_returns_nonzero_for_malformed_success_results
+        PASS [   0.088s] (7/7) trust-runtime::control_cli_command ctl_target_resolution_enforces_endpoint_and_token_precedence
+────────────
+     Summary [   0.091s] 7 tests run: 7 passed, 0 skipped

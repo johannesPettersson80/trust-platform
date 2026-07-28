@@ -1,0 +1,4 @@
+{"type":"suite","event":"started","test_count":1,"nextest":{"crate":"trust-dev","test_binary":"cli_smoke","kind":"test"}}
+{"type":"test","event":"started","name":"trust-dev::cli_smoke$oscat_replaced_upstream_name_remains_absent"}
+{"type":"test","event":"ok","name":"trust-dev::cli_smoke$oscat_replaced_upstream_name_remains_absent","exec_time":22.436216867}
+{"type":"suite","event":"ok","passed":1,"failed":0,"ignored":0,"measured":0,"filtered_out":2,"exec_time":22.436216867,"nextest":{"crate":"trust-dev","test_binary":"cli_smoke","kind":"test"}}

@@ -1,0 +1,9 @@
+info: experimental features enabled: wrapper-scripts
+   Compiling trust-runtime v0.24.59 (/home/johannes/projects/trust-platform-p18-runtime-other-106-1dc84908/crates/trust-runtime)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.38s
+────────────
+ Nextest run ID 61106175-18d2-4c5d-98eb-2ed6e62758d3 with nextest profile: default
+    Starting 1 test across 1 binary (5 tests skipped)
+        PASS [   0.023s] (1/1) trust-runtime::harness io_by_address
+────────────
+     Summary [   0.025s] 1 test run: 1 passed, 5 skipped

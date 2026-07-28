@@ -1,0 +1,6 @@
+{"type":"suite","event":"started","test_count":2,"nextest":{"crate":"trust-runtime","test_binary":"build_command","kind":"test"}}
+{"type":"test","event":"started","name":"trust-runtime::build_command$build_human_mode_discovers_current_project_and_summarizes_sources"}
+{"type":"test","event":"started","name":"trust-runtime::build_command$build_compile_failure_preserves_existing_program_and_exits_11"}
+{"type":"test","event":"ok","name":"trust-runtime::build_command$build_compile_failure_preserves_existing_program_and_exits_11","exec_time":0.037547762}
+{"type":"test","event":"ok","name":"trust-runtime::build_command$build_human_mode_discovers_current_project_and_summarizes_sources","exec_time":0.121052068}
+{"type":"suite","event":"ok","passed":2,"failed":0,"ignored":0,"measured":0,"filtered_out":1,"exec_time":0.15859983,"nextest":{"crate":"trust-runtime","test_binary":"build_command","kind":"test"}}

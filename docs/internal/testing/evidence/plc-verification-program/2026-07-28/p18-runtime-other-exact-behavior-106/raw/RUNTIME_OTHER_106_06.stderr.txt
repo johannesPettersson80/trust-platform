@@ -1,0 +1,13 @@
+info: experimental features enabled: wrapper-scripts
+   Compiling trust-runtime v0.24.59 (/home/johannes/projects/trust-platform-p18-runtime-other-106-1dc84908/crates/trust-runtime)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.75s
+────────────
+ Nextest run ID c5b8733c-abb0-4f2a-9a4e-c1966580ba19 with nextest profile: default
+    Starting 5 tests across 1 binary (3 tests skipped)
+        PASS [   0.056s] (1/5) trust-runtime::check_command check_ci_reports_sources_override_and_local_dependencies
+        PASS [   0.058s] (2/5) trust-runtime::check_command check_reports_source_layout_error_with_invalid_config_exit_code
+        PASS [   0.074s] (3/5) trust-runtime::check_command check_mixed_config_and_compile_errors_uses_config_exit_and_reports_both
+        PASS [   0.078s] (4/5) trust-runtime::check_command check_accepts_project_without_writing_program_stbc
+        PASS [   0.092s] (5/5) trust-runtime::check_command check_aggregates_required_and_optional_config_errors_with_stable_exit_code
+────────────
+     Summary [   0.095s] 5 tests run: 5 passed, 3 skipped

@@ -1,0 +1,9 @@
+info: experimental features enabled: wrapper-scripts
+    Blocking waiting for file lock on package cache
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.55s
+────────────
+ Nextest run ID ef164133-d82d-4c5b-bc9a-5eb6a2ee4629 with nextest profile: default
+    Starting 1 test across 1 binary (1102 tests skipped)
+        PASS [   0.041s] (1/1) trust-runtime debug::breakpoints::tests::breakpoint_stop_suppression_is_identity_scoped
+────────────
+     Summary [   0.045s] 1 test run: 1 passed, 1102 skipped

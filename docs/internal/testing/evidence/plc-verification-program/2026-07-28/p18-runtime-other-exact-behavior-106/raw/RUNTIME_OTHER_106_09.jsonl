@@ -1,0 +1,16 @@
+{"type":"suite","event":"started","test_count":7,"nextest":{"crate":"trust-runtime","test_binary":"control_cli_command","kind":"test"}}
+{"type":"test","event":"started","name":"trust-runtime::control_cli_command$ctl_returns_nonzero_when_control_response_omits_ok"}
+{"type":"test","event":"started","name":"trust-runtime::control_cli_command$ctl_returns_nonzero_for_rejected_control_response"}
+{"type":"test","event":"started","name":"trust-runtime::control_cli_command$ctl_endpoint_override_preserves_project_token"}
+{"type":"test","event":"started","name":"trust-runtime::control_cli_command$ctl_returns_nonzero_for_malformed_success_results"}
+{"type":"test","event":"started","name":"trust-runtime::control_cli_command$ctl_status_sends_authenticated_request_and_prints_summary"}
+{"type":"test","event":"started","name":"trust-runtime::control_cli_command$ctl_stats_renders_each_task_in_stable_compact_form"}
+{"type":"test","event":"started","name":"trust-runtime::control_cli_command$ctl_target_resolution_enforces_endpoint_and_token_precedence"}
+{"type":"test","event":"ok","name":"trust-runtime::control_cli_command$ctl_status_sends_authenticated_request_and_prints_summary","exec_time":0.029531244}
+{"type":"test","event":"ok","name":"trust-runtime::control_cli_command$ctl_stats_renders_each_task_in_stable_compact_form","exec_time":0.031704725}
+{"type":"test","event":"ok","name":"trust-runtime::control_cli_command$ctl_returns_nonzero_for_rejected_control_response","exec_time":0.029996628}
+{"type":"test","event":"ok","name":"trust-runtime::control_cli_command$ctl_returns_nonzero_when_control_response_omits_ok","exec_time":0.050869032}
+{"type":"test","event":"ok","name":"trust-runtime::control_cli_command$ctl_endpoint_override_preserves_project_token","exec_time":0.055638784}
+{"type":"test","event":"ok","name":"trust-runtime::control_cli_command$ctl_returns_nonzero_for_malformed_success_results","exec_time":0.071070208}
+{"type":"test","event":"ok","name":"trust-runtime::control_cli_command$ctl_target_resolution_enforces_endpoint_and_token_precedence","exec_time":0.088329252}
+{"type":"suite","event":"ok","passed":7,"failed":0,"ignored":0,"measured":0,"filtered_out":0,"exec_time":0.357139873,"nextest":{"crate":"trust-runtime","test_binary":"control_cli_command","kind":"test"}}

@@ -1,0 +1,9 @@
+info: experimental features enabled: wrapper-scripts
+   Compiling trust-runtime v0.24.59 (/home/johannes/projects/trust-platform-p18-runtime-other-106-1dc84908/crates/trust-runtime)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.87s
+────────────
+ Nextest run ID ad4f17d2-858e-4b8f-b140-b036e7ced248 with nextest profile: default
+    Starting 1 test across 1 binary (3 tests skipped)
+        PASS [  38.910s] (1/1) trust-runtime::openot_capstone openot_capstone_fenced_cross_process
+────────────
+     Summary [  38.911s] 1 test run: 1 passed, 3 skipped

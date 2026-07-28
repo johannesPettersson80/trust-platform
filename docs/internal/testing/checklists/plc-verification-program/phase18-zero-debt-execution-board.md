@@ -1066,6 +1066,29 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   ran. Focused evidence and raw shard results are recorded in
   `docs/internal/testing/evidence/plc-verification-program/2026-07-28-p18-ads-exact-behavior-71.md`.
   <!-- generated:ads-exact-behavior-71:end -->
+  <!-- generated:runtime-other-exact-behavior-106:start -->
+
+  Runtime-other exact-behavior coherent-campaign progress (2026-07-28): all
+  106 frozen behavior demands in the runtime-other authority group are bound
+  to 196 exact selected catalog tests and 230 assignment links across 27
+  command groups. The clean builder campaign at
+  `1dc849081acc06da759b56888930a36b3c6eeee2` passes 196/196 tests; the
+  additional denominator-missing breakpoint suppression test passes 1/1 and
+  is bound to `DEBUG_CONTROL_EXECUTION_001#behavior:2`. The atomic metadata
+  transaction at `d7df94e2de0df6dc7b50d4b0fad1f55080561f99` records 34 new
+  exact mappings, preserves 163 existing mappings, adds five live denominator
+  facts, refreshes 12 accepted proposal/decision snapshots and seven changed
+  assertion-source closures, and updates 15 provenance records. The frozen
+  equations now report 4,399 live tests, 3,918 `catalog_mapped`, 481 owned
+  `reviewed_nonmapping`, zero existing tests lacking specification authority,
+  and 90 confirmed missing behavior tests. The focused mapping, proof, and
+  campaign suite passes 10/10 locally and on the exact clean builder checkout.
+  The repository-wide staleness validator remains red on the open Phase 18
+  metadata/proof baseline. This is large-batch `P18-003` through `P18-006`
+  progress, not global row closure. No broad workspace gate ran. Focused
+  evidence and retained machine-readable artifacts are recorded in
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-28-p18-runtime-other-exact-behavior-106.md`.
+  <!-- generated:runtime-other-exact-behavior-106:end -->
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device

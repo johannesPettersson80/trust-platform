@@ -1,0 +1,15 @@
+info: experimental features enabled: wrapper-scripts
+   Compiling trust-runtime v0.24.59 (/home/johannes/projects/trust-platform-p18-runtime-other-106-1dc84908/crates/trust-runtime)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.74s
+────────────
+ Nextest run ID 8804d43e-de16-430a-ae9f-d895a5641355 with nextest profile: default
+    Starting 7 tests across 1 binary (6 tests skipped)
+        PASS [   0.017s] (1/7) trust-runtime::setup_command setup_cli_dry_run_reports_plan_without_creating_project
+        PASS [   0.020s] (2/7) trust-runtime::setup_command setup_rejects_system_and_guided_flag_mix_without_mutation
+        PASS [   0.039s] (3/7) trust-runtime::setup_command setup_without_mode_rejects_noninteractive_input
+        PASS [   0.040s] (4/7) trust-runtime::setup_command setup_cli_rejects_browser_only_options_without_mutation
+        PASS [   0.041s] (5/7) trust-runtime::setup_command setup_browser_remote_dry_run_shows_token_requirements
+        PASS [   0.041s] (6/7) trust-runtime::setup_command setup_cli_rejects_explicit_default_browser_options_without_mutation
+        PASS [   0.111s] (7/7) trust-runtime::setup_command setup_cli_mode_writes_artifacts_and_next_steps
+────────────
+     Summary [   0.112s] 7 tests run: 7 passed, 6 skipped

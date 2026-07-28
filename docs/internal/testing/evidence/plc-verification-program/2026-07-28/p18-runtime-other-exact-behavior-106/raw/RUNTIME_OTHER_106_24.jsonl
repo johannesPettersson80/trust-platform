@@ -1,0 +1,4 @@
+{"type":"suite","event":"started","test_count":1,"nextest":{"crate":"trust-runtime","test_binary":"safe_state_handoff_trace_cases","kind":"test"}}
+{"type":"test","event":"started","name":"trust-runtime::safe_state_handoff_trace_cases$safe_state_handoff_trace_cases"}
+{"type":"test","event":"ok","name":"trust-runtime::safe_state_handoff_trace_cases$safe_state_handoff_trace_cases","exec_time":0.028465991}
+{"type":"suite","event":"ok","passed":1,"failed":0,"ignored":0,"measured":0,"filtered_out":0,"exec_time":0.028465991,"nextest":{"crate":"trust-runtime","test_binary":"safe_state_handoff_trace_cases","kind":"test"}}
