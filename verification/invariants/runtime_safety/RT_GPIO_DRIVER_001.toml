@@ -10,11 +10,11 @@ claim = "GPIO backends accept only reviewed bit mappings, preserve backend error
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-runtime/src/io/gpio.rs", "docs/specs/11-runtime-engine.md"]
-tests = ["TEST_AUTO_04BE0F933AAEBA00DF54", "TEST_AUTO_AAC32F62FD46D1A39C78", "TEST_AUTO_B66C105004A8A1831D52", "TEST_AUTO_E944C2D055EB2EDB0E79", "TEST_AUTO_FEC5B699FE0A81B32CDD"]
+tests = ["TEST_AUTO_04BE0F933AAEBA00DF54", "TEST_AUTO_AAC32F62FD46D1A39C78", "TEST_AUTO_B66C105004A8A1831D52", "TEST_AUTO_E944C2D055EB2EDB0E79", "TEST_AUTO_F521BAD899EFD819471D", "TEST_AUTO_FEC5B699FE0A81B32CDD"]
 gates = ["veryquick", "pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_behavior_tests", "focused_remote_execution", "physical_gpio_evidence", "broad_remote_gate"]
+missing = ["focused_remote_execution", "physical_gpio_evidence", "broad_remote_gate"]
 
 [spec]
 status = "specified"

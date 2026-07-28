@@ -23,11 +23,7 @@ tests = [
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = [
-  "assertion_reachability",
-  "mutation_sensitivity",
-  "broad_remote_gate",
-]
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
 
 [spec]
 status = "specified"

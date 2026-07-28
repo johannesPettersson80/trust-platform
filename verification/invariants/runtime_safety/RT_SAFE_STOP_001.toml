@@ -10,7 +10,7 @@ claim = "On deliberate stop, configured safe outputs must reach the device or th
 proof_level = "G2"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src/runtime", "crates/trust-runtime/src/io"]
-tests = ["TEST_AUTO_6F92DA55FCF24372A33A", "TEST_AUTO_EFB8B3C332B85B1B4615", "TEST_RUNTIME_SAFE_STATE_HANDOFF_001"]
+tests = ["TEST_AUTO_6F92DA55FCF24372A33A", "TEST_AUTO_EFB8B3C332B85B1B4615", "TEST_RUNTIME_SAFE_STATE_HANDOFF_001", "TEST_RUNTIME_SAFE_STATE_STOP_DEGRADED_001"]
 gates = ["pr"]
 evidence_refs = [
   "EVID_TEST_RUNTIME_SAFE_STATE_HANDOFF_001_RED",
