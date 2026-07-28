@@ -3,18 +3,18 @@ id = "RT_STDLIB_CONVERSION_001"
 title = "Runtime standard conversions preserve reviewed values and reject non-finite text"
 area = "bytecode_vm"
 risk = "wrong_result"
-status = "planned"
+status = "mapped"
 owner = "trust-runtime"
 last_reviewed = "2026-07-27"
 claim = "Runtime standard conversions preserve the reviewed rounding, transfer, date/time, character, text, and BCD results while non-finite text-to-real input is rejected without an overclaimed error variant."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["docs/specs/07-standard-functions.md", "crates/trust-runtime/src/stdlib/conversions"]
-tests = []
+tests = ["TEST_AUTO_0E7B87A0E23C74E7BA73", "TEST_AUTO_11144C19050BB255758E", "TEST_AUTO_2243B8C73C3BFACC97DB", "TEST_AUTO_DD3343407B4FA9D0336A"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_tests", "focused_execution_evidence", "final_remote_gate"]
+missing = ["focused_execution_evidence", "final_remote_gate"]
 
 [spec]
 status = "specified"
@@ -143,20 +143,20 @@ rationale = "STRING_TO_REAL('NaN') and STRING_TO_LREAL('inf') reject without ass
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "Conversion results are specified; no existing tests are assigned to this planned invariant."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in RT_STDLIB_CONVERSION_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "gap_open"
-rationale = "BCD and non-finite text rejection are specified; no existing tests are assigned."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every wrong_type_or_shape behavior in RT_STDLIB_CONVERSION_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "boundary_high"
-state = "gap_open"
-rationale = "The reviewed TIME_TO_DWORD range boundary is specified; no existing test is assigned."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every boundary_high behavior in RT_STDLIB_CONVERSION_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "boundary_low"
-state = "gap_open"
-rationale = "The reviewed negative TIME_TO_DWORD boundary is specified; no existing test is assigned."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every boundary_low behavior in RT_STDLIB_CONVERSION_001; dynamic proof and broad remote validation remain explicit debt."

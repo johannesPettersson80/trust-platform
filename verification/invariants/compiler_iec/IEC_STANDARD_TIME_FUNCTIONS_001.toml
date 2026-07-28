@@ -10,17 +10,11 @@ claim = "Registered standard date/time arithmetic, concatenation, split, and DAY
 proof_level = "T1"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-runtime/src/stdlib/time.rs"]
-tests = [
-  "TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001",
-  "TEST_RUNTIME_STDLIB_TIME_SPLIT_001",
-]
+tests = ["TEST_AUTO_32089A1392ACCCEAB8FD", "TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001", "TEST_RUNTIME_STDLIB_TIME_SPLIT_001"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = ["SPEC_GAP_CURRENT_DT_CLOCK_BOUNDARY_001"]
-missing = [
-  "current_dt_host_clock_contract",
-  "overflow_and_invalid_component_boundaries",
-]
+missing = ["current_dt_host_clock_contract", "overflow_and_invalid_component_boundaries"]
 
 [spec]
 status = "specified"

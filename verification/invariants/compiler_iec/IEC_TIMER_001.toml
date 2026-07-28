@@ -10,7 +10,7 @@ claim = "TP, TON, TOF, and their LTIME variants follow the written executed-scan
 proof_level = "G2"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-hir/src", "crates/trust-runtime/src"]
-tests = ["TEST_IEC_TIMER_TRACE_001"]
+tests = ["TEST_AUTO_2CE44F0CAE069A77A47E", "TEST_AUTO_FB9C21E77224EA856F14", "TEST_IEC_TIMER_TRACE_001"]
 gates = ["pr"]
 evidence_refs = [
   "EVID_TEST_IEC_TIMER_TRACE_001_RED",

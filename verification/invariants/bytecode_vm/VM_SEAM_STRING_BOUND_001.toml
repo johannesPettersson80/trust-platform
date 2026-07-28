@@ -10,7 +10,7 @@ claim = "Writes into bounded STRING and WSTRING storage apply the receiving scal
 proof_level = "G1"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-runtime-core/src/value/string_semantics.rs"]
-tests = ["TEST_VM_STRING_PRIMITIVE_POLICY_001", "TEST_VM_STRING_BOUND_TRACE_001"]
+tests = ["TEST_AUTO_86419F8A4B09368E6ABB", "TEST_VM_STRING_BOUND_TRACE_001", "TEST_VM_STRING_PRIMITIVE_POLICY_001"]
 gates = ["veryquick", "pr"]
 evidence_refs = [
   "EVID_VM_BOUNDED_VALUE_SEMANTICS_CLOSEOUT_20260715",
@@ -35,7 +35,7 @@ ref = "SPEC_VM_VALUE_SEMANTICS_001"
 
 [[behavior]]
 partition = { min = 0, max = 5 }
-case_family = "happy_path"
+coverage_dimension = "happy_path"
 oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#bounded-string-runtime-writes"
 outcome = "accept_value"
 delta = { target = "set_to_input", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
@@ -43,7 +43,7 @@ rationale = "A STRING value within the receiving capacity is stored unchanged."
 
 [[behavior]]
 partition = { above = 5 }
-case_family = "above_max"
+coverage_dimension = "above_max"
 oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#bounded-string-runtime-writes"
 outcome = "accept_value"
 delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
@@ -67,7 +67,7 @@ rationale = "Function-block input copy-in applies the formal's declared capacity
 
 [[behavior]]
 partition = { wrong_type = "WSTRING" }
-case_family = "wrong_type_or_shape"
+coverage_dimension = "wrong_type_or_shape"
 oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#bounded-string-runtime-writes"
 outcome = "reject"
 no_partial_apply = true

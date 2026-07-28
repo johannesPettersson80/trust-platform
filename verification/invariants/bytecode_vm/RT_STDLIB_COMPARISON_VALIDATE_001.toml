@@ -3,18 +3,18 @@ id = "RT_STDLIB_COMPARISON_VALIDATE_001"
 title = "Runtime comparisons and validation functions preserve reviewed domains"
 area = "bytecode_vm"
 risk = "wrong_result"
-status = "planned"
+status = "mapped"
 owner = "trust-runtime"
 last_reviewed = "2026-07-27"
 claim = "Runtime enum comparison, finite-real validation, and BCD validation return the reviewed Boolean results and reject values outside their specified domains."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["docs/specs/07-standard-functions.md", "crates/trust-runtime/src/stdlib"]
-tests = []
+tests = ["TEST_AUTO_1608E778CF662F4E2257", "TEST_AUTO_33D9A3283BBB67B67BF1", "TEST_AUTO_CF850EDA342B7B7DDEAD"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_tests", "focused_execution_evidence", "final_remote_gate"]
+missing = ["focused_execution_evidence", "final_remote_gate"]
 
 [spec]
 status = "specified"
@@ -62,10 +62,10 @@ rationale = "IS_VALID rejects DINT input and IS_VALID_BCD rejects BOOL input bec
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "Comparison and validation results are specified; no tests are assigned to this planned invariant."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in RT_STDLIB_COMPARISON_VALIDATE_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "gap_open"
-rationale = "Validation domain rejection is specified; no tests are assigned."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every wrong_type_or_shape behavior in RT_STDLIB_COMPARISON_VALIDATE_001; dynamic proof and broad remote validation remain explicit debt."

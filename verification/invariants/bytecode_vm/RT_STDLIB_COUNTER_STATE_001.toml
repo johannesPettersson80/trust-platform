@@ -3,18 +3,18 @@ id = "RT_STDLIB_COUNTER_STATE_001"
 title = "Runtime counter function blocks preserve edge-driven state and value types"
 area = "bytecode_vm"
 risk = "wrong_result"
-status = "planned"
+status = "mapped"
 owner = "trust-runtime"
 last_reviewed = "2026-07-27"
 claim = "Runtime CTU, CTD, and CTUD instances apply their exercised reset or load controls, count only rising edges, derive their outputs from CV, and preserve the selected counter value type."
 proof_level = "S0"
 contract_kind = "state_machine"
 source_refs = ["docs/specs/08-standard-function-blocks.md", "crates/trust-runtime/src/stdlib/fbs/counters.rs"]
-tests = []
+tests = ["TEST_AUTO_12CDA0A01DC2A2690C4A", "TEST_AUTO_783A92F25FF61F57AAA5", "TEST_AUTO_83A89DA2CD75420C5772", "TEST_AUTO_DF647144552A51EC968B"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["accepted_catalog_mappings", "focused_execution_evidence", "final_remote_gate"]
+missing = ["focused_execution_evidence", "final_remote_gate"]
 
 [spec]
 status = "specified"
@@ -62,10 +62,10 @@ rationale = "An overloaded base counter selects the runtime PV/CV integer family
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
-state = "gap_open"
-rationale = "The counter state machines are specified; the ready runtime tests still require accepted catalog mappings and focused execution evidence."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in RT_STDLIB_COUNTER_STATE_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "The supported counter type families are specified; the ready runtime tests still require accepted catalog mappings and focused execution evidence."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in RT_STDLIB_COUNTER_STATE_001; dynamic proof and broad remote validation remain explicit debt."

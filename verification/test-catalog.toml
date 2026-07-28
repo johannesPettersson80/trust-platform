@@ -109822,3 +109822,1103 @@ mapping_assertion_review_digest = "sha256:b7d41218c57686e05b49d8699094b8b9fe54a4
 mapping_assertion_source_digests = { "crates/trust-runtime/src/host/instance.rs" = "sha256:a7f4ecafeeceb369b357b75ebd443320a8081d058360b33ca58c14e9d12ab668" }
 mapping_behavior_refs = ["RT_HOST_POU_EXECUTION_001#behavior:11"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_2E9172DF9B9DA9975F9C"
+subject_kind = "generated_test"
+discovery_id = "DISC_2E9172DF9B9DA9975F9C"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/datetime_profile.rs"
+name = "default_profile"
+command = "cargo nextest run -p trust-runtime --test datetime_profile --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::datetime_profile) & test(=default_profile)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_CORE_VALUE_PROGRAM_MODEL_001"]
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+oracle_refs = ["SPEC_RUNTIME_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"]
+expected_result = "The default short date/time profile uses epoch tick zero and one-millisecond resolution, while reviewed LDATE, LTOD, and LDT values expose their exact stored nanosecond counts."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_2E9172DF9B9DA9975F9C.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_2E9172DF9B9DA9975F9C_5D79A4508B2A"
+mapping_proposal_digest = "sha256:5d79a4508b2ac481a108bf3868e5b73f33b7877199f9f47481d44554b1450c45"
+mapping_decision_id = "MAP_DEC_609593F77331AC2A492FE00F"
+mapping_reviewed_source_digest = "sha256:7021a85def6b983b58570adfd39e3c07d7a1cdfa025c1d4a1f9617b95a35fda1"
+mapping_assertion_review_digest = "sha256:133cd6ada414ca7af3d918d3d4fc6a9d08e5ccb0b4920a9f0fd89a5da6734a83"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/datetime_profile.rs" = "sha256:7021a85def6b983b58570adfd39e3c07d7a1cdfa025c1d4a1f9617b95a35fda1" }
+mapping_behavior_refs = ["RT_CORE_VALUE_PROGRAM_MODEL_001#behavior:6"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_976F3E8A9E42B3047406"
+subject_kind = "generated_test"
+discovery_id = "DISC_976F3E8A9E42B3047406"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/datetime_profile.rs"
+name = "timezone_naive"
+command = "cargo nextest run -p trust-runtime --test datetime_profile --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::datetime_profile) & test(=timezone_naive)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_CORE_VALUE_PROGRAM_MODEL_001"]
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+oracle_refs = ["SPEC_RUNTIME_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"]
+expected_result = "Out-of-range ticks and timezone-bearing DATE plus TOD combination are rejected."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_976F3E8A9E42B3047406.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_976F3E8A9E42B3047406_4789E331BE1F"
+mapping_proposal_digest = "sha256:4789e331be1f2b1bceb85ce954ae1ae6435d42e185c1cf338f182c65d635e011"
+mapping_decision_id = "MAP_DEC_11486F0CFDFB25522FD898E3"
+mapping_reviewed_source_digest = "sha256:7021a85def6b983b58570adfd39e3c07d7a1cdfa025c1d4a1f9617b95a35fda1"
+mapping_assertion_review_digest = "sha256:ea71d93ccdd7e6aa5f9d0e1b547de1d90b80f489c06ca569bb569db0f46753c2"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/datetime_profile.rs" = "sha256:7021a85def6b983b58570adfd39e3c07d7a1cdfa025c1d4a1f9617b95a35fda1" }
+mapping_behavior_refs = ["RT_CORE_VALUE_PROGRAM_MODEL_001#behavior:7"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_A5E6FC01E9F799591FEB"
+subject_kind = "generated_test"
+discovery_id = "DISC_A5E6FC01E9F799591FEB"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/datetime_range.rs"
+name = "out_of_range_error"
+command = "cargo nextest run -p trust-runtime --test datetime_range --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::datetime_range) & test(=out_of_range_error)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_CORE_VALUE_PROGRAM_MODEL_001"]
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+oracle_refs = ["SPEC_RUNTIME_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"]
+expected_result = "Out-of-range ticks and timezone-bearing DATE plus TOD combination are rejected."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_A5E6FC01E9F799591FEB.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_A5E6FC01E9F799591FEB_98B33AECFE23"
+mapping_proposal_digest = "sha256:98b33aecfe23ffaee66cf352572b1e3cfe12096b098019d93a45f06c37dc8548"
+mapping_decision_id = "MAP_DEC_C1E02DA2FEB30CB4AF8A3BAA"
+mapping_reviewed_source_digest = "sha256:d0642395a756e333c29185334680e6ef84b17a19c35deaf4106dbf0424b1ce36"
+mapping_assertion_review_digest = "sha256:adeab9c98521549ea98310530f19eca1ff1b8331dd9d830c3a378ac4c868987e"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/datetime_range.rs" = "sha256:d0642395a756e333c29185334680e6ef84b17a19c35deaf4106dbf0424b1ce36" }
+mapping_behavior_refs = ["RT_CORE_VALUE_PROGRAM_MODEL_001#behavior:7"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_CCBBCCECC2ABCFE340BA"
+subject_kind = "generated_test"
+discovery_id = "DISC_CCBBCCECC2ABCFE340BA"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/datetime_types.rs"
+name = "ltime_epoch_and_units"
+command = "cargo nextest run -p trust-runtime --test datetime_types --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::datetime_types) & test(=ltime_epoch_and_units)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_CORE_VALUE_PROGRAM_MODEL_001"]
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+oracle_refs = ["SPEC_RUNTIME_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"]
+expected_result = "The default short date/time profile uses epoch tick zero and one-millisecond resolution, while reviewed LDATE, LTOD, and LDT values expose their exact stored nanosecond counts."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_CCBBCCECC2ABCFE340BA.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_CCBBCCECC2ABCFE340BA_4811CBCEB11B"
+mapping_proposal_digest = "sha256:4811cbceb11b0b12389633fa978a83caca5a87c774fd4d83778ec1ade9160880"
+mapping_decision_id = "MAP_DEC_A71319D0C1E1740C0A6809D9"
+mapping_reviewed_source_digest = "sha256:4b682a8c725ef2d4e5420203b2a110428a36c8a645aab0d5fa0a24f7f967245f"
+mapping_assertion_review_digest = "sha256:4099b5388c2dfcb0d56c3cf359165884c3cf6000ac8e3613a241c45514cddf34"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/datetime_types.rs" = "sha256:4b682a8c725ef2d4e5420203b2a110428a36c8a645aab0d5fa0a24f7f967245f" }
+mapping_behavior_refs = ["RT_CORE_VALUE_PROGRAM_MODEL_001#behavior:6"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_B0436E5C5E4D4AF3C0B8"
+subject_kind = "generated_test"
+discovery_id = "DISC_B0436E5C5E4D4AF3C0B8"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/expr_calls.rs"
+name = "stdlib_named_args"
+command = "cargo nextest run -p trust-runtime --test expr_calls --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::expr_calls) & test(=stdlib_named_args)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_STDLIB_SELECTION_001"]
+oracle_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#6-selection-functions-table-32"
+oracle_refs = ["SPEC_IEC_STANDARD_FUNCTIONS_001#6-selection-functions-table-32"]
+expected_result = "Executed ST binds G, IN0, and IN1 by their documented names and returns INT#7 for the reviewed true-guard call."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_B0436E5C5E4D4AF3C0B8.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_B0436E5C5E4D4AF3C0B8_657EBD62554F"
+mapping_proposal_digest = "sha256:657ebd62554f789181f1ff30b39eddc0a2a516ab851178c2feed6d7ce4d6f0cb"
+mapping_decision_id = "MAP_DEC_77F9D38537DAFA02BD4E60EC"
+mapping_reviewed_source_digest = "sha256:7fad496741ac4c92ee36275418ace98afdec229682dec90c32f9211ecbe67a32"
+mapping_assertion_review_digest = "sha256:be70420e866eb00b3393b1d05882809bfd9f334005ea3f880e1ab92ae059398e"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/expr_calls.rs" = "sha256:7fad496741ac4c92ee36275418ace98afdec229682dec90c32f9211ecbe67a32" }
+mapping_behavior_refs = ["RT_STDLIB_SELECTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_F0AE877FD378B8B562E5"
+subject_kind = "generated_test"
+discovery_id = "DISC_F0AE877FD378B8B562E5"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/fb_bistable.rs"
+name = "sr_rs"
+command = "cargo nextest run -p trust-runtime --test fb_bistable --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::fb_bistable) & test(=sr_rs)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_STDLIB_BISTABLE_STATE_001"]
+oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#2-bistable-function-blocks-table-43"
+oracle_refs = ["SPEC_IEC_STANDARD_FBS_CANDIDATE_001#2-bistable-function-blocks-table-43"]
+expected_result = "A new SR instance reports Q1 false, S1 sets it, an idle call preserves it, R resets it when S1 is false, and simultaneous S1 and R leave Q1 true. A new RS instance reports Q1 false, S sets it, an idle call preserves it, R1 resets it, and simultaneous S and R1 leave Q1 false."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_F0AE877FD378B8B562E5.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_F0AE877FD378B8B562E5_155261D3E0F9"
+mapping_proposal_digest = "sha256:155261d3e0f9b516ffb2c6ad003d9fc45d4412ab50d4ae87416d21b82a93c021"
+mapping_decision_id = "MAP_DEC_B6A4CDC41505263F37FF57F5"
+mapping_reviewed_source_digest = "sha256:fe8212acb95ad3f403ef3cab83c5af4a03739ef8546fcdf14feff8ace0d4e160"
+mapping_assertion_review_digest = "sha256:d92b1d8c03cb791293658ce8182c1667b4afecf4f38f87be3a9ea5a4b1da9165"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fb_bistable.rs" = "sha256:fe8212acb95ad3f403ef3cab83c5af4a03739ef8546fcdf14feff8ace0d4e160" }
+mapping_behavior_refs = ["RT_STDLIB_BISTABLE_STATE_001#behavior:0", "RT_STDLIB_BISTABLE_STATE_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_DF647144552A51EC968B"
+subject_kind = "generated_test"
+discovery_id = "DISC_DF647144552A51EC968B"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/fb_counters.rs"
+name = "ctu_ctd_ctud"
+command = "cargo nextest run -p trust-runtime --test fb_counters --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::fb_counters) & test(=ctu_ctd_ctud)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_STDLIB_COUNTER_STATE_001"]
+oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#4-counter-function-blocks-table-45"
+oracle_refs = ["SPEC_IEC_STANDARD_FBS_CANDIDATE_001#4-counter-function-blocks-table-45"]
+expected_result = "CTU increments CV once per CU rising edge, holds CV without a new edge, reports Q when CV reaches PV, and gives R priority by resetting CV to zero and Q to false. CTD gives LD priority by loading PV, decrements CV once per CD rising edge, holds CV without a new edge, and reports Q when CV reaches zero. CTUD increments on a CU rising edge, decrements on a CD rising edge, gives R priority over counting, and derives QU and QD from the resulting CV. This behavior does not claim the unexercised LD or simultaneous-edge partitions."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_DF647144552A51EC968B.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_DF647144552A51EC968B_C5DB8CE99E03"
+mapping_proposal_digest = "sha256:c5db8ce99e03c076096c23f92933a2cafd15c9bf69de05bbebd86962b494105b"
+mapping_decision_id = "MAP_DEC_C916C3693EFED8DE6866F0F1"
+mapping_reviewed_source_digest = "sha256:fdb95e0fdfca5034f3a3c9462730f4b7737b450a6443373cecce0b9c1c15b6f6"
+mapping_assertion_review_digest = "sha256:cbdbffa1e06a1eca77cdca63885f7f1d0ceeb763764558233a21f2da1228e2c2"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fb_counters.rs" = "sha256:fdb95e0fdfca5034f3a3c9462730f4b7737b450a6443373cecce0b9c1c15b6f6" }
+mapping_behavior_refs = ["RT_STDLIB_COUNTER_STATE_001#behavior:0", "RT_STDLIB_COUNTER_STATE_001#behavior:1", "RT_STDLIB_COUNTER_STATE_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_783A92F25FF61F57AAA5"
+subject_kind = "generated_test"
+discovery_id = "DISC_783A92F25FF61F57AAA5"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/fb_counters_full.rs"
+name = "generic_counter_uses_call_value_type_after_null_default"
+command = "cargo nextest run -p trust-runtime --test fb_counters_full --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::fb_counters_full) & test(=generic_counter_uses_call_value_type_after_null_default)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_STDLIB_COUNTER_STATE_001"]
+oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#4-counter-function-blocks-table-45"
+oracle_refs = ["SPEC_IEC_STANDARD_FBS_CANDIDATE_001#4-counter-function-blocks-table-45"]
+expected_result = "An overloaded base counter selects the runtime PV/CV integer family from its call values, while an explicit typed variant such as CTD_UDINT preserves that declared value type."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_783A92F25FF61F57AAA5.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_783A92F25FF61F57AAA5_F228D4D47221"
+mapping_proposal_digest = "sha256:f228d4d47221f7e36e5f99700cb62577a2d2b31f217fcca52bdc44fdb5a39316"
+mapping_decision_id = "MAP_DEC_49678F133CAE266EE82B234F"
+mapping_reviewed_source_digest = "sha256:51c015c7a7ee1027f9e1af70144870e337b307f3d4efccaa528e842ad4227837"
+mapping_assertion_review_digest = "sha256:52c9033efc589b82ac8f1775670d15425479642a4e4d774bf941a0ea3bbc2f05"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fb_counters_full.rs" = "sha256:51c015c7a7ee1027f9e1af70144870e337b307f3d4efccaa528e842ad4227837" }
+mapping_behavior_refs = ["RT_STDLIB_COUNTER_STATE_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_83A89DA2CD75420C5772"
+subject_kind = "generated_test"
+discovery_id = "DISC_83A89DA2CD75420C5772"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/fb_counters_full.rs"
+name = "counter_variants"
+command = "cargo nextest run -p trust-runtime --test fb_counters_full --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::fb_counters_full) & test(=counter_variants)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_STDLIB_COUNTER_STATE_001"]
+oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#4-counter-function-blocks-table-45"
+oracle_refs = ["SPEC_IEC_STANDARD_FBS_CANDIDATE_001#4-counter-function-blocks-table-45"]
+expected_result = "CTU increments CV once per CU rising edge, holds CV without a new edge, reports Q when CV reaches PV, and gives R priority by resetting CV to zero and Q to false. CTD gives LD priority by loading PV, decrements CV once per CD rising edge, holds CV without a new edge, and reports Q when CV reaches zero. CTUD increments on a CU rising edge, decrements on a CD rising edge, gives R priority over counting, and derives QU and QD from the resulting CV. This behavior does not claim the unexercised LD or simultaneous-edge partitions. An overloaded base counter selects the runtime PV/CV integer family from its call values, while an explicit typed variant such as CTD_UDINT preserves that declared value type."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_83A89DA2CD75420C5772.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_83A89DA2CD75420C5772_14B0539B73F7"
+mapping_proposal_digest = "sha256:14b0539b73f75617c32c547c4c0ea42ed7ef943d08bfc975cfeba367efaeb6dc"
+mapping_decision_id = "MAP_DEC_18828AB6A1118A29543BCC95"
+mapping_reviewed_source_digest = "sha256:51c015c7a7ee1027f9e1af70144870e337b307f3d4efccaa528e842ad4227837"
+mapping_assertion_review_digest = "sha256:1db659966c1e47fe4f73c4f123b299eb53fb18a74744938314b5ec5f6540e32f"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fb_counters_full.rs" = "sha256:51c015c7a7ee1027f9e1af70144870e337b307f3d4efccaa528e842ad4227837" }
+mapping_behavior_refs = ["RT_STDLIB_COUNTER_STATE_001#behavior:0", "RT_STDLIB_COUNTER_STATE_001#behavior:1", "RT_STDLIB_COUNTER_STATE_001#behavior:2", "RT_STDLIB_COUNTER_STATE_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_AA62E0EB2E654D81531D"
+subject_kind = "generated_test"
+discovery_id = "DISC_AA62E0EB2E654D81531D"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/fb_edges.rs"
+name = "difu_difd_aliases_match_edge_behavior"
+command = "cargo nextest run -p trust-runtime --test fb_edges --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::fb_edges) & test(=difu_difd_aliases_match_edge_behavior)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_STDLIB_EDGE_STATE_001"]
+oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#3-edge-detection-table-44"
+oracle_refs = ["SPEC_IEC_STANDARD_FBS_CANDIDATE_001#3-edge-detection-table-44"]
+expected_result = "DIFU and DIFD execute the same state transitions as R_TRIG and F_TRIG. TRUST_MITSUBISHI_EDGE_ALIAS_001 owns compiler acceptance and signature equivalence; this invariant owns the runtime state result."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_AA62E0EB2E654D81531D.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_AA62E0EB2E654D81531D_45BFA880CED2"
+mapping_proposal_digest = "sha256:45bfa880ced2a571a5ea72e36063e67a9692e0dc9f4ce0ced0a1e356b2fced67"
+mapping_decision_id = "MAP_DEC_1CB10FABFE6D81537D087657"
+mapping_reviewed_source_digest = "sha256:d4f6641478dad6e78def9e9021b4ed85bd61ced2c90ed9b9792b1054a6f306a3"
+mapping_assertion_review_digest = "sha256:5dad1076067459b4402fc015386ebee020b4fedb6b8af6c4a602cd9eb75d7b95"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fb_edges.rs" = "sha256:d4f6641478dad6e78def9e9021b4ed85bd61ced2c90ed9b9792b1054a6f306a3" }
+mapping_behavior_refs = ["RT_STDLIB_EDGE_STATE_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_D74EF325BFDD0EF22B1F"
+subject_kind = "generated_test"
+discovery_id = "DISC_D74EF325BFDD0EF22B1F"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/fb_edges.rs"
+name = "r_trig_f_trig"
+command = "cargo nextest run -p trust-runtime --test fb_edges --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::fb_edges) & test(=r_trig_f_trig)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_STDLIB_EDGE_STATE_001"]
+oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#3-edge-detection-table-44"
+oracle_refs = ["SPEC_IEC_STANDARD_FBS_CANDIDATE_001#3-edge-detection-table-44"]
+expected_result = "R_TRIG reports Q false while CLK is low, true on the first executed false-to-true transition, and false on the next executed call while CLK remains high. F_TRIG reports Q true on the first executed low CLK after cold restart, false on a later held-low call, and true for one executed call on a later true-to-false transition."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_D74EF325BFDD0EF22B1F.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_D74EF325BFDD0EF22B1F_3F9D33DDEC08"
+mapping_proposal_digest = "sha256:3f9d33ddec08475ba5e2d2bfc167a20b9745fa855994658dd5fec8727cfb15af"
+mapping_decision_id = "MAP_DEC_2DCA0EC176930EC2CA18142B"
+mapping_reviewed_source_digest = "sha256:d4f6641478dad6e78def9e9021b4ed85bd61ced2c90ed9b9792b1054a6f306a3"
+mapping_assertion_review_digest = "sha256:712c12de194552be0b3b7f3194cb13f7e9311553c1acd9d2b93a15ba390880e3"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fb_edges.rs" = "sha256:d4f6641478dad6e78def9e9021b4ed85bd61ced2c90ed9b9792b1054a6f306a3" }
+mapping_behavior_refs = ["RT_STDLIB_EDGE_STATE_001#behavior:0", "RT_STDLIB_EDGE_STATE_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_2CE44F0CAE069A77A47E"
+subject_kind = "generated_test"
+discovery_id = "DISC_2CE44F0CAE069A77A47E"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-runtime/tests/fb_timers.rs"
+name = "ton_tof_tp"
+command = "cargo nextest run -p trust-runtime --test fb_timers --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::fb_timers) & test(=ton_tof_tp)'"
+owner = "language"
+status = "mapped"
+invariants = ["IEC_TIMER_001"]
+oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001"
+oracle_refs = ["SPEC_IEC_STANDARD_FBS_CANDIDATE_001"]
+expected_result = "A basic TON trace holds IN true through PT, observes Q at the executed threshold scan, and resets on an executed false-input scan. After TOF reaches PT on an executed low-input scan, Q is false and ET remains PT on later low-input scans until the next executed true-input scan rearms the instance. After a TP pulse reaches PT, an executed held-high call keeps Q false and ET at PT; an executed low-input call resets ET to zero, and the next executed rising edge starts a new pulse. This does not claim active-pulse retrigger behavior."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_2CE44F0CAE069A77A47E.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_2CE44F0CAE069A77A47E_A65296E513F1"
+mapping_proposal_digest = "sha256:a65296e513f18d4ab8e76c1950a8b4564f5a310600bb7f5b5dfda55d0e6b1443"
+mapping_decision_id = "MAP_DEC_60265E3769A8FE44EF0C264A"
+mapping_reviewed_source_digest = "sha256:2cca3757fc17490a1b4466d9f8a62dda8a6e7d0a686f00bde79c2ee53586f4b6"
+mapping_assertion_review_digest = "sha256:a878ca7ae8e82e30d1986c6e855e42cc17fb7b1024abb8a7ea18b096ee97bfb1"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fb_timers.rs" = "sha256:2cca3757fc17490a1b4466d9f8a62dda8a6e7d0a686f00bde79c2ee53586f4b6" }
+mapping_behavior_refs = ["IEC_TIMER_001#behavior:0", "IEC_TIMER_001#behavior:2", "IEC_TIMER_001#behavior:4"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_12CDA0A01DC2A2690C4A"
+subject_kind = "generated_test"
+discovery_id = "DISC_12CDA0A01DC2A2690C4A"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/iec_counters.rs"
+name = "counter_examples"
+command = "cargo nextest run -p trust-runtime --test iec_counters --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::iec_counters) & test(=counter_examples)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_STDLIB_COUNTER_STATE_001"]
+oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#4-counter-function-blocks-table-45"
+oracle_refs = ["SPEC_IEC_STANDARD_FBS_CANDIDATE_001#4-counter-function-blocks-table-45"]
+expected_result = "CTU increments CV once per CU rising edge, holds CV without a new edge, reports Q when CV reaches PV, and gives R priority by resetting CV to zero and Q to false. CTD gives LD priority by loading PV, decrements CV once per CD rising edge, holds CV without a new edge, and reports Q when CV reaches zero."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_12CDA0A01DC2A2690C4A.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_12CDA0A01DC2A2690C4A_BB5718720945"
+mapping_proposal_digest = "sha256:bb5718720945a0a0b1bc42981247a9b6a97416c55658833be2ba94563ef0da0d"
+mapping_decision_id = "MAP_DEC_EF783725FEC7A9736DD7C74A"
+mapping_reviewed_source_digest = "sha256:07cfcb2a21ae549c4ba12e32052dfd75ae8f1ee98dd367a85fb982d0358e927d"
+mapping_assertion_review_digest = "sha256:2b3ae1be790a20bc8e5b4d9f47455a961da9deadb13427be72a23a5a8a1af2bb"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/iec_counters.rs" = "sha256:07cfcb2a21ae549c4ba12e32052dfd75ae8f1ee98dd367a85fb982d0358e927d" }
+mapping_behavior_refs = ["RT_STDLIB_COUNTER_STATE_001#behavior:0", "RT_STDLIB_COUNTER_STATE_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_0E7B87A0E23C74E7BA73"
+subject_kind = "generated_test"
+discovery_id = "DISC_0E7B87A0E23C74E7BA73"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/iec_examples.rs"
+name = "conversion_usage_examples"
+command = "cargo nextest run -p trust-runtime --test iec_examples --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::iec_examples) & test(=conversion_usage_examples)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_STDLIB_CONVERSION_001"]
+oracle_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#2-type-conversion-functions-tables-22-27"
+oracle_refs = ["SPEC_IEC_STANDARD_FUNCTIONS_001#2-type-conversion-functions-tables-22-27"]
+expected_result = "TRUNC_INT(REAL#1.6) returns INT#1, LREAL_TO_DINT(LREAL#42.0) returns DINT#42, and the reviewed integer-to-real conversions preserve -7 and 4 exactly. The reviewed REAL_TO_INT values 1.4, 1.6, 3.9, -1.6, 1.5, and 2.5 produce INT#1, INT#2, INT#4, INT#-2, INT#2, and INT#2; REAL#-2.5 produces INT#-2."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_0E7B87A0E23C74E7BA73.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_0E7B87A0E23C74E7BA73_6B993A72EF32"
+mapping_proposal_digest = "sha256:6b993a72ef327802bd85671371afd763a42edc3d54ba8058c986a32025b680a0"
+mapping_decision_id = "MAP_DEC_8A8890CED66E0A0BDAC270D7"
+mapping_reviewed_source_digest = "sha256:944b2bc838f0ec3acf95a198588eaecb9f6a81d11963ddf633bd4b30f8226d64"
+mapping_assertion_review_digest = "sha256:007028bfe6ebd988054bd3831fb5f362baa8159dfbb05ec870946a3ad8a31c48"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/iec_examples.rs" = "sha256:944b2bc838f0ec3acf95a198588eaecb9f6a81d11963ddf633bd4b30f8226d64" }
+mapping_behavior_refs = ["RT_STDLIB_CONVERSION_001#behavior:0", "RT_STDLIB_CONVERSION_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_FB9C21E77224EA856F14"
+subject_kind = "generated_test"
+discovery_id = "DISC_FB9C21E77224EA856F14"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-runtime/tests/iec_timers.rs"
+name = "timing_diagrams"
+command = "cargo nextest run -p trust-runtime --test iec_timers --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::iec_timers) & test(=timing_diagrams)'"
+owner = "language"
+status = "mapped"
+invariants = ["IEC_TIMER_001"]
+oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001"
+oracle_refs = ["SPEC_IEC_STANDARD_FBS_CANDIDATE_001"]
+expected_result = "A basic TON trace holds IN true through PT, observes Q at the executed threshold scan, and resets on an executed false-input scan. After TOF reaches PT on an executed low-input scan, Q is false and ET remains PT on later low-input scans until the next executed true-input scan rearms the instance. After a TP pulse reaches PT, an executed held-high call keeps Q false and ET at PT; an executed low-input call resets ET to zero, and the next executed rising edge starts a new pulse. This does not claim active-pulse retrigger behavior."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_FB9C21E77224EA856F14.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_FB9C21E77224EA856F14_7AD359A4512A"
+mapping_proposal_digest = "sha256:7ad359a4512a4c3d9f0fe4c44573c0f05566202920a093b8d13787f8fcd905b3"
+mapping_decision_id = "MAP_DEC_7CA10FD78966EF7973947852"
+mapping_reviewed_source_digest = "sha256:546a79598e59087fbc0eb3ca51230d05a6033d76efa5f0ffca3d301cf4b99bf0"
+mapping_assertion_review_digest = "sha256:81f2f013244b7db36bc31bd9f012f95b02df7073d311ac9f740a0456503275d0"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/iec_timers.rs" = "sha256:546a79598e59087fbc0eb3ca51230d05a6033d76efa5f0ffca3d301cf4b99bf0" }
+mapping_behavior_refs = ["IEC_TIMER_001#behavior:0", "IEC_TIMER_001#behavior:2", "IEC_TIMER_001#behavior:4"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_0D3C1E2B84926E0438C7"
+subject_kind = "generated_test"
+discovery_id = "DISC_0D3C1E2B84926E0438C7"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/stdlib_assertions.rs"
+name = "assertion_functions_fail_with_assertion_error"
+command = "cargo nextest run -p trust-runtime --test stdlib_assertions --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::stdlib_assertions) & test(=assertion_functions_fail_with_assertion_error)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_STDLIB_ASSERTION_001"]
+oracle_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#non-iec-extensions-mp-014"
+oracle_refs = ["SPEC_IEC_STANDARD_FUNCTIONS_001#non-iec-extensions-mp-014"]
+expected_result = "Equality and ordering failures use the six specified message forms with decimal integer, .0 REAL, uppercase Boolean, and quoted CHAR representatives instead of internal Value debug text. A reviewed failed equality, inequality, ordering, or tolerance condition returns RuntimeError::AssertionFailed rather than a normal runtime value. A reviewed ASSERT_NEAR failure identifies ASSERT_NEAR and includes delta context without fixing an unasserted complete message."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_0D3C1E2B84926E0438C7.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_0D3C1E2B84926E0438C7_3B63DB689527"
+mapping_proposal_digest = "sha256:3b63db6895276689e5be4447d7d07e1cca1b379830384e807c10b6c1750a1e7b"
+mapping_decision_id = "MAP_DEC_DD39CA2EB69D7DF16E2454F2"
+mapping_reviewed_source_digest = "sha256:1c4c0e6067a3e4266a319b593493316a53fc42b793430a176c5391713f9a9569"
+mapping_assertion_review_digest = "sha256:09c2febd304368561ea86bef69a38737c565b01665d393696f1d12891873d02f"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/stdlib_assertions.rs" = "sha256:1c4c0e6067a3e4266a319b593493316a53fc42b793430a176c5391713f9a9569" }
+mapping_behavior_refs = ["RT_STDLIB_ASSERTION_001#behavior:1", "RT_STDLIB_ASSERTION_001#behavior:2", "RT_STDLIB_ASSERTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_52B1B39F56D1300B1907"
+subject_kind = "generated_test"
+discovery_id = "DISC_52B1B39F56D1300B1907"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/stdlib_assertions.rs"
+name = "assertion_comparison_functions_coerce_numeric_types"
+command = "cargo nextest run -p trust-runtime --test stdlib_assertions --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::stdlib_assertions) & test(=assertion_comparison_functions_coerce_numeric_types)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_STDLIB_ASSERTION_001"]
+oracle_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#non-iec-extensions-mp-014"
+oracle_refs = ["SPEC_IEC_STANDARD_FUNCTIONS_001#non-iec-extensions-mp-014"]
+expected_result = "Each reviewed true assertion condition, including INT/DINT comparison and finite REAL/LREAL ASSERT_NEAR, returns Value::Null."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_52B1B39F56D1300B1907.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_52B1B39F56D1300B1907_95A6659355D6"
+mapping_proposal_digest = "sha256:95a6659355d6233390d66f0ce2e16077fc97b7b256052e722d5b229366cf0890"
+mapping_decision_id = "MAP_DEC_3E1A34120E1C5AC61C87C9BC"
+mapping_reviewed_source_digest = "sha256:1c4c0e6067a3e4266a319b593493316a53fc42b793430a176c5391713f9a9569"
+mapping_assertion_review_digest = "sha256:88126d7130f62ce810f698e8ee08ee08a84a9fc75b6b0fb408b774416034ca14"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/stdlib_assertions.rs" = "sha256:1c4c0e6067a3e4266a319b593493316a53fc42b793430a176c5391713f9a9569" }
+mapping_behavior_refs = ["RT_STDLIB_ASSERTION_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_DE11FCAE13C370F4D857"
+subject_kind = "generated_test"
+discovery_id = "DISC_DE11FCAE13C370F4D857"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/stdlib_assertions.rs"
+name = "assertion_functions_pass_when_conditions_hold"
+command = "cargo nextest run -p trust-runtime --test stdlib_assertions --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::stdlib_assertions) & test(=assertion_functions_pass_when_conditions_hold)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_STDLIB_ASSERTION_001"]
+oracle_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#non-iec-extensions-mp-014"
+oracle_refs = ["SPEC_IEC_STANDARD_FUNCTIONS_001#non-iec-extensions-mp-014"]
+expected_result = "Each reviewed true assertion condition, including INT/DINT comparison and finite REAL/LREAL ASSERT_NEAR, returns Value::Null."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_DE11FCAE13C370F4D857.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_DE11FCAE13C370F4D857_CDFE23D85C33"
+mapping_proposal_digest = "sha256:cdfe23d85c33e3886d44a2c5b27f58d30c8ebd9f711c680bcc189a3f2e45b435"
+mapping_decision_id = "MAP_DEC_74323B57250515D53E21075E"
+mapping_reviewed_source_digest = "sha256:1c4c0e6067a3e4266a319b593493316a53fc42b793430a176c5391713f9a9569"
+mapping_assertion_review_digest = "sha256:ff4e779e2639a9e79c1df170ce6c49ab231c6778bfe906e5e32bd8da2dd774f4"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/stdlib_assertions.rs" = "sha256:1c4c0e6067a3e4266a319b593493316a53fc42b793430a176c5391713f9a9569" }
+mapping_behavior_refs = ["RT_STDLIB_ASSERTION_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_E81C8F54843E0E21C2F2"
+subject_kind = "generated_test"
+discovery_id = "DISC_E81C8F54843E0E21C2F2"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/stdlib_assertions.rs"
+name = "assertion_failure_messages_use_user_facing_value_strings"
+command = "cargo nextest run -p trust-runtime --test stdlib_assertions --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::stdlib_assertions) & test(=assertion_failure_messages_use_user_facing_value_strings)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_STDLIB_ASSERTION_001"]
+oracle_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#non-iec-extensions-mp-014"
+oracle_refs = ["SPEC_IEC_STANDARD_FUNCTIONS_001#non-iec-extensions-mp-014"]
+expected_result = "Equality and ordering failures use the six specified message forms with decimal integer, .0 REAL, uppercase Boolean, and quoted CHAR representatives instead of internal Value debug text. A reviewed failed equality, inequality, ordering, or tolerance condition returns RuntimeError::AssertionFailed rather than a normal runtime value."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_E81C8F54843E0E21C2F2.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_E81C8F54843E0E21C2F2_F4668FFADA81"
+mapping_proposal_digest = "sha256:f4668ffada815e49470844470934c4ef9e6bef87ea39248bf3900d7a39ee1dbf"
+mapping_decision_id = "MAP_DEC_E28987685A804D68D9290E84"
+mapping_reviewed_source_digest = "sha256:1c4c0e6067a3e4266a319b593493316a53fc42b793430a176c5391713f9a9569"
+mapping_assertion_review_digest = "sha256:0fb080a62e1c428a1e77cb9db9a129e1849d4a24bc590dff47e4cf34b9256efd"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/stdlib_assertions.rs" = "sha256:1c4c0e6067a3e4266a319b593493316a53fc42b793430a176c5391713f9a9569" }
+mapping_behavior_refs = ["RT_STDLIB_ASSERTION_001#behavior:1", "RT_STDLIB_ASSERTION_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_CDD39BC7EF926214C7A2"
+subject_kind = "generated_test"
+discovery_id = "DISC_CDD39BC7EF926214C7A2"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/stdlib_bit_full.rs"
+name = "bit_full"
+command = "cargo nextest run -p trust-runtime --test stdlib_bit_full --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::stdlib_bit_full) & test(=bit_full)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_STDLIB_NUMERIC_BIT_001"]
+oracle_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#3-numerical-functions-table-28"
+oracle_refs = ["SPEC_IEC_STANDARD_FUNCTIONS_001#3-numerical-functions-table-28"]
+expected_result = "The reviewed WORD shifts and BYTE rotations preserve their input widths and produce 0x0008, 0x0001, 0x03, and 0x81 respectively. Reviewed AND, OR, XOR, and NOT calls preserve exact bit patterns; mixed BYTE/WORD OR returns WORD#16#00FF."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_CDD39BC7EF926214C7A2.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_CDD39BC7EF926214C7A2_AA49D7068A22"
+mapping_proposal_digest = "sha256:aa49d7068a22c3d8bd8132f3744a685d38cff1addc43e5b60d0c93c09df65b47"
+mapping_decision_id = "MAP_DEC_A1ECE9CEEBDB1694ED05F9B1"
+mapping_reviewed_source_digest = "sha256:c9bb9f7d928d5e9f954a2440cbdd887546c8f650550831de0a5d447668efd848"
+mapping_assertion_review_digest = "sha256:b9abcdf922d3da962cdf54df98feee327ea5c83b526ad1e01ede51a2a4dca651"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/stdlib_bit_full.rs" = "sha256:c9bb9f7d928d5e9f954a2440cbdd887546c8f650550831de0a5d447668efd848" }
+mapping_behavior_refs = ["RT_STDLIB_NUMERIC_BIT_001#behavior:1", "RT_STDLIB_NUMERIC_BIT_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_11144C19050BB255758E"
+subject_kind = "generated_test"
+discovery_id = "DISC_11144C19050BB255758E"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/stdlib_conv.rs"
+name = "conversion_functions"
+command = "cargo nextest run -p trust-runtime --test stdlib_conv --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::stdlib_conv) & test(=conversion_functions)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_STDLIB_CONVERSION_001"]
+oracle_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#2-type-conversion-functions-tables-22-27"
+oracle_refs = ["SPEC_IEC_STANDARD_FUNCTIONS_001#2-type-conversion-functions-tables-22-27"]
+expected_result = "BOOL_TO_INT(TRUE) returns INT#1, INT_TO_DINT(INT#5) returns DINT#5, and DINT_TO_INT(DINT#7) returns INT#7. TRUNC_INT(REAL#1.6) returns INT#1, LREAL_TO_DINT(LREAL#42.0) returns DINT#42, and the reviewed integer-to-real conversions preserve -7 and 4 exactly. The reviewed REAL_TO_INT values 1.4, 1.6, 3.9, -1.6, 1.5, and 2.5 produce INT#1, INT#2, INT#4, INT#-2, INT#2, and INT#2; REAL#-2.5 produces INT#-2."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_11144C19050BB255758E.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_11144C19050BB255758E_AEA9FD1C1D13"
+mapping_proposal_digest = "sha256:aea9fd1c1d134e87e6573444439485d95663b8f36a3aeff5290b7b32c7e466e9"
+mapping_decision_id = "MAP_DEC_52B96396761B323B88F94645"
+mapping_reviewed_source_digest = "sha256:e158c0caf334acc21f5046ee091d5858d82b201feb5fffb0061c616739031da7"
+mapping_assertion_review_digest = "sha256:c86a364cbb0d94d893fde5f71c354bebf7c556e637091345a937e2db79b7e50c"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/stdlib_conv.rs" = "sha256:e158c0caf334acc21f5046ee091d5858d82b201feb5fffb0061c616739031da7" }
+mapping_behavior_refs = ["RT_STDLIB_CONVERSION_001#behavior:0", "RT_STDLIB_CONVERSION_001#behavior:1", "RT_STDLIB_CONVERSION_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_2243B8C73C3BFACC97DB"
+subject_kind = "generated_test"
+discovery_id = "DISC_2243B8C73C3BFACC97DB"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/stdlib_conv_full.rs"
+name = "conversion_full"
+command = "cargo nextest run -p trust-runtime --test stdlib_conv_full --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::stdlib_conv_full) & test(=conversion_full)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_STDLIB_CONVERSION_001"]
+oracle_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#2-type-conversion-functions-tables-22-27"
+oracle_refs = ["SPEC_IEC_STANDARD_FUNCTIONS_001#2-type-conversion-functions-tables-22-27"]
+expected_result = "The reviewed REAL_TO_INT values 1.4, 1.6, 3.9, -1.6, 1.5, and 2.5 produce INT#1, INT#2, INT#4, INT#-2, INT#2, and INT#2; REAL#-2.5 produces INT#-2. TRUNC_INT(REAL#1.6) returns INT#1, LREAL_TO_DINT(LREAL#42.0) returns DINT#42, and the reviewed integer-to-real conversions preserve -7 and 4 exactly. WORD#16#1234 narrows to BYTE#16#34, BYTE#16#12 widens to WORD#16#0012, SINT#18 transfers to WORD#16#0012, and WORD#16#1234 transfers to SINT#16#34. BOOL_TO_INT(TRUE) returns INT#1, INT_TO_DINT(INT#5) returns DINT#5, and DINT_TO_INT(DINT#7) returns INT#7. REAL#1.0 converts to its exact DWORD bit representation and that DWORD converts back to REAL#1.0. The reviewed DT, DATE, TOD, LDT, and LTOD conversions preserve epoch-based component values, while TIME_TO_DWORD and DWORD_TO_TIME preserve 0 ms and 123 ms. TIME_TO_DWORD rejects a negative one-millisecond duration without promising an unasserted diagnostic variant. TIME_TO_DWORD rejects a millisecond value one greater than DWORD maximum without promising an unasserted diagnostic variant. The reviewed STRING/WSTRING and CHAR/WCHAR conversions preserve 'A' or 'B', while BYTE_TO_CHAR, CHAR_TO_BYTE, and WCHAR_TO_WORD preserve their exact character codes. The four bounded DINT, REAL, DWORD, and STRING text-conversion representatives preserve their exact specified values. USINT#25 converts to BYTE#16#25 and BYTE#16#25 converts to UINT#25. BYTE BCD input 0xFA is rejected because it contains a non-decimal nibble."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_2243B8C73C3BFACC97DB.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_2243B8C73C3BFACC97DB_55A1431B6D0F"
+mapping_proposal_digest = "sha256:55a1431b6d0f8a6404e5fcc338d4b06d2f2a0693591e14f548ae165566eb79fa"
+mapping_decision_id = "MAP_DEC_FD608495020F3F6E4AB5A706"
+mapping_reviewed_source_digest = "sha256:24eed85d8c2b5f400aab0938837b7f31858b5395ce0a858b197f6de9b5cef70d"
+mapping_assertion_review_digest = "sha256:2af1310ef903fde33d05f17149d4214ea1339fd539c9731b6fe6ab512d4c81ba"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/stdlib_conv_full.rs" = "sha256:24eed85d8c2b5f400aab0938837b7f31858b5395ce0a858b197f6de9b5cef70d" }
+mapping_behavior_refs = ["RT_STDLIB_CONVERSION_001#behavior:0", "RT_STDLIB_CONVERSION_001#behavior:1", "RT_STDLIB_CONVERSION_001#behavior:10", "RT_STDLIB_CONVERSION_001#behavior:11", "RT_STDLIB_CONVERSION_001#behavior:2", "RT_STDLIB_CONVERSION_001#behavior:3", "RT_STDLIB_CONVERSION_001#behavior:4", "RT_STDLIB_CONVERSION_001#behavior:5", "RT_STDLIB_CONVERSION_001#behavior:6", "RT_STDLIB_CONVERSION_001#behavior:7", "RT_STDLIB_CONVERSION_001#behavior:8", "RT_STDLIB_CONVERSION_001#behavior:9"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_DD3343407B4FA9D0336A"
+subject_kind = "generated_test"
+discovery_id = "DISC_DD3343407B4FA9D0336A"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/stdlib_conv_full.rs"
+name = "string_to_real_rejects_non_finite_text"
+command = "cargo nextest run -p trust-runtime --test stdlib_conv_full --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::stdlib_conv_full) & test(=string_to_real_rejects_non_finite_text)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_STDLIB_CONVERSION_001"]
+oracle_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#2-type-conversion-functions-tables-22-27"
+oracle_refs = ["SPEC_IEC_STANDARD_FUNCTIONS_001#2-type-conversion-functions-tables-22-27"]
+expected_result = "STRING_TO_REAL('NaN') and STRING_TO_LREAL('inf') reject without assigning a stable RuntimeError variant."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_DD3343407B4FA9D0336A.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_DD3343407B4FA9D0336A_A19B8C6CD738"
+mapping_proposal_digest = "sha256:a19b8c6cd7389a7a7238bc93f3aa0504e85d3505b54a041aabb29374001bceea"
+mapping_decision_id = "MAP_DEC_88737457BEA3009023268740"
+mapping_reviewed_source_digest = "sha256:24eed85d8c2b5f400aab0938837b7f31858b5395ce0a858b197f6de9b5cef70d"
+mapping_assertion_review_digest = "sha256:58236896df1c06b35fed3f88abf0a50008af34540ac0ea7e926fbad04e2336f5"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/stdlib_conv_full.rs" = "sha256:24eed85d8c2b5f400aab0938837b7f31858b5395ce0a858b197f6de9b5cef70d" }
+mapping_behavior_refs = ["RT_STDLIB_CONVERSION_001#behavior:12"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_1608E778CF662F4E2257"
+subject_kind = "generated_test"
+discovery_id = "DISC_1608E778CF662F4E2257"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/stdlib_enum_validate.rs"
+name = "enum_comparisons"
+command = "cargo nextest run -p trust-runtime --test stdlib_enum_validate --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::stdlib_enum_validate) & test(=enum_comparisons)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_STDLIB_COMPARISON_VALIDATE_001"]
+oracle_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#7-comparison-functions-table-33"
+oracle_refs = ["SPEC_IEC_STANDARD_FUNCTIONS_001#7-comparison-functions-table-33"]
+expected_result = "For the reviewed Color type, EQ(RED, RED) and NE(RED, GREEN) both return TRUE."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_1608E778CF662F4E2257.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_1608E778CF662F4E2257_5BC1E7C59309"
+mapping_proposal_digest = "sha256:5bc1e7c59309544adeba06f0699bb7a9bf4eb11f8df578ebcfcbfcf13a08f9b1"
+mapping_decision_id = "MAP_DEC_7BD50A0EFC3E552C40E6E6A4"
+mapping_reviewed_source_digest = "sha256:8e8de54bb7ff1448c3854c5f659bafd3f0bc5f17804854339809d4bfd3d052f1"
+mapping_assertion_review_digest = "sha256:23620cbc56905d2922371fe9fedb7ed5ee4709b57b8cca3cddb4bb75821b2982"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/stdlib_enum_validate.rs" = "sha256:8e8de54bb7ff1448c3854c5f659bafd3f0bc5f17804854339809d4bfd3d052f1" }
+mapping_behavior_refs = ["RT_STDLIB_COMPARISON_VALIDATE_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_33D9A3283BBB67B67BF1"
+subject_kind = "generated_test"
+discovery_id = "DISC_33D9A3283BBB67B67BF1"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/stdlib_enum_validate.rs"
+name = "is_valid_real_values"
+command = "cargo nextest run -p trust-runtime --test stdlib_enum_validate --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::stdlib_enum_validate) & test(=is_valid_real_values)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_STDLIB_COMPARISON_VALIDATE_001"]
+oracle_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#7-comparison-functions-table-33"
+oracle_refs = ["SPEC_IEC_STANDARD_FUNCTIONS_001#7-comparison-functions-table-33"]
+expected_result = "IS_VALID returns TRUE for finite REAL#1.0 and FALSE for REAL NaN and LREAL positive infinity. IS_VALID rejects DINT input and IS_VALID_BCD rejects BOOL input because neither belongs to the specified function domain."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_33D9A3283BBB67B67BF1.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_33D9A3283BBB67B67BF1_6B566274268A"
+mapping_proposal_digest = "sha256:6b566274268a33614185df59dc8916560bf95431e86da320c5c4f050ed6633ee"
+mapping_decision_id = "MAP_DEC_3FB1BE71AD1F17580190F762"
+mapping_reviewed_source_digest = "sha256:8e8de54bb7ff1448c3854c5f659bafd3f0bc5f17804854339809d4bfd3d052f1"
+mapping_assertion_review_digest = "sha256:baee3b54e04f4a71e0fea7f8a1513993cd3b77e794b03472b5e17b98ff06cfbf"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/stdlib_enum_validate.rs" = "sha256:8e8de54bb7ff1448c3854c5f659bafd3f0bc5f17804854339809d4bfd3d052f1" }
+mapping_behavior_refs = ["RT_STDLIB_COMPARISON_VALIDATE_001#behavior:1", "RT_STDLIB_COMPARISON_VALIDATE_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_CF850EDA342B7B7DDEAD"
+subject_kind = "generated_test"
+discovery_id = "DISC_CF850EDA342B7B7DDEAD"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/stdlib_enum_validate.rs"
+name = "is_valid_bcd_bit_strings"
+command = "cargo nextest run -p trust-runtime --test stdlib_enum_validate --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::stdlib_enum_validate) & test(=is_valid_bcd_bit_strings)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_STDLIB_COMPARISON_VALIDATE_001"]
+oracle_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#7-comparison-functions-table-33"
+oracle_refs = ["SPEC_IEC_STANDARD_FUNCTIONS_001#7-comparison-functions-table-33"]
+expected_result = "IS_VALID_BCD returns TRUE for the reviewed valid BYTE, WORD, DWORD, and LWORD values and FALSE for WORD#16#12FA. IS_VALID rejects DINT input and IS_VALID_BCD rejects BOOL input because neither belongs to the specified function domain."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_CF850EDA342B7B7DDEAD.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_CF850EDA342B7B7DDEAD_F398C8588577"
+mapping_proposal_digest = "sha256:f398c8588577bc3bcf41e89207ab11b5abb057c803c88f64b484eb71d4480ff9"
+mapping_decision_id = "MAP_DEC_C6145F6B9E87A0319BD9DDEA"
+mapping_reviewed_source_digest = "sha256:8e8de54bb7ff1448c3854c5f659bafd3f0bc5f17804854339809d4bfd3d052f1"
+mapping_assertion_review_digest = "sha256:378c9a84ed5a73aaf3295e33ed5a1dc614d89b1d25777374f708ffbf96e4c7dc"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/stdlib_enum_validate.rs" = "sha256:8e8de54bb7ff1448c3854c5f659bafd3f0bc5f17804854339809d4bfd3d052f1" }
+mapping_behavior_refs = ["RT_STDLIB_COMPARISON_VALIDATE_001#behavior:2", "RT_STDLIB_COMPARISON_VALIDATE_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_797A3E52A2E7B2E9149F"
+subject_kind = "generated_test"
+discovery_id = "DISC_797A3E52A2E7B2E9149F"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/stdlib_numeric.rs"
+name = "numeric_functions"
+command = "cargo nextest run -p trust-runtime --test stdlib_numeric --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::stdlib_numeric) & test(=numeric_functions)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_STDLIB_NUMERIC_BIT_001"]
+oracle_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#3-numerical-functions-table-28"
+oracle_refs = ["SPEC_IEC_STANDARD_FUNCTIONS_001#3-numerical-functions-table-28"]
+expected_result = "ABS(INT#-5) returns INT#5, SQRT(REAL#9.0) returns REAL#3.0 within 1e-6, and SIN(REAL#0.0) returns REAL#0.0 within 1e-6."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_797A3E52A2E7B2E9149F.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_797A3E52A2E7B2E9149F_9FC031491A31"
+mapping_proposal_digest = "sha256:9fc031491a311824934788d2616679a6866bcd2f44494771afa1adab6ea33d94"
+mapping_decision_id = "MAP_DEC_AE933BA14657667862F3C164"
+mapping_reviewed_source_digest = "sha256:b7cbdebc6559d2db4e38055aad0f77aace50f6b56e2af4bda0e7012e5ed173b7"
+mapping_assertion_review_digest = "sha256:ac89950e24a1965c00f0954ee3c90677a1618842beeec01561a9a0e6c23f9758"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/stdlib_numeric.rs" = "sha256:b7cbdebc6559d2db4e38055aad0f77aace50f6b56e2af4bda0e7012e5ed173b7" }
+mapping_behavior_refs = ["RT_STDLIB_NUMERIC_BIT_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_583B8002BFC2F8376DD5"
+subject_kind = "generated_test"
+discovery_id = "DISC_583B8002BFC2F8376DD5"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/stdlib_select_full.rs"
+name = "selection_full"
+command = "cargo nextest run -p trust-runtime --test stdlib_select_full --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::stdlib_select_full) & test(=selection_full)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_STDLIB_SELECTION_001"]
+oracle_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#6-selection-functions-table-32"
+oracle_refs = ["SPEC_IEC_STANDARD_FUNCTIONS_001#6-selection-functions-table-32"]
+expected_result = "SEL chooses IN1 when G is true, MIN returns the least ordered input, and MAX returns the greatest ordered input while preserving the selected runtime value type. The reviewed representatives clamp LIMIT(0, 5, 3) to INT#3 and select INT#20 from MUX(1, 10, 20, 30). SEL with a true guard returns the selected GREEN value without erasing its enumerated runtime identity."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_583B8002BFC2F8376DD5.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_583B8002BFC2F8376DD5_8484FD8F279F"
+mapping_proposal_digest = "sha256:8484fd8f279f31c5d6ea3ed756021dd4fb96f7a40e88129ed57b268661087e74"
+mapping_decision_id = "MAP_DEC_F08802FA4083652ED8FF7F49"
+mapping_reviewed_source_digest = "sha256:3dc00c6a0a5e2b4c02826b03b0c93ed5d5e1a4d416cf92baf3e677be0dfdae4b"
+mapping_assertion_review_digest = "sha256:9972f5c7544594a26a4fe8838d5a241a8f15627525490e36938132347a7f5c4f"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/stdlib_select_full.rs" = "sha256:3dc00c6a0a5e2b4c02826b03b0c93ed5d5e1a4d416cf92baf3e677be0dfdae4b" }
+mapping_behavior_refs = ["RT_STDLIB_SELECTION_001#behavior:0", "RT_STDLIB_SELECTION_001#behavior:1", "RT_STDLIB_SELECTION_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_32089A1392ACCCEAB8FD"
+subject_kind = "generated_test"
+discovery_id = "DISC_32089A1392ACCCEAB8FD"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-runtime/tests/stdlib_split_locals.rs"
+name = "split_date_writes_function_local_outputs_in_runtime_and_vm"
+command = "cargo nextest run -p trust-runtime --test stdlib_split_locals --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::stdlib_split_locals) & test(=split_date_writes_function_local_outputs_in_runtime_and_vm)'"
+owner = "language"
+status = "mapped"
+invariants = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+oracle_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001"
+oracle_refs = ["SPEC_IEC_STANDARD_FUNCTIONS_001"]
+expected_result = "The executed-ST harness test locks SPLIT_DATE, SPLIT_TOD, SPLIT_LTOD, SPLIT_DT, and SPLIT_LDT component outputs."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_32089A1392ACCCEAB8FD.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_32089A1392ACCCEAB8FD_1D13B4BE64A4"
+mapping_proposal_digest = "sha256:1d13b4be64a4ed0ecc274352979564c6b6b8ee4fc603fb01f6ba42763f6a0bec"
+mapping_decision_id = "MAP_DEC_EB9A5CFDB3FA8EC2E88CD49D"
+mapping_reviewed_source_digest = "sha256:9d7fd728e0d34fa4bc05a376c54e5abe78784c73701330ffaf7c824e98cbaec0"
+mapping_assertion_review_digest = "sha256:efd9c6efa4dd3c3f8f22411fc8cd6c9c1ed4efb44cc4dfe6091cbca201eb6f5c"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/stdlib_split_locals.rs" = "sha256:9d7fd728e0d34fa4bc05a376c54e5abe78784c73701330ffaf7c824e98cbaec0" }
+mapping_behavior_refs = ["IEC_STANDARD_TIME_FUNCTIONS_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_7C293FB77D79F5A48A48"
+subject_kind = "generated_test"
+discovery_id = "DISC_7C293FB77D79F5A48A48"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/stdlib_string.rs"
+name = "string_functions"
+command = "cargo nextest run -p trust-runtime --test stdlib_string --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::stdlib_string) & test(=string_functions)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_STDLIB_STRING_001"]
+oracle_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#8-string-functions-table-34"
+oracle_refs = ["SPEC_IEC_STANDARD_FUNCTIONS_001#8-string-functions-table-34"]
+expected_result = "LEN, LEFT, RIGHT, MID, CONCAT, INSERT, DELETE, REPLACE, and FIND return the exact reviewed ASCII results, including one-based positions."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_7C293FB77D79F5A48A48.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_7C293FB77D79F5A48A48_D168D0DCB381"
+mapping_proposal_digest = "sha256:d168d0dcb3811dc51c1106a328aeaefdee7c72ff36a9c5be381426eff2e19f62"
+mapping_decision_id = "MAP_DEC_C353D4A6285D1F011A2E9630"
+mapping_reviewed_source_digest = "sha256:3e87d5e39a785a9b72fa7eb0ad7b78d98b2ae982b12235501f54afec90233028"
+mapping_assertion_review_digest = "sha256:eafdff15b5f8a356d29a006426ca1fa2eb1997ec4617514ddbda9ae9f7f2c76b"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/stdlib_string.rs" = "sha256:3e87d5e39a785a9b72fa7eb0ad7b78d98b2ae982b12235501f54afec90233028" }
+mapping_behavior_refs = ["RT_STDLIB_STRING_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_86419F8A4B09368E6ABB"
+subject_kind = "generated_test"
+discovery_id = "DISC_86419F8A4B09368E6ABB"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/stdlib_string.rs"
+name = "bounded_string_assignment_and_concat_respect_declared_capacity"
+command = "cargo nextest run -p trust-runtime --test stdlib_string --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::stdlib_string) & test(=bounded_string_assignment_and_concat_respect_declared_capacity)'"
+owner = "trust-runtime-core"
+status = "mapped"
+invariants = ["VM_SEAM_STRING_BOUND_001"]
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001"
+oracle_refs = ["SPEC_VM_VALUE_SEMANTICS_001"]
+expected_result = "Assigning the reviewed CONCAT result 'ABCDE' into STRING[3] stores 'ABC' without faulting the execution cycle."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_86419F8A4B09368E6ABB.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_86419F8A4B09368E6ABB_DAEB9DBB250A"
+mapping_proposal_digest = "sha256:daeb9dbb250ac4f614aba06223d7696dc94c8b3b57094e80a1633aaa92a8e564"
+mapping_decision_id = "MAP_DEC_6A3C9FAA526165C5ADDF4D0F"
+mapping_reviewed_source_digest = "sha256:3e87d5e39a785a9b72fa7eb0ad7b78d98b2ae982b12235501f54afec90233028"
+mapping_assertion_review_digest = "sha256:1ae0191a56a13f5bf7945aa6c166c136146f5fbb9af37d31cfcc57c511f86cd2"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/stdlib_string.rs" = "sha256:3e87d5e39a785a9b72fa7eb0ad7b78d98b2ae982b12235501f54afec90233028" }
+mapping_behavior_refs = ["VM_SEAM_STRING_BOUND_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_3C12488A93595292DFE3"
+subject_kind = "generated_test"
+discovery_id = "DISC_3C12488A93595292DFE3"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/stdlib_string_full.rs"
+name = "string_full_non_ascii_uses_character_elements"
+command = "cargo nextest run -p trust-runtime --test stdlib_string_full --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::stdlib_string_full) & test(=string_full_non_ascii_uses_character_elements)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_STDLIB_STRING_001"]
+oracle_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#8-string-functions-table-34"
+oracle_refs = ["SPEC_IEC_STANDARD_FUNCTIONS_001#8-string-functions-table-34"]
+expected_result = "For 'ÄBC', reviewed LEN, LEFT, MID, and FIND results use three Unicode scalar elements, and WSTRING LEN returns the same element count."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_3C12488A93595292DFE3.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_3C12488A93595292DFE3_2C6FD62BA665"
+mapping_proposal_digest = "sha256:2c6fd62ba665cc6c59a4a525dcf518b3494f3142d6ad9e8481e282d7d5c134b0"
+mapping_decision_id = "MAP_DEC_24FA60C53BE545EEBE02E7E2"
+mapping_reviewed_source_digest = "sha256:bb6fac90e261a319f5a351a4fd177ed596bed28040cf09c758c0d85179ae9083"
+mapping_assertion_review_digest = "sha256:c5d4d311856b673f52d773ace18f03301c953fac4313c862d84ede58b6fc64da"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/stdlib_string_full.rs" = "sha256:bb6fac90e261a319f5a351a4fd177ed596bed28040cf09c758c0d85179ae9083" }
+mapping_behavior_refs = ["RT_STDLIB_STRING_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_ED3256A163AF5E79A376"
+subject_kind = "generated_test"
+discovery_id = "DISC_ED3256A163AF5E79A376"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/stdlib_string_full.rs"
+name = "string_full"
+command = "cargo nextest run -p trust-runtime --test stdlib_string_full --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::stdlib_string_full) & test(=string_full)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_STDLIB_STRING_001"]
+oracle_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#8-string-functions-table-34"
+oracle_refs = ["SPEC_IEC_STANDARD_FUNCTIONS_001#8-string-functions-table-34"]
+expected_result = "LEN, LEFT, RIGHT, MID, CONCAT, INSERT, DELETE, REPLACE, and FIND return the exact reviewed ASCII results, including one-based positions."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_ED3256A163AF5E79A376.json"
+last_reviewed = "2026-07-27"
+mapping_proposal_id = "MAP_CAND_ED3256A163AF5E79A376_7084AED8EC4B"
+mapping_proposal_digest = "sha256:7084aed8ec4beeb240da7df5daa19388349d710dd63ebb0c458a7e201eefcf0a"
+mapping_decision_id = "MAP_DEC_DA15ED65C49D5312D0A8C02C"
+mapping_reviewed_source_digest = "sha256:bb6fac90e261a319f5a351a4fd177ed596bed28040cf09c758c0d85179ae9083"
+mapping_assertion_review_digest = "sha256:adae6eca0fa2e950c3319dca35baefb33ef03b8b59b2c313f203ef239c73576e"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/stdlib_string_full.rs" = "sha256:bb6fac90e261a319f5a351a4fd177ed596bed28040cf09c758c0d85179ae9083" }
+mapping_behavior_refs = ["RT_STDLIB_STRING_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]

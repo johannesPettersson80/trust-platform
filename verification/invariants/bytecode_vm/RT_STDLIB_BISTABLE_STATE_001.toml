@@ -3,18 +3,18 @@ id = "RT_STDLIB_BISTABLE_STATE_001"
 title = "Runtime bistable function blocks preserve state and dominance"
 area = "bytecode_vm"
 risk = "wrong_result"
-status = "planned"
+status = "mapped"
 owner = "trust-runtime"
 last_reviewed = "2026-07-27"
 claim = "Runtime SR and RS instances start false, preserve their latched state, and apply their documented set-dominant or reset-dominant transition on every executed call."
 proof_level = "S0"
 contract_kind = "state_machine"
 source_refs = ["docs/specs/08-standard-function-blocks.md", "crates/trust-runtime/src/stdlib/fbs/bistable.rs"]
-tests = []
+tests = ["TEST_AUTO_F0AE877FD378B8B562E5"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["accepted_catalog_mappings", "focused_execution_evidence", "final_remote_gate"]
+missing = ["focused_execution_evidence", "final_remote_gate"]
 
 [spec]
 status = "specified"
@@ -44,5 +44,5 @@ rationale = "A new RS instance reports Q1 false, S sets it, an idle call preserv
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
-state = "gap_open"
-rationale = "The state machines are specified; the ready runtime tests still require accepted catalog mappings and focused execution evidence."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in RT_STDLIB_BISTABLE_STATE_001; dynamic proof and broad remote validation remain explicit debt."

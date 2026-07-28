@@ -3,18 +3,18 @@ id = "RT_STDLIB_EDGE_STATE_001"
 title = "Runtime edge detectors emit one executed-call pulse per edge"
 area = "bytecode_vm"
 risk = "wrong_result"
-status = "planned"
+status = "mapped"
 owner = "trust-runtime"
 last_reviewed = "2026-07-27"
 claim = "Runtime R_TRIG and F_TRIG instances, including the DIFU and DIFD product aliases, preserve edge memory and emit Q for exactly the documented executed call."
 proof_level = "S0"
 contract_kind = "state_machine"
 source_refs = ["docs/specs/08-standard-function-blocks.md", "crates/trust-runtime/src/stdlib/fbs/triggers.rs", "verification/invariants/compiler_iec/TRUST_MITSUBISHI_EDGE_ALIAS_001.toml"]
-tests = []
+tests = ["TEST_AUTO_AA62E0EB2E654D81531D", "TEST_AUTO_D74EF325BFDD0EF22B1F"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["accepted_catalog_mappings", "focused_execution_evidence", "final_remote_gate"]
+missing = ["focused_execution_evidence", "final_remote_gate"]
 
 [spec]
 status = "specified"
@@ -53,5 +53,5 @@ rationale = "DIFU and DIFD execute the same state transitions as R_TRIG and F_TR
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
-state = "gap_open"
-rationale = "The edge state machines and product alias are specified; the ready runtime tests still require accepted catalog mappings and focused execution evidence."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in RT_STDLIB_EDGE_STATE_001; dynamic proof and broad remote validation remain explicit debt."

@@ -3,18 +3,18 @@ id = "RT_STDLIB_ASSERTION_001"
 title = "Runtime assertion extensions preserve bounded success and failure contracts"
 area = "bytecode_vm"
 risk = "wrong_result"
-status = "planned"
+status = "mapped"
 owner = "trust-runtime"
 last_reviewed = "2026-07-27"
 claim = "Successful truST ASSERT calls return Null after reviewed mixed-numeric comparison, while condition failures return AssertionFailed with bounded user-facing messages."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["docs/specs/07-standard-functions.md", "crates/trust-runtime/src/stdlib/assertions.rs"]
-tests = []
+tests = ["TEST_AUTO_0D3C1E2B84926E0438C7", "TEST_AUTO_52B1B39F56D1300B1907", "TEST_AUTO_DE11FCAE13C370F4D857", "TEST_AUTO_E81C8F54843E0E21C2F2"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_tests", "focused_execution_evidence", "final_remote_gate"]
+missing = ["focused_execution_evidence", "final_remote_gate"]
 
 [spec]
 status = "specified"
@@ -62,10 +62,10 @@ rationale = "A reviewed ASSERT_NEAR failure identifies ASSERT_NEAR and includes 
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "Successful assertion results and message observations are specified; no tests are assigned to this planned invariant."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in RT_STDLIB_ASSERTION_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "gap_open"
-rationale = "AssertionFailed rejection is specified; no tests are assigned."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every wrong_type_or_shape behavior in RT_STDLIB_ASSERTION_001; dynamic proof and broad remote validation remain explicit debt."

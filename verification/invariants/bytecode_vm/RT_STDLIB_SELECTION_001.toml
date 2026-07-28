@@ -10,11 +10,11 @@ claim = "SEL returns the selected input, MIN and MAX return the ordered extremum
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["docs/specs/07-standard-functions.md", "crates/trust-runtime/src/stdlib/selection.rs"]
-tests = ["TEST_AUTO_8A3B6F48459300F8DE14"]
+tests = ["TEST_AUTO_583B8002BFC2F8376DD5", "TEST_AUTO_8A3B6F48459300F8DE14", "TEST_AUTO_B0436E5C5E4D4AF3C0B8"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_limit_mux_enum_and_named_tests", "focused_execution_evidence", "final_remote_gate"]
+missing = ["focused_execution_evidence", "final_remote_gate"]
 
 [spec]
 status = "specified"
@@ -63,19 +63,4 @@ rationale = "Executed ST binds G, IN0, and IN1 by their documented names and ret
 [[coverage.cells]]
 dimension = "happy_path"
 state = "covered"
-rationale = "The existing accepted catalog mapping covers only the SEL_MIN_MAX_RUNTIME_VALUES representative; the added LIMIT/MUX, enum, and named-binding partitions remain separately open."
-
-[[coverage.cells]]
-dimension = "limit_mux_runtime_values"
-state = "gap_open"
-rationale = "The LIMIT and MUX result partition is specified but has no accepted catalog assignment or focused execution evidence."
-
-[[coverage.cells]]
-dimension = "enum_selection_runtime_identity"
-state = "gap_open"
-rationale = "The enum-selection partition is specified but has no accepted catalog assignment or focused execution evidence."
-
-[[coverage.cells]]
-dimension = "named_argument_binding"
-state = "gap_open"
-rationale = "The executed-ST named-argument partition is specified but has no accepted catalog assignment or focused execution evidence."
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in RT_STDLIB_SELECTION_001; dynamic proof and broad remote validation remain explicit debt."
