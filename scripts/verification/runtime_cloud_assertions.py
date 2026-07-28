@@ -9,10 +9,10 @@ from pathlib import Path
 from typing import Any
 
 from .ads_behavior_proof_campaign import _write_json
-from .mapping_assertions import (
-    RUST_SOURCE_KINDS,
-    invoke_rust_assertion_inventory,
+from .exact_behavior_assertions import (
+    build_assertion_facts as _build_assertion_facts,
 )
+from .mapping_assertions import invoke_rust_assertion_inventory
 from .runtime_cloud_behavior_campaign import (
     DEFAULT_GAP_REPORT,
     DEFAULT_SCAN_REPORT,
@@ -31,38 +31,7 @@ def build_assertion_facts(
 ) -> list[dict[str, str]]:
     """Convert the exact assignment into one Rust assertion request per test."""
 
-    facts = []
-    seen: set[str] = set()
-    for assignment in assignments:
-        discovery_id = _string(
-            assignment,
-            "discovery_id",
-            "runtime-cloud assignment",
-        )
-        if discovery_id in seen:
-            raise ValueError(
-                f"runtime-cloud assignments duplicate {discovery_id}"
-            )
-        seen.add(discovery_id)
-        source_kind = _string(
-            assignment,
-            "source_kind",
-            discovery_id,
-        )
-        if source_kind not in RUST_SOURCE_KINDS:
-            raise ValueError(
-                f"{discovery_id} requires unsupported assertion adapter "
-                f"{source_kind}"
-            )
-        facts.append(
-            {
-                "discovery_id": discovery_id,
-                "discovery_source_kind": source_kind,
-                "path": _string(assignment, "path", discovery_id),
-                "name": _string(assignment, "name", discovery_id),
-            }
-        )
-    return sorted(facts, key=lambda row: (row["path"], row["name"]))
+    return _build_assertion_facts(assignments, label="runtime-cloud")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -99,17 +68,6 @@ def main(argv: list[str] | None = None) -> int:
         f"{output.relative_to(root)}"
     )
     return 0
-
-
-def _string(
-    row: Mapping[str, Any],
-    field: str,
-    label: str,
-) -> str:
-    value = row.get(field)
-    if not isinstance(value, str) or not value:
-        raise ValueError(f"{label} lacks {field}")
-    return value
 
 
 if __name__ == "__main__":
