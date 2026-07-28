@@ -95,23 +95,23 @@ For each tutorial:
 
 ### VS Code Feature Spotlight
 
-- Go to definition on enum types/members
+- Go to definition on program variables and timer types
 - Document outline (`Ctrl+Shift+O`)
 
 ### Guided Steps
 
 1. Open `03_traffic_light.st`.
-2. Place cursor on enum state usage and press `F12` (or Ctrl+Click).
-3. Open outline (`Ctrl+Shift+O`) and jump between type/program sections.
+2. Place the cursor on `PhasePeriod` or `TON` and press `F12` (or Ctrl+Click).
+3. Open outline (`Ctrl+Shift+O`) and jump to the `TrafficLight` program.
 
 ### Challenge
 
-- Add a maintenance state and transition into it from a new condition.
+- Add a maintenance phase value and transition into it from a new condition.
 
 ### Common Pitfalls
 
-- Missing enum member in `CASE` handling.
-- Inconsistent typed-literal style for enum values.
+- Missing integer phase value in `CASE` handling.
+- Leaving one phase without explicit red, yellow, and green outputs.
 
 ---
 

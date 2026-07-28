@@ -6,6 +6,9 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Specify the nine shipped tutorial files as executable compile contracts and
+  lock the blinker, traffic-light, and motor-starter examples to their reviewed
+  clean-cycle timing and I/O sequences.
 - Specify the native browser-analysis and WebAssembly JSON adapter boundary for
   reviewed native-result parity, opaque virtual document identity, full-set
   replacement, and explicit JSON success and failure projections; add a closed

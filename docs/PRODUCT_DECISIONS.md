@@ -6,6 +6,25 @@ in `IEC_DECISIONS.md`; PLCopen profile decisions belong in
 `PLCOPEN_DECISIONS.md`. Product behavior recorded here MUST NOT be copied to an
 IEC or PLCopen deviation log merely because truST owns the behavior.
 
+## 2026-07-28 - Tutorial examples are executable product contracts
+
+- Area: Shipped Structured Text tutorials
+- Decision:
+  - All nine single-file tutorials must compile through both the runtime
+    harness and the current source-to-bytecode path.
+  - The blinker, traffic-light, and motor-starter tutorials retain the exact
+    clean-cycle timing and I/O sequences specified in
+    `docs/specs/22-developer-workflows.md`.
+  - These are bounded fixture contracts. They do not generalize the examples
+    into IEC timer, traffic-control, or motor-safety requirements.
+- Authority:
+  - `docs/specs/22-developer-workflows.md#executable-tutorial-examples`
+- Reason:
+  - Tutorials are user-facing product assets and should fail visibly when
+    compiler or runtime changes make their documented behavior stale. IEC
+    61131-3 does not define these truST example files, so the decision is not
+    an IEC deviation.
+
 ## 2026-07-28 - Qualified program retain persistence
 
 - Area: Runtime retain snapshots and restart

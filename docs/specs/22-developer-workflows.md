@@ -67,6 +67,31 @@ and apply routes require the configured unexpired setup token in remote mode.
 These setup-mode, HTTP API, and filesystem-side-effect rules are truST product
 contracts, not IEC decisions or deviations.
 
+## Executable tutorial examples
+
+The nine single-file programs under `examples/tutorials/` are shipped product
+artifacts. Every file must compile through both the in-process runtime harness
+and the current source-to-bytecode path. Success requires both paths to return
+without a compile, type-check, lowering, or validation error; this bounded
+fixture set does not certify arbitrary Structured Text programs.
+
+Three tutorials additionally define executable behavior locks:
+
+- `02_blinker.st` starts with `Lamp = FALSE`. After 250 ms and one cycle it is
+  `TRUE`, remains `TRUE` after another 1 ms and cycle, and returns to `FALSE`
+  after another 250 ms and cycle.
+- `03_traffic_light.st` starts red and advances at each reviewed 500 ms plus
+  transition cycle through red+yellow, green, yellow, and back to red.
+- `05_motor_starter.st` starts stopped, latches `MotorRun` and
+  `SealInContact` after `StartPb`, remains latched when `StartPb` is released,
+  unlatches on `StopPb`, can start again, and unlatches on `OverloadTrip`.
+
+Every observed cycle in these behavior locks must complete without runtime
+errors. The exact delays and I/O sequences above describe the shipped tutorial
+fixtures, not general IEC timer, traffic-control, or motor-safety semantics.
+They are truST product contracts and are neither IEC decisions nor IEC
+deviations.
+
 ## Source Discovery
 
 `trust-dev test` recursively discovers regular files below the selected project
