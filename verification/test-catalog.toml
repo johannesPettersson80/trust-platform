@@ -111428,3 +111428,272 @@ mapping_assertion_review_digest = "sha256:a6e9d8b3871fc6f6bbbe55ec9bbf966e6ce37e
 mapping_assertion_source_digests = { "crates/trust-runtime/tests/realtime_t0_integration.rs" = "sha256:b30ce8e7d47948558612f8b0b8731121d611a606a1572607b0d8871f2f1fc31e" }
 mapping_behavior_refs = ["RT_REALTIME_T0_TRANSPORT_001#behavior:11"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_5DEB59E8A56CC1A8A797"
+subject_kind = "generated_test"
+discovery_id = "DISC_5DEB59E8A56CC1A8A797"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "crates/trust-runtime/src/host/debug/control/tests.rs"
+name = "pause_after_continue_while_waiting_emits_pause_stop"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=debug::control::tests::pause_after_continue_while_waiting_emits_pause_stop)'"
+owner = "trust-debug"
+status = "mapped"
+invariants = ["DEBUG_DAP_PROTOCOL_SESSION_001"]
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#dap-transport-and-session-projection"
+oracle_refs = ["SPEC_DEBUG_ADAPTER_001#dap-transport-and-session-projection"]
+expected_result = "Continue/pause ordering, global pause fallback, and task-to-thread projection retain the requested stop and configured task identity."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_5DEB59E8A56CC1A8A797.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_5DEB59E8A56CC1A8A797_290A9147AF08"
+mapping_proposal_digest = "sha256:290a9147af087d87457a9fa4f020ebfc1c531632993401bf3fb61154275b1db6"
+mapping_decision_id = "MAP_DEC_7CB8F3B42AD4B7B7C03C20AC"
+mapping_reviewed_source_digest = "sha256:9af10a4389025f484dcee193cb0a9957bc195a4af3a3822c9a81fd4f491335e8"
+mapping_assertion_review_digest = "sha256:8675020aea0a7e2a33ce98821434df696e17d8956119a0085b28d1203ebe6fc7"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/host/debug/control/tests.rs" = "sha256:9af10a4389025f484dcee193cb0a9957bc195a4af3a3822c9a81fd4f491335e8" }
+mapping_behavior_refs = ["DEBUG_DAP_PROTOCOL_SESSION_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_2136591B45F301824416"
+subject_kind = "generated_test"
+discovery_id = "DISC_2136591B45F301824416"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "crates/trust-runtime/src/host/debug/resolve.rs"
+name = "resolve_breakpoint_prefers_statement_on_line"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=debug::resolve::tests::resolve_breakpoint_prefers_statement_on_line)'"
+owner = "trust-debug"
+status = "mapped"
+invariants = ["DEBUG_CONTROL_EXECUTION_001"]
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"
+oracle_refs = ["SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"]
+expected_result = "Resolution selects the innermost containing or next statement start, and a matching current-generation breakpoint pauses before execution and emits one breakpoint stop."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_2136591B45F301824416.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_2136591B45F301824416_5883D5FEBFBB"
+mapping_proposal_digest = "sha256:5883d5febfbb3374c9b72d7c685dd6d40743b5dbae406ef26cfc5361ce9b17e8"
+mapping_decision_id = "MAP_DEC_6520374C22E0505D5A6E68D1"
+mapping_reviewed_source_digest = "sha256:002e67a0181c36bb1e2589c563141c5b08daede91ea0c57dd5052aa6246e55fa"
+mapping_assertion_review_digest = "sha256:a6f0d38390d779c5e462f13158cf4f98be3452124fb64ab16b0acfd625586fa8"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/host/debug/resolve.rs" = "sha256:002e67a0181c36bb1e2589c563141c5b08daede91ea0c57dd5052aa6246e55fa" }
+mapping_behavior_refs = ["DEBUG_CONTROL_EXECUTION_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_50499CED3E53E85658F0"
+subject_kind = "generated_test"
+discovery_id = "DISC_50499CED3E53E85658F0"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "crates/trust-runtime/tests/debug_stepping.rs"
+name = "breakpoint_rehits_each_cycle_after_continue"
+command = "cargo nextest run -p trust-runtime --test debug_stepping --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::debug_stepping) & test(=breakpoint_rehits_each_cycle_after_continue)'"
+owner = "trust-debug"
+status = "mapped"
+invariants = ["DEBUG_CONTROL_EXECUTION_001"]
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"
+oracle_refs = ["SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"]
+expected_result = "After continue, an unchanged breakpoint remains eligible in later scans until cleared or filtered, while one breakpoint identity emits at most one stop per scan even if multiple VM debug-map entries overlap its source range."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_50499CED3E53E85658F0.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_50499CED3E53E85658F0_143508FE976D"
+mapping_proposal_digest = "sha256:143508fe976ddeb96e79f784c8ab0e20fcef6e3abb3dfb2310c9dc7f8e800762"
+mapping_decision_id = "MAP_DEC_2FA0FFBFF305ED47A5835468"
+mapping_reviewed_source_digest = "sha256:cc2ce5aac6e23ee230428fb758225a5d19ca63520a3d0d89d413b18beba10eb7"
+mapping_assertion_review_digest = "sha256:a5147e492423f1b5c4541256a1838b8dc120f9d76094031a2fc98bd41db94f3b"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/debug_stepping.rs" = "sha256:cc2ce5aac6e23ee230428fb758225a5d19ca63520a3d0d89d413b18beba10eb7" }
+mapping_behavior_refs = ["DEBUG_CONTROL_EXECUTION_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_6AB566D57B66572F3581"
+subject_kind = "generated_test"
+discovery_id = "DISC_6AB566D57B66572F3581"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "crates/trust-runtime/tests/debug_stepping.rs"
+name = "breakpoint_triggers_for_executed_branch"
+command = "cargo nextest run -p trust-runtime --test debug_stepping --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::debug_stepping) & test(=breakpoint_triggers_for_executed_branch)'"
+owner = "trust-debug"
+status = "mapped"
+invariants = ["DEBUG_CONTROL_EXECUTION_001"]
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"
+oracle_refs = ["SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"]
+expected_result = "Resolution selects the innermost containing or next statement start, and a matching current-generation breakpoint pauses before execution and emits one breakpoint stop."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_6AB566D57B66572F3581.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_6AB566D57B66572F3581_960048376214"
+mapping_proposal_digest = "sha256:9600483762141c44bdd13a82c90045ef1feb06fe416166d6911cb01d3ebb26c9"
+mapping_decision_id = "MAP_DEC_4E1E2CCCA68A2E211E87CEFF"
+mapping_reviewed_source_digest = "sha256:cc2ce5aac6e23ee230428fb758225a5d19ca63520a3d0d89d413b18beba10eb7"
+mapping_assertion_review_digest = "sha256:0367d0ed2a0cb511033ad937f2c216a46a897aa86f5ba3dd3468d153d26e09cd"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/debug_stepping.rs" = "sha256:cc2ce5aac6e23ee230428fb758225a5d19ca63520a3d0d89d413b18beba10eb7" }
+mapping_behavior_refs = ["DEBUG_CONTROL_EXECUTION_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_AB9912DEAE5F1A0ED30E"
+subject_kind = "generated_test"
+discovery_id = "DISC_AB9912DEAE5F1A0ED30E"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "crates/trust-runtime/tests/debug_stepping.rs"
+name = "breakpoint_set_after_launch_hits_next_cycle"
+command = "cargo nextest run -p trust-runtime --test debug_stepping --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::debug_stepping) & test(=breakpoint_set_after_launch_hits_next_cycle)'"
+owner = "trust-debug"
+status = "mapped"
+invariants = ["DEBUG_CONTROL_EXECUTION_001"]
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"
+oracle_refs = ["SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"]
+expected_result = "A breakpoint installed after launch or during cyclic execution becomes eligible at the next matching statement boundary without retroactively stopping completed work."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_AB9912DEAE5F1A0ED30E.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_AB9912DEAE5F1A0ED30E_AA3408088614"
+mapping_proposal_digest = "sha256:aa3408088614c5c5b14a06d3d99a3fe33a93f3f29cc11d69422c1ea7f1510721"
+mapping_decision_id = "MAP_DEC_8CD0B6ECD3BED276EF5A49E1"
+mapping_reviewed_source_digest = "sha256:cc2ce5aac6e23ee230428fb758225a5d19ca63520a3d0d89d413b18beba10eb7"
+mapping_assertion_review_digest = "sha256:9e832801afeead8b826e8b000e40607e7688c73e35e6fea9096d534a155fb8a9"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/debug_stepping.rs" = "sha256:cc2ce5aac6e23ee230428fb758225a5d19ca63520a3d0d89d413b18beba10eb7" }
+mapping_behavior_refs = ["DEBUG_CONTROL_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_B5892FF80FD31175F681"
+subject_kind = "generated_test"
+discovery_id = "DISC_B5892FF80FD31175F681"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "crates/trust-runtime/tests/debug_stepping.rs"
+name = "step_over_stops_in_caller_after_call"
+command = "cargo nextest run -p trust-runtime --test debug_stepping --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::debug_stepping) & test(=step_over_stops_in_caller_after_call)'"
+owner = "trust-debug"
+status = "mapped"
+invariants = ["DEBUG_CONTROL_EXECUTION_001"]
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"
+oracle_refs = ["SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"]
+expected_result = "Step In stops at the next statement, Step Over waits for the starting depth, and Step Out waits for the caller after resuming from pause."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_B5892FF80FD31175F681.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_B5892FF80FD31175F681_4D32D555D97E"
+mapping_proposal_digest = "sha256:4d32d555d97ea555dbc63d78a00e3c4d9d8e8a2d8a61faf9e42575346d767eb8"
+mapping_decision_id = "MAP_DEC_876B4693DF301353E8EC2D7D"
+mapping_reviewed_source_digest = "sha256:cc2ce5aac6e23ee230428fb758225a5d19ca63520a3d0d89d413b18beba10eb7"
+mapping_assertion_review_digest = "sha256:dbc460d750a80472c5917d32d5e43e5a6048c814a4267e74c4c088ca4132b2c7"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/debug_stepping.rs" = "sha256:cc2ce5aac6e23ee230428fb758225a5d19ca63520a3d0d89d413b18beba10eb7" }
+mapping_behavior_refs = ["DEBUG_CONTROL_EXECUTION_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_B85454F23BEECE60D719"
+subject_kind = "generated_test"
+discovery_id = "DISC_B85454F23BEECE60D719"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "crates/trust-runtime/tests/debug_stepping.rs"
+name = "breakpoint_set_while_running_hits_on_subsequent_cycle"
+command = "cargo nextest run -p trust-runtime --test debug_stepping --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::debug_stepping) & test(=breakpoint_set_while_running_hits_on_subsequent_cycle)'"
+owner = "trust-debug"
+status = "mapped"
+invariants = ["DEBUG_CONTROL_EXECUTION_001"]
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"
+oracle_refs = ["SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"]
+expected_result = "A breakpoint installed after launch or during cyclic execution becomes eligible at the next matching statement boundary without retroactively stopping completed work."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_B85454F23BEECE60D719.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_B85454F23BEECE60D719_D682183D97E4"
+mapping_proposal_digest = "sha256:d682183d97e4e705bdd9958ace17728659baa2a1214e70a34cfe818cbfcf0c6b"
+mapping_decision_id = "MAP_DEC_72DEE07B1B5023CCC07AB56A"
+mapping_reviewed_source_digest = "sha256:cc2ce5aac6e23ee230428fb758225a5d19ca63520a3d0d89d413b18beba10eb7"
+mapping_assertion_review_digest = "sha256:4788ccc8aaad9ae21a9ad062d6c9ca68ee3163be50cdb3fbed3e344d3c92b565"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/debug_stepping.rs" = "sha256:cc2ce5aac6e23ee230428fb758225a5d19ca63520a3d0d89d413b18beba10eb7" }
+mapping_behavior_refs = ["DEBUG_CONTROL_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_DE236DFA7B3C8EF00B7F"
+subject_kind = "generated_test"
+discovery_id = "DISC_DE236DFA7B3C8EF00B7F"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "crates/trust-runtime/tests/debug_stepping.rs"
+name = "vm_breakpoint_populates_debug_snapshot_for_stack_queries"
+command = "cargo nextest run -p trust-runtime --test debug_stepping --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::debug_stepping) & test(=vm_breakpoint_populates_debug_snapshot_for_stack_queries)'"
+owner = "trust-debug"
+status = "mapped"
+invariants = ["DEBUG_DAP_PROTOCOL_SESSION_001"]
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#dap-transport-and-session-projection"
+oracle_refs = ["SPEC_DEBUG_ADAPTER_001#dap-transport-and-session-projection"]
+expected_result = "Captured snapshots remain inspectable without reacquiring the live runtime mutex, and missing storage or location data yields one graceful synthetic Main frame."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_DE236DFA7B3C8EF00B7F.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_DE236DFA7B3C8EF00B7F_C3D94BBD26F5"
+mapping_proposal_digest = "sha256:c3d94bbd26f5f791b61efd0b1ca5c2c1f91a4d04c6000dc5b46dd26654661229"
+mapping_decision_id = "MAP_DEC_6ACE5DDB6AEA93C9D6473707"
+mapping_reviewed_source_digest = "sha256:cc2ce5aac6e23ee230428fb758225a5d19ca63520a3d0d89d413b18beba10eb7"
+mapping_assertion_review_digest = "sha256:195ae274f4bf6b10622efceefc5a7ebf35d7725a6700efc566dc8b90076523d2"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/debug_stepping.rs" = "sha256:cc2ce5aac6e23ee230428fb758225a5d19ca63520a3d0d89d413b18beba10eb7" }
+mapping_behavior_refs = ["DEBUG_DAP_PROTOCOL_SESSION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
