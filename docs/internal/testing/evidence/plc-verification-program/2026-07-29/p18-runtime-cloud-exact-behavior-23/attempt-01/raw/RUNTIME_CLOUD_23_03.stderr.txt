@@ -1,0 +1,9 @@
+info: experimental features enabled: wrapper-scripts
+   Compiling trust-runtime v0.24.59 (/home/johannes/projects/trust-platform-p18-runtime-cloud-23/crates/trust-runtime)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.71s
+────────────
+ Nextest run ID 99fa5c97-690a-48d8-ba58-730f1672d8e2 with nextest profile: default
+    Starting 1 test across 1 binary
+        PASS [   0.645s] (1/1) trust-runtime::fleet_lifecycle_command managed_runtime_lifecycle_runs_through_the_shipped_cli
+────────────
+     Summary [   0.653s] 1 test run: 1 passed, 0 skipped

@@ -1,0 +1,4 @@
+{"type":"suite","event":"started","test_count":1,"nextest":{"crate":"trust-runtime","test_binary":"fleet_lifecycle_command","kind":"test"}}
+{"type":"test","event":"started","name":"trust-runtime::fleet_lifecycle_command$managed_runtime_lifecycle_runs_through_the_shipped_cli"}
+{"type":"test","event":"ok","name":"trust-runtime::fleet_lifecycle_command$managed_runtime_lifecycle_runs_through_the_shipped_cli","exec_time":0.594821151}
+{"type":"suite","event":"ok","passed":1,"failed":0,"ignored":0,"measured":0,"filtered_out":0,"exec_time":0.594821151,"nextest":{"crate":"trust-runtime","test_binary":"fleet_lifecycle_command","kind":"test"}}

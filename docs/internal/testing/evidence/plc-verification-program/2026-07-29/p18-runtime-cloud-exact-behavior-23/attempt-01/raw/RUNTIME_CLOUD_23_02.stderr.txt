@@ -1,0 +1,29 @@
+info: experimental features enabled: wrapper-scripts
+   Compiling trust-runtime v0.24.59 (/home/johannes/projects/trust-platform-p18-runtime-cloud-23/crates/trust-runtime)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 39.11s
+────────────
+ Nextest run ID 5a6de715-7f4d-4891-bb6d-ae0215b92c5a with nextest profile: default
+    Starting 21 tests across 1 binary (1082 tests skipped)
+        PASS [   0.012s] ( 1/21) trust-runtime runtime_cloud::control_proxy_policy::tests::proxy_plan_rejects_blank_request_id_when_supplied
+        PASS [   0.016s] ( 2/21) trust-runtime runtime_cloud::ha::tests::dual_host_requires_external_consistent_lease_authority
+        PASS [   0.019s] ( 3/21) trust-runtime runtime_cloud::control_proxy_policy::tests::proxy_plan_rejects_breaking_api_version
+        PASS [   0.021s] ( 4/21) trust-runtime runtime_cloud::contracts::tests::schema_layout_rejects_ambiguous_or_non_appended_fields
+        PASS [   0.021s] ( 5/21) trust-runtime runtime_cloud::config_policy::tests::superseded_apply_success_keeps_newer_desired_revision_pending
+        PASS [   0.021s] ( 6/21) trust-runtime runtime_cloud::contracts::tests::schema_layout_accepts_forward_additive_changes_and_rejects_breaking_changes
+        PASS [   0.021s] ( 7/21) trust-runtime runtime_cloud::config_policy::tests::superseded_apply_failure_keeps_newer_desired_revision_pending
+        PASS [   0.016s] ( 8/21) trust-runtime runtime_cloud::ha::tests::lease_loss_for_active_runtime_requires_demoted_safe_behavior
+        PASS [   0.029s] ( 9/21) trust-runtime runtime_cloud::ha::tests::crash_mid_command_can_retry_after_state_roundtrip
+        PASS [   0.012s] (10/21) trust-runtime runtime_cloud::ha::tests::split_brain_detection_uses_complete_group_view_not_action_subset
+        PASS [   0.019s] (11/21) trust-runtime runtime_cloud::ha::tests::live_in_flight_duplicate_is_denied_but_recovery_can_resume_once
+        PASS [   0.018s] (12/21) trust-runtime runtime_cloud::io_proxy_policy::tests::proxy_plan_rejects_invalid_api_versions
+        PASS [   0.020s] (13/21) trust-runtime runtime_cloud::ha::tests::replay_guard_deduplicates_and_rejects_stale_sequences
+        PASS [   0.014s] (14/21) trust-runtime runtime_cloud::io_proxy_policy::tests::write_plan_validates_target_before_actor
+        PASS [   0.016s] (15/21) trust-runtime runtime_cloud::profile_policy::tests::dev_and_plant_profiles_do_not_require_wan_write_allowlist
+        PASS [   0.011s] (16/21) trust-runtime runtime_cloud::profile_policy::tests::wan_profile_denies_write_without_matching_rule
+        PASS [   0.025s] (17/21) trust-runtime runtime_cloud::ha::tests::split_brain_candidates_are_detected_and_rejected
+        PASS [   0.029s] (18/21) trust-runtime runtime_cloud::io_proxy_policy::tests::write_plan_rejects_empty_actor
+        PASS [   0.017s] (19/21) trust-runtime runtime_cloud::routing::tests::preflight_rejects_empty_blank_or_duplicate_target_lists
+        PASS [   0.018s] (20/21) trust-runtime runtime_cloud::routing::tests::preflight_distinguishes_stale_target_and_allows_local_target
+        PASS [   0.022s] (21/21) trust-runtime runtime_cloud::projection::tests::runtime_cloud_projection_contract_reports_topology_edges_and_warnings
+────────────
+     Summary [   0.061s] 21 tests run: 21 passed, 1082 skipped

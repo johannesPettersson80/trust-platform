@@ -1,0 +1,13 @@
+info: experimental features enabled: wrapper-scripts
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.30s
+────────────
+ Nextest run ID bcf78875-e85d-432c-8c69-47bed4aea4a0 with nextest profile: default
+    Starting 6 tests across 1 binary (44 tests skipped)
+        PASS [   0.031s] (1/6) trust-runtime::web_io_config_integration web_io_config_integration_part_19::runtime_cloud_ha_split_brain_preflight_checks_candidates_outside_action_subset
+        PASS [   0.039s] (2/6) trust-runtime::web_io_config_integration web_io_config_integration_part_03::runtime_cloud_link_transport_endpoint_switches_edge_mode_and_checks_same_host
+        PASS [   0.039s] (3/6) trust-runtime::web_io_config_integration web_io_config_integration_part_08::runtime_cloud_config_agent_reconciles_desired_reported_meta_and_status
+        PASS [   0.042s] (4/6) trust-runtime::web_io_config_integration web_io_config_integration_part_14::runtime_cloud_preflight_allows_cross_site_cfg_apply_with_allowlist
+        PASS [   0.044s] (5/6) trust-runtime::web_io_config_integration web_io_config_integration_part_19::runtime_cloud_ha_split_brain_preflight_denies_dual_active_candidates
+        PASS [   0.046s] (6/6) trust-runtime::web_io_config_integration web_io_config_integration_part_14::runtime_cloud_preflight_dev_allows_cross_site_cfg_apply_without_allowlist
+────────────
+     Summary [   0.047s] 6 tests run: 6 passed, 44 skipped

@@ -1089,6 +1089,30 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   evidence and retained machine-readable artifacts are recorded in
   `docs/internal/testing/evidence/plc-verification-program/2026-07-28-p18-runtime-other-exact-behavior-106.md`.
   <!-- generated:runtime-other-exact-behavior-106:end -->
+  <!-- generated:runtime-cloud-exact-behavior-23:start -->
+
+  Runtime-cloud exact-behavior coherent-campaign progress (2026-07-29): all 23
+  frozen managed-fleet and runtime-cloud behavior demands are bound to 52
+  exact existing catalog tests and 53 assignment links across seven
+  invariants. The clean builder campaign at
+  `dce893b021f95d2156ce882c1d43c9c0a19ca7df` passes 52/52 tests in four
+  exact `cargo nextest` groups. Its 52 assertion inventories contain 439
+  extracted assertions and at least one direct reviewed oracle for every
+  selected test. Forty-four unresolved helper-call annotations remain
+  explicit downstream reachability and mutation-strength debt. The atomic
+  metadata transaction at
+  `ae57d2c3c397fa22af6076d813f9d8e463ad73fd` adds exact behavior references
+  without changing production code, tests, specifications, or the frozen
+  denominator. The equations remain 4,399 live tests, 3,918
+  `catalog_mapped`, 481 owned `reviewed_nonmapping`, and zero existing tests
+  lacking authority, while confirmed missing behavior tests fall from 90 to
+  67. The focused proof, campaign, assertion, and transaction suite passes
+  19/19 locally and on the exact clean builder checkout. This is large-batch
+  `P18-003` through `P18-006` progress, not global row closure or `P18-007`
+  proof. No broad workspace gate ran. Focused evidence and retained
+  machine-readable artifacts are recorded in
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-runtime-cloud-exact-behavior-23.md`.
+  <!-- generated:runtime-cloud-exact-behavior-23:end -->
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device

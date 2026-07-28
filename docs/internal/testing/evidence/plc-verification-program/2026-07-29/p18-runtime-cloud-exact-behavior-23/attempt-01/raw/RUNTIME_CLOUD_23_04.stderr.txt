@@ -1,0 +1,11 @@
+info: experimental features enabled: wrapper-scripts
+   Compiling trust-runtime v0.24.59 (/home/johannes/projects/trust-platform-p18-runtime-cloud-23/crates/trust-runtime)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.22s
+────────────
+ Nextest run ID a4cf3854-8d3c-4751-93e7-7f527b9f2a46 with nextest profile: default
+    Starting 3 tests across 1 binary (47 tests skipped)
+        PASS [   0.051s] (1/3) trust-runtime::web_io_config_integration web_io_config_integration_part_03::runtime_cloud_link_transport_endpoint_switches_edge_mode_and_checks_same_host
+        PASS [   0.056s] (2/3) trust-runtime::web_io_config_integration web_io_config_integration_part_19::runtime_cloud_ha_split_brain_preflight_denies_dual_active_candidates
+        PASS [   0.064s] (3/3) trust-runtime::web_io_config_integration web_io_config_integration_part_19::runtime_cloud_ha_split_brain_preflight_checks_candidates_outside_action_subset
+────────────
+     Summary [   0.065s] 3 tests run: 3 passed, 47 skipped
