@@ -3,18 +3,18 @@ id = "IEC_HIR_VARIABLE_INITIALIZER_CONSTANT_001"
 title = "Integer variable initialization materializes constants and rejects mutable references"
 area = "compiler_iec"
 risk = "wrong_result"
-status = "specified"
+status = "mapped"
 owner = "trust-hir"
 last_reviewed = "2026-07-28"
 claim = "Reviewed INT declarations materialize the default, literal, and supported declared-constant values, while an explicit initializer that depends on an ordinary mutable integer variable is rejected."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-hir/src/db/queries/collector/variables.rs", "docs/specs/03-variables.md", "docs/PRODUCT_DECISIONS.md"]
-tests = []
+tests = ["TEST_AUTO_76C36D65723E0778AA23"]
 gates = ["veryquick", "pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["catalog_mapping", "focused_execution", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+missing = ["focused_execution", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -44,10 +44,10 @@ rationale = "An INT initializer that references the reviewed ordinary mutable IN
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "The reviewed default, literal, and declared-constant materialization assertions await generated catalog mapping and focused execution."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in IEC_HIR_VARIABLE_INITIALIZER_CONSTANT_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "gap_open"
-rationale = "The mutable-variable rejection assertion awaits generated catalog mapping and focused execution."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every wrong_type_or_shape behavior in IEC_HIR_VARIABLE_INITIALIZER_CONSTANT_001; dynamic proof and broad remote validation remain explicit debt."

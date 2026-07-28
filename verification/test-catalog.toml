@@ -114872,3 +114872,138 @@ mapping_assertion_review_digest = "sha256:a3fa75097b5c991ec0172267922b9ec174597c
 mapping_assertion_source_digests = { "crates/trust-runtime/tests/tutorial_examples.rs" = "sha256:28058688fc13c25984a3869988b996c1bd14395093838a77d890ad21f6c4a527", "examples/tutorials/01_hello_counter.st" = "sha256:2b0a10832e6ace1c5ad1b90c201536ff381da6f1b0cf2640e76384ecefcdaa9d", "examples/tutorials/02_blinker.st" = "sha256:1384571b18ec755f0b6cd9b9ab78cde68e330bd824a24a0f940e4f5369b74e36", "examples/tutorials/03_traffic_light.st" = "sha256:e88629b8fc0719e2a70fd8cc9ba23691e2fc480fdc55876ce93e218dd5d455e3", "examples/tutorials/04_tank_level.st" = "sha256:8c80be0b9f4f29dc77747ca36c7b7337f08354bc0faa64aa381f7ec4d8bc2fe6", "examples/tutorials/05_motor_starter.st" = "sha256:149c35a5c73a843a55c978bcdb98af406e8e5d344a487b622712f11b8bf7c185", "examples/tutorials/06_recipe_manager.st" = "sha256:8c2bea15464e820273c2c0dfc60fa9e3dac3a2670710e3a647973624c8ba3cc6", "examples/tutorials/07_pid_loop.st" = "sha256:68af651da3bde23608b9b69ff5c8b4c35fbd3bf2ed69bd1cbccb3967af3adaf7", "examples/tutorials/08_conveyor_system.st" = "sha256:b35eb1dc60f6eecfbb114bb21115c493b735114a41ec4105a4b218b03db9d7be", "examples/tutorials/09_simulation_coupling.st" = "sha256:e3a29522b9f58b567e37efb5be7f33335f8b708530ed25910c198324e7e08ea1" }
 mapping_behavior_refs = ["RT_TUTORIAL_EXAMPLES_001#behavior:1"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_228F27E52C6E7C5770DC"
+subject_kind = "generated_test"
+discovery_id = "DISC_228F27E52C6E7C5770DC"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/var_init.rs"
+name = "declaration_repetition_array_initializer_expands_group"
+command = "cargo nextest run -p trust-runtime --test var_init --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::var_init) & test(=declaration_repetition_array_initializer_expands_group)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_RUNTIME_VALUE_MATERIALIZATION_001"]
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#status-and-scope"
+oracle_refs = ["SPEC_RUNTIME_SEMANTICS_001#status-and-scope"]
+expected_result = "The reviewed runtime startup materializes exact, partial default-filled, and repeated one-dimensional INT array initializers with their declared inclusive bounds and completes one clean cycle."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_228F27E52C6E7C5770DC.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_228F27E52C6E7C5770DC_DB93B8A7FBB3"
+mapping_proposal_digest = "sha256:db93b8a7fbb3cf7b9f138254695f1018aacfe95cfc2a89cea94b153e6c9c5050"
+mapping_decision_id = "MAP_DEC_0A3D86C7EF37F1BE31C11A72"
+mapping_reviewed_source_digest = "sha256:21f6dc1e3ff45fc89abc95e70880f870cb62236561e7f5a52815cb525675e773"
+mapping_assertion_review_digest = "sha256:e64ec4b046a02c5cc22ea1ef27340d26bc87e8ecdd0f73a1b7261ae04bcfafd9"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/var_init.rs" = "sha256:21f6dc1e3ff45fc89abc95e70880f870cb62236561e7f5a52815cb525675e773" }
+mapping_behavior_refs = ["VM_RUNTIME_VALUE_MATERIALIZATION_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_64155A401AC80B11DB4F"
+subject_kind = "generated_test"
+discovery_id = "DISC_64155A401AC80B11DB4F"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/var_init.rs"
+name = "declaration_array_initializer_end_to_end"
+command = "cargo nextest run -p trust-runtime --test var_init --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::var_init) & test(=declaration_array_initializer_end_to_end)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_RUNTIME_VALUE_MATERIALIZATION_001"]
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#status-and-scope"
+oracle_refs = ["SPEC_RUNTIME_SEMANTICS_001#status-and-scope"]
+expected_result = "The reviewed runtime startup materializes exact, partial default-filled, and repeated one-dimensional INT array initializers with their declared inclusive bounds and completes one clean cycle."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_64155A401AC80B11DB4F.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_64155A401AC80B11DB4F_007DC72600FA"
+mapping_proposal_digest = "sha256:007dc72600fa62846657ae2f014b0e68c22d977a8e2e63a9f788019f22156172"
+mapping_decision_id = "MAP_DEC_ABE4D184470B41554326526B"
+mapping_reviewed_source_digest = "sha256:21f6dc1e3ff45fc89abc95e70880f870cb62236561e7f5a52815cb525675e773"
+mapping_assertion_review_digest = "sha256:ad9a45b1c668dfd40548ea4a7985ee60fbd358147f902d39e7eb65b71a29e88d"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/var_init.rs" = "sha256:21f6dc1e3ff45fc89abc95e70880f870cb62236561e7f5a52815cb525675e773" }
+mapping_behavior_refs = ["VM_RUNTIME_VALUE_MATERIALIZATION_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_76C36D65723E0778AA23"
+subject_kind = "generated_test"
+discovery_id = "DISC_76C36D65723E0778AA23"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-runtime/tests/var_init.rs"
+name = "iec_table14"
+command = "cargo nextest run -p trust-runtime --test var_init --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::var_init) & test(=iec_table14)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_VARIABLE_INITIALIZER_CONSTANT_001"]
+oracle_ref = "SPEC_IEC_VARIABLES_001#initialization-table-14"
+oracle_refs = ["SPEC_IEC_VARIABLES_001#initialization-table-14"]
+expected_result = "The reviewed declarations complete a clean cycle and materialize the uninitialized INT default as 0, the literal initializer as 4, and the declared-constant arithmetic initializer as 5. An INT initializer that references the reviewed ordinary mutable INT variable is rejected before a runtime is built with category E202 and the product-specified diagnostic message."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_76C36D65723E0778AA23.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_76C36D65723E0778AA23_568EE5006EE7"
+mapping_proposal_digest = "sha256:568ee5006ee7ef52b38151bad498320979cac969fd94bd2ca1d1e160113a13bb"
+mapping_decision_id = "MAP_DEC_66CFA7A8B1EF5591335B2B92"
+mapping_reviewed_source_digest = "sha256:21f6dc1e3ff45fc89abc95e70880f870cb62236561e7f5a52815cb525675e773"
+mapping_assertion_review_digest = "sha256:8020b6ca33d503e042e7231cc1db5157ccf5282fee3d9cf446235b427877ee3c"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/var_init.rs" = "sha256:21f6dc1e3ff45fc89abc95e70880f870cb62236561e7f5a52815cb525675e773" }
+mapping_behavior_refs = ["IEC_HIR_VARIABLE_INITIALIZER_CONSTANT_001#behavior:0", "IEC_HIR_VARIABLE_INITIALIZER_CONSTANT_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_BB30FD4AFD91E52B8068"
+subject_kind = "generated_test"
+discovery_id = "DISC_BB30FD4AFD91E52B8068"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/var_init.rs"
+name = "declaration_partial_array_initializer_default_fills_remaining_elements"
+command = "cargo nextest run -p trust-runtime --test var_init --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::var_init) & test(=declaration_partial_array_initializer_default_fills_remaining_elements)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_RUNTIME_VALUE_MATERIALIZATION_001"]
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#status-and-scope"
+oracle_refs = ["SPEC_RUNTIME_SEMANTICS_001#status-and-scope"]
+expected_result = "The reviewed runtime startup materializes exact, partial default-filled, and repeated one-dimensional INT array initializers with their declared inclusive bounds and completes one clean cycle."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_BB30FD4AFD91E52B8068.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_BB30FD4AFD91E52B8068_D601F631A2D6"
+mapping_proposal_digest = "sha256:d601f631a2d61197bb4412903232f7c363ca8e18b4b8c62a2b5f577f7a572f51"
+mapping_decision_id = "MAP_DEC_0EC200D9FF3908C40A62925D"
+mapping_reviewed_source_digest = "sha256:21f6dc1e3ff45fc89abc95e70880f870cb62236561e7f5a52815cb525675e773"
+mapping_assertion_review_digest = "sha256:7ca09e0bd4a96a3e110da75f1744af7462ed6d7ddfccf338ff3fec429848531c"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/var_init.rs" = "sha256:21f6dc1e3ff45fc89abc95e70880f870cb62236561e7f5a52815cb525675e773" }
+mapping_behavior_refs = ["VM_RUNTIME_VALUE_MATERIALIZATION_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
