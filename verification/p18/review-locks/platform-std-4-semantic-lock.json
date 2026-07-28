@@ -1,0 +1,171 @@
+{
+  "id": "PLATFORM_STD_4_SEMANTIC_LOCK",
+  "schema_version": 1,
+  "tests": [
+    {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_6E5D52488F89670FFCC0E798",
+          "behavior_label": "STDCLOCK_NONDECREASING_ELAPSED_TIME",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (t2 . as_nanos () >= t1 . as_nanos ())",
+          "function": "monotonic_time",
+          "invariant_id": "RT_RUNTIME_CLOCK_BOUNDARY_001",
+          "kind": "macro:assert"
+        }
+      ],
+      "discovery_id": "DISC_04E3AE8E579EE7353332",
+      "exclusions": [
+        "The StdClock case proves nondecrease for two reviewed samples only; equality is permitted. It proves no strict progress, minimum resolution, sleep duration, long-run ordering, or saturation case.",
+        "This batch does not specify or prove CURRENT_DT, host wall-clock epoch, timezone, precision, range, failure handling, or replay control."
+      ],
+      "name": "monotonic_time",
+      "path": "crates/trust-runtime/tests/platform_std.rs",
+      "source_digest": "sha256:07120e0efa78e224d4b3362ad69572f8c266a79fa24cedb8c203b3fa231e7feb"
+    },
+    {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_A0EF7027A43C0D601198907C",
+          "behavior_label": "MANUAL_RESOURCE_TICK_DOES_NOT_SLEEP",
+          "disposition": "setup_or_precondition",
+          "expression": "TestHarness :: from_source (source) . unwrap ()",
+          "function": "sleep_not_in_tests",
+          "invariant_id": "RT_RUNTIME_CLOCK_BOUNDARY_001",
+          "kind": "method:unwrap"
+        },
+        {
+          "assertion_id": "ASSERT_66F13840E995E491FD38D834",
+          "behavior_label": "MANUAL_RESOURCE_TICK_DOES_NOT_SLEEP",
+          "disposition": "setup_or_precondition",
+          "expression": "runner . tick () . unwrap ()",
+          "function": "sleep_not_in_tests",
+          "invariant_id": "RT_RUNTIME_CLOCK_BOUNDARY_001",
+          "kind": "method:unwrap"
+        },
+        {
+          "assertion_id": "ASSERT_3B62C2259A4B19A57704214F",
+          "behavior_label": "MANUAL_RESOURCE_TICK_DOES_NOT_SLEEP",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (clock . sleep_calls () , 0)",
+          "function": "sleep_not_in_tests",
+          "invariant_id": "RT_RUNTIME_CLOCK_BOUNDARY_001",
+          "kind": "macro:assert_eq"
+        }
+      ],
+      "discovery_id": "DISC_27187199BD3E588FC6BB",
+      "exclusions": [
+        "The no-sleep case is bounded to one direct ResourceRunner tick with one ManualClock. It does not cover all tests, TestHarness cycles, the spawned resource loop, or sleeping elsewhere in the runtime.",
+        "This batch does not specify or prove CURRENT_DT, host wall-clock epoch, timezone, precision, range, failure handling, or replay control."
+      ],
+      "name": "sleep_not_in_tests",
+      "path": "crates/trust-runtime/tests/platform_std.rs",
+      "source_digest": "sha256:07120e0efa78e224d4b3362ad69572f8c266a79fa24cedb8c203b3fa231e7feb"
+    },
+    {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_C3886323870778602B7514E4",
+          "behavior_label": "TIME_BUILTIN_RETURNS_INJECTED_LOGICAL_TIME",
+          "disposition": "setup_or_precondition",
+          "expression": "TestHarness :: from_source (source) . unwrap ()",
+          "function": "time_builtin_uses_runtime_clock",
+          "invariant_id": "RT_RUNTIME_CLOCK_BOUNDARY_001",
+          "kind": "method:unwrap"
+        },
+        {
+          "assertion_id": "ASSERT_7D87EF4A72CF70CEE1C474D8",
+          "behavior_label": "TIME_BUILTIN_RETURNS_INJECTED_LOGICAL_TIME",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (cycle . errors . is_empty () , \"TIME() cycle failed: {:?}\" , cycle . errors)",
+          "function": "time_builtin_uses_runtime_clock",
+          "invariant_id": "RT_RUNTIME_CLOCK_BOUNDARY_001",
+          "kind": "macro:assert"
+        },
+        {
+          "assertion_id": "ASSERT_EA17E7989E59E9695EF1C9CD",
+          "behavior_label": "TIME_BUILTIN_RETURNS_INJECTED_LOGICAL_TIME",
+          "disposition": "oracle_bound",
+          "expression": "harness . assert_eq (\"stamp\" , Value :: Time (Duration :: from_millis (123)))",
+          "function": "time_builtin_uses_runtime_clock",
+          "invariant_id": "RT_RUNTIME_CLOCK_BOUNDARY_001",
+          "kind": "method:assert_eq"
+        }
+      ],
+      "discovery_id": "DISC_3D9BC624619267817197",
+      "exclusions": [
+        "The TIME case is bounded to one zero-argument TIME() call after one explicit 123 ms harness advance. It does not cover CURRENT_DT, a civil wall-clock value, additional calls, or other clock surfaces.",
+        "This batch does not specify or prove CURRENT_DT, host wall-clock epoch, timezone, precision, range, failure handling, or replay control."
+      ],
+      "name": "time_builtin_uses_runtime_clock",
+      "path": "crates/trust-runtime/tests/platform_std.rs",
+      "source_digest": "sha256:07120e0efa78e224d4b3362ad69572f8c266a79fa24cedb8c203b3fa231e7feb"
+    },
+    {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_D792130F568E91212A16FBC2",
+          "behavior_label": "RESOURCE_READINESS_USES_INJECTED_CLOCK_ONLY",
+          "disposition": "setup_or_precondition",
+          "expression": "TestHarness :: from_source (source) . unwrap ()",
+          "function": "scheduler_ignores_wall_time_when_monotonic_clock_is_fixed",
+          "invariant_id": "RT_RUNTIME_CLOCK_BOUNDARY_001",
+          "kind": "method:unwrap"
+        },
+        {
+          "assertion_id": "ASSERT_69679646E0AB928B976A1462",
+          "behavior_label": "RESOURCE_READINESS_USES_INJECTED_CLOCK_ONLY",
+          "disposition": "setup_or_precondition",
+          "expression": "runner . tick () . unwrap ()",
+          "function": "scheduler_ignores_wall_time_when_monotonic_clock_is_fixed",
+          "invariant_id": "RT_RUNTIME_CLOCK_BOUNDARY_001",
+          "kind": "method:unwrap"
+        },
+        {
+          "assertion_id": "ASSERT_E5E9409C6F0978EDAD54912C",
+          "behavior_label": "RESOURCE_READINESS_USES_INJECTED_CLOCK_ONLY",
+          "disposition": "setup_or_precondition",
+          "expression": "panic ! (\"expected program instance, got {other:?}\")",
+          "function": "scheduler_ignores_wall_time_when_monotonic_clock_is_fixed",
+          "invariant_id": "RT_RUNTIME_CLOCK_BOUNDARY_001",
+          "kind": "macro:panic"
+        },
+        {
+          "assertion_id": "ASSERT_6CCB23303B92847FDD391982",
+          "behavior_label": "RESOURCE_READINESS_USES_INJECTED_CLOCK_ONLY",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (runner . runtime () . storage () . get_instance_var (program , \"counter\") , Some (& Value :: Int (0)) , \"a fixed injected clock must not make a periodic task ready\")",
+          "function": "scheduler_ignores_wall_time_when_monotonic_clock_is_fixed",
+          "invariant_id": "RT_RUNTIME_CLOCK_BOUNDARY_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_0C91C2E009B40CDDBB5E937E",
+          "behavior_label": "RESOURCE_READINESS_USES_INJECTED_CLOCK_ONLY",
+          "disposition": "setup_or_precondition",
+          "expression": "runner . tick () . unwrap ()",
+          "function": "scheduler_ignores_wall_time_when_monotonic_clock_is_fixed",
+          "invariant_id": "RT_RUNTIME_CLOCK_BOUNDARY_001",
+          "kind": "method:unwrap"
+        },
+        {
+          "assertion_id": "ASSERT_9EFB5A6F7AB986FDA7C3D9D2",
+          "behavior_label": "RESOURCE_READINESS_USES_INJECTED_CLOCK_ONLY",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (runner . runtime () . storage () . get_instance_var (program , \"counter\") , Some (& Value :: Int (1)))",
+          "function": "scheduler_ignores_wall_time_when_monotonic_clock_is_fixed",
+          "invariant_id": "RT_RUNTIME_CLOCK_BOUNDARY_001",
+          "kind": "macro:assert_eq"
+        }
+      ],
+      "discovery_id": "DISC_AC89BA6FAA7BC42ACCBC",
+      "exclusions": [
+        "The readiness case is bounded to one one-millisecond periodic task, one fixed ManualClock sample, and one explicit advance to its first deadline. It does not observe host wall-clock movement, other task modes, overruns, backward jumps, or the spawned resource loop.",
+        "This batch does not specify or prove CURRENT_DT, host wall-clock epoch, timezone, precision, range, failure handling, or replay control."
+      ],
+      "name": "scheduler_ignores_wall_time_when_monotonic_clock_is_fixed",
+      "path": "crates/trust-runtime/tests/platform_std.rs",
+      "source_digest": "sha256:07120e0efa78e224d4b3362ad69572f8c266a79fa24cedb8c203b3fa231e7feb"
+    }
+  ]
+}
