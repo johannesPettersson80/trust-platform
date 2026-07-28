@@ -26,6 +26,7 @@ DEBUG_REMAINING_PROFILE_KEY = "debug-remaining"
 DEV_REMAINING_PROFILE_KEY = "dev-remaining"
 RUNTIME_CORE_REMAINING_PROFILE_KEY = "runtime-core-remaining"
 ADS_SERVER_REMAINING_PROFILE_KEY = "ads-server-remaining"
+ADS_CORE_REMAINING_PROFILE_KEY = "ads-core-remaining"
 VERIFICATION_CASES_REMAINING_PROFILE_KEY = "verification-cases-remaining"
 PLCOPEN_REMAINING_PROFILE_KEY = "plcopen-remaining"
 WASM_ANALYSIS_REMAINING_PROFILE_KEY = "wasm-analysis-remaining"
@@ -192,6 +193,25 @@ ADS_SERVER_REMAINING_UNIT_PREFIXES: Mapping[str, str] = {
     "crates/trust-ads-server/src/listener.rs": "listener::tests::",
     "crates/trust-ads-server/src/notify.rs": "notify::tests::",
     "crates/trust-ads-server/src/symbols.rs": "symbols::tests::",
+}
+
+ADS_CORE_REMAINING_PROFILE = FrozenRustTargetProfile(
+    key=ADS_CORE_REMAINING_PROFILE_KEY,
+    package="trust-ads-core",
+    target_kind="lib",
+    target_name=None,
+    binary_id="trust-ads-core",
+    test_prefix="",
+    encoded_test_name_prefix="trust-ads-core::trust_ads_core$",
+    discovery_source_kind="rust_unit_test",
+    allowed_cfg_attributes=frozenset(),
+    no_default_features_cfg=None,
+    no_default_features_shard_name=None,
+)
+
+ADS_CORE_REMAINING_UNIT_PREFIXES: Mapping[str, str] = {
+    "crates/trust-ads-core/src/mapping.rs": "mapping::tests::",
+    "crates/trust-ads-core/src/symbols.rs": "symbols::tests::",
 }
 
 VERIFICATION_CASES_REMAINING_PROFILE = FrozenRustTargetProfile(
@@ -610,6 +630,7 @@ TARGET_PROFILES: Mapping[str, FrozenRustTargetProfile] = {
         DEV_REMAINING_PROFILE,
         RUNTIME_CORE_REMAINING_PROFILE,
         ADS_SERVER_REMAINING_PROFILE,
+        ADS_CORE_REMAINING_PROFILE,
         VERIFICATION_CASES_REMAINING_PROFILE,
         PLCOPEN_REMAINING_PROFILE,
         WASM_ANALYSIS_REMAINING_PROFILE,
@@ -656,6 +677,13 @@ def get_target_profile(
             ADS_SERVER_REMAINING_UNIT_PREFIXES,
             path,
             "ads-server",
+        )
+    if key == ADS_CORE_REMAINING_PROFILE_KEY:
+        return _unit_path_profile(
+            ADS_CORE_REMAINING_PROFILE,
+            ADS_CORE_REMAINING_UNIT_PREFIXES,
+            path,
+            "ADS core",
         )
     if key == VERIFICATION_CASES_REMAINING_PROFILE_KEY:
         return _unit_path_profile(

@@ -456,6 +456,32 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
                 ),
             )
 
+    def test_ads_core_profile_is_closed_over_codec_and_symbol_paths(self) -> None:
+        self.assertIn("ads-core-remaining", TARGET_PROFILES)
+        mapping = get_target_profile(
+            "ads-core-remaining",
+            path="crates/trust-ads-core/src/mapping.rs",
+        )
+        symbols = get_target_profile(
+            "ads-core-remaining",
+            path="crates/trust-ads-core/src/symbols.rs",
+        )
+
+        self.assertEqual("trust-ads-core", mapping.package)
+        self.assertEqual(("--lib",), mapping.cargo_target_args)
+        self.assertEqual("trust-ads-core", mapping.binary_id)
+        self.assertEqual("mapping::tests::", mapping.test_prefix)
+        self.assertEqual("symbols::tests::", symbols.test_prefix)
+        self.assertEqual(
+            "trust-ads-core::trust_ads_core$",
+            mapping.encoded_test_name_prefix,
+        )
+        with self.assertRaisesRegex(ValueError, "outside the closed ADS core"):
+            get_target_profile(
+                "ads-core-remaining",
+                path="crates/trust-ads-core/src/lib.rs",
+            )
+
     def test_debug_and_runtime_core_profiles_are_closed_over_reviewed_paths(
         self,
     ) -> None:

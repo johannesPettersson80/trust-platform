@@ -2068,6 +2068,49 @@ ADS transport rejects secure activation. This specification does not select a
 new parser or transport behavior for that contradiction, and the contradiction
 is not test authority until a separate product decision resolves it.
 
+###### ADS core value codec and descriptor size
+
+The shared ADS value codec is a truST product contract outside IEC 61131-3.
+For the reviewed fixed-width scalar matrix, `BOOL` uses one byte with reviewed
+true encoded as `1`; signed and unsigned integers and bit strings use their
+declared one-, two-, four-, or eight-byte width; and `REAL` and `LREAL` use
+four and eight bytes respectively. Multi-byte values use canonical
+little-endian byte order. The reviewed matrix proves exact encode/decode
+round trips for its named representative values; it does not select behavior
+for noncanonical `BOOL` bytes, every elementary value, or non-finite egress.
+Non-finite ingress remains governed by
+[ADS floating-point ingress](#ads-floating-point-ingress).
+
+For the reviewed `STRING(8)` partition, the declared capacity is eight payload
+bytes and the fixed layout is nine bytes including the terminator. Decoding the
+reviewed zero-padded buffer returns bytes through the first NUL, and encoding
+`Pump` produces the exact trailing-zero-filled nine-byte buffer. This partition
+does not select Unicode capacity, invalid UTF-8, an absent terminator,
+over-capacity values, or a missing descriptor length.
+
+For the reviewed one-dimensional `INT[1..3]` partition, decoding and encoding
+preserve the inclusive bounds, element order, scalar representation, and exact
+total byte extent. Multidimensional order, invalid or overflowing bounds,
+element-count overflow, and array element-type failures remain outside this
+contract.
+
+The reviewed mismatch boundary rejects an input byte slice whose length
+differs from the descriptor as `ByteLengthMismatch`, a scalar value supplied
+for an array descriptor as `ValueTypeMismatch`, and an array whose bounds
+differ from the descriptor as `ArrayShapeMismatch`. These observations do not
+establish a complete precedence order among all possible mapping failures.
+
+ADS symbol metadata is admissible at the reviewed descriptor-size boundary
+only when the endpoint `byte_size` equals the descriptor-computed extent. The
+reviewed `WORD[1..4]` extent is eight bytes and the reviewed scalar `REAL`
+extent is four bytes. A `REAL` endpoint size of eight rejects as
+`ByteSizeMismatch` with expected `4` and actual `8`. Descriptor-size overflow
+and every nested descriptor failure remain explicit gaps.
+
+This shared codec authority does not select the unresolved runtime ADS server
+publication policy for `STRING` or arrays. It also makes no wire,
+external-endpoint, or TwinCAT interoperability claim.
+
 ###### ADS client transport boundary
 
 The ADS client transport is a truST product contract outside IEC 61131-3. It

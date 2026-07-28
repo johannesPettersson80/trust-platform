@@ -1,0 +1,146 @@
+{
+  "id": "ADS_CORE_6_SEMANTIC_LOCK",
+  "schema_version": 1,
+  "tests": [
+    {
+      "assertions": [
+        {
+          "behavior_label": "SYMBOL_DESCRIPTOR_EXTENT_MATCH",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (symbol . validate_byte_size () , Ok (()))",
+          "function": "tests::validates_endpoint_byte_size_against_type_descriptor",
+          "invariant_id": "RT_ADS_CORE_VALUE_CODEC_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "behavior_label": "SYMBOL_DESCRIPTOR_EXTENT_MISMATCH",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (matches ! (mismatched . validate_byte_size () , Err (SymbolSizeError :: ByteSizeMismatch { expected : 4 , actual : 8 , .. })))",
+          "function": "tests::validates_endpoint_byte_size_against_type_descriptor",
+          "invariant_id": "RT_ADS_CORE_VALUE_CODEC_001",
+          "kind": "macro:assert"
+        }
+      ],
+      "name": "validates_endpoint_byte_size_against_type_descriptor",
+      "path": "crates/trust-ads-core/src/symbols.rs"
+    },
+    {
+      "assertions": [
+        {
+          "behavior_label": "LENGTH_TYPE_OR_SHAPE_MISMATCH",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (matches ! (value_from_ads_bytes (& descriptor , & [0]) , Err (AdsMappingError :: ByteLengthMismatch { .. })))",
+          "function": "tests::rejects_shape_type_and_length_mismatches",
+          "invariant_id": "RT_ADS_CORE_VALUE_CODEC_001",
+          "kind": "macro:assert"
+        },
+        {
+          "behavior_label": "LENGTH_TYPE_OR_SHAPE_MISMATCH",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (matches ! (ads_bytes_from_value (& descriptor , & Value :: Int (1)) , Err (AdsMappingError :: ValueTypeMismatch { .. })))",
+          "function": "tests::rejects_shape_type_and_length_mismatches",
+          "invariant_id": "RT_ADS_CORE_VALUE_CODEC_001",
+          "kind": "macro:assert"
+        },
+        {
+          "behavior_label": "LENGTH_TYPE_OR_SHAPE_MISMATCH",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (matches ! (ads_bytes_from_value (& descriptor , & wrong_shape) , Err (AdsMappingError :: ArrayShapeMismatch { .. })))",
+          "function": "tests::rejects_shape_type_and_length_mismatches",
+          "invariant_id": "RT_ADS_CORE_VALUE_CODEC_001",
+          "kind": "macro:assert"
+        }
+      ],
+      "name": "rejects_shape_type_and_length_mismatches",
+      "path": "crates/trust-ads-core/src/mapping.rs"
+    },
+    {
+      "assertions": [
+        {
+          "behavior_label": "DECLARED_STRING_CAPACITY_AND_NUL_PADDING",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (value_from_ads_bytes (& descriptor , & bytes) , Ok (Value :: String (\"Pump\" . into ())))",
+          "function": "tests::string_mapping_uses_declared_capacity_and_terminator",
+          "invariant_id": "RT_ADS_CORE_VALUE_CODEC_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "behavior_label": "DECLARED_STRING_CAPACITY_AND_NUL_PADDING",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (ads_bytes_from_value (& descriptor , & Value :: String (\"Pump\" . into ())) , Ok (bytes))",
+          "function": "tests::string_mapping_uses_declared_capacity_and_terminator",
+          "invariant_id": "RT_ADS_CORE_VALUE_CODEC_001",
+          "kind": "macro:assert_eq"
+        }
+      ],
+      "name": "string_mapping_uses_declared_capacity_and_terminator",
+      "path": "crates/trust-ads-core/src/mapping.rs"
+    },
+    {
+      "assertions": [
+        {
+          "behavior_label": "SYMBOL_DESCRIPTOR_EXTENT_MATCH",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (symbol . validate_byte_size () , Ok (()))",
+          "function": "tests::validates_array_byte_size_against_type_descriptor",
+          "invariant_id": "RT_ADS_CORE_VALUE_CODEC_001",
+          "kind": "macro:assert_eq"
+        }
+      ],
+      "name": "validates_array_byte_size_against_type_descriptor",
+      "path": "crates/trust-ads-core/src/symbols.rs"
+    },
+    {
+      "assertions": [
+        {
+          "behavior_label": "FIXED_WIDTH_SCALAR_ROUNDTRIP",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (descriptor . byte_len () , Ok (bytes . len ()))",
+          "function": "tests::scalar_mapping_round_trips_every_supported_type",
+          "invariant_id": "RT_ADS_CORE_VALUE_CODEC_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "behavior_label": "FIXED_WIDTH_SCALAR_ROUNDTRIP",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (value_from_ads_bytes (& descriptor , & bytes) , Ok (value . clone ()))",
+          "function": "tests::scalar_mapping_round_trips_every_supported_type",
+          "invariant_id": "RT_ADS_CORE_VALUE_CODEC_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "behavior_label": "FIXED_WIDTH_SCALAR_ROUNDTRIP",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (ads_bytes_from_value (& descriptor , & value) , Ok (bytes))",
+          "function": "tests::scalar_mapping_round_trips_every_supported_type",
+          "invariant_id": "RT_ADS_CORE_VALUE_CODEC_001",
+          "kind": "macro:assert_eq"
+        }
+      ],
+      "name": "scalar_mapping_round_trips_every_supported_type",
+      "path": "crates/trust-ads-core/src/mapping.rs"
+    },
+    {
+      "assertions": [
+        {
+          "behavior_label": "ONE_DIMENSION_ARRAY_BOUNDS_ORDER_ROUNDTRIP",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (value_from_ads_bytes (& descriptor , & bytes) , Ok (value . clone ()))",
+          "function": "tests::scalar_array_mapping_round_trips_dimensions",
+          "invariant_id": "RT_ADS_CORE_VALUE_CODEC_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "behavior_label": "ONE_DIMENSION_ARRAY_BOUNDS_ORDER_ROUNDTRIP",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (ads_bytes_from_value (& descriptor , & value) , Ok (bytes))",
+          "function": "tests::scalar_array_mapping_round_trips_dimensions",
+          "invariant_id": "RT_ADS_CORE_VALUE_CODEC_001",
+          "kind": "macro:assert_eq"
+        }
+      ],
+      "name": "scalar_array_mapping_round_trips_dimensions",
+      "path": "crates/trust-ads-core/src/mapping.rs"
+    }
+  ]
+}

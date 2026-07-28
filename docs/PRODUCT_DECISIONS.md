@@ -948,3 +948,35 @@ IEC or PLCopen deviation log merely because truST owns the behavior.
   - Live breakpoint mutation and cyclic re-hit behavior are observable truST
     debugger lifecycle rules outside IEC 61131-3. They therefore belong in
     product authority, not the IEC deviation register.
+
+## 2026-07-28 - ADS core fixed-layout value codec and descriptor size
+
+- Area: Shared ADS value and symbol metadata
+- Decision:
+  - The reviewed fixed-width scalar matrix uses declared one-, two-, four-, or
+    eight-byte layouts and canonical little-endian encoding. The reviewed
+    `BOOL` true representation is byte `1`.
+  - The reviewed `STRING(8)` layout has eight payload bytes plus one terminator
+    byte. Decoding stops at the first NUL, and encoding the reviewed value
+    zero-fills the remainder of that fixed layout.
+  - The reviewed one-dimensional scalar-array layout preserves inclusive
+    bounds, element order, scalar encoding, and exact total extent.
+  - Byte-length, scalar-versus-array value-type, and array-shape disagreements
+    reject as distinct mapping-error classes.
+  - ADS symbol metadata is admissible at the reviewed boundary only when its
+    endpoint byte size equals the descriptor-computed extent; an observed
+    mismatch reports the computed expected and endpoint actual sizes.
+- Supersedes:
+  - Any interpretation that generic test names such as “every supported type”
+    prove unreviewed scalar values or edge cases.
+  - Any interpretation that this shared codec decision selects runtime ADS
+    server publication of `STRING` or arrays.
+  - Any interpretation that native codec unit tests prove ADS wire, external
+    endpoint, or TwinCAT interoperability.
+- Authority:
+  - `docs/specs/11-runtime-engine.md`
+- Reason:
+  - Fixed byte layout, mismatch classes, and endpoint metadata admission are
+    observable truST product/protocol behavior outside IEC 61131-3. Product
+    authority permits exact test-catalog oracles without misclassifying the
+    behavior as an IEC deviation.

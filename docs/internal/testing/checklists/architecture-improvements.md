@@ -262,3 +262,12 @@ Issue #51 init benchmark baseline evidence (2026-04-28):
   runner/assignment tests pass locally, all 15 exact native Rust facade tests
   pass on `trust-builder`, and `verification-code-spec-coverage.puml` records
   that native facade proof is not wasm32, JavaScript, or browser-render proof.
+- [x] `ARCH-VERIF-P18-08` Close the ADS-core codec and descriptor-size catalog
+  lane with one path-aware frozen nextest profile and one bounded semantic
+  assignment owner. Keep scalar, padded-STRING, one-dimensional-array,
+  mismatch-class, and descriptor-extent assertions bound to explicit product
+  behaviors without promoting them to external ADS or TwinCAT interoperability
+  proof. Evidence: 49 focused runner/assignment tests pass locally; all six
+  selected native Rust unit tests pass on `trust-builder` (with two already
+  cataloged same-source companions in the mapping shard); and
+  `verification-code-spec-coverage.puml` records the explicit proof boundary.
