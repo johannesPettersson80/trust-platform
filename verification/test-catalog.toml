@@ -123,6 +123,7 @@ duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_SIGNED_INTEGER_MATERIALIZATION_TRACE_001.json"
 case_file = "verification/cases/runtime_safety/RT_SIGNED_INTEGER_MATERIALIZATION_001.toml"
 case_file_digest = "sha256:eacff93189df0af63914f4d21801eed3a5ae413e8e9b42270cff2120796e6053"
+mapping_behavior_refs = ["RT_SIGNED_INTEGER_MATERIALIZATION_001#behavior:1", "RT_SIGNED_INTEGER_MATERIALIZATION_001#behavior:3"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -173,6 +174,7 @@ duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_INTEGER_I64_NORMALIZATION_TRACE_001.json"
 case_file = "verification/cases/runtime_safety/RT_INTEGER_I64_NORMALIZATION_001.toml"
 case_file_digest = "sha256:76a97c9098d244c7305fdc620e304fdfa96dc1406282001718d0a041fcead2c4"
+mapping_behavior_refs = ["RT_INTEGER_I64_NORMALIZATION_001#behavior:0", "RT_INTEGER_I64_NORMALIZATION_001#behavior:1", "RT_INTEGER_I64_NORMALIZATION_001#behavior:3"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -273,6 +275,7 @@ duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_RETAIN_SNAPSHOT_INSERT_TRACE_001.json"
 case_file = "verification/cases/runtime_safety/RT_RETAIN_SNAPSHOT_INSERT_001.toml"
 case_file_digest = "sha256:d49c380eed600a367208997ef2b31482526eaa802e121e14a63cbd185fad014d"
+mapping_behavior_refs = ["RT_RETAIN_SNAPSHOT_INSERT_001#behavior:1"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -469,6 +472,7 @@ duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_FAULT_STATE_CLEAR_TRACE_001.json"
 case_file = "verification/cases/runtime_safety/RT_FAULT_STATE_CLEAR_001.toml"
 case_file_digest = "sha256:eba7f46c61be3a09205fe289f6de07cf92ebce3953cd849a5b60b66c854e8f0f"
+mapping_behavior_refs = ["RT_FAULT_STATE_CLEAR_001#behavior:0", "RT_FAULT_STATE_CLEAR_001#behavior:1"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -543,6 +547,7 @@ duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_FAULT_POLICY_DECISION_TRACE_001.json"
 case_file = "verification/cases/runtime_safety/RT_FAULT_POLICY_DECISION_001.toml"
 case_file_digest = "sha256:0a1b09240a7a0b3ea38a922dcaee0b09c7eb9879b08bcb7cd29087f02099354a"
+mapping_behavior_refs = ["RT_FAULT_POLICY_DECISION_001#behavior:0", "RT_FAULT_POLICY_DECISION_001#behavior:1", "RT_FAULT_POLICY_DECISION_001#behavior:2"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -2539,6 +2544,7 @@ requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/compiler_iec/IEC_STRING_001.toml"
 case_file_digest = "sha256:63179ef133c5b8deeeee5cfa430bc7249e79be86b1334591829a990608aca97c"
+mapping_behavior_refs = ["IEC_STRING_001#behavior:0", "IEC_STRING_001#behavior:1", "IEC_STRING_001#behavior:10", "IEC_STRING_001#behavior:11", "IEC_STRING_001#behavior:12", "IEC_STRING_001#behavior:13", "IEC_STRING_001#behavior:14", "IEC_STRING_001#behavior:15", "IEC_STRING_001#behavior:16", "IEC_STRING_001#behavior:17", "IEC_STRING_001#behavior:18", "IEC_STRING_001#behavior:19", "IEC_STRING_001#behavior:2", "IEC_STRING_001#behavior:3", "IEC_STRING_001#behavior:4", "IEC_STRING_001#behavior:5", "IEC_STRING_001#behavior:6", "IEC_STRING_001#behavior:7", "IEC_STRING_001#behavior:8", "IEC_STRING_001#behavior:9"]
 last_reviewed = "2026-07-17"
 
 [[tests]]
@@ -2565,6 +2571,7 @@ requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/compiler_iec/IEC_SUBRANGE_001.toml"
 case_file_digest = "sha256:dd0eb893cf48b944114f28f9f9b63e9946ee25a7f18c388e648e62a721632acf"
+mapping_behavior_refs = ["IEC_SUBRANGE_001#behavior:0", "IEC_SUBRANGE_001#behavior:1", "IEC_SUBRANGE_001#behavior:2"]
 last_reviewed = "2026-07-17"
 
 [[tests]]
@@ -2591,6 +2598,7 @@ requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/runtime_safety/RT_SAFE_IO_001.toml"
 case_file_digest = "sha256:5651bab7a19964e2f3e037947628d2fd32c8b6a737fea523b53a5ba0aead009b"
+mapping_behavior_refs = ["RT_SAFE_IO_001#behavior:0", "RT_SAFE_IO_001#behavior:1"]
 last_reviewed = "2026-07-17"
 
 [[tests]]
@@ -2764,6 +2772,7 @@ requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/bytecode_vm/VM_SEAM_SUBRANGE_001.toml"
 case_file_digest = "sha256:bcd6a67c26ca66012be0124e7506402a9e38fa22a2217103ba3a75b451cb31f6"
+mapping_behavior_refs = ["VM_SEAM_SUBRANGE_001#behavior:0", "VM_SEAM_SUBRANGE_001#behavior:1", "VM_SEAM_SUBRANGE_001#behavior:2", "VM_SEAM_SUBRANGE_001#behavior:3"]
 last_reviewed = "2026-07-17"
 
 [[tests]]
@@ -2816,6 +2825,7 @@ requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/bytecode_vm/VM_SEAM_OWNER_001.toml"
 case_file_digest = "sha256:76bfc14b9fa346c00c2064e784368d0d5e0ee1f07ecbcf37e55617c4cf213d2e"
+mapping_behavior_refs = ["VM_SEAM_OWNER_001#behavior:0", "VM_SEAM_OWNER_001#behavior:1"]
 last_reviewed = "2026-07-17"
 
 [[tests]]
@@ -2842,6 +2852,7 @@ requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/bytecode_vm/VM_SEAM_REF_001.toml"
 case_file_digest = "sha256:ba6debfd2e163ed43dbc72f9a862a9c2115811acdca892dba2af8f85de2e9e62"
+mapping_behavior_refs = ["VM_SEAM_REF_001#behavior:1"]
 last_reviewed = "2026-07-17"
 
 [[tests]]
@@ -2918,6 +2929,7 @@ requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/editor_safety/EDIT_RENAME_001.toml"
 case_file_digest = "sha256:c1bc6d86827343289709f5ebb207ac334a92c19b3da917870cce86d1b8618468"
+mapping_behavior_refs = ["EDIT_RENAME_001#behavior:0", "EDIT_RENAME_001#behavior:1", "EDIT_RENAME_001#behavior:2"]
 last_reviewed = "2026-07-16"
 
 [[tests]]
@@ -2944,6 +2956,7 @@ requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/editor_safety/EDIT_RENAME_002.toml"
 case_file_digest = "sha256:2645d42c25592c5244f591759c3c3415345ce112ed5095c176e6d0c533234320"
+mapping_behavior_refs = ["EDIT_RENAME_002#behavior:0", "EDIT_RENAME_002#behavior:1", "EDIT_RENAME_002#behavior:2"]
 last_reviewed = "2026-07-16"
 
 [[tests]]
@@ -2970,6 +2983,7 @@ requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/editor_safety/EDIT_LSP_POS_001.toml"
 case_file_digest = "sha256:9a8c6ae86d4cfff6f76db6e863b8e7147d0e94ee57d706a7003d1fa2c1d7c19d"
+mapping_behavior_refs = ["EDIT_LSP_POS_001#behavior:0", "EDIT_LSP_POS_001#behavior:1"]
 last_reviewed = "2026-07-16"
 
 [[tests]]
@@ -2996,6 +3010,7 @@ requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/editor_safety/EDIT_LSP_DELIVERY_001.toml"
 case_file_digest = "sha256:2b1134a279b8614b2cd14daa383991c74c314964eefc3dcbe783cfcbc7d8ad85"
+mapping_behavior_refs = ["EDIT_LSP_DELIVERY_001#behavior:0", "EDIT_LSP_DELIVERY_001#behavior:1", "EDIT_LSP_DELIVERY_001#behavior:2"]
 last_reviewed = "2026-07-19"
 
 [[tests]]
@@ -3022,6 +3037,7 @@ requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/editor_safety/EDIT_DIAG_CANCEL_001.toml"
 case_file_digest = "sha256:2fe98659ad5421a9e1874d10cdbf706c3c1c30e5380fdc2bf736a414d9a6c1dc"
+mapping_behavior_refs = ["EDIT_DIAG_CANCEL_001#behavior:0", "EDIT_DIAG_CANCEL_001#behavior:1", "EDIT_DIAG_CANCEL_001#behavior:2", "EDIT_DIAG_CANCEL_001#behavior:3", "EDIT_DIAG_CANCEL_001#behavior:4"]
 last_reviewed = "2026-07-16"
 
 [[tests]]
@@ -3048,6 +3064,7 @@ requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/editor_safety/EDIT_DOC_CLOSE_001.toml"
 case_file_digest = "sha256:9ab5679c9ed203ba3cd56f60f2862d9aa38a28620b98497bbe69f9f31c0b2ff9"
+mapping_behavior_refs = ["EDIT_DOC_CLOSE_001#behavior:0", "EDIT_DOC_CLOSE_001#behavior:1", "EDIT_DOC_CLOSE_001#behavior:2", "EDIT_DOC_CLOSE_001#behavior:3", "EDIT_DOC_CLOSE_001#behavior:4"]
 last_reviewed = "2026-07-16"
 
 [[tests]]
@@ -3098,6 +3115,7 @@ requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/plcopen_devtools/PLCO_IMPORT_001.toml"
 case_file_digest = "sha256:8eaef792fcfa9bb5708ca06c488821f78036cb72a52d6d88b8df32946d142690"
+mapping_behavior_refs = ["PLCO_IMPORT_001#behavior:0", "PLCO_IMPORT_001#behavior:2", "PLCO_IMPORT_001#behavior:3", "PLCO_IMPORT_001#behavior:4", "PLCO_IMPORT_001#behavior:5", "PLCO_IMPORT_001#behavior:6"]
 last_reviewed = "2026-07-16"
 
 [[tests]]
@@ -3124,6 +3142,7 @@ requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/protocols/PROTO_OPCUA_001.toml"
 case_file_digest = "sha256:d5f1740836a29c1a0742f3040e5060a01fc78f07e99870a8c139f27c41191e7d"
+mapping_behavior_refs = ["PROTO_OPCUA_001#behavior:1", "PROTO_OPCUA_001#behavior:2", "PROTO_OPCUA_001#behavior:3", "PROTO_OPCUA_001#behavior:4", "PROTO_OPCUA_001#behavior:5"]
 last_reviewed = "2026-07-16"
 
 [[tests]]
@@ -3200,6 +3219,7 @@ requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/protocols/PROTO_DISCOVERY_TRUTH_001.toml"
 case_file_digest = "sha256:4001ec6744b6e51654c25af1508afcbe1f0ba80407da87df9775f2652d9571a3"
+mapping_behavior_refs = ["PROTO_DISCOVERY_TRUTH_001#behavior:5"]
 last_reviewed = "2026-07-16"
 
 [[tests]]
@@ -4398,6 +4418,7 @@ requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/runtime_safety/RT_SAFE_NAN_001.toml"
 case_file_digest = "sha256:d6bd8d524b98a29f813f04bd0156a09ec8c241b873362b269fde937b1ed7e01a"
+mapping_behavior_refs = ["RT_SAFE_NAN_001#behavior:0"]
 last_reviewed = "2026-07-14"
 
 [[tests]]
@@ -4648,6 +4669,7 @@ requires_network = false
 duration_class = "slow"
 case_file = "verification/cases/bytecode_vm/VM_SEAM_DETERMINISM_LIMITS_001.toml"
 case_file_digest = "sha256:2f824eabeed68ec5f224d64f9c7bc5e866ec1bd4095e7346c8d61a3410c2ee5f"
+mapping_behavior_refs = ["VM_SEAM_DETERMINISM_LIMITS_001#behavior:1", "VM_SEAM_DETERMINISM_LIMITS_001#behavior:2", "VM_SEAM_DETERMINISM_LIMITS_001#behavior:3", "VM_SEAM_DETERMINISM_LIMITS_001#behavior:4", "VM_SEAM_DETERMINISM_LIMITS_001#behavior:5", "VM_SEAM_DETERMINISM_LIMITS_001#behavior:7", "VM_SEAM_DETERMINISM_LIMITS_001#behavior:9"]
 last_reviewed = "2026-07-15"
 
 [[tests]]
@@ -5012,6 +5034,7 @@ requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/editor_safety/DEBUG_PAUSE_001.toml"
 case_file_digest = "sha256:4dac762598287cd3ff224a0688b8e36ffa5c20130795655c70d9d794bda45b15"
+mapping_behavior_refs = ["DEBUG_PAUSE_001#behavior:0", "DEBUG_PAUSE_001#behavior:1"]
 last_reviewed = "2026-07-16"
 
 [[tests]]
@@ -5038,6 +5061,7 @@ requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/runtime_safety/RT_SAFE_FORCE_001.toml"
 case_file_digest = "sha256:a09b4d3924e7bbc8b9928569de8b7c6ad761568bf6ce588d0835a2e9d4402105"
+mapping_behavior_refs = ["RT_SAFE_FORCE_001#behavior:0", "RT_SAFE_FORCE_001#behavior:1"]
 last_reviewed = "2026-07-14"
 
 [[tests]]
@@ -5186,6 +5210,7 @@ requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/runtime_safety/RT_SAFE_PANIC_001.toml"
 case_file_digest = "sha256:b3d0a395b84d31729cf2a16720a8dcf8063ac9b842418a75775ea47912c82fe9"
+mapping_behavior_refs = ["RT_SAFE_PANIC_001#behavior:2"]
 last_reviewed = "2026-07-16"
 
 [[tests]]
@@ -5598,6 +5623,7 @@ requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/runtime_safety/RT_SAFE_RESTART_TIME_002.toml"
 case_file_digest = "sha256:2e33873a2bbc84474e5bc403e836b773d31000bb584f702a644c8221b20aa1a2"
+mapping_behavior_refs = ["RT_SAFE_RESTART_TIME_002#behavior:1"]
 last_reviewed = "2026-07-13"
 
 [[tests]]
@@ -6424,6 +6450,7 @@ requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/release/RELEASE_PLATFORM_MATRIX_001.toml"
 case_file_digest = "sha256:d30f9c141a13163f11cfd996b1c91f0aac9f1803e902897167773159a37dc7e6"
+mapping_behavior_refs = ["RELEASE_PLATFORM_MATRIX_001#behavior:0"]
 last_reviewed = "2026-07-17"
 
 [[tests]]
@@ -6450,6 +6477,7 @@ requires_network = true
 duration_class = "fast"
 case_file = "verification/cases/release/RELEASE_SOURCE_BUILD_OPENOT_001.toml"
 case_file_digest = "sha256:a65a72f8c8e3d6530edd8a578b991a4df624e0ff3113c045163d78ac195eeb3d"
+mapping_behavior_refs = ["RELEASE_SOURCE_BUILD_OPENOT_001#behavior:0"]
 last_reviewed = "2026-07-17"
 
 [[tests]]
@@ -6476,6 +6504,7 @@ requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/release/REL_CLAIM_001.toml"
 case_file_digest = "sha256:3d59e7839f25710ebcf18af490e7a1d42dc08d478c9b20992696a6964751f9af"
+mapping_behavior_refs = ["REL_CLAIM_001#behavior:0"]
 last_reviewed = "2026-07-17"
 
 [[tests]]
@@ -6502,6 +6531,7 @@ requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/release/REL_CONF_001.toml"
 case_file_digest = "sha256:62387bc468a5c2fd6b336c2d13b56418f9d338efec1b551c91b1819912cd3361"
+mapping_behavior_refs = ["REL_CONF_001#behavior:0"]
 last_reviewed = "2026-07-17"
 
 [[tests]]
@@ -6528,6 +6558,7 @@ requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/release/REL_VERSION_001.toml"
 case_file_digest = "sha256:02f9e52d5aa10ad0cc99f1f6e1e7afdc0ad8d02eabf6d5a10f4462abc0287c80"
+mapping_behavior_refs = ["REL_VERSION_001#behavior:0"]
 last_reviewed = "2026-07-17"
 
 [[tests]]
@@ -6554,6 +6585,7 @@ requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/release/RUNTIME_BEHAVIOR_LOCKED_001.toml"
 case_file_digest = "sha256:8e23fed1b9e4c73d6d957d212a09349fa599504b09b4e7c45b3a3cec70ee49c6"
+mapping_behavior_refs = ["RUNTIME_BEHAVIOR_LOCKED_001#behavior:0"]
 last_reviewed = "2026-07-17"
 
 [[tests]]
@@ -6580,6 +6612,7 @@ requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/editor_safety/DEBUG_BEHAVIOR_LOCKED_001.toml"
 case_file_digest = "sha256:64266f6e91405f76c745df851468d493e7e1ab06b83e275fe692c3b28163b8a4"
+mapping_behavior_refs = ["DEBUG_BEHAVIOR_LOCKED_001#behavior:0"]
 last_reviewed = "2026-07-17"
 
 [[tests]]
@@ -6606,6 +6639,7 @@ requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/supply_chain_platform/PLAT_PATH_001.toml"
 case_file_digest = "sha256:ce4e07acfcde20fc7a588ceb83f67092989060072bc6b23f70e91257e3ce7747"
+mapping_behavior_refs = ["PLAT_PATH_001#behavior:0"]
 last_reviewed = "2026-07-17"
 
 [[tests]]
@@ -6632,6 +6666,7 @@ requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/supply_chain_platform/PLAT_VSCODE_001.toml"
 case_file_digest = "sha256:ae59d5885d4205ff89f2b959c9d83369abda4ea5e00ee07d7378e84a5854ee0c"
+mapping_behavior_refs = ["PLAT_VSCODE_001#behavior:0"]
 last_reviewed = "2026-07-17"
 
 [[tests]]
@@ -6658,6 +6693,7 @@ requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/supply_chain_platform/SEC_ARTIFACT_001.toml"
 case_file_digest = "sha256:a4496e67ca1af802f38bbd5dd11939c0ce5d0574aeeda7a0e4fdc264588bdfd6"
+mapping_behavior_refs = ["SEC_ARTIFACT_001#behavior:0"]
 last_reviewed = "2026-07-17"
 
 [[tests]]
@@ -6684,6 +6720,7 @@ requires_network = true
 duration_class = "fast"
 case_file = "verification/cases/supply_chain_platform/SEC_DEP_AUDIT_001.toml"
 case_file_digest = "sha256:686b42082700cefc5da1d5b0a69b90678a77d6d37ff974942151e2cb8d53202b"
+mapping_behavior_refs = ["SEC_DEP_AUDIT_001#behavior:0"]
 last_reviewed = "2026-07-17"
 
 [[tests]]

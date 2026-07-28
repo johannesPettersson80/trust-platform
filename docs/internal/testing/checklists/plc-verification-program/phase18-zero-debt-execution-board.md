@@ -990,6 +990,32 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   recorded in
   `docs/internal/testing/evidence/plc-verification-program/2026-07-28-p18-remaining-authority-142.md`.
   <!-- generated:remaining-authority-142:end -->
+  <!-- generated:case-backed-behavior-101:start -->
+
+  Case-backed exact-behavior mapping progress (2026-07-28): the 422 unbound
+  specified behavior slots were first joined to current case tables, existing
+  mapped runners, and retained per-case execution evidence instead of being
+  treated immediately as 422 new tests. A fail-closed transaction accepts 101
+  behavior references across 37 invariants and 37 existing runners only where
+  the current invariant contract digest, case-file digest, exact
+  partition/expectation fields, and passing evidence for all 105 assigned
+  cases agree. Fifteen stale-contract case tables and one unmatched rename
+  behavior remain open. All 72 affected current-contract proof digests,
+  including four legacy execution-contract-v2 red/green rows without the newer
+  explicit binding field, were rebound without changing historical bindings or
+  execution results. A targeted validator comparison returned to the exact
+  1,291-finding pre-transaction baseline with zero selected-proof findings.
+  Local and
+  builder focused suites pass 11/11, the three-file recoverable transaction is
+  byte-identical across checkouts, and frozen behavior demand falls from 422
+  to 321 while test-denominator equations remain 3,883 mapped, 510 owned
+  nonmapping, and zero missing authority. This is `P18-004`/`P18-005` mapping
+  progress using existing proof, not 101 newly written tests or global row
+  closure. The remaining 321 slots still require existing-proof refinement
+  before the genuine `P18-006` test-writing residue is known. No broad
+  workspace gate ran. Focused evidence is recorded in
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-28-p18-case-backed-behavior-mapping.md`.
+  <!-- generated:case-backed-behavior-101:end -->
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device
