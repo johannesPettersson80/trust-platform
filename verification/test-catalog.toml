@@ -114096,3 +114096,104 @@ mapping_assertion_review_digest = "sha256:d057151c15921018bb256e466bcd0ae5dfbe33
 mapping_assertion_source_digests = { "crates/trust-syntax/src/syntax/mod.rs" = "sha256:490cb9b767688321459fb135a660e0a94cfe7ebd202016884ce89fb57d58f1d8" }
 mapping_behavior_refs = ["TRUST_SYNTAX_KIND_CLASSIFICATION_001#behavior:0"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_4692745A9A337DAF089C"
+subject_kind = "generated_test"
+discovery_id = "DISC_4692745A9A337DAF089C"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/ci_cicd_contract.rs"
+name = "ci_template_workflow_passes_on_green_fixture"
+command = "cargo nextest run -p trust-runtime --test ci_cicd_contract --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::ci_cicd_contract) & test(=ci_template_workflow_passes_on_green_fixture)'"
+owner = "trust-dev"
+status = "mapped"
+invariants = ["DEV_NATIVE_CI_FIXTURE_001"]
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#native-runtime-ci-fixture-compatibility"
+oracle_refs = ["SPEC_DEVELOPER_WORKFLOWS_001#native-runtime-ci-fixture-compatibility"]
+expected_result = "The reviewed green fixture succeeds through build and validate, and its explicit JUnit test report contains a suite with zero failures."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_4692745A9A337DAF089C.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_4692745A9A337DAF089C_267CB114FB39"
+mapping_proposal_digest = "sha256:267cb114fb39c98e783fb484808d1f2c2425e6a8d7c7a2c06dcb83e331151d0c"
+mapping_decision_id = "MAP_DEC_CC409CA73667582A59FBFB48"
+mapping_reviewed_source_digest = "sha256:aa63f9bbea6124ab8d022af25a916616d827e54527e95d1a08efe67959815ae2"
+mapping_assertion_review_digest = "sha256:042d438c5bf1063095689a15fd02c2f8772bd4e7264d1acc47304e48606b8136"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/ci_cicd_contract.rs" = "sha256:aa63f9bbea6124ab8d022af25a916616d827e54527e95d1a08efe67959815ae2" }
+mapping_behavior_refs = ["DEV_NATIVE_CI_FIXTURE_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_85AF4E1985BEEBE3A2A6"
+subject_kind = "generated_test"
+discovery_id = "DISC_85AF4E1985BEEBE3A2A6"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/ci_cicd_contract.rs"
+name = "ci_json_summary_mode_contract_is_stable"
+command = "cargo nextest run -p trust-runtime --test ci_cicd_contract --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::ci_cicd_contract) & test(=ci_json_summary_mode_contract_is_stable)'"
+owner = "trust-dev"
+status = "mapped"
+invariants = ["DEV_NATIVE_CI_FIXTURE_001"]
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#native-runtime-ci-fixture-compatibility"
+oracle_refs = ["SPEC_DEVELOPER_WORKFLOWS_001#native-runtime-ci-fixture-compatibility"]
+expected_result = "The reviewed green fixture succeeds through build, validate, and JSON test while exposing the named version, identity, count, status, resource, case, and duration fields."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_85AF4E1985BEEBE3A2A6.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_85AF4E1985BEEBE3A2A6_D6D7BA0683CB"
+mapping_proposal_digest = "sha256:d6d7ba0683cbba2a551353cca6a621ee7f2181f2f216602bc952857b5e0485f8"
+mapping_decision_id = "MAP_DEC_8E19F1EF0370D2DF4A24831E"
+mapping_reviewed_source_digest = "sha256:aa63f9bbea6124ab8d022af25a916616d827e54527e95d1a08efe67959815ae2"
+mapping_assertion_review_digest = "sha256:f6d9351310e0f30c59d8d67ec8116e224dbc9d8046df620f3b6c49889ae7e6c7"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/ci_cicd_contract.rs" = "sha256:aa63f9bbea6124ab8d022af25a916616d827e54527e95d1a08efe67959815ae2" }
+mapping_behavior_refs = ["DEV_NATIVE_CI_FIXTURE_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_AFC7F8F303A4F231290C"
+subject_kind = "generated_test"
+discovery_id = "DISC_AFC7F8F303A4F231290C"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/ci_cicd_contract.rs"
+name = "ci_template_workflow_fails_on_broken_fixture_with_expected_code_and_report"
+command = "cargo nextest run -p trust-runtime --test ci_cicd_contract --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::ci_cicd_contract) & test(=ci_template_workflow_fails_on_broken_fixture_with_expected_code_and_report)'"
+owner = "trust-dev"
+status = "mapped"
+invariants = ["DEV_NATIVE_CI_FIXTURE_001"]
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#native-runtime-ci-fixture-compatibility"
+oracle_refs = ["SPEC_DEVELOPER_WORKFLOWS_001#native-runtime-ci-fixture-compatibility"]
+expected_result = "The reviewed broken fixture builds and validates, then returns process class 12 with a JUnit failure entry and the named failed-ST-test stderr marker."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_AFC7F8F303A4F231290C.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_AFC7F8F303A4F231290C_98F810C4CA99"
+mapping_proposal_digest = "sha256:98f810c4ca99d850b77665c1c3688bb5e81ccb9eeff5385cf65c77c9453ba250"
+mapping_decision_id = "MAP_DEC_7163A9434C8C2E712A02CB11"
+mapping_reviewed_source_digest = "sha256:aa63f9bbea6124ab8d022af25a916616d827e54527e95d1a08efe67959815ae2"
+mapping_assertion_review_digest = "sha256:108221277e03b81412f013d34647a7c130465223b77c383e10322fdbc319eddd"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/ci_cicd_contract.rs" = "sha256:aa63f9bbea6124ab8d022af25a916616d827e54527e95d1a08efe67959815ae2" }
+mapping_behavior_refs = ["DEV_NATIVE_CI_FIXTURE_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]

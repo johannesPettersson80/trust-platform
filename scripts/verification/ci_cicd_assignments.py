@@ -212,12 +212,20 @@ def select_live_inventories(
         if discovery_id not in REVIEWED_IDENTITIES:
             continue
         expected_name = REVIEWED_IDENTITIES[discovery_id]
+        reviewed_nonmapping = (
+            row.get("disposition") == "reviewed_nonmapping"
+            and row.get("reason_code")
+            == "no_reviewed_spec_or_invariant_binding"
+        )
+        catalog_mapped = (
+            row.get("disposition") == "catalog_mapped"
+            and row.get("catalog_test_id")
+            == f"TEST_AUTO_{discovery_id.removeprefix('DISC_')}"
+        )
         if (
             row.get("path") != PATH
             or row.get("name") != expected_name
-            or row.get("disposition") != "reviewed_nonmapping"
-            or row.get("reason_code")
-            != "no_reviewed_spec_or_invariant_binding"
+            or not (reviewed_nonmapping or catalog_mapped)
         ):
             raise ValueError(
                 f"{discovery_id} CI/CD denominator identity drifted"
@@ -233,7 +241,7 @@ def select_live_inventories(
         if discovery_id in inventories
     }
     if set(selected) != set(REVIEWED_IDENTITIES):
-        raise ValueError("saved inventory lacks reviewed CI/CD mapping debt")
+        raise ValueError("saved inventory lacks reviewed CI/CD identities")
     for discovery_id, raw in selected.items():
         if (raw.get("path"), raw.get("test_name")) != (
             PATH,
