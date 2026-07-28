@@ -113386,3 +113386,206 @@ mapping_assertion_review_digest = "sha256:756eda158d169dd4359b2d78d3d31c6d59dc08
 mapping_assertion_source_digests = { "crates/trust-runtime/tests/hot_reload.rs" = "sha256:493d1c7a5de46a98d0b2a8a55d441d4172099d93e0b5ea8a9cb66b3ae57f00ba" }
 mapping_behavior_refs = ["RT_RELOAD_001#behavior:4"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_229337EE83AC8DC7C44C"
+subject_kind = "generated_test"
+discovery_id = "DISC_229337EE83AC8DC7C44C"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/harness.rs"
+name = "from_source"
+command = "cargo nextest run -p trust-runtime --test harness --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::harness) & test(=from_source)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_TEST_HARNESS_API_001"]
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#11-1-test-harness"
+oracle_refs = ["SPEC_RUNTIME_SEMANTICS_001#11-1-test-harness"]
+expected_result = "A fresh source harness exposes declared initialization with zero completed cycles and zero simulated time before explicit execution. Explicit cycle controls execute their requested count, update program state and cycle count once per cycle, and do not advance simulated time implicitly."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_229337EE83AC8DC7C44C.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_229337EE83AC8DC7C44C_283B30726ABF"
+mapping_proposal_digest = "sha256:283b30726abf51a885f3bcac36c74a52f9691ad8326c14407803f40f67f15deb"
+mapping_decision_id = "MAP_DEC_205E942E1D27BE18BEE1685B"
+mapping_reviewed_source_digest = "sha256:b2c41244d1b49ca26e0f1adc7878201a5e882d19d6e8ecdd7db7572efa920ac1"
+mapping_assertion_review_digest = "sha256:fdd0dc7009b24f1c6f684c088aed79c83cb311d8b28c683a1c91fd7ca8f4b757"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/harness.rs" = "sha256:b2c41244d1b49ca26e0f1adc7878201a5e882d19d6e8ecdd7db7572efa920ac1" }
+mapping_behavior_refs = ["RT_TEST_HARNESS_API_001#behavior:0", "RT_TEST_HARNESS_API_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_2ADD66FDDFB48846A2D9"
+subject_kind = "generated_test"
+discovery_id = "DISC_2ADD66FDDFB48846A2D9"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/harness.rs"
+name = "run_until_max_panics_when_limit_is_exceeded"
+command = "cargo nextest run -p trust-runtime --test harness --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::harness) & test(=run_until_max_panics_when_limit_is_exceeded)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_TEST_HARNESS_API_001"]
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#11-1-test-harness"
+oracle_refs = ["SPEC_RUNTIME_SEMANTICS_001#11-1-test-harness"]
+expected_result = "Run-until-max commits its three completed cycles and then panics with the reviewed limit-bearing message when the predicate remains false."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_2ADD66FDDFB48846A2D9.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_2ADD66FDDFB48846A2D9_4DD3D5C5C7B5"
+mapping_proposal_digest = "sha256:4dd3d5c5c7b58435f1108abf32e9c7e7db5352aafc043833a9f121812f5e72f1"
+mapping_decision_id = "MAP_DEC_6A4F6AD1289E70FEC0093572"
+mapping_reviewed_source_digest = "sha256:b2c41244d1b49ca26e0f1adc7878201a5e882d19d6e8ecdd7db7572efa920ac1"
+mapping_assertion_review_digest = "sha256:622967b29de832c63e5f58ace9b0af108521102b437d668797b4792973e51375"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/harness.rs" = "sha256:b2c41244d1b49ca26e0f1adc7878201a5e882d19d6e8ecdd7db7572efa920ac1" }
+mapping_behavior_refs = ["RT_TEST_HARNESS_API_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_7175167F66DE6A7A9F78"
+subject_kind = "generated_test"
+discovery_id = "DISC_7175167F66DE6A7A9F78"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/harness.rs"
+name = "io_by_address"
+command = "cargo nextest run -p trust-runtime --test harness --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::harness) & test(=io_by_address)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_HARNESS_BOUNDARY_IO_001"]
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"
+oracle_refs = ["SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"]
+expected_result = "The in-process harness accepts the reviewed input/output bindings and typed direct input, then returns the copied direct output after one explicit cycle."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_7175167F66DE6A7A9F78.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_7175167F66DE6A7A9F78_DFC3725AC258"
+mapping_proposal_digest = "sha256:dfc3725ac258f1512d41c4c61db3d5c074b5464cfeb1abd1f415676025e9ccee"
+mapping_decision_id = "MAP_DEC_1F1F743A3C9D9725D176772C"
+mapping_reviewed_source_digest = "sha256:b2c41244d1b49ca26e0f1adc7878201a5e882d19d6e8ecdd7db7572efa920ac1"
+mapping_assertion_review_digest = "sha256:b76639f177b61759b52fa0b3822f04776c656d5ecd58e75054c1002432470432"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/harness.rs" = "sha256:b2c41244d1b49ca26e0f1adc7878201a5e882d19d6e8ecdd7db7572efa920ac1" }
+mapping_behavior_refs = ["RT_HARNESS_BOUNDARY_IO_001#behavior:5"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_809C3B3E7FA84C5C1498"
+subject_kind = "generated_test"
+discovery_id = "DISC_809C3B3E7FA84C5C1498"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/harness.rs"
+name = "io_by_name"
+command = "cargo nextest run -p trust-runtime --test harness --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::harness) & test(=io_by_name)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_HARNESS_BOUNDARY_IO_001"]
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"
+oracle_refs = ["SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"]
+expected_result = "The in-process harness applies the reviewed symbolic BOOL input and exposes the copied symbolic output after one explicit cycle."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_809C3B3E7FA84C5C1498.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_809C3B3E7FA84C5C1498_9949D81ECB59"
+mapping_proposal_digest = "sha256:9949d81ecb59924272667720710a64ddb24e8742b9f49373680d33dfa38a9a09"
+mapping_decision_id = "MAP_DEC_AA713A3BFFE926BBE7F579B2"
+mapping_reviewed_source_digest = "sha256:b2c41244d1b49ca26e0f1adc7878201a5e882d19d6e8ecdd7db7572efa920ac1"
+mapping_assertion_review_digest = "sha256:2a55f23b1bbf31ce7852b33df7434ccba7256503f26e7a9f2a6b9e2794abe4e5"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/harness.rs" = "sha256:b2c41244d1b49ca26e0f1adc7878201a5e882d19d6e8ecdd7db7572efa920ac1" }
+mapping_behavior_refs = ["RT_HARNESS_BOUNDARY_IO_001#behavior:4"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_F10AD29A2D63DBFAF259"
+subject_kind = "generated_test"
+discovery_id = "DISC_F10AD29A2D63DBFAF259"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/harness.rs"
+name = "run_controls"
+command = "cargo nextest run -p trust-runtime --test harness --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::harness) & test(=run_controls)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_TEST_HARNESS_API_001"]
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#11-1-test-harness"
+oracle_refs = ["SPEC_RUNTIME_SEMANTICS_001#11-1-test-harness"]
+expected_result = "Explicit cycle controls execute their requested count, update program state and cycle count once per cycle, and do not advance simulated time implicitly. Run-until checks the current runtime first, returns one result per executed cycle, and stops without executing an extra cycle after the predicate becomes true."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_F10AD29A2D63DBFAF259.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_F10AD29A2D63DBFAF259_E85187BB08CD"
+mapping_proposal_digest = "sha256:e85187bb08cd24b8315cf83eb1a37de89695f6fffc811a0560e83447f1463e04"
+mapping_decision_id = "MAP_DEC_0DD2D91CA641A2A11894AF40"
+mapping_reviewed_source_digest = "sha256:b2c41244d1b49ca26e0f1adc7878201a5e882d19d6e8ecdd7db7572efa920ac1"
+mapping_assertion_review_digest = "sha256:f93397c7bf60e2936af1506e2639526a80390737f72b7e1cd21eeae2b39353a1"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/harness.rs" = "sha256:b2c41244d1b49ca26e0f1adc7878201a5e882d19d6e8ecdd7db7572efa920ac1" }
+mapping_behavior_refs = ["RT_TEST_HARNESS_API_001#behavior:1", "RT_TEST_HARNESS_API_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_F613924421CB2A4B18CB"
+subject_kind = "generated_test"
+discovery_id = "DISC_F613924421CB2A4B18CB"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/harness.rs"
+name = "run_until_returns_immediately_when_condition_is_already_true"
+command = "cargo nextest run -p trust-runtime --test harness --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::harness) & test(=run_until_returns_immediately_when_condition_is_already_true)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_TEST_HARNESS_API_001"]
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#11-1-test-harness"
+oracle_refs = ["SPEC_RUNTIME_SEMANTICS_001#11-1-test-harness"]
+expected_result = "Run-until checks the current runtime first, returns one result per executed cycle, and stops without executing an extra cycle after the predicate becomes true."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_F613924421CB2A4B18CB.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_F613924421CB2A4B18CB_C45797207EAF"
+mapping_proposal_digest = "sha256:c45797207eaf4fd7062c7fe51352ce3501540451f45824c072a482f1e251491c"
+mapping_decision_id = "MAP_DEC_8A78346DE870D8326512F10D"
+mapping_reviewed_source_digest = "sha256:b2c41244d1b49ca26e0f1adc7878201a5e882d19d6e8ecdd7db7572efa920ac1"
+mapping_assertion_review_digest = "sha256:f403406259da933a88cdec72043a2f8ac1978168194ceca0225d203890e9c3dc"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/harness.rs" = "sha256:b2c41244d1b49ca26e0f1adc7878201a5e882d19d6e8ecdd7db7572efa920ac1" }
+mapping_behavior_refs = ["RT_TEST_HARNESS_API_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]

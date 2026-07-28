@@ -3,18 +3,18 @@ id = "RT_TEST_HARNESS_API_001"
 title = "In-process test harness applies deterministic cycle controls"
 area = "runtime_safety"
 risk = "wrong_result"
-status = "specified"
+status = "mapped"
 owner = "trust-runtime"
 last_reviewed = "2026-07-28"
 claim = "The in-process TestHarness constructs passive initialized runtime state and accounts for explicit cycles, run-until stopping, simulated time, and bounded exhaustion deterministically."
 proof_level = "S0"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src/host/harness/harness.rs"]
-tests = []
+tests = ["TEST_AUTO_229337EE83AC8DC7C44C", "TEST_AUTO_2ADD66FDDFB48846A2D9", "TEST_AUTO_F10AD29A2D63DBFAF259", "TEST_AUTO_F613924421CB2A4B18CB"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["focused_execution", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -62,15 +62,15 @@ rationale = "Run-until-max commits its three completed cycles and then panics wi
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "The product authority is reviewed; focused test mappings and execution evidence remain pending."
+state = "covered"
+rationale = "Accepted catalog mappings and the exact focused remote shard cover passive source construction."
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
-state = "gap_open"
-rationale = "The product authority is reviewed; focused test mappings and execution evidence remain pending."
+state = "covered"
+rationale = "Accepted catalog mappings and the exact focused remote shard cover explicit-cycle accounting and run-until precheck/stop behavior."
 
 [[coverage.cells]]
 dimension = "resource_limit"
-state = "gap_open"
-rationale = "The bounded direct-API policy is reviewed; focused test mapping and execution evidence remain pending."
+state = "covered"
+rationale = "The accepted bounded-exhaustion mapping and exact focused remote shard cover the reviewed direct-API panic policy."
