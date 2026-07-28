@@ -6,6 +6,23 @@ in `IEC_DECISIONS.md`; PLCopen profile decisions belong in
 `PLCOPEN_DECISIONS.md`. Product behavior recorded here MUST NOT be copied to an
 IEC or PLCopen deviation log merely because truST owns the behavior.
 
+## 2026-07-28 - Integer initializer diagnostic identity
+
+- Area: HIR variable initializer diagnostics
+- Decision:
+  - An integer variable initializer that depends on an ordinary mutable
+    variable is rejected with category `E202` and the message `variable
+    initializer must be a literal or constant expression`.
+  - Literal and supported declared-constant integer expressions remain
+    accepted.
+- Authority:
+  - `docs/specs/03-variables.md#initialization-table-14`
+- Reason:
+  - IEC 61131-3 Section 6.5.1.3 supplies the semantic rejection rule, but it
+    does not prescribe truST's diagnostic category or wording. The stable
+    diagnostic identity is therefore a product decision, not an IEC
+    deviation.
+
 ## 2026-07-28 - Tutorial examples are executable product contracts
 
 - Area: Shipped Structured Text tutorials

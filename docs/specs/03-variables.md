@@ -44,6 +44,16 @@ Referencing an ordinary mutable variable from another variable initializer is
 rejected; declaring the referenced value in a `VAR CONSTANT` section makes the
 same supported expression a valid initializer.
 
+For the reviewed integer-initializer diagnostic slice, truST reports category
+`E202` with the stable message:
+
+```text
+variable initializer must be a literal or constant expression
+```
+
+The category and message are a truST compiler diagnostic contract. They make
+the IEC rejection observable but are not themselves IEC-defined wording.
+
 For multi-name declarations, the declared initializer is materialized into
 independent storage for each declared name. Aggregate values rely on the runtime
 `Value::Struct` copy-on-write contract for subsequent field mutation.

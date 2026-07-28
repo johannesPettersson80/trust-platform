@@ -1933,6 +1933,8 @@ version = "current"
 last_reviewed = "2026-07-28"
 covers = [
   "variable_declarations",
+  "variable_initializer_constant_expression",
+  "variable_initializer_diagnostic_contract",
   "declaration_initializer_classification",
   "syntax_kind_initializer_classification",
   "aggregate_initializer_recovery",

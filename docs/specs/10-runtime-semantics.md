@@ -428,6 +428,26 @@ Per IEC 61131-3, default values for types (IEC 61131-3 Ed.3 ยง6.4.2, Table 10; ย
 | Enum | First enumerator (unless explicitly initialized) |
 | Reference (REF_TO) | NULL |
 
+##### 2.6.1 Declaration Initializer Materialization
+
+For the reviewed scalar and one-dimensional array declaration slice, runtime
+startup materializes these exact outcomes:
+
+- an `INT` declaration without an explicit initializer contains `0`;
+- an `INT := 4` declaration contains `4`, and an `INT` initialized from the
+  reviewed declared-constant expression `base + 1` with `base = 4` contains
+  `5`;
+- `ARRAY[1..3] OF INT := [1, 2, 3]` preserves the inclusive bounds and the
+  three elements in source order;
+- `ARRAY[1..5] OF INT := [1, 2]` preserves the supplied elements and fills the
+  remaining three elements with the element-type default `0`; and
+- `ARRAY[1..6] OF INT := [3(1, 2)]` expands to
+  `[1, 2, 1, 2, 1, 2]` while preserving the declared inclusive bounds.
+
+Successful materialization completes the reviewed scan without a runtime
+cycle error. This bounded contract does not claim arbitrary dimensions,
+element types, malformed initializers, or diagnostic behavior.
+
 #### 2.7 Portable Runtime Value and Program-Model Contracts
 
 The portable runtime core SHALL preserve these value and program-model rules:

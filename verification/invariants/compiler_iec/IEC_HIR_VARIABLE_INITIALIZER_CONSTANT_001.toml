@@ -9,7 +9,7 @@ last_reviewed = "2026-07-28"
 claim = "Explicit integer variable initializers accept literals and supported integer constant expressions but reject an expression that depends on an ordinary mutable integer variable."
 proof_level = "S0"
 contract_kind = "decision_table"
-source_refs = ["crates/trust-hir/src/db/queries/collector/variables.rs", "docs/specs/03-variables.md"]
+source_refs = ["crates/trust-hir/src/db/queries/collector/variables.rs", "docs/specs/03-variables.md", "docs/PRODUCT_DECISIONS.md"]
 tests = []
 gates = ["veryquick", "pr"]
 evidence_refs = []
@@ -21,7 +21,7 @@ status = "specified"
 source_refs = ["SPEC_IEC_VARIABLES_001"]
 
 [oracle]
-kind = "iec"
+kind = "trust_contract"
 ref = "SPEC_IEC_VARIABLES_001#initialization-table-14"
 
 [[behavior]]
@@ -40,7 +40,7 @@ oracle_ref = "SPEC_IEC_VARIABLES_001#initialization-table-14"
 outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
-rationale = "An INT initializer that references the reviewed ordinary mutable INT variable is rejected with InvalidOperation before a runtime is built."
+rationale = "An INT initializer that references the reviewed ordinary mutable INT variable is rejected before a runtime is built with category E202 and the product-specified diagnostic message."
 
 [[coverage.cells]]
 dimension = "happy_path"
