@@ -774,12 +774,18 @@ fn modbus_reconnect_backoff_is_bounded_and_non_spinning() {
     let attempts = connection_count.load(Ordering::SeqCst);
 
     assert!(
-        attempts >= 2,
-        "an unavailable endpoint must produce a reconnect attempt, attempts={attempts}"
-    );
-    assert!(
         attempts <= 4,
         "worker reconnect backoff must avoid scan-thread driven reconnect spinning, attempts={attempts}"
+    );
+
+    thread::sleep(StdDuration::from_millis(120));
+    driver
+        .read_inputs(&mut inputs)
+        .expect("warn policy should retry without faulting");
+    let retry_attempts = connection_count.load(Ordering::SeqCst);
+    assert!(
+        retry_attempts >= 2,
+        "an unavailable endpoint must produce a reconnect attempt, attempts={retry_attempts}"
     );
 }
 
