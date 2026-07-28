@@ -649,6 +649,34 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
             profile.test_prefix,
         )
 
+    def test_runtime_remaining_profile_resolves_realtime_t0_targets(
+        self,
+    ) -> None:
+        for path in (
+            "crates/trust-runtime/src/host/realtime/realtime_tests_part_01.rs",
+            "crates/trust-runtime/src/host/realtime/realtime_tests_part_02.rs",
+            "crates/trust-runtime/src/host/realtime/realtime_tests_part_03.rs",
+        ):
+            with self.subTest(path=path):
+                profile = get_target_profile("runtime-remaining", path=path)
+                self.assertEqual(("--lib",), profile.cargo_target_args)
+                self.assertEqual("trust-runtime", profile.binary_id)
+                self.assertEqual("realtime::tests::", profile.test_prefix)
+
+        integration = get_target_profile(
+            "runtime-remaining",
+            path="crates/trust-runtime/tests/realtime_t0_integration.rs",
+        )
+        self.assertEqual(
+            ("--test", "realtime_t0_integration"),
+            integration.cargo_target_args,
+        )
+        self.assertEqual(
+            "trust-runtime::realtime_t0_integration",
+            integration.binary_id,
+        )
+        self.assertEqual("", integration.test_prefix)
+
     def test_runtime_remaining_profile_resolves_tasks_integration_target(
         self,
     ) -> None:

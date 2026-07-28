@@ -270,6 +270,7 @@ RUNTIME_REMAINING_INTEGRATION_PATHS = frozenset(
         "crates/trust-runtime/tests/plcopen_command.rs",
         "crates/trust-runtime/tests/retain_integrity.rs",
         "crates/trust-runtime/tests/retain_store.rs",
+        "crates/trust-runtime/tests/realtime_t0_integration.rs",
         "crates/trust-runtime/tests/runtime_safety_fail_closed.rs",
         "crates/trust-runtime/tests/simulation_workflow.rs",
         "crates/trust-runtime/tests/stdlib_assertions.rs",
@@ -360,6 +361,15 @@ RUNTIME_REMAINING_UNIT_PREFIXES: Mapping[str, str] = {
         "helper_eval::storage_lvalue::tests::"
     ),
     "crates/trust-runtime/src/host/instance.rs": "instance::tests::",
+    "crates/trust-runtime/src/host/realtime/realtime_tests_part_01.rs": (
+        "realtime::tests::"
+    ),
+    "crates/trust-runtime/src/host/realtime/realtime_tests_part_02.rs": (
+        "realtime::tests::"
+    ),
+    "crates/trust-runtime/src/host/realtime/realtime_tests_part_03.rs": (
+        "realtime::tests::"
+    ),
     "crates/trust-runtime/src/memory/tests.rs": "memory::tests::",
     "crates/trust-runtime/src/host/mesh/tests.rs": "mesh::tests::",
     "crates/trust-runtime/src/openot_authoring/tests.rs": (
