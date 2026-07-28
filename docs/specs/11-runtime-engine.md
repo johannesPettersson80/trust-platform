@@ -2924,6 +2924,118 @@ Rules:
 - **Remote access** supports manual add and invite/QR pairing only.
 - **Data sharing** is explicit (publish/subscribe mapping only).
 
+##### Realtime T0 transport and cycle contract
+
+Realtime T0 is a truST host-runtime transport outside IEC 61131-3. It is
+separate from the generic network mesh described below.
+
+**Route and QoS admission**
+
+- `QosTier::T0HardRt` admits only `RealtimeRoute::T0HardRt`.
+- `QosTier::T1Fast`, `QosTier::T2Ops`, and `QosTier::T3Diag` admit only
+  `RealtimeRoute::MeshIp`.
+- A T0 publisher or subscriber bind requested through `MeshIp` returns
+  `T0ErrorCode::ContractViolation`. No mesh/IP connection is attempted.
+  `fallback_denied_total` and the selected channel's
+  `fallback_denied_count` each increase by one for the denied bind. The
+  diagnostic contains the stable fragment `non-HardRT`.
+- The canonical T0-to-communications error mapping is:
+
+  | T0 error | Communications error |
+  |----------|----------------------|
+  | `NotConfigured` | `NotConfigured` |
+  | `ContractViolation` | `RtContractViolation` |
+  | `SchemaMismatch` | `SchemaMismatch` |
+  | `StaleData` | `StaleData` |
+  | `TransportFailure` | `TransportFailure` |
+
+  The stable remediation for `RtContractViolation` is:
+  `Use pre-bound T0 handles and fixed-layout payloads; generic IP mesh is non-HardRT.`
+
+**Registration, shared-memory handshake, and binding**
+
+- Channel registration validates a nonempty channel identity, schema identity,
+  and schema hash plus a positive fixed slot size and positive bounded-spin
+  limits before publishing readiness.
+- Failure to create or open the configured shared-memory root returns
+  `T0ErrorCode::TransportFailure`; its diagnostic identifies T0 shared-memory
+  directory provisioning with the stable fragment
+  `failed to create T0 SHM directory`.
+- When page pinning is configured as required, an unavailable pinning provider
+  or failed pinning operation returns `T0ErrorCode::TransportFailure`; the
+  diagnostic contains the stable fragment `required page pinning failed`.
+- Opening an existing channel mapping requires its channel identity, schema
+  identity, schema version, schema hash, slot size, stale threshold,
+  bounded-spin limits, and ownership to match the requested contract. A
+  mismatch returns `T0ErrorCode::TransportFailure` with the stable fragment
+  `schema_hash contract mismatch` before the runtime can use that mapping.
+- Publisher and subscriber binding requires a previously registered channel,
+  `T0HardRt`, `fixed_layout = true`, a positive payload size no greater than
+  the registered slot, an exact schema-hash match, and initialized pinned
+  channel state. An absent channel returns `NotConfigured`; a schema mismatch
+  returns `SchemaMismatch`; a variable or invalid layout returns
+  `ContractViolation`; and unready or unpinned state returns
+  `TransportFailure`.
+- The resulting publisher and subscriber handles retain the bound channel,
+  route, payload size, and schema identity. Publish and read operations do not
+  perform route discovery or substitute an unbound transport.
+
+**Latest payload, overrun, stale, and bounded-spin results**
+
+- A successful publish commits one payload whose length equals the bound
+  fixed-layout size. A later publish before the preceding value is read
+  replaces the readable payload with the latest value and increments the
+  channel's cumulative `overrun_count`.
+- A successful fresh read copies that latest committed payload, returns its
+  monotonically increasing sequence and byte count, reports
+  `dropped_updates = newest_write_sequence - previous_read_sequence - 1`, and
+  exposes the cumulative `overrun_count`. The read advances the channel's read
+  sequence and resets its consecutive stale-miss count.
+- A read with no new committed payload returns `NoUpdate` while the consecutive
+  miss count remains below `max(stale_after_reads, 1)`. Reaching that threshold
+  returns `T0ErrorCode::StaleData` and increments `stale_count`.
+- A reader observing an unstable writer retries only within both configured
+  bounds: `max_spin_retries` and `max_spin_time_us`. Exhausting either bound
+  returns `StaleData`, increments `spin_exhausted_count`, and increments
+  `stale_count`.
+- Publish and read both require initialized pinned channel state. Either
+  operation returns `TransportFailure` instead of accessing an unready or
+  unpinned mapping.
+
+**Cycle exchange and cloud-work isolation**
+
+- `begin_cycle(cycle)` records the cycle identity, clears the current cycle's
+  pre/post observations, and restores
+  `max_cloud_ops_per_cycle` as that cycle's cloud-work budget. It does not
+  clear the cumulative denied-work count.
+- Within a cycle, `PreTask` may be marked at most once. `PostTask` may be
+  marked at most once and only after `PreTask`. `PostTask` before `PreTask`, or
+  a duplicate exchange point in the same cycle, returns
+  `T0ErrorCode::ContractViolation`.
+- A cloud-work request receives
+  `min(requested_ops, cloud_budget_remaining)`. The remainder is denied,
+  subtracted from no T0 budget, and added to `denied_cloud_ops_total`; granted
+  work reduces only the current cycle's cloud budget.
+- Consequently, a budget of three grants two operations and then one from
+  requests of two and three, recording two denied operations. A budget of one
+  across ten separately begun cycles grants ten of ten requests for fifty and
+  records 490 denied operations.
+- Functional T0 publish/read ordering, payload sequences, and stale/overrun
+  counters remain independent of excess cloud-work admission. This is an
+  accounting and ordering contract, not a measured execution-time guarantee.
+
+**Cross-process visibility and proof ceiling**
+
+- Two processes using the same shared-memory root and an exact matching channel
+  contract may bind the permitted publisher/subscriber roles. After a
+  successful committed publish, the subscriber can observe the same payload
+  and a fresh read result through the shared mapping.
+- Focused software checks of route rejection, shared-memory exchange,
+  functional sequences, and counters do not prove worst-case latency, cycle
+  deadlines, scheduler jitter, PREEMPT_RT configuration, production memory
+  locking, physical topology, or hard-real-time certification. Those claims
+  require separately named platform and timing evidence.
+
 ##### Mesh envelope, mapping, and numeric codec contract
 
 - A published mesh envelope carries the runtime source identity, an unsigned

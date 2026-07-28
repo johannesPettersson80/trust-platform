@@ -857,3 +857,45 @@ IEC or PLCopen deviation log merely because truST owns the behavior.
     behavior. The assertion API and its messages are truST test-workflow
     contracts outside the IEC standard, so they belong in product authority
     rather than the IEC deviation register.
+
+## 2026-07-28 - Realtime T0 shared-memory and cycle boundary
+
+- Area: Same-host realtime communication
+- Decision:
+  - `T0HardRt` is a same-host, pre-bound, fixed-layout shared-memory route.
+    `T0HardRt` traffic never falls back to generic mesh/IP transport. The
+    `T1Fast`, `T2Ops`, and `T3Diag` tiers use the mesh/IP route and are not
+    admitted through the T0 route.
+  - T0 channel registration fails before readiness when the shared-memory root
+    cannot be provisioned, required page pinning is unavailable, or an
+    existing shared-memory header does not match the requested channel,
+    schema, layout, policy, and ownership contract.
+  - Publisher and subscriber binding requires the configured channel, the T0
+    route, a matching schema hash, a fixed positive payload layout within the
+    registered slot, and initialized pinned shared-memory state.
+  - The T0 data path publishes one latest fixed-size payload. Readers report
+    skipped committed updates and cumulative overruns, distinguish bounded
+    no-update from stale data, and surface bounded-spin exhaustion as stale
+    rather than spinning without limit.
+  - The T0 cycle helper permits one pre-task exchange followed by one post-task
+    exchange per cycle. Each cycle resets its noncritical cloud-work budget;
+    excess work is denied and accumulated visibly without consuming the T0
+    exchange path.
+  - Processes that open the same root and exact channel contract observe a
+    successfully committed payload through the shared mapping.
+  - These contracts define functional state, ordering, and accounting. They do
+    not establish worst-case latency, a deadline guarantee, PREEMPT_RT
+    readiness, production page-lock success, or a hard-real-time certification.
+- Supersedes:
+  - Any interpretation that mesh/IP is a deterministic fallback for a failed
+    T0 bind.
+  - Any interpretation that the `HardRt` name or a software shared-memory test
+    proves a physical scheduling or latency guarantee.
+- Authority:
+  - `docs/specs/11-runtime-engine.md`
+- Reason:
+  - Route admission, shared-memory layout, pinning, counters, and cycle-budget
+    policy are observable truST host-runtime behavior outside IEC 61131-3.
+    Recording them as product authority allows exact catalog oracles without
+    misclassifying the host transport as an IEC deviation or overstating its
+    timing proof.

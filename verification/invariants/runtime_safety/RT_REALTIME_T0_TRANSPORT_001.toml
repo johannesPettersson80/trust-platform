@@ -1,0 +1,172 @@
+schema_version = 1
+id = "RT_REALTIME_T0_TRANSPORT_001"
+title = "Realtime T0 transport preserves fixed-layout shared-memory contracts"
+area = "runtime_safety"
+risk = "fail_open"
+status = "planned"
+owner = "trust-runtime"
+last_reviewed = "2026-07-28"
+claim = "Realtime T0 accepts only its reviewed same-host fixed-layout shared-memory route, fails closed before use when setup or binding authority is invalid, and preserves the reviewed payload, counter, and error projections."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = [
+  "docs/specs/11-runtime-engine.md",
+  "crates/trust-runtime/src/host/realtime/realtime_part_01.rs",
+  "crates/trust-runtime/src/host/realtime/realtime_part_02.rs",
+  "crates/trust-runtime/src/host/realtime/shm.rs",
+  "crates/trust-runtime/src/host/realtime/transport.rs",
+]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_tests", "focused_execution_evidence", "final_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#realtime-t0-transport-and-cycle-contract"
+
+[[behavior]]
+partition = { equals = "SHM_ROOT_DIRECTORY_FAILURE" }
+case_family = "platform_or_filesystem_variation"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#realtime-t0-transport-and-cycle-contract"
+outcome = "reject"
+delta = { target = "not_applicable", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "stable_error", status = "not_applicable" }
+rationale = "Registration against a configured shared-memory root that is not a directory fails with TransportFailure and the stable diagnostic fragment 'failed to create T0 SHM directory'; the test does not claim post-state."
+
+[[behavior]]
+partition = { equals = "REQUIRED_PAGE_PINNING_FAILURE" }
+case_family = "hardware_or_network_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#realtime-t0-transport-and-cycle-contract"
+outcome = "reject"
+delta = { target = "not_applicable", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "stable_error", status = "not_applicable" }
+rationale = "When required page pinning is unavailable, registration fails with TransportFailure and the stable diagnostic fragment 'required page pinning failed'; the test does not claim post-state."
+
+[[behavior]]
+partition = { equals = "REGISTRATION_SCHEMA_HANDSHAKE_MISMATCH" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#realtime-t0-transport-and-cycle-contract"
+outcome = "reject"
+delta = { target = "not_applicable", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "stable_error", status = "not_applicable" }
+rationale = "A second registration for the same channel name with a different schema hash fails before run with TransportFailure and the stable diagnostic fragment 'schema_hash contract mismatch'; the test does not claim post-state."
+
+[[behavior]]
+partition = { equals = "QOS_ROUTE_LEGALITY_MATRIX" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#realtime-t0-transport-and-cycle-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "T0HardRt is legal only on the T0HardRt route, while T1Fast, T2Ops, and T3Diag are legal on MeshIp and are not legal on the T0HardRt route."
+
+[[behavior]]
+partition = { equals = "T0_ROUTE_REJECTS_MESH_FALLBACK" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#realtime-t0-transport-and-cycle-contract"
+outcome = "reject"
+delta = { target = "not_applicable", siblings = "expected_delta", retain = "not_applicable", process_image = "not_applicable", diagnostics = "stable_error", status = "not_applicable" }
+rationale = "Binding a T0 channel through MeshIp fails with ContractViolation and the stable diagnostic fragment 'non-HardRT', increments both transport and channel fallback-denied counters, and never substitutes generic mesh transport."
+
+[[behavior]]
+partition = { equals = "STALE_MISS_AND_SPIN_EXHAUSTION" }
+case_family = "resource_limit"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#realtime-t0-transport-and-cycle-contract"
+outcome = "reject"
+delta = { target = "not_applicable", siblings = "expected_delta", retain = "not_applicable", process_image = "not_applicable", diagnostics = "stable_error", status = "not_applicable" }
+rationale = "A bounded initial miss returns NoUpdate, the configured subsequent miss returns StaleData, bounded writer-spin exhaustion also returns StaleData, and stale plus spin-exhausted counters increment exactly."
+
+[[behavior]]
+partition = { equals = "T0_TO_COMMS_ERROR_MAPPING" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#realtime-t0-transport-and-cycle-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "NotConfigured maps to the canonical communications NotConfigured code, ContractViolation maps to RtContractViolation, and the reviewed remediation directs callers to pre-bound T0 handles and fixed-layout payloads."
+
+[[behavior]]
+partition = { equals = "LATEST_PAYLOAD_AND_OVERRUN_ACCOUNTING" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#realtime-t0-transport-and-cycle-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "Two publishes before a read expose the latest payload, report one dropped update and one overrun in the fresh-read details, and persist one channel overrun."
+
+[[behavior]]
+partition = { equals = "BIND_SCHEMA_AND_FIXED_LAYOUT" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#realtime-t0-transport-and-cycle-contract"
+outcome = "reject"
+delta = { target = "not_applicable", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "stable_error", status = "not_applicable" }
+rationale = "Publisher binding rejects a mismatched schema hash with SchemaMismatch and rejects a variable-layout payload with ContractViolation before returning a usable handle."
+
+[[behavior]]
+partition = { equals = "UNPINNED_IO_REJECTION" }
+case_family = "missing_required"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#realtime-t0-transport-and-cycle-contract"
+outcome = "reject"
+delta = { target = "not_applicable", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "stable_error", status = "not_applicable" }
+rationale = "A bound channel whose pinned readiness is deliberately cleared rejects both hard-realtime publish and read with TransportFailure; this behavior does not claim a distinct uninitialized-state test."
+
+[[behavior]]
+partition = { equals = "SAME_PROCESS_FIXED_PAYLOAD_EXCHANGE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#realtime-t0-transport-and-cycle-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_input", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "A legally registered, schema-matched, fixed-layout T0 publisher and subscriber exchange the exact four-byte payload and return a Fresh read."
+
+[[behavior]]
+partition = { equals = "CROSS_PROCESS_FIXED_PAYLOAD_VISIBILITY" }
+case_family = "concurrency_or_cancellation"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#realtime-t0-transport-and-cycle-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_input", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "A parent publisher and child subscriber using the same configured shared-memory root exchange the exact reviewed payload and the child completes successfully."
+
+[[coverage.cells]]
+dimension = "platform_or_filesystem_variation"
+state = "gap_open"
+rationale = "The shared-memory root failure behavior is specified; the frozen existing test awaits generated catalog mapping."
+
+[[coverage.cells]]
+dimension = "hardware_or_network_fault"
+state = "gap_open"
+rationale = "The required-pinning failure behavior is specified; the frozen existing test awaits generated catalog mapping."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Schema, layout, route, and readiness rejection behaviors are specified; the frozen existing tests await generated catalog mapping."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "QoS legality, error mapping, and legal same-process exchange are specified; the frozen existing tests await generated catalog mapping."
+
+[[coverage.cells]]
+dimension = "resource_limit"
+state = "gap_open"
+rationale = "Stale-miss and bounded-spin exhaustion are specified; the frozen existing test awaits generated catalog mapping."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "Latest-payload and overrun accounting are specified; the frozen existing test awaits generated catalog mapping."
+
+[[coverage.cells]]
+dimension = "missing_required"
+state = "gap_open"
+rationale = "Unpinned channel rejection is specified; the frozen existing test awaits generated catalog mapping."
+
+[[coverage.cells]]
+dimension = "concurrency_or_cancellation"
+state = "gap_open"
+rationale = "Cross-process shared-memory payload visibility is specified; the frozen existing test awaits generated catalog mapping."
