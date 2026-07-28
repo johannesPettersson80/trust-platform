@@ -980,3 +980,27 @@ IEC or PLCopen deviation log merely because truST owns the behavior.
     observable truST product/protocol behavior outside IEC 61131-3. Product
     authority permits exact test-catalog oracles without misclassifying the
     behavior as an IEC deviation.
+
+## 2026-07-28 - ADS core point-quality field transitions
+
+- Area: Shared ADS point quality
+- Decision:
+  - A reviewed cold-start point preserves its supplied name and begins stale.
+    An explicitly timestamped stale record preserves its supplied timestamp and
+    detail.
+  - In the reviewed transition sequence, marking stale quality good records the
+    supplied timestamp and clears stale detail; marking it failed records error
+    state, failure timestamp, and failure detail; and subsequently marking it
+    stale preserves that timestamp while replacing the detail with the current
+    stale reason.
+- Supersedes:
+  - Any interpretation that entering stale necessarily erases the last known
+    update timestamp.
+  - Any interpretation that these in-memory constructor tests establish clock,
+    worker, transport, serialization, or external endpoint behavior.
+- Authority:
+  - `docs/specs/11-runtime-engine.md`
+- Reason:
+  - Quality state and field-transition truth are observable truST product
+    behavior outside IEC 61131-3 and require exact catalog oracles without an
+    IEC deviation entry.

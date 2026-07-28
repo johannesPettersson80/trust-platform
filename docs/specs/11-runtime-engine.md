@@ -2111,6 +2111,27 @@ This shared codec authority does not select the unresolved runtime ADS server
 publication policy for `STRING` or arrays. It also makes no wire,
 external-endpoint, or TwinCAT interoperability claim.
 
+###### ADS core point-quality lifecycle
+
+The shared ADS point-quality record is a truST product contract outside IEC
+61131-3. A reviewed cold-start status preserves its supplied point name and
+starts in `Stale`; the cold-start partition does not establish the detail text
+or a timestamp. An explicitly constructed reviewed stale record may preserve
+the supplied last-good timestamp and detail.
+
+For the reviewed in-memory transition sequence, an initial stale record has no
+last-update timestamp. Marking it good sets `Good`, records the supplied update
+timestamp, and clears stale detail. Marking that record failed sets `Error`,
+replaces the timestamp with the failure timestamp, and records the failure
+detail. Marking that error record stale sets `Stale`, preserves the last known
+timestamp, and replaces the detail with the current stale reason.
+
+These constructor and mutation rules do not select the clock source, timestamp
+units beyond the record's declared millisecond field, monotonicity, concurrent
+mutation, serde compatibility, worker publication timing, transport behavior,
+or external endpoint truth. The runtime ADS worker remains responsible for
+deciding when a transport or lifecycle event invokes these transitions.
+
 ###### ADS client transport boundary
 
 The ADS client transport is a truST product contract outside IEC 61131-3. It

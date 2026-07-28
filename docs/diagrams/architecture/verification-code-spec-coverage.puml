@@ -156,7 +156,7 @@ note bottom of TargetProfiles
   Profiles close package, target, binary, and module-prefix identity.
   The browser-analysis profile executes native Rust facade tests only;
   it does not claim wasm32, JavaScript, or rendered-browser proof.
-  The ADS-core profile is closed to mapping.rs and symbols.rs unit tests;
+  The ADS-core profile is closed to mapping.rs, quality.rs, and symbols.rs;
   it makes no external ADS endpoint or TwinCAT interoperability claim.
 end note
 

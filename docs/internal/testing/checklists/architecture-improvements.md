@@ -271,3 +271,12 @@ Issue #51 init benchmark baseline evidence (2026-04-28):
   selected native Rust unit tests pass on `trust-builder` (with two already
   cataloged same-source companions in the mapping shard); and
   `verification-code-spec-coverage.puml` records the explicit proof boundary.
+- [x] `ARCH-VERIF-P18-09` Extend the ADS-core catalog lane to the three exact
+  point-quality lifecycle tests with one semantic assignment owner. Bind
+  cold-start, explicit stale timestamp, stale-to-good, good-to-error, and
+  error-to-stale assertions independently; do not promote constructor unit
+  tests to worker timing, transport, wall-clock, serialization, or external
+  endpoint proof. Evidence: 48 focused assignment/profile tests pass locally,
+  the three exact native Rust unit tests pass on `trust-builder`, and
+  `verification-code-spec-coverage.puml` records the explicit profile and proof
+  scope.

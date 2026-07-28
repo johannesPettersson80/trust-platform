@@ -211,6 +211,7 @@ ADS_CORE_REMAINING_PROFILE = FrozenRustTargetProfile(
 
 ADS_CORE_REMAINING_UNIT_PREFIXES: Mapping[str, str] = {
     "crates/trust-ads-core/src/mapping.rs": "mapping::tests::",
+    "crates/trust-ads-core/src/quality.rs": "quality::tests::",
     "crates/trust-ads-core/src/symbols.rs": "symbols::tests::",
 }
 
