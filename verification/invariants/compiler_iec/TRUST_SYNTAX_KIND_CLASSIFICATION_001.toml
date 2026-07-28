@@ -3,18 +3,18 @@ id = "TRUST_SYNTAX_KIND_CLASSIFICATION_001"
 title = "Syntax-kind classifiers preserve representation and ownership boundaries"
 area = "compiler_iec"
 risk = "wrong_result"
-status = "planned"
+status = "mapped"
 owner = "trust-syntax"
 last_reviewed = "2026-07-28"
 claim = "SyntaxKind conversion and classifiers preserve the reviewed token/node, trivia, initializer, and POU-like semantic-owner boundaries."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-syntax/src/syntax/mod.rs"]
-tests = []
+tests = ["TEST_AUTO_1F0F8F8014CF763080CA", "TEST_AUTO_80FBBC2C7BCEFE097E26", "TEST_AUTO_983EFB233B4BC682D499", "TEST_AUTO_9F02D3D1E974062EFE3F", "TEST_AUTO_DB2158CD7AE4815BB669"]
 gates = ["veryquick", "pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["focused_execution", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -98,10 +98,10 @@ rationale = "The shared classifier exposes the reviewed seven POU-like owners in
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "The product authority is reviewed; focused catalog mappings and execution evidence remain pending."
+state = "covered"
+rationale = "Accepted catalog mappings and the exact focused remote shard cover the reviewed conversion, trivia, token/node, initializer, and canonical POU-like owner sequence assertions."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "gap_open"
-rationale = "The product authority is reviewed; focused trivia-exclusion mapping and execution evidence remain pending."
+state = "covered"
+rationale = "Accepted catalog mappings and the exact focused remote shard cover exclusion of the reviewed Pragma trivia representative from expression, statement, and initializer classifiers."

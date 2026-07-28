@@ -113927,3 +113927,172 @@ mapping_assertion_review_digest = "sha256:a670ffe04193d41bb1c59224233784769eefa9
 mapping_assertion_source_digests = { "crates/trust-runtime/tests/e2e_scheduler.rs" = "sha256:37ad62f74cbcf3d37b30a6d3034e4e823cc698e3cca543611dedd3a5c608555d" }
 mapping_behavior_refs = ["RT_RESOURCE_SCHEDULER_E2E_001#behavior:1"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_1F0F8F8014CF763080CA"
+subject_kind = "generated_test"
+discovery_id = "DISC_1F0F8F8014CF763080CA"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/src/syntax/mod.rs"
+name = "test_pou_declaration_classifier_set"
+command = "cargo nextest run -p trust-syntax --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax) & test(=syntax::tests::test_pou_declaration_classifier_set)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["TRUST_SYNTAX_KIND_CLASSIFICATION_001"]
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#syntaxkind-token-and-trivia-representation"
+oracle_refs = ["SPEC_IEC_LEXICAL_ELEMENTS_001#syntaxkind-token-and-trivia-representation"]
+expected_result = "The shared classifier exposes the reviewed seven POU-like owners in canonical order and excludes the six reviewed accessor, configuration, namespace, and resource representatives."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_1F0F8F8014CF763080CA.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_1F0F8F8014CF763080CA_4922C4676BD2"
+mapping_proposal_digest = "sha256:4922c4676bd2e50fca1e95bcdd3cc1210b5e229e6ecca31bd297055a591bb67f"
+mapping_decision_id = "MAP_DEC_71D102FF33AE9EC78D0CDCF0"
+mapping_reviewed_source_digest = "sha256:490cb9b767688321459fb135a660e0a94cfe7ebd202016884ce89fb57d58f1d8"
+mapping_assertion_review_digest = "sha256:09db489c32af5608c094602989d3d033ab076608e26c8bb38855eb176cd8a04f"
+mapping_assertion_source_digests = { "crates/trust-syntax/src/syntax/mod.rs" = "sha256:490cb9b767688321459fb135a660e0a94cfe7ebd202016884ce89fb57d58f1d8" }
+mapping_behavior_refs = ["TRUST_SYNTAX_KIND_CLASSIFICATION_001#behavior:7"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_80FBBC2C7BCEFE097E26"
+subject_kind = "generated_test"
+discovery_id = "DISC_80FBBC2C7BCEFE097E26"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/src/syntax/mod.rs"
+name = "test_is_trivia"
+command = "cargo nextest run -p trust-syntax --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax) & test(=syntax::tests::test_is_trivia)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["TRUST_SYNTAX_KIND_CLASSIFICATION_001"]
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#syntaxkind-token-and-trivia-representation"
+oracle_refs = ["SPEC_IEC_LEXICAL_ELEMENTS_001#syntaxkind-token-and-trivia-representation"]
+expected_result = "Whitespace, line comment, block comment, and pragma are trivia while the reviewed identifier representative is not."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_80FBBC2C7BCEFE097E26.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_80FBBC2C7BCEFE097E26_666F16B9B409"
+mapping_proposal_digest = "sha256:666f16b9b409a5ac86dbbe4c660ba2ca3fbc810b61975e8665be025dfcba4437"
+mapping_decision_id = "MAP_DEC_9D2FEBE2F8CB0D5E0D6C5ABC"
+mapping_reviewed_source_digest = "sha256:490cb9b767688321459fb135a660e0a94cfe7ebd202016884ce89fb57d58f1d8"
+mapping_assertion_review_digest = "sha256:defc2b99726232761586ef0bac8ddfb4e6b8b37a4b67147ac7718a83b8411a0d"
+mapping_assertion_source_digests = { "crates/trust-syntax/src/syntax/mod.rs" = "sha256:490cb9b767688321459fb135a660e0a94cfe7ebd202016884ce89fb57d58f1d8" }
+mapping_behavior_refs = ["TRUST_SYNTAX_KIND_CLASSIFICATION_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_983EFB233B4BC682D499"
+subject_kind = "generated_test"
+discovery_id = "DISC_983EFB233B4BC682D499"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/src/syntax/mod.rs"
+name = "test_initializer_classifier_sets"
+command = "cargo nextest run -p trust-syntax --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax) & test(=syntax::tests::test_initializer_classifier_sets)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["TRUST_SYNTAX_KIND_CLASSIFICATION_001"]
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#syntaxkind-token-and-trivia-representation"
+oracle_refs = ["SPEC_IEC_LEXICAL_ELEMENTS_001#syntaxkind-token-and-trivia-representation"]
+expected_result = "Literal, NameRef, and CallExpr are reviewed generic-expression representatives while InitializerList and ArrayInitializer are excluded. InitializerList and ArrayInitializer are both classified as aggregate initializer nodes. Initializer position accepts the reviewed Literal ordinary expression plus InitializerList and ArrayInitializer aggregate nodes. The reviewed Pragma trivia representative is not an expression, statement, or initializer expression."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_983EFB233B4BC682D499.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_983EFB233B4BC682D499_9EEC9CAEA4E6"
+mapping_proposal_digest = "sha256:9eec9caea4e67da97ae04091d1e00dd913c62ca4ea9e9db2e40446ba9d80be27"
+mapping_decision_id = "MAP_DEC_0AD7CCA714631BB75FB1EB16"
+mapping_reviewed_source_digest = "sha256:490cb9b767688321459fb135a660e0a94cfe7ebd202016884ce89fb57d58f1d8"
+mapping_assertion_review_digest = "sha256:f0ca95c8ed6b8057e8dcda1727612971ecb5aeb7488aa28e3933c26fb4cbde14"
+mapping_assertion_source_digests = { "crates/trust-syntax/src/syntax/mod.rs" = "sha256:490cb9b767688321459fb135a660e0a94cfe7ebd202016884ce89fb57d58f1d8" }
+mapping_behavior_refs = ["TRUST_SYNTAX_KIND_CLASSIFICATION_001#behavior:3", "TRUST_SYNTAX_KIND_CLASSIFICATION_001#behavior:4", "TRUST_SYNTAX_KIND_CLASSIFICATION_001#behavior:5", "TRUST_SYNTAX_KIND_CLASSIFICATION_001#behavior:6"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_9F02D3D1E974062EFE3F"
+subject_kind = "generated_test"
+discovery_id = "DISC_9F02D3D1E974062EFE3F"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/src/syntax/mod.rs"
+name = "test_is_token_vs_node"
+command = "cargo nextest run -p trust-syntax --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax) & test(=syntax::tests::test_is_token_vs_node)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["TRUST_SYNTAX_KIND_CLASSIFICATION_001"]
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#syntaxkind-token-and-trivia-representation"
+oracle_refs = ["SPEC_IEC_LEXICAL_ELEMENTS_001#syntaxkind-token-and-trivia-representation"]
+expected_result = "The reviewed Ident and KwIf kinds are tokens, IfStmt and FunctionBlock are nodes, and the tested is_node results invert is_token."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_9F02D3D1E974062EFE3F.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_9F02D3D1E974062EFE3F_994E36AB30AC"
+mapping_proposal_digest = "sha256:994e36ab30ac19ab6b5d47251a1010d0e05a3f3d0cbdabce962460c913c71214"
+mapping_decision_id = "MAP_DEC_71CBAAC15232BD74C4619C95"
+mapping_reviewed_source_digest = "sha256:490cb9b767688321459fb135a660e0a94cfe7ebd202016884ce89fb57d58f1d8"
+mapping_assertion_review_digest = "sha256:b671f7075897557bd48030b6fae3b0eda9bcf250d39db5e18d7378f084361577"
+mapping_assertion_source_digests = { "crates/trust-syntax/src/syntax/mod.rs" = "sha256:490cb9b767688321459fb135a660e0a94cfe7ebd202016884ce89fb57d58f1d8" }
+mapping_behavior_refs = ["TRUST_SYNTAX_KIND_CLASSIFICATION_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_DB2158CD7AE4815BB669"
+subject_kind = "generated_test"
+discovery_id = "DISC_DB2158CD7AE4815BB669"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-syntax/src/syntax/mod.rs"
+name = "test_token_kind_to_syntax_kind"
+command = "cargo nextest run -p trust-syntax --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-syntax) & test(=syntax::tests::test_token_kind_to_syntax_kind)'"
+owner = "trust-syntax"
+status = "mapped"
+invariants = ["TRUST_SYNTAX_KIND_CLASSIFICATION_001"]
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#syntaxkind-token-and-trivia-representation"
+oracle_refs = ["SPEC_IEC_LEXICAL_ELEMENTS_001#syntaxkind-token-and-trivia-representation"]
+expected_result = "The reviewed KwFunctionBlock, Ident, and Assign TokenKind representatives convert to the same-named SyntaxKind values; exhaustive conversion is not claimed by this test."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_DB2158CD7AE4815BB669.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_DB2158CD7AE4815BB669_3589F227528C"
+mapping_proposal_digest = "sha256:3589f227528c99360f87cfbb68fd0664d4a85a06444799b1d144512c3917e443"
+mapping_decision_id = "MAP_DEC_09D5EB18027604807A05A744"
+mapping_reviewed_source_digest = "sha256:490cb9b767688321459fb135a660e0a94cfe7ebd202016884ce89fb57d58f1d8"
+mapping_assertion_review_digest = "sha256:d057151c15921018bb256e466bcd0ae5dfbe33bbeaa4697c1d0f761504a4d714"
+mapping_assertion_source_digests = { "crates/trust-syntax/src/syntax/mod.rs" = "sha256:490cb9b767688321459fb135a660e0a94cfe7ebd202016884ce89fb57d58f1d8" }
+mapping_behavior_refs = ["TRUST_SYNTAX_KIND_CLASSIFICATION_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
