@@ -12,9 +12,14 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use syn::spanned::Spanned;
 use syn::visit::{self, Visit};
-use syn::{Attribute, Expr, ExprCall, ExprMethodCall, Item, ItemFn, Macro, UseTree};
+use syn::{Attribute, Expr, ExprCall, ExprMethodCall, Item, ItemFn, Macro};
 
 use crate::code_spec_scan::scan_crate_root_module_graph;
+use import_resolution::{
+    candidate_paths, definition_is_visible, imports_from_items, ImportReachability,
+};
+
+mod import_resolution;
 
 const ASSERTION_ROOT_MODULE: &str = "__trust_assertion_root__";
 const ASSERTION_SCHEMA_VERSION: u32 = 2;
@@ -68,7 +73,6 @@ struct FunctionRecord {
     source_path: String,
     module: Vec<String>,
     test_context: bool,
-    imports: ImportReachability,
     item: ItemFn,
 }
 
@@ -82,12 +86,7 @@ struct ExtractionContext {
     source_by_path: BTreeMap<String, String>,
     source_digests: BTreeMap<String, String>,
     functions: Vec<FunctionRecord>,
-}
-
-#[derive(Clone, Default)]
-struct ImportReachability {
-    glob_modules: BTreeSet<Vec<String>>,
-    bindings: BTreeMap<String, Vec<String>>,
+    imports_by_module: BTreeMap<Vec<String>, ImportReachability>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -326,6 +325,7 @@ fn extract_from_context(
 
 fn build_context(root: Option<&Path>, sources: Vec<ContextSource>) -> Result<ExtractionContext> {
     let mut functions = Vec::new();
+    let mut imports_by_module = BTreeMap::new();
     let mut source_by_path = BTreeMap::new();
     let mut source_digests = BTreeMap::new();
     for context in sources {
@@ -337,6 +337,7 @@ fn build_context(root: Option<&Path>, sources: Vec<ContextSource>) -> Result<Ext
             &mut context.module.clone(),
             is_integration_test_source(&context.path),
             &mut functions,
+            &mut imports_by_module,
         );
         source_digests.insert(context.path.clone(), sha256_tag(context.source.as_bytes()));
         if let Some(root) = root {
@@ -359,6 +360,7 @@ fn build_context(root: Option<&Path>, sources: Vec<ContextSource>) -> Result<Ext
         source_by_path,
         source_digests,
         functions,
+        imports_by_module,
     })
 }
 
@@ -428,7 +430,8 @@ fn extract_from_built_context(
         sites.extend(visitor.observations.sites);
         unresolved.extend(visitor.observations.unresolved_assertion_helpers);
         for called in visitor.observations.calls {
-            let reachable = resolve_call(function, &called, &by_qualified);
+            let reachable =
+                resolve_call(function, &called, &by_qualified, &context.imports_by_module);
             let qualified_names = reachable
                 .iter()
                 .map(|matched| matched.qualified_name.as_str())
@@ -509,8 +512,13 @@ fn collect_functions(
     modules: &mut Vec<String>,
     test_context: bool,
     output: &mut Vec<FunctionRecord>,
+    imports_by_module: &mut BTreeMap<Vec<String>, ImportReachability>,
 ) {
     let imports = imports_from_items(items, modules);
+    imports_by_module
+        .entry(modules.clone())
+        .or_default()
+        .merge(imports);
     for item in items {
         match item {
             Item::Fn(function) => {
@@ -524,7 +532,6 @@ fn collect_functions(
                     source_path: source_path.to_string(),
                     module: modules.clone(),
                     test_context: test_context || has_test_attribute(&function.attrs),
-                    imports: imports.clone(),
                     item: function.clone(),
                 });
             }
@@ -537,6 +544,7 @@ fn collect_functions(
                         modules,
                         test_context || has_exact_test_cfg(&module.attrs),
                         output,
+                        imports_by_module,
                     );
                     modules.pop();
                 }
@@ -593,127 +601,24 @@ fn evaluate_host_platform_cfg(meta: &syn::Meta) -> Option<bool> {
     }
 }
 
-fn imports_from_items(items: &[Item], current_module: &[String]) -> ImportReachability {
-    let mut imports = ImportReachability::default();
-    for item in items {
-        let Item::Use(item_use) = item else {
-            continue;
-        };
-        collect_use_tree(&item_use.tree, current_module, Vec::new(), &mut imports);
-    }
-    imports
-}
-
-fn collect_use_tree(
-    tree: &UseTree,
-    current_module: &[String],
-    mut prefix: Vec<String>,
-    imports: &mut ImportReachability,
-) {
-    match tree {
-        UseTree::Path(path) => {
-            let segment = path.ident.to_string();
-            if prefix.is_empty() {
-                match segment.as_str() {
-                    "crate" => {}
-                    "self" => prefix.extend_from_slice(current_module),
-                    "super" => {
-                        prefix.extend_from_slice(
-                            &current_module[..current_module.len().saturating_sub(1)],
-                        );
-                    }
-                    _ => prefix.push(segment),
-                }
-            } else if segment != "self" {
-                prefix.push(segment);
-            }
-            collect_use_tree(&path.tree, current_module, prefix, imports);
-        }
-        UseTree::Name(name) => {
-            let imported = name.ident.to_string();
-            prefix.push(imported.clone());
-            imports.bindings.insert(imported, prefix);
-        }
-        UseTree::Rename(rename) => {
-            prefix.push(rename.ident.to_string());
-            imports.bindings.insert(rename.rename.to_string(), prefix);
-        }
-        UseTree::Glob(_) => {
-            imports.glob_modules.insert(prefix);
-        }
-        UseTree::Group(group) => {
-            for item in &group.items {
-                collect_use_tree(item, current_module, prefix.clone(), imports);
-            }
-        }
-    }
-}
-
 fn resolve_call<'a>(
     function: &FunctionRecord,
     call: &CallReference,
     by_qualified: &'a BTreeMap<String, Vec<&'a FunctionRecord>>,
+    imports_by_module: &BTreeMap<Vec<String>, ImportReachability>,
 ) -> Vec<&'a FunctionRecord> {
-    if call.segments.is_empty() {
-        return Vec::new();
-    }
-    let mut candidates = BTreeSet::new();
-    if call.leading_colon {
-        let mut absolute = call.segments.clone();
-        if absolute.first().map(String::as_str) == Some("crate") {
-            absolute.remove(0);
-        }
-        candidates.insert(absolute);
-    } else {
-        match call.segments[0].as_str() {
-            "crate" => {
-                candidates.insert(call.segments[1..].to_vec());
-            }
-            "self" => {
-                let mut path = function.module.clone();
-                path.extend_from_slice(&call.segments[1..]);
-                candidates.insert(path);
-            }
-            "super" => {
-                let mut path = function.module.clone();
-                let mut index = 0;
-                while call.segments.get(index).map(String::as_str) == Some("super") {
-                    path.pop();
-                    index += 1;
-                }
-                path.extend_from_slice(&call.segments[index..]);
-                candidates.insert(path);
-            }
-            first => {
-                if let Some(binding) = function.imports.bindings.get(first) {
-                    let mut path = binding.clone();
-                    path.extend_from_slice(&call.segments[1..]);
-                    candidates.insert(path);
-                }
-                if call.segments.len() == 1 {
-                    let mut local = function.module.clone();
-                    local.push(first.to_string());
-                    candidates.insert(local);
-                    for module in &function.imports.glob_modules {
-                        let mut path = module.clone();
-                        path.push(first.to_string());
-                        candidates.insert(path);
-                    }
-                } else {
-                    let mut relative = function.module.clone();
-                    relative.extend_from_slice(&call.segments);
-                    candidates.insert(relative);
-                    candidates.insert(call.segments.clone());
-                }
-            }
-        }
-    }
-    candidates
-        .into_iter()
-        .filter_map(|segments| by_qualified.get(&segments.join("::")))
-        .flatten()
-        .copied()
-        .collect()
+    candidate_paths(
+        &function.module,
+        call.leading_colon,
+        &call.segments,
+        imports_by_module,
+    )
+    .into_iter()
+    .filter_map(|segments| by_qualified.get(&segments.join("::")))
+    .flatten()
+    .filter(|matched| definition_is_visible(&matched.item.vis, &matched.module, &function.module))
+    .copied()
+    .collect()
 }
 
 fn index_functions(functions: &[FunctionRecord]) -> BTreeMap<String, Vec<&FunctionRecord>> {

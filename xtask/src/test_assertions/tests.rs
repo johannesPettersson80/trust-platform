@@ -81,7 +81,7 @@ fn follows_unique_helper_from_sibling_module_and_binds_source_closure() {
             ContextSource {
                 path: helper_path.to_string(),
                 module: vec!["common".to_string()],
-                source: "fn check_contract() { assert!(true); }\n".to_string(),
+                source: "pub(crate) fn check_contract() { assert!(true); }\n".to_string(),
             },
         ],
     )
@@ -114,10 +114,10 @@ fn resolves_qualified_named_renamed_glob_and_super_imports_exactly() {
                 path: common_path.to_string(),
                 module: vec!["common".to_string()],
                 source: concat!(
-                    "fn check_named() { assert!(true); }\n",
-                    "fn check_renamed() { assert!(true); }\n",
-                    "fn check_globbed() { assert!(true); }\n",
-                    "fn check_qualified() { assert!(true); }\n",
+                    "pub(crate) fn check_named() { assert!(true); }\n",
+                    "pub(crate) fn check_renamed() { assert!(true); }\n",
+                    "pub(crate) fn check_globbed() { assert!(true); }\n",
+                    "pub(crate) fn check_qualified() { assert!(true); }\n",
                 )
                 .to_string(),
             },
@@ -164,6 +164,192 @@ fn resolves_qualified_named_renamed_glob_and_super_imports_exactly() {
             Some(root_path.to_string()),
         ],
         assertion_sources
+    );
+}
+
+#[test]
+fn resolves_visibility_safe_transitive_glob_reexports() {
+    let test_path = "crates/example/tests/contract.rs";
+    let wrapper_path = "crates/example/tests/wrapper.rs";
+    let nested_path = "crates/example/tests/nested.rs";
+    let support_path = "crates/example/tests/support.rs";
+    let test_source = "use wrapper::*;\n#[test]\nfn delegates() { check_contract(); }\n";
+    let wrapper_source = "pub(crate) use nested::*;\n";
+    let nested_source = "pub(crate) use support::*;\n";
+    let support_source = "pub(crate) fn check_contract() { assert!(true); }\n";
+    let inventory = extract_from_context(
+        test_path,
+        "delegates",
+        vec![
+            ContextSource {
+                path: test_path.to_string(),
+                module: Vec::new(),
+                source: test_source.to_string(),
+            },
+            ContextSource {
+                path: wrapper_path.to_string(),
+                module: vec!["wrapper".to_string()],
+                source: wrapper_source.to_string(),
+            },
+            ContextSource {
+                path: nested_path.to_string(),
+                module: vec!["wrapper".to_string(), "nested".to_string()],
+                source: nested_source.to_string(),
+            },
+            ContextSource {
+                path: support_path.to_string(),
+                module: vec![
+                    "wrapper".to_string(),
+                    "nested".to_string(),
+                    "support".to_string(),
+                ],
+                source: support_source.to_string(),
+            },
+        ],
+    )
+    .expect("resolve visibility-safe reexport chain");
+
+    assert!(inventory.unresolved_assertion_helpers.is_empty());
+    assert_eq!(1, inventory.assertions.len());
+    assert_eq!(support_path, inventory.assertions[0].source_path);
+    assert_eq!(
+        "wrapper::nested::support::check_contract",
+        inventory.assertions[0].function
+    );
+    for (path, source) in [
+        (test_path, test_source),
+        (wrapper_path, wrapper_source),
+        (nested_path, nested_source),
+        (support_path, support_source),
+    ] {
+        assert_eq!(
+            Some(&super::sha256_tag(source.as_bytes())),
+            inventory.source_digests.get(path),
+            "source closure digest drifted for {path}"
+        );
+    }
+    assert_eq!(4, inventory.source_digests.len());
+}
+
+#[test]
+fn private_sibling_glob_import_does_not_leak() {
+    let inventory = extract_from_context(
+        "crates/example/tests/contract.rs",
+        "delegates",
+        vec![
+            ContextSource {
+                path: "crates/example/tests/contract.rs".to_string(),
+                module: Vec::new(),
+                source: concat!(
+                    "use wrapper::*;\n",
+                    "#[test]\n",
+                    "fn delegates() { check_contract(); }\n",
+                )
+                .to_string(),
+            },
+            ContextSource {
+                path: "crates/example/tests/wrapper.rs".to_string(),
+                module: vec!["wrapper".to_string()],
+                source: "use support::*;\n".to_string(),
+            },
+            ContextSource {
+                path: "crates/example/tests/support.rs".to_string(),
+                module: vec!["wrapper".to_string(), "support".to_string()],
+                source: "pub(crate) fn check_contract() { assert!(true); }\n".to_string(),
+            },
+        ],
+    )
+    .expect("retain private sibling import as unresolved");
+
+    assert!(inventory.assertions.is_empty());
+    assert_eq!(
+        vec!["delegates::check_contract:unresolved"],
+        inventory.unresolved_assertion_helpers
+    );
+}
+
+#[test]
+fn private_target_function_does_not_leak_through_public_glob() {
+    let inventory = extract_from_context(
+        "crates/example/tests/contract.rs",
+        "delegates",
+        vec![
+            ContextSource {
+                path: "crates/example/tests/contract.rs".to_string(),
+                module: Vec::new(),
+                source: concat!(
+                    "use wrapper::*;\n",
+                    "#[test]\n",
+                    "fn delegates() { check_contract(); }\n",
+                )
+                .to_string(),
+            },
+            ContextSource {
+                path: "crates/example/tests/wrapper.rs".to_string(),
+                module: vec!["wrapper".to_string()],
+                source: "pub(crate) use support::*;\n".to_string(),
+            },
+            ContextSource {
+                path: "crates/example/tests/support.rs".to_string(),
+                module: vec!["wrapper".to_string(), "support".to_string()],
+                source: "fn check_contract() { assert!(true); }\n".to_string(),
+            },
+        ],
+    )
+    .expect("retain private target as unresolved");
+
+    assert!(inventory.assertions.is_empty());
+    assert_eq!(
+        vec!["delegates::check_contract:unresolved"],
+        inventory.unresolved_assertion_helpers
+    );
+}
+
+#[test]
+fn multiple_transitively_exported_helpers_remain_ambiguous() {
+    let inventory = extract_from_context(
+        "crates/example/tests/contract.rs",
+        "delegates",
+        vec![
+            ContextSource {
+                path: "crates/example/tests/contract.rs".to_string(),
+                module: Vec::new(),
+                source: concat!(
+                    "use left::*;\n",
+                    "use right::*;\n",
+                    "#[test]\n",
+                    "fn delegates() { check_contract(); }\n",
+                )
+                .to_string(),
+            },
+            ContextSource {
+                path: "crates/example/tests/left.rs".to_string(),
+                module: vec!["left".to_string()],
+                source: "pub(crate) use left_support::*;\n".to_string(),
+            },
+            ContextSource {
+                path: "crates/example/tests/right.rs".to_string(),
+                module: vec!["right".to_string()],
+                source: "pub(crate) use right_support::*;\n".to_string(),
+            },
+            ContextSource {
+                path: "crates/example/tests/left_support.rs".to_string(),
+                module: vec!["left".to_string(), "left_support".to_string()],
+                source: "pub(crate) fn check_contract() { assert!(true); }\n".to_string(),
+            },
+            ContextSource {
+                path: "crates/example/tests/right_support.rs".to_string(),
+                module: vec!["right".to_string(), "right_support".to_string()],
+                source: "pub(crate) fn check_contract() { assert!(false); }\n".to_string(),
+            },
+        ],
+    )
+    .expect("retain ambiguous reexported helpers");
+
+    assert!(inventory.assertions.is_empty());
+    assert_eq!(
+        vec!["delegates::check_contract:ambiguous"],
+        inventory.unresolved_assertion_helpers
     );
 }
 

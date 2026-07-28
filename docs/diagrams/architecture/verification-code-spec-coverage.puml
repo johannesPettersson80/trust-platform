@@ -46,6 +46,8 @@ package "Execution-guided mapping accelerator" {
   [deterministic candidate + demand join] as CandidateJoin
   database "quarantined proposals\nC1 / C2 / C3" as Proposals
   database "review decisions" as Decisions
+  [visibility-safe Rust import graph] as RustImportResolver
+  [source-bound assertion inventory] as AssertionInventory
   [exact assertion-to-oracle review] as SemanticReview
   [recoverable atomic catalog transaction] as CatalogTransaction
 }
@@ -105,6 +107,9 @@ VerificationGraph --> CandidateJoin : oracle-backed behavior rows
 CandidateJoin --> Proposals : ranking signals only
 Proposals --> SemanticReview
 Decisions --> CandidateJoin : suppress unchanged rejection
+FocusedResolver --> AssertionInventory : exact requested Rust tests
+RustImportResolver --> AssertionInventory : named imports + visible glob chains
+AssertionInventory --> SemanticReview : assertions + oracle source digests
 SemanticReview --> Decisions
 SemanticReview --> CatalogTransaction : explicit accepted batch only
 CatalogTransaction --> TestCatalog
@@ -141,6 +146,12 @@ note bottom of SemanticReview
   Coverage, names, paths, and mutation kills are not semantic proof.
   Each assertion is bound to exact oracle behavior rows;
   high-risk mappings require two distinct reviewers.
+end note
+
+note bottom of RustImportResolver
+  Module imports are retained even for wrapper modules with no functions.
+  Private sibling imports and private targets do not leak, cycles terminate,
+  and multiple qualified helper targets remain ambiguous rather than proof.
 end note
 
 note bottom of FocusedResolver

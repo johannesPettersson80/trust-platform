@@ -245,3 +245,11 @@ Issue #51 init benchmark baseline evidence (2026-04-28):
   identity-scope unit regression and the six debugger lifecycle integration
   tests pass on `trust-builder`; `debug-architecture.puml` and
   `debug-step-sequence.puml` record the execution flow.
+- [x] `ARCH-VERIF-P18-06` Keep Rust assertion-helper import resolution in a
+  bounded owner separate from assertion traversal: retain imports for
+  function-free wrapper modules, follow only exact named imports and
+  visibility-valid cycle-guarded glob chains, and preserve private sibling or
+  multi-target calls as unresolved/ambiguous. Evidence: 19 focused xtask tests
+  pass on `trust-builder`, the 15 selected WASM browser-analysis inventories
+  have zero unresolved helpers with four exact fixture digests per row, and
+  `verification-code-spec-coverage.puml` records the ownership boundary.

@@ -1,6 +1,5 @@
 use std::fs;
 use std::hint::black_box;
-use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 use text_size::{TextRange, TextSize};
