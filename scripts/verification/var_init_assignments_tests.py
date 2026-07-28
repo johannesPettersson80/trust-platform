@@ -71,9 +71,9 @@ class VarInitAssignmentsTests(unittest.TestCase):
                 dispositions[disposition] += 1
         self.assertEqual(
             {
-                (subject.COMPILER, subject.CONSTANT_INITIALIZER): 1,
+                (subject.COMPILER, subject.CONSTANT_INITIALIZER): 5,
                 (subject.COMPILER, subject.MUTABLE_REJECTED): 2,
-                (subject.VM, subject.VALUE_MATERIALIZATION): 13,
+                (subject.VM, subject.VALUE_MATERIALIZATION): 9,
             },
             counts,
         )
@@ -110,6 +110,10 @@ class VarInitAssignmentsTests(unittest.TestCase):
         subject = self.subject()
         expected = (
             (
+                "ASSERT_7593023EB0CD59B863CB6D14",
+                subject.CONSTANT_INITIALIZER,
+            ),
+            (
                 "ASSERT_3F2139596B6B54151698D5B0",
                 subject.MUTABLE_REJECTED,
             ),
@@ -119,6 +123,18 @@ class VarInitAssignmentsTests(unittest.TestCase):
             ),
             (
                 "ASSERT_28C10143C6A4841D4E0E63BB",
+                subject.CONSTANT_INITIALIZER,
+            ),
+            (
+                "ASSERT_5C616E1BF7D5174B512955E8",
+                subject.CONSTANT_INITIALIZER,
+            ),
+            (
+                "ASSERT_4B2AC64D1E5D714358BAE912",
+                subject.CONSTANT_INITIALIZER,
+            ),
+            (
+                "ASSERT_72B6840D17E62353275AC0CA",
                 subject.CONSTANT_INITIALIZER,
             ),
         )

@@ -1,12 +1,12 @@
 schema_version = 1
 id = "IEC_HIR_VARIABLE_INITIALIZER_CONSTANT_001"
-title = "Integer variable initializers accept constants and reject mutable references"
+title = "Integer variable initialization materializes constants and rejects mutable references"
 area = "compiler_iec"
 risk = "wrong_result"
 status = "specified"
 owner = "trust-hir"
 last_reviewed = "2026-07-28"
-claim = "Explicit integer variable initializers accept literals and supported integer constant expressions but reject an expression that depends on an ordinary mutable integer variable."
+claim = "Reviewed INT declarations materialize the default, literal, and supported declared-constant values, while an explicit initializer that depends on an ordinary mutable integer variable is rejected."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-hir/src/db/queries/collector/variables.rs", "docs/specs/03-variables.md", "docs/PRODUCT_DECISIONS.md"]
@@ -18,20 +18,20 @@ missing = ["catalog_mapping", "focused_execution", "assertion_reachability", "mu
 
 [spec]
 status = "specified"
-source_refs = ["SPEC_IEC_VARIABLES_001"]
+source_refs = ["SPEC_IEC_VARIABLES_001", "SPEC_VM_VALUE_SEMANTICS_001"]
 
 [oracle]
 kind = "trust_contract"
 ref = "SPEC_IEC_VARIABLES_001#initialization-table-14"
 
 [[behavior]]
-partition = { equals = "LITERAL_OR_CONSTANT_EXPRESSION_INITIALIZER" }
+partition = { equals = "SCALAR_DEFAULT_LITERAL_AND_CONSTANT_INITIALIZER" }
 case_family = "happy_path"
-oracle_ref = "SPEC_IEC_VARIABLES_001#initialization-table-14"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-6-1-declaration-initializer-materialization"
 outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
-rationale = "The reviewed literal and declared-constant arithmetic INT initializers are accepted and materialize their exact values."
+rationale = "The reviewed declarations complete a clean cycle and materialize the uninitialized INT default as 0, the literal initializer as 4, and the declared-constant arithmetic initializer as 5."
 
 [[behavior]]
 partition = { equals = "MUTABLE_VARIABLE_REFERENCE_INITIALIZER_REJECTED" }
@@ -45,7 +45,7 @@ rationale = "An INT initializer that references the reviewed ordinary mutable IN
 [[coverage.cells]]
 dimension = "happy_path"
 state = "gap_open"
-rationale = "The literal and declared-constant acceptance assertions await generated catalog mapping and focused execution."
+rationale = "The reviewed default, literal, and declared-constant materialization assertions await generated catalog mapping and focused execution."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"

@@ -6,7 +6,7 @@
       "assertions": [
         {
           "assertion_id": "ASSERT_15A1231317BC599CE2C4F301",
-          "behavior_label": "DECLARATION_SCALAR_AND_ARRAY_INITIALIZER_MATERIALIZATION",
+          "behavior_label": "DECLARATION_ARRAY_INITIALIZER_MATERIALIZATION",
           "disposition": "oracle_bound",
           "expression": "assert ! (cycle . errors . is_empty () , \"{label} cycle failed: {:?}\" , cycle . errors)",
           "function": "cycle_without_errors",
@@ -15,7 +15,7 @@
         },
         {
           "assertion_id": "ASSERT_2AC73780C0E98CC95A82EE84",
-          "behavior_label": "DECLARATION_SCALAR_AND_ARRAY_INITIALIZER_MATERIALIZATION",
+          "behavior_label": "DECLARATION_ARRAY_INITIALIZER_MATERIALIZATION",
           "disposition": "setup_or_precondition",
           "expression": "TestHarness :: from_source (source) . expect (\"compile harness\")",
           "function": "declaration_repetition_array_initializer_expands_group",
@@ -24,7 +24,7 @@
         },
         {
           "assertion_id": "ASSERT_AC353EC4F0E6FF331773C873",
-          "behavior_label": "DECLARATION_SCALAR_AND_ARRAY_INITIALIZER_MATERIALIZATION",
+          "behavior_label": "DECLARATION_ARRAY_INITIALIZER_MATERIALIZATION",
           "disposition": "oracle_bound",
           "expression": "assert_eq ! (harness . get_output (\"a\") , Some (Value :: Array (Box :: new (trust_runtime :: value :: ArrayValue :: from_untyped_parts (vec ! [Value :: Int (1) , Value :: Int (2) , Value :: Int (1) , Value :: Int (2) , Value :: Int (1) , Value :: Int (2) ,] , vec ! [(1 , 6)] ,) . expect (\"valid expected array\") ,))))",
           "function": "declaration_repetition_array_initializer_expands_group",
@@ -45,7 +45,7 @@
       "assertions": [
         {
           "assertion_id": "ASSERT_27CCCD854964E3815CBA1B28",
-          "behavior_label": "DECLARATION_SCALAR_AND_ARRAY_INITIALIZER_MATERIALIZATION",
+          "behavior_label": "DECLARATION_ARRAY_INITIALIZER_MATERIALIZATION",
           "disposition": "oracle_bound",
           "expression": "assert ! (cycle . errors . is_empty () , \"{label} cycle failed: {:?}\" , cycle . errors)",
           "function": "cycle_without_errors",
@@ -54,7 +54,7 @@
         },
         {
           "assertion_id": "ASSERT_F4B72BCB1943D6B081E2E966",
-          "behavior_label": "DECLARATION_SCALAR_AND_ARRAY_INITIALIZER_MATERIALIZATION",
+          "behavior_label": "DECLARATION_ARRAY_INITIALIZER_MATERIALIZATION",
           "disposition": "setup_or_precondition",
           "expression": "TestHarness :: from_source (source) . expect (\"compile harness\")",
           "function": "declaration_array_initializer_end_to_end",
@@ -63,7 +63,7 @@
         },
         {
           "assertion_id": "ASSERT_2C64EDC87A15C547E0F78DD4",
-          "behavior_label": "DECLARATION_SCALAR_AND_ARRAY_INITIALIZER_MATERIALIZATION",
+          "behavior_label": "DECLARATION_ARRAY_INITIALIZER_MATERIALIZATION",
           "disposition": "oracle_bound",
           "expression": "assert_eq ! (harness . get_output (\"a\") , Some (Value :: Array (Box :: new (trust_runtime :: value :: ArrayValue :: from_untyped_parts (vec ! [Value :: Int (1) , Value :: Int (2) , Value :: Int (3)] , vec ! [(1 , 3)] ,) . expect (\"valid expected array\") ,))))",
           "function": "declaration_array_initializer_end_to_end",
@@ -84,11 +84,11 @@
       "assertions": [
         {
           "assertion_id": "ASSERT_7593023EB0CD59B863CB6D14",
-          "behavior_label": "DECLARATION_SCALAR_AND_ARRAY_INITIALIZER_MATERIALIZATION",
+          "behavior_label": "SCALAR_DEFAULT_LITERAL_AND_CONSTANT_INITIALIZER",
           "disposition": "oracle_bound",
           "expression": "assert ! (cycle . errors . is_empty () , \"{label} cycle failed: {:?}\" , cycle . errors)",
           "function": "cycle_without_errors",
-          "invariant_id": "VM_RUNTIME_VALUE_MATERIALIZATION_001",
+          "invariant_id": "IEC_HIR_VARIABLE_INITIALIZER_CONSTANT_001",
           "kind": "macro:assert"
         },
         {
@@ -111,7 +111,7 @@
         },
         {
           "assertion_id": "ASSERT_28C10143C6A4841D4E0E63BB",
-          "behavior_label": "LITERAL_OR_CONSTANT_EXPRESSION_INITIALIZER",
+          "behavior_label": "SCALAR_DEFAULT_LITERAL_AND_CONSTANT_INITIALIZER",
           "disposition": "oracle_bound",
           "expression": "TestHarness :: from_source (source) . unwrap ()",
           "function": "iec_table14",
@@ -120,29 +120,29 @@
         },
         {
           "assertion_id": "ASSERT_5C616E1BF7D5174B512955E8",
-          "behavior_label": "DECLARATION_SCALAR_AND_ARRAY_INITIALIZER_MATERIALIZATION",
+          "behavior_label": "SCALAR_DEFAULT_LITERAL_AND_CONSTANT_INITIALIZER",
           "disposition": "oracle_bound",
           "expression": "assert_eq ! (harness . get_output (\"a\") , Some (Value :: Int (0)))",
           "function": "iec_table14",
-          "invariant_id": "VM_RUNTIME_VALUE_MATERIALIZATION_001",
+          "invariant_id": "IEC_HIR_VARIABLE_INITIALIZER_CONSTANT_001",
           "kind": "macro:assert_eq"
         },
         {
           "assertion_id": "ASSERT_4B2AC64D1E5D714358BAE912",
-          "behavior_label": "DECLARATION_SCALAR_AND_ARRAY_INITIALIZER_MATERIALIZATION",
+          "behavior_label": "SCALAR_DEFAULT_LITERAL_AND_CONSTANT_INITIALIZER",
           "disposition": "oracle_bound",
           "expression": "assert_eq ! (harness . get_output (\"b\") , Some (Value :: Int (4)))",
           "function": "iec_table14",
-          "invariant_id": "VM_RUNTIME_VALUE_MATERIALIZATION_001",
+          "invariant_id": "IEC_HIR_VARIABLE_INITIALIZER_CONSTANT_001",
           "kind": "macro:assert_eq"
         },
         {
           "assertion_id": "ASSERT_72B6840D17E62353275AC0CA",
-          "behavior_label": "DECLARATION_SCALAR_AND_ARRAY_INITIALIZER_MATERIALIZATION",
+          "behavior_label": "SCALAR_DEFAULT_LITERAL_AND_CONSTANT_INITIALIZER",
           "disposition": "oracle_bound",
           "expression": "assert_eq ! (harness . get_output (\"c\") , Some (Value :: Int (5)))",
           "function": "iec_table14",
-          "invariant_id": "VM_RUNTIME_VALUE_MATERIALIZATION_001",
+          "invariant_id": "IEC_HIR_VARIABLE_INITIALIZER_CONSTANT_001",
           "kind": "macro:assert_eq"
         }
       ],
@@ -160,7 +160,7 @@
       "assertions": [
         {
           "assertion_id": "ASSERT_1E9D2E5757B7EC50C6453541",
-          "behavior_label": "DECLARATION_SCALAR_AND_ARRAY_INITIALIZER_MATERIALIZATION",
+          "behavior_label": "DECLARATION_ARRAY_INITIALIZER_MATERIALIZATION",
           "disposition": "oracle_bound",
           "expression": "assert ! (cycle . errors . is_empty () , \"{label} cycle failed: {:?}\" , cycle . errors)",
           "function": "cycle_without_errors",
@@ -169,7 +169,7 @@
         },
         {
           "assertion_id": "ASSERT_805005BA08A494380668F538",
-          "behavior_label": "DECLARATION_SCALAR_AND_ARRAY_INITIALIZER_MATERIALIZATION",
+          "behavior_label": "DECLARATION_ARRAY_INITIALIZER_MATERIALIZATION",
           "disposition": "setup_or_precondition",
           "expression": "TestHarness :: from_source (source) . expect (\"compile harness\")",
           "function": "declaration_partial_array_initializer_default_fills_remaining_elements",
@@ -178,7 +178,7 @@
         },
         {
           "assertion_id": "ASSERT_51508DEFD69668B5E1F9B025",
-          "behavior_label": "DECLARATION_SCALAR_AND_ARRAY_INITIALIZER_MATERIALIZATION",
+          "behavior_label": "DECLARATION_ARRAY_INITIALIZER_MATERIALIZATION",
           "disposition": "oracle_bound",
           "expression": "assert_eq ! (harness . get_output (\"a\") , Some (Value :: Array (Box :: new (trust_runtime :: value :: ArrayValue :: from_untyped_parts (vec ! [Value :: Int (1) , Value :: Int (2) , Value :: Int (0) , Value :: Int (0) , Value :: Int (0) ,] , vec ! [(1 , 5)] ,) . expect (\"valid expected array\") ,))))",
           "function": "declaration_partial_array_initializer_default_fills_remaining_elements",
