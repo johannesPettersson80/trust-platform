@@ -1,0 +1,488 @@
+{
+  "id": "RUNTIME_BUNDLE_BUILDER_7_SEMANTIC_LOCK",
+  "schema_version": 1,
+  "tests": [
+    {
+      "assertions": [
+        {
+          "behavior_label": "MISSING_CYCLIC_OR_VERSION_MISMATCH_DEPENDENCY",
+          "disposition": "oracle_bound",
+          "expression": "build_program_stbc (& root , None) . expect_err (\"build should fail\")",
+          "function": "build_fails_for_cyclic_dependencies",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "method:expect_err"
+        },
+        {
+          "behavior_label": "MISSING_CYCLIC_OR_VERSION_MISMATCH_DEPENDENCY",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (message . contains (\"cyclic dependency detected\"))",
+          "function": "build_fails_for_cyclic_dependencies",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "macro:assert"
+        },
+        {
+          "behavior_label": "MISSING_CYCLIC_OR_VERSION_MISMATCH_DEPENDENCY",
+          "disposition": "setup_or_precondition",
+          "expression": "SystemTime :: now () . duration_since (UNIX_EPOCH) . unwrap ()",
+          "function": "temp_dir",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "method:unwrap"
+        },
+        {
+          "behavior_label": "MISSING_CYCLIC_OR_VERSION_MISMATCH_DEPENDENCY",
+          "disposition": "setup_or_precondition",
+          "expression": "fs :: create_dir_all (& dir) . expect (\"create temp dir\")",
+          "function": "temp_dir",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "method:expect"
+        },
+        {
+          "behavior_label": "MISSING_CYCLIC_OR_VERSION_MISMATCH_DEPENDENCY",
+          "disposition": "setup_or_precondition",
+          "expression": "fs :: create_dir_all (parent) . expect (\"create parent dir\")",
+          "function": "write_file",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "method:expect"
+        },
+        {
+          "behavior_label": "MISSING_CYCLIC_OR_VERSION_MISMATCH_DEPENDENCY",
+          "disposition": "setup_or_precondition",
+          "expression": "fs :: write (path , content) . expect (\"write file\")",
+          "function": "write_file",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "method:expect"
+        }
+      ],
+      "name": "build_fails_for_cyclic_dependencies",
+      "path": "crates/trust-runtime/src/host/bundle_builder/tests.rs"
+    },
+    {
+      "assertions": [
+        {
+          "behavior_label": "MISSING_CYCLIC_OR_VERSION_MISMATCH_DEPENDENCY",
+          "disposition": "oracle_bound",
+          "expression": "build_program_stbc (& root , None) . expect_err (\"build should fail\")",
+          "function": "build_fails_for_missing_dependency_path",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "method:expect_err"
+        },
+        {
+          "behavior_label": "MISSING_CYCLIC_OR_VERSION_MISMATCH_DEPENDENCY",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (message . contains (\"dependency 'Missing' path does not exist\"))",
+          "function": "build_fails_for_missing_dependency_path",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "macro:assert"
+        },
+        {
+          "behavior_label": "MISSING_CYCLIC_OR_VERSION_MISMATCH_DEPENDENCY",
+          "disposition": "setup_or_precondition",
+          "expression": "SystemTime :: now () . duration_since (UNIX_EPOCH) . unwrap ()",
+          "function": "temp_dir",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "method:unwrap"
+        },
+        {
+          "behavior_label": "MISSING_CYCLIC_OR_VERSION_MISMATCH_DEPENDENCY",
+          "disposition": "setup_or_precondition",
+          "expression": "fs :: create_dir_all (& dir) . expect (\"create temp dir\")",
+          "function": "temp_dir",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "method:expect"
+        },
+        {
+          "behavior_label": "MISSING_CYCLIC_OR_VERSION_MISMATCH_DEPENDENCY",
+          "disposition": "setup_or_precondition",
+          "expression": "fs :: create_dir_all (parent) . expect (\"create parent dir\")",
+          "function": "write_file",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "method:expect"
+        },
+        {
+          "behavior_label": "MISSING_CYCLIC_OR_VERSION_MISMATCH_DEPENDENCY",
+          "disposition": "setup_or_precondition",
+          "expression": "fs :: write (path , content) . expect (\"write file\")",
+          "function": "write_file",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "method:expect"
+        }
+      ],
+      "name": "build_fails_for_missing_dependency_path",
+      "path": "crates/trust-runtime/src/host/bundle_builder/tests.rs"
+    },
+    {
+      "assertions": [
+        {
+          "behavior_label": "TRANSITIVE_LOCAL_DEPENDENCY_CLOSURE",
+          "disposition": "oracle_bound",
+          "expression": "build_program_stbc (& root , None) . expect (\"build should pass\")",
+          "function": "build_includes_transitive_dependency_sources",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "method:expect"
+        },
+        {
+          "behavior_label": "TRANSITIVE_LOCAL_DEPENDENCY_CLOSURE",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (report . program_path . exists ())",
+          "function": "build_includes_transitive_dependency_sources",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "macro:assert"
+        },
+        {
+          "behavior_label": "TRANSITIVE_LOCAL_DEPENDENCY_CLOSURE",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (report . sources . iter () . any (| path | path . ends_with (\"main.st\")))",
+          "function": "build_includes_transitive_dependency_sources",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "macro:assert"
+        },
+        {
+          "behavior_label": "TRANSITIVE_LOCAL_DEPENDENCY_CLOSURE",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (report . sources . iter () . any (| path | path . ends_with (\"lib.st\")))",
+          "function": "build_includes_transitive_dependency_sources",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "macro:assert"
+        },
+        {
+          "behavior_label": "TRANSITIVE_LOCAL_DEPENDENCY_CLOSURE",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (report . resolved_dependencies , vec ! [\"LibA\" . to_string () , \"LibB\" . to_string ()])",
+          "function": "build_includes_transitive_dependency_sources",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "behavior_label": "TRANSITIVE_LOCAL_DEPENDENCY_CLOSURE",
+          "disposition": "oracle_bound",
+          "expression": "inspect_project_layout (& root , None) . expect (\"inspection should pass\")",
+          "function": "build_includes_transitive_dependency_sources",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "method:expect"
+        },
+        {
+          "behavior_label": "TRANSITIVE_LOCAL_DEPENDENCY_CLOSURE",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (inspection . sources_root . ends_with (\"src\"))",
+          "function": "build_includes_transitive_dependency_sources",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "macro:assert"
+        },
+        {
+          "behavior_label": "TRANSITIVE_LOCAL_DEPENDENCY_CLOSURE",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (inspection . manifest_path . as_ref () . is_some_and (| path | path . ends_with (\"trust-lsp.toml\")))",
+          "function": "build_includes_transitive_dependency_sources",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "macro:assert"
+        },
+        {
+          "behavior_label": "TRANSITIVE_LOCAL_DEPENDENCY_CLOSURE",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (inspection . resolved_dependencies , vec ! [\"LibA\" . to_string () , \"LibB\" . to_string ()])",
+          "function": "build_includes_transitive_dependency_sources",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "behavior_label": "TRANSITIVE_LOCAL_DEPENDENCY_CLOSURE",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (inspection . dependency_roots . len () , 2)",
+          "function": "build_includes_transitive_dependency_sources",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "behavior_label": "TRANSITIVE_LOCAL_DEPENDENCY_CLOSURE",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (inspection . sources . iter () . any (| path | path . ends_with (\"main.st\")))",
+          "function": "build_includes_transitive_dependency_sources",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "macro:assert"
+        },
+        {
+          "behavior_label": "TRANSITIVE_LOCAL_DEPENDENCY_CLOSURE",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (inspection . sources . iter () . any (| path | path . ends_with (\"lib.st\")))",
+          "function": "build_includes_transitive_dependency_sources",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "macro:assert"
+        },
+        {
+          "behavior_label": "TRANSITIVE_LOCAL_DEPENDENCY_CLOSURE",
+          "disposition": "setup_or_precondition",
+          "expression": "SystemTime :: now () . duration_since (UNIX_EPOCH) . unwrap ()",
+          "function": "temp_dir",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "method:unwrap"
+        },
+        {
+          "behavior_label": "TRANSITIVE_LOCAL_DEPENDENCY_CLOSURE",
+          "disposition": "setup_or_precondition",
+          "expression": "fs :: create_dir_all (& dir) . expect (\"create temp dir\")",
+          "function": "temp_dir",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "method:expect"
+        },
+        {
+          "behavior_label": "TRANSITIVE_LOCAL_DEPENDENCY_CLOSURE",
+          "disposition": "setup_or_precondition",
+          "expression": "fs :: create_dir_all (parent) . expect (\"create parent dir\")",
+          "function": "write_file",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "method:expect"
+        },
+        {
+          "behavior_label": "TRANSITIVE_LOCAL_DEPENDENCY_CLOSURE",
+          "disposition": "setup_or_precondition",
+          "expression": "fs :: write (path , content) . expect (\"write file\")",
+          "function": "write_file",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "method:expect"
+        }
+      ],
+      "name": "build_includes_transitive_dependency_sources",
+      "path": "crates/trust-runtime/src/host/bundle_builder/tests.rs"
+    },
+    {
+      "assertions": [
+        {
+          "behavior_label": "CANONICAL_SRC_WITHOUT_OVERRIDE",
+          "disposition": "oracle_bound",
+          "expression": "resolve_sources_root (& root , None) . expect (\"resolve sources root\")",
+          "function": "resolve_sources_root_prefers_src_directory",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "method:expect"
+        },
+        {
+          "behavior_label": "CANONICAL_SRC_WITHOUT_OVERRIDE",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (resolved . ends_with (\"src\"))",
+          "function": "resolve_sources_root_prefers_src_directory",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "macro:assert"
+        },
+        {
+          "behavior_label": "CANONICAL_SRC_WITHOUT_OVERRIDE",
+          "disposition": "setup_or_precondition",
+          "expression": "SystemTime :: now () . duration_since (UNIX_EPOCH) . unwrap ()",
+          "function": "temp_dir",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "method:unwrap"
+        },
+        {
+          "behavior_label": "CANONICAL_SRC_WITHOUT_OVERRIDE",
+          "disposition": "setup_or_precondition",
+          "expression": "fs :: create_dir_all (& dir) . expect (\"create temp dir\")",
+          "function": "temp_dir",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "method:expect"
+        },
+        {
+          "behavior_label": "CANONICAL_SRC_WITHOUT_OVERRIDE",
+          "disposition": "setup_or_precondition",
+          "expression": "fs :: create_dir_all (parent) . expect (\"create parent dir\")",
+          "function": "write_file",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "method:expect"
+        },
+        {
+          "behavior_label": "CANONICAL_SRC_WITHOUT_OVERRIDE",
+          "disposition": "setup_or_precondition",
+          "expression": "fs :: write (path , content) . expect (\"write file\")",
+          "function": "write_file",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "method:expect"
+        }
+      ],
+      "name": "resolve_sources_root_prefers_src_directory",
+      "path": "crates/trust-runtime/src/host/bundle_builder/tests.rs"
+    },
+    {
+      "assertions": [
+        {
+          "behavior_label": "MISSING_CYCLIC_OR_VERSION_MISMATCH_DEPENDENCY",
+          "disposition": "oracle_bound",
+          "expression": "build_program_stbc (& root , None) . expect_err (\"build should fail\")",
+          "function": "build_fails_for_version_mismatch",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "method:expect_err"
+        },
+        {
+          "behavior_label": "MISSING_CYCLIC_OR_VERSION_MISMATCH_DEPENDENCY",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (message . contains (\"requested version 1.0.0\"))",
+          "function": "build_fails_for_version_mismatch",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "macro:assert"
+        },
+        {
+          "behavior_label": "MISSING_CYCLIC_OR_VERSION_MISMATCH_DEPENDENCY",
+          "disposition": "setup_or_precondition",
+          "expression": "SystemTime :: now () . duration_since (UNIX_EPOCH) . unwrap ()",
+          "function": "temp_dir",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "method:unwrap"
+        },
+        {
+          "behavior_label": "MISSING_CYCLIC_OR_VERSION_MISMATCH_DEPENDENCY",
+          "disposition": "setup_or_precondition",
+          "expression": "fs :: create_dir_all (& dir) . expect (\"create temp dir\")",
+          "function": "temp_dir",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "method:expect"
+        },
+        {
+          "behavior_label": "MISSING_CYCLIC_OR_VERSION_MISMATCH_DEPENDENCY",
+          "disposition": "setup_or_precondition",
+          "expression": "fs :: create_dir_all (parent) . expect (\"create parent dir\")",
+          "function": "write_file",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "method:expect"
+        },
+        {
+          "behavior_label": "MISSING_CYCLIC_OR_VERSION_MISMATCH_DEPENDENCY",
+          "disposition": "setup_or_precondition",
+          "expression": "fs :: write (path , content) . expect (\"write file\")",
+          "function": "write_file",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "method:expect"
+        }
+      ],
+      "name": "build_fails_for_version_mismatch",
+      "path": "crates/trust-runtime/src/host/bundle_builder/tests.rs"
+    },
+    {
+      "assertions": [
+        {
+          "behavior_label": "LEGACY_SOURCES_ONLY_REJECTED",
+          "disposition": "oracle_bound",
+          "expression": "resolve_sources_root (& root , None) . expect_err (\"legacy sources should fail\")",
+          "function": "resolve_sources_root_rejects_legacy_sources_directory",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "method:expect_err"
+        },
+        {
+          "behavior_label": "LEGACY_SOURCES_ONLY_REJECTED",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (message . contains (\"missing src/ directory\"))",
+          "function": "resolve_sources_root_rejects_legacy_sources_directory",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "macro:assert"
+        },
+        {
+          "behavior_label": "LEGACY_SOURCES_ONLY_REJECTED",
+          "disposition": "setup_or_precondition",
+          "expression": "SystemTime :: now () . duration_since (UNIX_EPOCH) . unwrap ()",
+          "function": "temp_dir",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "method:unwrap"
+        },
+        {
+          "behavior_label": "LEGACY_SOURCES_ONLY_REJECTED",
+          "disposition": "setup_or_precondition",
+          "expression": "fs :: create_dir_all (& dir) . expect (\"create temp dir\")",
+          "function": "temp_dir",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "method:expect"
+        },
+        {
+          "behavior_label": "LEGACY_SOURCES_ONLY_REJECTED",
+          "disposition": "setup_or_precondition",
+          "expression": "fs :: create_dir_all (parent) . expect (\"create parent dir\")",
+          "function": "write_file",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "method:expect"
+        },
+        {
+          "behavior_label": "LEGACY_SOURCES_ONLY_REJECTED",
+          "disposition": "setup_or_precondition",
+          "expression": "fs :: write (path , content) . expect (\"write file\")",
+          "function": "write_file",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "method:expect"
+        }
+      ],
+      "name": "resolve_sources_root_rejects_legacy_sources_directory",
+      "path": "crates/trust-runtime/src/host/bundle_builder/tests.rs"
+    },
+    {
+      "assertions": [
+        {
+          "behavior_label": "MERGED_CROSS_FILE_SOURCE_COMPILE",
+          "disposition": "oracle_bound",
+          "expression": "build_program_stbc (& root , None) . expect (\"build should pass\")",
+          "function": "build_accepts_cross_file_root_global_struct_field_access",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "method:expect"
+        },
+        {
+          "behavior_label": "MERGED_CROSS_FILE_SOURCE_COMPILE",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (report . program_path . exists ())",
+          "function": "build_accepts_cross_file_root_global_struct_field_access",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "macro:assert"
+        },
+        {
+          "behavior_label": "MERGED_CROSS_FILE_SOURCE_COMPILE",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (report . sources . iter () . any (| path | path . ends_with (\"01_types.st\")))",
+          "function": "build_accepts_cross_file_root_global_struct_field_access",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "macro:assert"
+        },
+        {
+          "behavior_label": "MERGED_CROSS_FILE_SOURCE_COMPILE",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (report . sources . iter () . any (| path | path . ends_with (\"02_globals.st\")))",
+          "function": "build_accepts_cross_file_root_global_struct_field_access",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "macro:assert"
+        },
+        {
+          "behavior_label": "MERGED_CROSS_FILE_SOURCE_COMPILE",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (report . sources . iter () . any (| path | path . ends_with (\"main.st\")))",
+          "function": "build_accepts_cross_file_root_global_struct_field_access",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "macro:assert"
+        },
+        {
+          "behavior_label": "MERGED_CROSS_FILE_SOURCE_COMPILE",
+          "disposition": "setup_or_precondition",
+          "expression": "SystemTime :: now () . duration_since (UNIX_EPOCH) . unwrap ()",
+          "function": "temp_dir",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "method:unwrap"
+        },
+        {
+          "behavior_label": "MERGED_CROSS_FILE_SOURCE_COMPILE",
+          "disposition": "setup_or_precondition",
+          "expression": "fs :: create_dir_all (& dir) . expect (\"create temp dir\")",
+          "function": "temp_dir",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "method:expect"
+        },
+        {
+          "behavior_label": "MERGED_CROSS_FILE_SOURCE_COMPILE",
+          "disposition": "setup_or_precondition",
+          "expression": "fs :: create_dir_all (parent) . expect (\"create parent dir\")",
+          "function": "write_file",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "method:expect"
+        },
+        {
+          "behavior_label": "MERGED_CROSS_FILE_SOURCE_COMPILE",
+          "disposition": "setup_or_precondition",
+          "expression": "fs :: write (path , content) . expect (\"write file\")",
+          "function": "write_file",
+          "invariant_id": "RT_BUILD_COMMAND_001",
+          "kind": "method:expect"
+        }
+      ],
+      "name": "build_accepts_cross_file_root_global_struct_field_access",
+      "path": "crates/trust-runtime/src/host/bundle_builder/tests.rs"
+    }
+  ]
+}

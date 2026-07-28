@@ -546,7 +546,7 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
         )
         self.assertEqual(("--lib",), bundle_builder.cargo_target_args)
         self.assertEqual(
-            "host::bundle_builder::tests::",
+            "bundle_builder::tests::",
             bundle_builder.test_prefix,
         )
         safety = get_target_profile(

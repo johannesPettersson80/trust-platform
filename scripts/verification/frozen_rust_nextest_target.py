@@ -350,7 +350,7 @@ RUNTIME_REMAINING_UNIT_PREFIXES: Mapping[str, str] = {
         "bytecode::validate::resource_limits::tests::"
     ),
     "crates/trust-runtime/src/host/bundle_builder/tests.rs": (
-        "host::bundle_builder::tests::"
+        "bundle_builder::tests::"
     ),
     "crates/trust-runtime/src/host/eval/expr/call/tests.rs": (
         "eval::expr::call::tests::"
