@@ -53,6 +53,29 @@ class RuntimeCloudBehaviorCampaignTests(unittest.TestCase):
                 all("test(=" in term for term in group["exact_terms"])
             )
 
+    def test_split_web_integration_tests_use_their_module_names(self) -> None:
+        selected = {
+            test_id: full_name
+            for group in self.plan["groups"]
+            for full_name, test_id in group["tests_by_full_name"].items()
+        }
+        expected = {
+            "TEST_RUNTIME_CLOUD_CONFIG_AGENT_RECONCILES_DESIRED_REPORTED_META_AND_STATUS_001": (
+                "web_io_config_integration_part_08::"
+                "runtime_cloud_config_agent_reconciles_desired_reported_meta_and_status"
+            ),
+            "TEST_RUNTIME_CLOUD_PREFLIGHT_ALLOWS_CROSS_SITE_CFG_APPLY_WITH_ALLOWLIST_001": (
+                "web_io_config_integration_part_14::"
+                "runtime_cloud_preflight_allows_cross_site_cfg_apply_with_allowlist"
+            ),
+            "TEST_RUNTIME_CLOUD_PREFLIGHT_DEV_ALLOWS_CROSS_SITE_CFG_APPLY_WITHOUT_ALLOWLIST_001": (
+                "web_io_config_integration_part_14::"
+                "runtime_cloud_preflight_dev_allows_cross_site_cfg_apply_without_allowlist"
+            ),
+        }
+        for test_id, full_name in expected.items():
+            self.assertEqual(full_name, selected[test_id])
+
 
 if __name__ == "__main__":
     unittest.main()

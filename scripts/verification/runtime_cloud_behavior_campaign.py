@@ -29,6 +29,20 @@ DEFAULT_RAW_DIR = Path(
 DEFAULT_CAMPAIGN_OUT = Path(
     "target/gate-artifacts/verification/p18-runtime-cloud-23/campaign.json"
 )
+EXACT_FULL_NAME_OVERRIDES = {
+    "TEST_RUNTIME_CLOUD_CONFIG_AGENT_RECONCILES_DESIRED_REPORTED_META_AND_STATUS_001": (
+        "web_io_config_integration_part_08::"
+        "runtime_cloud_config_agent_reconciles_desired_reported_meta_and_status"
+    ),
+    "TEST_RUNTIME_CLOUD_PREFLIGHT_ALLOWS_CROSS_SITE_CFG_APPLY_WITH_ALLOWLIST_001": (
+        "web_io_config_integration_part_14::"
+        "runtime_cloud_preflight_allows_cross_site_cfg_apply_with_allowlist"
+    ),
+    "TEST_RUNTIME_CLOUD_PREFLIGHT_DEV_ALLOWS_CROSS_SITE_CFG_APPLY_WITHOUT_ALLOWLIST_001": (
+        "web_io_config_integration_part_14::"
+        "runtime_cloud_preflight_dev_allows_cross_site_cfg_apply_without_allowlist"
+    ),
+}
 
 
 def build_campaign_plan(
@@ -49,6 +63,7 @@ def build_campaign_plan(
         assignment=assignment,
         basis="p18_runtime_cloud_exact_behavior_assignment_23",
         group_prefix="RUNTIME_CLOUD_23",
+        full_name_overrides=EXACT_FULL_NAME_OVERRIDES,
     )
 
 
