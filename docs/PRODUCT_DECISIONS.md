@@ -908,7 +908,9 @@ IEC or PLCopen deviation log merely because truST owns the behavior.
     already running, becomes eligible at the next matching statement boundary.
     It does not retroactively stop work completed before installation.
   - After continue, an unchanged breakpoint remains eligible on later scans
-    until it is cleared or filtered by its condition or hit-count rule.
+    until it is cleared or filtered by its condition or hit-count rule. One
+    breakpoint identity emits at most one stop per scan even when multiple VM
+    debug-map entries overlap its source range.
 - Supersedes:
   - Any interpretation that breakpoints are frozen at launch or become
     one-shot merely because execution continued after a stop.

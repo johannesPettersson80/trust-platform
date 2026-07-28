@@ -46,12 +46,13 @@ end note
 
 runner -> runtime : execute_cycle()
 activate runtime
+runtime -> control : begin_cycle()\nclear stopped breakpoint identities
 
 loop for each statement
     runtime -> hook : on_statement(location, call_depth)
     activate hook
 
-    hook -> hook : check step condition
+    hook -> hook : match breakpoint identity once per scan\nthen check step condition
     note right
         if step.started &&
            call_depth <= target_depth

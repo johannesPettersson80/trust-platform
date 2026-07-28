@@ -58,6 +58,7 @@ struct DebugState {
     target_thread: Option<u32>,
     breakpoints: Vec<DebugBreakpoint>,
     breakpoint_generation: HashMap<u32, u64>,
+    breakpoint_stops_this_cycle: HashSet<BreakpointCycleKey>,
     frame_locations: HashMap<FrameId, SourceLocation>,
     logs: Vec<DebugLog>,
     snapshot: Option<DebugSnapshot>,

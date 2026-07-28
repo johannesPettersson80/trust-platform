@@ -49,7 +49,7 @@ oracle_ref = "SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"
 outcome = "accept_value"
 no_partial_apply = false
 delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
-rationale = "After continue, an unchanged breakpoint remains eligible when its statement executes in later scans until it is cleared or filtered."
+rationale = "After continue, an unchanged breakpoint remains eligible in later scans until cleared or filtered, while one breakpoint identity emits at most one stop per scan even if multiple VM debug-map entries overlap its source range."
 
 [[behavior]]
 partition = { equals = "LIVE_BREAKPOINT_MUTATION" }

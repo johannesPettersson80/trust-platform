@@ -205,9 +205,11 @@ statement start, and a breakpoint hit pauses before the statement, emits one
 after an explicit continue.
 
 After continue, an unchanged breakpoint remains eligible when its statement is
-executed in a later scan. A breakpoint installed after launch or while cyclic
-execution is running becomes eligible at the next matching statement boundary;
-execution completed before installation remains unstopped.
+executed in a later scan, but one breakpoint identity emits at most one stop per
+scan even when several VM debug-map entries overlap its source range. A
+breakpoint installed after launch or while cyclic execution is running becomes
+eligible at the next matching statement boundary; execution completed before
+installation remains unstopped.
 
 Step In stops at the next executed statement. Step Over ignores deeper frames
 and stops at the next statement at the starting frame depth. Step Out ignores

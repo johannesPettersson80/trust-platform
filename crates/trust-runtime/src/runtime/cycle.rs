@@ -22,6 +22,7 @@ impl Runtime {
         let cycle_timer = self.metrics.start_timer();
         let debug = self.debug.clone();
         if let Some(debug) = debug.as_ref() {
+            debug.begin_cycle();
             if let Err(err) = self.apply_pending_debug_writes(debug) {
                 return Err(self.record_fault(err));
             }

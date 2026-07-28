@@ -237,3 +237,11 @@ Issue #51 init benchmark baseline evidence (2026-04-28):
   `verification-code-spec-coverage.puml`, prove zero false accepted mappings on
   a hidden-ground-truth shard, and retain final whole-repository execution for
   the frozen Phase 18 candidate.
+- [x] `ARCH-DEBUG-01` Keep cyclic breakpoint-stop suppression owned by
+  `DebugControl`: `Runtime::execute_cycle` opens the scan boundary,
+  `DebugState` retains exact breakpoint identities already stopped in that
+  scan, and `matches_breakpoint` suppresses only repeat stops for the same
+  identity while re-arming it on the next scan. Evidence: the focused
+  identity-scope unit regression and the six debugger lifecycle integration
+  tests pass on `trust-builder`; `debug-architecture.puml` and
+  `debug-step-sequence.puml` record the execution flow.

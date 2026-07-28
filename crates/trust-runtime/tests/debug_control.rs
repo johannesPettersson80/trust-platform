@@ -314,8 +314,15 @@ fn frame_location_tracks_current_frame() {
 #[test]
 fn watch_changes_reported_between_stops() {
     let control = DebugControl::new();
-    let location = SourceLocation::new(0, 0, 1);
-    control.set_breakpoints_for_file(0, vec![DebugBreakpoint::new(location)]);
+    let first_location = SourceLocation::new(0, 0, 1);
+    let second_location = SourceLocation::new(0, 2, 3);
+    control.set_breakpoints_for_file(
+        0,
+        vec![
+            DebugBreakpoint::new(first_location),
+            DebugBreakpoint::new(second_location),
+        ],
+    );
     let (stop_tx, stop_rx) = channel();
     control.set_stop_sender(stop_tx);
 
@@ -331,9 +338,9 @@ fn watch_changes_reported_between_stops() {
         storage.set_local("x", Value::DInt(1));
         let registry = TypeRegistry::new();
         let mut ctx = make_debug_context(&mut storage, &registry);
-        hook.on_statement_with_context(&mut ctx, Some(&location), 0);
+        hook.on_statement_with_context(&mut ctx, Some(&first_location), 0);
         ctx.storage.set_local("x", Value::DInt(2));
-        hook.on_statement_with_context(&mut ctx, Some(&location), 0);
+        hook.on_statement_with_context(&mut ctx, Some(&second_location), 0);
     });
 
     stop_rx.recv_timeout(Duration::from_millis(250)).unwrap();

@@ -36,10 +36,13 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   fail-closed import diagnostics, migration and CODESYS metadata, reviewed
   vendor shims, and Allen-Bradley/Siemens adapter artifact contracts.
 
-Target release: `v0.24.57`
+Target release: `v0.24.58`
 
 ### Fixed
 
+- Debug breakpoints now emit at most one stop per breakpoint identity within a
+  runtime scan, preventing overlapping debug-map entries from repeatedly
+  stopping the same scan while preserving breakpoint re-hits on later scans.
 - Runtime bytecode documentation now matches the executable STBC 1.1 opcode
   set and specifies source-to-section, resource/process-image, variable
   metadata, and validation contracts used by the existing encoder and runtime.
