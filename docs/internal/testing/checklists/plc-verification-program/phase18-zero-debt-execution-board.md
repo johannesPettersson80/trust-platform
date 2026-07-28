@@ -944,6 +944,28 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   remain open. Focused evidence is recorded in
   `docs/internal/testing/evidence/plc-verification-program/2026-07-28-p18-host-runtime-observability.md`.
   <!-- generated:runtime-host-observability:end -->
+  <!-- generated:runtime-boundary-fail-closed:start -->
+
+  Runtime boundary fail-closed catalog progress (2026-07-28): twelve existing
+  resolver, harness, initialization, debug-write, and reference-helper tests
+  now terminate in five existing runtime and VM invariants. IEC 61131-3 Ed.3
+  §6.6.6.5.1 supplies the normative initial-NULL authority for the
+  interface-typed variable; candidate reporting, stable harness errors,
+  fallback-creation policy, queued-debug fault visibility, and helper
+  representation remain explicit truST product contracts, not IEC decisions
+  or deviations. A fail-closed per-slice generator binds all 45 assertions:
+  36 are direct oracles, nine are setup or preconditions, and none is
+  unclassified or non-oracle. The focused builder trace observed 12/12
+  selected tests, and all four catalog transactions passed dry-run and atomic
+  apply. The frozen metadata report now records 4,393 live tests, 3,744
+  `catalog_mapped`, 649 `reviewed_nonmapping`, 142 missing-specification
+  authority tests, 507 separately owned nonmapping tests, zero confirmed
+  missing tests, and 207 specified gap-open cells. `VERIF-P18-003`, the
+  repository-wide planner metadata baseline, assertion reachability, mutation
+  sensitivity, remaining semantic domains, and the final broad gates remain
+  open. Focused evidence is recorded in
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-28-p18-runtime-boundary-fail-closed.md`.
+  <!-- generated:runtime-boundary-fail-closed:end -->
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device

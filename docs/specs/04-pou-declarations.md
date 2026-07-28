@@ -476,6 +476,7 @@ Controller.Start();            // Call through interface
 5. A class can implement multiple interfaces
 6. Interface variables are references and shall be assigned before use; they shall not be VAR_IN_OUT
 7. Interface variables can be assigned NULL (default) and compared for equality
+   (IEC 61131-3 Ed.3 §6.6.6.5.1)
 8. EXTENDS must reference INTERFACE types; cyclic interface inheritance is invalid (Table 51, IEC 61131-3 Ed.3 §6.6.6.3)
 
 ## 7. METHOD Declaration (Section 6.6.1.5)

@@ -6,6 +6,28 @@ in `IEC_DECISIONS.md`; PLCopen profile decisions belong in
 `PLCOPEN_DECISIONS.md`. Product behavior recorded here MUST NOT be copied to an
 IEC or PLCopen deviation log merely because truST owns the behavior.
 
+## 2026-07-28 - Runtime symbolic boundary and queued-write failure authority
+
+- Area: Runtime test harness, storage, and debug mutation
+- Decision:
+  - In-process symbolic reads accept reviewed indexed and dotted paths, reject
+    unknown and ambiguous unqualified paths visibly, and distinguish a
+    declared null reference value from a missing name.
+  - Harness input and direct-binding typos fail before fallback global or
+    binding creation; a following snapshot retains the declared target and an
+    explicit unresolved result for the typo.
+  - Queued debug global and lvalue writes resolve existing targets at the cycle
+    boundary. An unresolved target faults the cycle without creating a global,
+    and the reviewed lvalue route publishes a matching runtime fault event.
+- Authority:
+  - `docs/specs/10-runtime-semantics.md`
+- Reason:
+  - Error codes, fallback-creation policy, candidate reporting, harness
+    snapshots, and runtime fault events are truST host-product behavior outside
+    IEC 61131-3. IEC 61131-3 Ed.3 §6.6.6.5.1 separately governs the initial
+    NULL value of an uninitialized interface variable; that normative rule is
+    implemented here without an IEC decision or deviation.
+
 ## 2026-07-28 - Integer initializer diagnostic identity
 
 - Area: HIR variable initializer diagnostics

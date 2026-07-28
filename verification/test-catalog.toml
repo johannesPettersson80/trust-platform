@@ -115513,3 +115513,407 @@ mapping_assertion_review_digest = "sha256:e29fb21e145eaa27e7cdac0c542eaa0a1f407c
 mapping_assertion_source_digests = { "crates/trust-runtime/tests/api_smoke.rs" = "sha256:8c6396c6cf4ee285eaea63c89d3fe487eed826fa58ee01ba93227a8b655e5170" }
 mapping_behavior_refs = ["RT_EXECUTION_BACKEND_SELECTION_001#behavior:3", "RT_EXECUTION_BACKEND_SELECTION_001#behavior:4"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_237287639D3028A4B38A"
+subject_kind = "generated_test"
+discovery_id = "DISC_237287639D3028A4B38A"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/src/value/reference.rs"
+name = "common_ref_path_helpers_preserve_segment_order"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=value::reference::tests::common_ref_path_helpers_preserve_segment_order)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_CORE_VALUE_PROGRAM_MODEL_001"]
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+oracle_refs = ["SPEC_RUNTIME_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"]
+expected_result = "Valid partial reads and writes preserve sibling bits, and valid reference paths preserve segment and suffix identity."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_237287639D3028A4B38A.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_237287639D3028A4B38A_CF487BDC06C9"
+mapping_proposal_digest = "sha256:cf487bdc06c94952859d7b1de13c83e6abe720fa12dc97191a57c2fb73a20c6e"
+mapping_decision_id = "MAP_DEC_FC9594F89E61538A7E73B03E"
+mapping_reviewed_source_digest = "sha256:d62deb5dd6b9137e2910a22a640cd87ba48a487926004aab5305b002ebb73bdd"
+mapping_assertion_review_digest = "sha256:2792e7ddf9bee5502c1cc879abcedb4600f4e387e72b18125db7b597fbde8269"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/value/reference.rs" = "sha256:d62deb5dd6b9137e2910a22a640cd87ba48a487926004aab5305b002ebb73bdd" }
+mapping_behavior_refs = ["RT_CORE_VALUE_PROGRAM_MODEL_001#behavior:10"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_A79C89EAF1D56A37DADD"
+subject_kind = "generated_test"
+discovery_id = "DISC_A79C89EAF1D56A37DADD"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/src/value/reference.rs"
+name = "checked_array_offset_preserves_bounds_error"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=value::reference::tests::checked_array_offset_preserves_bounds_error)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_REFERENCE_RESOLUTION_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#vm-reference-resolution"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001#vm-reference-resolution"]
+expected_result = "Null, missing, incompatible, and out-of-range reference resolution faults without changing storage."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_A79C89EAF1D56A37DADD.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_A79C89EAF1D56A37DADD_3C6DCBAA4F0D"
+mapping_proposal_digest = "sha256:3c6dcbaa4f0db5c6791070ccd33492cf322ad11f2427ad7a0bd964d9d513827f"
+mapping_decision_id = "MAP_DEC_E913F17D9791651781936902"
+mapping_reviewed_source_digest = "sha256:d62deb5dd6b9137e2910a22a640cd87ba48a487926004aab5305b002ebb73bdd"
+mapping_assertion_review_digest = "sha256:aff4847780fdc294966f285ebaea72dff2d5aed48be98c5a439dc8802b9ddf13"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/value/reference.rs" = "sha256:d62deb5dd6b9137e2910a22a640cd87ba48a487926004aab5305b002ebb73bdd" }
+mapping_behavior_refs = ["VM_REFERENCE_RESOLUTION_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_C59152675AB1C2D5DD96"
+subject_kind = "generated_test"
+discovery_id = "DISC_C59152675AB1C2D5DD96"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/src/value/reference.rs"
+name = "array_offset_handles_extreme_bounds_without_overflow"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=value::reference::tests::array_offset_handles_extreme_bounds_without_overflow)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_CORE_VALUE_PROGRAM_MODEL_001"]
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+oracle_refs = ["SPEC_RUNTIME_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"]
+expected_result = "A representable inclusive row-major offset is returned exactly, including the supported target-width boundary."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_C59152675AB1C2D5DD96.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_C59152675AB1C2D5DD96_97014F2A6A8C"
+mapping_proposal_digest = "sha256:97014f2a6a8c2c137be231457e087155bfb6894bb542c053ffc469995fe34a4c"
+mapping_decision_id = "MAP_DEC_F1BD28B98600851D4A540015"
+mapping_reviewed_source_digest = "sha256:d62deb5dd6b9137e2910a22a640cd87ba48a487926004aab5305b002ebb73bdd"
+mapping_assertion_review_digest = "sha256:9ec3af14940048d560c5e6c20da18378f6258021fbc88384c276ba7a28cf4ed9"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/value/reference.rs" = "sha256:d62deb5dd6b9137e2910a22a640cd87ba48a487926004aab5305b002ebb73bdd" }
+mapping_behavior_refs = ["RT_CORE_VALUE_PROGRAM_MODEL_001#behavior:12"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_06771ADC38B4CC93B5E3"
+subject_kind = "generated_test"
+discovery_id = "DISC_06771ADC38B4CC93B5E3"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/boundary_resolver.rs"
+name = "resolver_reports_ambiguous_unqualified_program_var"
+command = "cargo nextest run -p trust-runtime --test boundary_resolver --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::boundary_resolver) & test(=resolver_reports_ambiguous_unqualified_program_var)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_HARNESS_BOUNDARY_IO_001"]
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"
+oracle_refs = ["SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"]
+expected_result = "Out-of-range and missing paths reject with their reviewed codes, while an ambiguous unqualified name reports both reviewed qualified candidates."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_06771ADC38B4CC93B5E3.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_06771ADC38B4CC93B5E3_FC379B702B75"
+mapping_proposal_digest = "sha256:fc379b702b75e43ab8c77c3527873ec0ef94934c844a96fcc44a8ba4370b38a2"
+mapping_decision_id = "MAP_DEC_951612365DA8D4F1D5D4486F"
+mapping_reviewed_source_digest = "sha256:968b6fea5667b2065c4e3ec92e1ef8ed411118bc9c45b009fcc997fc8fa2fbd1"
+mapping_assertion_review_digest = "sha256:054a75430d421f1f7de60fe82a96731366260ac3e950257ca527c795421c7b1d"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/boundary_resolver.rs" = "sha256:968b6fea5667b2065c4e3ec92e1ef8ed411118bc9c45b009fcc997fc8fa2fbd1" }
+mapping_behavior_refs = ["RT_HARNESS_BOUNDARY_IO_001#behavior:8"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_243DD1FFC684D3B7D8EF"
+subject_kind = "generated_test"
+discovery_id = "DISC_243DD1FFC684D3B7D8EF"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/boundary_resolver.rs"
+name = "resolver_reports_unknown_path_without_null_fallback"
+command = "cargo nextest run -p trust-runtime --test boundary_resolver --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::boundary_resolver) & test(=resolver_reports_unknown_path_without_null_fallback)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_HARNESS_BOUNDARY_IO_001"]
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"
+oracle_refs = ["SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"]
+expected_result = "Out-of-range and missing paths reject with their reviewed codes, while an ambiguous unqualified name reports both reviewed qualified candidates."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_243DD1FFC684D3B7D8EF.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_243DD1FFC684D3B7D8EF_639D7398455F"
+mapping_proposal_digest = "sha256:639d7398455f4aa3fbc56f760ca7fb52254e81c22e9055312abf563df38d47de"
+mapping_decision_id = "MAP_DEC_3A0FB6E8D413FDB7CF66108C"
+mapping_reviewed_source_digest = "sha256:968b6fea5667b2065c4e3ec92e1ef8ed411118bc9c45b009fcc997fc8fa2fbd1"
+mapping_assertion_review_digest = "sha256:afb8eee6e43b52dc508350b4bcbf371336cf5accf9bf111bcddecd37254d17a9"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/boundary_resolver.rs" = "sha256:968b6fea5667b2065c4e3ec92e1ef8ed411118bc9c45b009fcc997fc8fa2fbd1" }
+mapping_behavior_refs = ["RT_HARNESS_BOUNDARY_IO_001#behavior:8"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_39CADCE0EA6E2CCADFB3"
+subject_kind = "generated_test"
+discovery_id = "DISC_39CADCE0EA6E2CCADFB3"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/boundary_resolver.rs"
+name = "resolver_reads_indexed_and_dotted_program_paths"
+command = "cargo nextest run -p trust-runtime --test boundary_resolver --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::boundary_resolver) & test(=resolver_reads_indexed_and_dotted_program_paths)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_HARNESS_BOUNDARY_IO_001"]
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"
+oracle_refs = ["SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"]
+expected_result = "The reviewed symbolic resolver reads both indexed array elements and a dotted function-block field with their exact typed values."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_39CADCE0EA6E2CCADFB3.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_39CADCE0EA6E2CCADFB3_7EBCA951C4CD"
+mapping_proposal_digest = "sha256:7ebca951c4cda8edc4c6f6275521975e29330a672431be2fe550381014eec15d"
+mapping_decision_id = "MAP_DEC_2EEEBAB72F3B6F8D6C276BA8"
+mapping_reviewed_source_digest = "sha256:968b6fea5667b2065c4e3ec92e1ef8ed411118bc9c45b009fcc997fc8fa2fbd1"
+mapping_assertion_review_digest = "sha256:e65841444a2c9395df9cd031a60f66c95d71791d42c880ee5d23712c91606c1f"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/boundary_resolver.rs" = "sha256:968b6fea5667b2065c4e3ec92e1ef8ed411118bc9c45b009fcc997fc8fa2fbd1" }
+mapping_behavior_refs = ["RT_HARNESS_BOUNDARY_IO_001#behavior:6"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_05CC41C865D947DD859F"
+subject_kind = "generated_test"
+discovery_id = "DISC_05CC41C865D947DD859F"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/harness_fail_closed.rs"
+name = "declared_null_like_values_are_not_missing_name_errors"
+command = "cargo nextest run -p trust-runtime --test harness_fail_closed --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::harness_fail_closed) & test(=declared_null_like_values_are_not_missing_name_errors)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_HARNESS_BOUNDARY_IO_001"]
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"
+oracle_refs = ["SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"]
+expected_result = "An uninitialized declared REF_TO variable is returned as Reference(None), not classified as an unresolved name."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_05CC41C865D947DD859F.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_05CC41C865D947DD859F_91AF79DD8BD2"
+mapping_proposal_digest = "sha256:91af79dd8bd2968269907c188fa4a962e21dc9ec00748dcc0d345dc977b2d1cb"
+mapping_decision_id = "MAP_DEC_875A7514598EF4DF9EFBB727"
+mapping_reviewed_source_digest = "sha256:8bcc981d9f55c88cd1b252c500b72948e35cbd1ded81b60326b097566e03565d"
+mapping_assertion_review_digest = "sha256:b8059f6133b6fd5914fe6ec3ed608a88eee9c7313da240fbaf7b909405e56c0d"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/harness_fail_closed.rs" = "sha256:8bcc981d9f55c88cd1b252c500b72948e35cbd1ded81b60326b097566e03565d" }
+mapping_behavior_refs = ["RT_HARNESS_BOUNDARY_IO_001#behavior:7"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_2F780CF67C0C68670372"
+subject_kind = "generated_test"
+discovery_id = "DISC_2F780CF67C0C68670372"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/harness_fail_closed.rs"
+name = "bind_direct_typo_returns_boundary_error_not_silent_binding"
+command = "cargo nextest run -p trust-runtime --test harness_fail_closed --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::harness_fail_closed) & test(=bind_direct_typo_returns_boundary_error_not_silent_binding)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_HARNESS_BOUNDARY_IO_001"]
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"
+oracle_refs = ["SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"]
+expected_result = "Misspelled symbolic input and direct-binding targets reject with stable codes, create no fallback target, and leave the declared value readable."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_2F780CF67C0C68670372.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_2F780CF67C0C68670372_94D0908F89F7"
+mapping_proposal_digest = "sha256:94d0908f89f7a381534db9bcef269355618c31755a2798ec1dd691c763b7bb53"
+mapping_decision_id = "MAP_DEC_857B231B0F7C422CD9DA6E90"
+mapping_reviewed_source_digest = "sha256:8bcc981d9f55c88cd1b252c500b72948e35cbd1ded81b60326b097566e03565d"
+mapping_assertion_review_digest = "sha256:b84deee1730592838d214bb27731d5f0de48e616d0900e0b1f753855f4bbdc79"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/harness_fail_closed.rs" = "sha256:8bcc981d9f55c88cd1b252c500b72948e35cbd1ded81b60326b097566e03565d" }
+mapping_behavior_refs = ["RT_HARNESS_BOUNDARY_IO_001#behavior:9"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_EDBEFF5DC3190173D71B"
+subject_kind = "generated_test"
+discovery_id = "DISC_EDBEFF5DC3190173D71B"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/harness_fail_closed.rs"
+name = "set_input_typo_returns_boundary_error_not_silent_global_create"
+command = "cargo nextest run -p trust-runtime --test harness_fail_closed --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::harness_fail_closed) & test(=set_input_typo_returns_boundary_error_not_silent_global_create)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_HARNESS_BOUNDARY_IO_001"]
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"
+oracle_refs = ["SPEC_RUNTIME_SEMANTICS_001#11-2-harness-automation-json-line-contract"]
+expected_result = "Misspelled symbolic input and direct-binding targets reject with stable codes, create no fallback target, and leave the declared value readable."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_EDBEFF5DC3190173D71B.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_EDBEFF5DC3190173D71B_E03571ED52AB"
+mapping_proposal_digest = "sha256:e03571ed52ab330691e2174f926a70b9890fe4f6ef861cd23e9419473e8db37c"
+mapping_decision_id = "MAP_DEC_CFDA4A9F34D113762E655B84"
+mapping_reviewed_source_digest = "sha256:8bcc981d9f55c88cd1b252c500b72948e35cbd1ded81b60326b097566e03565d"
+mapping_assertion_review_digest = "sha256:5912774238435ae124b555f430443e28fdb9cc13f22431c98440f6d77208d526"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/harness_fail_closed.rs" = "sha256:8bcc981d9f55c88cd1b252c500b72948e35cbd1ded81b60326b097566e03565d" }
+mapping_behavior_refs = ["RT_HARNESS_BOUNDARY_IO_001#behavior:9"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_585BAF2FD96F5CBFED48"
+subject_kind = "generated_test"
+discovery_id = "DISC_585BAF2FD96F5CBFED48"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/init_fail_closed.rs"
+name = "interface_param_defaults_to_null_reference"
+command = "cargo nextest run -p trust-runtime --test init_fail_closed --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::init_fail_closed) & test(=interface_param_defaults_to_null_reference)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_HOST_POU_EXECUTION_001"]
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#76-host-stage-pou-evaluation-contract"
+oracle_refs = ["SPEC_RUNTIME_SEMANTICS_001#76-host-stage-pou-evaluation-contract"]
+expected_result = "Omitted interface inputs, uninitialized local interface variables, and unassigned interface returns materialize as the explicit runtime Null value."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_585BAF2FD96F5CBFED48.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_585BAF2FD96F5CBFED48_0DF6F9A138B4"
+mapping_proposal_digest = "sha256:0df6f9a138b41aa6ea0168e92d2da35fb0c403ecdb931b0817781165c7d87e59"
+mapping_decision_id = "MAP_DEC_B61F8CE4E09D87B430117883"
+mapping_reviewed_source_digest = "sha256:8d35fd16d48db1c15f731a023c78bbcccb24ab582dfc17b8bec4b5c3fd0f5850"
+mapping_assertion_review_digest = "sha256:88778db74fff99bc17a70335e606dfe99a9ff82dc8abbd1d818fd36a5710a076"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/init_fail_closed.rs" = "sha256:8d35fd16d48db1c15f731a023c78bbcccb24ab582dfc17b8bec4b5c3fd0f5850" }
+mapping_behavior_refs = ["RT_HOST_POU_EXECUTION_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_5CB0738F4F5DD699DBEF"
+subject_kind = "generated_test"
+discovery_id = "DISC_5CB0738F4F5DD699DBEF"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/init_fail_closed.rs"
+name = "debug_queued_global_write_unknown_target_fails"
+command = "cargo nextest run -p trust-runtime --test init_fail_closed --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::init_fail_closed) & test(=debug_queued_global_write_unknown_target_fails)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_VARIABLE_STORAGE_REFERENCE_001"]
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#321-variable-storage-reference-and-layout-contract"
+oracle_refs = ["SPEC_RUNTIME_SEMANTICS_001#321-variable-storage-reference-and-layout-contract"]
+expected_result = "Queued debug global and lvalue writes to an unresolved target fault the cycle without creating a global, and the reviewed lvalue route emits a matching runtime fault event."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_5CB0738F4F5DD699DBEF.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_5CB0738F4F5DD699DBEF_A2C2530A0B51"
+mapping_proposal_digest = "sha256:a2c2530a0b51b6aee5117508fcd0a7c18d44d6181269d753eaa2add343942b27"
+mapping_decision_id = "MAP_DEC_DE4180880F87D38B0F862138"
+mapping_reviewed_source_digest = "sha256:8d35fd16d48db1c15f731a023c78bbcccb24ab582dfc17b8bec4b5c3fd0f5850"
+mapping_assertion_review_digest = "sha256:e472ad959ab3dde6bf266cd565a4e8e0161d8695b7d7381c9b368f64b6663649"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/init_fail_closed.rs" = "sha256:8d35fd16d48db1c15f731a023c78bbcccb24ab582dfc17b8bec4b5c3fd0f5850" }
+mapping_behavior_refs = ["RT_VARIABLE_STORAGE_REFERENCE_001#behavior:8"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_6EB69C59453ED035612E"
+subject_kind = "generated_test"
+discovery_id = "DISC_6EB69C59453ED035612E"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/init_fail_closed.rs"
+name = "debug_queued_lvalue_write_failure_is_observable"
+command = "cargo nextest run -p trust-runtime --test init_fail_closed --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::init_fail_closed) & test(=debug_queued_lvalue_write_failure_is_observable)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_VARIABLE_STORAGE_REFERENCE_001"]
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#321-variable-storage-reference-and-layout-contract"
+oracle_refs = ["SPEC_RUNTIME_SEMANTICS_001#321-variable-storage-reference-and-layout-contract"]
+expected_result = "Queued debug global and lvalue writes to an unresolved target fault the cycle without creating a global, and the reviewed lvalue route emits a matching runtime fault event."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_6EB69C59453ED035612E.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_6EB69C59453ED035612E_7CAE66A12FAC"
+mapping_proposal_digest = "sha256:7cae66a12fac255bde532110004ac2a65f36cf0d3030b1ee8262361d1a85de4f"
+mapping_decision_id = "MAP_DEC_4862D9BC6D73FF6B36AC18D6"
+mapping_reviewed_source_digest = "sha256:8d35fd16d48db1c15f731a023c78bbcccb24ab582dfc17b8bec4b5c3fd0f5850"
+mapping_assertion_review_digest = "sha256:f179909a0122cdbdc68506b25f283064825dc1bc1dd159eb4428299855c52467"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/init_fail_closed.rs" = "sha256:8d35fd16d48db1c15f731a023c78bbcccb24ab582dfc17b8bec4b5c3fd0f5850" }
+mapping_behavior_refs = ["RT_VARIABLE_STORAGE_REFERENCE_001#behavior:8"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]

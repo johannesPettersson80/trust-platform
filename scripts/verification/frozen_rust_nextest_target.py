@@ -321,6 +321,7 @@ RUNTIME_REMAINING_LIB_PROFILE = FrozenRustTargetProfile(
 RUNTIME_REMAINING_INTEGRATION_PATHS = frozenset(
     {
         "crates/trust-runtime/tests/api_smoke.rs",
+        "crates/trust-runtime/tests/boundary_resolver.rs",
         "crates/trust-runtime/tests/bounded_value_semantics.rs",
         "crates/trust-runtime/tests/bytecode_container.rs",
         "crates/trust-runtime/tests/bytecode_decode_resource_bounds.rs",
@@ -342,10 +343,12 @@ RUNTIME_REMAINING_INTEGRATION_PATHS = frozenset(
         "crates/trust-runtime/tests/fb_edges.rs",
         "crates/trust-runtime/tests/fb_timers.rs",
         "crates/trust-runtime/tests/harness.rs",
+        "crates/trust-runtime/tests/harness_fail_closed.rs",
         "crates/trust-runtime/tests/hot_reload.rs",
         "crates/trust-runtime/tests/iec_counters.rs",
         "crates/trust-runtime/tests/iec_examples.rs",
         "crates/trust-runtime/tests/iec_timers.rs",
+        "crates/trust-runtime/tests/init_fail_closed.rs",
         "crates/trust-runtime/tests/openot_telemetry.rs",
         "crates/trust-runtime/tests/platform_std.rs",
         "crates/trust-runtime/tests/plcopen_command.rs",
@@ -389,6 +392,9 @@ RUNTIME_REMAINING_UNIT_PREFIXES: Mapping[str, str] = {
         "historian::tests::"
     ),
     "crates/trust-runtime/src/host/metrics.rs": "metrics::tests::",
+    "crates/trust-runtime/src/value/reference.rs": (
+        "value::reference::tests::"
+    ),
     "crates/trust-runtime/src/host/eval/expr/call/tests.rs": (
         "eval::expr::call::tests::"
     ),

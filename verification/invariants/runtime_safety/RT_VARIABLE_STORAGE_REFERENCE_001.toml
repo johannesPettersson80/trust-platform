@@ -15,7 +15,7 @@ source_refs = [
   "crates/trust-runtime/src/memory",
   "crates/trust-runtime/src/host/helper_eval/storage_lvalue.rs",
 ]
-tests = ["TEST_AUTO_03E1DAE7AB789D0A6E07", "TEST_AUTO_04C4A7BC104AAEA187FF", "TEST_AUTO_0B2EF754DB448B6AD3AB", "TEST_AUTO_30BF7A25E82D62C835F3", "TEST_AUTO_32A8F3A0CAF2ADE8A7D6", "TEST_AUTO_40CA4A0F3E9B495A1A30", "TEST_AUTO_5B2577C9099ED6AC210B", "TEST_AUTO_747F9C39D91F23073B1D", "TEST_AUTO_A122DD61BD08854DA843", "TEST_AUTO_AC10CF406B3B1695588B", "TEST_AUTO_B107BE8F6A6D5BCBE3AE", "TEST_AUTO_BF7E6BB515C5DD73BED7", "TEST_AUTO_BFF56775AA7A39010698", "TEST_AUTO_C1A3069D1C3D57477C15", "TEST_AUTO_C40B82EF2E40FB976CA8", "TEST_AUTO_CE784ABF7B27AE9C4159", "TEST_AUTO_CF68122CFF8B2562AA1D", "TEST_AUTO_D8948B3221BCB14EF064", "TEST_AUTO_DBAC045DFB5C89D47B28", "TEST_AUTO_E9E51ECA704D26D35216", "TEST_AUTO_FA0F9BAEDAA26D0A7E7D", "TEST_AUTO_FDFF5424770C2D53EE41"]
+tests = ["TEST_AUTO_03E1DAE7AB789D0A6E07", "TEST_AUTO_04C4A7BC104AAEA187FF", "TEST_AUTO_0B2EF754DB448B6AD3AB", "TEST_AUTO_30BF7A25E82D62C835F3", "TEST_AUTO_32A8F3A0CAF2ADE8A7D6", "TEST_AUTO_40CA4A0F3E9B495A1A30", "TEST_AUTO_5B2577C9099ED6AC210B", "TEST_AUTO_5CB0738F4F5DD699DBEF", "TEST_AUTO_6EB69C59453ED035612E", "TEST_AUTO_747F9C39D91F23073B1D", "TEST_AUTO_A122DD61BD08854DA843", "TEST_AUTO_AC10CF406B3B1695588B", "TEST_AUTO_B107BE8F6A6D5BCBE3AE", "TEST_AUTO_BF7E6BB515C5DD73BED7", "TEST_AUTO_BFF56775AA7A39010698", "TEST_AUTO_C1A3069D1C3D57477C15", "TEST_AUTO_C40B82EF2E40FB976CA8", "TEST_AUTO_CE784ABF7B27AE9C4159", "TEST_AUTO_CF68122CFF8B2562AA1D", "TEST_AUTO_D8948B3221BCB14EF064", "TEST_AUTO_DBAC045DFB5C89D47B28", "TEST_AUTO_E9E51ECA704D26D35216", "TEST_AUTO_FA0F9BAEDAA26D0A7E7D", "TEST_AUTO_FDFF5424770C2D53EE41"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
@@ -100,6 +100,15 @@ outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "stable_error", status = "not_applicable" }
 rationale = "An unresolved lvalue root returns RuntimeError::UndefinedVariable and creates no fallback global slot."
+
+[[behavior]]
+partition = { equals = "QUEUED_DEBUG_UNKNOWN_TARGET_REJECTION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#321-variable-storage-reference-and-layout-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "fault_visible" }
+rationale = "Queued debug global and lvalue writes to an unresolved target fault the cycle without creating a global, and the reviewed lvalue route emits a matching runtime fault event."
 
 [[coverage.cells]]
 dimension = "happy_path"

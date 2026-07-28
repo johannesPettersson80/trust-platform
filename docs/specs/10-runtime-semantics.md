@@ -610,6 +610,10 @@ contract:
   aggregate target and change only that selected target. If the root name
   cannot be resolved, the write returns `RuntimeError::UndefinedVariable` and
   creates no fallback global slot.
+- A queued debug global or lvalue write uses the same existing-target
+  authority. If its target is unresolved, the following cycle returns an error
+  containing the missing identity and creates no fallback global. The reviewed
+  lvalue route also emits a runtime fault event containing that identity.
 - A nested reference write updates only the selected aggregate path. Shared
   structure values use copy-on-write isolation so a sibling slot that held the
   same pre-write value is unchanged. Array offset calculation is checked before
@@ -1711,6 +1715,23 @@ order and, after exhausting the reviewed bound without a match, panics with
 
 These rules specify the in-process Rust testing API. They do not establish the
 JSON-line transport contract, physical I/O behavior, or wall-clock timing.
+
+The in-process symbolic boundary resolves a unique program variable by its
+unqualified name and resolves indexed array elements and dotted
+function-block fields beneath that variable. If more than one program supplies
+the same unqualified variable name, the read returns `AmbiguousName` with the
+complete reviewed candidate set. A missing name returns `UnresolvedName`; an
+out-of-range reviewed array path returns the stable `wrong_kind` boundary code.
+Neither case is converted to a null-like value. A declared `REF_TO` value that
+is not initialized is different: it is a successful read of
+`Value::Reference(None)`.
+
+`HarnessAutomation::set_input` uses the same symbolic authority. A misspelled
+target returns the stable `unresolved_name` code, creates no fallback global,
+and leaves the declared target readable in the following snapshot while the
+misspelled watch remains an individual unresolved-name result.
+`TestHarness::bind_direct` rejects a misspelled declaration with the stable
+`undeclared_binding` code and does not create a binding.
 
 #### 11.2 Harness automation JSON-line contract
 

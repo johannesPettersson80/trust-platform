@@ -13,8 +13,10 @@ source_refs = [
   "crates/trust-runtime/src/bin/trust-harness.rs",
   "crates/trust-runtime/src/host/harness/harness.rs",
   "crates/trust-runtime/src/host/harness/protocol.rs",
+  "crates/trust-runtime/tests/boundary_resolver.rs",
+  "crates/trust-runtime/tests/harness_fail_closed.rs",
 ]
-tests = ["TEST_AUTO_651A49CDA6DA6C0F24CB", "TEST_AUTO_7175167F66DE6A7A9F78", "TEST_AUTO_7F8703362219E8B48F52", "TEST_AUTO_809C3B3E7FA84C5C1498", "TEST_AUTO_B02D0E3CFEC34E755FC0", "TEST_RUNTIME_HARNESS_ACCESS_DIRECT_IO_001", "TEST_RUNTIME_HARNESS_ERROR_CLASSIFICATION_001", "TEST_RUNTIME_HARNESS_SYMBOLIC_IO_001"]
+tests = ["TEST_AUTO_05CC41C865D947DD859F", "TEST_AUTO_06771ADC38B4CC93B5E3", "TEST_AUTO_243DD1FFC684D3B7D8EF", "TEST_AUTO_2F780CF67C0C68670372", "TEST_AUTO_39CADCE0EA6E2CCADFB3", "TEST_AUTO_651A49CDA6DA6C0F24CB", "TEST_AUTO_7175167F66DE6A7A9F78", "TEST_AUTO_7F8703362219E8B48F52", "TEST_AUTO_809C3B3E7FA84C5C1498", "TEST_AUTO_B02D0E3CFEC34E755FC0", "TEST_AUTO_EDBEFF5DC3190173D71B", "TEST_RUNTIME_HARNESS_ACCESS_DIRECT_IO_001", "TEST_RUNTIME_HARNESS_ERROR_CLASSIFICATION_001", "TEST_RUNTIME_HARNESS_SYMBOLIC_IO_001"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
@@ -82,12 +84,48 @@ no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "expected_delta", diagnostics = "none", status = "not_applicable" }
 rationale = "The in-process harness accepts the reviewed input/output bindings and typed direct input, then returns the copied direct output after one explicit cycle."
 
+[[behavior]]
+partition = { equals = "STRUCTURED_SYMBOLIC_PATH_READ" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#11-1-test-harness"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "The reviewed symbolic resolver reads both indexed array elements and a dotted function-block field with their exact typed values."
+
+[[behavior]]
+partition = { equals = "DECLARED_NULL_REFERENCE_READ" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#11-1-test-harness"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
+rationale = "An uninitialized declared REF_TO variable is returned as Reference(None), not classified as an unresolved name."
+
+[[behavior]]
+partition = { equals = "UNKNOWN_OR_AMBIGUOUS_SYMBOLIC_PATH_REJECTION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#11-1-test-harness"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_applicable" }
+rationale = "Out-of-range and missing paths reject with their reviewed codes, while an ambiguous unqualified name reports both reviewed qualified candidates."
+
+[[behavior]]
+partition = { equals = "TYPO_MUTATION_OR_BIND_REJECTION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#11-1-test-harness"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_applicable" }
+rationale = "Misspelled symbolic input and direct-binding targets reject with stable codes, create no fallback target, and leave the declared value readable."
+
 [[coverage.cells]]
 dimension = "happy_path"
 state = "covered"
-rationale = "Focused integration tests round-trip symbolic, VAR_ACCESS, and direct-address values."
+rationale = "Accepted catalog mappings bind reviewed assertions to scalar, direct-address, structured-path, and declared-null harness behaviors; reachability and mutation proof remain explicit debt."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
 state = "covered"
-rationale = "Focused integration tests distinguish semantic, runtime boundary, and unresolved-name failures."
+rationale = "Accepted catalog mappings bind reviewed assertions to transport, unknown, ambiguous, typo-mutation, and typo-binding failures; reachability and mutation proof remain explicit debt."
