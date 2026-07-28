@@ -114467,3 +114467,138 @@ mapping_assertion_review_digest = "sha256:b342c4d9f1bceacc66cf8e105de861b4ab82b3
 mapping_assertion_source_digests = { "crates/trust-runtime/tests/platform_std.rs" = "sha256:07120e0efa78e224d4b3362ad69572f8c266a79fa24cedb8c203b3fa231e7feb" }
 mapping_behavior_refs = ["RT_RUNTIME_CLOCK_BOUNDARY_001#behavior:3"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_08E82F9BB3CCCB23ECD6"
+subject_kind = "generated_test"
+discovery_id = "DISC_08E82F9BB3CCCB23ECD6"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/runtime_core_behavior_lock.rs"
+name = "cycle_boundary_reads_every_driver_before_any_driver_writes_outputs"
+command = "cargo nextest run -p trust-runtime --test runtime_core_behavior_lock --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::runtime_core_behavior_lock) & test(=cycle_boundary_reads_every_driver_before_any_driver_writes_outputs)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_IO_CYCLE_BINDING_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#io-drivers"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#io-drivers"]
+expected_result = "Configured driver order is preserved globally across a successful boundary: every input read completes before task execution and every output write follows task execution, so no driver write occurs before all driver reads."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_08E82F9BB3CCCB23ECD6.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_08E82F9BB3CCCB23ECD6_3FE82EA9D808"
+mapping_proposal_digest = "sha256:3fe82ea9d8082974ae98364e4bd53fe10c050330589c43dcaf1ee2652f7289df"
+mapping_decision_id = "MAP_DEC_07BC51B1DBBCCC4F6B883468"
+mapping_reviewed_source_digest = "sha256:38d0a77285d34f9841e92c65129c5589c61cff23fe59e02f8c317cb24b6a8359"
+mapping_assertion_review_digest = "sha256:34469cc37532f4f24a02857484987b4d35a47e1152db5a316c502e246aef8437"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/runtime_core_behavior_lock/program.st" = "sha256:f20c9c4a84d04cfc2407815518f5d9e907c30a39e0c33827021c9bbca0955f69", "crates/trust-runtime/tests/runtime_core_behavior_lock.rs" = "sha256:38d0a77285d34f9841e92c65129c5589c61cff23fe59e02f8c317cb24b6a8359" }
+mapping_behavior_refs = ["RT_IO_CYCLE_BINDING_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_116A738C606DD35D5B09"
+subject_kind = "generated_test"
+discovery_id = "DISC_116A738C606DD35D5B09"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/runtime_core_behavior_lock.rs"
+name = "vm_fixture_execution_image_status_and_values_are_stable"
+command = "cargo nextest run -p trust-runtime --test runtime_core_behavior_lock --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::runtime_core_behavior_lock) & test(=vm_fixture_execution_image_status_and_values_are_stable)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_RUNTIME_VALUE_MATERIALIZATION_001"]
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#status-and-scope"
+oracle_refs = ["SPEC_RUNTIME_SEMANTICS_001#status-and-scope"]
+expected_result = "One reviewed current-source fixture executes one bytecode-VM cycle with exact output, counter, healthy status, enum, array element, structure field, live-reference, function-block output, and retained-value observations; a second fresh run proves output, counter, and healthy-status parity only. For the reviewed bytecode-VM fixture, a warm restart preserves the retained DINT value and a following cold restart restores its declared initializer; this does not claim restart-time, task-baseline, NON_RETAIN, or failed-restart behavior."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_116A738C606DD35D5B09.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_116A738C606DD35D5B09_3CAC21BAF4F2"
+mapping_proposal_digest = "sha256:3cac21baf4f26318c5dd1c79750f307a5b6a7f907324ef4a2ad3ba0bab6c463e"
+mapping_decision_id = "MAP_DEC_1B9D3DE05EF29F818418E803"
+mapping_reviewed_source_digest = "sha256:38d0a77285d34f9841e92c65129c5589c61cff23fe59e02f8c317cb24b6a8359"
+mapping_assertion_review_digest = "sha256:a93c7fc48c6c5ec07112a561a161a0915aab712d76b606ce49a9b9720c6ae0b9"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/runtime_core_behavior_lock/program.st" = "sha256:f20c9c4a84d04cfc2407815518f5d9e907c30a39e0c33827021c9bbca0955f69", "crates/trust-runtime/tests/runtime_core_behavior_lock.rs" = "sha256:38d0a77285d34f9841e92c65129c5589c61cff23fe59e02f8c317cb24b6a8359" }
+mapping_behavior_refs = ["VM_RUNTIME_VALUE_MATERIALIZATION_001#behavior:2", "VM_RUNTIME_VALUE_MATERIALIZATION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_268F47FD499F57BFF436"
+subject_kind = "generated_test"
+discovery_id = "DISC_268F47FD499F57BFF436"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/runtime_core_behavior_lock.rs"
+name = "stable_bytecode_fixture_loads_on_runtime_core_path"
+command = "cargo nextest run -p trust-runtime --test runtime_core_behavior_lock --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::runtime_core_behavior_lock) & test(=stable_bytecode_fixture_loads_on_runtime_core_path)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_BYTECODE_ENCODER_PROJECTION_001", "RT_BYTECODE_METADATA_APPLY_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#metadata-integration-requirements"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001#metadata-integration-requirements", "SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"]
+expected_result = "Supported source, including case-insensitively resolved calls, produces complete bytes that decode, validate, and preserve configured task identity when loaded. Applying a complete validated byte container materializes the candidate module and executes its configured program state. A supported current source fixture encoded by the current encoder validates, applies to a fresh runtime, selects the bytecode VM, cold-starts, and remains healthy with no stored fault; this is a same-version vertical contract, not cross-version compatibility evidence."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_268F47FD499F57BFF436.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_268F47FD499F57BFF436_AC4DAC9CC68E"
+mapping_proposal_digest = "sha256:ac4dac9cc68e03f6f463fadf41f0040302615cba186c6735138a1d67b6bd1fd3"
+mapping_decision_id = "MAP_DEC_9136C2776FA72DCBA79ADF63"
+mapping_reviewed_source_digest = "sha256:38d0a77285d34f9841e92c65129c5589c61cff23fe59e02f8c317cb24b6a8359"
+mapping_assertion_review_digest = "sha256:00687704c23340358e9566b58c926dd6a811e09b830377ab06e6bc98da845ab5"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/runtime_core_behavior_lock/program.st" = "sha256:f20c9c4a84d04cfc2407815518f5d9e907c30a39e0c33827021c9bbca0955f69", "crates/trust-runtime/tests/runtime_core_behavior_lock.rs" = "sha256:38d0a77285d34f9841e92c65129c5589c61cff23fe59e02f8c317cb24b6a8359" }
+mapping_behavior_refs = ["RT_BYTECODE_ENCODER_PROJECTION_001#behavior:7", "RT_BYTECODE_METADATA_APPLY_001#behavior:2", "RT_BYTECODE_METADATA_APPLY_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_BAD54416BD0F91BC3776"
+subject_kind = "generated_test"
+discovery_id = "DISC_BAD54416BD0F91BC3776"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/runtime_core_behavior_lock.rs"
+name = "cycle_boundary_latches_inputs_once_and_commits_outputs_after_ready_programs"
+command = "cargo nextest run -p trust-runtime --test runtime_core_behavior_lock --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::runtime_core_behavior_lock) & test(=cycle_boundary_latches_inputs_once_and_commits_outputs_after_ready_programs)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_IO_CYCLE_BINDING_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#io-drivers"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#io-drivers"]
+expected_result = "Inputs are latched before tasks, outputs are committed after tasks, and one snapshot follows the output commit."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_BAD54416BD0F91BC3776.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_BAD54416BD0F91BC3776_E0BD1B294996"
+mapping_proposal_digest = "sha256:e0bd1b294996fc40d75188fd142f1e0fa263abc575b7596446c95ce66fc6f59a"
+mapping_decision_id = "MAP_DEC_497309E9529BB0C066559DA6"
+mapping_reviewed_source_digest = "sha256:38d0a77285d34f9841e92c65129c5589c61cff23fe59e02f8c317cb24b6a8359"
+mapping_assertion_review_digest = "sha256:8039dfc36c527a5487705ea37c86ec8ee2dc8abb99278e9bc93b505b12a4fa99"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/runtime_core_behavior_lock/program.st" = "sha256:f20c9c4a84d04cfc2407815518f5d9e907c30a39e0c33827021c9bbca0955f69", "crates/trust-runtime/tests/runtime_core_behavior_lock.rs" = "sha256:38d0a77285d34f9841e92c65129c5589c61cff23fe59e02f8c317cb24b6a8359" }
+mapping_behavior_refs = ["RT_IO_CYCLE_BINDING_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
