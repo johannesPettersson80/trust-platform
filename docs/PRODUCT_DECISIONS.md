@@ -1293,3 +1293,37 @@ IEC or PLCopen deviation log merely because truST owns the behavior.
 - Reason:
   - Project layout, dependency resolution, and build-report behavior are truST
     host-product contracts outside IEC 61131-3.
+
+## 2026-07-28 - Runtime backend, historian, and metrics authority
+
+- Area: Host-runtime execution and observability
+- Decision:
+  - The direct execution-backend selector trims and ASCII-case-folds input,
+    accepts only `vm`, rejects empty or unknown input with the bounded
+    `runtime.execution_backend` diagnostic, and rejects the retired
+    `interpreter` spelling with explicit `vm` migration guidance.
+  - A fresh runtime uses the VM backend, zero logical time and cycle count, and
+    the default epoch-zero, one-millisecond date/time profile. VM selection may
+    precede bytecode loading, and the reviewed source-built runtime may
+    materialize its VM module on the first successful cycle.
+  - The historian's reviewed all-mode, sample-interval, exact/`retain.*`
+    allowlist, file-reload, typed-query, and Prometheus projection behaviors are
+    product contracts. They do not claim general filesystem durability or the
+    complete wildcard/export surface.
+  - Runtime profiling begins enabled, clears and suppresses entries while
+    disabled, resumes from a clean collection, and ranks the reviewed calls by
+    cycle contribution. The reviewed five-sample latency window has the bounded
+    percentile observations specified in the runtime engine contract.
+- Supersedes:
+  - Any interpretation that the existence of a VM enum or a no-panic smoke test
+    establishes backend-selection or lazy-materialization behavior.
+  - Any interpretation that an in-memory historian or metrics unit test proves
+    crash durability, concurrent collection, percentile rollover, performance
+    budgets, or a complete monitoring schema.
+- Authority:
+  - `docs/specs/11-runtime-engine.md`
+- Reason:
+  - Backend selection, persistence/export policy, and observability aggregation
+    are observable truST host-product choices outside IEC 61131-3. Exact product
+    authority permits bounded catalog oracles without inventing an IEC
+    decision or deviation.

@@ -1,0 +1,862 @@
+{
+  "id": "HOST_RUNTIME_OBSERVABILITY_15_SEMANTIC_LOCK",
+  "schema_version": 1,
+  "tests": [
+    {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_C3AD624F17809B983214D35E",
+          "behavior_label": "TOP_CONTRIBUTOR_RANKING",
+          "disposition": "oracle_bound",
+          "expression": "snapshot . profiling . top_contributors . first () . expect (\"expected top contributor\")",
+          "function": "tests::profiling_top_contributors_ranked_by_cycle_budget",
+          "invariant_id": "RT_RUNTIME_METRICS_PROFILING_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_601CE2B5D1FA756551FC4B89",
+          "behavior_label": "TOP_CONTRIBUTOR_RANKING",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (top . key . as_str () , \"program:MAIN\")",
+          "function": "tests::profiling_top_contributors_ranked_by_cycle_budget",
+          "invariant_id": "RT_RUNTIME_METRICS_PROFILING_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_04D95E765A77C1FB773C7CF0",
+          "behavior_label": "TOP_CONTRIBUTOR_RANKING",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (top . cycle_pct > 0.0)",
+          "function": "tests::profiling_top_contributors_ranked_by_cycle_budget",
+          "invariant_id": "RT_RUNTIME_METRICS_PROFILING_001",
+          "kind": "macro:assert"
+        }
+      ],
+      "discovery_id": "DISC_0B198B435020505184EB",
+      "exclusions": [
+        "The two reviewed entries prove relative ranking only, not stable tie ordering, concurrent collection, or a performance budget.",
+        "This batch does not establish arbitrary source or IEC-wide execution correctness, other production backend behavior, cross-version bytecode compatibility, or a performance budget."
+      ],
+      "name": "profiling_top_contributors_ranked_by_cycle_budget",
+      "path": "crates/trust-runtime/src/host/metrics.rs",
+      "source_digest": "sha256:38825132f4323dc73e41ebbce635be1b88ef7f3ed7dbe193041653e1f75e70e5"
+    },
+    {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_499C71C53B3562218E5491DA",
+          "behavior_label": "TYPED_CAPTURE_AND_SAMPLE_INTERVAL",
+          "disposition": "setup_or_precondition",
+          "expression": "HistorianService :: new (basic_config (path . clone ()) , None) . expect (\"service\")",
+          "function": "recording_fidelity_and_sample_interval_are_enforced",
+          "invariant_id": "RT_HISTORIAN_RECORDING_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_C63C584A17AFE9EE2F41D26E",
+          "behavior_label": "TYPED_CAPTURE_AND_SAMPLE_INTERVAL",
+          "disposition": "oracle_bound",
+          "expression": "service . capture_snapshot_at (& first , 1_000) . expect (\"capture first\")",
+          "function": "recording_fidelity_and_sample_interval_are_enforced",
+          "invariant_id": "RT_HISTORIAN_RECORDING_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_8623142687A83B2C08EBAC03",
+          "behavior_label": "TYPED_CAPTURE_AND_SAMPLE_INTERVAL",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (captured >= 4)",
+          "function": "recording_fidelity_and_sample_interval_are_enforced",
+          "invariant_id": "RT_HISTORIAN_RECORDING_001",
+          "kind": "macro:assert"
+        },
+        {
+          "assertion_id": "ASSERT_FE81021E63C61114DA5C760C",
+          "behavior_label": "TYPED_CAPTURE_AND_SAMPLE_INTERVAL",
+          "disposition": "oracle_bound",
+          "expression": "service . capture_snapshot_at (& first , 1_050) . expect (\"capture skipped\")",
+          "function": "recording_fidelity_and_sample_interval_are_enforced",
+          "invariant_id": "RT_HISTORIAN_RECORDING_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_B72F2403E860F45243799D3E",
+          "behavior_label": "TYPED_CAPTURE_AND_SAMPLE_INTERVAL",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (skipped , 0 , \"sample interval should suppress early capture\")",
+          "function": "recording_fidelity_and_sample_interval_are_enforced",
+          "invariant_id": "RT_HISTORIAN_RECORDING_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_F3B42988159536FDDCA09DB9",
+          "behavior_label": "TYPED_CAPTURE_AND_SAMPLE_INTERVAL",
+          "disposition": "oracle_bound",
+          "expression": "service . capture_snapshot_at (& second , 1_150) . expect (\"capture second\")",
+          "function": "recording_fidelity_and_sample_interval_are_enforced",
+          "invariant_id": "RT_HISTORIAN_RECORDING_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_8F47964EA4066C1563E55CFA",
+          "behavior_label": "TYPED_CAPTURE_AND_SAMPLE_INTERVAL",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (captured_again >= 4)",
+          "function": "recording_fidelity_and_sample_interval_are_enforced",
+          "invariant_id": "RT_HISTORIAN_RECORDING_001",
+          "kind": "macro:assert"
+        },
+        {
+          "assertion_id": "ASSERT_EE218ABEB636A7F2E5FDE739",
+          "behavior_label": "TYPED_CAPTURE_AND_SAMPLE_INTERVAL",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (counter . len () , 2)",
+          "function": "recording_fidelity_and_sample_interval_are_enforced",
+          "invariant_id": "RT_HISTORIAN_RECORDING_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_C8CCDA73A0F324B284999495",
+          "behavior_label": "TYPED_CAPTURE_AND_SAMPLE_INTERVAL",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (counter [0] . value , HistorianValue :: Integer (7))",
+          "function": "recording_fidelity_and_sample_interval_are_enforced",
+          "invariant_id": "RT_HISTORIAN_RECORDING_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_458257EA181C3AD3DAF21C4B",
+          "behavior_label": "TYPED_CAPTURE_AND_SAMPLE_INTERVAL",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (counter [1] . value , HistorianValue :: Integer (8))",
+          "function": "recording_fidelity_and_sample_interval_are_enforced",
+          "invariant_id": "RT_HISTORIAN_RECORDING_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_70F296EA57895CFA43F094EF",
+          "behavior_label": "TYPED_CAPTURE_AND_SAMPLE_INTERVAL",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (active [0] . value , HistorianValue :: Bool (true))",
+          "function": "recording_fidelity_and_sample_interval_are_enforced",
+          "invariant_id": "RT_HISTORIAN_RECORDING_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_C854BC41762270237A4B0D63",
+          "behavior_label": "TYPED_CAPTURE_AND_SAMPLE_INTERVAL",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (active [1] . value , HistorianValue :: Bool (false))",
+          "function": "recording_fidelity_and_sample_interval_are_enforced",
+          "invariant_id": "RT_HISTORIAN_RECORDING_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_CF0DD0C400588F661D7B28A4",
+          "behavior_label": "TYPED_CAPTURE_AND_SAMPLE_INTERVAL",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (label [0] . value , HistorianValue :: String (\"Pump-A\" . to_string ()))",
+          "function": "recording_fidelity_and_sample_interval_are_enforced",
+          "invariant_id": "RT_HISTORIAN_RECORDING_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_36D58026D01AB2EF5E4F62DA",
+          "behavior_label": "TYPED_CAPTURE_AND_SAMPLE_INTERVAL",
+          "disposition": "setup_or_precondition",
+          "expression": "std :: time :: SystemTime :: now () . duration_since (std :: time :: UNIX_EPOCH) . expect (\"clock\")",
+          "function": "temp_path",
+          "invariant_id": "RT_HISTORIAN_RECORDING_001",
+          "kind": "method:expect"
+        }
+      ],
+      "discovery_id": "DISC_1777F6DE6144940DA855",
+      "exclusions": [
+        "The reviewed in-memory sample sequence does not establish concurrent writer ordering, crash durability, or every runtime value type.",
+        "The interval case uses a controlled clock and does not prove clock rollback, overflow, or long-running scheduler behavior.",
+        "This batch does not establish arbitrary source or IEC-wide execution correctness, other production backend behavior, cross-version bytecode compatibility, or a performance budget."
+      ],
+      "name": "recording_fidelity_and_sample_interval_are_enforced",
+      "path": "crates/trust-runtime/src/host/historian/tests.rs",
+      "source_digest": "sha256:d419ee263e9d8bb042435da875ea21e8ad051c907257e5b492e4f4353d236089"
+    },
+    {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_779801194E82D1484F9FC0D2",
+          "behavior_label": "EXACT_AND_RETAIN_PREFIX_ALLOWLIST",
+          "disposition": "setup_or_precondition",
+          "expression": "HistorianService :: new (config , None) . expect (\"service\")",
+          "function": "allowlist_mode_records_matching_paths_only",
+          "invariant_id": "RT_HISTORIAN_RECORDING_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_155185BF0B2F96D4CEE5B617",
+          "behavior_label": "EXACT_AND_RETAIN_PREFIX_ALLOWLIST",
+          "disposition": "oracle_bound",
+          "expression": "service . capture_snapshot_at (& snapshot , 3_000) . expect (\"capture\")",
+          "function": "allowlist_mode_records_matching_paths_only",
+          "invariant_id": "RT_HISTORIAN_RECORDING_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_E1821E3C71D81545DCA42EE4",
+          "behavior_label": "EXACT_AND_RETAIN_PREFIX_ALLOWLIST",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (service . query (Some (\"Counter\") , None , 10) . len () , 0)",
+          "function": "allowlist_mode_records_matching_paths_only",
+          "invariant_id": "RT_HISTORIAN_RECORDING_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_C4B1B5836CBC7E4C7F29016A",
+          "behavior_label": "EXACT_AND_RETAIN_PREFIX_ALLOWLIST",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (service . query (Some (\"Temp\") , None , 10) . len () , 1)",
+          "function": "allowlist_mode_records_matching_paths_only",
+          "invariant_id": "RT_HISTORIAN_RECORDING_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_EDDFC9D5B5553FA31AB0B023",
+          "behavior_label": "EXACT_AND_RETAIN_PREFIX_ALLOWLIST",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (service . query (Some (\"retain.Persist\") , None , 10) . len () , 1)",
+          "function": "allowlist_mode_records_matching_paths_only",
+          "invariant_id": "RT_HISTORIAN_RECORDING_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_539CF06A2F04C8691DA8061E",
+          "behavior_label": "EXACT_AND_RETAIN_PREFIX_ALLOWLIST",
+          "disposition": "setup_or_precondition",
+          "expression": "std :: time :: SystemTime :: now () . duration_since (std :: time :: UNIX_EPOCH) . expect (\"clock\")",
+          "function": "temp_path",
+          "invariant_id": "RT_HISTORIAN_RECORDING_001",
+          "kind": "method:expect"
+        }
+      ],
+      "discovery_id": "DISC_1B9EF96839057E1619C0",
+      "exclusions": [
+        "The exact path and retain.* cases do not define a general wildcard grammar, escaping behavior, or concurrent configuration update.",
+        "This batch does not establish arbitrary source or IEC-wide execution correctness, other production backend behavior, cross-version bytecode compatibility, or a performance budget."
+      ],
+      "name": "allowlist_mode_records_matching_paths_only",
+      "path": "crates/trust-runtime/src/host/historian/tests.rs",
+      "source_digest": "sha256:d419ee263e9d8bb042435da875ea21e8ad051c907257e5b492e4f4353d236089"
+    },
+    {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_DE06990729CFA8DDA6B4A608",
+          "behavior_label": "DISABLE_CLEAR_AND_REENABLE_COLLECTION",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (! disabled . profiling . enabled)",
+          "function": "tests::profiling_toggle_disables_and_reenables_collection",
+          "invariant_id": "RT_RUNTIME_METRICS_PROFILING_001",
+          "kind": "macro:assert"
+        },
+        {
+          "assertion_id": "ASSERT_2A71F7EBAA74F00850E47C1B",
+          "behavior_label": "DISABLE_CLEAR_AND_REENABLE_COLLECTION",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (disabled . profiling . calls . is_empty ())",
+          "function": "tests::profiling_toggle_disables_and_reenables_collection",
+          "invariant_id": "RT_RUNTIME_METRICS_PROFILING_001",
+          "kind": "macro:assert"
+        },
+        {
+          "assertion_id": "ASSERT_F78032A37064FD8E816661C4",
+          "behavior_label": "DISABLE_CLEAR_AND_REENABLE_COLLECTION",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (disabled . profiling . top_contributors . is_empty ())",
+          "function": "tests::profiling_toggle_disables_and_reenables_collection",
+          "invariant_id": "RT_RUNTIME_METRICS_PROFILING_001",
+          "kind": "macro:assert"
+        },
+        {
+          "assertion_id": "ASSERT_79FB8A4A1495D303D2F38F83",
+          "behavior_label": "DISABLE_CLEAR_AND_REENABLE_COLLECTION",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (enabled . profiling . enabled)",
+          "function": "tests::profiling_toggle_disables_and_reenables_collection",
+          "invariant_id": "RT_RUNTIME_METRICS_PROFILING_001",
+          "kind": "macro:assert"
+        },
+        {
+          "assertion_id": "ASSERT_B6A1AA7D0E4D3940D376784B",
+          "behavior_label": "DISABLE_CLEAR_AND_REENABLE_COLLECTION",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (enabled . profiling . calls . len () , 1)",
+          "function": "tests::profiling_toggle_disables_and_reenables_collection",
+          "invariant_id": "RT_RUNTIME_METRICS_PROFILING_001",
+          "kind": "macro:assert_eq"
+        }
+      ],
+      "discovery_id": "DISC_23B82380B693BF86A795",
+      "exclusions": [
+        "The sequential disable-clear-reenable case does not establish concurrent toggling or in-flight call behavior.",
+        "This batch does not establish arbitrary source or IEC-wide execution correctness, other production backend behavior, cross-version bytecode compatibility, or a performance budget."
+      ],
+      "name": "profiling_toggle_disables_and_reenables_collection",
+      "path": "crates/trust-runtime/src/host/metrics.rs",
+      "source_digest": "sha256:38825132f4323dc73e41ebbce635be1b88ef7f3ed7dbe193041653e1f75e70e5"
+    },
+    {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_09C90E4F097C15A66C9D1B22",
+          "behavior_label": "METRICS_EFFECTIVE_BACKEND_PROJECTION",
+          "disposition": "setup_or_precondition",
+          "expression": "session . build_runtime () . expect (\"build runtime\")",
+          "function": "runtime_metrics_snapshot_tracks_vm_backend_selection",
+          "invariant_id": "RT_EXECUTION_BACKEND_SELECTION_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_5C6FA57581BB4DA97844BB8F",
+          "behavior_label": "METRICS_EFFECTIVE_BACKEND_PROJECTION",
+          "disposition": "setup_or_precondition",
+          "expression": "session . build_bytecode_bytes () . expect (\"build bytecode\")",
+          "function": "runtime_metrics_snapshot_tracks_vm_backend_selection",
+          "invariant_id": "RT_EXECUTION_BACKEND_SELECTION_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_B7B99FDB5DC834174A6978DD",
+          "behavior_label": "METRICS_EFFECTIVE_BACKEND_PROJECTION",
+          "disposition": "setup_or_precondition",
+          "expression": "runtime . apply_bytecode_bytes (& bytes , None) . expect (\"apply bytecode\")",
+          "function": "runtime_metrics_snapshot_tracks_vm_backend_selection",
+          "invariant_id": "RT_EXECUTION_BACKEND_SELECTION_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_6D2AE4D1677FC8A25912E3A0",
+          "behavior_label": "METRICS_EFFECTIVE_BACKEND_PROJECTION",
+          "disposition": "oracle_bound",
+          "expression": "runtime . set_execution_backend (ExecutionBackend :: BytecodeVm) . expect (\"select vm backend\")",
+          "function": "runtime_metrics_snapshot_tracks_vm_backend_selection",
+          "invariant_id": "RT_EXECUTION_BACKEND_SELECTION_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_B217AEA200792CD74A326EAE",
+          "behavior_label": "METRICS_EFFECTIVE_BACKEND_PROJECTION",
+          "disposition": "oracle_bound",
+          "expression": "runtime . execute_cycle () . expect (\"execute cycle\")",
+          "function": "runtime_metrics_snapshot_tracks_vm_backend_selection",
+          "invariant_id": "RT_EXECUTION_BACKEND_SELECTION_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_F99B1E17B389C06AFFACB0BD",
+          "behavior_label": "METRICS_EFFECTIVE_BACKEND_PROJECTION",
+          "disposition": "setup_or_precondition",
+          "expression": "metrics . lock () . expect (\"metrics lock\")",
+          "function": "runtime_metrics_snapshot_tracks_vm_backend_selection",
+          "invariant_id": "RT_EXECUTION_BACKEND_SELECTION_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_397B6F9211117EB07B5E2F15",
+          "behavior_label": "METRICS_EFFECTIVE_BACKEND_PROJECTION",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (snapshot . execution_backend , ExecutionBackend :: BytecodeVm)",
+          "function": "runtime_metrics_snapshot_tracks_vm_backend_selection",
+          "invariant_id": "RT_EXECUTION_BACKEND_SELECTION_001",
+          "kind": "macro:assert_eq"
+        }
+      ],
+      "discovery_id": "DISC_56F28FCA5A66344E1C22",
+      "exclusions": [
+        "The attached-sink cycle proves the effective VM label only, not the complete Prometheus projection or alternate backend behavior.",
+        "This batch does not establish arbitrary source or IEC-wide execution correctness, other production backend behavior, cross-version bytecode compatibility, or a performance budget."
+      ],
+      "name": "runtime_metrics_snapshot_tracks_vm_backend_selection",
+      "path": "crates/trust-runtime/tests/api_smoke.rs",
+      "source_digest": "sha256:8c6396c6cf4ee285eaea63c89d3fe487eed826fa58ee01ba93227a8b655e5170"
+    },
+    {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_677E95177B0F3145BA20561C",
+          "behavior_label": "EMPTY_OR_UNKNOWN_BACKEND_REJECTED",
+          "disposition": "oracle_bound",
+          "expression": "ExecutionBackend :: parse (\"\") . expect_err (\"empty should fail\")",
+          "function": "tests::parse_rejects_empty_and_invalid_values",
+          "invariant_id": "RT_EXECUTION_BACKEND_SELECTION_001",
+          "kind": "method:expect_err"
+        },
+        {
+          "assertion_id": "ASSERT_D99B4D1A6DF7B65B0AA970ED",
+          "behavior_label": "EMPTY_OR_UNKNOWN_BACKEND_REJECTED",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (empty . to_string () . contains (\"invalid runtime.execution_backend ''\"))",
+          "function": "tests::parse_rejects_empty_and_invalid_values",
+          "invariant_id": "RT_EXECUTION_BACKEND_SELECTION_001",
+          "kind": "macro:assert"
+        },
+        {
+          "assertion_id": "ASSERT_7999FED1BC0E875A1E4E2FF6",
+          "behavior_label": "EMPTY_OR_UNKNOWN_BACKEND_REJECTED",
+          "disposition": "oracle_bound",
+          "expression": "ExecutionBackend :: parse (\"bytecode\") . expect_err (\"invalid should fail\")",
+          "function": "tests::parse_rejects_empty_and_invalid_values",
+          "invariant_id": "RT_EXECUTION_BACKEND_SELECTION_001",
+          "kind": "method:expect_err"
+        },
+        {
+          "assertion_id": "ASSERT_52A212E04FDA2A1452C3C38A",
+          "behavior_label": "EMPTY_OR_UNKNOWN_BACKEND_REJECTED",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (invalid . to_string () . contains (\"invalid runtime.execution_backend 'bytecode'\"))",
+          "function": "tests::parse_rejects_empty_and_invalid_values",
+          "invariant_id": "RT_EXECUTION_BACKEND_SELECTION_001",
+          "kind": "macro:assert"
+        }
+      ],
+      "discovery_id": "DISC_58824C6943F8514F682A",
+      "exclusions": [
+        "The parser cases cover only the reviewed empty and unknown values, not every malformed configuration source or diagnostic transport.",
+        "This batch does not establish arbitrary source or IEC-wide execution correctness, other production backend behavior, cross-version bytecode compatibility, or a performance budget."
+      ],
+      "name": "parse_rejects_empty_and_invalid_values",
+      "path": "crates/trust-runtime/src/host/execution_backend.rs",
+      "source_digest": "sha256:6a1035eb25ca24a6dc829ad904053b37a4fbb974410e190ef3114cc11527e460"
+    },
+    {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_ADF1B070D812DD2CFC81DA4C",
+          "behavior_label": "FIVE_SAMPLE_NONWRAPPED_CYCLE_WINDOW",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (snapshot . cycle_percentiles . window_samples , 5)",
+          "function": "tests::cycle_percentiles_track_recent_window",
+          "invariant_id": "RT_RUNTIME_METRICS_PROFILING_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_647FE4685B7AD799164895D5",
+          "behavior_label": "FIVE_SAMPLE_NONWRAPPED_CYCLE_WINDOW",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (snapshot . cycle_percentiles . p50_ms >= 10.0)",
+          "function": "tests::cycle_percentiles_track_recent_window",
+          "invariant_id": "RT_RUNTIME_METRICS_PROFILING_001",
+          "kind": "macro:assert"
+        },
+        {
+          "assertion_id": "ASSERT_4CA48CB7AB289FD4F4F12D32",
+          "behavior_label": "FIVE_SAMPLE_NONWRAPPED_CYCLE_WINDOW",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (snapshot . cycle_percentiles . p95_ms >= snapshot . cycle_percentiles . p50_ms)",
+          "function": "tests::cycle_percentiles_track_recent_window",
+          "invariant_id": "RT_RUNTIME_METRICS_PROFILING_001",
+          "kind": "macro:assert"
+        },
+        {
+          "assertion_id": "ASSERT_3715159A84314C10B0F4A82B",
+          "behavior_label": "FIVE_SAMPLE_NONWRAPPED_CYCLE_WINDOW",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (snapshot . cycle_percentiles . max_ms , 25.0)",
+          "function": "tests::cycle_percentiles_track_recent_window",
+          "invariant_id": "RT_RUNTIME_METRICS_PROFILING_001",
+          "kind": "macro:assert_eq"
+        }
+      ],
+      "discovery_id": "DISC_65395FAFC221AD5E0FE4",
+      "exclusions": [
+        "The five nonwrapped samples do not prove window rollover, percentile accuracy for every population, concurrent updates, or clock faults.",
+        "This batch does not establish arbitrary source or IEC-wide execution correctness, other production backend behavior, cross-version bytecode compatibility, or a performance budget."
+      ],
+      "name": "cycle_percentiles_track_recent_window",
+      "path": "crates/trust-runtime/src/host/metrics.rs",
+      "source_digest": "sha256:38825132f4323dc73e41ebbce635be1b88ef7f3ed7dbe193041653e1f75e70e5"
+    },
+    {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_65CF4E0466E74B89297F6D1C",
+          "behavior_label": "RETIRED_INTERPRETER_BACKEND_REJECTED",
+          "disposition": "oracle_bound",
+          "expression": "ExecutionBackend :: parse (\"interpreter\") . expect_err (\"interpreter backend should be rejected\")",
+          "function": "tests::parse_rejects_interpreter_values",
+          "invariant_id": "RT_EXECUTION_BACKEND_SELECTION_001",
+          "kind": "method:expect_err"
+        },
+        {
+          "assertion_id": "ASSERT_900C4EF3F27FAEB852FEA7DC",
+          "behavior_label": "RETIRED_INTERPRETER_BACKEND_REJECTED",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (err . to_string () . contains (\"runtime.execution_backend='interpreter' is no longer supported\"))",
+          "function": "tests::parse_rejects_interpreter_values",
+          "invariant_id": "RT_EXECUTION_BACKEND_SELECTION_001",
+          "kind": "macro:assert"
+        }
+      ],
+      "discovery_id": "DISC_698A7E9D7430C17901D5",
+      "exclusions": [
+        "The retired interpreter checks prove rejection text only, not migration of arbitrary source or other production backend support.",
+        "This batch does not establish arbitrary source or IEC-wide execution correctness, other production backend behavior, cross-version bytecode compatibility, or a performance budget."
+      ],
+      "name": "parse_rejects_interpreter_values",
+      "path": "crates/trust-runtime/src/host/execution_backend.rs",
+      "source_digest": "sha256:6a1035eb25ca24a6dc829ad904053b37a4fbb974410e190ef3114cc11527e460"
+    },
+    {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_0B5B8908DDEF68B0858978F1",
+          "behavior_label": "TRIMMED_CASE_INSENSITIVE_VM_SELECTION",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (ExecutionBackend :: parse (\" vm \") . expect (\"parse trimmed vm\") , ExecutionBackend :: BytecodeVm)",
+          "function": "tests::parse_accepts_trimmed_values",
+          "invariant_id": "RT_EXECUTION_BACKEND_SELECTION_001",
+          "kind": "macro:assert_eq"
+        }
+      ],
+      "discovery_id": "DISC_A31A953F14C30537DB64",
+      "exclusions": [
+        "The trimmed selector case proves one whitespace-wrapped vm value, not locale-sensitive or arbitrary source normalization.",
+        "This batch does not establish arbitrary source or IEC-wide execution correctness, other production backend behavior, cross-version bytecode compatibility, or a performance budget."
+      ],
+      "name": "parse_accepts_trimmed_values",
+      "path": "crates/trust-runtime/src/host/execution_backend.rs",
+      "source_digest": "sha256:6a1035eb25ca24a6dc829ad904053b37a4fbb974410e190ef3114cc11527e460"
+    },
+    {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_A6A8CCB13A6F9C1839791B58",
+          "behavior_label": "FRESH_RUNTIME_DEFAULT_STATE",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (runtime . execution_backend () , ExecutionBackend :: BytecodeVm)",
+          "function": "loads_runtime",
+          "invariant_id": "RT_EXECUTION_BACKEND_SELECTION_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_15DB596A89825A05C5EDDBB6",
+          "behavior_label": "FRESH_RUNTIME_DEFAULT_STATE",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (runtime . current_time () , Duration :: ZERO)",
+          "function": "loads_runtime",
+          "invariant_id": "RT_EXECUTION_BACKEND_SELECTION_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_155BEC7AFE6E4027EE0E44B1",
+          "behavior_label": "FRESH_RUNTIME_DEFAULT_STATE",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (runtime . cycle_counter () , 0)",
+          "function": "loads_runtime",
+          "invariant_id": "RT_EXECUTION_BACKEND_SELECTION_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_19624120572702A7CC49E21E",
+          "behavior_label": "FRESH_RUNTIME_DEFAULT_STATE",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (profile . epoch . ticks () , 0)",
+          "function": "loads_runtime",
+          "invariant_id": "RT_EXECUTION_BACKEND_SELECTION_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_4B561430B6E47DA8133275DF",
+          "behavior_label": "FRESH_RUNTIME_DEFAULT_STATE",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (profile . resolution . as_millis () , 1)",
+          "function": "loads_runtime",
+          "invariant_id": "RT_EXECUTION_BACKEND_SELECTION_001",
+          "kind": "macro:assert_eq"
+        }
+      ],
+      "discovery_id": "DISC_A7805653302309DFDE9B",
+      "exclusions": [
+        "The fresh-state assertions do not execute arbitrary source, prove wall-clock behavior, or establish every constructor default.",
+        "This batch does not establish arbitrary source or IEC-wide execution correctness, other production backend behavior, cross-version bytecode compatibility, or a performance budget."
+      ],
+      "name": "loads_runtime",
+      "path": "crates/trust-runtime/tests/api_smoke.rs",
+      "source_digest": "sha256:8c6396c6cf4ee285eaea63c89d3fe487eed826fa58ee01ba93227a8b655e5170"
+    },
+    {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_D06D3A038CF8CC1F7D6BEC73",
+          "behavior_label": "FILE_BACKED_SERVICE_RELOAD",
+          "disposition": "setup_or_precondition",
+          "expression": "HistorianService :: new (basic_config (path . clone ()) , None) . expect (\"service\")",
+          "function": "persistent_backend_reloads_across_service_restart",
+          "invariant_id": "RT_HISTORIAN_RECORDING_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_A41615C912D564D2A7D6434B",
+          "behavior_label": "FILE_BACKED_SERVICE_RELOAD",
+          "disposition": "oracle_bound",
+          "expression": "service . capture_snapshot_at (& snapshot , 2_000) . expect (\"capture\")",
+          "function": "persistent_backend_reloads_across_service_restart",
+          "invariant_id": "RT_HISTORIAN_RECORDING_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_E80BC7B6CB4D714BA8F25E79",
+          "behavior_label": "FILE_BACKED_SERVICE_RELOAD",
+          "disposition": "oracle_bound",
+          "expression": "HistorianService :: new (basic_config (path . clone ()) , None) . expect (\"restart\")",
+          "function": "persistent_backend_reloads_across_service_restart",
+          "invariant_id": "RT_HISTORIAN_RECORDING_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_D9398BE0C238D0F813FCD567",
+          "behavior_label": "FILE_BACKED_SERVICE_RELOAD",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (counter . len () , 1)",
+          "function": "persistent_backend_reloads_across_service_restart",
+          "invariant_id": "RT_HISTORIAN_RECORDING_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_05D2C099548725AAF274D610",
+          "behavior_label": "FILE_BACKED_SERVICE_RELOAD",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (counter [0] . value , HistorianValue :: Integer (42))",
+          "function": "persistent_backend_reloads_across_service_restart",
+          "invariant_id": "RT_HISTORIAN_RECORDING_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_81DF3F68943F0559B7677A6A",
+          "behavior_label": "FILE_BACKED_SERVICE_RELOAD",
+          "disposition": "setup_or_precondition",
+          "expression": "std :: time :: SystemTime :: now () . duration_since (std :: time :: UNIX_EPOCH) . expect (\"clock\")",
+          "function": "temp_path",
+          "invariant_id": "RT_HISTORIAN_RECORDING_001",
+          "kind": "method:expect"
+        }
+      ],
+      "discovery_id": "DISC_A86EAC2CC2873C2FE31D",
+      "exclusions": [
+        "The orderly file-backed reopen proves one persisted value, not crash durability, corruption recovery, cross-version migration, or concurrent service access.",
+        "This batch does not establish arbitrary source or IEC-wide execution correctness, other production backend behavior, cross-version bytecode compatibility, or a performance budget."
+      ],
+      "name": "persistent_backend_reloads_across_service_restart",
+      "path": "crates/trust-runtime/src/host/historian/tests.rs",
+      "source_digest": "sha256:d419ee263e9d8bb042435da875ea21e8ad051c907257e5b492e4f4353d236089"
+    },
+    {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_D5FD746A549864B988740C27",
+          "behavior_label": "FRESH_RUNTIME_DEFAULT_STATE",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (runtime . execution_backend () , ExecutionBackend :: BytecodeVm)",
+          "function": "runtime_execution_backend_defaults_and_lazy_vm_materialization",
+          "invariant_id": "RT_EXECUTION_BACKEND_SELECTION_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_3EC31E81E7F31BE11261FF95",
+          "behavior_label": "PRELOAD_SELECTION_AND_LAZY_VM_MATERIALIZATION",
+          "disposition": "oracle_bound",
+          "expression": "runtime . set_execution_backend (ExecutionBackend :: BytecodeVm) . expect (\"vm backend selection should not require preloaded bytecode\")",
+          "function": "runtime_execution_backend_defaults_and_lazy_vm_materialization",
+          "invariant_id": "RT_EXECUTION_BACKEND_SELECTION_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_EBA8A97C9863026A728450FF",
+          "behavior_label": "PRELOAD_SELECTION_AND_LAZY_VM_MATERIALIZATION",
+          "disposition": "setup_or_precondition",
+          "expression": "CompileSession :: from_source (source) . build_runtime () . expect (\"build runtime\")",
+          "function": "runtime_execution_backend_defaults_and_lazy_vm_materialization",
+          "invariant_id": "RT_EXECUTION_BACKEND_SELECTION_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_6BFFE02E66D947ECCB7316DC",
+          "behavior_label": "PRELOAD_SELECTION_AND_LAZY_VM_MATERIALIZATION",
+          "disposition": "oracle_bound",
+          "expression": "runtime . set_execution_backend (ExecutionBackend :: BytecodeVm) . expect (\"select vm backend\")",
+          "function": "runtime_execution_backend_defaults_and_lazy_vm_materialization",
+          "invariant_id": "RT_EXECUTION_BACKEND_SELECTION_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_B0367C67C60A16C995832FA2",
+          "behavior_label": "PRELOAD_SELECTION_AND_LAZY_VM_MATERIALIZATION",
+          "disposition": "oracle_bound",
+          "expression": "runtime . execute_cycle () . expect (\"vm backend should lazy materialize bytecode module\")",
+          "function": "runtime_execution_backend_defaults_and_lazy_vm_materialization",
+          "invariant_id": "RT_EXECUTION_BACKEND_SELECTION_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_615D281269BAACB16FDC6C32",
+          "behavior_label": "PRELOAD_SELECTION_AND_LAZY_VM_MATERIALIZATION",
+          "disposition": "oracle_bound",
+          "expression": "panic ! (\"expected Main instance global, got {other:?}\")",
+          "function": "runtime_execution_backend_defaults_and_lazy_vm_materialization",
+          "invariant_id": "RT_EXECUTION_BACKEND_SELECTION_001",
+          "kind": "macro:panic"
+        },
+        {
+          "assertion_id": "ASSERT_77ABF5778561362933D4622E",
+          "behavior_label": "PRELOAD_SELECTION_AND_LAZY_VM_MATERIALIZATION",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (runtime . storage () . get_instance_var (main_id , \"count\") , Some (& Value :: DInt (1)))",
+          "function": "runtime_execution_backend_defaults_and_lazy_vm_materialization",
+          "invariant_id": "RT_EXECUTION_BACKEND_SELECTION_001",
+          "kind": "macro:assert_eq"
+        }
+      ],
+      "discovery_id": "DISC_BA233F91FA4D55C7BE2D",
+      "exclusions": [
+        "The one reviewed module and first cycle do not establish arbitrary source correctness, restart behavior, or cross-version loading.",
+        "This batch does not establish arbitrary source or IEC-wide execution correctness, other production backend behavior, cross-version bytecode compatibility, or a performance budget."
+      ],
+      "name": "runtime_execution_backend_defaults_and_lazy_vm_materialization",
+      "path": "crates/trust-runtime/tests/api_smoke.rs",
+      "source_digest": "sha256:8c6396c6cf4ee285eaea63c89d3fe487eed826fa58ee01ba93227a8b655e5170"
+    },
+    {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_2871322DE4139D1CC01215E4",
+          "behavior_label": "TRIMMED_CASE_INSENSITIVE_VM_SELECTION",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (ExecutionBackend :: parse (\"vm\") . expect (\"parse vm\") , ExecutionBackend :: BytecodeVm)",
+          "function": "tests::parse_accepts_case_insensitive_values",
+          "invariant_id": "RT_EXECUTION_BACKEND_SELECTION_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_5E371B526210C10BD1982F5F",
+          "behavior_label": "TRIMMED_CASE_INSENSITIVE_VM_SELECTION",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (ExecutionBackend :: parse (\"VM\") . expect (\"parse uppercase vm\") , ExecutionBackend :: BytecodeVm)",
+          "function": "tests::parse_accepts_case_insensitive_values",
+          "invariant_id": "RT_EXECUTION_BACKEND_SELECTION_001",
+          "kind": "macro:assert_eq"
+        }
+      ],
+      "discovery_id": "DISC_D52F4CAA5A2528313FE8",
+      "exclusions": [
+        "The reviewed VM spellings do not establish a general identifier or configuration normalization rule.",
+        "This batch does not establish arbitrary source or IEC-wide execution correctness, other production backend behavior, cross-version bytecode compatibility, or a performance budget."
+      ],
+      "name": "parse_accepts_case_insensitive_values",
+      "path": "crates/trust-runtime/src/host/execution_backend.rs",
+      "source_digest": "sha256:6a1035eb25ca24a6dc829ad904053b37a4fbb974410e190ef3114cc11527e460"
+    },
+    {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_5711E0EC5EF4AB8E0D8C9CAE",
+          "behavior_label": "CALL_IDENTITY_AND_CYCLE_CONTRIBUTION",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (snapshot . profiling . enabled)",
+          "function": "tests::profiling_records_call_entries_with_cycle_contribution",
+          "invariant_id": "RT_RUNTIME_METRICS_PROFILING_001",
+          "kind": "macro:assert"
+        },
+        {
+          "assertion_id": "ASSERT_71F071DE5358E5BC868534CD",
+          "behavior_label": "CALL_IDENTITY_AND_CYCLE_CONTRIBUTION",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (snapshot . profiling . calls . len () , 2)",
+          "function": "tests::profiling_records_call_entries_with_cycle_contribution",
+          "invariant_id": "RT_RUNTIME_METRICS_PROFILING_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_D656C439337CC71D699301C9",
+          "behavior_label": "CALL_IDENTITY_AND_CYCLE_CONTRIBUTION",
+          "disposition": "oracle_bound",
+          "expression": "snapshot . profiling . calls . iter () . find (| entry | entry . key . as_str () == \"program:MAIN\") . expect (\"missing program profile entry\")",
+          "function": "tests::profiling_records_call_entries_with_cycle_contribution",
+          "invariant_id": "RT_RUNTIME_METRICS_PROFILING_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_E5F1D720F665AB32FD3AA83C",
+          "behavior_label": "CALL_IDENTITY_AND_CYCLE_CONTRIBUTION",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (main . calls , 1)",
+          "function": "tests::profiling_records_call_entries_with_cycle_contribution",
+          "invariant_id": "RT_RUNTIME_METRICS_PROFILING_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_5D0EE3CBF25C589E909546DD",
+          "behavior_label": "CALL_IDENTITY_AND_CYCLE_CONTRIBUTION",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (main . avg_cycle_ms > 0.0)",
+          "function": "tests::profiling_records_call_entries_with_cycle_contribution",
+          "invariant_id": "RT_RUNTIME_METRICS_PROFILING_001",
+          "kind": "macro:assert"
+        }
+      ],
+      "discovery_id": "DISC_ED49AC4813C08951E6A1",
+      "exclusions": [
+        "The reviewed calls establish identity and positive contribution only, not recursive aggregation, concurrent calls, or timing accuracy.",
+        "This batch does not establish arbitrary source or IEC-wide execution correctness, other production backend behavior, cross-version bytecode compatibility, or a performance budget."
+      ],
+      "name": "profiling_records_call_entries_with_cycle_contribution",
+      "path": "crates/trust-runtime/src/host/metrics.rs",
+      "source_digest": "sha256:38825132f4323dc73e41ebbce635be1b88ef7f3ed7dbe193041653e1f75e70e5"
+    },
+    {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_FC1D13C7C0EECF01D87272B0",
+          "behavior_label": "RUNTIME_AND_HISTORIAN_PROMETHEUS_PROJECTION",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (body . contains (\"trust_runtime_uptime_ms 1200\"))",
+          "function": "prometheus_render_includes_runtime_and_historian_metrics",
+          "invariant_id": "RT_HISTORIAN_RECORDING_001",
+          "kind": "macro:assert"
+        },
+        {
+          "assertion_id": "ASSERT_F14DFBBF215BFABE6EE3C43C",
+          "behavior_label": "RUNTIME_AND_HISTORIAN_PROMETHEUS_PROJECTION",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (body . contains (\"trust_runtime_faults_total 1\"))",
+          "function": "prometheus_render_includes_runtime_and_historian_metrics",
+          "invariant_id": "RT_HISTORIAN_RECORDING_001",
+          "kind": "macro:assert"
+        },
+        {
+          "assertion_id": "ASSERT_383B98D57861278C4718DE7B",
+          "behavior_label": "RUNTIME_AND_HISTORIAN_PROMETHEUS_PROJECTION",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (body . contains (\"trust_runtime_historian_samples_total 10\"))",
+          "function": "prometheus_render_includes_runtime_and_historian_metrics",
+          "invariant_id": "RT_HISTORIAN_RECORDING_001",
+          "kind": "macro:assert"
+        },
+        {
+          "assertion_id": "ASSERT_33B05D0D50CADDF8D5D29CD1",
+          "behavior_label": "RUNTIME_AND_HISTORIAN_PROMETHEUS_PROJECTION",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (body . contains (\"trust_runtime_historian_alerts_total 4\"))",
+          "function": "prometheus_render_includes_runtime_and_historian_metrics",
+          "invariant_id": "RT_HISTORIAN_RECORDING_001",
+          "kind": "macro:assert"
+        }
+      ],
+      "discovery_id": "DISC_EFFABC152F3EA9FFB736",
+      "exclusions": [
+        "The four reviewed metric lines are not a complete Prometheus schema, escaping, cardinality, or scrape-concurrency contract.",
+        "This batch does not establish arbitrary source or IEC-wide execution correctness, other production backend behavior, cross-version bytecode compatibility, or a performance budget."
+      ],
+      "name": "prometheus_render_includes_runtime_and_historian_metrics",
+      "path": "crates/trust-runtime/src/host/historian/tests.rs",
+      "source_digest": "sha256:d419ee263e9d8bb042435da875ea21e8ad051c907257e5b492e4f4353d236089"
+    }
+  ]
+}

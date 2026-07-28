@@ -1,0 +1,80 @@
+schema_version = 1
+id = "RT_RUNTIME_METRICS_PROFILING_001"
+title = "Runtime metrics preserve reviewed latency and profiling observations"
+area = "runtime_safety"
+risk = "false_status"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-28"
+claim = "Runtime metrics preserve the reviewed cycle-window summary, call identity and contribution, ranking, and disable-clear-reenable lifecycle without reporting suppressed entries."
+proof_level = "S0"
+contract_kind = "state_machine"
+source_refs = [
+  "crates/trust-runtime/src/host/metrics.rs",
+  "docs/specs/11-runtime-engine.md",
+  "docs/PRODUCT_DECISIONS.md",
+]
+tests = ["TEST_AUTO_0B198B435020505184EB", "TEST_AUTO_23B82380B693BF86A795", "TEST_AUTO_65395FAFC221AD5E0FE4", "TEST_AUTO_ED49AC4813C08951E6A1"]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["focused_execution", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#runtime-metrics-window-and-profiling-contract"
+
+[[behavior]]
+partition = { equals = "CALL_IDENTITY_AND_CYCLE_CONTRIBUTION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-metrics-window-and-profiling-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Profiling begins enabled, retains two reviewed kind:name calls, reports MAIN once, and assigns it a positive average cycle contribution."
+
+[[behavior]]
+partition = { equals = "DISABLE_CLEAR_AND_REENABLE_COLLECTION" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-metrics-window-and-profiling-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Disabling clears calls and contributors and ignores the reviewed call; re-enabling admits one new call into a clean collection."
+
+[[behavior]]
+partition = { equals = "TOP_CONTRIBUTOR_RANKING" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-metrics-window-and-profiling-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The reviewed program:MAIN call ranks first ahead of the smaller function-block contribution and has positive cycle percentage."
+
+[[behavior]]
+partition = { equals = "FIVE_SAMPLE_NONWRAPPED_CYCLE_WINDOW" }
+case_family = "time_or_clock_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-metrics-window-and-profiling-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The reviewed 5, 10, 15, 20, and 25 ms sequence reports five samples, a p50 of at least 10 ms, monotonic p95, and a 25 ms maximum."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in RT_RUNTIME_METRICS_PROFILING_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in RT_RUNTIME_METRICS_PROFILING_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "time_or_clock_fault"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every time_or_clock_fault behavior in RT_RUNTIME_METRICS_PROFILING_001; dynamic proof and broad remote validation remain explicit debt."

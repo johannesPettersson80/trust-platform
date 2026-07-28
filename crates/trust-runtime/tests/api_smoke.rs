@@ -2,13 +2,18 @@ use std::sync::{Arc, Mutex};
 use trust_runtime::execution_backend::ExecutionBackend;
 use trust_runtime::harness::CompileSession;
 use trust_runtime::metrics::RuntimeMetrics;
-use trust_runtime::value::Value;
+use trust_runtime::value::{Duration, Value};
 use trust_runtime::Runtime;
 
 #[test]
 fn loads_runtime() {
     let runtime = Runtime::new();
-    let _profile = runtime.profile();
+    let profile = runtime.profile();
+    assert_eq!(runtime.execution_backend(), ExecutionBackend::BytecodeVm);
+    assert_eq!(runtime.current_time(), Duration::ZERO);
+    assert_eq!(runtime.cycle_counter(), 0);
+    assert_eq!(profile.epoch.ticks(), 0);
+    assert_eq!(profile.resolution.as_millis(), 1);
 }
 
 #[test]

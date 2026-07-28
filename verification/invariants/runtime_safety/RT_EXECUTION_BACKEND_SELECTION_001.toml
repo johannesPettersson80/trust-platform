@@ -1,0 +1,105 @@
+schema_version = 1
+id = "RT_EXECUTION_BACKEND_SELECTION_001"
+title = "Runtime backend selection and lazy VM construction fail closed"
+area = "runtime_safety"
+risk = "wrong_result"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-28"
+claim = "The host runtime accepts only the canonical VM backend, rejects invalid or retired selectors with bounded diagnostics, starts from the documented default state, lazily materializes accepted source for execution, and reports the effective backend through metrics."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = [
+  "crates/trust-runtime/src/host/execution_backend.rs",
+  "crates/trust-runtime/src/runtime/core/lifecycle.rs",
+  "crates/trust-runtime/tests/api_smoke.rs",
+  "docs/specs/11-runtime-engine.md",
+  "docs/PRODUCT_DECISIONS.md",
+]
+tests = ["TEST_AUTO_56F28FCA5A66344E1C22", "TEST_AUTO_58824C6943F8514F682A", "TEST_AUTO_698A7E9D7430C17901D5", "TEST_AUTO_A31A953F14C30537DB64", "TEST_AUTO_A7805653302309DFDE9B", "TEST_AUTO_BA233F91FA4D55C7BE2D", "TEST_AUTO_D52F4CAA5A2528313FE8"]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["focused_execution", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#runtime-execution-backend-selection-and-construction-contract"
+
+[[behavior]]
+partition = { equals = "TRIMMED_CASE_INSENSITIVE_VM_SELECTION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-execution-backend-selection-and-construction-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The reviewed vm, VM, and whitespace-wrapped vm selectors all produce BytecodeVm."
+
+[[behavior]]
+partition = { equals = "EMPTY_OR_UNKNOWN_BACKEND_REJECTED" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-execution-backend-selection-and-construction-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Empty and reviewed unknown bytecode selectors reject with the bounded runtime.execution_backend diagnostic."
+
+[[behavior]]
+partition = { equals = "RETIRED_INTERPRETER_BACKEND_REJECTED" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-execution-backend-selection-and-construction-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "The retired interpreter selector rejects with explicit production-removal and vm migration guidance."
+
+[[behavior]]
+partition = { equals = "FRESH_RUNTIME_DEFAULT_STATE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-execution-backend-selection-and-construction-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A fresh runtime reports BytecodeVm, zero logical time and cycle count, epoch tick zero, and one-millisecond date/time resolution."
+
+[[behavior]]
+partition = { equals = "PRELOAD_SELECTION_AND_LAZY_VM_MATERIALIZATION" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-execution-backend-selection-and-construction-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "expected_delta" }
+rationale = "BytecodeVm selection succeeds before a module is loaded, and the reviewed source-built runtime materializes and executes its first VM cycle to Main.count = 1."
+
+[[behavior]]
+partition = { equals = "METRICS_EFFECTIVE_BACKEND_PROJECTION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-execution-backend-selection-and-construction-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "After the reviewed attached-sink VM cycle, the metrics snapshot reports BytecodeVm as the effective backend."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in RT_EXECUTION_BACKEND_SELECTION_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every wrong_type_or_shape behavior in RT_EXECUTION_BACKEND_SELECTION_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "extra_or_unknown"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every extra_or_unknown behavior in RT_EXECUTION_BACKEND_SELECTION_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in RT_EXECUTION_BACKEND_SELECTION_001; dynamic proof and broad remote validation remain explicit debt."

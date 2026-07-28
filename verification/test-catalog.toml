@@ -115007,3 +115007,509 @@ mapping_assertion_review_digest = "sha256:7ca09e0bd4a96a3e110da75f1744af7462ed6d
 mapping_assertion_source_digests = { "crates/trust-runtime/tests/var_init.rs" = "sha256:21f6dc1e3ff45fc89abc95e70880f870cb62236561e7f5a52815cb525675e773" }
 mapping_behavior_refs = ["VM_RUNTIME_VALUE_MATERIALIZATION_001#behavior:1"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_58824C6943F8514F682A"
+subject_kind = "generated_test"
+discovery_id = "DISC_58824C6943F8514F682A"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/host/execution_backend.rs"
+name = "parse_rejects_empty_and_invalid_values"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=execution_backend::tests::parse_rejects_empty_and_invalid_values)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_EXECUTION_BACKEND_SELECTION_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-execution-backend-selection-and-construction-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#runtime-execution-backend-selection-and-construction-contract"]
+expected_result = "Empty and reviewed unknown bytecode selectors reject with the bounded runtime.execution_backend diagnostic."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_58824C6943F8514F682A.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_58824C6943F8514F682A_5E23AA96B698"
+mapping_proposal_digest = "sha256:5e23aa96b698ab2acf7273006f912bf4acd67aa228beff377de6bf943ce0421a"
+mapping_decision_id = "MAP_DEC_6E54AECACD6890B8FD7FF948"
+mapping_reviewed_source_digest = "sha256:6a1035eb25ca24a6dc829ad904053b37a4fbb974410e190ef3114cc11527e460"
+mapping_assertion_review_digest = "sha256:da509c3537305cea8028991c63c474e632649609227dd8947301f8fea9a336c3"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/host/execution_backend.rs" = "sha256:6a1035eb25ca24a6dc829ad904053b37a4fbb974410e190ef3114cc11527e460" }
+mapping_behavior_refs = ["RT_EXECUTION_BACKEND_SELECTION_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_698A7E9D7430C17901D5"
+subject_kind = "generated_test"
+discovery_id = "DISC_698A7E9D7430C17901D5"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/host/execution_backend.rs"
+name = "parse_rejects_interpreter_values"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=execution_backend::tests::parse_rejects_interpreter_values)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_EXECUTION_BACKEND_SELECTION_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-execution-backend-selection-and-construction-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#runtime-execution-backend-selection-and-construction-contract"]
+expected_result = "The retired interpreter selector rejects with explicit production-removal and vm migration guidance."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_698A7E9D7430C17901D5.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_698A7E9D7430C17901D5_39FFCCC52E45"
+mapping_proposal_digest = "sha256:39ffccc52e458432cc3a353487fe4c5b8280adf9c726c6329ef10aa11cc27cb6"
+mapping_decision_id = "MAP_DEC_042052882E8D9624842DFE93"
+mapping_reviewed_source_digest = "sha256:6a1035eb25ca24a6dc829ad904053b37a4fbb974410e190ef3114cc11527e460"
+mapping_assertion_review_digest = "sha256:64d2f6ce8a262cb2139828ada495650a6f9c17d5292fcd82698e55e9456fa5c9"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/host/execution_backend.rs" = "sha256:6a1035eb25ca24a6dc829ad904053b37a4fbb974410e190ef3114cc11527e460" }
+mapping_behavior_refs = ["RT_EXECUTION_BACKEND_SELECTION_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_A31A953F14C30537DB64"
+subject_kind = "generated_test"
+discovery_id = "DISC_A31A953F14C30537DB64"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/host/execution_backend.rs"
+name = "parse_accepts_trimmed_values"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=execution_backend::tests::parse_accepts_trimmed_values)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_EXECUTION_BACKEND_SELECTION_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-execution-backend-selection-and-construction-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#runtime-execution-backend-selection-and-construction-contract"]
+expected_result = "The reviewed vm, VM, and whitespace-wrapped vm selectors all produce BytecodeVm."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_A31A953F14C30537DB64.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_A31A953F14C30537DB64_F7AF4F7AE2D0"
+mapping_proposal_digest = "sha256:f7af4f7ae2d0eecf290db3a426498f43a37d1abc942f3e071a9bf43d255108a1"
+mapping_decision_id = "MAP_DEC_C9F1AC49B63EB244C05984DB"
+mapping_reviewed_source_digest = "sha256:6a1035eb25ca24a6dc829ad904053b37a4fbb974410e190ef3114cc11527e460"
+mapping_assertion_review_digest = "sha256:b3557689fcb93f0ea1d35c1770f7e24db01757519f03f73ac6b40d960aaf02d0"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/host/execution_backend.rs" = "sha256:6a1035eb25ca24a6dc829ad904053b37a4fbb974410e190ef3114cc11527e460" }
+mapping_behavior_refs = ["RT_EXECUTION_BACKEND_SELECTION_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_D52F4CAA5A2528313FE8"
+subject_kind = "generated_test"
+discovery_id = "DISC_D52F4CAA5A2528313FE8"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/host/execution_backend.rs"
+name = "parse_accepts_case_insensitive_values"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=execution_backend::tests::parse_accepts_case_insensitive_values)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_EXECUTION_BACKEND_SELECTION_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-execution-backend-selection-and-construction-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#runtime-execution-backend-selection-and-construction-contract"]
+expected_result = "The reviewed vm, VM, and whitespace-wrapped vm selectors all produce BytecodeVm."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_D52F4CAA5A2528313FE8.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_D52F4CAA5A2528313FE8_6F1C6A5F09CC"
+mapping_proposal_digest = "sha256:6f1c6a5f09cc2953ccf9c7c545af2460e2272c2f7641a43c74f2f79d732e5ecd"
+mapping_decision_id = "MAP_DEC_87C2651C43DB53A22D295E10"
+mapping_reviewed_source_digest = "sha256:6a1035eb25ca24a6dc829ad904053b37a4fbb974410e190ef3114cc11527e460"
+mapping_assertion_review_digest = "sha256:9e4506c9c476fe90248cb43873afcaafd8c6f06ba879f2397de2ae1ab56f2bf9"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/host/execution_backend.rs" = "sha256:6a1035eb25ca24a6dc829ad904053b37a4fbb974410e190ef3114cc11527e460" }
+mapping_behavior_refs = ["RT_EXECUTION_BACKEND_SELECTION_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_1777F6DE6144940DA855"
+subject_kind = "generated_test"
+discovery_id = "DISC_1777F6DE6144940DA855"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/host/historian/tests.rs"
+name = "recording_fidelity_and_sample_interval_are_enforced"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=historian::tests::recording_fidelity_and_sample_interval_are_enforced)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_HISTORIAN_RECORDING_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-historian-recording-and-export-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#runtime-historian-recording-and-export-contract"]
+expected_result = "The reviewed captures preserve integer, BOOL, and string values in order, suppress a request inside the configured interval, and accept the later request."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_1777F6DE6144940DA855.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_1777F6DE6144940DA855_0119F4FB4B0A"
+mapping_proposal_digest = "sha256:0119f4fb4b0aab896f77d8fa199a4a80a351d6b07712567a2c3d040abe7d0a69"
+mapping_decision_id = "MAP_DEC_7DAC91A25EEE8A99B294A483"
+mapping_reviewed_source_digest = "sha256:d419ee263e9d8bb042435da875ea21e8ad051c907257e5b492e4f4353d236089"
+mapping_assertion_review_digest = "sha256:90e16da45a3b1e6e7d8494daa0a41fd344bc4d2605dd359594fd1fab361a1744"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/host/historian/tests.rs" = "sha256:d419ee263e9d8bb042435da875ea21e8ad051c907257e5b492e4f4353d236089" }
+mapping_behavior_refs = ["RT_HISTORIAN_RECORDING_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_1B9EF96839057E1619C0"
+subject_kind = "generated_test"
+discovery_id = "DISC_1B9EF96839057E1619C0"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/host/historian/tests.rs"
+name = "allowlist_mode_records_matching_paths_only"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=historian::tests::allowlist_mode_records_matching_paths_only)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_HISTORIAN_RECORDING_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-historian-recording-and-export-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#runtime-historian-recording-and-export-contract"]
+expected_result = "The reviewed allowlist excludes Counter while admitting exact Temp and retain.Persist through retain.*."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_1B9EF96839057E1619C0.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_1B9EF96839057E1619C0_67E9021F0758"
+mapping_proposal_digest = "sha256:67e9021f075890c79e57ccf74c47ae91edb7508bffceaae240debb7fd404d919"
+mapping_decision_id = "MAP_DEC_DE890BBD98E82F16A263241A"
+mapping_reviewed_source_digest = "sha256:d419ee263e9d8bb042435da875ea21e8ad051c907257e5b492e4f4353d236089"
+mapping_assertion_review_digest = "sha256:1a31d13b477ade338c3d12f7f30fce10b0c78dbdb71186bf00a7ac49b5354708"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/host/historian/tests.rs" = "sha256:d419ee263e9d8bb042435da875ea21e8ad051c907257e5b492e4f4353d236089" }
+mapping_behavior_refs = ["RT_HISTORIAN_RECORDING_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_A86EAC2CC2873C2FE31D"
+subject_kind = "generated_test"
+discovery_id = "DISC_A86EAC2CC2873C2FE31D"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/host/historian/tests.rs"
+name = "persistent_backend_reloads_across_service_restart"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=historian::tests::persistent_backend_reloads_across_service_restart)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_HISTORIAN_RECORDING_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-historian-recording-and-export-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#runtime-historian-recording-and-export-contract"]
+expected_result = "A second service instance opening the reviewed path returns the one persisted Counter sample with value 42."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_A86EAC2CC2873C2FE31D.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_A86EAC2CC2873C2FE31D_77EEE016BFFB"
+mapping_proposal_digest = "sha256:77eee016bffbb221089c206574ac61de68c01c3ea0e76798a6dc9277831b0672"
+mapping_decision_id = "MAP_DEC_19C7EFC1CEA38DD5449B66B2"
+mapping_reviewed_source_digest = "sha256:d419ee263e9d8bb042435da875ea21e8ad051c907257e5b492e4f4353d236089"
+mapping_assertion_review_digest = "sha256:983e2902041fcc2207548e89ae15f7dbb063267cd031dcf2d4f53d7484d19b4b"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/host/historian/tests.rs" = "sha256:d419ee263e9d8bb042435da875ea21e8ad051c907257e5b492e4f4353d236089" }
+mapping_behavior_refs = ["RT_HISTORIAN_RECORDING_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_EFFABC152F3EA9FFB736"
+subject_kind = "generated_test"
+discovery_id = "DISC_EFFABC152F3EA9FFB736"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/host/historian/tests.rs"
+name = "prometheus_render_includes_runtime_and_historian_metrics"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=historian::tests::prometheus_render_includes_runtime_and_historian_metrics)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_HISTORIAN_RECORDING_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-historian-recording-and-export-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#runtime-historian-recording-and-export-contract"]
+expected_result = "The reviewed rendering contains runtime uptime and faults plus historian sample and alert totals with their supplied values."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_EFFABC152F3EA9FFB736.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_EFFABC152F3EA9FFB736_15E08D6DC11A"
+mapping_proposal_digest = "sha256:15e08d6dc11aaf7626a80964bed1f0deaccea121f71d1eb9865506f1174fabc7"
+mapping_decision_id = "MAP_DEC_447905B95380698F81F11326"
+mapping_reviewed_source_digest = "sha256:d419ee263e9d8bb042435da875ea21e8ad051c907257e5b492e4f4353d236089"
+mapping_assertion_review_digest = "sha256:987e679023f6cfaf125909ea9d19389c90976ab08b542aed2e6381758ae700ba"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/host/historian/tests.rs" = "sha256:d419ee263e9d8bb042435da875ea21e8ad051c907257e5b492e4f4353d236089" }
+mapping_behavior_refs = ["RT_HISTORIAN_RECORDING_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_0B198B435020505184EB"
+subject_kind = "generated_test"
+discovery_id = "DISC_0B198B435020505184EB"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/host/metrics.rs"
+name = "profiling_top_contributors_ranked_by_cycle_budget"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=metrics::tests::profiling_top_contributors_ranked_by_cycle_budget)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_RUNTIME_METRICS_PROFILING_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-metrics-window-and-profiling-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#runtime-metrics-window-and-profiling-contract"]
+expected_result = "The reviewed program:MAIN call ranks first ahead of the smaller function-block contribution and has positive cycle percentage."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_0B198B435020505184EB.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_0B198B435020505184EB_27C29297FBB5"
+mapping_proposal_digest = "sha256:27c29297fbb5e25eded9c83315c84d6c4c6cf689b97c8281b80a74d6e40ebb9d"
+mapping_decision_id = "MAP_DEC_3C281C7DAED99A77EA6CEB8D"
+mapping_reviewed_source_digest = "sha256:38825132f4323dc73e41ebbce635be1b88ef7f3ed7dbe193041653e1f75e70e5"
+mapping_assertion_review_digest = "sha256:d6b2c99870e238e49669ab12a341b7831a1bc03b8da13229591d7706b7fd66f1"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/host/metrics.rs" = "sha256:38825132f4323dc73e41ebbce635be1b88ef7f3ed7dbe193041653e1f75e70e5" }
+mapping_behavior_refs = ["RT_RUNTIME_METRICS_PROFILING_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_23B82380B693BF86A795"
+subject_kind = "generated_test"
+discovery_id = "DISC_23B82380B693BF86A795"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/host/metrics.rs"
+name = "profiling_toggle_disables_and_reenables_collection"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=metrics::tests::profiling_toggle_disables_and_reenables_collection)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_RUNTIME_METRICS_PROFILING_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-metrics-window-and-profiling-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#runtime-metrics-window-and-profiling-contract"]
+expected_result = "Disabling clears calls and contributors and ignores the reviewed call; re-enabling admits one new call into a clean collection."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_23B82380B693BF86A795.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_23B82380B693BF86A795_9771EF3272D4"
+mapping_proposal_digest = "sha256:9771ef3272d4b2e2deccc9bff7bc543389b45716e42bae9b48ae40b10e5980bd"
+mapping_decision_id = "MAP_DEC_AB65A0F9A4951FFC81B18076"
+mapping_reviewed_source_digest = "sha256:38825132f4323dc73e41ebbce635be1b88ef7f3ed7dbe193041653e1f75e70e5"
+mapping_assertion_review_digest = "sha256:47a9594d936d4f930b5740f712bad5c9ee9d1456f49c571e27e4762f87d351fd"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/host/metrics.rs" = "sha256:38825132f4323dc73e41ebbce635be1b88ef7f3ed7dbe193041653e1f75e70e5" }
+mapping_behavior_refs = ["RT_RUNTIME_METRICS_PROFILING_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_65395FAFC221AD5E0FE4"
+subject_kind = "generated_test"
+discovery_id = "DISC_65395FAFC221AD5E0FE4"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/host/metrics.rs"
+name = "cycle_percentiles_track_recent_window"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=metrics::tests::cycle_percentiles_track_recent_window)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_RUNTIME_METRICS_PROFILING_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-metrics-window-and-profiling-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#runtime-metrics-window-and-profiling-contract"]
+expected_result = "The reviewed 5, 10, 15, 20, and 25 ms sequence reports five samples, a p50 of at least 10 ms, monotonic p95, and a 25 ms maximum."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_65395FAFC221AD5E0FE4.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_65395FAFC221AD5E0FE4_C77E994121F0"
+mapping_proposal_digest = "sha256:c77e994121f0a2c3776f48e20cb56e4ff19b7d21190f5d41ccf57c1abf3396e1"
+mapping_decision_id = "MAP_DEC_EC38CB4CAB6448453FACB66D"
+mapping_reviewed_source_digest = "sha256:38825132f4323dc73e41ebbce635be1b88ef7f3ed7dbe193041653e1f75e70e5"
+mapping_assertion_review_digest = "sha256:5617aa4208ec6f3c5ceb7e1dcd65c7f973e0771f3aa351668473e11f4ef4f0f6"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/host/metrics.rs" = "sha256:38825132f4323dc73e41ebbce635be1b88ef7f3ed7dbe193041653e1f75e70e5" }
+mapping_behavior_refs = ["RT_RUNTIME_METRICS_PROFILING_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_ED49AC4813C08951E6A1"
+subject_kind = "generated_test"
+discovery_id = "DISC_ED49AC4813C08951E6A1"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/host/metrics.rs"
+name = "profiling_records_call_entries_with_cycle_contribution"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=metrics::tests::profiling_records_call_entries_with_cycle_contribution)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_RUNTIME_METRICS_PROFILING_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-metrics-window-and-profiling-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#runtime-metrics-window-and-profiling-contract"]
+expected_result = "Profiling begins enabled, retains two reviewed kind:name calls, reports MAIN once, and assigns it a positive average cycle contribution."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_ED49AC4813C08951E6A1.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_ED49AC4813C08951E6A1_42F178B27303"
+mapping_proposal_digest = "sha256:42f178b273034c40811cc0459dde39ecd4e58a8f6540c3c4d438c61130156415"
+mapping_decision_id = "MAP_DEC_830A3FC55B0E5DB2226843D1"
+mapping_reviewed_source_digest = "sha256:38825132f4323dc73e41ebbce635be1b88ef7f3ed7dbe193041653e1f75e70e5"
+mapping_assertion_review_digest = "sha256:49e0f5e8e27e169b75ba20f952de22422f9fcb07ffc0c3c0a477884bc8a1a79b"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/host/metrics.rs" = "sha256:38825132f4323dc73e41ebbce635be1b88ef7f3ed7dbe193041653e1f75e70e5" }
+mapping_behavior_refs = ["RT_RUNTIME_METRICS_PROFILING_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_56F28FCA5A66344E1C22"
+subject_kind = "generated_test"
+discovery_id = "DISC_56F28FCA5A66344E1C22"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/api_smoke.rs"
+name = "runtime_metrics_snapshot_tracks_vm_backend_selection"
+command = "cargo nextest run -p trust-runtime --test api_smoke --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::api_smoke) & test(=runtime_metrics_snapshot_tracks_vm_backend_selection)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_EXECUTION_BACKEND_SELECTION_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-execution-backend-selection-and-construction-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#runtime-execution-backend-selection-and-construction-contract"]
+expected_result = "After the reviewed attached-sink VM cycle, the metrics snapshot reports BytecodeVm as the effective backend."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_56F28FCA5A66344E1C22.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_56F28FCA5A66344E1C22_67E7DF404FD5"
+mapping_proposal_digest = "sha256:67e7df404fd52c0f50bc7f1ffff4869df7c3a36c2258059533543214ecb12a89"
+mapping_decision_id = "MAP_DEC_12A4EB679C7DD2CF6FB6BB35"
+mapping_reviewed_source_digest = "sha256:8c6396c6cf4ee285eaea63c89d3fe487eed826fa58ee01ba93227a8b655e5170"
+mapping_assertion_review_digest = "sha256:03f2b91e86571085316eaeec288e30f0f7ecff7c3fb2fa3a5d95aa53e29e88fc"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/api_smoke.rs" = "sha256:8c6396c6cf4ee285eaea63c89d3fe487eed826fa58ee01ba93227a8b655e5170" }
+mapping_behavior_refs = ["RT_EXECUTION_BACKEND_SELECTION_001#behavior:5"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_A7805653302309DFDE9B"
+subject_kind = "generated_test"
+discovery_id = "DISC_A7805653302309DFDE9B"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/api_smoke.rs"
+name = "loads_runtime"
+command = "cargo nextest run -p trust-runtime --test api_smoke --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::api_smoke) & test(=loads_runtime)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_EXECUTION_BACKEND_SELECTION_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-execution-backend-selection-and-construction-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#runtime-execution-backend-selection-and-construction-contract"]
+expected_result = "A fresh runtime reports BytecodeVm, zero logical time and cycle count, epoch tick zero, and one-millisecond date/time resolution."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_A7805653302309DFDE9B.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_A7805653302309DFDE9B_4E85DAA4F49C"
+mapping_proposal_digest = "sha256:4e85daa4f49c67da8ceaa8ae58d1fc589eb30e35e295e678216a3d00ea18cc67"
+mapping_decision_id = "MAP_DEC_45F5F8762D6782770701D8E0"
+mapping_reviewed_source_digest = "sha256:8c6396c6cf4ee285eaea63c89d3fe487eed826fa58ee01ba93227a8b655e5170"
+mapping_assertion_review_digest = "sha256:3fbebe10ba604a7aaa9549ce28efb6ce399a504c83f7fd941bc69ab65ec879cc"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/api_smoke.rs" = "sha256:8c6396c6cf4ee285eaea63c89d3fe487eed826fa58ee01ba93227a8b655e5170" }
+mapping_behavior_refs = ["RT_EXECUTION_BACKEND_SELECTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_BA233F91FA4D55C7BE2D"
+subject_kind = "generated_test"
+discovery_id = "DISC_BA233F91FA4D55C7BE2D"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/api_smoke.rs"
+name = "runtime_execution_backend_defaults_and_lazy_vm_materialization"
+command = "cargo nextest run -p trust-runtime --test api_smoke --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::api_smoke) & test(=runtime_execution_backend_defaults_and_lazy_vm_materialization)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_EXECUTION_BACKEND_SELECTION_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-execution-backend-selection-and-construction-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#runtime-execution-backend-selection-and-construction-contract"]
+expected_result = "A fresh runtime reports BytecodeVm, zero logical time and cycle count, epoch tick zero, and one-millisecond date/time resolution. BytecodeVm selection succeeds before a module is loaded, and the reviewed source-built runtime materializes and executes its first VM cycle to Main.count = 1."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_BA233F91FA4D55C7BE2D.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_BA233F91FA4D55C7BE2D_56483A65D89F"
+mapping_proposal_digest = "sha256:56483a65d89ffae1cbef0c7a7cc76049292c3b9e03fd8f7c2b922576c7cc94f0"
+mapping_decision_id = "MAP_DEC_F5AA9CD7995EA39F12C44B7C"
+mapping_reviewed_source_digest = "sha256:8c6396c6cf4ee285eaea63c89d3fe487eed826fa58ee01ba93227a8b655e5170"
+mapping_assertion_review_digest = "sha256:e29fb21e145eaa27e7cdac0c542eaa0a1f407c668c9af3435723b7c65b8133a8"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/api_smoke.rs" = "sha256:8c6396c6cf4ee285eaea63c89d3fe487eed826fa58ee01ba93227a8b655e5170" }
+mapping_behavior_refs = ["RT_EXECUTION_BACKEND_SELECTION_001#behavior:3", "RT_EXECUTION_BACKEND_SELECTION_001#behavior:4"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]

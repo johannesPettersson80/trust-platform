@@ -1660,6 +1660,69 @@ The status and configuration surfaces project one effective runtime state:
   requested limit, and return matching persisted samples or alerts when they
   exist.
 
+###### Runtime execution-backend selection and construction contract
+
+The host-runtime execution-backend selector trims surrounding whitespace and
+matches ASCII case-insensitively. The only accepted value is `vm`, which selects
+`BytecodeVm`. Empty or unknown values reject with an invalid-configuration
+error that names `runtime.execution_backend` and preserves the rejected text.
+The retired `interpreter` value rejects with the distinct migration guidance
+that it is no longer supported for production runtimes and that `vm` must be
+used.
+
+A freshly constructed `Runtime` selects `BytecodeVm`, has zero elapsed logical
+time and zero completed cycles, and exposes the default date/time profile with
+epoch tick zero and one-millisecond resolution. Selecting `BytecodeVm` is valid
+before a bytecode module has been loaded. For a runtime built from accepted
+source, the first VM cycle may materialize the module lazily; that cycle must
+complete successfully and expose the source program's resulting state.
+When a metrics sink is attached, the snapshot after the reviewed VM cycle
+reports `BytecodeVm` as the effective execution backend.
+
+This contract does not authorize another production backend, cross-version
+bytecode compatibility, arbitrary source semantics, optimized-backend parity,
+or a general performance claim.
+
+###### Runtime historian recording and export contract
+
+An enabled historian in `all` mode records the reviewed global BOOL, integer,
+floating-point, and string values with their runtime types. An accepted capture
+at time `t` establishes the sample-interval boundary: a second request before
+`t + sample_interval_ms` returns zero and adds no sample, while a request at or
+after that boundary records the current snapshot. Queries for the reviewed
+paths return the recorded values in capture order.
+
+In `allowlist` mode, exact configured names and the reviewed `retain.*` prefix
+are recorded; unmatched globals are absent. A file-backed historian reloads
+the reviewed persisted sample when a new service instance opens the same
+history path. The Prometheus renderer includes the reviewed runtime uptime and
+fault totals together with historian sample and alert totals when the historian
+snapshot is supplied.
+
+These cases do not establish arbitrary value conversion, wildcard grammar
+beyond the reviewed exact and `retain.*` forms, concurrent writers, crash
+durability, retention limits, filesystem atomicity, alert semantics, or the
+complete Prometheus schema.
+
+###### Runtime metrics window and profiling contract
+
+Runtime profiling starts enabled. While enabled, a recorded call is grouped by
+its `kind:name` identity, increments its call count, and contributes its elapsed
+time to the per-cycle average. A profiling snapshot retains the reviewed call
+identities and ranks the reviewed program call ahead of the smaller
+function-block call by average cycle contribution.
+
+Disabling profiling clears accumulated call entries and top contributors and
+ignores calls recorded while disabled. Re-enabling profiling starts a clean
+collection, and a subsequently recorded call appears as the sole reviewed
+entry. For the reviewed non-wrapped cycle window containing 5, 10, 15, 20, and
+25 milliseconds, the snapshot reports five samples, a median of at least
+10 milliseconds, a p95 not below the median, and a maximum of 25 milliseconds.
+
+This batch does not establish window rollover, percentile behavior for every
+sample population, clock accuracy, concurrent collection, instrumentation
+completeness, a stable overhead budget, or a general execution-time guarantee.
+
 The role and transport rules in section 6.9.4 govern these handlers. A pairing
 token retains its stored role; an unauthenticated network connection receives
 Viewer authority; and a local mode-0600 Unix socket without configured

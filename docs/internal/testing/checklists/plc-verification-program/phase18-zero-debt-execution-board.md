@@ -921,6 +921,29 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   than being forced into semantically different invariants. No broad
   workspace test, coverage campaign, mutation campaign, or final gate has run.
   <!-- generated:parser-bounded-recovery-catalog:end -->
+  <!-- generated:runtime-host-observability:start -->
+
+  Host-runtime observability catalog progress (2026-07-28): the runtime
+  product specification and decision record now own bounded execution-backend
+  selection and construction, historian recording and export, and runtime
+  metrics/profiling behavior. A fail-closed per-slice generator binds the
+  exact fifteen live tests and seventy-five assertions to
+  `RT_EXECUTION_BACKEND_SELECTION_001`,
+  `RT_HISTORIAN_RECORDING_001`, and
+  `RT_RUNTIME_METRICS_PROFILING_001`: 64 assertions are direct product oracles,
+  eleven are reviewed setup or preconditions, and none is unclassified or
+  non-oracle. The former no-assertion `loads_runtime` smoke test now locks the
+  documented fresh runtime state. The focused builder trace observed 15/15
+  selected tests, and all four catalog transactions passed dry-run and atomic
+  apply. The frozen metadata report now records 4,393 live tests, 3,732
+  `catalog_mapped`, 661 `reviewed_nonmapping`, 154 missing-specification
+  authority tests, 507 separately owned nonmapping tests, and zero confirmed
+  missing tests. This is truST host-product behavior outside IEC 61131-3, not
+  an IEC decision or deviation. `VERIF-P18-003`, assertion reachability,
+  mutation sensitivity, remaining semantic domains, and the final broad gates
+  remain open. Focused evidence is recorded in
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-28-p18-host-runtime-observability.md`.
+  <!-- generated:runtime-host-observability:end -->
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device

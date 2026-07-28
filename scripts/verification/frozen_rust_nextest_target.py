@@ -320,6 +320,7 @@ RUNTIME_REMAINING_LIB_PROFILE = FrozenRustTargetProfile(
 
 RUNTIME_REMAINING_INTEGRATION_PATHS = frozenset(
     {
+        "crates/trust-runtime/tests/api_smoke.rs",
         "crates/trust-runtime/tests/bounded_value_semantics.rs",
         "crates/trust-runtime/tests/bytecode_container.rs",
         "crates/trust-runtime/tests/bytecode_decode_resource_bounds.rs",
@@ -378,9 +379,16 @@ RUNTIME_REMAINING_UNIT_PREFIXES: Mapping[str, str] = {
     "crates/trust-runtime/src/bytecode/validate/resource_limits.rs": (
         "bytecode::validate::resource_limits::tests::"
     ),
+    "crates/trust-runtime/src/host/execution_backend.rs": (
+        "execution_backend::tests::"
+    ),
     "crates/trust-runtime/src/host/bundle_builder/tests.rs": (
         "bundle_builder::tests::"
     ),
+    "crates/trust-runtime/src/host/historian/tests.rs": (
+        "historian::tests::"
+    ),
+    "crates/trust-runtime/src/host/metrics.rs": "metrics::tests::",
     "crates/trust-runtime/src/host/eval/expr/call/tests.rs": (
         "eval::expr::call::tests::"
     ),
