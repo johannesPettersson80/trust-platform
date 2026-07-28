@@ -48,6 +48,9 @@ Target release: `v0.24.59`
 
 ### Fixed
 
+- `trust-runtime play` now creates a project only for ordinary project
+  absence; current-directory and system-I/O configuration failures remain
+  visible instead of being treated as a first-run setup request.
 - ADS onboarding sum-up reads now reject unknown handles and incomplete,
   duplicate, unknown, non-good, valueless, or descriptor-incompatible results
   before projecting any wire value.

@@ -52,3 +52,30 @@ fn should_auto_create(path: &Path) -> anyhow::Result<bool> {
     let program_stbc = path.join("program.stbc");
     Ok(!runtime_toml.is_file() || !program_stbc.is_file())
 }
+
+#[derive(Debug, PartialEq, Eq)]
+enum PlayProjectPlan {
+    Use(PathBuf),
+    Create(Option<PathBuf>),
+}
+
+fn plan_play_project(
+    project: Option<PathBuf>,
+    detect: impl FnOnce() -> Result<PathBuf, trust_runtime::error::RuntimeError>,
+) -> anyhow::Result<PlayProjectPlan> {
+    let candidate = match project {
+        Some(path) => path,
+        None => match detect() {
+            Ok(path) => path,
+            Err(error) if is_bundle_not_found(&error) => {
+                return Ok(PlayProjectPlan::Create(None));
+            }
+            Err(error) => return Err(error.into()),
+        },
+    };
+    if should_auto_create(&candidate)? {
+        Ok(PlayProjectPlan::Create(Some(candidate)))
+    } else {
+        Ok(PlayProjectPlan::Use(candidate))
+    }
+}

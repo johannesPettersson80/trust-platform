@@ -718,6 +718,7 @@ fn chardev_unsupported(chip_path: &Path) -> RuntimeError {
 mod tests {
     use super::*;
     use smol_str::SmolStr;
+    use std::sync::{Arc, Mutex};
 
     #[test]
     fn parse_gpio_config_accepts_basic_inputs() {
@@ -845,5 +846,69 @@ sysfs_base = "/tmp/gpio"
             !matches!(driver.health(), IoDriverHealth::Ok),
             "GPIO health must report the last write failure"
         );
+    }
+
+    struct RecordingBackend {
+        writes: Arc<Mutex<Vec<(u32, bool)>>>,
+    }
+
+    impl GpioBackend for RecordingBackend {
+        fn configure_input(&mut self, _line: u32) -> Result<(), RuntimeError> {
+            Ok(())
+        }
+
+        fn configure_output(&mut self, _line: u32, _initial: bool) -> Result<(), RuntimeError> {
+            Ok(())
+        }
+
+        fn read(&mut self, _line: u32) -> Result<bool, RuntimeError> {
+            Ok(false)
+        }
+
+        fn write(&mut self, line: u32, value: bool) -> Result<(), RuntimeError> {
+            self.writes
+                .lock()
+                .expect("recording backend lock")
+                .push((line, value));
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn gpio_safe_state_handoff_writes_and_confirms_backend_output() {
+        let writes = Arc::new(Mutex::new(Vec::new()));
+        let driver = GpioDriver {
+            backend: Box::new(RecordingBackend {
+                writes: Arc::clone(&writes),
+            }),
+            inputs: Vec::new(),
+            outputs: vec![GpioOutput {
+                line: 27,
+                byte: 0,
+                bit: 0,
+                invert: false,
+                last_written: None,
+            }],
+            health: IoDriverHealth::Ok,
+        };
+        let mut runtime = crate::Runtime::new();
+        runtime.io_mut().resize(0, 1, 0);
+        runtime.add_io_driver("gpio", Box::new(driver));
+        runtime.set_io_safe_state(crate::io::IoSafeState {
+            outputs: vec![(
+                IoAddress::parse("%QX0.0").expect("safe output address"),
+                crate::value::Value::Bool(true),
+            )],
+        });
+
+        runtime
+            .apply_io_safe_state()
+            .expect("GPIO safe-state handoff must be confirmed");
+
+        assert_eq!(
+            writes.lock().expect("recording backend lock").as_slice(),
+            &[(27, true)]
+        );
+        assert_eq!(runtime.io().outputs(), &[1]);
     }
 }

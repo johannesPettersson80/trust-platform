@@ -375,6 +375,72 @@ fn bundle_version_is_rejected_before_runtime_policy_mutation() {
 }
 
 #[test]
+fn play_explicit_project_shape_classification_is_fail_closed() {
+    let root = unique_temp_dir("play-explicit-project-shapes");
+    let missing = root.join("missing");
+    let incomplete = root.join("incomplete");
+    let complete = root.join("complete");
+    let file = root.join("project-file");
+    std::fs::create_dir_all(&incomplete).expect("create incomplete project");
+    std::fs::create_dir_all(&complete).expect("create complete project");
+    std::fs::write(complete.join("runtime.toml"), "").expect("write runtime.toml");
+    std::fs::write(complete.join("program.stbc"), []).expect("write program.stbc");
+    std::fs::create_dir_all(&root).expect("create project-shape root");
+    std::fs::write(&file, "not a project directory").expect("write project file");
+
+    assert!(super::should_auto_create(&missing).expect("missing project"));
+    assert!(super::should_auto_create(&incomplete).expect("incomplete project"));
+    assert!(!super::should_auto_create(&complete).expect("complete project"));
+    assert!(super::should_auto_create(&file)
+        .expect_err("file-shaped project must reject")
+        .to_string()
+        .contains("not a directory"));
+
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn play_project_resolution_distinguishes_absence_from_detection_failure() {
+    let root = unique_temp_dir("play-detected-projects");
+    let incomplete = root.join("incomplete");
+    let complete = root.join("complete");
+    std::fs::create_dir_all(&incomplete).expect("create incomplete project");
+    std::fs::create_dir_all(&complete).expect("create complete project");
+    std::fs::write(complete.join("runtime.toml"), "").expect("write runtime.toml");
+    std::fs::write(complete.join("program.stbc"), []).expect("write program.stbc");
+
+    assert_eq!(
+        super::plan_play_project(None, || Ok(complete.clone())).expect("detected complete project"),
+        super::PlayProjectPlan::Use(complete.clone())
+    );
+    assert_eq!(
+        super::plan_play_project(None, || Ok(incomplete.clone()))
+            .expect("detected incomplete project"),
+        super::PlayProjectPlan::Create(Some(incomplete.clone()))
+    );
+    assert_eq!(
+        super::plan_play_project(None, || {
+            Err(trust_runtime::error::RuntimeError::InvalidBundle(
+                "project folder not found (run `trust-runtime` to launch setup, or pass --project <dir>)"
+                    .into(),
+            ))
+        })
+        .expect("ordinary project absence"),
+        super::PlayProjectPlan::Create(None)
+    );
+
+    let error = super::plan_play_project(None, || {
+        Err(trust_runtime::error::RuntimeError::InvalidConfig(
+            "system io config is malformed".into(),
+        ))
+    })
+    .expect_err("configuration failure must remain visible");
+    assert!(error.to_string().contains("system io config is malformed"));
+
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
 fn ads_runtime_start_spawns_worker_and_scan_applies_mock_data() {
     let source = r#"
 TYPE

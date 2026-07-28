@@ -39,3 +39,29 @@ fn trust_dev_subcommand_help_is_stable() {
         );
     }
 }
+
+#[test]
+fn oscat_replaced_upstream_name_remains_absent() {
+    let project = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../trust-runtime/tests/fixtures/oscat/negative_public_surface");
+    let sentinel =
+        std::fs::read_to_string(project.join("src/main.st")).expect("read OSCAT sentinel source");
+    assert!(sentinel.contains("OVERRIDE("));
+    let output = trust_dev()
+        .args(["test", "--project"])
+        .arg(&project)
+        .output()
+        .expect("run OSCAT negative public-surface fixture");
+
+    assert!(
+        !output.status.success(),
+        "upstream OSCAT OVERRIDE must not resolve as a duplicate public API"
+    );
+    let diagnostics = format!(
+        "{}\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(diagnostics.contains("src/main.st: expected expression"));
+    assert!(diagnostics.contains("src/tests.st: expected expression"));
+}

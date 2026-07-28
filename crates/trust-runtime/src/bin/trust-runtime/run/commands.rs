@@ -38,30 +38,9 @@ pub fn run_default(verbose: bool) -> anyhow::Result<()> {
 
 pub fn run_play(project: Option<PathBuf>, options: PlayOptions) -> anyhow::Result<()> {
     validate_runtime_launch_options(&options.restart, options.time_scale)?;
-    let mut created = false;
-    let project_path = match project {
-        Some(path) => {
-            if should_auto_create(&path)? {
-                created = true;
-                wizard::create_bundle_auto(Some(path))?
-            } else {
-                path
-            }
-        }
-        None => match detect_bundle_path(None).map_err(anyhow::Error::from) {
-            Ok(path) => {
-                if should_auto_create(&path)? {
-                    created = true;
-                    wizard::create_bundle_auto(Some(path))?
-                } else {
-                    path
-                }
-            }
-            Err(_) => {
-                created = true;
-                wizard::create_bundle_auto(None)?
-            }
-        },
+    let (project_path, created) = match plan_play_project(project, || detect_bundle_path(None))? {
+        PlayProjectPlan::Use(path) => (path, false),
+        PlayProjectPlan::Create(path) => (wizard::create_bundle_auto(path)?, true),
     };
     if created {
         println!(
