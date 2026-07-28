@@ -132,6 +132,24 @@ SYNTAX_REMAINING_PROFILE = FrozenRustTargetProfile(
     no_default_features_shard_name=None,
 )
 
+SYNTAX_REMAINING_LIB_PROFILE = FrozenRustTargetProfile(
+    key=SYNTAX_REMAINING_PROFILE_KEY,
+    package="trust-syntax",
+    target_kind="lib",
+    target_name=None,
+    binary_id="trust-syntax",
+    test_prefix="",
+    encoded_test_name_prefix="trust-syntax::trust_syntax$",
+    discovery_source_kind="rust_unit_test",
+    allowed_cfg_attributes=frozenset(),
+    no_default_features_cfg=None,
+    no_default_features_shard_name=None,
+)
+
+SYNTAX_REMAINING_UNIT_PREFIXES: Mapping[str, str] = {
+    "crates/trust-syntax/src/syntax/mod.rs": "syntax::tests::",
+}
+
 DEBUG_REMAINING_PROFILE = FrozenRustTargetProfile(
     key=DEBUG_REMAINING_PROFILE_KEY,
     package="trust-debug",
@@ -795,6 +813,13 @@ def _hir_remaining_profile(path: str | None) -> FrozenRustTargetProfile:
 
 
 def _syntax_remaining_profile(path: str | None) -> FrozenRustTargetProfile:
+    if path in SYNTAX_REMAINING_UNIT_PREFIXES:
+        return _unit_path_profile(
+            SYNTAX_REMAINING_LIB_PROFILE,
+            SYNTAX_REMAINING_UNIT_PREFIXES,
+            path,
+            "syntax",
+        )
     if path in SYNTAX_REMAINING_INTEGRATION_PATHS:
         target_name = path.removeprefix(
             "crates/trust-syntax/tests/"

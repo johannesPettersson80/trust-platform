@@ -71,6 +71,17 @@ two diagnostics and preserves the following declaration. These diagnostic and
 recovery guarantees are truST parser contracts for malformed source; they do
 not make the malformed forms valid IEC Structured Text.
 
+For syntax-tree consumers, ordinary expression nodes and aggregate initializer
+nodes are intentionally separate classifier sets. Ordinary expressions are
+`Literal`, `NameRef`, `BinaryExpr`, `UnaryExpr`, `CallExpr`, `IndexExpr`,
+`FieldExpr`, `DerefExpr`, `AddrExpr`, `ParenExpr`, `ThisExpr`, `SuperExpr`,
+and `SizeOfExpr`. Aggregate initializers are `InitializerList` and
+`ArrayInitializer`; neither is an ordinary expression. Initializer position
+accepts the union of the ordinary-expression and aggregate-initializer sets.
+Parser trivia, including `Pragma`, is neither an expression, statement, nor
+initializer expression. This governs truST's internal syntax API and does not
+expand the valid IEC initializer grammar.
+
 ## 2. Variable Section Keywords (Figure 7, Section 6.5.2)
 
 ### Input/Output Variables

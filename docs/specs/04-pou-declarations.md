@@ -625,6 +625,16 @@ END_VAR
 
 ## Implementation Notes for trust-hir
 
+### Syntax-tree POU semantic owners
+
+The POU-like semantic-owner classifier contains `Program`, `Function`,
+`FunctionBlock`, `Class`, `Method`, `Property`, and `Interface`.
+`PropertyGet`, `PropertySet`, `ProgramConfig`, `Namespace`, `Configuration`,
+and `Resource` are not independent owners in this classifier. The listed order
+is the canonical iteration order of the shared classifier constant. This is an
+internal truST syntax/HIR ownership boundary, and “POU-like” here does not
+redefine the IEC POU taxonomy.
+
 ### POU Symbol Requirements
 
 1. **Name**: Unique identifier

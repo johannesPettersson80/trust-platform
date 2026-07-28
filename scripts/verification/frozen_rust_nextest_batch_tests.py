@@ -414,9 +414,14 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
             "trust-syntax::parser_expressions$",
             integration.encoded_test_name_prefix,
         )
+        syntax_kind = get_target_profile(
+            "syntax-remaining",
+            path="crates/trust-syntax/src/syntax/mod.rs",
+        )
+        self.assertEqual(("--lib",), syntax_kind.cargo_target_args)
+        self.assertEqual("syntax::tests::", syntax_kind.test_prefix)
 
         for excluded_path in (
-            "crates/trust-syntax/src/syntax/mod.rs",
             "crates/trust-syntax/tests/parser_project_examples.rs",
             "crates/trust-syntax/tests/not_reviewed.rs",
         ):

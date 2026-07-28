@@ -6,6 +6,30 @@ in `IEC_DECISIONS.md`; PLCopen profile decisions belong in
 `PLCOPEN_DECISIONS.md`. Product behavior recorded here MUST NOT be copied to an
 IEC or PLCopen deviation log merely because truST owns the behavior.
 
+## 2026-07-28 - Syntax-kind classifier authority
+
+- Area: Lexer and concrete syntax tree
+- Decision:
+  - Lexer token kinds convert to same-named syntax token kinds, with `Eof` as
+    the final token-kind boundary and later `SyntaxKind` values classified as
+    composite nodes.
+  - Parser trivia is whitespace, line comments, block comments, and pragmas.
+  - Generic expression nodes and aggregate initializer nodes remain distinct;
+    initializer position accepts their union.
+  - The POU-like semantic-owner set contains program, function, function
+    block, class, method, property, and interface nodes in that canonical
+    iteration order. Accessors, configuration objects, namespaces, and
+    resources are excluded.
+- Authority:
+  - `docs/specs/01-lexical-elements.md`
+  - `docs/specs/03-variables.md`
+  - `docs/specs/04-pou-declarations.md`
+- Reason:
+  - These classifier boundaries are stable truST compiler APIs used by parser
+    and semantic consumers. They describe internal representation and
+    ownership; they do not redefine IEC source syntax and are not IEC
+    deviations.
+
 ## 2026-07-28 - Resource scheduler cycle, fault, and trace semantics
 
 - Area: Runtime resource scheduler

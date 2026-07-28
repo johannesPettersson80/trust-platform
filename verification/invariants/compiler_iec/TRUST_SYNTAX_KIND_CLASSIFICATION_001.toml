@@ -1,0 +1,107 @@
+schema_version = 1
+id = "TRUST_SYNTAX_KIND_CLASSIFICATION_001"
+title = "Syntax-kind classifiers preserve representation and ownership boundaries"
+area = "compiler_iec"
+risk = "wrong_result"
+status = "planned"
+owner = "trust-syntax"
+last_reviewed = "2026-07-28"
+claim = "SyntaxKind conversion and classifiers preserve the reviewed token/node, trivia, initializer, and POU-like semantic-owner boundaries."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["crates/trust-syntax/src/syntax/mod.rs"]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["focused_execution", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_IEC_LEXICAL_ELEMENTS_001", "SPEC_IEC_VARIABLES_001", "SPEC_IEC_POU_DECLARATIONS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#syntaxkind-token-and-trivia-representation"
+
+[[behavior]]
+partition = { equals = "TOKEN_TO_SYNTAX_KIND_REPRESENTATIVES" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#syntaxkind-token-and-trivia-representation"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The reviewed KwFunctionBlock, Ident, and Assign TokenKind representatives convert to the same-named SyntaxKind values; exhaustive conversion is not claimed by this test."
+
+[[behavior]]
+partition = { equals = "TRIVIA_REPRESENTATIVES" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#syntaxkind-token-and-trivia-representation"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Whitespace, line comment, block comment, and pragma are trivia while the reviewed identifier representative is not."
+
+[[behavior]]
+partition = { equals = "TOKEN_NODE_REPRESENTATIVES" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#syntaxkind-token-and-trivia-representation"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The reviewed Ident and KwIf kinds are tokens, IfStmt and FunctionBlock are nodes, and the tested is_node results invert is_token."
+
+[[behavior]]
+partition = { equals = "GENERIC_EXPRESSION_EXCLUDES_AGGREGATE_INITIALIZER" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_VARIABLES_001#parser-initializer-classification-and-recovery"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Literal, NameRef, and CallExpr are reviewed generic-expression representatives while InitializerList and ArrayInitializer are excluded."
+
+[[behavior]]
+partition = { equals = "AGGREGATE_INITIALIZER_CLASSIFICATION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_VARIABLES_001#parser-initializer-classification-and-recovery"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "InitializerList and ArrayInitializer are both classified as aggregate initializer nodes."
+
+[[behavior]]
+partition = { equals = "INITIALIZER_RHS_UNION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_VARIABLES_001#parser-initializer-classification-and-recovery"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Initializer position accepts the reviewed Literal ordinary expression plus InitializerList and ArrayInitializer aggregate nodes."
+
+[[behavior]]
+partition = { equals = "TRIVIA_EXCLUDED_FROM_SEMANTIC_NODE_CLASSIFIERS" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_VARIABLES_001#parser-initializer-classification-and-recovery"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The reviewed Pragma trivia representative is not an expression, statement, or initializer expression."
+
+[[behavior]]
+partition = { equals = "POU_LIKE_SEMANTIC_OWNER_SEQUENCE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_POU_DECLARATIONS_001#syntax-tree-pou-semantic-owners"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The shared classifier exposes the reviewed seven POU-like owners in canonical order and excludes the six reviewed accessor, configuration, namespace, and resource representatives."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "The product authority is reviewed; focused catalog mappings and execution evidence remain pending."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "The product authority is reviewed; focused trivia-exclusion mapping and execution evidence remain pending."

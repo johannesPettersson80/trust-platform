@@ -465,6 +465,17 @@ Two-character combinations beginning with dollar sign `$`:
 7. **Pragmas**: For implementer-specific processing
 8. **Whitespace**: Separators (can be discarded)
 
+### SyntaxKind token and trivia representation
+
+Every lexer `TokenKind` converts to the same-named `SyntaxKind`. `Eof` is the
+final token-kind discriminant; kinds through `Eof` are tokens and later kinds
+are composite syntax nodes. `is_node()` is the inverse of `is_token()`.
+
+The parser-trivia classifier contains `Whitespace`, `LineComment`,
+`BlockComment`, and `Pragma`. Ordinary identifiers are not trivia. These are
+truST concrete-syntax representation rules, not IEC source-language
+additions.
+
 ### Lexer Error Conditions
 
 1. Invalid identifier (double underscore, trailing underscore)
