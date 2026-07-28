@@ -7957,6 +7957,7 @@ requires_hardware = false
 requires_network = true
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_ADS_SERVER_JSON_REJECTION_001.json"
+mapping_behavior_refs = ["RT_ADS_CLI_FAIL_CLOSED_001#behavior:1"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -7981,6 +7982,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_ADS_DISCOVER_NO_WIRE_001.json"
+mapping_behavior_refs = ["RT_ADS_CLI_FAIL_CLOSED_001#behavior:0"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -8005,6 +8007,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_ADS_BROWSE_NO_WIRE_001.json"
+mapping_behavior_refs = ["RT_ADS_CLI_FAIL_CLOSED_001#behavior:0"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -8029,6 +8032,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_ADS_DOCTOR_NO_WIRE_001.json"
+mapping_behavior_refs = ["RT_ADS_CLI_FAIL_CLOSED_001#behavior:0"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -8053,6 +8057,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_ADS_VALIDATE_LIVE_NO_WIRE_001.json"
+mapping_behavior_refs = ["RT_ADS_CLI_AUTHORING_001#behavior:2", "RT_ADS_CLI_FAIL_CLOSED_001#behavior:0"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -8077,6 +8082,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_ADS_IMPORT_SYMBOLS_NO_WIRE_001.json"
+mapping_behavior_refs = ["RT_ADS_CLI_AUTHORING_001#behavior:2", "RT_ADS_CLI_FAIL_CLOSED_001#behavior:0"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -14845,6 +14851,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_ONBOARDING_IDENTITY_NETWORK_CLASSIFICATION_COVERS_LAN_VPN_TAILSCALE_LOOPBACK_PUBLIC_AND_NAT_001.json"
+mapping_behavior_refs = ["RT_ADS_ONBOARDING_IDENTITY_001#behavior:3"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -14893,6 +14900,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_ONBOARDING_DISCOVERY_BROADCAST_FAILURE_PRESERVES_SUCCESSFUL_MANUAL_IDENTITY_001.json"
+mapping_behavior_refs = ["RT_ADS_ONBOARDING_DISCOVERY_001#behavior:4"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -14917,6 +14925,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_ONBOARDING_DISCOVERY_DISCOVERY_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001.json"
+mapping_behavior_refs = ["RT_ADS_ONBOARDING_DISCOVERY_001#behavior:2", "RT_ADS_ONBOARDING_DISCOVERY_001#behavior:3"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -14965,6 +14974,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_ONBOARDING_DISCOVERY_DIRECTED_BROADCAST_IS_OPTIONAL_AND_DEDUPLICATED_001.json"
+mapping_behavior_refs = ["RT_ADS_ONBOARDING_DISCOVERY_001#behavior:3"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -14989,6 +14999,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_ONBOARDING_DISCOVERY_DIRECTED_IDENTIFY_COLLECTS_TARGET_FIELDS_FROM_WIRE_001.json"
+mapping_behavior_refs = ["RT_ADS_ONBOARDING_DISCOVERY_001#behavior:1"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -15037,6 +15048,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_ONBOARDING_ROUTE_AUTOMATIC_ROUTE_ADD_REJECTS_BLANK_CREDENTIALS_BEFORE_WIRE_001.json"
+mapping_behavior_refs = ["RT_ADS_ONBOARDING_ROUTE_SECURITY_001#behavior:2"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -15061,6 +15073,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_ONBOARDING_ROUTE_ROUTE_POWERSHELL_ENCODES_XML_AGAINST_HERE_STRING_BREAKOUT_001.json"
+mapping_behavior_refs = ["RT_ADS_ONBOARDING_ROUTE_SECURITY_001#behavior:3"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -15253,6 +15266,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_EMPTY_PATTERN_SELECTS_NOTHING_001.json"
+mapping_behavior_refs = ["RT_ADS_SYMBOL_IMPORT_SELECTION_001#behavior:2"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -15277,6 +15291,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_GLOB_BACKTRACKS_TO_ANCHORED_SUFFIX_001.json"
+mapping_behavior_refs = ["RT_ADS_SYMBOL_IMPORT_SELECTION_001#behavior:1"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -15301,6 +15316,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_HONORS_EXPLICIT_SYMBOL_LIST_001.json"
+mapping_behavior_refs = ["RT_ADS_SYMBOL_IMPORT_SELECTION_001#behavior:0"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -15325,6 +15341,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SYMBOL_IMPORT_BUILD_IMPORT_RESPONSE_PREFIXES_ALL_RESERVED_ST_KEYWORDS_001.json"
+mapping_behavior_refs = ["RT_ADS_SYMBOL_IMPORT_SELECTION_001#behavior:3"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -15349,6 +15366,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SYMBOL_IMPORT_IMPORT_SYMBOLS_APPLY_ACCEPTS_IDENTICAL_GENERATED_SOURCE_001.json"
+mapping_behavior_refs = ["RT_ADS_SYMBOL_IMPORT_ARTIFACT_SAFETY_001#behavior:5"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -15373,6 +15391,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SYMBOL_IMPORT_IMPORT_SYMBOLS_APPLY_PRESERVES_DIFFERENT_GENERATED_SOURCE_001.json"
+mapping_behavior_refs = ["RT_ADS_SYMBOL_IMPORT_ARTIFACT_SAFETY_001#behavior:6"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -15397,6 +15416,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SYMBOL_IMPORT_IMPORT_SYMBOLS_APPLY_REJECTS_ABSOLUTE_OUTPUT_PATH_001.json"
+mapping_behavior_refs = ["RT_ADS_SYMBOL_IMPORT_ARTIFACT_SAFETY_001#behavior:1"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -15421,6 +15441,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SYMBOL_IMPORT_IMPORT_SYMBOLS_APPLY_REJECTS_COLLIDING_ARTIFACT_PATHS_001.json"
+mapping_behavior_refs = ["RT_ADS_SYMBOL_IMPORT_ARTIFACT_SAFETY_001#behavior:4"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -15445,6 +15466,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SYMBOL_IMPORT_IMPORT_SYMBOLS_APPLY_REJECTS_CONNECTION_NAME_AS_SNAPSHOT_PATH_001.json"
+mapping_behavior_refs = ["RT_ADS_SYMBOL_IMPORT_ARTIFACT_SAFETY_001#behavior:1", "RT_ADS_SYMBOL_IMPORT_ARTIFACT_SAFETY_001#behavior:2"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -15469,6 +15491,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SYMBOL_IMPORT_IMPORT_SYMBOLS_APPLY_REJECTS_PARENT_PATH_TRAVERSAL_001.json"
+mapping_behavior_refs = ["RT_ADS_SYMBOL_IMPORT_ARTIFACT_SAFETY_001#behavior:1"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -15493,6 +15516,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SYMBOL_IMPORT_IMPORT_SYMBOLS_APPLY_REJECTS_SYMLINK_PATH_ESCAPE_001.json"
+mapping_behavior_refs = ["RT_ADS_SYMBOL_IMPORT_ARTIFACT_SAFETY_001#behavior:3"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -15517,6 +15541,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SYMBOL_IMPORT_IMPORT_SYMBOLS_APPLY_REJECTS_UNDISCOVERABLE_SNAPSHOT_PATH_001.json"
+mapping_behavior_refs = ["RT_ADS_SYMBOL_IMPORT_ARTIFACT_SAFETY_001#behavior:2"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -15541,6 +15566,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SYMBOL_IMPORT_IMPORT_SYMBOLS_APPLY_UPDATES_VALID_CURRENT_GENERATED_SOURCE_001.json"
+mapping_behavior_refs = ["RT_ADS_SYMBOL_IMPORT_ARTIFACT_SAFETY_001#behavior:5"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -15565,6 +15591,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SYMBOL_IMPORT_IMPORT_SYMBOLS_APPLY_WRITES_EXACT_SELECTED_SYMBOLS_TO_PROJECT_FILES_001.json"
+mapping_behavior_refs = ["RT_ADS_SYMBOL_IMPORT_ARTIFACT_SAFETY_001#behavior:0"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -15589,6 +15616,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SYMBOL_IMPORT_CONTROL_IMPORT_SYMBOLS_APPLY_ACKNOWLEDGED_WRITABLE_SYMBOLS_AS_READ_WRITE_001.json"
+mapping_behavior_refs = ["RT_ADS_SYMBOL_IMPORT_APPLY_001#behavior:6"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -15613,6 +15641,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SYMBOL_IMPORT_CONTROL_IMPORT_SYMBOLS_APPLY_ACKNOWLEDGED_WRITE_ONLY_SYMBOL_AS_WRITE_001.json"
+mapping_behavior_refs = ["RT_ADS_SYMBOL_IMPORT_APPLY_001#behavior:6"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -15637,6 +15666,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SYMBOL_IMPORT_CORE_APPLY_IMPORT_MERGES_SECOND_CONNECTION_AND_IS_IDEMPOTENT_001.json"
+mapping_behavior_refs = ["RT_ADS_SYMBOL_IMPORT_APPLY_001#behavior:2"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -15685,6 +15715,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SYMBOL_IMPORT_CORE_APPLY_IMPORT_REJECTS_EMPTY_SELECTION_001.json"
+mapping_behavior_refs = ["RT_ADS_SYMBOL_IMPORT_APPLY_001#behavior:1"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -15709,6 +15740,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SYMBOL_IMPORT_CORE_APPLY_IMPORT_REJECTS_WRITE_BINDING_WITHOUT_ACKNOWLEDGEMENT_001.json"
+mapping_behavior_refs = ["RT_ADS_SYMBOL_IMPORT_APPLY_001#behavior:5"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -15757,6 +15789,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SYMBOL_IMPORT_CORE_APPLY_IMPORT_REJECTS_MALFORMED_EXISTING_TOML_001.json"
+mapping_behavior_refs = ["RT_ADS_SYMBOL_IMPORT_APPLY_001#behavior:2"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -15925,6 +15958,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_COMMAND_HANDLE_BY_NAME_ENFORCES_HANDLE_LIMIT_001.json"
+mapping_behavior_refs = ["RT_ADS_SERVER_COMMAND_DISPATCH_001#behavior:2"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -15973,6 +16007,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_COMMAND_HANDLE_BY_NAME_WRAPS_WITHOUT_ALIASING_LIVE_HANDLES_001.json"
+mapping_behavior_refs = ["RT_ADS_SERVER_COMMAND_DISPATCH_001#behavior:2"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -15997,6 +16032,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_COMMAND_MALFORMED_COMMAND_PAYLOADS_FAIL_WITHOUT_STATE_MUTATION_001.json"
+mapping_behavior_refs = ["RT_ADS_SERVER_COMMAND_DISPATCH_001#behavior:4"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -16069,6 +16105,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_COMMAND_POLICY_REJECTION_PRECEDES_WRITE_AND_RECORDS_AUDIT_001.json"
+mapping_behavior_refs = ["RT_ADS_SERVER_COMMAND_DISPATCH_001#behavior:0", "RT_ADS_SERVER_COMMAND_DISPATCH_001#behavior:3"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -16525,6 +16562,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_COMMAND_WRITE_ENQUEUES_AND_AUDITS_WRITABLE_SYMBOL_001.json"
+mapping_behavior_refs = ["RT_ADS_SERVER_COMMAND_DISPATCH_001#behavior:3"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -16549,6 +16587,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_COMMAND_WRITE_REJECTS_READONLY_SYMBOL_WITHOUT_RUNTIME_MUTATION_001.json"
+mapping_behavior_refs = ["RT_ADS_SERVER_COMMAND_DISPATCH_001#behavior:3"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -16573,6 +16612,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_COMMAND_DIRECT_WRITE_ENFORCES_WRITE_BYTE_LIMIT_001.json"
+mapping_behavior_refs = ["RT_ADS_SERVER_COMMAND_DISPATCH_001#behavior:3"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -16669,6 +16709,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_COMMAND_SUMUP_READWRITE_REJECTS_TRUNCATED_LATER_ITEM_BEFORE_ANY_WRITE_001.json"
+mapping_behavior_refs = ["RT_ADS_SERVER_COMMAND_DISPATCH_001#behavior:4"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -16717,6 +16758,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_COMMAND_SUMUP_WRITE_REJECTS_TRUNCATED_LATER_ITEM_BEFORE_ANY_WRITE_001.json"
+mapping_behavior_refs = ["RT_ADS_SERVER_COMMAND_DISPATCH_001#behavior:4"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -16741,6 +16783,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_COMMAND_SUMUP_WRITE_RETURNS_PER_ITEM_RESULTS_001.json"
+mapping_behavior_refs = ["RT_ADS_SERVER_COMMAND_DISPATCH_001#behavior:4"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -17077,6 +17120,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_DIAGNOSTIC_COMMITTED_GOLDEN_FIXTURES_MATCH_RUST_SCHEMA_001.json"
+mapping_behavior_refs = ["RT_ADS_DIAGNOSTIC_REPORT_TRUTH_001#behavior:5"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -17197,6 +17241,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_DIAGNOSTIC_SCHEMA_RESERVES_SERVER_ROLE_WITHOUT_SERVER_MODULES_001.json"
+mapping_behavior_refs = ["RT_ADS_DIAGNOSTIC_REPORT_TRUTH_001#behavior:5"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -17221,6 +17266,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_DIAGNOSTIC_SERIALIZES_DOCUMENTED_MISSING_ROUTE_SHAPE_DETERMINISTICALLY_001.json"
+mapping_behavior_refs = ["RT_ADS_DIAGNOSTIC_REPORT_TRUTH_001#behavior:5"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -17293,6 +17339,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_DIAGNOSTIC_DOCTOR_OVERALL_FAILS_CLOSED_FOR_EMPTY_STEPS_001.json"
+mapping_behavior_refs = ["RT_ADS_DIAGNOSTIC_REPORT_TRUTH_001#behavior:1"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -17317,6 +17364,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_DIAGNOSTIC_DOCTOR_OVERALL_KEEPS_NONBLOCKING_FAILURE_PARTIAL_001.json"
+mapping_behavior_refs = ["RT_ADS_DIAGNOSTIC_REPORT_TRUTH_001#behavior:1"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -17413,6 +17461,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_DIAGNOSTIC_PRODUCTION_READINESS_HONORS_AGE_STATUS_HASH_AND_CLOCK_WARNING_001.json"
+mapping_behavior_refs = ["RT_ADS_DIAGNOSTIC_REPORT_TRUTH_001#behavior:3"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -17437,6 +17486,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_DIAGNOSTIC_PRODUCTION_READINESS_IS_NOT_READY_WITHOUT_EVIDENCE_001.json"
+mapping_behavior_refs = ["RT_ADS_DIAGNOSTIC_REPORT_TRUTH_001#behavior:0"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -17461,6 +17511,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_DIAGNOSTIC_PRODUCTION_READINESS_NEEDS_RECHECK_ON_MISMATCH_FAULT_OR_EXPIRY_001.json"
+mapping_behavior_refs = ["RT_ADS_DIAGNOSTIC_REPORT_TRUTH_001#behavior:3"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -17485,6 +17536,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_DIAGNOSTIC_PRODUCTION_READINESS_REQUIRES_MATCHING_DEPLOYED_STATUS_001.json"
+mapping_behavior_refs = ["RT_ADS_DIAGNOSTIC_REPORT_TRUTH_001#behavior:3"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -17509,6 +17561,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_DIAGNOSTIC_PRODUCTION_READY_REQUIRES_PASS_AND_EVIDENCE_001.json"
+mapping_behavior_refs = ["RT_ADS_DIAGNOSTIC_REPORT_TRUTH_001#behavior:0", "RT_ADS_DIAGNOSTIC_REPORT_TRUTH_001#behavior:3"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -17557,6 +17610,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_DIAGNOSTIC_SERVER_PRODUCTION_READY_REJECTS_INCOMPLETE_OR_CLIENT_ROLE_EVIDENCE_001.json"
+mapping_behavior_refs = ["RT_ADS_DIAGNOSTIC_REPORT_TRUTH_001#behavior:3"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -17581,6 +17635,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_DIAGNOSTIC_SERVER_PRODUCTION_READY_REQUIRES_INDEPENDENT_CLIENT_EVIDENCE_001.json"
+mapping_behavior_refs = ["RT_ADS_DIAGNOSTIC_REPORT_TRUTH_001#behavior:3"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -17605,6 +17660,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_DIAGNOSTIC_V1_CLIENT_EVIDENCE_JSON_STILL_DESERIALIZES_WITH_SERVER_DEFAULTS_001.json"
+mapping_behavior_refs = ["RT_ADS_DIAGNOSTIC_REPORT_TRUTH_001#behavior:5"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -17629,6 +17685,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_DIAGNOSTIC_DIAGNOSTIC_MAPS_AND_ACTION_BUILDERS_SERIALIZE_DETERMINISTICALLY_001.json"
+mapping_behavior_refs = ["RT_ADS_DIAGNOSTIC_REPORT_TRUTH_001#behavior:5"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -17653,6 +17710,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_DIAGNOSTIC_DIAGNOSTIC_WIRE_ENUMS_KEEP_THE_VERSION_TWO_CONTRACT_NAMES_001.json"
+mapping_behavior_refs = ["RT_ADS_DIAGNOSTIC_REPORT_TRUTH_001#behavior:5"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -17677,6 +17735,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_ONBOARDING_WIRE_MOCK_WIRE_HAPPY_PATH_COVERS_REQUIRED_OPERATIONS_001.json"
+mapping_behavior_refs = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001#behavior:1"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -17701,6 +17760,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_ONBOARDING_WIRE_ONBOARDING_BOUNDARY_KEEPS_RAW_ADS_TYPES_OUT_OF_PUBLIC_SCHEMA_001.json"
+mapping_behavior_refs = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001#behavior:1"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -17725,6 +17785,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MATCHING_READBACK_DEFERS_NORMAL_RESTORE_001.json"
+mapping_behavior_refs = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001#behavior:2"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -17749,6 +17810,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_MISMATCH_REPORTS_RESTORE_FAILURE_001.json"
+mapping_behavior_refs = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001#behavior:2", "RT_ADS_ONBOARDING_WIRE_SAFETY_001#behavior:3"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -17773,6 +17835,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_READ_ERROR_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001.json"
+mapping_behavior_refs = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001#behavior:2", "RT_ADS_ONBOARDING_WIRE_SAFETY_001#behavior:3"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -17797,6 +17860,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_ONBOARDING_WIRE_GUARDED_PROBE_WRITE_FAILURE_ATTEMPTS_AND_REPORTS_RESTORE_FAILURE_001.json"
+mapping_behavior_refs = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001#behavior:2", "RT_ADS_ONBOARDING_WIRE_SAFETY_001#behavior:3"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -17821,7 +17885,33 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_ONBOARDING_WIRE_UDP_WIRE_DEDUPLICATES_BY_ADS_ENDPOINT_NOT_HOST_IP_001.json"
+mapping_behavior_refs = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001#behavior:0"]
 last_reviewed = "2026-07-22"
+
+[[tests]]
+schema_version = 2
+id = "TEST_ADS_ONBOARDING_WIRE_SUMUP_READ_PROJECTION_REJECTS_INCOMPLETE_OR_UNTRUSTED_RESULTS_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_B7557177C0090105BF13"
+discovery_source_kind = "rust_unit_test"
+test_class = "failing_regression"
+area = "protocols"
+path = "crates/trust-runtime/src/host/ads/onboarding/wire/tests.rs"
+name = "sumup_read_projection_rejects_incomplete_or_untrusted_results"
+command = "cargo test -p trust-runtime --lib ads::onboarding::wire::tests::sumup_read_projection_rejects_incomplete_or_untrusted_results -- --exact --nocapture"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001"]
+mapping_behavior_refs = ["RT_ADS_ONBOARDING_WIRE_SAFETY_001#behavior:4"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#ads-onboarding-live-wire-and-guarded-write-recovery"
+expected_result = "The onboarding ADS adapter rejects unknown handles and any incomplete, duplicate, unknown, non-good, valueless, or descriptor-incompatible sum-up result before projecting wire bytes."
+expected_failure_mode = "An uncorrelated or malformed ADS sum-up response manufactures a wire value or reports an incomplete batch as successful."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_ADS_ONBOARDING_WIRE_SUMUP_READ_PROJECTION_REJECTS_INCOMPLETE_OR_UNTRUSTED_RESULTS_001.json"
+last_reviewed = "2026-07-28"
 
 [[tests]]
 schema_version = 2
@@ -17869,6 +17959,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_ONBOARDING_DOCTOR_ACTIVE_DEVICE_BATCH_READ_REQUIRES_A_TIMESTAMPED_GOOD_POINT_001.json"
+mapping_behavior_refs = ["RT_ADS_ONBOARDING_DOCTOR_ORCHESTRATION_001#behavior:3", "RT_ADS_ONBOARDING_DOCTOR_ORCHESTRATION_001#behavior:4"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -17893,6 +17984,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_ONBOARDING_DOCTOR_ACTIVE_DEVICE_READ_ONLY_USES_LIVE_STATUS_AND_NEVER_OPENS_WIRE_CONNECTION_001.json"
+mapping_behavior_refs = ["RT_ADS_ONBOARDING_DOCTOR_ORCHESTRATION_001#behavior:3"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -17917,6 +18009,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_ONBOARDING_DOCTOR_ACTIVE_DEVICE_SHORTCUT_REQUIRES_THE_EXACT_REQUESTED_ENDPOINT_001.json"
+mapping_behavior_refs = ["RT_ADS_ONBOARDING_DOCTOR_ORCHESTRATION_001#behavior:3", "RT_ADS_ONBOARDING_DOCTOR_ORCHESTRATION_001#behavior:4"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -17941,6 +18034,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_ONBOARDING_DOCTOR_DOCTOR_HAPPY_PATH_RUNS_REQUIRED_STEPS_AND_SKIPS_WRITE_PROBE_BY_DEFAULT_001.json"
+mapping_behavior_refs = ["RT_ADS_ONBOARDING_DOCTOR_ORCHESTRATION_001#behavior:0"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -18013,6 +18107,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_ONBOARDING_DOCTOR_DOCTOR_REJECTS_BLANK_OR_ABSENT_SELECTED_SYMBOL_AT_UPLOAD_BOUNDARY_001.json"
+mapping_behavior_refs = ["RT_ADS_ONBOARDING_DOCTOR_ORCHESTRATION_001#behavior:2"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -18037,6 +18132,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_ONBOARDING_DOCTOR_DOCTOR_REJECTS_INVALID_MANUAL_ENDPOINT_BEFORE_WIRE_ACTIVITY_001.json"
+mapping_behavior_refs = ["RT_ADS_ONBOARDING_DOCTOR_ORCHESTRATION_001#behavior:1"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -18109,6 +18205,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_ONBOARDING_DOCTOR_FULL_DOCTOR_AGAINST_ACTIVE_DEVICE_REQUIRES_EXPLICIT_PAUSE_001.json"
+mapping_behavior_refs = ["RT_ADS_ONBOARDING_DOCTOR_ORCHESTRATION_001#behavior:4"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -18157,6 +18254,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_ONBOARDING_DOCTOR_PRODUCTION_READY_REQUIRES_PASS_EVIDENCE_AND_LIVE_DEPLOYED_STATUS_001.json"
+mapping_behavior_refs = ["RT_ADS_ONBOARDING_DOCTOR_ORCHESTRATION_001#behavior:0"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -18181,6 +18279,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_ONBOARDING_DOCTOR_REQUIRED_DOCTOR_STEPS_AND_TIMEOUTS_MATCH_SPEC_001.json"
+mapping_behavior_refs = ["RT_ADS_ONBOARDING_DOCTOR_ORCHESTRATION_001#behavior:0"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -18205,6 +18304,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_TRANSPORT_CONNECT_ACCEPTS_CANONICAL_AUTHORITY_AND_REACHES_CONNECTOR_001.json"
+mapping_behavior_refs = ["RT_ADS_CLIENT_TRANSPORT_LIFECYCLE_001#behavior:0"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -18229,6 +18329,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_AUTO_ADD_ROUTE_BEFORE_NETWORK_001.json"
+mapping_behavior_refs = ["RT_ADS_CLIENT_TRANSPORT_LIFECYCLE_001#behavior:2"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -18253,6 +18354,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_LOCAL_IDENTITY_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001.json"
+mapping_behavior_refs = ["RT_ADS_CLIENT_TRANSPORT_LIFECYCLE_001#behavior:1"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -18277,6 +18379,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_INVALID_TARGET_OR_ZERO_PORT_BEFORE_CONNECTOR_OR_STATE_CLEANUP_001.json"
+mapping_behavior_refs = ["RT_ADS_CLIENT_TRANSPORT_LIFECYCLE_001#behavior:1"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -18301,6 +18404,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_TRANSPORT_CONNECT_REJECTS_SECURE_TRANSPORT_BEFORE_NETWORK_001.json"
+mapping_behavior_refs = ["RT_ADS_CLIENT_TRANSPORT_LIFECYCLE_001#behavior:2"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -18325,6 +18429,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_TRANSPORT_PERSISTENT_ADS_SYMBOL_SETS_RETAIN_GUARDRAIL_FLAG_001.json"
+mapping_behavior_refs = ["RT_ADS_CLIENT_TRANSPORT_DATA_001#behavior:0"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -18349,6 +18454,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_TRANSPORT_READONLY_ADS_SYMBOL_DOES_NOT_GET_WRITE_FLAG_001.json"
+mapping_behavior_refs = ["RT_ADS_CLIENT_TRANSPORT_DATA_001#behavior:0"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -18373,6 +18479,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_TRANSPORT_SUBSCRIBE_REJECTS_POLL_MODE_BEFORE_CONNECTION_001.json"
+mapping_behavior_refs = ["RT_ADS_CLIENT_TRANSPORT_DATA_001#behavior:2"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -18397,6 +18504,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_TRANSPORT_UNSUPPORTED_COMPOUND_SYMBOL_IS_NOT_A_BINDABLE_DESCRIPTOR_001.json"
+mapping_behavior_refs = ["RT_ADS_CLIENT_TRANSPORT_DATA_001#behavior:1"]
 last_reviewed = "2026-07-22"
 [[tests]]
 schema_version = 2
@@ -18420,6 +18528,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_CONFIGURATION_PARSES_ADS_TOML_AND_APPLIES_SECURITY_AND_POINT_DEFAULTS_001.json"
+mapping_behavior_refs = ["RT_ADS_CLIENT_CONFIGURATION_001#behavior:0"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -18444,6 +18553,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_CONFIGURATION_REJECTS_PLAIN_TRANSPORT_WITHOUT_EXPLICIT_ACK_001.json"
+mapping_behavior_refs = ["RT_ADS_CLIENT_CONFIGURATION_001#behavior:3"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -18468,6 +18578,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_CONFIGURATION_PLAIN_TRANSPORT_ACK_SURFACES_SECURITY_WARNING_001.json"
+mapping_behavior_refs = ["RT_ADS_CLIENT_CONFIGURATION_001#behavior:3"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -18492,6 +18603,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_CONFIGURATION_PRODUCTION_LOCAL_IDENTITY_VALIDATION_REQUIRES_PINNED_LOCAL_NET_ID_001.json"
+mapping_behavior_refs = ["RT_ADS_CLIENT_CONFIGURATION_001#behavior:3"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -18516,6 +18628,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_CONFIGURATION_PRODUCTION_LOCAL_IDENTITY_VALIDATION_REJECTS_MISMATCHED_LOCAL_NET_ID_001.json"
+mapping_behavior_refs = ["RT_ADS_CLIENT_CONFIGURATION_001#behavior:3"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -18540,6 +18653,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_CONFIGURATION_PRODUCTION_LOCAL_IDENTITY_VALIDATION_ACCEPTS_MATCHING_LOCAL_NET_ID_001.json"
+mapping_behavior_refs = ["RT_ADS_CLIENT_CONFIGURATION_001#behavior:3"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -18564,6 +18678,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_CONFIGURATION_REJECTS_INSECURE_ACK_WITHOUT_PLAIN_TRANSPORT_001.json"
+mapping_behavior_refs = ["RT_ADS_CLIENT_CONFIGURATION_001#behavior:3"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -18612,6 +18727,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_CONFIGURATION_REJECTS_NOTIFICATION_MODE_WITHOUT_NOTIFY_MODE_001.json"
+mapping_behavior_refs = ["RT_ADS_CLIENT_CONFIGURATION_001#behavior:2"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -18636,6 +18752,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_CONFIGURATION_REJECTS_MIXED_SYMBOL_AND_INDEX_ADDRESSING_001.json"
+mapping_behavior_refs = ["RT_ADS_CLIENT_CONFIGURATION_001#behavior:2"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -18660,6 +18777,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_CONFIGURATION_REJECTS_DUPLICATE_CONNECTION_NAMES_WITH_DISTINCT_POINT_BINDINGS_001.json"
+mapping_behavior_refs = ["RT_ADS_CLIENT_CONFIGURATION_001#behavior:1"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -18684,6 +18802,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_CONFIGURATION_REJECTS_NONCANONICAL_TARGET_AMS_NET_IDS_DURING_CONFIGURATION_PARSE_001.json"
+mapping_behavior_refs = ["RT_ADS_CLIENT_CONFIGURATION_001#behavior:1"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -18708,6 +18827,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_CONFIGURATION_REJECTS_BLANK_OR_NONCANONICAL_EXPLICIT_LOCAL_AMS_NET_IDS_DURING_CONFIGURATION_PARSE_001.json"
+mapping_behavior_refs = ["RT_ADS_CLIENT_CONFIGURATION_001#behavior:1"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -18732,6 +18852,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_CONFIGURATION_LOCKS_CONNECTION_AND_DECLARED_GLOBAL_SHAPE_VALIDATION_001.json"
+mapping_behavior_refs = ["RT_ADS_CLIENT_CONFIGURATION_001#behavior:1"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -18756,6 +18877,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_CONFIGURATION_LOCKS_EXACT_POINT_ADDRESS_SHAPE_VALIDATION_001.json"
+mapping_behavior_refs = ["RT_ADS_CLIENT_CONFIGURATION_001#behavior:2"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -18780,6 +18902,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_CONFIGURATION_LOCKS_POINT_ENUM_AND_TYPE_VALIDATION_001.json"
+mapping_behavior_refs = ["RT_ADS_CLIENT_CONFIGURATION_001#behavior:2"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -18804,6 +18927,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_CONFIGURATION_REJECTS_ZERO_STRING_CAPACITY_001.json"
+mapping_behavior_refs = ["RT_ADS_CLIENT_CONFIGURATION_001#behavior:2"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -18828,6 +18952,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_CONFIGURATION_REJECTS_STRING_CAPACITY_ON_NON_STRING_TYPE_001.json"
+mapping_behavior_refs = ["RT_ADS_CLIENT_CONFIGURATION_001#behavior:2"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -18852,6 +18977,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_CONFIGURATION_REJECTS_INDEX_ADDRESS_SIZE_THAT_DISAGREES_WITH_DECLARED_TYPE_001.json"
+mapping_behavior_refs = ["RT_ADS_CLIENT_CONFIGURATION_001#behavior:2"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -18876,6 +19002,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_CONFIGURATION_REJECTS_ARRAY_METADATA_WHOSE_BYTE_LENGTH_OVERFLOWS_001.json"
+mapping_behavior_refs = ["RT_ADS_CLIENT_CONFIGURATION_001#behavior:2"]
 last_reviewed = "2026-07-23"
 [[tests]]
 schema_version = 2
@@ -18899,6 +19026,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_DOCTOR_TRUTH_STATUS_USES_LIVE_RUNTIME_SYMBOL_COUNT_NOT_SUPPLIED_SNAPSHOT_001.json"
+mapping_behavior_refs = ["RT_ADS_SERVER_DOCTOR_TRUTH_001#behavior:0"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -18923,6 +19051,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_DOCTOR_TRUTH_DOCTOR_REJECTS_SUPPLIED_SYMBOLS_WHEN_LIVE_RUNTIME_TABLE_IS_EMPTY_001.json"
+mapping_behavior_refs = ["RT_ADS_SERVER_DOCTOR_TRUTH_001#behavior:0"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -18995,6 +19124,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_DOCTOR_TRUTH_ZERO_SYMBOL_HANDLE_IS_REJECTED_001.json"
+mapping_behavior_refs = ["RT_ADS_SERVER_DOCTOR_TRUTH_001#behavior:2"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -19019,6 +19149,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_DOCTOR_TRUTH_ZERO_NOTIFICATION_HANDLE_IS_REJECTED_001.json"
+mapping_behavior_refs = ["RT_ADS_SERVER_DOCTOR_TRUTH_001#behavior:2"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -19043,6 +19174,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_DOCTOR_TRUTH_NOTIFICATION_REQUIRES_COMPLETE_REQUESTED_PAYLOAD_001.json"
+mapping_behavior_refs = ["RT_ADS_SERVER_DOCTOR_TRUTH_001#behavior:0", "RT_ADS_SERVER_DOCTOR_TRUTH_001#behavior:2"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -19067,6 +19199,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_DOCTOR_TRUTH_NOTIFICATION_REJECTS_MALFORMED_DECLARED_TAIL_AFTER_VALID_MATCH_001.json"
+mapping_behavior_refs = ["RT_ADS_SERVER_DOCTOR_TRUTH_001#behavior:2"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -19091,6 +19224,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_DOCTOR_TRUTH_NOTIFICATION_REJECTS_BYTES_OUTSIDE_DECLARED_STREAM_001.json"
+mapping_behavior_refs = ["RT_ADS_SERVER_DOCTOR_TRUTH_001#behavior:2"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -19115,6 +19249,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_DOCTOR_TRUTH_NOTIFICATION_REJECTS_DUPLICATE_MATCHING_HANDLE_SAMPLES_001.json"
+mapping_behavior_refs = ["RT_ADS_SERVER_DOCTOR_TRUTH_001#behavior:2"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -19139,6 +19274,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_DOCTOR_TRUTH_LOOPBACK_RESPONSE_REQUIRES_DIRECTION_AND_COMPLETE_REQUEST_IDENTITY_001.json"
+mapping_behavior_refs = ["RT_ADS_SERVER_DOCTOR_TRUTH_001#behavior:3"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -19163,6 +19299,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_DOCTOR_TRUTH_LOOPBACK_RESPONSE_ACCEPTS_EXACT_CORRELATED_RESPONSE_001.json"
+mapping_behavior_refs = ["RT_ADS_SERVER_DOCTOR_TRUTH_001#behavior:3"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -19187,6 +19324,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_SELF_TEST_DOES_NOT_GRANT_PRODUCTION_READY_001.json"
+mapping_behavior_refs = ["RT_ADS_SERVER_DOCTOR_TRUTH_001#behavior:0"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -19211,6 +19349,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_DOCTOR_TRUTH_SERVER_DOCTOR_REQUIRES_TWINCAT_EXTERNAL_CLIENT_FOR_PRODUCTION_READY_001.json"
+mapping_behavior_refs = ["RT_ADS_SERVER_DOCTOR_TRUTH_001#behavior:0"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -19258,6 +19397,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_ACTIVE_DEVICE_ROUTE_MATCHING_ACTIVE_DEVICE_SNAPSHOT_MATCHES_CONFIGURED_ROUTE_WITHOUT_SOCKET_IO_001.json"
+mapping_behavior_refs = ["RT_ADS_ACTIVE_DEVICE_ROUTE_MATCHING_001#behavior:0"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -19282,6 +19422,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_ACTIVE_DEVICE_ROUTE_MATCHING_ACTIVE_DEVICE_SNAPSHOT_REJECTS_PARTIAL_TARGET_MATCHES_001.json"
+mapping_behavior_refs = ["RT_ADS_ACTIVE_DEVICE_ROUTE_MATCHING_001#behavior:1"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -19306,6 +19447,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_ACTIVE_DEVICE_ROUTE_MATCHING_ACTIVE_DEVICE_SNAPSHOT_SKIPS_PARTIAL_MATCH_AND_SELECTS_LATER_EXACT_ROUTE_001.json"
+mapping_behavior_refs = ["RT_ADS_ACTIVE_DEVICE_ROUTE_MATCHING_001#behavior:2"]
 last_reviewed = "2026-07-23"
 [[tests]]
 schema_version = 2
@@ -19377,6 +19519,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_DISABLED_LIFECYCLE_AVOIDS_SNAPSHOT_AND_SOCKET_WORK_001.json"
+mapping_behavior_refs = ["RT_ADS_SERVER_PUBLICATION_LIFECYCLE_001#behavior:0"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -19401,6 +19544,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_EMPTY_EXPOSE_PUBLISHES_NOTHING_AND_INVALID_GLOBS_FAIL_CLOSED_001.json"
+mapping_behavior_refs = ["RT_ADS_SERVER_PUBLICATION_LIFECYCLE_001#behavior:2"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -19425,6 +19569,7 @@ requires_hardware = false
 requires_network = true
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_LIFECYCLE_CLIENT_COUNT_SHUTDOWN_AND_DROP_ARE_OBSERVABLE_001.json"
+mapping_behavior_refs = ["RT_ADS_SERVER_PUBLICATION_LIFECYCLE_001#behavior:5"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -19449,6 +19594,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_PUBLISHER_REJECTS_FOREIGN_OR_MISSING_RUNTIME_GLOBALS_WITHOUT_BYTES_001.json"
+mapping_behavior_refs = ["RT_ADS_SERVER_PUBLICATION_LIFECYCLE_001#behavior:2"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -19473,6 +19619,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_PUBLISHER_REJECTS_INCOMPATIBLE_VALUES_AND_SIZE_MISMATCH_WITHOUT_BYTES_001.json"
+mapping_behavior_refs = ["RT_ADS_SERVER_PUBLICATION_LIFECYCLE_001#behavior:2"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -19521,6 +19668,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_SERVER_RUNTIME_DEFAULTS_PRESERVE_BOUNDED_PRODUCT_LIMITS_001.json"
+mapping_behavior_refs = ["RT_ADS_SERVER_PUBLICATION_LIFECYCLE_001#behavior:0"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -19689,6 +19837,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_PUBLICATION_LIFECYCLE_RUNTIME_SYMBOLS_SKIP_UNSUPPORTED_VALUES_001.json"
+mapping_behavior_refs = ["RT_ADS_SERVER_PUBLICATION_LIFECYCLE_001#behavior:2"]
 last_reviewed = "2026-07-23"
 [[tests]]
 schema_version = 2
@@ -19712,6 +19861,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_POLICY_WRITE_AUDIT_AUDIT_SINK_PRESERVES_POLICY_REJECTION_CONTEXT_001.json"
+mapping_behavior_refs = ["RT_ADS_SERVER_POLICY_WRITE_AUDIT_001#behavior:4"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -19736,6 +19886,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_POLICY_WRITE_AUDIT_CLIENT_SOURCE_PINS_ENFORCE_EXACT_IP_AND_IPV4_IPV6_CIDR_001.json"
+mapping_behavior_refs = ["RT_ADS_SERVER_POLICY_WRITE_AUDIT_001#behavior:0", "RT_ADS_SERVER_POLICY_WRITE_AUDIT_001#behavior:1"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -19760,6 +19911,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_POLICY_WRITE_AUDIT_INVALID_WRITABLE_GLOB_REJECTS_WRITE_PORT_CONSTRUCTION_001.json"
+mapping_behavior_refs = ["RT_ADS_SERVER_POLICY_WRITE_AUDIT_001#behavior:1"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -19784,6 +19936,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_POLICY_WRITE_AUDIT_REFUSED_ATTEMPTS_COALESCE_AND_HISTORY_IS_BOUNDED_001.json"
+mapping_behavior_refs = ["RT_ADS_SERVER_POLICY_WRITE_AUDIT_001#behavior:4"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -19808,6 +19961,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_POLICY_WRITE_AUDIT_UNPINNED_CLIENT_REQUIRES_EXPLICIT_RUNTIME_OPT_IN_001.json"
+mapping_behavior_refs = ["RT_ADS_SERVER_POLICY_WRITE_AUDIT_001#behavior:0"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -19832,6 +19986,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_POLICY_WRITE_AUDIT_WRITE_PORT_ACCEPTS_ONLY_READY_RUNNING_OR_PAUSED_RESOURCES_001.json"
+mapping_behavior_refs = ["RT_ADS_SERVER_POLICY_WRITE_AUDIT_001#behavior:3"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -19856,6 +20011,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_POLICY_WRITE_AUDIT_WRITE_PORT_ERROR_PRIORITY_IS_SECURITY_FIRST_AND_MUTATION_FREE_001.json"
+mapping_behavior_refs = ["RT_ADS_SERVER_POLICY_WRITE_AUDIT_001#behavior:2"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -19880,6 +20036,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_POLICY_WRITE_AUDIT_AUDIT_SINK_RECORDS_ACCEPTED_AND_REJECTED_ADS_WRITE_DETAILS_001.json"
+mapping_behavior_refs = ["RT_ADS_SERVER_POLICY_WRITE_AUDIT_001#behavior:4"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -19904,6 +20061,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_POLICY_WRITE_AUDIT_CLIENT_POLICY_RECORDS_REFUSED_ATTEMPTS_FOR_WAIT_FOR_CLIENT_FLOW_001.json"
+mapping_behavior_refs = ["RT_ADS_SERVER_POLICY_WRITE_AUDIT_001#behavior:4"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -19928,6 +20086,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_POLICY_WRITE_AUDIT_CLIENT_POLICY_REQUIRES_AMS_NET_ID_AND_SOURCE_PIN_001.json"
+mapping_behavior_refs = ["RT_ADS_SERVER_POLICY_WRITE_AUDIT_001#behavior:1"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -20000,6 +20159,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_POLICY_WRITE_AUDIT_WRITE_PORT_REJECTS_FAULTED_RUNTIME_WITHOUT_MUTATION_001.json"
+mapping_behavior_refs = ["RT_ADS_SERVER_POLICY_WRITE_AUDIT_001#behavior:2"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -20024,6 +20184,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_POLICY_WRITE_AUDIT_WRITE_PORT_REJECTS_POLICY_FAILURE_WITHOUT_MUTATION_001.json"
+mapping_behavior_refs = ["RT_ADS_SERVER_POLICY_WRITE_AUDIT_001#behavior:2"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -20048,6 +20209,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_SERVER_POLICY_WRITE_AUDIT_WRITE_PORT_REJECTS_READ_ONLY_GATE_WITHOUT_MUTATION_001.json"
+mapping_behavior_refs = ["RT_ADS_SERVER_POLICY_WRITE_AUDIT_001#behavior:2"]
 last_reviewed = "2026-07-23"
 [[tests]]
 schema_version = 2
@@ -20814,6 +20976,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_HANDLE_RESOLUTION_REQUIRES_EXACT_RESPONSE_BIJECTION_AND_CLEANUP_001.json"
+mapping_behavior_refs = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001#behavior:1"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -20838,6 +21001,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_POLL_RESULTS_REQUIRE_EXACT_ORDER_AND_CARDINALITY_BEFORE_CACHE_COMMIT_001.json"
+mapping_behavior_refs = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001#behavior:1"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -20862,6 +21026,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_SUBSCRIPTION_AND_NOTIFICATION_RESULTS_REQUIRE_ACTIVE_CORRELATION_001.json"
+mapping_behavior_refs = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001#behavior:1"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -20982,6 +21147,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_OUTPUT_QUEUE_REJECTS_NON_FINITE_VALUES_BEFORE_ENQUEUE_001.json"
+mapping_behavior_refs = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001#behavior:3", "RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001#behavior:4"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -21006,6 +21172,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_WRITE_RESPONSE_CARDINALITY_AND_FAILURE_QUALITY_FAIL_CLOSED_001.json"
+mapping_behavior_refs = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001#behavior:1", "RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001#behavior:3"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -21030,6 +21197,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_WRITE_ACK_DOES_NOT_DROP_NEWER_QUEUED_VALUE_001.json"
+mapping_behavior_refs = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001#behavior:3"]
 last_reviewed = "2026-07-23"
 
 [[tests]]
@@ -21054,6 +21222,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_WORKER_SHUTDOWN_AND_DROP_INTERRUPT_IDLE_WAIT_001.json"
+mapping_behavior_refs = ["RT_ADS_CLIENT_WORKER_CACHE_INTEGRITY_001#behavior:5"]
 last_reviewed = "2026-07-23"
 
 [[tests]]

@@ -44,10 +44,13 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   fail-closed import diagnostics, migration and CODESYS metadata, reviewed
   vendor shims, and Allen-Bradley/Siemens adapter artifact contracts.
 
-Target release: `v0.24.58`
+Target release: `v0.24.59`
 
 ### Fixed
 
+- ADS onboarding sum-up reads now reject unknown handles and incomplete,
+  duplicate, unknown, non-good, valueless, or descriptor-incompatible results
+  before projecting any wire value.
 - HIR now rejects an explicit integer variable initializer that depends on an
   ordinary mutable variable, while preserving literal and declared-constant
   integer expressions required by IEC 61131-3 Section 6.5.1.3.

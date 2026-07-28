@@ -3,8 +3,8 @@ use crate::ads::onboarding::errors::{OnboardingWireError, OnboardingWireErrorKin
 use crate::ads::onboarding::route::{RouteAddRequest, RouteRemoveRequest};
 #[cfg(feature = "ads-wire")]
 use crate::ads::{
-    AdsDeviceState, AdsHandleRequest, AdsNotificationMode, AdsPointAddress, AdsResolvedHandle,
-    AdsRsTransport, AdsSubscribeRequest, AdsWriteRequest,
+    AdsDeviceState, AdsHandleRequest, AdsNotificationMode, AdsPointAddress, AdsReadResult,
+    AdsResolvedHandle, AdsRsTransport, AdsSubscribeRequest, AdsWriteRequest,
 };
 #[cfg(feature = "ads-wire")]
 use std::collections::BTreeMap;
@@ -473,44 +473,7 @@ impl AdsOnboardingWire for AdsRsOnboardingWire {
                     error,
                 )
             })?;
-        let mut payloads = Vec::with_capacity(results.len());
-        for result in results {
-            if result.quality.state != QualityState::Good {
-                return Err(OnboardingWireError::new(
-                    OnboardingWireErrorKind::WrongPlcPort,
-                    result
-                        .quality
-                        .detail
-                        .unwrap_or_else(|| "ADS sum-up read returned non-good quality".to_string()),
-                ));
-            }
-            let Some(value) = result.value else {
-                return Err(OnboardingWireError::new(
-                    OnboardingWireErrorKind::WrongPlcPort,
-                    "ADS sum-up read returned no value",
-                ));
-            };
-            let handle = resolved
-                .iter()
-                .find(|handle| handle.point_name == result.point_name)
-                .ok_or_else(|| {
-                    OnboardingWireError::new(
-                        OnboardingWireErrorKind::WrongPlcPort,
-                        format!(
-                            "ADS sum-up read returned unknown point '{}'",
-                            result.point_name
-                        ),
-                    )
-                })?;
-            let bytes = ads_bytes_from_value(&handle.data_type, &value).map_err(|error| {
-                OnboardingWireError::new(
-                    OnboardingWireErrorKind::WrongPlcPort,
-                    format!("map ADS value for '{}': {error}", handle.point_name),
-                )
-            })?;
-            payloads.push(bytes);
-        }
-        Ok(payloads)
+        project_sumup_payloads(&resolved, results)
     }
 
     fn guarded_write_probe(
@@ -740,6 +703,51 @@ fn push_unique_target_identity(results: &mut Vec<TargetIdentity>, identity: Targ
     if !seen {
         results.push(identity);
     }
+}
+
+#[cfg(feature = "ads-wire")]
+fn project_sumup_payloads(
+    resolved: &[AdsResolvedHandle],
+    results: Vec<AdsReadResult>,
+) -> Result<Vec<Vec<u8>>, OnboardingWireError> {
+    let mut payloads = Vec::with_capacity(results.len());
+    for result in results {
+        if result.quality.state != QualityState::Good {
+            return Err(OnboardingWireError::new(
+                OnboardingWireErrorKind::WrongPlcPort,
+                result
+                    .quality
+                    .detail
+                    .unwrap_or_else(|| "ADS sum-up read returned non-good quality".to_string()),
+            ));
+        }
+        let Some(value) = result.value else {
+            return Err(OnboardingWireError::new(
+                OnboardingWireErrorKind::WrongPlcPort,
+                "ADS sum-up read returned no value",
+            ));
+        };
+        let handle = resolved
+            .iter()
+            .find(|handle| handle.point_name == result.point_name)
+            .ok_or_else(|| {
+                OnboardingWireError::new(
+                    OnboardingWireErrorKind::WrongPlcPort,
+                    format!(
+                        "ADS sum-up read returned unknown point '{}'",
+                        result.point_name
+                    ),
+                )
+            })?;
+        let bytes = ads_bytes_from_value(&handle.data_type, &value).map_err(|error| {
+            OnboardingWireError::new(
+                OnboardingWireErrorKind::WrongPlcPort,
+                format!("map ADS value for '{}': {error}", handle.point_name),
+            )
+        })?;
+        payloads.push(bytes);
+    }
+    Ok(payloads)
 }
 
 #[cfg(feature = "ads-wire")]

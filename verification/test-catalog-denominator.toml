@@ -31394,6 +31394,16 @@ catalog_test_id = "TEST_AUTO_B71ADAD1F3E8F1FF0373"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
+discovery_id = "DISC_B7557177C0090105BF13"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/host/ads/onboarding/wire/tests.rs"
+name = "sumup_read_projection_rejects_incomplete_or_untrusted_results"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_ADS_ONBOARDING_WIRE_SUMUP_READ_PROJECTION_REJECTS_INCOMPLETE_OR_UNTRUSTED_RESULTS_001"
+last_reviewed = "2026-07-28"
+
+[[reviews]]
 discovery_id = "DISC_B763F04D6AE6F8361438"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs"

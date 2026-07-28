@@ -91,3 +91,64 @@ fn guarded_probe_matching_readback_defers_normal_restore() {
 
     assert_eq!(restore_calls, 0);
 }
+
+#[test]
+fn sumup_read_projection_rejects_incomplete_or_untrusted_results() {
+    let target = target("192.168.10.5", "1.2.3.4.5.6", 851);
+    let mut wire = AdsRsOnboardingWire::new();
+    let unknown_handle = wire
+        .sumup_read(&target, &[99])
+        .expect_err("an unknown handle must fail before wire values exist");
+    assert!(unknown_handle.detail.contains("not resolved"));
+
+    let handle = AdsResolvedHandle {
+        point_name: "MAIN.Temperature".to_string(),
+        address: AdsPointAddress::Symbol("MAIN.Temperature".to_string()),
+        data_type: AdsDataTypeDescriptor::scalar("REAL", IecDataType::Real),
+        handle: 42,
+    };
+    let good = AdsReadResult {
+        point_name: handle.point_name.clone(),
+        value: Some(Value::Real(12.5)),
+        quality: trust_ads_core::PointQuality::good(1),
+    };
+    let cases = [
+        ("missing result", Vec::new()),
+        ("duplicate result", vec![good.clone(), good.clone()]),
+        (
+            "descriptor mismatch",
+            vec![AdsReadResult {
+                value: Some(Value::Bool(true)),
+                ..good.clone()
+            }],
+        ),
+        (
+            "non-good quality",
+            vec![AdsReadResult {
+                quality: trust_ads_core::PointQuality::error(1, "read failed"),
+                ..good.clone()
+            }],
+        ),
+        (
+            "missing value",
+            vec![AdsReadResult {
+                value: None,
+                ..good.clone()
+            }],
+        ),
+        (
+            "unknown returned point",
+            vec![AdsReadResult {
+                point_name: "MAIN.Unknown".to_string(),
+                ..good
+            }],
+        ),
+    ];
+
+    for (case, results) in cases {
+        assert!(
+            project_sumup_payloads(std::slice::from_ref(&handle), results).is_err(),
+            "{case} manufactured a wire value"
+        );
+    }
+}
