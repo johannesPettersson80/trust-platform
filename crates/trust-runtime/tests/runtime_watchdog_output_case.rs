@@ -19,7 +19,7 @@ use verification_cases::{
 const TEST_ID: &str = "TEST_RUNTIME_WATCHDOG_BEFORE_OUTPUT_COMMIT_001";
 const CASE_FILE: &str = "verification/cases/runtime_safety/RT_SAFE_DEADLINE_001.toml";
 const CASE_FILE_DIGEST: &str =
-    "sha256:bdeed873950a1645d02e91296bba9b04c7e1af91eaf196ab02cfa2c7c77fd838";
+    "sha256:5a3415518942f973be3e62415a0fbee7937dbd00ab06d487096cc183d0c549ca";
 const CASE_ID: &str = "RT_SAFE_DEADLINE_001_WATCHDOG_BEFORE_OUTPUT_COMMIT";
 
 #[derive(Clone, Debug)]

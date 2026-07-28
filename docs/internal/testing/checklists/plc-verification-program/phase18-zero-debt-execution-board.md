@@ -1016,6 +1016,30 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   workspace gate ran. Focused evidence is recorded in
   `docs/internal/testing/evidence/plc-verification-program/2026-07-28-p18-case-backed-behavior-mapping.md`.
   <!-- generated:case-backed-behavior-101:end -->
+  <!-- generated:stale-case-authority-refresh-54:start -->
+
+  Stale case-authority coherent-campaign progress (2026-07-28): all fifteen
+  stale case tables were reconstructed from current invariant authority.
+  Thirteen tables remain exact one-to-one behavior partitions and now bind 54
+  previously open behavior references through 59 exact case IDs, 13 existing
+  runners, and 82 passing cases. Six generator-owned tables are byte-equal to
+  fresh output; seven reviewed state-machine tables retain exact current
+  semantics. `RT_SAFE_STOP_001` and `VM_SEAM_VALID_001` remain honestly
+  rejected because their case scenarios do not equal current behavior
+  partitions. The transaction retires 26 superseded current proof records and
+  installs 13 candidate-SHA-bound current records. Because the twelve changed
+  runner sources also affect 46 accepted generated-test mappings, all 46
+  unchanged assertion inventories were re-extracted on the builder and their
+  content-addressed proposal snapshots, accepted decisions, and catalog source
+  closures were atomically rebound; canonical decision validation reports
+  zero failures. The unified builder campaign passes 13/13 runners and 82/82
+  cases, while 23 focused transaction and equation tests pass locally. Frozen
+  behavior demand falls from 321 to 267 with zero missing authority. This is
+  further `P18-004`/`P18-005` existing-proof refinement, not 54 new tests or
+  global row closure. No broad workspace gate ran. Focused evidence is
+  recorded in
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-28-p18-stale-case-authority-refresh-54.md`.
+  <!-- generated:stale-case-authority-refresh-54:end -->
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device

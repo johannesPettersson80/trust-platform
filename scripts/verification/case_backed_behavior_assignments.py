@@ -419,6 +419,7 @@ def applied_plan_from_documents(
         root=root.resolve(),
         report=report,
         plan=plan,
+        allow_downstream_closure=True,
     )
     if failures:
         raise ValueError(
@@ -502,6 +503,7 @@ def _validate_replacement_documents(
     root: Path,
     report: Mapping[str, Any],
     plan: Mapping[str, Any],
+    allow_downstream_closure: bool = False,
 ) -> list[str]:
     failures: list[str] = []
     replacements = plan.get("replacements")
@@ -577,10 +579,16 @@ def _validate_replacement_documents(
         )
     )
     after_count = analysis["summary"]["confirmed_missing_tests"]
-    if after_count != before_count - EXPECTED_BEHAVIOR_COUNT:
+    expected_after = before_count - EXPECTED_BEHAVIOR_COUNT
+    if (
+        after_count > expected_after
+        if allow_downstream_closure
+        else after_count != expected_after
+    ):
         failures.append(
             f"confirmed missing behavior count is {after_count}, "
-            f"expected {before_count - EXPECTED_BEHAVIOR_COUNT}"
+            f"expected {'at most ' if allow_downstream_closure else ''}"
+            f"{expected_after}"
         )
     if analysis["summary"]["missing_spec_authority_tests"] != 0:
         failures.append("replacement reopened missing specification authority")

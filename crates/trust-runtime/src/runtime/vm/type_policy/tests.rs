@@ -1,6 +1,6 @@
 use crate::bytecode::{TypeData, TypeEntry, TypeKind, TypeTable};
 use crate::error::RuntimeError;
-use crate::harness::CompileSession;
+use crate::harness::{CompileSession, TestHarness};
 use crate::value::Value;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -143,7 +143,7 @@ fn declared_type_policy_trace_cases() {
     run_policy_cases(
         "TEST_VM_DECLARED_TYPE_TRACE_001",
         "verification/cases/bytecode_vm/VM_SEAM_DECLARED_TYPE_001.toml",
-        "sha256:7a8dc943ab0e31f8293d8493a401fdb113dde5ad20c5252a34242930e2f04f2e",
+        "sha256:41a1dc41aabfcd9a7315cb008d93a12ab3a8f8703bb2618b0d44863c4594097c",
         run_declared_type_case,
     );
 }
@@ -153,7 +153,7 @@ fn bounded_string_policy_trace_cases() {
     run_policy_cases(
         "TEST_VM_STRING_BOUND_TRACE_001",
         "verification/cases/bytecode_vm/VM_SEAM_STRING_BOUND_001.toml",
-        "sha256:28dc262fa638cc2bc903a556d179eb510658afe6913d23aa03baf82feda5a6bf",
+        "sha256:f90d321c7b18b0fb5595ff14b2f0a158bc993e0f675cc543ddd8b2c35808f8a3",
         run_string_bound_case,
     );
 }
@@ -233,6 +233,12 @@ fn run_declared_type_case(
         "NONREPRESENTABLE_CONTEXT_INTEGER_TO_REAL" => {
             expect_type_mismatch(14, Value::DInt(16_777_217))
         }
+        "CONTEXTUAL_UNTYPED_NUMERIC_LITERAL_COMMON_TYPE" => {
+            expect_contextual_literal_common_type()
+        }
+        "NO_ACCURACY_PRESERVING_COMMON_NUMERIC_TYPE" => {
+            expect_no_accuracy_preserving_common_numeric_type()
+        }
         other => return Err(format!("unreviewed declared-type scenario {other}")),
     }?;
     probe.observed = Some(serde_json::json!({"scenario": key, "outcome": outcome}));
@@ -246,6 +252,9 @@ fn run_string_bound_case(
     let key = case_key(case)?;
     let string = primitive_table_with_max(24, 5);
     let outcome = match key {
+        "STRING_3_CONCAT_ASSIGNMENT_TRUNCATION" => {
+            expect_bounded_concat_assignment()
+        }
         "FB_INPUT_COPY_IN_LENGTH_6" => expect_result(
             normalize_value_for_type_table(&string, 0, Value::String("abcdef".into()), 0),
             Value::String("abcde".into()),
@@ -353,6 +362,106 @@ END_PROGRAM
         Ok("compiler_type_mismatch")
     } else {
         Err(format!("expected E205 VAR_IN_OUT rejection, got {error}"))
+    }
+}
+
+fn expect_contextual_literal_common_type() -> Result<&'static str, String> {
+    let source = r#"
+PROGRAM Main
+VAR
+    uint_value : UINT := UINT#2;
+    arithmetic_left : UINT;
+    arithmetic_right : UINT;
+    equal_left : BOOL;
+    equal_right : BOOL;
+    maximum_left : UINT;
+    maximum_right : UINT;
+    minimum_left : UINT;
+    minimum_right : UINT;
+    real_value : REAL := REAL#2.0;
+    real_arithmetic_left : REAL;
+    real_arithmetic_right : REAL;
+    real_equal_integer : BOOL;
+    real_equal_left : BOOL;
+    real_equal_right : BOOL;
+    real_maximum_left : REAL;
+    real_maximum_right : REAL;
+END_VAR
+arithmetic_left := uint_value + 1;
+arithmetic_right := 1 + uint_value;
+equal_left := uint_value = 1;
+equal_right := 1 = uint_value;
+maximum_left := MAX(uint_value, 1);
+maximum_right := MAX(1, uint_value);
+minimum_left := MIN(uint_value, 1);
+minimum_right := MIN(1, uint_value);
+real_arithmetic_left := real_value + 1.0;
+real_arithmetic_right := 1.0 + real_value;
+real_equal_integer := real_value = 1;
+real_equal_left := real_value = 1.0;
+real_equal_right := 1.0 = real_value;
+real_maximum_left := MAX(real_value, 1.0);
+real_maximum_right := MAX(1.0, real_value);
+END_PROGRAM
+"#;
+    CompileSession::from_source(source)
+        .build_runtime()
+        .map(|_| "contextual_literal_common_type")
+        .map_err(|error| format!("contextual literal fixture failed to compile: {error}"))
+}
+
+fn expect_no_accuracy_preserving_common_numeric_type() -> Result<&'static str, String> {
+    let source = r#"
+PROGRAM Main
+VAR
+    ulint_value : ULINT := ULINT#18446744073709551615;
+    real_value : REAL := REAL#1.0;
+    result : REAL;
+END_VAR
+result := ulint_value + real_value;
+END_PROGRAM
+"#;
+    match CompileSession::from_source(source).build_runtime() {
+        Err(error)
+            if error
+                .to_string()
+                .contains("no accuracy-preserving common type") =>
+        {
+            Ok("no_common_numeric_type_rejected")
+        }
+        Err(error) => Err(format!(
+            "expected no-common-type diagnostic, observed {error}"
+        )),
+        Ok(_) => Err("mixed ULINT and REAL unexpectedly compiled".to_string()),
+    }
+}
+
+fn expect_bounded_concat_assignment() -> Result<&'static str, String> {
+    let source = r#"
+PROGRAM Main
+VAR
+    text : STRING[3] := 'A';
+    source : STRING[6] := 'BCDE';
+END_VAR
+text := CONCAT(text, source);
+END_PROGRAM
+"#;
+    let mut harness = TestHarness::from_source(source)
+        .map_err(|error| format!("bounded CONCAT fixture failed to compile: {error}"))?;
+    let cycle = harness.cycle();
+    if !cycle.errors.is_empty() {
+        return Err(format!(
+            "bounded CONCAT fixture faulted: {:?}",
+            cycle.errors
+        ));
+    }
+    if harness.get_output("text") == Some(Value::String("ABC".into())) {
+        Ok("bounded_concat_truncated")
+    } else {
+        Err(format!(
+            "bounded CONCAT expected STRING 'ABC', observed {:?}",
+            harness.get_output("text")
+        ))
     }
 }
 

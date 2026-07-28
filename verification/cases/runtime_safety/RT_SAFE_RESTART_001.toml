@@ -7,7 +7,7 @@ status = "mapped"
 invariant = "RT_SAFE_RESTART_001"
 case_provenance_kind = "hand_authored_state_machine_v1"
 trace_definition_digest = "sha256:c9a78cc3540f2a6840168b1d576cdc14802cd190f7a12c8ec94c88996b27e1e3"
-source_digest = "sha256:58eabaa185e7e082e04fe9d66565e548b3afcc72a67a87fe9316912bf89c87c7"
+source_digest = "sha256:2535b08b0be23f56c341b7e15fd0c9483c69fa3ec2bb08351bb1a6c74a316845"
 last_reviewed = "2026-07-17"
 
 [[case]]

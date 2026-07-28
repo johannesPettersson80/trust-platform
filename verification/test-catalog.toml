@@ -224,7 +224,8 @@ requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_UNSIGNED_INTEGER_MATERIALIZATION_TRACE_001.json"
 case_file = "verification/cases/runtime_safety/RT_UNSIGNED_INTEGER_MATERIALIZATION_001.toml"
-case_file_digest = "sha256:ddd10eed182da7caf71aba25d8ac01d3d3a5893380894fb33e8c51a6d7878de8"
+case_file_digest = "sha256:a211f56c097808bde5b45d8c7e5db8f18139f85714016b4227cded296e3d827b"
+mapping_behavior_refs = ["RT_UNSIGNED_INTEGER_MATERIALIZATION_001#behavior:0", "RT_UNSIGNED_INTEGER_MATERIALIZATION_001#behavior:1", "RT_UNSIGNED_INTEGER_MATERIALIZATION_001#behavior:2"]
 last_reviewed = "2026-07-22"
 
 [[tests]]
@@ -1001,7 +1002,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/bytecode_vm/VM_SEAM_DECLARED_TYPE_001.toml"
-case_file_digest = "sha256:7a8dc943ab0e31f8293d8493a401fdb113dde5ad20c5252a34242930e2f04f2e"
+case_file_digest = "sha256:41a1dc41aabfcd9a7315cb008d93a12ab3a8f8703bb2618b0d44863c4594097c"
 last_reviewed = "2026-07-13"
 
 [[tests]]
@@ -1336,7 +1337,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/bytecode_vm/VM_SEAM_STRING_BOUND_001.toml"
-case_file_digest = "sha256:28dc262fa638cc2bc903a556d179eb510658afe6913d23aa03baf82feda5a6bf"
+case_file_digest = "sha256:f90d321c7b18b0fb5595ff14b2f0a158bc993e0f675cc543ddd8b2c35808f8a3"
 last_reviewed = "2026-07-09"
 
 [[tests]]
@@ -2010,7 +2011,8 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/compiler_iec/IEC_PARSE_RECOVER_001.toml"
-case_file_digest = "sha256:249d695260024e2d85615721af523ff57d80be2673791680c3d1b4d41823e040"
+case_file_digest = "sha256:8c8e53c23951b9199ba1f203bb63a5522edc9678274582bffc6f28348644fda5"
+mapping_behavior_refs = ["IEC_PARSE_RECOVER_001#behavior:0", "IEC_PARSE_RECOVER_001#behavior:1", "IEC_PARSE_RECOVER_001#behavior:10", "IEC_PARSE_RECOVER_001#behavior:12", "IEC_PARSE_RECOVER_001#behavior:17", "IEC_PARSE_RECOVER_001#behavior:18", "IEC_PARSE_RECOVER_001#behavior:19", "IEC_PARSE_RECOVER_001#behavior:20", "IEC_PARSE_RECOVER_001#behavior:3", "IEC_PARSE_RECOVER_001#behavior:4", "IEC_PARSE_RECOVER_001#behavior:5", "IEC_PARSE_RECOVER_001#behavior:6", "IEC_PARSE_RECOVER_001#behavior:7", "IEC_PARSE_RECOVER_001#behavior:8", "IEC_PARSE_RECOVER_001#behavior:9"]
 last_reviewed = "2026-07-17"
 
 # Conformance cases are linked only by their scanner discovery identity. The
@@ -2624,7 +2626,8 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/runtime_safety/RT_SAFE_RESTART_001.toml"
-case_file_digest = "sha256:1696fc81dafdb5ba446beaf83545a1f9521511ebd645ca3753208957aefa9a34"
+case_file_digest = "sha256:8c3201f09c0797283e78f0c1c7e7bf7e132f4ccf7752f7168308358cef675e3b"
+mapping_behavior_refs = ["RT_SAFE_RESTART_001#behavior:2"]
 last_reviewed = "2026-07-17"
 
 [[tests]]
@@ -2647,7 +2650,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/bytecode_vm/VM_SEAM_ENC_001.toml"
-case_file_digest = "sha256:a57db88204f9b7815f0a548fad35eb20fb2bda6337efdeb1690191560e73e7cf"
+case_file_digest = "sha256:203f59d36f0260e643132c4a96c1fa12f1c3efe7445ca3591ba760ce138ce6c3"
 last_reviewed = "2026-07-17"
 
 [[tests]]
@@ -2719,7 +2722,8 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/bytecode_vm/VM_SEAM_DECLARED_TYPE_001.toml"
-case_file_digest = "sha256:7a8dc943ab0e31f8293d8493a401fdb113dde5ad20c5252a34242930e2f04f2e"
+case_file_digest = "sha256:41a1dc41aabfcd9a7315cb008d93a12ab3a8f8703bb2618b0d44863c4594097c"
+mapping_behavior_refs = ["VM_SEAM_DECLARED_TYPE_001#behavior:0", "VM_SEAM_DECLARED_TYPE_001#behavior:1", "VM_SEAM_DECLARED_TYPE_001#behavior:10", "VM_SEAM_DECLARED_TYPE_001#behavior:11", "VM_SEAM_DECLARED_TYPE_001#behavior:12", "VM_SEAM_DECLARED_TYPE_001#behavior:13", "VM_SEAM_DECLARED_TYPE_001#behavior:2", "VM_SEAM_DECLARED_TYPE_001#behavior:3", "VM_SEAM_DECLARED_TYPE_001#behavior:4", "VM_SEAM_DECLARED_TYPE_001#behavior:5", "VM_SEAM_DECLARED_TYPE_001#behavior:6", "VM_SEAM_DECLARED_TYPE_001#behavior:7", "VM_SEAM_DECLARED_TYPE_001#behavior:8", "VM_SEAM_DECLARED_TYPE_001#behavior:9"]
 last_reviewed = "2026-07-17"
 
 [[tests]]
@@ -2745,7 +2749,8 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/bytecode_vm/VM_SEAM_STRING_BOUND_001.toml"
-case_file_digest = "sha256:28dc262fa638cc2bc903a556d179eb510658afe6913d23aa03baf82feda5a6bf"
+case_file_digest = "sha256:f90d321c7b18b0fb5595ff14b2f0a158bc993e0f675cc543ddd8b2c35808f8a3"
+mapping_behavior_refs = ["VM_SEAM_STRING_BOUND_001#behavior:0", "VM_SEAM_STRING_BOUND_001#behavior:1", "VM_SEAM_STRING_BOUND_001#behavior:3", "VM_SEAM_STRING_BOUND_001#behavior:4"]
 last_reviewed = "2026-07-17"
 
 [[tests]]
@@ -2798,7 +2803,8 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/bytecode_vm/VM_SEAM_ENC_001.toml"
-case_file_digest = "sha256:a57db88204f9b7815f0a548fad35eb20fb2bda6337efdeb1690191560e73e7cf"
+case_file_digest = "sha256:203f59d36f0260e643132c4a96c1fa12f1c3efe7445ca3591ba760ce138ce6c3"
+mapping_behavior_refs = ["VM_SEAM_ENC_001#behavior:0", "VM_SEAM_ENC_001#behavior:1", "VM_SEAM_ENC_001#behavior:2"]
 last_reviewed = "2026-07-17"
 
 [[tests]]
@@ -2902,7 +2908,8 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/compiler_iec/IEC_PREC_001.toml"
-case_file_digest = "sha256:f49f80603c8187f31fb2929bcaddafe3671e3ad708ba4466484d2ae371514d38"
+case_file_digest = "sha256:019b4d3ab7f122061c1b6af27b568e5cb0b8b9d5c15db4ca180c72ee24905710"
+mapping_behavior_refs = ["IEC_PREC_001#behavior:0", "IEC_PREC_001#behavior:1", "IEC_PREC_001#behavior:4", "IEC_PREC_001#behavior:5", "IEC_PREC_001#behavior:6", "IEC_PREC_001#behavior:8"]
 last_reviewed = "2026-07-16"
 
 [[tests]]
@@ -4269,7 +4276,8 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/compiler_iec/IEC_TIMER_001.toml"
-case_file_digest = "sha256:68567779c24d44fc1ce1cda7696086aac6284b5788305511d2f416f66e12be50"
+case_file_digest = "sha256:fb1b0ebc4ef0b773ef6a62d15aaf2e13510e74ed637830dbb3e8494dd6a2fed8"
+mapping_behavior_refs = ["IEC_TIMER_001#behavior:1", "IEC_TIMER_001#behavior:3"]
 last_reviewed = "2026-07-12"
 
 [[tests]]
@@ -4391,7 +4399,7 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/runtime_safety/RT_SAFE_DEADLINE_001.toml"
-case_file_digest = "sha256:bdeed873950a1645d02e91296bba9b04c7e1af91eaf196ab02cfa2c7c77fd838"
+case_file_digest = "sha256:5a3415518942f973be3e62415a0fbee7937dbd00ab06d487096cc183d0c549ca"
 last_reviewed = "2026-07-13"
 
 [[tests]]
@@ -4959,7 +4967,8 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/control_security/SEC_AUTHZ_001.toml"
-case_file_digest = "sha256:8357b5118a28f7d76ca0937f41c8c529719cd95bdcd018dc54c1a4561a35c4ed"
+case_file_digest = "sha256:12ea61d6c323b1b4bb623aa428ea3f2d1de50c891d598008a8c5cdd39488e2f2"
+mapping_behavior_refs = ["SEC_AUTHZ_001#behavior:1", "SEC_AUTHZ_001#behavior:2", "SEC_AUTHZ_001#behavior:3"]
 last_reviewed = "2026-07-16"
 
 [[tests]]
@@ -5087,7 +5096,8 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/runtime_safety/RT_RELOAD_001.toml"
-case_file_digest = "sha256:7e846d3f59b85137fcff4c51646284027ada7264d88e2538d62d21c541a45e01"
+case_file_digest = "sha256:b09bbf3b482c1ca78865496ac9683c914caaf7550e8fead1f26223f218c3b79c"
+mapping_behavior_refs = ["RT_RELOAD_001#behavior:0"]
 last_reviewed = "2026-07-14"
 
 [[tests]]
@@ -6371,7 +6381,8 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/plcopen_devtools/DEV_COMMIT_SCOPE_001.toml"
-case_file_digest = "sha256:abc30f653558fd4c40ff0f4e325482641a1c6eafb25d584b1b71ca56f433d2ea"
+case_file_digest = "sha256:b9ef57776fc509e2a304a09b39f408bf53b82e983ee23443f6e80c35f75db70c"
+mapping_behavior_refs = ["DEV_COMMIT_SCOPE_001#behavior:2"]
 last_reviewed = "2026-07-17"
 
 [[tests]]
@@ -6397,7 +6408,8 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/plcopen_devtools/DEV_TEST_DISCOVERY_001.toml"
-case_file_digest = "sha256:ab57d417aa4b2db9507224a87b91bfb40606936cc23125ea72a7323a9187f0b2"
+case_file_digest = "sha256:d217e40fa2ade0354fd1ad5bda019650d382c05eda109b8dbc74d76b3bfb0cff"
+mapping_behavior_refs = ["DEV_TEST_DISCOVERY_001#behavior:1"]
 last_reviewed = "2026-07-17"
 
 [[tests]]
@@ -70179,12 +70191,12 @@ requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_06C78E4FD9548CDFEC91.json"
 last_reviewed = "2026-07-26"
-mapping_proposal_id = "MAP_CAND_06C78E4FD9548CDFEC91_562D7E3E211E"
-mapping_proposal_digest = "sha256:562d7e3e211e44f66be4482753427689c106e155ef3ca9e2cc396df5e031525d"
-mapping_decision_id = "MAP_DEC_03D8EBDC5E24591BD1EFD084"
+mapping_proposal_id = "MAP_CAND_06C78E4FD9548CDFEC91_80EC146243D8"
+mapping_proposal_digest = "sha256:80ec146243d8e1bca28082b9cf0f73d6cb3fa9b288176a5e61b0ed5d80aa1c1f"
+mapping_decision_id = "MAP_DEC_D8EAC961CE48146B41335E2C"
 mapping_reviewed_source_digest = "sha256:981cb91fec608e0242d15511c482f96e126b237767469176b341e0e83cc804ca"
 mapping_assertion_review_digest = "sha256:666f4d50aa8b89f5383b89b095ef0038c54a8cdbb59d4d8456e3f0aeaf513af5"
-mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_vm_core.rs" = "sha256:b0048ab75d16ef76c52e9859bdbcdfa0c6f66514bfdb99d417cf274dc9868b10", "crates/trust-runtime/tests/bytecode_vm_core/call_and_sizeof_validation.rs" = "sha256:981cb91fec608e0242d15511c482f96e126b237767469176b341e0e83cc804ca", "crates/trust-runtime/tests/bytecode_vm_core/deadline.rs" = "sha256:bcdb151c8e982c346d1f850525d2cef5c18d051603eabb3a1ea5c19147339b7c", "crates/trust-runtime/tests/bytecode_vm_core/fuzz_stack_call.rs" = "sha256:9bf0bcd08017feb1e92b5d40ace9c288d112e32f5a269aa58f7826c8f64d580a", "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs" = "sha256:942f9eeeba09c5acb7f7b0b7c9ec6de0a3f3560910e7b4683e3958668096b707", "crates/trust-runtime/tests/bytecode_vm_core/positive_paths.rs" = "sha256:6d95be04812c1b432f68bfe265f64e3850206549899aa48d32c1140e8f160406", "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs" = "sha256:c0a96f43f93161369972c2ae63d12af91b3ad3fd9264e4329cd562725dc48c6e", "crates/trust-runtime/tests/bytecode_vm_core/seam_case_runners.rs" = "sha256:0b740b6d392bc6f723234f48f46188bb3158b10399895be4c8775e6be8c1c535", "crates/trust-runtime/tests/bytecode_vm_core/support.rs" = "sha256:46af0520d6337dfbe8572b42ed4cae0cf1995089723ec1ac1daed42becb341ec" }
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_vm_core.rs" = "sha256:b0048ab75d16ef76c52e9859bdbcdfa0c6f66514bfdb99d417cf274dc9868b10", "crates/trust-runtime/tests/bytecode_vm_core/call_and_sizeof_validation.rs" = "sha256:981cb91fec608e0242d15511c482f96e126b237767469176b341e0e83cc804ca", "crates/trust-runtime/tests/bytecode_vm_core/deadline.rs" = "sha256:bcdb151c8e982c346d1f850525d2cef5c18d051603eabb3a1ea5c19147339b7c", "crates/trust-runtime/tests/bytecode_vm_core/fuzz_stack_call.rs" = "sha256:9bf0bcd08017feb1e92b5d40ace9c288d112e32f5a269aa58f7826c8f64d580a", "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs" = "sha256:942f9eeeba09c5acb7f7b0b7c9ec6de0a3f3560910e7b4683e3958668096b707", "crates/trust-runtime/tests/bytecode_vm_core/positive_paths.rs" = "sha256:6d95be04812c1b432f68bfe265f64e3850206549899aa48d32c1140e8f160406", "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs" = "sha256:c0a96f43f93161369972c2ae63d12af91b3ad3fd9264e4329cd562725dc48c6e", "crates/trust-runtime/tests/bytecode_vm_core/seam_case_runners.rs" = "sha256:097ab4dcae6da843e680a509e7d1c8fdb1b561977e383a07aae44cba8ee097ed", "crates/trust-runtime/tests/bytecode_vm_core/support.rs" = "sha256:46af0520d6337dfbe8572b42ed4cae0cf1995089723ec1ac1daed42becb341ec" }
 mapping_behavior_refs = ["VM_SEAM_VALID_001#behavior:5"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
@@ -70213,12 +70225,12 @@ requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_1ACB18866C2FC624B037.json"
 last_reviewed = "2026-07-26"
-mapping_proposal_id = "MAP_CAND_1ACB18866C2FC624B037_1A9A7F671E55"
-mapping_proposal_digest = "sha256:1a9a7f671e550ad507015e2ea5316a38936d7c60e69a6b0e530820593a494267"
-mapping_decision_id = "MAP_DEC_82AA2547B737BD6100F0D150"
+mapping_proposal_id = "MAP_CAND_1ACB18866C2FC624B037_6BE69328F380"
+mapping_proposal_digest = "sha256:6be69328f3804e60db51dab5d952fcb02fd5ce833173528c187a904b19d88298"
+mapping_decision_id = "MAP_DEC_67F4B875A6C6F4291D7EAE88"
 mapping_reviewed_source_digest = "sha256:981cb91fec608e0242d15511c482f96e126b237767469176b341e0e83cc804ca"
 mapping_assertion_review_digest = "sha256:341f464cfa72ab9457fef5650bff7f554c8c9af3a0dd28489938ead9be6b366c"
-mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_vm_core.rs" = "sha256:b0048ab75d16ef76c52e9859bdbcdfa0c6f66514bfdb99d417cf274dc9868b10", "crates/trust-runtime/tests/bytecode_vm_core/call_and_sizeof_validation.rs" = "sha256:981cb91fec608e0242d15511c482f96e126b237767469176b341e0e83cc804ca", "crates/trust-runtime/tests/bytecode_vm_core/deadline.rs" = "sha256:bcdb151c8e982c346d1f850525d2cef5c18d051603eabb3a1ea5c19147339b7c", "crates/trust-runtime/tests/bytecode_vm_core/fuzz_stack_call.rs" = "sha256:9bf0bcd08017feb1e92b5d40ace9c288d112e32f5a269aa58f7826c8f64d580a", "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs" = "sha256:942f9eeeba09c5acb7f7b0b7c9ec6de0a3f3560910e7b4683e3958668096b707", "crates/trust-runtime/tests/bytecode_vm_core/positive_paths.rs" = "sha256:6d95be04812c1b432f68bfe265f64e3850206549899aa48d32c1140e8f160406", "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs" = "sha256:c0a96f43f93161369972c2ae63d12af91b3ad3fd9264e4329cd562725dc48c6e", "crates/trust-runtime/tests/bytecode_vm_core/seam_case_runners.rs" = "sha256:0b740b6d392bc6f723234f48f46188bb3158b10399895be4c8775e6be8c1c535", "crates/trust-runtime/tests/bytecode_vm_core/support.rs" = "sha256:46af0520d6337dfbe8572b42ed4cae0cf1995089723ec1ac1daed42becb341ec" }
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_vm_core.rs" = "sha256:b0048ab75d16ef76c52e9859bdbcdfa0c6f66514bfdb99d417cf274dc9868b10", "crates/trust-runtime/tests/bytecode_vm_core/call_and_sizeof_validation.rs" = "sha256:981cb91fec608e0242d15511c482f96e126b237767469176b341e0e83cc804ca", "crates/trust-runtime/tests/bytecode_vm_core/deadline.rs" = "sha256:bcdb151c8e982c346d1f850525d2cef5c18d051603eabb3a1ea5c19147339b7c", "crates/trust-runtime/tests/bytecode_vm_core/fuzz_stack_call.rs" = "sha256:9bf0bcd08017feb1e92b5d40ace9c288d112e32f5a269aa58f7826c8f64d580a", "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs" = "sha256:942f9eeeba09c5acb7f7b0b7c9ec6de0a3f3560910e7b4683e3958668096b707", "crates/trust-runtime/tests/bytecode_vm_core/positive_paths.rs" = "sha256:6d95be04812c1b432f68bfe265f64e3850206549899aa48d32c1140e8f160406", "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs" = "sha256:c0a96f43f93161369972c2ae63d12af91b3ad3fd9264e4329cd562725dc48c6e", "crates/trust-runtime/tests/bytecode_vm_core/seam_case_runners.rs" = "sha256:097ab4dcae6da843e680a509e7d1c8fdb1b561977e383a07aae44cba8ee097ed", "crates/trust-runtime/tests/bytecode_vm_core/support.rs" = "sha256:46af0520d6337dfbe8572b42ed4cae0cf1995089723ec1ac1daed42becb341ec" }
 mapping_behavior_refs = ["VM_SEAM_VALID_001#behavior:5"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
@@ -70247,12 +70259,12 @@ requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_70C232CD199EC1EEFB47.json"
 last_reviewed = "2026-07-26"
-mapping_proposal_id = "MAP_CAND_70C232CD199EC1EEFB47_E964AA001B69"
-mapping_proposal_digest = "sha256:e964aa001b69d09ffa21deb2c1c5045cb1f92405af9ebd0fbeffe8f816bfeda1"
-mapping_decision_id = "MAP_DEC_139C3066B9186679A2BD99F5"
+mapping_proposal_id = "MAP_CAND_70C232CD199EC1EEFB47_01E34D92BB83"
+mapping_proposal_digest = "sha256:01e34d92bb832a1a8cf0a7ef6bfc680e06505d2403e113dbd4a39f34f500572b"
+mapping_decision_id = "MAP_DEC_5175AC2D5185499DDF3BD566"
 mapping_reviewed_source_digest = "sha256:981cb91fec608e0242d15511c482f96e126b237767469176b341e0e83cc804ca"
 mapping_assertion_review_digest = "sha256:4108e7e18fec7b1e826f8fd9ad00534106d99f3ee1d18d0bcaf5080b8abb1ade"
-mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_vm_core.rs" = "sha256:b0048ab75d16ef76c52e9859bdbcdfa0c6f66514bfdb99d417cf274dc9868b10", "crates/trust-runtime/tests/bytecode_vm_core/call_and_sizeof_validation.rs" = "sha256:981cb91fec608e0242d15511c482f96e126b237767469176b341e0e83cc804ca", "crates/trust-runtime/tests/bytecode_vm_core/deadline.rs" = "sha256:bcdb151c8e982c346d1f850525d2cef5c18d051603eabb3a1ea5c19147339b7c", "crates/trust-runtime/tests/bytecode_vm_core/fuzz_stack_call.rs" = "sha256:9bf0bcd08017feb1e92b5d40ace9c288d112e32f5a269aa58f7826c8f64d580a", "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs" = "sha256:942f9eeeba09c5acb7f7b0b7c9ec6de0a3f3560910e7b4683e3958668096b707", "crates/trust-runtime/tests/bytecode_vm_core/positive_paths.rs" = "sha256:6d95be04812c1b432f68bfe265f64e3850206549899aa48d32c1140e8f160406", "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs" = "sha256:c0a96f43f93161369972c2ae63d12af91b3ad3fd9264e4329cd562725dc48c6e", "crates/trust-runtime/tests/bytecode_vm_core/seam_case_runners.rs" = "sha256:0b740b6d392bc6f723234f48f46188bb3158b10399895be4c8775e6be8c1c535", "crates/trust-runtime/tests/bytecode_vm_core/support.rs" = "sha256:46af0520d6337dfbe8572b42ed4cae0cf1995089723ec1ac1daed42becb341ec" }
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_vm_core.rs" = "sha256:b0048ab75d16ef76c52e9859bdbcdfa0c6f66514bfdb99d417cf274dc9868b10", "crates/trust-runtime/tests/bytecode_vm_core/call_and_sizeof_validation.rs" = "sha256:981cb91fec608e0242d15511c482f96e126b237767469176b341e0e83cc804ca", "crates/trust-runtime/tests/bytecode_vm_core/deadline.rs" = "sha256:bcdb151c8e982c346d1f850525d2cef5c18d051603eabb3a1ea5c19147339b7c", "crates/trust-runtime/tests/bytecode_vm_core/fuzz_stack_call.rs" = "sha256:9bf0bcd08017feb1e92b5d40ace9c288d112e32f5a269aa58f7826c8f64d580a", "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs" = "sha256:942f9eeeba09c5acb7f7b0b7c9ec6de0a3f3560910e7b4683e3958668096b707", "crates/trust-runtime/tests/bytecode_vm_core/positive_paths.rs" = "sha256:6d95be04812c1b432f68bfe265f64e3850206549899aa48d32c1140e8f160406", "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs" = "sha256:c0a96f43f93161369972c2ae63d12af91b3ad3fd9264e4329cd562725dc48c6e", "crates/trust-runtime/tests/bytecode_vm_core/seam_case_runners.rs" = "sha256:097ab4dcae6da843e680a509e7d1c8fdb1b561977e383a07aae44cba8ee097ed", "crates/trust-runtime/tests/bytecode_vm_core/support.rs" = "sha256:46af0520d6337dfbe8572b42ed4cae0cf1995089723ec1ac1daed42becb341ec" }
 mapping_behavior_refs = ["VM_SEAM_VALID_001#behavior:5"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
@@ -70281,12 +70293,12 @@ requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_76C0ACD9DD9B4A02A05D.json"
 last_reviewed = "2026-07-26"
-mapping_proposal_id = "MAP_CAND_76C0ACD9DD9B4A02A05D_895A1C0E8F6B"
-mapping_proposal_digest = "sha256:895a1c0e8f6b3b5e999bdfefafe512d83adc2d6dd72439b5a96b4db1615885a5"
-mapping_decision_id = "MAP_DEC_04DEC029259473D27068733F"
+mapping_proposal_id = "MAP_CAND_76C0ACD9DD9B4A02A05D_ABF9701413EF"
+mapping_proposal_digest = "sha256:abf9701413efce02598046d631e841058dbb1ff93011ee3187fc2457790f31b6"
+mapping_decision_id = "MAP_DEC_EDE35491B882B7319369C284"
 mapping_reviewed_source_digest = "sha256:981cb91fec608e0242d15511c482f96e126b237767469176b341e0e83cc804ca"
 mapping_assertion_review_digest = "sha256:d3f91b486a868193f071357fa47213d10194dd6f536fbd9e8d1ff0b5c64396f1"
-mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_vm_core.rs" = "sha256:b0048ab75d16ef76c52e9859bdbcdfa0c6f66514bfdb99d417cf274dc9868b10", "crates/trust-runtime/tests/bytecode_vm_core/call_and_sizeof_validation.rs" = "sha256:981cb91fec608e0242d15511c482f96e126b237767469176b341e0e83cc804ca", "crates/trust-runtime/tests/bytecode_vm_core/deadline.rs" = "sha256:bcdb151c8e982c346d1f850525d2cef5c18d051603eabb3a1ea5c19147339b7c", "crates/trust-runtime/tests/bytecode_vm_core/fuzz_stack_call.rs" = "sha256:9bf0bcd08017feb1e92b5d40ace9c288d112e32f5a269aa58f7826c8f64d580a", "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs" = "sha256:942f9eeeba09c5acb7f7b0b7c9ec6de0a3f3560910e7b4683e3958668096b707", "crates/trust-runtime/tests/bytecode_vm_core/positive_paths.rs" = "sha256:6d95be04812c1b432f68bfe265f64e3850206549899aa48d32c1140e8f160406", "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs" = "sha256:c0a96f43f93161369972c2ae63d12af91b3ad3fd9264e4329cd562725dc48c6e", "crates/trust-runtime/tests/bytecode_vm_core/seam_case_runners.rs" = "sha256:0b740b6d392bc6f723234f48f46188bb3158b10399895be4c8775e6be8c1c535", "crates/trust-runtime/tests/bytecode_vm_core/support.rs" = "sha256:46af0520d6337dfbe8572b42ed4cae0cf1995089723ec1ac1daed42becb341ec" }
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_vm_core.rs" = "sha256:b0048ab75d16ef76c52e9859bdbcdfa0c6f66514bfdb99d417cf274dc9868b10", "crates/trust-runtime/tests/bytecode_vm_core/call_and_sizeof_validation.rs" = "sha256:981cb91fec608e0242d15511c482f96e126b237767469176b341e0e83cc804ca", "crates/trust-runtime/tests/bytecode_vm_core/deadline.rs" = "sha256:bcdb151c8e982c346d1f850525d2cef5c18d051603eabb3a1ea5c19147339b7c", "crates/trust-runtime/tests/bytecode_vm_core/fuzz_stack_call.rs" = "sha256:9bf0bcd08017feb1e92b5d40ace9c288d112e32f5a269aa58f7826c8f64d580a", "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs" = "sha256:942f9eeeba09c5acb7f7b0b7c9ec6de0a3f3560910e7b4683e3958668096b707", "crates/trust-runtime/tests/bytecode_vm_core/positive_paths.rs" = "sha256:6d95be04812c1b432f68bfe265f64e3850206549899aa48d32c1140e8f160406", "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs" = "sha256:c0a96f43f93161369972c2ae63d12af91b3ad3fd9264e4329cd562725dc48c6e", "crates/trust-runtime/tests/bytecode_vm_core/seam_case_runners.rs" = "sha256:097ab4dcae6da843e680a509e7d1c8fdb1b561977e383a07aae44cba8ee097ed", "crates/trust-runtime/tests/bytecode_vm_core/support.rs" = "sha256:46af0520d6337dfbe8572b42ed4cae0cf1995089723ec1ac1daed42becb341ec" }
 mapping_behavior_refs = ["VM_SEAM_VALID_001#behavior:5"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
@@ -70315,12 +70327,12 @@ requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_B4A1DBB63C27E22B3380.json"
 last_reviewed = "2026-07-26"
-mapping_proposal_id = "MAP_CAND_B4A1DBB63C27E22B3380_A36D7FEE5B30"
-mapping_proposal_digest = "sha256:a36d7fee5b30a2617b7f63b2fe65afe4fbd97f296f9ce87d8a7efafd248ca7dd"
-mapping_decision_id = "MAP_DEC_86C061EF0C015D1D7522D133"
+mapping_proposal_id = "MAP_CAND_B4A1DBB63C27E22B3380_D27D658BAD7F"
+mapping_proposal_digest = "sha256:d27d658bad7f8f683b0dc87f7fd46cc8ce91a1f96d67666b50df7e60b3965950"
+mapping_decision_id = "MAP_DEC_A1730F9D6EF67B3E80636123"
 mapping_reviewed_source_digest = "sha256:981cb91fec608e0242d15511c482f96e126b237767469176b341e0e83cc804ca"
 mapping_assertion_review_digest = "sha256:354c3c6d7d88fe07c513fd3af476c3c15978af72da15a66f6c1af2d516443ffc"
-mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_vm_core.rs" = "sha256:b0048ab75d16ef76c52e9859bdbcdfa0c6f66514bfdb99d417cf274dc9868b10", "crates/trust-runtime/tests/bytecode_vm_core/call_and_sizeof_validation.rs" = "sha256:981cb91fec608e0242d15511c482f96e126b237767469176b341e0e83cc804ca", "crates/trust-runtime/tests/bytecode_vm_core/deadline.rs" = "sha256:bcdb151c8e982c346d1f850525d2cef5c18d051603eabb3a1ea5c19147339b7c", "crates/trust-runtime/tests/bytecode_vm_core/fuzz_stack_call.rs" = "sha256:9bf0bcd08017feb1e92b5d40ace9c288d112e32f5a269aa58f7826c8f64d580a", "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs" = "sha256:942f9eeeba09c5acb7f7b0b7c9ec6de0a3f3560910e7b4683e3958668096b707", "crates/trust-runtime/tests/bytecode_vm_core/positive_paths.rs" = "sha256:6d95be04812c1b432f68bfe265f64e3850206549899aa48d32c1140e8f160406", "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs" = "sha256:c0a96f43f93161369972c2ae63d12af91b3ad3fd9264e4329cd562725dc48c6e", "crates/trust-runtime/tests/bytecode_vm_core/seam_case_runners.rs" = "sha256:0b740b6d392bc6f723234f48f46188bb3158b10399895be4c8775e6be8c1c535", "crates/trust-runtime/tests/bytecode_vm_core/support.rs" = "sha256:46af0520d6337dfbe8572b42ed4cae0cf1995089723ec1ac1daed42becb341ec" }
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_vm_core.rs" = "sha256:b0048ab75d16ef76c52e9859bdbcdfa0c6f66514bfdb99d417cf274dc9868b10", "crates/trust-runtime/tests/bytecode_vm_core/call_and_sizeof_validation.rs" = "sha256:981cb91fec608e0242d15511c482f96e126b237767469176b341e0e83cc804ca", "crates/trust-runtime/tests/bytecode_vm_core/deadline.rs" = "sha256:bcdb151c8e982c346d1f850525d2cef5c18d051603eabb3a1ea5c19147339b7c", "crates/trust-runtime/tests/bytecode_vm_core/fuzz_stack_call.rs" = "sha256:9bf0bcd08017feb1e92b5d40ace9c288d112e32f5a269aa58f7826c8f64d580a", "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs" = "sha256:942f9eeeba09c5acb7f7b0b7c9ec6de0a3f3560910e7b4683e3958668096b707", "crates/trust-runtime/tests/bytecode_vm_core/positive_paths.rs" = "sha256:6d95be04812c1b432f68bfe265f64e3850206549899aa48d32c1140e8f160406", "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs" = "sha256:c0a96f43f93161369972c2ae63d12af91b3ad3fd9264e4329cd562725dc48c6e", "crates/trust-runtime/tests/bytecode_vm_core/seam_case_runners.rs" = "sha256:097ab4dcae6da843e680a509e7d1c8fdb1b561977e383a07aae44cba8ee097ed", "crates/trust-runtime/tests/bytecode_vm_core/support.rs" = "sha256:46af0520d6337dfbe8572b42ed4cae0cf1995089723ec1ac1daed42becb341ec" }
 mapping_behavior_refs = ["VM_SEAM_VALID_001#behavior:5"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
@@ -70348,12 +70360,12 @@ requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_547557A88A1751976E8D.json"
 last_reviewed = "2026-07-26"
-mapping_proposal_id = "MAP_CAND_547557A88A1751976E8D_EED050A3F8F1"
-mapping_proposal_digest = "sha256:eed050a3f8f1abcade6d6ea9463ffcbfbf7f3ff73a8ae5e3795fc7918c47eb29"
-mapping_decision_id = "MAP_DEC_4328C8806B54010F96C4CEC7"
+mapping_proposal_id = "MAP_CAND_547557A88A1751976E8D_7207A36536EB"
+mapping_proposal_digest = "sha256:7207a36536ebff3f7e67b2ac2de67ae22bb0c1b3b6d10ae67492294460e61de8"
+mapping_decision_id = "MAP_DEC_FB7CF02F49FEAE92D8019BF1"
 mapping_reviewed_source_digest = "sha256:9bf0bcd08017feb1e92b5d40ace9c288d112e32f5a269aa58f7826c8f64d580a"
 mapping_assertion_review_digest = "sha256:6f6b3acfb64e825bb1d23a2c88c3bb32150b5a8b2efbe1ad0c6b44bfd37a338c"
-mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_vm_core.rs" = "sha256:b0048ab75d16ef76c52e9859bdbcdfa0c6f66514bfdb99d417cf274dc9868b10", "crates/trust-runtime/tests/bytecode_vm_core/call_and_sizeof_validation.rs" = "sha256:981cb91fec608e0242d15511c482f96e126b237767469176b341e0e83cc804ca", "crates/trust-runtime/tests/bytecode_vm_core/deadline.rs" = "sha256:bcdb151c8e982c346d1f850525d2cef5c18d051603eabb3a1ea5c19147339b7c", "crates/trust-runtime/tests/bytecode_vm_core/fuzz_stack_call.rs" = "sha256:9bf0bcd08017feb1e92b5d40ace9c288d112e32f5a269aa58f7826c8f64d580a", "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs" = "sha256:942f9eeeba09c5acb7f7b0b7c9ec6de0a3f3560910e7b4683e3958668096b707", "crates/trust-runtime/tests/bytecode_vm_core/positive_paths.rs" = "sha256:6d95be04812c1b432f68bfe265f64e3850206549899aa48d32c1140e8f160406", "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs" = "sha256:c0a96f43f93161369972c2ae63d12af91b3ad3fd9264e4329cd562725dc48c6e", "crates/trust-runtime/tests/bytecode_vm_core/seam_case_runners.rs" = "sha256:0b740b6d392bc6f723234f48f46188bb3158b10399895be4c8775e6be8c1c535", "crates/trust-runtime/tests/bytecode_vm_core/support.rs" = "sha256:46af0520d6337dfbe8572b42ed4cae0cf1995089723ec1ac1daed42becb341ec" }
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_vm_core.rs" = "sha256:b0048ab75d16ef76c52e9859bdbcdfa0c6f66514bfdb99d417cf274dc9868b10", "crates/trust-runtime/tests/bytecode_vm_core/call_and_sizeof_validation.rs" = "sha256:981cb91fec608e0242d15511c482f96e126b237767469176b341e0e83cc804ca", "crates/trust-runtime/tests/bytecode_vm_core/deadline.rs" = "sha256:bcdb151c8e982c346d1f850525d2cef5c18d051603eabb3a1ea5c19147339b7c", "crates/trust-runtime/tests/bytecode_vm_core/fuzz_stack_call.rs" = "sha256:9bf0bcd08017feb1e92b5d40ace9c288d112e32f5a269aa58f7826c8f64d580a", "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs" = "sha256:942f9eeeba09c5acb7f7b0b7c9ec6de0a3f3560910e7b4683e3958668096b707", "crates/trust-runtime/tests/bytecode_vm_core/positive_paths.rs" = "sha256:6d95be04812c1b432f68bfe265f64e3850206549899aa48d32c1140e8f160406", "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs" = "sha256:c0a96f43f93161369972c2ae63d12af91b3ad3fd9264e4329cd562725dc48c6e", "crates/trust-runtime/tests/bytecode_vm_core/seam_case_runners.rs" = "sha256:097ab4dcae6da843e680a509e7d1c8fdb1b561977e383a07aae44cba8ee097ed", "crates/trust-runtime/tests/bytecode_vm_core/support.rs" = "sha256:46af0520d6337dfbe8572b42ed4cae0cf1995089723ec1ac1daed42becb341ec" }
 mapping_behavior_refs = ["VM_SEAM_VALID_001#behavior:2"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
@@ -70382,12 +70394,12 @@ requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_8D25BBBA705FEE70C359.json"
 last_reviewed = "2026-07-26"
-mapping_proposal_id = "MAP_CAND_8D25BBBA705FEE70C359_EF3BB0B20AE0"
-mapping_proposal_digest = "sha256:ef3bb0b20ae072ebe58133e592040268faf1b13d9e7d3a4a963a57c6ad93e08a"
-mapping_decision_id = "MAP_DEC_08246BA4327A5C6CA4C33A99"
+mapping_proposal_id = "MAP_CAND_8D25BBBA705FEE70C359_B97A3AF6CEDB"
+mapping_proposal_digest = "sha256:b97a3af6cedb23ababe6c51ce1be50e0a138fe3817a36ce1c614f86795ab29a2"
+mapping_decision_id = "MAP_DEC_ECB232AC08E8F7D2CA40D156"
 mapping_reviewed_source_digest = "sha256:9bf0bcd08017feb1e92b5d40ace9c288d112e32f5a269aa58f7826c8f64d580a"
 mapping_assertion_review_digest = "sha256:fde51e92f8778b5d81d3b0635b3871866c437bcf6d77fbe6243ca26437b41fa3"
-mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_vm_core.rs" = "sha256:b0048ab75d16ef76c52e9859bdbcdfa0c6f66514bfdb99d417cf274dc9868b10", "crates/trust-runtime/tests/bytecode_vm_core/call_and_sizeof_validation.rs" = "sha256:981cb91fec608e0242d15511c482f96e126b237767469176b341e0e83cc804ca", "crates/trust-runtime/tests/bytecode_vm_core/deadline.rs" = "sha256:bcdb151c8e982c346d1f850525d2cef5c18d051603eabb3a1ea5c19147339b7c", "crates/trust-runtime/tests/bytecode_vm_core/fuzz_stack_call.rs" = "sha256:9bf0bcd08017feb1e92b5d40ace9c288d112e32f5a269aa58f7826c8f64d580a", "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs" = "sha256:942f9eeeba09c5acb7f7b0b7c9ec6de0a3f3560910e7b4683e3958668096b707", "crates/trust-runtime/tests/bytecode_vm_core/positive_paths.rs" = "sha256:6d95be04812c1b432f68bfe265f64e3850206549899aa48d32c1140e8f160406", "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs" = "sha256:c0a96f43f93161369972c2ae63d12af91b3ad3fd9264e4329cd562725dc48c6e", "crates/trust-runtime/tests/bytecode_vm_core/seam_case_runners.rs" = "sha256:0b740b6d392bc6f723234f48f46188bb3158b10399895be4c8775e6be8c1c535", "crates/trust-runtime/tests/bytecode_vm_core/support.rs" = "sha256:46af0520d6337dfbe8572b42ed4cae0cf1995089723ec1ac1daed42becb341ec" }
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_vm_core.rs" = "sha256:b0048ab75d16ef76c52e9859bdbcdfa0c6f66514bfdb99d417cf274dc9868b10", "crates/trust-runtime/tests/bytecode_vm_core/call_and_sizeof_validation.rs" = "sha256:981cb91fec608e0242d15511c482f96e126b237767469176b341e0e83cc804ca", "crates/trust-runtime/tests/bytecode_vm_core/deadline.rs" = "sha256:bcdb151c8e982c346d1f850525d2cef5c18d051603eabb3a1ea5c19147339b7c", "crates/trust-runtime/tests/bytecode_vm_core/fuzz_stack_call.rs" = "sha256:9bf0bcd08017feb1e92b5d40ace9c288d112e32f5a269aa58f7826c8f64d580a", "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs" = "sha256:942f9eeeba09c5acb7f7b0b7c9ec6de0a3f3560910e7b4683e3958668096b707", "crates/trust-runtime/tests/bytecode_vm_core/positive_paths.rs" = "sha256:6d95be04812c1b432f68bfe265f64e3850206549899aa48d32c1140e8f160406", "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs" = "sha256:c0a96f43f93161369972c2ae63d12af91b3ad3fd9264e4329cd562725dc48c6e", "crates/trust-runtime/tests/bytecode_vm_core/seam_case_runners.rs" = "sha256:097ab4dcae6da843e680a509e7d1c8fdb1b561977e383a07aae44cba8ee097ed", "crates/trust-runtime/tests/bytecode_vm_core/support.rs" = "sha256:46af0520d6337dfbe8572b42ed4cae0cf1995089723ec1ac1daed42becb341ec" }
 mapping_behavior_refs = ["VM_SEAM_VALID_001#behavior:5"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
@@ -70416,12 +70428,12 @@ requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_FB4371C17A9F9FB83CA9.json"
 last_reviewed = "2026-07-26"
-mapping_proposal_id = "MAP_CAND_FB4371C17A9F9FB83CA9_BFD16A3882F5"
-mapping_proposal_digest = "sha256:bfd16a3882f5c230602adb251a38910041898d276fe30918927aab7f14527d62"
-mapping_decision_id = "MAP_DEC_CE6E9DA136AE2944BDAC6B9D"
+mapping_proposal_id = "MAP_CAND_FB4371C17A9F9FB83CA9_C5B3C0FA5134"
+mapping_proposal_digest = "sha256:c5b3c0fa5134db5a845619080d5ab602ba752865f145dd29fd06d4ce78f9b23f"
+mapping_decision_id = "MAP_DEC_850049F274C00AD503E414C8"
 mapping_reviewed_source_digest = "sha256:9bf0bcd08017feb1e92b5d40ace9c288d112e32f5a269aa58f7826c8f64d580a"
 mapping_assertion_review_digest = "sha256:f433daf77aac5f8496c32912c50cb9d2f216a6c347f2dfe8c73980d11a3003cf"
-mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_vm_core.rs" = "sha256:b0048ab75d16ef76c52e9859bdbcdfa0c6f66514bfdb99d417cf274dc9868b10", "crates/trust-runtime/tests/bytecode_vm_core/call_and_sizeof_validation.rs" = "sha256:981cb91fec608e0242d15511c482f96e126b237767469176b341e0e83cc804ca", "crates/trust-runtime/tests/bytecode_vm_core/deadline.rs" = "sha256:bcdb151c8e982c346d1f850525d2cef5c18d051603eabb3a1ea5c19147339b7c", "crates/trust-runtime/tests/bytecode_vm_core/fuzz_stack_call.rs" = "sha256:9bf0bcd08017feb1e92b5d40ace9c288d112e32f5a269aa58f7826c8f64d580a", "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs" = "sha256:942f9eeeba09c5acb7f7b0b7c9ec6de0a3f3560910e7b4683e3958668096b707", "crates/trust-runtime/tests/bytecode_vm_core/positive_paths.rs" = "sha256:6d95be04812c1b432f68bfe265f64e3850206549899aa48d32c1140e8f160406", "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs" = "sha256:c0a96f43f93161369972c2ae63d12af91b3ad3fd9264e4329cd562725dc48c6e", "crates/trust-runtime/tests/bytecode_vm_core/seam_case_runners.rs" = "sha256:0b740b6d392bc6f723234f48f46188bb3158b10399895be4c8775e6be8c1c535", "crates/trust-runtime/tests/bytecode_vm_core/support.rs" = "sha256:46af0520d6337dfbe8572b42ed4cae0cf1995089723ec1ac1daed42becb341ec" }
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_vm_core.rs" = "sha256:b0048ab75d16ef76c52e9859bdbcdfa0c6f66514bfdb99d417cf274dc9868b10", "crates/trust-runtime/tests/bytecode_vm_core/call_and_sizeof_validation.rs" = "sha256:981cb91fec608e0242d15511c482f96e126b237767469176b341e0e83cc804ca", "crates/trust-runtime/tests/bytecode_vm_core/deadline.rs" = "sha256:bcdb151c8e982c346d1f850525d2cef5c18d051603eabb3a1ea5c19147339b7c", "crates/trust-runtime/tests/bytecode_vm_core/fuzz_stack_call.rs" = "sha256:9bf0bcd08017feb1e92b5d40ace9c288d112e32f5a269aa58f7826c8f64d580a", "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs" = "sha256:942f9eeeba09c5acb7f7b0b7c9ec6de0a3f3560910e7b4683e3958668096b707", "crates/trust-runtime/tests/bytecode_vm_core/positive_paths.rs" = "sha256:6d95be04812c1b432f68bfe265f64e3850206549899aa48d32c1140e8f160406", "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs" = "sha256:c0a96f43f93161369972c2ae63d12af91b3ad3fd9264e4329cd562725dc48c6e", "crates/trust-runtime/tests/bytecode_vm_core/seam_case_runners.rs" = "sha256:097ab4dcae6da843e680a509e7d1c8fdb1b561977e383a07aae44cba8ee097ed", "crates/trust-runtime/tests/bytecode_vm_core/support.rs" = "sha256:46af0520d6337dfbe8572b42ed4cae0cf1995089723ec1ac1daed42becb341ec" }
 mapping_behavior_refs = ["VM_SEAM_VALID_001#behavior:5"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
@@ -70450,12 +70462,12 @@ requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_FEFED9A28C00D7D4A293.json"
 last_reviewed = "2026-07-26"
-mapping_proposal_id = "MAP_CAND_FEFED9A28C00D7D4A293_382C9BA03278"
-mapping_proposal_digest = "sha256:382c9ba03278ee323aa452cc2782ecd320350d26a301127c88222468ce966ec0"
-mapping_decision_id = "MAP_DEC_4647BD7C064D8D8181DCB3BB"
+mapping_proposal_id = "MAP_CAND_FEFED9A28C00D7D4A293_3A6814298489"
+mapping_proposal_digest = "sha256:3a681429848941f94c193d46a47232e19775959eec1e08c749a21e41a1e3a828"
+mapping_decision_id = "MAP_DEC_A4EFA0A85D6E9D12B0523F38"
 mapping_reviewed_source_digest = "sha256:9bf0bcd08017feb1e92b5d40ace9c288d112e32f5a269aa58f7826c8f64d580a"
 mapping_assertion_review_digest = "sha256:ef2adcd9c76838e0dd7418f87e54f43ef4d6f23f45e2e2829b66580629759e2f"
-mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_vm_core.rs" = "sha256:b0048ab75d16ef76c52e9859bdbcdfa0c6f66514bfdb99d417cf274dc9868b10", "crates/trust-runtime/tests/bytecode_vm_core/call_and_sizeof_validation.rs" = "sha256:981cb91fec608e0242d15511c482f96e126b237767469176b341e0e83cc804ca", "crates/trust-runtime/tests/bytecode_vm_core/deadline.rs" = "sha256:bcdb151c8e982c346d1f850525d2cef5c18d051603eabb3a1ea5c19147339b7c", "crates/trust-runtime/tests/bytecode_vm_core/fuzz_stack_call.rs" = "sha256:9bf0bcd08017feb1e92b5d40ace9c288d112e32f5a269aa58f7826c8f64d580a", "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs" = "sha256:942f9eeeba09c5acb7f7b0b7c9ec6de0a3f3560910e7b4683e3958668096b707", "crates/trust-runtime/tests/bytecode_vm_core/positive_paths.rs" = "sha256:6d95be04812c1b432f68bfe265f64e3850206549899aa48d32c1140e8f160406", "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs" = "sha256:c0a96f43f93161369972c2ae63d12af91b3ad3fd9264e4329cd562725dc48c6e", "crates/trust-runtime/tests/bytecode_vm_core/seam_case_runners.rs" = "sha256:0b740b6d392bc6f723234f48f46188bb3158b10399895be4c8775e6be8c1c535", "crates/trust-runtime/tests/bytecode_vm_core/support.rs" = "sha256:46af0520d6337dfbe8572b42ed4cae0cf1995089723ec1ac1daed42becb341ec" }
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_vm_core.rs" = "sha256:b0048ab75d16ef76c52e9859bdbcdfa0c6f66514bfdb99d417cf274dc9868b10", "crates/trust-runtime/tests/bytecode_vm_core/call_and_sizeof_validation.rs" = "sha256:981cb91fec608e0242d15511c482f96e126b237767469176b341e0e83cc804ca", "crates/trust-runtime/tests/bytecode_vm_core/deadline.rs" = "sha256:bcdb151c8e982c346d1f850525d2cef5c18d051603eabb3a1ea5c19147339b7c", "crates/trust-runtime/tests/bytecode_vm_core/fuzz_stack_call.rs" = "sha256:9bf0bcd08017feb1e92b5d40ace9c288d112e32f5a269aa58f7826c8f64d580a", "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs" = "sha256:942f9eeeba09c5acb7f7b0b7c9ec6de0a3f3560910e7b4683e3958668096b707", "crates/trust-runtime/tests/bytecode_vm_core/positive_paths.rs" = "sha256:6d95be04812c1b432f68bfe265f64e3850206549899aa48d32c1140e8f160406", "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs" = "sha256:c0a96f43f93161369972c2ae63d12af91b3ad3fd9264e4329cd562725dc48c6e", "crates/trust-runtime/tests/bytecode_vm_core/seam_case_runners.rs" = "sha256:097ab4dcae6da843e680a509e7d1c8fdb1b561977e383a07aae44cba8ee097ed", "crates/trust-runtime/tests/bytecode_vm_core/support.rs" = "sha256:46af0520d6337dfbe8572b42ed4cae0cf1995089723ec1ac1daed42becb341ec" }
 mapping_behavior_refs = ["VM_SEAM_DETERMINISM_LIMITS_001#behavior:6"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
@@ -70483,12 +70495,12 @@ requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_3308821824B623536278.json"
 last_reviewed = "2026-07-26"
-mapping_proposal_id = "MAP_CAND_3308821824B623536278_122981CE9D38"
-mapping_proposal_digest = "sha256:122981ce9d3803f85aab66a6edf67b139d876b9ec056a6333e247855180fb1f2"
-mapping_decision_id = "MAP_DEC_379103FC3E07EA865D69C377"
+mapping_proposal_id = "MAP_CAND_3308821824B623536278_70878E037019"
+mapping_proposal_digest = "sha256:70878e037019968b4ba2271414f666e333d15d89cce6280ceded73e2a9739401"
+mapping_decision_id = "MAP_DEC_9D9F3F853FCBAE010B00C674"
 mapping_reviewed_source_digest = "sha256:942f9eeeba09c5acb7f7b0b7c9ec6de0a3f3560910e7b4683e3958668096b707"
 mapping_assertion_review_digest = "sha256:210a299cd34582c1b9bc47054bd3fd8934be028f50c4bef073faa2c71b9482ff"
-mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_vm_core.rs" = "sha256:b0048ab75d16ef76c52e9859bdbcdfa0c6f66514bfdb99d417cf274dc9868b10", "crates/trust-runtime/tests/bytecode_vm_core/call_and_sizeof_validation.rs" = "sha256:981cb91fec608e0242d15511c482f96e126b237767469176b341e0e83cc804ca", "crates/trust-runtime/tests/bytecode_vm_core/deadline.rs" = "sha256:bcdb151c8e982c346d1f850525d2cef5c18d051603eabb3a1ea5c19147339b7c", "crates/trust-runtime/tests/bytecode_vm_core/fuzz_stack_call.rs" = "sha256:9bf0bcd08017feb1e92b5d40ace9c288d112e32f5a269aa58f7826c8f64d580a", "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs" = "sha256:942f9eeeba09c5acb7f7b0b7c9ec6de0a3f3560910e7b4683e3958668096b707", "crates/trust-runtime/tests/bytecode_vm_core/positive_paths.rs" = "sha256:6d95be04812c1b432f68bfe265f64e3850206549899aa48d32c1140e8f160406", "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs" = "sha256:c0a96f43f93161369972c2ae63d12af91b3ad3fd9264e4329cd562725dc48c6e", "crates/trust-runtime/tests/bytecode_vm_core/seam_case_runners.rs" = "sha256:0b740b6d392bc6f723234f48f46188bb3158b10399895be4c8775e6be8c1c535", "crates/trust-runtime/tests/bytecode_vm_core/support.rs" = "sha256:46af0520d6337dfbe8572b42ed4cae0cf1995089723ec1ac1daed42becb341ec" }
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_vm_core.rs" = "sha256:b0048ab75d16ef76c52e9859bdbcdfa0c6f66514bfdb99d417cf274dc9868b10", "crates/trust-runtime/tests/bytecode_vm_core/call_and_sizeof_validation.rs" = "sha256:981cb91fec608e0242d15511c482f96e126b237767469176b341e0e83cc804ca", "crates/trust-runtime/tests/bytecode_vm_core/deadline.rs" = "sha256:bcdb151c8e982c346d1f850525d2cef5c18d051603eabb3a1ea5c19147339b7c", "crates/trust-runtime/tests/bytecode_vm_core/fuzz_stack_call.rs" = "sha256:9bf0bcd08017feb1e92b5d40ace9c288d112e32f5a269aa58f7826c8f64d580a", "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs" = "sha256:942f9eeeba09c5acb7f7b0b7c9ec6de0a3f3560910e7b4683e3958668096b707", "crates/trust-runtime/tests/bytecode_vm_core/positive_paths.rs" = "sha256:6d95be04812c1b432f68bfe265f64e3850206549899aa48d32c1140e8f160406", "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs" = "sha256:c0a96f43f93161369972c2ae63d12af91b3ad3fd9264e4329cd562725dc48c6e", "crates/trust-runtime/tests/bytecode_vm_core/seam_case_runners.rs" = "sha256:097ab4dcae6da843e680a509e7d1c8fdb1b561977e383a07aae44cba8ee097ed", "crates/trust-runtime/tests/bytecode_vm_core/support.rs" = "sha256:46af0520d6337dfbe8572b42ed4cae0cf1995089723ec1ac1daed42becb341ec" }
 mapping_behavior_refs = ["VM_SEAM_VALID_001#behavior:5"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
@@ -70517,12 +70529,12 @@ requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_4E8E4144D9AEFFEEE9C4.json"
 last_reviewed = "2026-07-26"
-mapping_proposal_id = "MAP_CAND_4E8E4144D9AEFFEEE9C4_594275CEB2A9"
-mapping_proposal_digest = "sha256:594275ceb2a90c21e8dd888a49a4d1ceee0bf77256277a462e65ba59a3bf3088"
-mapping_decision_id = "MAP_DEC_A0659D2DE3A15339E9429F43"
+mapping_proposal_id = "MAP_CAND_4E8E4144D9AEFFEEE9C4_190DB59609F7"
+mapping_proposal_digest = "sha256:190db59609f7d8a2fc7be19e890c5d454935ba0f22028ce25145e3f8c74011dd"
+mapping_decision_id = "MAP_DEC_2C25F0EDF12D35D81F8893CF"
 mapping_reviewed_source_digest = "sha256:942f9eeeba09c5acb7f7b0b7c9ec6de0a3f3560910e7b4683e3958668096b707"
 mapping_assertion_review_digest = "sha256:7ce7338d8aee3cf4ebd47a8195dab90ab5e90c8c9c2e36911b5ce91169edde17"
-mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_vm_core.rs" = "sha256:b0048ab75d16ef76c52e9859bdbcdfa0c6f66514bfdb99d417cf274dc9868b10", "crates/trust-runtime/tests/bytecode_vm_core/call_and_sizeof_validation.rs" = "sha256:981cb91fec608e0242d15511c482f96e126b237767469176b341e0e83cc804ca", "crates/trust-runtime/tests/bytecode_vm_core/deadline.rs" = "sha256:bcdb151c8e982c346d1f850525d2cef5c18d051603eabb3a1ea5c19147339b7c", "crates/trust-runtime/tests/bytecode_vm_core/fuzz_stack_call.rs" = "sha256:9bf0bcd08017feb1e92b5d40ace9c288d112e32f5a269aa58f7826c8f64d580a", "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs" = "sha256:942f9eeeba09c5acb7f7b0b7c9ec6de0a3f3560910e7b4683e3958668096b707", "crates/trust-runtime/tests/bytecode_vm_core/positive_paths.rs" = "sha256:6d95be04812c1b432f68bfe265f64e3850206549899aa48d32c1140e8f160406", "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs" = "sha256:c0a96f43f93161369972c2ae63d12af91b3ad3fd9264e4329cd562725dc48c6e", "crates/trust-runtime/tests/bytecode_vm_core/seam_case_runners.rs" = "sha256:0b740b6d392bc6f723234f48f46188bb3158b10399895be4c8775e6be8c1c535", "crates/trust-runtime/tests/bytecode_vm_core/support.rs" = "sha256:46af0520d6337dfbe8572b42ed4cae0cf1995089723ec1ac1daed42becb341ec" }
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_vm_core.rs" = "sha256:b0048ab75d16ef76c52e9859bdbcdfa0c6f66514bfdb99d417cf274dc9868b10", "crates/trust-runtime/tests/bytecode_vm_core/call_and_sizeof_validation.rs" = "sha256:981cb91fec608e0242d15511c482f96e126b237767469176b341e0e83cc804ca", "crates/trust-runtime/tests/bytecode_vm_core/deadline.rs" = "sha256:bcdb151c8e982c346d1f850525d2cef5c18d051603eabb3a1ea5c19147339b7c", "crates/trust-runtime/tests/bytecode_vm_core/fuzz_stack_call.rs" = "sha256:9bf0bcd08017feb1e92b5d40ace9c288d112e32f5a269aa58f7826c8f64d580a", "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs" = "sha256:942f9eeeba09c5acb7f7b0b7c9ec6de0a3f3560910e7b4683e3958668096b707", "crates/trust-runtime/tests/bytecode_vm_core/positive_paths.rs" = "sha256:6d95be04812c1b432f68bfe265f64e3850206549899aa48d32c1140e8f160406", "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs" = "sha256:c0a96f43f93161369972c2ae63d12af91b3ad3fd9264e4329cd562725dc48c6e", "crates/trust-runtime/tests/bytecode_vm_core/seam_case_runners.rs" = "sha256:097ab4dcae6da843e680a509e7d1c8fdb1b561977e383a07aae44cba8ee097ed", "crates/trust-runtime/tests/bytecode_vm_core/support.rs" = "sha256:46af0520d6337dfbe8572b42ed4cae0cf1995089723ec1ac1daed42becb341ec" }
 mapping_behavior_refs = ["VM_SEAM_DETERMINISM_LIMITS_001#behavior:8"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
@@ -70551,12 +70563,12 @@ requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_E8BDC2A27F6EC334ADB8.json"
 last_reviewed = "2026-07-26"
-mapping_proposal_id = "MAP_CAND_E8BDC2A27F6EC334ADB8_95EF50F17896"
-mapping_proposal_digest = "sha256:95ef50f17896e49659ab61e752a42c19d46754037e86ba90d1d0b3d33f4a10e5"
-mapping_decision_id = "MAP_DEC_5D67697455A136976325134C"
+mapping_proposal_id = "MAP_CAND_E8BDC2A27F6EC334ADB8_C36EF81BC003"
+mapping_proposal_digest = "sha256:c36ef81bc003e532d6ff5ffef27d8e7365353328e6684ebbac70bb7cd9623e13"
+mapping_decision_id = "MAP_DEC_54F6FD70901A8CEE50A88038"
 mapping_reviewed_source_digest = "sha256:942f9eeeba09c5acb7f7b0b7c9ec6de0a3f3560910e7b4683e3958668096b707"
 mapping_assertion_review_digest = "sha256:1743430d9f412ae64a473aca3c2c01f8cf4b9730cf25ff84f0da5c7948e2720e"
-mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_vm_core.rs" = "sha256:b0048ab75d16ef76c52e9859bdbcdfa0c6f66514bfdb99d417cf274dc9868b10", "crates/trust-runtime/tests/bytecode_vm_core/call_and_sizeof_validation.rs" = "sha256:981cb91fec608e0242d15511c482f96e126b237767469176b341e0e83cc804ca", "crates/trust-runtime/tests/bytecode_vm_core/deadline.rs" = "sha256:bcdb151c8e982c346d1f850525d2cef5c18d051603eabb3a1ea5c19147339b7c", "crates/trust-runtime/tests/bytecode_vm_core/fuzz_stack_call.rs" = "sha256:9bf0bcd08017feb1e92b5d40ace9c288d112e32f5a269aa58f7826c8f64d580a", "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs" = "sha256:942f9eeeba09c5acb7f7b0b7c9ec6de0a3f3560910e7b4683e3958668096b707", "crates/trust-runtime/tests/bytecode_vm_core/positive_paths.rs" = "sha256:6d95be04812c1b432f68bfe265f64e3850206549899aa48d32c1140e8f160406", "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs" = "sha256:c0a96f43f93161369972c2ae63d12af91b3ad3fd9264e4329cd562725dc48c6e", "crates/trust-runtime/tests/bytecode_vm_core/seam_case_runners.rs" = "sha256:0b740b6d392bc6f723234f48f46188bb3158b10399895be4c8775e6be8c1c535", "crates/trust-runtime/tests/bytecode_vm_core/support.rs" = "sha256:46af0520d6337dfbe8572b42ed4cae0cf1995089723ec1ac1daed42becb341ec" }
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_vm_core.rs" = "sha256:b0048ab75d16ef76c52e9859bdbcdfa0c6f66514bfdb99d417cf274dc9868b10", "crates/trust-runtime/tests/bytecode_vm_core/call_and_sizeof_validation.rs" = "sha256:981cb91fec608e0242d15511c482f96e126b237767469176b341e0e83cc804ca", "crates/trust-runtime/tests/bytecode_vm_core/deadline.rs" = "sha256:bcdb151c8e982c346d1f850525d2cef5c18d051603eabb3a1ea5c19147339b7c", "crates/trust-runtime/tests/bytecode_vm_core/fuzz_stack_call.rs" = "sha256:9bf0bcd08017feb1e92b5d40ace9c288d112e32f5a269aa58f7826c8f64d580a", "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs" = "sha256:942f9eeeba09c5acb7f7b0b7c9ec6de0a3f3560910e7b4683e3958668096b707", "crates/trust-runtime/tests/bytecode_vm_core/positive_paths.rs" = "sha256:6d95be04812c1b432f68bfe265f64e3850206549899aa48d32c1140e8f160406", "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs" = "sha256:c0a96f43f93161369972c2ae63d12af91b3ad3fd9264e4329cd562725dc48c6e", "crates/trust-runtime/tests/bytecode_vm_core/seam_case_runners.rs" = "sha256:097ab4dcae6da843e680a509e7d1c8fdb1b561977e383a07aae44cba8ee097ed", "crates/trust-runtime/tests/bytecode_vm_core/support.rs" = "sha256:46af0520d6337dfbe8572b42ed4cae0cf1995089723ec1ac1daed42becb341ec" }
 mapping_behavior_refs = ["VM_SEAM_VALID_001#behavior:5"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
@@ -70584,12 +70596,12 @@ requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_68799F0150BA51B5C348.json"
 last_reviewed = "2026-07-26"
-mapping_proposal_id = "MAP_CAND_68799F0150BA51B5C348_5DA5E72DE371"
-mapping_proposal_digest = "sha256:5da5e72de371aa801fc3939b9e3c22c83e5112739f34204e97c0b29943bf3eeb"
-mapping_decision_id = "MAP_DEC_A22E149FF3144FFFED730DFC"
+mapping_proposal_id = "MAP_CAND_68799F0150BA51B5C348_E9DA9A12F02F"
+mapping_proposal_digest = "sha256:e9da9a12f02fcb08f809ca610ce4a3de90b4362c37a09a4adefc5e09f8779c70"
+mapping_decision_id = "MAP_DEC_37A25D2749648E2F52E47B77"
 mapping_reviewed_source_digest = "sha256:6d95be04812c1b432f68bfe265f64e3850206549899aa48d32c1140e8f160406"
 mapping_assertion_review_digest = "sha256:acd4b20fa5a9686bb0892fd703f10294248f2a098e46569fae1b60abfc138a42"
-mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_vm_core.rs" = "sha256:b0048ab75d16ef76c52e9859bdbcdfa0c6f66514bfdb99d417cf274dc9868b10", "crates/trust-runtime/tests/bytecode_vm_core/call_and_sizeof_validation.rs" = "sha256:981cb91fec608e0242d15511c482f96e126b237767469176b341e0e83cc804ca", "crates/trust-runtime/tests/bytecode_vm_core/deadline.rs" = "sha256:bcdb151c8e982c346d1f850525d2cef5c18d051603eabb3a1ea5c19147339b7c", "crates/trust-runtime/tests/bytecode_vm_core/fuzz_stack_call.rs" = "sha256:9bf0bcd08017feb1e92b5d40ace9c288d112e32f5a269aa58f7826c8f64d580a", "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs" = "sha256:942f9eeeba09c5acb7f7b0b7c9ec6de0a3f3560910e7b4683e3958668096b707", "crates/trust-runtime/tests/bytecode_vm_core/positive_paths.rs" = "sha256:6d95be04812c1b432f68bfe265f64e3850206549899aa48d32c1140e8f160406", "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs" = "sha256:c0a96f43f93161369972c2ae63d12af91b3ad3fd9264e4329cd562725dc48c6e", "crates/trust-runtime/tests/bytecode_vm_core/seam_case_runners.rs" = "sha256:0b740b6d392bc6f723234f48f46188bb3158b10399895be4c8775e6be8c1c535", "crates/trust-runtime/tests/bytecode_vm_core/support.rs" = "sha256:46af0520d6337dfbe8572b42ed4cae0cf1995089723ec1ac1daed42becb341ec" }
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_vm_core.rs" = "sha256:b0048ab75d16ef76c52e9859bdbcdfa0c6f66514bfdb99d417cf274dc9868b10", "crates/trust-runtime/tests/bytecode_vm_core/call_and_sizeof_validation.rs" = "sha256:981cb91fec608e0242d15511c482f96e126b237767469176b341e0e83cc804ca", "crates/trust-runtime/tests/bytecode_vm_core/deadline.rs" = "sha256:bcdb151c8e982c346d1f850525d2cef5c18d051603eabb3a1ea5c19147339b7c", "crates/trust-runtime/tests/bytecode_vm_core/fuzz_stack_call.rs" = "sha256:9bf0bcd08017feb1e92b5d40ace9c288d112e32f5a269aa58f7826c8f64d580a", "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs" = "sha256:942f9eeeba09c5acb7f7b0b7c9ec6de0a3f3560910e7b4683e3958668096b707", "crates/trust-runtime/tests/bytecode_vm_core/positive_paths.rs" = "sha256:6d95be04812c1b432f68bfe265f64e3850206549899aa48d32c1140e8f160406", "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs" = "sha256:c0a96f43f93161369972c2ae63d12af91b3ad3fd9264e4329cd562725dc48c6e", "crates/trust-runtime/tests/bytecode_vm_core/seam_case_runners.rs" = "sha256:097ab4dcae6da843e680a509e7d1c8fdb1b561977e383a07aae44cba8ee097ed", "crates/trust-runtime/tests/bytecode_vm_core/support.rs" = "sha256:46af0520d6337dfbe8572b42ed4cae0cf1995089723ec1ac1daed42becb341ec" }
 mapping_behavior_refs = ["VM_SEAM_STRING_ELEMENT_001#behavior:7"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
@@ -70618,12 +70630,12 @@ requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_C6163DD277DA618BCB8B.json"
 last_reviewed = "2026-07-26"
-mapping_proposal_id = "MAP_CAND_C6163DD277DA618BCB8B_C7D958D67395"
-mapping_proposal_digest = "sha256:c7d958d67395d5adc1320db735f0aa67a699de90ef650975004fbcdfc872d35e"
-mapping_decision_id = "MAP_DEC_B85F75AAC4214A93239BCA08"
+mapping_proposal_id = "MAP_CAND_C6163DD277DA618BCB8B_273D1529A158"
+mapping_proposal_digest = "sha256:273d1529a158152167959f06851fcd21803f27d37ded729729b735b7f60267a6"
+mapping_decision_id = "MAP_DEC_7A1F2FF8FEC422A6F72B60B0"
 mapping_reviewed_source_digest = "sha256:6d95be04812c1b432f68bfe265f64e3850206549899aa48d32c1140e8f160406"
 mapping_assertion_review_digest = "sha256:4f54cb8676918f1e9a5c6797788b0dae1ed74f6b1bd89736333849715ebf8c50"
-mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_vm_core.rs" = "sha256:b0048ab75d16ef76c52e9859bdbcdfa0c6f66514bfdb99d417cf274dc9868b10", "crates/trust-runtime/tests/bytecode_vm_core/call_and_sizeof_validation.rs" = "sha256:981cb91fec608e0242d15511c482f96e126b237767469176b341e0e83cc804ca", "crates/trust-runtime/tests/bytecode_vm_core/deadline.rs" = "sha256:bcdb151c8e982c346d1f850525d2cef5c18d051603eabb3a1ea5c19147339b7c", "crates/trust-runtime/tests/bytecode_vm_core/fuzz_stack_call.rs" = "sha256:9bf0bcd08017feb1e92b5d40ace9c288d112e32f5a269aa58f7826c8f64d580a", "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs" = "sha256:942f9eeeba09c5acb7f7b0b7c9ec6de0a3f3560910e7b4683e3958668096b707", "crates/trust-runtime/tests/bytecode_vm_core/positive_paths.rs" = "sha256:6d95be04812c1b432f68bfe265f64e3850206549899aa48d32c1140e8f160406", "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs" = "sha256:c0a96f43f93161369972c2ae63d12af91b3ad3fd9264e4329cd562725dc48c6e", "crates/trust-runtime/tests/bytecode_vm_core/seam_case_runners.rs" = "sha256:0b740b6d392bc6f723234f48f46188bb3158b10399895be4c8775e6be8c1c535", "crates/trust-runtime/tests/bytecode_vm_core/support.rs" = "sha256:46af0520d6337dfbe8572b42ed4cae0cf1995089723ec1ac1daed42becb341ec" }
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_vm_core.rs" = "sha256:b0048ab75d16ef76c52e9859bdbcdfa0c6f66514bfdb99d417cf274dc9868b10", "crates/trust-runtime/tests/bytecode_vm_core/call_and_sizeof_validation.rs" = "sha256:981cb91fec608e0242d15511c482f96e126b237767469176b341e0e83cc804ca", "crates/trust-runtime/tests/bytecode_vm_core/deadline.rs" = "sha256:bcdb151c8e982c346d1f850525d2cef5c18d051603eabb3a1ea5c19147339b7c", "crates/trust-runtime/tests/bytecode_vm_core/fuzz_stack_call.rs" = "sha256:9bf0bcd08017feb1e92b5d40ace9c288d112e32f5a269aa58f7826c8f64d580a", "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs" = "sha256:942f9eeeba09c5acb7f7b0b7c9ec6de0a3f3560910e7b4683e3958668096b707", "crates/trust-runtime/tests/bytecode_vm_core/positive_paths.rs" = "sha256:6d95be04812c1b432f68bfe265f64e3850206549899aa48d32c1140e8f160406", "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs" = "sha256:c0a96f43f93161369972c2ae63d12af91b3ad3fd9264e4329cd562725dc48c6e", "crates/trust-runtime/tests/bytecode_vm_core/seam_case_runners.rs" = "sha256:097ab4dcae6da843e680a509e7d1c8fdb1b561977e383a07aae44cba8ee097ed", "crates/trust-runtime/tests/bytecode_vm_core/support.rs" = "sha256:46af0520d6337dfbe8572b42ed4cae0cf1995089723ec1ac1daed42becb341ec" }
 mapping_behavior_refs = ["VM_SEAM_STRING_ELEMENT_001#behavior:7"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
@@ -70651,12 +70663,12 @@ requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_2017F195D5EEFC4FC922.json"
 last_reviewed = "2026-07-26"
-mapping_proposal_id = "MAP_CAND_2017F195D5EEFC4FC922_6445FFB0831A"
-mapping_proposal_digest = "sha256:6445ffb0831aae32358945311c442411c6e6835c62f4d5851bffcaf9c4e0daa2"
-mapping_decision_id = "MAP_DEC_95979272CC37CCA163105280"
+mapping_proposal_id = "MAP_CAND_2017F195D5EEFC4FC922_E652CA40D43C"
+mapping_proposal_digest = "sha256:e652ca40d43c8b08a7d24b0835b95e9f4396386657b11354222a88926651973d"
+mapping_decision_id = "MAP_DEC_5059794A2A271B479F55A923"
 mapping_reviewed_source_digest = "sha256:c0a96f43f93161369972c2ae63d12af91b3ad3fd9264e4329cd562725dc48c6e"
 mapping_assertion_review_digest = "sha256:fb91a9d82bf128beed11bb03528f2ce622454b60ccd72ed14cc87df2439f4258"
-mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_vm_core.rs" = "sha256:b0048ab75d16ef76c52e9859bdbcdfa0c6f66514bfdb99d417cf274dc9868b10", "crates/trust-runtime/tests/bytecode_vm_core/call_and_sizeof_validation.rs" = "sha256:981cb91fec608e0242d15511c482f96e126b237767469176b341e0e83cc804ca", "crates/trust-runtime/tests/bytecode_vm_core/deadline.rs" = "sha256:bcdb151c8e982c346d1f850525d2cef5c18d051603eabb3a1ea5c19147339b7c", "crates/trust-runtime/tests/bytecode_vm_core/fuzz_stack_call.rs" = "sha256:9bf0bcd08017feb1e92b5d40ace9c288d112e32f5a269aa58f7826c8f64d580a", "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs" = "sha256:942f9eeeba09c5acb7f7b0b7c9ec6de0a3f3560910e7b4683e3958668096b707", "crates/trust-runtime/tests/bytecode_vm_core/positive_paths.rs" = "sha256:6d95be04812c1b432f68bfe265f64e3850206549899aa48d32c1140e8f160406", "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs" = "sha256:c0a96f43f93161369972c2ae63d12af91b3ad3fd9264e4329cd562725dc48c6e", "crates/trust-runtime/tests/bytecode_vm_core/seam_case_runners.rs" = "sha256:0b740b6d392bc6f723234f48f46188bb3158b10399895be4c8775e6be8c1c535", "crates/trust-runtime/tests/bytecode_vm_core/support.rs" = "sha256:46af0520d6337dfbe8572b42ed4cae0cf1995089723ec1ac1daed42becb341ec" }
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_vm_core.rs" = "sha256:b0048ab75d16ef76c52e9859bdbcdfa0c6f66514bfdb99d417cf274dc9868b10", "crates/trust-runtime/tests/bytecode_vm_core/call_and_sizeof_validation.rs" = "sha256:981cb91fec608e0242d15511c482f96e126b237767469176b341e0e83cc804ca", "crates/trust-runtime/tests/bytecode_vm_core/deadline.rs" = "sha256:bcdb151c8e982c346d1f850525d2cef5c18d051603eabb3a1ea5c19147339b7c", "crates/trust-runtime/tests/bytecode_vm_core/fuzz_stack_call.rs" = "sha256:9bf0bcd08017feb1e92b5d40ace9c288d112e32f5a269aa58f7826c8f64d580a", "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs" = "sha256:942f9eeeba09c5acb7f7b0b7c9ec6de0a3f3560910e7b4683e3958668096b707", "crates/trust-runtime/tests/bytecode_vm_core/positive_paths.rs" = "sha256:6d95be04812c1b432f68bfe265f64e3850206549899aa48d32c1140e8f160406", "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs" = "sha256:c0a96f43f93161369972c2ae63d12af91b3ad3fd9264e4329cd562725dc48c6e", "crates/trust-runtime/tests/bytecode_vm_core/seam_case_runners.rs" = "sha256:097ab4dcae6da843e680a509e7d1c8fdb1b561977e383a07aae44cba8ee097ed", "crates/trust-runtime/tests/bytecode_vm_core/support.rs" = "sha256:46af0520d6337dfbe8572b42ed4cae0cf1995089723ec1ac1daed42becb341ec" }
 mapping_behavior_refs = ["VM_SEAM_VALID_001#behavior:5"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
@@ -70685,12 +70697,12 @@ requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_3A6CAB92BC8F60C11C2F.json"
 last_reviewed = "2026-07-26"
-mapping_proposal_id = "MAP_CAND_3A6CAB92BC8F60C11C2F_06CD37B8195E"
-mapping_proposal_digest = "sha256:06cd37b8195ea08cdaeb905f6fc8a28dbc95e2fc45b025aefb4697c54846f138"
-mapping_decision_id = "MAP_DEC_2B226D76CA2C84B169440948"
+mapping_proposal_id = "MAP_CAND_3A6CAB92BC8F60C11C2F_588398DF7379"
+mapping_proposal_digest = "sha256:588398df7379b32075ff0e344330284c249530524715f109f7abb7e2f7ca7ff0"
+mapping_decision_id = "MAP_DEC_31FB9300E785328D5D76ECD8"
 mapping_reviewed_source_digest = "sha256:c0a96f43f93161369972c2ae63d12af91b3ad3fd9264e4329cd562725dc48c6e"
 mapping_assertion_review_digest = "sha256:69d78a47f54093191952c37ef2d5538fbf7cb353cc2ba1a57d7fe76cb85b0ee6"
-mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_vm_core.rs" = "sha256:b0048ab75d16ef76c52e9859bdbcdfa0c6f66514bfdb99d417cf274dc9868b10", "crates/trust-runtime/tests/bytecode_vm_core/call_and_sizeof_validation.rs" = "sha256:981cb91fec608e0242d15511c482f96e126b237767469176b341e0e83cc804ca", "crates/trust-runtime/tests/bytecode_vm_core/deadline.rs" = "sha256:bcdb151c8e982c346d1f850525d2cef5c18d051603eabb3a1ea5c19147339b7c", "crates/trust-runtime/tests/bytecode_vm_core/fuzz_stack_call.rs" = "sha256:9bf0bcd08017feb1e92b5d40ace9c288d112e32f5a269aa58f7826c8f64d580a", "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs" = "sha256:942f9eeeba09c5acb7f7b0b7c9ec6de0a3f3560910e7b4683e3958668096b707", "crates/trust-runtime/tests/bytecode_vm_core/positive_paths.rs" = "sha256:6d95be04812c1b432f68bfe265f64e3850206549899aa48d32c1140e8f160406", "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs" = "sha256:c0a96f43f93161369972c2ae63d12af91b3ad3fd9264e4329cd562725dc48c6e", "crates/trust-runtime/tests/bytecode_vm_core/seam_case_runners.rs" = "sha256:0b740b6d392bc6f723234f48f46188bb3158b10399895be4c8775e6be8c1c535", "crates/trust-runtime/tests/bytecode_vm_core/support.rs" = "sha256:46af0520d6337dfbe8572b42ed4cae0cf1995089723ec1ac1daed42becb341ec" }
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_vm_core.rs" = "sha256:b0048ab75d16ef76c52e9859bdbcdfa0c6f66514bfdb99d417cf274dc9868b10", "crates/trust-runtime/tests/bytecode_vm_core/call_and_sizeof_validation.rs" = "sha256:981cb91fec608e0242d15511c482f96e126b237767469176b341e0e83cc804ca", "crates/trust-runtime/tests/bytecode_vm_core/deadline.rs" = "sha256:bcdb151c8e982c346d1f850525d2cef5c18d051603eabb3a1ea5c19147339b7c", "crates/trust-runtime/tests/bytecode_vm_core/fuzz_stack_call.rs" = "sha256:9bf0bcd08017feb1e92b5d40ace9c288d112e32f5a269aa58f7826c8f64d580a", "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs" = "sha256:942f9eeeba09c5acb7f7b0b7c9ec6de0a3f3560910e7b4683e3958668096b707", "crates/trust-runtime/tests/bytecode_vm_core/positive_paths.rs" = "sha256:6d95be04812c1b432f68bfe265f64e3850206549899aa48d32c1140e8f160406", "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs" = "sha256:c0a96f43f93161369972c2ae63d12af91b3ad3fd9264e4329cd562725dc48c6e", "crates/trust-runtime/tests/bytecode_vm_core/seam_case_runners.rs" = "sha256:097ab4dcae6da843e680a509e7d1c8fdb1b561977e383a07aae44cba8ee097ed", "crates/trust-runtime/tests/bytecode_vm_core/support.rs" = "sha256:46af0520d6337dfbe8572b42ed4cae0cf1995089723ec1ac1daed42becb341ec" }
 mapping_behavior_refs = ["VM_SEAM_VALID_001#behavior:5"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
@@ -70719,12 +70731,12 @@ requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_51482BB47DB5575280CE.json"
 last_reviewed = "2026-07-26"
-mapping_proposal_id = "MAP_CAND_51482BB47DB5575280CE_8A9315E91DA4"
-mapping_proposal_digest = "sha256:8a9315e91da4cbdf2f96e40bbd786f7ef1346d8def8d29e2f84fb75e9da9beed"
-mapping_decision_id = "MAP_DEC_E8F8A672FFD6F8D2191E0F56"
+mapping_proposal_id = "MAP_CAND_51482BB47DB5575280CE_99B102071BA0"
+mapping_proposal_digest = "sha256:99b102071ba06a0edbc0e418838ce7812f3fe0d524decc4f37bbe8c527910857"
+mapping_decision_id = "MAP_DEC_4D71F88AAD8EE75CD82EF8B4"
 mapping_reviewed_source_digest = "sha256:c0a96f43f93161369972c2ae63d12af91b3ad3fd9264e4329cd562725dc48c6e"
 mapping_assertion_review_digest = "sha256:70af958256d7c7caea379ddf64c9a19cf0adae83ba1cd6119772acccc4837df5"
-mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_vm_core.rs" = "sha256:b0048ab75d16ef76c52e9859bdbcdfa0c6f66514bfdb99d417cf274dc9868b10", "crates/trust-runtime/tests/bytecode_vm_core/call_and_sizeof_validation.rs" = "sha256:981cb91fec608e0242d15511c482f96e126b237767469176b341e0e83cc804ca", "crates/trust-runtime/tests/bytecode_vm_core/deadline.rs" = "sha256:bcdb151c8e982c346d1f850525d2cef5c18d051603eabb3a1ea5c19147339b7c", "crates/trust-runtime/tests/bytecode_vm_core/fuzz_stack_call.rs" = "sha256:9bf0bcd08017feb1e92b5d40ace9c288d112e32f5a269aa58f7826c8f64d580a", "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs" = "sha256:942f9eeeba09c5acb7f7b0b7c9ec6de0a3f3560910e7b4683e3958668096b707", "crates/trust-runtime/tests/bytecode_vm_core/positive_paths.rs" = "sha256:6d95be04812c1b432f68bfe265f64e3850206549899aa48d32c1140e8f160406", "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs" = "sha256:c0a96f43f93161369972c2ae63d12af91b3ad3fd9264e4329cd562725dc48c6e", "crates/trust-runtime/tests/bytecode_vm_core/seam_case_runners.rs" = "sha256:0b740b6d392bc6f723234f48f46188bb3158b10399895be4c8775e6be8c1c535", "crates/trust-runtime/tests/bytecode_vm_core/support.rs" = "sha256:46af0520d6337dfbe8572b42ed4cae0cf1995089723ec1ac1daed42becb341ec" }
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_vm_core.rs" = "sha256:b0048ab75d16ef76c52e9859bdbcdfa0c6f66514bfdb99d417cf274dc9868b10", "crates/trust-runtime/tests/bytecode_vm_core/call_and_sizeof_validation.rs" = "sha256:981cb91fec608e0242d15511c482f96e126b237767469176b341e0e83cc804ca", "crates/trust-runtime/tests/bytecode_vm_core/deadline.rs" = "sha256:bcdb151c8e982c346d1f850525d2cef5c18d051603eabb3a1ea5c19147339b7c", "crates/trust-runtime/tests/bytecode_vm_core/fuzz_stack_call.rs" = "sha256:9bf0bcd08017feb1e92b5d40ace9c288d112e32f5a269aa58f7826c8f64d580a", "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs" = "sha256:942f9eeeba09c5acb7f7b0b7c9ec6de0a3f3560910e7b4683e3958668096b707", "crates/trust-runtime/tests/bytecode_vm_core/positive_paths.rs" = "sha256:6d95be04812c1b432f68bfe265f64e3850206549899aa48d32c1140e8f160406", "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs" = "sha256:c0a96f43f93161369972c2ae63d12af91b3ad3fd9264e4329cd562725dc48c6e", "crates/trust-runtime/tests/bytecode_vm_core/seam_case_runners.rs" = "sha256:097ab4dcae6da843e680a509e7d1c8fdb1b561977e383a07aae44cba8ee097ed", "crates/trust-runtime/tests/bytecode_vm_core/support.rs" = "sha256:46af0520d6337dfbe8572b42ed4cae0cf1995089723ec1ac1daed42becb341ec" }
 mapping_behavior_refs = ["VM_SEAM_VALID_001#behavior:5"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
@@ -70753,12 +70765,12 @@ requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_66836DF45D5768143A94.json"
 last_reviewed = "2026-07-26"
-mapping_proposal_id = "MAP_CAND_66836DF45D5768143A94_CD937BC6327E"
-mapping_proposal_digest = "sha256:cd937bc6327e307bf7e047657b0843ddfe4b21a0ffd1cf86116040606e9786bd"
-mapping_decision_id = "MAP_DEC_C7BA57E525ECC96CC112745D"
+mapping_proposal_id = "MAP_CAND_66836DF45D5768143A94_2CAAF638CDC2"
+mapping_proposal_digest = "sha256:2caaf638cdc2d68e56428ef3df79f90a1e8e6c2987b07f9f08eddc4968f62078"
+mapping_decision_id = "MAP_DEC_1C9F097BEA909167A69A8EC8"
 mapping_reviewed_source_digest = "sha256:c0a96f43f93161369972c2ae63d12af91b3ad3fd9264e4329cd562725dc48c6e"
 mapping_assertion_review_digest = "sha256:79a95bfa27e83eb070ba814f2e0e4198a335cc6e7afbb068287eeea581060444"
-mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_vm_core.rs" = "sha256:b0048ab75d16ef76c52e9859bdbcdfa0c6f66514bfdb99d417cf274dc9868b10", "crates/trust-runtime/tests/bytecode_vm_core/call_and_sizeof_validation.rs" = "sha256:981cb91fec608e0242d15511c482f96e126b237767469176b341e0e83cc804ca", "crates/trust-runtime/tests/bytecode_vm_core/deadline.rs" = "sha256:bcdb151c8e982c346d1f850525d2cef5c18d051603eabb3a1ea5c19147339b7c", "crates/trust-runtime/tests/bytecode_vm_core/fuzz_stack_call.rs" = "sha256:9bf0bcd08017feb1e92b5d40ace9c288d112e32f5a269aa58f7826c8f64d580a", "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs" = "sha256:942f9eeeba09c5acb7f7b0b7c9ec6de0a3f3560910e7b4683e3958668096b707", "crates/trust-runtime/tests/bytecode_vm_core/positive_paths.rs" = "sha256:6d95be04812c1b432f68bfe265f64e3850206549899aa48d32c1140e8f160406", "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs" = "sha256:c0a96f43f93161369972c2ae63d12af91b3ad3fd9264e4329cd562725dc48c6e", "crates/trust-runtime/tests/bytecode_vm_core/seam_case_runners.rs" = "sha256:0b740b6d392bc6f723234f48f46188bb3158b10399895be4c8775e6be8c1c535", "crates/trust-runtime/tests/bytecode_vm_core/support.rs" = "sha256:46af0520d6337dfbe8572b42ed4cae0cf1995089723ec1ac1daed42becb341ec" }
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_vm_core.rs" = "sha256:b0048ab75d16ef76c52e9859bdbcdfa0c6f66514bfdb99d417cf274dc9868b10", "crates/trust-runtime/tests/bytecode_vm_core/call_and_sizeof_validation.rs" = "sha256:981cb91fec608e0242d15511c482f96e126b237767469176b341e0e83cc804ca", "crates/trust-runtime/tests/bytecode_vm_core/deadline.rs" = "sha256:bcdb151c8e982c346d1f850525d2cef5c18d051603eabb3a1ea5c19147339b7c", "crates/trust-runtime/tests/bytecode_vm_core/fuzz_stack_call.rs" = "sha256:9bf0bcd08017feb1e92b5d40ace9c288d112e32f5a269aa58f7826c8f64d580a", "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs" = "sha256:942f9eeeba09c5acb7f7b0b7c9ec6de0a3f3560910e7b4683e3958668096b707", "crates/trust-runtime/tests/bytecode_vm_core/positive_paths.rs" = "sha256:6d95be04812c1b432f68bfe265f64e3850206549899aa48d32c1140e8f160406", "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs" = "sha256:c0a96f43f93161369972c2ae63d12af91b3ad3fd9264e4329cd562725dc48c6e", "crates/trust-runtime/tests/bytecode_vm_core/seam_case_runners.rs" = "sha256:097ab4dcae6da843e680a509e7d1c8fdb1b561977e383a07aae44cba8ee097ed", "crates/trust-runtime/tests/bytecode_vm_core/support.rs" = "sha256:46af0520d6337dfbe8572b42ed4cae0cf1995089723ec1ac1daed42becb341ec" }
 mapping_behavior_refs = ["VM_SEAM_VALID_001#behavior:2"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
@@ -70787,12 +70799,12 @@ requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_6D15F1D43CA3BDA8C505.json"
 last_reviewed = "2026-07-26"
-mapping_proposal_id = "MAP_CAND_6D15F1D43CA3BDA8C505_5F88A583FC50"
-mapping_proposal_digest = "sha256:5f88a583fc50bfd70808b6043a77472a85b032d523ab20142acb953fd4d2e0f2"
-mapping_decision_id = "MAP_DEC_91D84A34FCF43C259F45FB36"
+mapping_proposal_id = "MAP_CAND_6D15F1D43CA3BDA8C505_F584F06A2F08"
+mapping_proposal_digest = "sha256:f584f06a2f0874a33e324dd3be8b22d03f6a2cad21780d3257b77a0f457fe61c"
+mapping_decision_id = "MAP_DEC_0EE26CBE18B68A63B4BF854E"
 mapping_reviewed_source_digest = "sha256:c0a96f43f93161369972c2ae63d12af91b3ad3fd9264e4329cd562725dc48c6e"
 mapping_assertion_review_digest = "sha256:2d9911db3d6dec62c0a5961a7d903afb8b6476c1535fced15c8e805d4f1e6acb"
-mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_vm_core.rs" = "sha256:b0048ab75d16ef76c52e9859bdbcdfa0c6f66514bfdb99d417cf274dc9868b10", "crates/trust-runtime/tests/bytecode_vm_core/call_and_sizeof_validation.rs" = "sha256:981cb91fec608e0242d15511c482f96e126b237767469176b341e0e83cc804ca", "crates/trust-runtime/tests/bytecode_vm_core/deadline.rs" = "sha256:bcdb151c8e982c346d1f850525d2cef5c18d051603eabb3a1ea5c19147339b7c", "crates/trust-runtime/tests/bytecode_vm_core/fuzz_stack_call.rs" = "sha256:9bf0bcd08017feb1e92b5d40ace9c288d112e32f5a269aa58f7826c8f64d580a", "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs" = "sha256:942f9eeeba09c5acb7f7b0b7c9ec6de0a3f3560910e7b4683e3958668096b707", "crates/trust-runtime/tests/bytecode_vm_core/positive_paths.rs" = "sha256:6d95be04812c1b432f68bfe265f64e3850206549899aa48d32c1140e8f160406", "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs" = "sha256:c0a96f43f93161369972c2ae63d12af91b3ad3fd9264e4329cd562725dc48c6e", "crates/trust-runtime/tests/bytecode_vm_core/seam_case_runners.rs" = "sha256:0b740b6d392bc6f723234f48f46188bb3158b10399895be4c8775e6be8c1c535", "crates/trust-runtime/tests/bytecode_vm_core/support.rs" = "sha256:46af0520d6337dfbe8572b42ed4cae0cf1995089723ec1ac1daed42becb341ec" }
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_vm_core.rs" = "sha256:b0048ab75d16ef76c52e9859bdbcdfa0c6f66514bfdb99d417cf274dc9868b10", "crates/trust-runtime/tests/bytecode_vm_core/call_and_sizeof_validation.rs" = "sha256:981cb91fec608e0242d15511c482f96e126b237767469176b341e0e83cc804ca", "crates/trust-runtime/tests/bytecode_vm_core/deadline.rs" = "sha256:bcdb151c8e982c346d1f850525d2cef5c18d051603eabb3a1ea5c19147339b7c", "crates/trust-runtime/tests/bytecode_vm_core/fuzz_stack_call.rs" = "sha256:9bf0bcd08017feb1e92b5d40ace9c288d112e32f5a269aa58f7826c8f64d580a", "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs" = "sha256:942f9eeeba09c5acb7f7b0b7c9ec6de0a3f3560910e7b4683e3958668096b707", "crates/trust-runtime/tests/bytecode_vm_core/positive_paths.rs" = "sha256:6d95be04812c1b432f68bfe265f64e3850206549899aa48d32c1140e8f160406", "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs" = "sha256:c0a96f43f93161369972c2ae63d12af91b3ad3fd9264e4329cd562725dc48c6e", "crates/trust-runtime/tests/bytecode_vm_core/seam_case_runners.rs" = "sha256:097ab4dcae6da843e680a509e7d1c8fdb1b561977e383a07aae44cba8ee097ed", "crates/trust-runtime/tests/bytecode_vm_core/support.rs" = "sha256:46af0520d6337dfbe8572b42ed4cae0cf1995089723ec1ac1daed42becb341ec" }
 mapping_behavior_refs = ["VM_SEAM_VALID_001#behavior:2"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
@@ -70821,12 +70833,12 @@ requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_F1F0C6C285477DAB1239.json"
 last_reviewed = "2026-07-26"
-mapping_proposal_id = "MAP_CAND_F1F0C6C285477DAB1239_BED53EDE8054"
-mapping_proposal_digest = "sha256:bed53ede80545e4c72bf103b8c30526bf52eb96377db0f6863eec54850d8499b"
-mapping_decision_id = "MAP_DEC_BACB5C5DCDBC0CCBEA58B45F"
+mapping_proposal_id = "MAP_CAND_F1F0C6C285477DAB1239_1749FDFE015B"
+mapping_proposal_digest = "sha256:1749fdfe015bd1c741f8dc5ea991e0a5d2aba3d67f14155eb81e7749ff4682e0"
+mapping_decision_id = "MAP_DEC_CF4E52B7705DF82FFFD3DDB0"
 mapping_reviewed_source_digest = "sha256:c0a96f43f93161369972c2ae63d12af91b3ad3fd9264e4329cd562725dc48c6e"
 mapping_assertion_review_digest = "sha256:49e3d285e0f8c28909b649d9cefc49fae5ff47666714328ada9c0e0e1ea4c944"
-mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_vm_core.rs" = "sha256:b0048ab75d16ef76c52e9859bdbcdfa0c6f66514bfdb99d417cf274dc9868b10", "crates/trust-runtime/tests/bytecode_vm_core/call_and_sizeof_validation.rs" = "sha256:981cb91fec608e0242d15511c482f96e126b237767469176b341e0e83cc804ca", "crates/trust-runtime/tests/bytecode_vm_core/deadline.rs" = "sha256:bcdb151c8e982c346d1f850525d2cef5c18d051603eabb3a1ea5c19147339b7c", "crates/trust-runtime/tests/bytecode_vm_core/fuzz_stack_call.rs" = "sha256:9bf0bcd08017feb1e92b5d40ace9c288d112e32f5a269aa58f7826c8f64d580a", "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs" = "sha256:942f9eeeba09c5acb7f7b0b7c9ec6de0a3f3560910e7b4683e3958668096b707", "crates/trust-runtime/tests/bytecode_vm_core/positive_paths.rs" = "sha256:6d95be04812c1b432f68bfe265f64e3850206549899aa48d32c1140e8f160406", "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs" = "sha256:c0a96f43f93161369972c2ae63d12af91b3ad3fd9264e4329cd562725dc48c6e", "crates/trust-runtime/tests/bytecode_vm_core/seam_case_runners.rs" = "sha256:0b740b6d392bc6f723234f48f46188bb3158b10399895be4c8775e6be8c1c535", "crates/trust-runtime/tests/bytecode_vm_core/support.rs" = "sha256:46af0520d6337dfbe8572b42ed4cae0cf1995089723ec1ac1daed42becb341ec" }
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_vm_core.rs" = "sha256:b0048ab75d16ef76c52e9859bdbcdfa0c6f66514bfdb99d417cf274dc9868b10", "crates/trust-runtime/tests/bytecode_vm_core/call_and_sizeof_validation.rs" = "sha256:981cb91fec608e0242d15511c482f96e126b237767469176b341e0e83cc804ca", "crates/trust-runtime/tests/bytecode_vm_core/deadline.rs" = "sha256:bcdb151c8e982c346d1f850525d2cef5c18d051603eabb3a1ea5c19147339b7c", "crates/trust-runtime/tests/bytecode_vm_core/fuzz_stack_call.rs" = "sha256:9bf0bcd08017feb1e92b5d40ace9c288d112e32f5a269aa58f7826c8f64d580a", "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs" = "sha256:942f9eeeba09c5acb7f7b0b7c9ec6de0a3f3560910e7b4683e3958668096b707", "crates/trust-runtime/tests/bytecode_vm_core/positive_paths.rs" = "sha256:6d95be04812c1b432f68bfe265f64e3850206549899aa48d32c1140e8f160406", "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs" = "sha256:c0a96f43f93161369972c2ae63d12af91b3ad3fd9264e4329cd562725dc48c6e", "crates/trust-runtime/tests/bytecode_vm_core/seam_case_runners.rs" = "sha256:097ab4dcae6da843e680a509e7d1c8fdb1b561977e383a07aae44cba8ee097ed", "crates/trust-runtime/tests/bytecode_vm_core/support.rs" = "sha256:46af0520d6337dfbe8572b42ed4cae0cf1995089723ec1ac1daed42becb341ec" }
 mapping_behavior_refs = ["VM_SEAM_VALID_001#behavior:4"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
@@ -70855,12 +70867,12 @@ requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_FDE1B5B9C014CC5BF7BC.json"
 last_reviewed = "2026-07-26"
-mapping_proposal_id = "MAP_CAND_FDE1B5B9C014CC5BF7BC_BFFC82258D10"
-mapping_proposal_digest = "sha256:bffc82258d10ac7fde2aca63fe8d43518b61a9abf3a97457f17f0651077cf735"
-mapping_decision_id = "MAP_DEC_97A282451A5FCD91FA6C8652"
+mapping_proposal_id = "MAP_CAND_FDE1B5B9C014CC5BF7BC_5C9EF1274B20"
+mapping_proposal_digest = "sha256:5c9ef1274b202b9c1b4d2f83e429d9869206a1c6584a24b37d80201670445213"
+mapping_decision_id = "MAP_DEC_7ED6BFA76F1A647567215FDD"
 mapping_reviewed_source_digest = "sha256:c0a96f43f93161369972c2ae63d12af91b3ad3fd9264e4329cd562725dc48c6e"
 mapping_assertion_review_digest = "sha256:1b57a7025301ddc410657f991d9ad4c5d392a9ae75fbe65fd0dbc0376bafc90c"
-mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_vm_core.rs" = "sha256:b0048ab75d16ef76c52e9859bdbcdfa0c6f66514bfdb99d417cf274dc9868b10", "crates/trust-runtime/tests/bytecode_vm_core/call_and_sizeof_validation.rs" = "sha256:981cb91fec608e0242d15511c482f96e126b237767469176b341e0e83cc804ca", "crates/trust-runtime/tests/bytecode_vm_core/deadline.rs" = "sha256:bcdb151c8e982c346d1f850525d2cef5c18d051603eabb3a1ea5c19147339b7c", "crates/trust-runtime/tests/bytecode_vm_core/fuzz_stack_call.rs" = "sha256:9bf0bcd08017feb1e92b5d40ace9c288d112e32f5a269aa58f7826c8f64d580a", "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs" = "sha256:942f9eeeba09c5acb7f7b0b7c9ec6de0a3f3560910e7b4683e3958668096b707", "crates/trust-runtime/tests/bytecode_vm_core/positive_paths.rs" = "sha256:6d95be04812c1b432f68bfe265f64e3850206549899aa48d32c1140e8f160406", "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs" = "sha256:c0a96f43f93161369972c2ae63d12af91b3ad3fd9264e4329cd562725dc48c6e", "crates/trust-runtime/tests/bytecode_vm_core/seam_case_runners.rs" = "sha256:0b740b6d392bc6f723234f48f46188bb3158b10399895be4c8775e6be8c1c535", "crates/trust-runtime/tests/bytecode_vm_core/support.rs" = "sha256:46af0520d6337dfbe8572b42ed4cae0cf1995089723ec1ac1daed42becb341ec" }
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_vm_core.rs" = "sha256:b0048ab75d16ef76c52e9859bdbcdfa0c6f66514bfdb99d417cf274dc9868b10", "crates/trust-runtime/tests/bytecode_vm_core/call_and_sizeof_validation.rs" = "sha256:981cb91fec608e0242d15511c482f96e126b237767469176b341e0e83cc804ca", "crates/trust-runtime/tests/bytecode_vm_core/deadline.rs" = "sha256:bcdb151c8e982c346d1f850525d2cef5c18d051603eabb3a1ea5c19147339b7c", "crates/trust-runtime/tests/bytecode_vm_core/fuzz_stack_call.rs" = "sha256:9bf0bcd08017feb1e92b5d40ace9c288d112e32f5a269aa58f7826c8f64d580a", "crates/trust-runtime/tests/bytecode_vm_core/lowering_and_constants.rs" = "sha256:942f9eeeba09c5acb7f7b0b7c9ec6de0a3f3560910e7b4683e3958668096b707", "crates/trust-runtime/tests/bytecode_vm_core/positive_paths.rs" = "sha256:6d95be04812c1b432f68bfe265f64e3850206549899aa48d32c1140e8f160406", "crates/trust-runtime/tests/bytecode_vm_core/ref_validation.rs" = "sha256:c0a96f43f93161369972c2ae63d12af91b3ad3fd9264e4329cd562725dc48c6e", "crates/trust-runtime/tests/bytecode_vm_core/seam_case_runners.rs" = "sha256:097ab4dcae6da843e680a509e7d1c8fdb1b561977e383a07aae44cba8ee097ed", "crates/trust-runtime/tests/bytecode_vm_core/support.rs" = "sha256:46af0520d6337dfbe8572b42ed4cae0cf1995089723ec1ac1daed42becb341ec" }
 mapping_behavior_refs = ["VM_SEAM_VALID_001#behavior:5"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
@@ -108136,12 +108148,12 @@ requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_5CAA8F58E6FE55E25F56.json"
 last_reviewed = "2026-07-27"
-mapping_proposal_id = "MAP_CAND_5CAA8F58E6FE55E25F56_7A59EDA9F74B"
-mapping_proposal_digest = "sha256:7a59eda9f74b381361afe7a0f76ec8fd4bdda85abeff55e961f34af57121d103"
-mapping_decision_id = "MAP_DEC_AEB89403EB1DF02C5A7C11F3"
-mapping_reviewed_source_digest = "sha256:ff21464d6be83ebc91e193ec5ba72c3dfea3a16eb73f177b03a0e808a02e7442"
+mapping_proposal_id = "MAP_CAND_5CAA8F58E6FE55E25F56_0DDBF9F7971A"
+mapping_proposal_digest = "sha256:0ddbf9f7971ac5dd72c99d84d620dea906499b08e1d479ca8d0a5dc870c6c7ef"
+mapping_decision_id = "MAP_DEC_B54B7C703E605618316F4860"
+mapping_reviewed_source_digest = "sha256:d415b5d5bc704c005c3e6b392ee0e8abc7229596ef2b3611ac179562b20c9d2b"
 mapping_assertion_review_digest = "sha256:840f77dd1e257512a713dd66607ddac4c7c3b3dc74fc82e8e033d505147d034c"
-mapping_assertion_source_digests = { "crates/trust-dev/src/commit.rs" = "sha256:ff21464d6be83ebc91e193ec5ba72c3dfea3a16eb73f177b03a0e808a02e7442" }
+mapping_assertion_source_digests = { "crates/trust-dev/src/commit.rs" = "sha256:d415b5d5bc704c005c3e6b392ee0e8abc7229596ef2b3611ac179562b20c9d2b" }
 mapping_behavior_refs = ["DEV_COMMIT_SCOPE_001#behavior:3"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
@@ -108170,12 +108182,12 @@ requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_6769CA7C879039E59098.json"
 last_reviewed = "2026-07-27"
-mapping_proposal_id = "MAP_CAND_6769CA7C879039E59098_E5315688D879"
-mapping_proposal_digest = "sha256:e5315688d879252fdf18a831563c1b225c04ed43bbe04824cc235f42a0afa38d"
-mapping_decision_id = "MAP_DEC_F4FD117EEE810DD03BFCB28A"
-mapping_reviewed_source_digest = "sha256:ff21464d6be83ebc91e193ec5ba72c3dfea3a16eb73f177b03a0e808a02e7442"
+mapping_proposal_id = "MAP_CAND_6769CA7C879039E59098_EE4758558153"
+mapping_proposal_digest = "sha256:ee4758558153d57d30b139f906d405d0793b92c42447a32a8a138c50cb8cf7a4"
+mapping_decision_id = "MAP_DEC_E08F599E777A61B35819AD70"
+mapping_reviewed_source_digest = "sha256:d415b5d5bc704c005c3e6b392ee0e8abc7229596ef2b3611ac179562b20c9d2b"
 mapping_assertion_review_digest = "sha256:c6a983e4afb1b2cb66265a60e04947fee85c99e5f8e9e7638a2dccb295afeb63"
-mapping_assertion_source_digests = { "crates/trust-dev/src/commit.rs" = "sha256:ff21464d6be83ebc91e193ec5ba72c3dfea3a16eb73f177b03a0e808a02e7442" }
+mapping_assertion_source_digests = { "crates/trust-dev/src/commit.rs" = "sha256:d415b5d5bc704c005c3e6b392ee0e8abc7229596ef2b3611ac179562b20c9d2b" }
 mapping_behavior_refs = ["DEV_COMMIT_SCOPE_001#behavior:3"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
@@ -108204,12 +108216,12 @@ requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_8ECA38A3365D2E70B739.json"
 last_reviewed = "2026-07-27"
-mapping_proposal_id = "MAP_CAND_8ECA38A3365D2E70B739_C3364BF545C4"
-mapping_proposal_digest = "sha256:c3364bf545c47147f14b7a6d5447ed7a0c11c1872acf1aee246725521fbdd611"
-mapping_decision_id = "MAP_DEC_B2D588E54EA8A6381EF57C48"
-mapping_reviewed_source_digest = "sha256:ff21464d6be83ebc91e193ec5ba72c3dfea3a16eb73f177b03a0e808a02e7442"
+mapping_proposal_id = "MAP_CAND_8ECA38A3365D2E70B739_10E5FFB76A9D"
+mapping_proposal_digest = "sha256:10e5ffb76a9dc2809e6b11531036519aacd438aeea0fc2a351c30124b96ae361"
+mapping_decision_id = "MAP_DEC_90BCFC9289425BA3447F2B59"
+mapping_reviewed_source_digest = "sha256:d415b5d5bc704c005c3e6b392ee0e8abc7229596ef2b3611ac179562b20c9d2b"
 mapping_assertion_review_digest = "sha256:8d6e5a9444e14c7ffbecb2193151de6bb78ff5a036e1441d1a2664287ab3d097"
-mapping_assertion_source_digests = { "crates/trust-dev/src/commit.rs" = "sha256:ff21464d6be83ebc91e193ec5ba72c3dfea3a16eb73f177b03a0e808a02e7442" }
+mapping_assertion_source_digests = { "crates/trust-dev/src/commit.rs" = "sha256:d415b5d5bc704c005c3e6b392ee0e8abc7229596ef2b3611ac179562b20c9d2b" }
 mapping_behavior_refs = ["DEV_COMMIT_SCOPE_001#behavior:0"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
@@ -108238,12 +108250,12 @@ requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_9921E8E6B44B04E436F6.json"
 last_reviewed = "2026-07-27"
-mapping_proposal_id = "MAP_CAND_9921E8E6B44B04E436F6_3D10095EDD65"
-mapping_proposal_digest = "sha256:3d10095edd65b57906675f8c2bc01a2b38ccd97f7807cf51b13cf5beec49a8ba"
-mapping_decision_id = "MAP_DEC_D978983F60D5C9BF26B98C20"
-mapping_reviewed_source_digest = "sha256:ff21464d6be83ebc91e193ec5ba72c3dfea3a16eb73f177b03a0e808a02e7442"
+mapping_proposal_id = "MAP_CAND_9921E8E6B44B04E436F6_3DAFC2A1362E"
+mapping_proposal_digest = "sha256:3dafc2a1362e41d251099cc426a0b12b149208e4a5bc1753749df4ef93439b5f"
+mapping_decision_id = "MAP_DEC_C76A62797598040C85F525F3"
+mapping_reviewed_source_digest = "sha256:d415b5d5bc704c005c3e6b392ee0e8abc7229596ef2b3611ac179562b20c9d2b"
 mapping_assertion_review_digest = "sha256:3d7641ae937eb7f34678eb9ae55c631fefc8a3ae33a8b977f315d9a4d25f03dd"
-mapping_assertion_source_digests = { "crates/trust-dev/src/commit.rs" = "sha256:ff21464d6be83ebc91e193ec5ba72c3dfea3a16eb73f177b03a0e808a02e7442" }
+mapping_assertion_source_digests = { "crates/trust-dev/src/commit.rs" = "sha256:d415b5d5bc704c005c3e6b392ee0e8abc7229596ef2b3611ac179562b20c9d2b" }
 mapping_behavior_refs = ["DEV_COMMIT_SCOPE_001#behavior:0"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
@@ -108272,12 +108284,12 @@ requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_DDA759DC285FFED0BB01.json"
 last_reviewed = "2026-07-27"
-mapping_proposal_id = "MAP_CAND_DDA759DC285FFED0BB01_7D4088A98CD9"
-mapping_proposal_digest = "sha256:7d4088a98cd9b7cedbed7618afaacb337f3fe215bf55302d28f7a820edce5099"
-mapping_decision_id = "MAP_DEC_F416B3C8C0DA1564F85F1104"
-mapping_reviewed_source_digest = "sha256:ff21464d6be83ebc91e193ec5ba72c3dfea3a16eb73f177b03a0e808a02e7442"
+mapping_proposal_id = "MAP_CAND_DDA759DC285FFED0BB01_AF0C00DD4852"
+mapping_proposal_digest = "sha256:af0c00dd4852d2643f433cd0df6afcfbe52b8f32f678ec9d148015a21ad49996"
+mapping_decision_id = "MAP_DEC_026FD570B3BDEA724ED8BA45"
+mapping_reviewed_source_digest = "sha256:d415b5d5bc704c005c3e6b392ee0e8abc7229596ef2b3611ac179562b20c9d2b"
 mapping_assertion_review_digest = "sha256:423cee94b260ef8e267b469526164e94fb1c93f0fab996880c4ede7c4f3c84b8"
-mapping_assertion_source_digests = { "crates/trust-dev/src/commit.rs" = "sha256:ff21464d6be83ebc91e193ec5ba72c3dfea3a16eb73f177b03a0e808a02e7442" }
+mapping_assertion_source_digests = { "crates/trust-dev/src/commit.rs" = "sha256:d415b5d5bc704c005c3e6b392ee0e8abc7229596ef2b3611ac179562b20c9d2b" }
 mapping_behavior_refs = ["DEV_COMMIT_SCOPE_001#behavior:1"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
@@ -108306,12 +108318,12 @@ requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_DFEEA0B862E8D1A4B44B.json"
 last_reviewed = "2026-07-27"
-mapping_proposal_id = "MAP_CAND_DFEEA0B862E8D1A4B44B_80DC1C70A529"
-mapping_proposal_digest = "sha256:80dc1c70a529c87e25578f62cf6d8ab0cf699456ab35370011c4356cbf228a76"
-mapping_decision_id = "MAP_DEC_9BF3DD600DAEB3A1E552D713"
-mapping_reviewed_source_digest = "sha256:ff21464d6be83ebc91e193ec5ba72c3dfea3a16eb73f177b03a0e808a02e7442"
+mapping_proposal_id = "MAP_CAND_DFEEA0B862E8D1A4B44B_0EA89E6CFD14"
+mapping_proposal_digest = "sha256:0ea89e6cfd1486c52ed1aef2700626c47c3cb86f6a9640f63c8d5f73e1d18f9e"
+mapping_decision_id = "MAP_DEC_F08878104FCE1ADBDCA24E19"
+mapping_reviewed_source_digest = "sha256:d415b5d5bc704c005c3e6b392ee0e8abc7229596ef2b3611ac179562b20c9d2b"
 mapping_assertion_review_digest = "sha256:16c331bb498d5abccae65d95c63c1cc4a69b545accab64030b7af49057aa8b4c"
-mapping_assertion_source_digests = { "crates/trust-dev/src/commit.rs" = "sha256:ff21464d6be83ebc91e193ec5ba72c3dfea3a16eb73f177b03a0e808a02e7442" }
+mapping_assertion_source_digests = { "crates/trust-dev/src/commit.rs" = "sha256:d415b5d5bc704c005c3e6b392ee0e8abc7229596ef2b3611ac179562b20c9d2b" }
 mapping_behavior_refs = ["DEV_COMMIT_SCOPE_001#behavior:0"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
@@ -108474,12 +108486,12 @@ requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_00613F30CB0263C50E35.json"
 last_reviewed = "2026-07-27"
-mapping_proposal_id = "MAP_CAND_00613F30CB0263C50E35_03B7A4F9ACB1"
-mapping_proposal_digest = "sha256:03b7a4f9acb1661cb1c39b7db85892769df3c41ff51dc4eb8a5746587a5df7f7"
-mapping_decision_id = "MAP_DEC_742E2EB162B636300FD433B3"
-mapping_reviewed_source_digest = "sha256:448511d9576846bdc66c5937d524c3c0343767e9042ac09412df04bd556d4a05"
+mapping_proposal_id = "MAP_CAND_00613F30CB0263C50E35_4BD5C0A18472"
+mapping_proposal_digest = "sha256:4bd5c0a18472d3c367135575ee8bda400ef42a86bae2f9ea8a846a9f9192c9a5"
+mapping_decision_id = "MAP_DEC_8E628C947AAC71D9FF6B0EA4"
+mapping_reviewed_source_digest = "sha256:7709f30e09f5182a75afa3ba44ea6503ddcc454e5753f988af095e6bfb4564d9"
 mapping_assertion_review_digest = "sha256:16f68e0d996375ced2c48ac07d83e3eeac353ce920c1b60d06434edcd29ab05a"
-mapping_assertion_source_digests = { "crates/trust-dev/src/test_cmd/tests.rs" = "sha256:448511d9576846bdc66c5937d524c3c0343767e9042ac09412df04bd556d4a05" }
+mapping_assertion_source_digests = { "crates/trust-dev/src/test_cmd/tests.rs" = "sha256:7709f30e09f5182a75afa3ba44ea6503ddcc454e5753f988af095e6bfb4564d9" }
 mapping_behavior_refs = ["DEV_TEST_REPORTING_001#behavior:1"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
@@ -108508,12 +108520,12 @@ requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_024034593826EFD0DC25.json"
 last_reviewed = "2026-07-27"
-mapping_proposal_id = "MAP_CAND_024034593826EFD0DC25_5C683F22FAC3"
-mapping_proposal_digest = "sha256:5c683f22fac3ff1ebb41194d79f1f67103c839e3c5a414be31b28cb4b9d4f805"
-mapping_decision_id = "MAP_DEC_90E6188D862F7D1ED0C68E9C"
-mapping_reviewed_source_digest = "sha256:448511d9576846bdc66c5937d524c3c0343767e9042ac09412df04bd556d4a05"
+mapping_proposal_id = "MAP_CAND_024034593826EFD0DC25_287869535A6E"
+mapping_proposal_digest = "sha256:287869535a6e1ad856fcd0820cc1adb4a23bbf590eb3c2c51e2b8bea2916599d"
+mapping_decision_id = "MAP_DEC_A92D87B614672D69714E9F31"
+mapping_reviewed_source_digest = "sha256:7709f30e09f5182a75afa3ba44ea6503ddcc454e5753f988af095e6bfb4564d9"
 mapping_assertion_review_digest = "sha256:422697d80fcadb44edc5f1d7d7dfbe4b1121b17c4147700fd6e0b7f981614844"
-mapping_assertion_source_digests = { "crates/trust-dev/src/test_cmd/tests.rs" = "sha256:448511d9576846bdc66c5937d524c3c0343767e9042ac09412df04bd556d4a05" }
+mapping_assertion_source_digests = { "crates/trust-dev/src/test_cmd/tests.rs" = "sha256:7709f30e09f5182a75afa3ba44ea6503ddcc454e5753f988af095e6bfb4564d9" }
 mapping_behavior_refs = ["DEV_TEST_DISCOVERY_001#behavior:0"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
@@ -108542,12 +108554,12 @@ requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_02C391EA4F1A00481337.json"
 last_reviewed = "2026-07-27"
-mapping_proposal_id = "MAP_CAND_02C391EA4F1A00481337_31A4D5C3E3E8"
-mapping_proposal_digest = "sha256:31a4d5c3e3e8436dd220fa190ccd5254b5868ddf7b1cef0fb5a9f0df9c83b17e"
-mapping_decision_id = "MAP_DEC_5807B992C36C613F95A60F05"
-mapping_reviewed_source_digest = "sha256:448511d9576846bdc66c5937d524c3c0343767e9042ac09412df04bd556d4a05"
+mapping_proposal_id = "MAP_CAND_02C391EA4F1A00481337_7089809B0262"
+mapping_proposal_digest = "sha256:7089809b026269a5f375c7811a26e1fe34fe1c87312bda3f61b27b01561a6de8"
+mapping_decision_id = "MAP_DEC_E202316710DB05B337B54CCC"
+mapping_reviewed_source_digest = "sha256:7709f30e09f5182a75afa3ba44ea6503ddcc454e5753f988af095e6bfb4564d9"
 mapping_assertion_review_digest = "sha256:8195844340e8dd27714193e9aa4fb0e4fbc286c7002a43eea89f0f1adf48f9f8"
-mapping_assertion_source_digests = { "crates/trust-dev/src/test_cmd/tests.rs" = "sha256:448511d9576846bdc66c5937d524c3c0343767e9042ac09412df04bd556d4a05" }
+mapping_assertion_source_digests = { "crates/trust-dev/src/test_cmd/tests.rs" = "sha256:7709f30e09f5182a75afa3ba44ea6503ddcc454e5753f988af095e6bfb4564d9" }
 mapping_behavior_refs = ["DEV_TEST_REPORTING_001#behavior:0"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
@@ -108576,12 +108588,12 @@ requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_123A365A92C6D2454A3C.json"
 last_reviewed = "2026-07-27"
-mapping_proposal_id = "MAP_CAND_123A365A92C6D2454A3C_7A5F47364C85"
-mapping_proposal_digest = "sha256:7a5f47364c85a599794f5a6c41fc72a0017136f1f0d0e6caff96f5d976e813b6"
-mapping_decision_id = "MAP_DEC_4FCDFF9CDAA66AAD56E7987F"
-mapping_reviewed_source_digest = "sha256:448511d9576846bdc66c5937d524c3c0343767e9042ac09412df04bd556d4a05"
+mapping_proposal_id = "MAP_CAND_123A365A92C6D2454A3C_738A38685C68"
+mapping_proposal_digest = "sha256:738a38685c6821a0cc671071631762ad0a396f90b934835661f42b861e16d815"
+mapping_decision_id = "MAP_DEC_95E97C82C0F4290B831C1FB3"
+mapping_reviewed_source_digest = "sha256:7709f30e09f5182a75afa3ba44ea6503ddcc454e5753f988af095e6bfb4564d9"
 mapping_assertion_review_digest = "sha256:55b28003b8e15178ddfdd463f87048f83a14423923399efed143aa4adf6798ed"
-mapping_assertion_source_digests = { "crates/trust-dev/src/test_cmd/tests.rs" = "sha256:448511d9576846bdc66c5937d524c3c0343767e9042ac09412df04bd556d4a05" }
+mapping_assertion_source_digests = { "crates/trust-dev/src/test_cmd/tests.rs" = "sha256:7709f30e09f5182a75afa3ba44ea6503ddcc454e5753f988af095e6bfb4564d9" }
 mapping_behavior_refs = ["DEV_TEST_EXECUTION_001#behavior:1"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
@@ -108610,12 +108622,12 @@ requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_30935290BBA229A21A1C.json"
 last_reviewed = "2026-07-27"
-mapping_proposal_id = "MAP_CAND_30935290BBA229A21A1C_43A6D33D4903"
-mapping_proposal_digest = "sha256:43a6d33d49036f8c3087bdab5f9c5d8e6539a20428812094c732a54286440a73"
-mapping_decision_id = "MAP_DEC_B036B6FEA0783CF97F079823"
-mapping_reviewed_source_digest = "sha256:448511d9576846bdc66c5937d524c3c0343767e9042ac09412df04bd556d4a05"
+mapping_proposal_id = "MAP_CAND_30935290BBA229A21A1C_83619B8E83AA"
+mapping_proposal_digest = "sha256:83619b8e83aa53eeebc32b8e40626b993ceb783df1429e7b94a0de539ffa72bf"
+mapping_decision_id = "MAP_DEC_8272896E07E0E255B5841CD2"
+mapping_reviewed_source_digest = "sha256:7709f30e09f5182a75afa3ba44ea6503ddcc454e5753f988af095e6bfb4564d9"
 mapping_assertion_review_digest = "sha256:1eb5a8e9b61070b79c534f9cc45dd8f3b1fd30e75d364e0f753c3af205de934a"
-mapping_assertion_source_digests = { "crates/trust-dev/src/test_cmd/tests.rs" = "sha256:448511d9576846bdc66c5937d524c3c0343767e9042ac09412df04bd556d4a05" }
+mapping_assertion_source_digests = { "crates/trust-dev/src/test_cmd/tests.rs" = "sha256:7709f30e09f5182a75afa3ba44ea6503ddcc454e5753f988af095e6bfb4564d9" }
 mapping_behavior_refs = ["DEV_TEST_REPORTING_001#behavior:2"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
@@ -108644,12 +108656,12 @@ requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_3C712A9292ED0E143765.json"
 last_reviewed = "2026-07-27"
-mapping_proposal_id = "MAP_CAND_3C712A9292ED0E143765_40C31CF4553A"
-mapping_proposal_digest = "sha256:40c31cf4553af194f8cb9b55048ec040b3bb5eea3f33635487f61f27b967959c"
-mapping_decision_id = "MAP_DEC_D2F823104B9CA9236F0F37B7"
-mapping_reviewed_source_digest = "sha256:448511d9576846bdc66c5937d524c3c0343767e9042ac09412df04bd556d4a05"
+mapping_proposal_id = "MAP_CAND_3C712A9292ED0E143765_E64A0B6A952A"
+mapping_proposal_digest = "sha256:e64a0b6a952aa9531fa25282ad7a81c05dd11316882e94b5e04283db356eb538"
+mapping_decision_id = "MAP_DEC_732F09B9B33F2C25D1B26192"
+mapping_reviewed_source_digest = "sha256:7709f30e09f5182a75afa3ba44ea6503ddcc454e5753f988af095e6bfb4564d9"
 mapping_assertion_review_digest = "sha256:bda496a13d00a1f18e80da1c4907ce0e09b1ae25b82d171774446a69bf42cc4b"
-mapping_assertion_source_digests = { "crates/trust-dev/src/test_cmd/tests.rs" = "sha256:448511d9576846bdc66c5937d524c3c0343767e9042ac09412df04bd556d4a05" }
+mapping_assertion_source_digests = { "crates/trust-dev/src/test_cmd/tests.rs" = "sha256:7709f30e09f5182a75afa3ba44ea6503ddcc454e5753f988af095e6bfb4564d9" }
 mapping_behavior_refs = ["DEV_TEST_EXECUTION_001#behavior:4"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
@@ -108678,12 +108690,12 @@ requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_50BC83EE8F3F488A7088.json"
 last_reviewed = "2026-07-27"
-mapping_proposal_id = "MAP_CAND_50BC83EE8F3F488A7088_568D6B183024"
-mapping_proposal_digest = "sha256:568d6b183024fdd122052f6b119942e24377a2f3c8b7fd398ff930d6f544d93e"
-mapping_decision_id = "MAP_DEC_3CAF3772FC55C5528A724208"
-mapping_reviewed_source_digest = "sha256:448511d9576846bdc66c5937d524c3c0343767e9042ac09412df04bd556d4a05"
+mapping_proposal_id = "MAP_CAND_50BC83EE8F3F488A7088_843B47597E49"
+mapping_proposal_digest = "sha256:843b47597e4900496b31cd9a2ab8a3c21c5357033d1e838eabf84b001191f097"
+mapping_decision_id = "MAP_DEC_5629F5F293A132F8B2CABDBC"
+mapping_reviewed_source_digest = "sha256:7709f30e09f5182a75afa3ba44ea6503ddcc454e5753f988af095e6bfb4564d9"
 mapping_assertion_review_digest = "sha256:7586e82fe5d2e6edfac869c0044fc7ba18d0c025ab02507516f8dc9a9109fa7b"
-mapping_assertion_source_digests = { "crates/trust-dev/src/test_cmd/tests.rs" = "sha256:448511d9576846bdc66c5937d524c3c0343767e9042ac09412df04bd556d4a05" }
+mapping_assertion_source_digests = { "crates/trust-dev/src/test_cmd/tests.rs" = "sha256:7709f30e09f5182a75afa3ba44ea6503ddcc454e5753f988af095e6bfb4564d9" }
 mapping_behavior_refs = ["DEV_TEST_REPORTING_001#behavior:1"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
@@ -108712,12 +108724,12 @@ requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_60C521F0B9A55EB09F58.json"
 last_reviewed = "2026-07-27"
-mapping_proposal_id = "MAP_CAND_60C521F0B9A55EB09F58_1E9700A66AB6"
-mapping_proposal_digest = "sha256:1e9700a66ab6d62c9078d22cefde9a0db9f32c0b544d192a34adfc6709d3263e"
-mapping_decision_id = "MAP_DEC_D414C17ED6BC34BDD9681E67"
-mapping_reviewed_source_digest = "sha256:448511d9576846bdc66c5937d524c3c0343767e9042ac09412df04bd556d4a05"
+mapping_proposal_id = "MAP_CAND_60C521F0B9A55EB09F58_C291EC45B0AE"
+mapping_proposal_digest = "sha256:c291ec45b0ae716f07789dcfc659b6643c52b0ef8ebfee5035da652a14d7a966"
+mapping_decision_id = "MAP_DEC_958B209D73946896ED3A4F6F"
+mapping_reviewed_source_digest = "sha256:7709f30e09f5182a75afa3ba44ea6503ddcc454e5753f988af095e6bfb4564d9"
 mapping_assertion_review_digest = "sha256:cf93fb3bb7131f5a3c5be9ebb776e2bda9b0c808add8df6c79be02dc617af14c"
-mapping_assertion_source_digests = { "crates/trust-dev/src/test_cmd/tests.rs" = "sha256:448511d9576846bdc66c5937d524c3c0343767e9042ac09412df04bd556d4a05" }
+mapping_assertion_source_digests = { "crates/trust-dev/src/test_cmd/tests.rs" = "sha256:7709f30e09f5182a75afa3ba44ea6503ddcc454e5753f988af095e6bfb4564d9" }
 mapping_behavior_refs = ["DEV_TEST_EXECUTION_001#behavior:3"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
@@ -108746,12 +108758,12 @@ requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_649A189BA85E9C36D6E7.json"
 last_reviewed = "2026-07-27"
-mapping_proposal_id = "MAP_CAND_649A189BA85E9C36D6E7_D726D79D3E01"
-mapping_proposal_digest = "sha256:d726d79d3e01a19d9da60dd02e82e8814a423edeec465b0421a8e466c87d6687"
-mapping_decision_id = "MAP_DEC_2096B368E093F6D7CDDDA352"
-mapping_reviewed_source_digest = "sha256:448511d9576846bdc66c5937d524c3c0343767e9042ac09412df04bd556d4a05"
+mapping_proposal_id = "MAP_CAND_649A189BA85E9C36D6E7_3D251AD40808"
+mapping_proposal_digest = "sha256:3d251ad40808546c56b8407f7e844d4887e20f628c0289e2a0d64347302941d6"
+mapping_decision_id = "MAP_DEC_A388A29E9C26433F69EA917F"
+mapping_reviewed_source_digest = "sha256:7709f30e09f5182a75afa3ba44ea6503ddcc454e5753f988af095e6bfb4564d9"
 mapping_assertion_review_digest = "sha256:47a3aecd9465dd2cf704ab2ad4fa4849e7ce3c97b17649eb19e268d8fa8fab2e"
-mapping_assertion_source_digests = { "crates/trust-dev/src/test_cmd/tests.rs" = "sha256:448511d9576846bdc66c5937d524c3c0343767e9042ac09412df04bd556d4a05" }
+mapping_assertion_source_digests = { "crates/trust-dev/src/test_cmd/tests.rs" = "sha256:7709f30e09f5182a75afa3ba44ea6503ddcc454e5753f988af095e6bfb4564d9" }
 mapping_behavior_refs = ["DEV_TEST_REPORTING_001#behavior:0"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
@@ -108780,12 +108792,12 @@ requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_67620B4E7A1553062EB3.json"
 last_reviewed = "2026-07-27"
-mapping_proposal_id = "MAP_CAND_67620B4E7A1553062EB3_079C3BCEBE6B"
-mapping_proposal_digest = "sha256:079c3bcebe6bfeae6b163208ed184aa2d98c3980fd2e2536664a3b954cd9bcb2"
-mapping_decision_id = "MAP_DEC_976A1B3C2BE75895EC5D0790"
-mapping_reviewed_source_digest = "sha256:448511d9576846bdc66c5937d524c3c0343767e9042ac09412df04bd556d4a05"
+mapping_proposal_id = "MAP_CAND_67620B4E7A1553062EB3_A70E8EF1187C"
+mapping_proposal_digest = "sha256:a70e8ef1187c9b557c3af461e0cead2bc7d53a8d1f40a4f66ec01a8d05d9308e"
+mapping_decision_id = "MAP_DEC_7CCF54CC5A36F6EC61DC3BD0"
+mapping_reviewed_source_digest = "sha256:7709f30e09f5182a75afa3ba44ea6503ddcc454e5753f988af095e6bfb4564d9"
 mapping_assertion_review_digest = "sha256:9cba7e12327cb25985628364deebd32a2c846841c987fda85220ed67ca10c9f1"
-mapping_assertion_source_digests = { "crates/trust-dev/src/test_cmd/tests.rs" = "sha256:448511d9576846bdc66c5937d524c3c0343767e9042ac09412df04bd556d4a05" }
+mapping_assertion_source_digests = { "crates/trust-dev/src/test_cmd/tests.rs" = "sha256:7709f30e09f5182a75afa3ba44ea6503ddcc454e5753f988af095e6bfb4564d9" }
 mapping_behavior_refs = ["DEV_TEST_EXECUTION_001#behavior:3"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
@@ -108814,12 +108826,12 @@ requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_6B3FF05ABB6C948EE468.json"
 last_reviewed = "2026-07-27"
-mapping_proposal_id = "MAP_CAND_6B3FF05ABB6C948EE468_1E6BB8BB2D33"
-mapping_proposal_digest = "sha256:1e6bb8bb2d33ca4c307b98f241f13a63416b085d42ee05bff265de09be84ea9f"
-mapping_decision_id = "MAP_DEC_242CE7F014518AC364CE11D4"
-mapping_reviewed_source_digest = "sha256:448511d9576846bdc66c5937d524c3c0343767e9042ac09412df04bd556d4a05"
+mapping_proposal_id = "MAP_CAND_6B3FF05ABB6C948EE468_F1FB92EB7B45"
+mapping_proposal_digest = "sha256:f1fb92eb7b45e0fe636f62a3c12765f660b9eae0a0a70c18b037213dbe657e15"
+mapping_decision_id = "MAP_DEC_AB8224597EE7771C53E2C927"
+mapping_reviewed_source_digest = "sha256:7709f30e09f5182a75afa3ba44ea6503ddcc454e5753f988af095e6bfb4564d9"
 mapping_assertion_review_digest = "sha256:24beb7d1b916a1f093daf8673da63df50c7a8ae55ebdfc46b1ca43525c6d1de0"
-mapping_assertion_source_digests = { "crates/trust-dev/src/test_cmd/tests.rs" = "sha256:448511d9576846bdc66c5937d524c3c0343767e9042ac09412df04bd556d4a05" }
+mapping_assertion_source_digests = { "crates/trust-dev/src/test_cmd/tests.rs" = "sha256:7709f30e09f5182a75afa3ba44ea6503ddcc454e5753f988af095e6bfb4564d9" }
 mapping_behavior_refs = ["DEV_TEST_EXECUTION_001#behavior:3"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
@@ -108848,12 +108860,12 @@ requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_703DCE897FB1F94D0882.json"
 last_reviewed = "2026-07-27"
-mapping_proposal_id = "MAP_CAND_703DCE897FB1F94D0882_FBBDB2CBCFD3"
-mapping_proposal_digest = "sha256:fbbdb2cbcfd3dca9700458bafdead67b4837255ae326f0f5e3b435df0a208a96"
-mapping_decision_id = "MAP_DEC_F993B4CE4B0D2AB32A38A1CE"
-mapping_reviewed_source_digest = "sha256:448511d9576846bdc66c5937d524c3c0343767e9042ac09412df04bd556d4a05"
+mapping_proposal_id = "MAP_CAND_703DCE897FB1F94D0882_8385EE8E5A13"
+mapping_proposal_digest = "sha256:8385ee8e5a13bd69a5e6682b46000683db29b266bef8647f05c1fb4df4897676"
+mapping_decision_id = "MAP_DEC_4975C790B22C21D5EA3A9373"
+mapping_reviewed_source_digest = "sha256:7709f30e09f5182a75afa3ba44ea6503ddcc454e5753f988af095e6bfb4564d9"
 mapping_assertion_review_digest = "sha256:3950d80686006ef33f1dcbaf5b0b53f044a603cb6978d9272da764d6cc6abf21"
-mapping_assertion_source_digests = { "crates/trust-dev/src/test_cmd/tests.rs" = "sha256:448511d9576846bdc66c5937d524c3c0343767e9042ac09412df04bd556d4a05" }
+mapping_assertion_source_digests = { "crates/trust-dev/src/test_cmd/tests.rs" = "sha256:7709f30e09f5182a75afa3ba44ea6503ddcc454e5753f988af095e6bfb4564d9" }
 mapping_behavior_refs = ["DEV_TEST_REPORTING_001#behavior:1"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
@@ -108882,12 +108894,12 @@ requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_9AA7DC431E1144E0A7E4.json"
 last_reviewed = "2026-07-27"
-mapping_proposal_id = "MAP_CAND_9AA7DC431E1144E0A7E4_5FD2AACFF806"
-mapping_proposal_digest = "sha256:5fd2aacff806edf96a0a76492e7f8cdc49ac510257a2e3f6b8f25c9ef012c6bb"
-mapping_decision_id = "MAP_DEC_0DED58D6123AF330AB75DFD1"
-mapping_reviewed_source_digest = "sha256:448511d9576846bdc66c5937d524c3c0343767e9042ac09412df04bd556d4a05"
+mapping_proposal_id = "MAP_CAND_9AA7DC431E1144E0A7E4_DF7610A23497"
+mapping_proposal_digest = "sha256:df7610a23497af6eabd07eaf15de3681819f0276417eab64046caab72fa981f4"
+mapping_decision_id = "MAP_DEC_33AD481E1CDA3241C01B82CB"
+mapping_reviewed_source_digest = "sha256:7709f30e09f5182a75afa3ba44ea6503ddcc454e5753f988af095e6bfb4564d9"
 mapping_assertion_review_digest = "sha256:ce7a96226436b6072d4c3b19d9239affd81fe14b228f278bf785bb8aa0d3921a"
-mapping_assertion_source_digests = { "crates/trust-dev/src/test_cmd/tests.rs" = "sha256:448511d9576846bdc66c5937d524c3c0343767e9042ac09412df04bd556d4a05" }
+mapping_assertion_source_digests = { "crates/trust-dev/src/test_cmd/tests.rs" = "sha256:7709f30e09f5182a75afa3ba44ea6503ddcc454e5753f988af095e6bfb4564d9" }
 mapping_behavior_refs = ["DEV_TEST_EXECUTION_001#behavior:0"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
@@ -108916,12 +108928,12 @@ requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_9DA43D9B2EA2A3411356.json"
 last_reviewed = "2026-07-27"
-mapping_proposal_id = "MAP_CAND_9DA43D9B2EA2A3411356_2914B1FA9CA1"
-mapping_proposal_digest = "sha256:2914b1fa9ca102bff53d064adfcd04e59847cf16f23d8b27db84e42a99574acd"
-mapping_decision_id = "MAP_DEC_41672B06BBA8E5BB38208636"
-mapping_reviewed_source_digest = "sha256:448511d9576846bdc66c5937d524c3c0343767e9042ac09412df04bd556d4a05"
+mapping_proposal_id = "MAP_CAND_9DA43D9B2EA2A3411356_7847DB67FD72"
+mapping_proposal_digest = "sha256:7847db67fd729a2cef4a113a7a8ff27cb373942f913bde4e85bd5703537b4587"
+mapping_decision_id = "MAP_DEC_C00A482BE483A856C0A679C6"
+mapping_reviewed_source_digest = "sha256:7709f30e09f5182a75afa3ba44ea6503ddcc454e5753f988af095e6bfb4564d9"
 mapping_assertion_review_digest = "sha256:8cafdabcf0a4ac1f427102d304243ac8c51f11a80affded2d4bb95fdec23168d"
-mapping_assertion_source_digests = { "crates/trust-dev/src/test_cmd/tests.rs" = "sha256:448511d9576846bdc66c5937d524c3c0343767e9042ac09412df04bd556d4a05" }
+mapping_assertion_source_digests = { "crates/trust-dev/src/test_cmd/tests.rs" = "sha256:7709f30e09f5182a75afa3ba44ea6503ddcc454e5753f988af095e6bfb4564d9" }
 mapping_behavior_refs = ["DEV_TEST_DISCOVERY_001#behavior:2"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
@@ -108950,12 +108962,12 @@ requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_ACAFF4C2AD9CAB8BCD04.json"
 last_reviewed = "2026-07-27"
-mapping_proposal_id = "MAP_CAND_ACAFF4C2AD9CAB8BCD04_EE2B463C2E5A"
-mapping_proposal_digest = "sha256:ee2b463c2e5a648ebdff7490a4c6a2a2ca4f7091e19e16311212c8f87c9bf489"
-mapping_decision_id = "MAP_DEC_8773529E93869763C23E03BE"
-mapping_reviewed_source_digest = "sha256:448511d9576846bdc66c5937d524c3c0343767e9042ac09412df04bd556d4a05"
+mapping_proposal_id = "MAP_CAND_ACAFF4C2AD9CAB8BCD04_00051CB35CA4"
+mapping_proposal_digest = "sha256:00051cb35ca4637556997833dd222042e8f627c8c2b33b188f55ca4b1174ce8f"
+mapping_decision_id = "MAP_DEC_88E88CC2DDADA8EDA94A94E4"
+mapping_reviewed_source_digest = "sha256:7709f30e09f5182a75afa3ba44ea6503ddcc454e5753f988af095e6bfb4564d9"
 mapping_assertion_review_digest = "sha256:75096beb2799f14548d1626ce61a5a38fd5b5ac8ae7bd551ef0f247ebcb7fd43"
-mapping_assertion_source_digests = { "crates/trust-dev/src/test_cmd/tests.rs" = "sha256:448511d9576846bdc66c5937d524c3c0343767e9042ac09412df04bd556d4a05" }
+mapping_assertion_source_digests = { "crates/trust-dev/src/test_cmd/tests.rs" = "sha256:7709f30e09f5182a75afa3ba44ea6503ddcc454e5753f988af095e6bfb4564d9" }
 mapping_behavior_refs = ["DEV_TEST_EXECUTION_001#behavior:2"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
@@ -108984,12 +108996,12 @@ requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_BB40B7FB0D69EC752F0E.json"
 last_reviewed = "2026-07-27"
-mapping_proposal_id = "MAP_CAND_BB40B7FB0D69EC752F0E_B8097779028B"
-mapping_proposal_digest = "sha256:b8097779028bfe661deb5d7637c20865c1aeea0317451a9e7380e1a995500ef4"
-mapping_decision_id = "MAP_DEC_45A0916A9DF9A7A89FD4E967"
-mapping_reviewed_source_digest = "sha256:448511d9576846bdc66c5937d524c3c0343767e9042ac09412df04bd556d4a05"
+mapping_proposal_id = "MAP_CAND_BB40B7FB0D69EC752F0E_CCBFEBB94845"
+mapping_proposal_digest = "sha256:ccbfebb94845c2690d917a802dd3a4b321551930c3956870769bb77fb5f7ed7e"
+mapping_decision_id = "MAP_DEC_FB01DE1567328FA97693037D"
+mapping_reviewed_source_digest = "sha256:7709f30e09f5182a75afa3ba44ea6503ddcc454e5753f988af095e6bfb4564d9"
 mapping_assertion_review_digest = "sha256:d8633ac7133b1df89241fb0236db47a7577ceecdb58b54079ea585858c88fcdd"
-mapping_assertion_source_digests = { "crates/trust-dev/src/test_cmd/tests.rs" = "sha256:448511d9576846bdc66c5937d524c3c0343767e9042ac09412df04bd556d4a05" }
+mapping_assertion_source_digests = { "crates/trust-dev/src/test_cmd/tests.rs" = "sha256:7709f30e09f5182a75afa3ba44ea6503ddcc454e5753f988af095e6bfb4564d9" }
 mapping_behavior_refs = ["DEV_TEST_REPORTING_001#behavior:1"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
@@ -109018,12 +109030,12 @@ requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_BF500DA3AFCE3D874EB3.json"
 last_reviewed = "2026-07-27"
-mapping_proposal_id = "MAP_CAND_BF500DA3AFCE3D874EB3_F1CDAA217E9C"
-mapping_proposal_digest = "sha256:f1cdaa217e9c4b6a111e7ef74c98a9dc4f0beea73de2202ab41e81c1bb46629b"
-mapping_decision_id = "MAP_DEC_FBE47C06DE63E1D182D94448"
-mapping_reviewed_source_digest = "sha256:448511d9576846bdc66c5937d524c3c0343767e9042ac09412df04bd556d4a05"
+mapping_proposal_id = "MAP_CAND_BF500DA3AFCE3D874EB3_274165573CF9"
+mapping_proposal_digest = "sha256:274165573cf97464d7a5899c2ee31c9231c7612178ac9c76f9fe666a5c32e2af"
+mapping_decision_id = "MAP_DEC_14CB3D9C94FCEE4560F07F26"
+mapping_reviewed_source_digest = "sha256:7709f30e09f5182a75afa3ba44ea6503ddcc454e5753f988af095e6bfb4564d9"
 mapping_assertion_review_digest = "sha256:b13f4bfc3631f1a270f48c2125b01306890211d14beaa8e00cdcd1eb45f75b8d"
-mapping_assertion_source_digests = { "crates/trust-dev/src/test_cmd/tests.rs" = "sha256:448511d9576846bdc66c5937d524c3c0343767e9042ac09412df04bd556d4a05" }
+mapping_assertion_source_digests = { "crates/trust-dev/src/test_cmd/tests.rs" = "sha256:7709f30e09f5182a75afa3ba44ea6503ddcc454e5753f988af095e6bfb4564d9" }
 mapping_behavior_refs = ["DEV_TEST_REPORTING_001#behavior:0"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
@@ -109052,12 +109064,12 @@ requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_EAD77AB30DBE5CC32785.json"
 last_reviewed = "2026-07-27"
-mapping_proposal_id = "MAP_CAND_EAD77AB30DBE5CC32785_585DE261B218"
-mapping_proposal_digest = "sha256:585de261b2189236f99f10598f064d8e88d50153926cf0399a6ffe3dc03e5477"
-mapping_decision_id = "MAP_DEC_5D941959DA38F45F40D55B7C"
-mapping_reviewed_source_digest = "sha256:448511d9576846bdc66c5937d524c3c0343767e9042ac09412df04bd556d4a05"
+mapping_proposal_id = "MAP_CAND_EAD77AB30DBE5CC32785_C4EE257A932D"
+mapping_proposal_digest = "sha256:c4ee257a932d6ba1c09f578ba09d49dc77d286ae433b10fcdb9885a05f3e962a"
+mapping_decision_id = "MAP_DEC_1B90EB1559E303E594B40C21"
+mapping_reviewed_source_digest = "sha256:7709f30e09f5182a75afa3ba44ea6503ddcc454e5753f988af095e6bfb4564d9"
 mapping_assertion_review_digest = "sha256:84a99013214a75182c802e1c53beceeb6ec3ec695a78efdf7fcc7180d6b1427a"
-mapping_assertion_source_digests = { "crates/trust-dev/src/test_cmd/tests.rs" = "sha256:448511d9576846bdc66c5937d524c3c0343767e9042ac09412df04bd556d4a05" }
+mapping_assertion_source_digests = { "crates/trust-dev/src/test_cmd/tests.rs" = "sha256:7709f30e09f5182a75afa3ba44ea6503ddcc454e5753f988af095e6bfb4564d9" }
 mapping_behavior_refs = ["DEV_TEST_DISCOVERY_001#behavior:2"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
@@ -109086,12 +109098,12 @@ requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_EBA64FF9E66D25570E07.json"
 last_reviewed = "2026-07-27"
-mapping_proposal_id = "MAP_CAND_EBA64FF9E66D25570E07_BAC2A7D780C4"
-mapping_proposal_digest = "sha256:bac2a7d780c4edb2ffca921263e01ec4589be0aa2ca33ec77d75180818b5f682"
-mapping_decision_id = "MAP_DEC_454EEE9DE4BD4D15276338E3"
-mapping_reviewed_source_digest = "sha256:448511d9576846bdc66c5937d524c3c0343767e9042ac09412df04bd556d4a05"
+mapping_proposal_id = "MAP_CAND_EBA64FF9E66D25570E07_F17AA5954539"
+mapping_proposal_digest = "sha256:f17aa595453944dc9bb9e3bc5630b5af6ad6ba0069e1807ce372441d2ffff4d1"
+mapping_decision_id = "MAP_DEC_D879E80420ED6D21113DA5A8"
+mapping_reviewed_source_digest = "sha256:7709f30e09f5182a75afa3ba44ea6503ddcc454e5753f988af095e6bfb4564d9"
 mapping_assertion_review_digest = "sha256:06cfde680e65fb1c1ba5535454a99b06be87dc0cad284b841c3755ad8c3f0857"
-mapping_assertion_source_digests = { "crates/trust-dev/src/test_cmd/tests.rs" = "sha256:448511d9576846bdc66c5937d524c3c0343767e9042ac09412df04bd556d4a05" }
+mapping_assertion_source_digests = { "crates/trust-dev/src/test_cmd/tests.rs" = "sha256:7709f30e09f5182a75afa3ba44ea6503ddcc454e5753f988af095e6bfb4564d9" }
 mapping_behavior_refs = ["DEV_TEST_EXECUTION_001#behavior:2"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 

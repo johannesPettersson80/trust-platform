@@ -11,7 +11,7 @@ const DISCOVERY_TRACE_TEST_ID: &str = "TEST_DEV_TEST_DISCOVERY_TRACE_001";
 const DISCOVERY_TRACE_CASE_FILE: &str =
     "verification/cases/plcopen_devtools/DEV_TEST_DISCOVERY_001.toml";
 const DISCOVERY_TRACE_CASE_DIGEST: &str =
-    "sha256:ab57d417aa4b2db9507224a87b91bfb40606936cc23125ea72a7323a9187f0b2";
+    "sha256:d217e40fa2ade0354fd1ad5bda019650d382c05eda109b8dbc74d76b3bfb0cff";
 
 fn unique_temp_dir(prefix: &str) -> std::path::PathBuf {
     let nanos = SystemTime::now()

@@ -7,7 +7,7 @@ status = "mapped"
 invariant = "IEC_TIMER_001"
 case_provenance_kind = "hand_authored_state_machine_v1"
 trace_definition_digest = "sha256:9099114b1a5cfdfe880972030b8b52530814e009ce193392721eb675ccd38521"
-source_digest = "sha256:d0c5ed20612784e6a5ab7d3f23ee1a789a186d6ff9f8e5ace8d4fc90164c00cc"
+source_digest = "sha256:4b020ef010498c8bc077dbb75a71177c33491576621e0386512ab38fb004d9c8"
 last_reviewed = "2026-07-12"
 
 [[case]]

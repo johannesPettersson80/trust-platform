@@ -12,7 +12,7 @@ const TEST_ID: &str = "TEST_RUNTIME_UNSIGNED_INTEGER_MATERIALIZATION_TRACE_001";
 const CASE_FILE: &str =
     "verification/cases/runtime_safety/RT_UNSIGNED_INTEGER_MATERIALIZATION_001.toml";
 const CASE_FILE_DIGEST: &str =
-    "sha256:ddd10eed182da7caf71aba25d8ac01d3d3a5893380894fb33e8c51a6d7878de8";
+    "sha256:a211f56c097808bde5b45d8c7e5db8f18139f85714016b4227cded296e3d827b";
 
 #[test]
 fn unsigned_integer_materialization_cases() {
@@ -57,6 +57,7 @@ fn run_materialization_case(
         "UNSIGNED_DESTINATION_REPRESENTABLE_VALUE" => representable_checks(),
         "UNSIGNED_DESTINATION_ABOVE_MAXIMUM" => above_maximum_checks(),
         "NON_UNSIGNED_DESTINATION_CATEGORY" => non_unsigned_target_checks(),
+        "UNSIGNED_DESTINATION_BELOW_ZERO" => below_minimum_checks(),
         other => {
             return Err(format!(
                 "unreviewed unsigned materialization scenario {other}"
@@ -197,6 +198,39 @@ fn non_unsigned_target_checks() -> Vec<MaterializationCheck> {
         )
     })
     .collect()
+}
+
+fn below_minimum_checks() -> Vec<MaterializationCheck> {
+    vec![
+        (
+            "usint_below_zero",
+            u8::try_from(-1_i64)
+                .map(Value::USInt)
+                .map_err(|_| RuntimeError::Overflow),
+            Err(RuntimeError::Overflow),
+        ),
+        (
+            "uint_below_zero",
+            u16::try_from(-1_i64)
+                .map(Value::UInt)
+                .map_err(|_| RuntimeError::Overflow),
+            Err(RuntimeError::Overflow),
+        ),
+        (
+            "udint_below_zero",
+            u32::try_from(-1_i64)
+                .map(Value::UDInt)
+                .map_err(|_| RuntimeError::Overflow),
+            Err(RuntimeError::Overflow),
+        ),
+        (
+            "ulint_below_zero",
+            u64::try_from(-1_i64)
+                .map(Value::ULInt)
+                .map_err(|_| RuntimeError::Overflow),
+            Err(RuntimeError::Overflow),
+        ),
+    ]
 }
 
 struct PureNumericProbe;

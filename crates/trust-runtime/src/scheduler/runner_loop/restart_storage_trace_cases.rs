@@ -13,7 +13,7 @@ use super::*;
 const TEST_ID: &str = "TEST_RUNTIME_RESTART_STORAGE_TRACE_001";
 const CASE_FILE: &str = "verification/cases/runtime_safety/RT_SAFE_RESTART_001.toml";
 const CASE_FILE_DIGEST: &str =
-    "sha256:1696fc81dafdb5ba446beaf83545a1f9521511ebd645ca3753208957aefa9a34";
+    "sha256:8c3201f09c0797283e78f0c1c7e7bf7e132f4ccf7752f7168308358cef675e3b";
 
 const SOURCE: &str = r#"
 VAR_GLOBAL RETAIN

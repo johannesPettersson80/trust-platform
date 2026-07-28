@@ -21,7 +21,7 @@ def replace_table_record_fields(
     table: str,
     updates: Mapping[str, Mapping[str, Any]],
 ) -> str:
-    """Replace scalar or string-array fields without reformatting whole records."""
+    """Replace string, string-array, or string-map fields in selected records."""
 
     if not updates:
         return source
@@ -243,9 +243,27 @@ def _string(record: Mapping[str, Any], field: str, label: str) -> str:
 def _toml_value(value: Any) -> str:
     if isinstance(value, str):
         return json.dumps(value, ensure_ascii=False)
+    if isinstance(value, Mapping):
+        if any(
+            not isinstance(key, str)
+            or not key
+            or not isinstance(item, str)
+            or not item
+            for key, item in value.items()
+        ):
+            raise ValueError(
+                "generated TOML map must contain non-empty string pairs"
+            )
+        return "{ " + ", ".join(
+            f"{json.dumps(key, ensure_ascii=False)} = "
+            f"{json.dumps(value[key], ensure_ascii=False)}"
+            for key in sorted(value)
+        ) + " }"
     if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
         strings = _strings(value, "generated TOML array")
         return "[" + ", ".join(
             json.dumps(item, ensure_ascii=False) for item in strings
         ) + "]"
-    raise ValueError("record field updates support strings and string arrays")
+    raise ValueError(
+        "record field updates support strings, string arrays, and string maps"
+    )
