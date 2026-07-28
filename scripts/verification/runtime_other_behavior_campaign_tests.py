@@ -68,10 +68,14 @@ class RuntimeOtherBehaviorCampaignTests(unittest.TestCase):
         self.assertEqual(
             (
                 "trust-runtime::bin/trust-runtime",
+                "trust-runtime::trust-runtime$",
                 "run::tests::play_project_resolution_distinguishes_absence_from_detection_failure",
             ),
             (
                 selected["DISC_5DFF0A06A903D91AC7DD"][0]["binary_id"],
+                selected["DISC_5DFF0A06A903D91AC7DD"][0][
+                    "encoded_test_name_prefix"
+                ],
                 selected["DISC_5DFF0A06A903D91AC7DD"][1],
             ),
         )

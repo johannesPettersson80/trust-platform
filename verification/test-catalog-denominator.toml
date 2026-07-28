@@ -16781,7 +16781,7 @@ name = "git_init_rejects_unsupported_git_filesystem_object"
 ignore_state = "not_ignored"
 disposition = "catalog_mapped"
 catalog_test_id = "TEST_RUNTIME_GIT_UNSUPPORTED_OBJECT_001"
-last_reviewed = "2026-07-22"
+last_reviewed = "2026-07-28"
 
 [[reviews]]
 discovery_id = "DISC_613C825C95E9BD7589DA"

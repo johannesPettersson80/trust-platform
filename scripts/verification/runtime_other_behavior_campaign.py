@@ -344,7 +344,11 @@ def _identity(
             if target_kind == "bin"
             else f"{package}::{target_name}"
         )
-        encoded_prefix = f"{binary_id}$"
+        encoded_prefix = (
+            f"{package}::{target_name}$"
+            if target_kind == "bin"
+            else f"{binary_id}$"
+        )
     return {
         "package": package,
         "target_kind": target_kind,

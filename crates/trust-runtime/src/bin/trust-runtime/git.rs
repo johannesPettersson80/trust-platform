@@ -178,7 +178,9 @@ mod tests {
         symlink("missing-metadata", dangling_root.join(".git"))
             .expect("create dangling .git symlink");
         let error = git_init(&dangling_root).expect_err("dangling .git symlink must fail");
-        assert!(error.to_string().contains("dangling or non-directory symlink"));
+        assert!(error
+            .to_string()
+            .contains("dangling or non-directory symlink"));
 
         let _ = std::fs::remove_dir_all(valid_root);
         let _ = std::fs::remove_dir_all(dangling_root);
@@ -191,10 +193,10 @@ mod tests {
 
         let root = temp_dir("socket-marker");
         let sequence = TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed);
-        let short_socket = PathBuf::from(format!(
-            "tg-socket-{}-{sequence}",
-            std::process::id()
-        ));
+        let short_socket = root
+            .parent()
+            .expect("test directory has a parent")
+            .join(format!("tg-socket-{}-{sequence}", std::process::id()));
         let listener = UnixListener::bind(&short_socket).expect("create short Unix socket");
         std::fs::rename(&short_socket, root.join(".git")).expect("move socket to .git marker");
 
