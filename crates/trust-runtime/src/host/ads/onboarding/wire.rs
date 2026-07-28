@@ -710,8 +710,52 @@ fn project_sumup_payloads(
     resolved: &[AdsResolvedHandle],
     results: Vec<AdsReadResult>,
 ) -> Result<Vec<Vec<u8>>, OnboardingWireError> {
-    let mut payloads = Vec::with_capacity(results.len());
+    if results.len() != resolved.len() {
+        return Err(OnboardingWireError::new(
+            OnboardingWireErrorKind::WrongPlcPort,
+            format!(
+                "ADS sum-up read returned {} results for {} requested handles",
+                results.len(),
+                resolved.len()
+            ),
+        ));
+    }
+    let mut results_by_point = BTreeMap::new();
     for result in results {
+        if !resolved
+            .iter()
+            .any(|handle| handle.point_name == result.point_name)
+        {
+            return Err(OnboardingWireError::new(
+                OnboardingWireErrorKind::WrongPlcPort,
+                format!(
+                    "ADS sum-up read returned unknown point '{}'",
+                    result.point_name
+                ),
+            ));
+        }
+        let point_name = result.point_name.clone();
+        if results_by_point.insert(point_name.clone(), result).is_some() {
+            return Err(OnboardingWireError::new(
+                OnboardingWireErrorKind::WrongPlcPort,
+                format!("ADS sum-up read returned duplicate point '{point_name}'"),
+            ));
+        }
+    }
+
+    let mut payloads = Vec::with_capacity(resolved.len());
+    for handle in resolved {
+        let result = results_by_point
+            .remove(handle.point_name.as_str())
+            .ok_or_else(|| {
+                OnboardingWireError::new(
+                    OnboardingWireErrorKind::WrongPlcPort,
+                    format!(
+                        "ADS sum-up read omitted requested point '{}'",
+                        handle.point_name
+                    ),
+                )
+            })?;
         if result.quality.state != QualityState::Good {
             return Err(OnboardingWireError::new(
                 OnboardingWireErrorKind::WrongPlcPort,
@@ -727,18 +771,6 @@ fn project_sumup_payloads(
                 "ADS sum-up read returned no value",
             ));
         };
-        let handle = resolved
-            .iter()
-            .find(|handle| handle.point_name == result.point_name)
-            .ok_or_else(|| {
-                OnboardingWireError::new(
-                    OnboardingWireErrorKind::WrongPlcPort,
-                    format!(
-                        "ADS sum-up read returned unknown point '{}'",
-                        result.point_name
-                    ),
-                )
-            })?;
         let bytes = ads_bytes_from_value(&handle.data_type, &value).map_err(|error| {
             OnboardingWireError::new(
                 OnboardingWireErrorKind::WrongPlcPort,
