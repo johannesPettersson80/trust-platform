@@ -1,0 +1,8 @@
+{"type":"suite","event":"started","test_count":3,"nextest":{"crate":"trust-hir","test_binary":"iec_table_coverage","kind":"test"}}
+{"type":"test","event":"started","name":"trust-hir::iec_table_coverage$missing_iec_table_test_name_is_reported_and_rejected"}
+{"type":"test","event":"started","name":"trust-hir::iec_table_coverage$malformed_iec_table_map_is_rejected"}
+{"type":"test","event":"started","name":"trust-hir::iec_table_coverage$iec_table_coverage_report"}
+{"type":"test","event":"ok","name":"trust-hir::iec_table_coverage$missing_iec_table_test_name_is_reported_and_rejected","exec_time":0.004940931}
+{"type":"test","event":"ok","name":"trust-hir::iec_table_coverage$malformed_iec_table_map_is_rejected","exec_time":0.00579159}
+{"type":"test","event":"ok","name":"trust-hir::iec_table_coverage$iec_table_coverage_report","exec_time":0.210362635}
+{"type":"suite","event":"ok","passed":3,"failed":0,"ignored":0,"measured":0,"filtered_out":0,"exec_time":0.221095156,"nextest":{"crate":"trust-hir","test_binary":"iec_table_coverage","kind":"test"}}

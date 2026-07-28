@@ -1,0 +1,144 @@
+{
+  "basis": "p18_verification_owned_exact_behavior_assignment_11",
+  "behavior_count": 11,
+  "group_count": 2,
+  "groups": [
+    {
+      "binary_id": "trust-hir::iec_table_coverage",
+      "command": [
+        "cargo",
+        "nextest",
+        "run",
+        "-p",
+        "trust-hir",
+        "--test",
+        "iec_table_coverage",
+        "--no-fail-fast",
+        "--message-format",
+        "libtest-json-plus",
+        "--message-format-version",
+        "0.1",
+        "--user-config-file",
+        "none",
+        "-E",
+        "(binary_id(=trust-hir::iec_table_coverage) & test(=iec_table_coverage_report)) | (binary_id(=trust-hir::iec_table_coverage) & test(=malformed_iec_table_map_is_rejected)) | (binary_id(=trust-hir::iec_table_coverage) & test(=missing_iec_table_test_name_is_reported_and_rejected))"
+      ],
+      "encoded_test_name_prefix": "trust-hir::iec_table_coverage$",
+      "exact_terms": [
+        "(binary_id(=trust-hir::iec_table_coverage) & test(=iec_table_coverage_report))",
+        "(binary_id(=trust-hir::iec_table_coverage) & test(=malformed_iec_table_map_is_rejected))",
+        "(binary_id(=trust-hir::iec_table_coverage) & test(=missing_iec_table_test_name_is_reported_and_rejected))"
+      ],
+      "full_names": [
+        "iec_table_coverage_report",
+        "malformed_iec_table_map_is_rejected",
+        "missing_iec_table_test_name_is_reported_and_rejected"
+      ],
+      "id": "VERIFICATION_OWNED_11_01",
+      "package": "trust-hir",
+      "paths": [
+        "crates/trust-hir/tests/iec_table_coverage.rs"
+      ],
+      "target_kind": "test",
+      "target_name": "iec_table_coverage",
+      "test_count": 3,
+      "test_ids": [
+        "DISC_39AB329C1EF74B96CF4F",
+        "DISC_5D89E65CEF226C4AEACE",
+        "DISC_D1AD323E73A94C68FFF1"
+      ],
+      "tests_by_full_name": {
+        "iec_table_coverage_report": "DISC_39AB329C1EF74B96CF4F",
+        "malformed_iec_table_map_is_rejected": "DISC_5D89E65CEF226C4AEACE",
+        "missing_iec_table_test_name_is_reported_and_rejected": "DISC_D1AD323E73A94C68FFF1"
+      }
+    },
+    {
+      "binary_id": "verification-cases",
+      "command": [
+        "cargo",
+        "nextest",
+        "run",
+        "-p",
+        "verification-cases",
+        "--lib",
+        "--no-fail-fast",
+        "--message-format",
+        "libtest-json-plus",
+        "--message-format-version",
+        "0.1",
+        "--user-config-file",
+        "none",
+        "-E",
+        "(binary_id(=verification-cases) & test(=tests::blocked_cases_are_recorded_without_executing_the_runner)) | (binary_id(=verification-cases) & test(=tests::default_artifact_dir_is_workspace_target_gate_artifacts)) | (binary_id(=verification-cases) & test(=tests::expected_case_file_digest_is_enforced_before_execution)) | (binary_id(=verification-cases) & test(=tests::mismatched_trust_verify_artifact_dir_fails_before_execution)) | (binary_id(=verification-cases) & test(=tests::mismatched_trust_verify_case_file_digest_fails_before_execution)) | (binary_id(=verification-cases) & test(=tests::mismatched_trust_verify_test_id_fails_before_execution)) | (binary_id(=verification-cases) & test(=tests::partial_trust_verify_env_stamps_fail_before_execution)) | (binary_id(=verification-cases) & test(=tests::runnable_cases_capture_snapshots_and_state_delta)) | (binary_id(=verification-cases) & test(=tests::schema_version_mismatch_is_rejected_before_execution)) | (binary_id(=verification-cases) & test(=tests::stamped_artifact_dir_overrides_compile_time_workspace_path)) | (binary_id(=verification-cases) & test(=tests::trust_verify_env_stamps_are_recorded_in_artifact)) | (binary_id(=verification-cases) & test(=tests::workspace_absolute_case_path_is_recorded_as_committed_relative_identity))"
+      ],
+      "encoded_test_name_prefix": "verification-cases::verification_cases$",
+      "exact_terms": [
+        "(binary_id(=verification-cases) & test(=tests::blocked_cases_are_recorded_without_executing_the_runner))",
+        "(binary_id(=verification-cases) & test(=tests::default_artifact_dir_is_workspace_target_gate_artifacts))",
+        "(binary_id(=verification-cases) & test(=tests::expected_case_file_digest_is_enforced_before_execution))",
+        "(binary_id(=verification-cases) & test(=tests::mismatched_trust_verify_artifact_dir_fails_before_execution))",
+        "(binary_id(=verification-cases) & test(=tests::mismatched_trust_verify_case_file_digest_fails_before_execution))",
+        "(binary_id(=verification-cases) & test(=tests::mismatched_trust_verify_test_id_fails_before_execution))",
+        "(binary_id(=verification-cases) & test(=tests::partial_trust_verify_env_stamps_fail_before_execution))",
+        "(binary_id(=verification-cases) & test(=tests::runnable_cases_capture_snapshots_and_state_delta))",
+        "(binary_id(=verification-cases) & test(=tests::schema_version_mismatch_is_rejected_before_execution))",
+        "(binary_id(=verification-cases) & test(=tests::stamped_artifact_dir_overrides_compile_time_workspace_path))",
+        "(binary_id(=verification-cases) & test(=tests::trust_verify_env_stamps_are_recorded_in_artifact))",
+        "(binary_id(=verification-cases) & test(=tests::workspace_absolute_case_path_is_recorded_as_committed_relative_identity))"
+      ],
+      "full_names": [
+        "tests::blocked_cases_are_recorded_without_executing_the_runner",
+        "tests::default_artifact_dir_is_workspace_target_gate_artifacts",
+        "tests::expected_case_file_digest_is_enforced_before_execution",
+        "tests::mismatched_trust_verify_artifact_dir_fails_before_execution",
+        "tests::mismatched_trust_verify_case_file_digest_fails_before_execution",
+        "tests::mismatched_trust_verify_test_id_fails_before_execution",
+        "tests::partial_trust_verify_env_stamps_fail_before_execution",
+        "tests::runnable_cases_capture_snapshots_and_state_delta",
+        "tests::schema_version_mismatch_is_rejected_before_execution",
+        "tests::stamped_artifact_dir_overrides_compile_time_workspace_path",
+        "tests::trust_verify_env_stamps_are_recorded_in_artifact",
+        "tests::workspace_absolute_case_path_is_recorded_as_committed_relative_identity"
+      ],
+      "id": "VERIFICATION_OWNED_11_02",
+      "package": "verification-cases",
+      "paths": [
+        "crates/verification-cases/src/lib.rs"
+      ],
+      "target_kind": "lib",
+      "target_name": null,
+      "test_count": 12,
+      "test_ids": [
+        "DISC_87302EF69E1E2E42E300",
+        "TEST_AUTO_1A7BDF97311D84EE779B",
+        "DISC_9F1F50D5688D15E30213",
+        "DISC_0ADA17CB60051E6BC46E",
+        "DISC_1303DC4F31325352DB04",
+        "DISC_8D208B055237565CCF60",
+        "DISC_042D4F35C060424831AE",
+        "DISC_3418DE949E799427C04E",
+        "DISC_D097DB1E2FB45715FC5E",
+        "TEST_AUTO_247AAB98DD35F057E1EA",
+        "DISC_FD838D2673518C6E333A",
+        "TEST_AUTO_C932AA981C465EDBACC6"
+      ],
+      "tests_by_full_name": {
+        "tests::blocked_cases_are_recorded_without_executing_the_runner": "DISC_87302EF69E1E2E42E300",
+        "tests::default_artifact_dir_is_workspace_target_gate_artifacts": "TEST_AUTO_1A7BDF97311D84EE779B",
+        "tests::expected_case_file_digest_is_enforced_before_execution": "DISC_9F1F50D5688D15E30213",
+        "tests::mismatched_trust_verify_artifact_dir_fails_before_execution": "DISC_0ADA17CB60051E6BC46E",
+        "tests::mismatched_trust_verify_case_file_digest_fails_before_execution": "DISC_1303DC4F31325352DB04",
+        "tests::mismatched_trust_verify_test_id_fails_before_execution": "DISC_8D208B055237565CCF60",
+        "tests::partial_trust_verify_env_stamps_fail_before_execution": "DISC_042D4F35C060424831AE",
+        "tests::runnable_cases_capture_snapshots_and_state_delta": "DISC_3418DE949E799427C04E",
+        "tests::schema_version_mismatch_is_rejected_before_execution": "DISC_D097DB1E2FB45715FC5E",
+        "tests::stamped_artifact_dir_overrides_compile_time_workspace_path": "TEST_AUTO_247AAB98DD35F057E1EA",
+        "tests::trust_verify_env_stamps_are_recorded_in_artifact": "DISC_FD838D2673518C6E333A",
+        "tests::workspace_absolute_case_path_is_recorded_as_committed_relative_identity": "TEST_AUTO_C932AA981C465EDBACC6"
+      }
+    }
+  ],
+  "schema_version": 1,
+  "test_count": 15
+}

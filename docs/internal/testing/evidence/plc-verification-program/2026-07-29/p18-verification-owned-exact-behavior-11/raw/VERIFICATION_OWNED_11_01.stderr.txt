@@ -1,0 +1,13 @@
+info: experimental features enabled: wrapper-scripts
+   Compiling trust-syntax v0.24.59 (/home/johannes/projects/trust-platform-p18-verification-owned-11/crates/trust-syntax)
+   Compiling verification-cases v0.24.59 (/home/johannes/projects/trust-platform-p18-verification-owned-11/crates/verification-cases)
+   Compiling trust-hir v0.24.59 (/home/johannes/projects/trust-platform-p18-verification-owned-11/crates/trust-hir)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 9.50s
+────────────
+ Nextest run ID f860e547-8773-4b23-bd37-00683d7d12cc with nextest profile: default
+    Starting 3 tests across 1 binary
+        PASS [   0.005s] (1/3) trust-hir::iec_table_coverage missing_iec_table_test_name_is_reported_and_rejected
+        PASS [   0.006s] (2/3) trust-hir::iec_table_coverage malformed_iec_table_map_is_rejected
+        PASS [   0.210s] (3/3) trust-hir::iec_table_coverage iec_table_coverage_report
+────────────
+     Summary [   0.211s] 3 tests run: 3 passed, 0 skipped

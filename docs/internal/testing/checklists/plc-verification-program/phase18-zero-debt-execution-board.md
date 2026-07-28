@@ -1138,6 +1138,32 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   artifacts are recorded in
   `docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-protocol-exact-behavior-29.md`.
   <!-- generated:protocol-exact-behavior-29:end -->
+  <!-- generated:verification-owned-exact-behavior-11:start -->
+
+  Verification-owned exact-behavior coherent-campaign progress (2026-07-29):
+  all eleven remaining case-artifact-helper and IEC table-inventory behavior
+  demands are bound to fifteen exact tests and seventeen behavior links across
+  two invariants. The accepted clean builder campaign at
+  `1338cd7a48e690c43b65c7239216f651a97178b3` passes 15/15 tests in two
+  exact `cargo nextest` groups. A focused assertion-extractor test first
+  failed honestly because generated file paths were lost across helper
+  parameters and struct fields. The new fail-closed dataflow retains only
+  generated paths, while external, reassigned, escaping, and unclosed fields
+  remain unresolved. The IEC repository scan binds 1,571 exact Rust source
+  digests through a canonical source-tree oracle; malformed roots are rejected.
+  The fifteen accepted inventories contain 120 assertions, 54 direct oracles,
+  and zero unresolved helpers. The atomic metadata transaction at
+  `a124d727921776884fce10e78a62e00a12a365b2` promotes twelve tests and
+  refreshes three existing mapping decisions. The frozen equations become
+  4,401 live tests, 3,933 `catalog_mapped`, 468 `reviewed_nonmapping`, zero
+  missing authority, and 27 confirmed missing behavior tests. The focused
+  route, transaction, assertion-extractor, case-helper, and IEC inventory
+  suites pass 52/52 on the exact clean builder checkout. This is large-batch
+  `P18-003` through `P18-006` progress, not global row closure. No broad
+  workspace gate ran. Focused evidence and retained machine-readable artifacts
+  are recorded in
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-verification-owned-exact-behavior-11.md`.
+  <!-- generated:verification-owned-exact-behavior-11:end -->
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device
