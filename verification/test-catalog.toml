@@ -114197,3 +114197,138 @@ mapping_assertion_review_digest = "sha256:108221277e03b81412f013d34647a7c1304652
 mapping_assertion_source_digests = { "crates/trust-runtime/tests/ci_cicd_contract.rs" = "sha256:aa63f9bbea6124ab8d022af25a916616d827e54527e95d1a08efe67959815ae2" }
 mapping_behavior_refs = ["DEV_NATIVE_CI_FIXTURE_001#behavior:2"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_8AAC146F12AF0309C40B"
+subject_kind = "generated_test"
+discovery_id = "DISC_8AAC146F12AF0309C40B"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/e2e_multifile.rs"
+name = "namespaced_pous_resolve_sibling_interfaces"
+command = "cargo nextest run -p trust-runtime --test e2e_multifile --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::e2e_multifile) & test(=namespaced_pous_resolve_sibling_interfaces)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_NAMESPACE_MULTIFILE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#namespace-qualified-multifile-runtime-assembly"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#namespace-qualified-multifile-runtime-assembly"]
+expected_result = "Sibling functions, function blocks, classes, and interfaces retain qualified identities, resolve within one namespace, and execute the reviewed call and interface-assignment graph."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_8AAC146F12AF0309C40B.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_8AAC146F12AF0309C40B_5B1092A59429"
+mapping_proposal_digest = "sha256:5b1092a594296b047f9797e2fdfa386ff3fdb69b070f693b2581535d9b18caf7"
+mapping_decision_id = "MAP_DEC_15B4703E75BEC79FB91D8F9B"
+mapping_reviewed_source_digest = "sha256:bb1db94f51f020672b4d83b6dd1d721024cd7aa50bae56dbc882a63c661fe183"
+mapping_assertion_review_digest = "sha256:2a3ea5ef9d5a81f31234e8378d9137764e531e8fec4971948e7b0926735066dd"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/e2e_multifile.rs" = "sha256:bb1db94f51f020672b4d83b6dd1d721024cd7aa50bae56dbc882a63c661fe183" }
+mapping_behavior_refs = ["RT_NAMESPACE_MULTIFILE_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_8FFAEF4683A05CC09B12"
+subject_kind = "generated_test"
+discovery_id = "DISC_8FFAEF4683A05CC09B12"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/e2e_multifile.rs"
+name = "duplicate_program_name_errors"
+command = "cargo nextest run -p trust-runtime --test e2e_multifile --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::e2e_multifile) & test(=duplicate_program_name_errors)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_NAMESPACE_MULTIFILE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#namespace-qualified-multifile-runtime-assembly"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#namespace-qualified-multifile-runtime-assembly"]
+expected_result = "Program identities differing only by ASCII case reject merged assembly and report the duplicate condition plus the reviewed original spelling."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_8FFAEF4683A05CC09B12.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_8FFAEF4683A05CC09B12_D609B10C9349"
+mapping_proposal_digest = "sha256:d609b10c93499ee88e3e9c40b1e42f9f6e3467d4357325704519a6e8a933ce34"
+mapping_decision_id = "MAP_DEC_36F1055781AEEE84A67EFB0D"
+mapping_reviewed_source_digest = "sha256:bb1db94f51f020672b4d83b6dd1d721024cd7aa50bae56dbc882a63c661fe183"
+mapping_assertion_review_digest = "sha256:ac43b3fd2828f76d48b3abbb62587fff412fa72bea95f1e88608d8e051d6bf5d"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/e2e_multifile.rs" = "sha256:bb1db94f51f020672b4d83b6dd1d721024cd7aa50bae56dbc882a63c661fe183" }
+mapping_behavior_refs = ["RT_NAMESPACE_MULTIFILE_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_9DE91547140FFDC2347C"
+subject_kind = "generated_test"
+discovery_id = "DISC_9DE91547140FFDC2347C"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/e2e_multifile.rs"
+name = "namespaced_programs_are_runtime_entry_points"
+command = "cargo nextest run -p trust-runtime --test e2e_multifile --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::e2e_multifile) & test(=namespaced_programs_are_runtime_entry_points)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_NAMESPACE_MULTIFILE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#namespace-qualified-multifile-runtime-assembly"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#namespace-qualified-multifile-runtime-assembly"]
+expected_result = "A namespaced program retains its fully qualified registry identity and remains an executable scan entry point."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_9DE91547140FFDC2347C.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_9DE91547140FFDC2347C_220387796E42"
+mapping_proposal_digest = "sha256:220387796e423e0428d98d9be9ed9604a4e0daec5ded14f6627f6c25620b15f0"
+mapping_decision_id = "MAP_DEC_C364BCFE45E73A973343F233"
+mapping_reviewed_source_digest = "sha256:bb1db94f51f020672b4d83b6dd1d721024cd7aa50bae56dbc882a63c661fe183"
+mapping_assertion_review_digest = "sha256:6811b8eccf882407c748a6a04b8264f088636172962c1bc3b044025e68998ad5"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/e2e_multifile.rs" = "sha256:bb1db94f51f020672b4d83b6dd1d721024cd7aa50bae56dbc882a63c661fe183" }
+mapping_behavior_refs = ["RT_NAMESPACE_MULTIFILE_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_ABFDD7450BAC9E9C9097"
+subject_kind = "generated_test"
+discovery_id = "DISC_ABFDD7450BAC9E9C9097"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/e2e_multifile.rs"
+name = "namespace_resolution"
+command = "cargo nextest run -p trust-runtime --test e2e_multifile --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::e2e_multifile) & test(=namespace_resolution)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_NAMESPACE_MULTIFILE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#namespace-qualified-multifile-runtime-assembly"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#namespace-qualified-multifile-runtime-assembly"]
+expected_result = "A direct namespace function imported by USING remains callable from a program supplied in a separate source unit and produces the reviewed value."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_ABFDD7450BAC9E9C9097.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_ABFDD7450BAC9E9C9097_3F20C98A4076"
+mapping_proposal_digest = "sha256:3f20c98a4076196607e01aca6bf4a3970ec891d0b8d019160372f90fff74b2ce"
+mapping_decision_id = "MAP_DEC_B2CAE3A0F94A520740594B23"
+mapping_reviewed_source_digest = "sha256:bb1db94f51f020672b4d83b6dd1d721024cd7aa50bae56dbc882a63c661fe183"
+mapping_assertion_review_digest = "sha256:caca5b878d96a5fa813eef5b4b74a637fce40e2c9ad4573bf1981c8379f38164"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/e2e_multifile.rs" = "sha256:bb1db94f51f020672b4d83b6dd1d721024cd7aa50bae56dbc882a63c661fe183" }
+mapping_behavior_refs = ["RT_NAMESPACE_MULTIFILE_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
