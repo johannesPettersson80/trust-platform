@@ -3,18 +3,18 @@ id = "RT_RESOURCE_SCHEDULER_E2E_001"
 title = "Resource ticks preserve deterministic task, fault, and trace semantics"
 area = "runtime_safety"
 risk = "safety_critical"
-status = "planned"
+status = "mapped"
 owner = "trust-runtime"
 last_reviewed = "2026-07-28"
 claim = "A resource tick executes due periodic and event work once, handles clock discontinuities without replay, latches execution faults, and reproduces runtime-event order under identical manual-clock inputs."
 proof_level = "S0"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src/scheduler", "crates/trust-runtime/src/runtime"]
-tests = []
+tests = ["TEST_AUTO_6CBE8E64A10088366CF5", "TEST_AUTO_891F1D234DBDE29429A4", "TEST_AUTO_B02C23A795AF36ACE7B5", "TEST_AUTO_D8D92D6082D7DAB2FA44", "TEST_AUTO_F6508FDFBB3BD1D4F440"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["focused_execution", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -71,10 +71,10 @@ rationale = "Two fresh executions with the same source, manual-clock steps, and 
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
-state = "gap_open"
-rationale = "The product authority is reviewed; focused mappings and execution evidence for combined task sequencing, fault latching, and trace reproducibility remain pending."
+state = "covered"
+rationale = "Accepted catalog mappings and the exact focused remote shard cover combined periodic/event sequencing, typed fault latching with subsequent rejection, and reproducible ordered runtime-event vectors."
 
 [[coverage.cells]]
 dimension = "time_or_clock_fault"
-state = "gap_open"
-rationale = "The product authority is reviewed; focused mapping and execution evidence for resource-level backward-clock behavior remain pending."
+state = "covered"
+rationale = "Accepted catalog mappings and the exact focused remote shard cover resource-level backward-clock no-replay behavior and forward-jump single-execution coalescing."

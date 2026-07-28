@@ -113758,3 +113758,172 @@ mapping_assertion_review_digest = "sha256:0c9543f66e11ed5388b4623b09334bdf907d20
 mapping_assertion_source_digests = { "crates/trust-runtime/src/runtime/restart.rs" = "sha256:d72b2e96e880d2e5747f655292bd9989eca1353c18d9e374ae1bbfc77df8a5b5" }
 mapping_behavior_refs = ["RT_RETAIN_MIGRATION_001#behavior:5"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_6CBE8E64A10088366CF5"
+subject_kind = "generated_test"
+discovery_id = "DISC_6CBE8E64A10088366CF5"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/e2e_scheduler.rs"
+name = "trace_determinism"
+command = "cargo nextest run -p trust-runtime --test e2e_scheduler --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::e2e_scheduler) & test(=trace_determinism)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_RESOURCE_SCHEDULER_E2E_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#resource-runner-cycle-transaction"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#resource-runner-cycle-transaction"]
+expected_result = "Two fresh executions with the same source, manual-clock steps, and event-input transitions produce equal ordered RuntimeEvent vectors."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_6CBE8E64A10088366CF5.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_6CBE8E64A10088366CF5_058D859534A8"
+mapping_proposal_digest = "sha256:058d859534a89b3f43c14b022063a7283271b196418aa1064a019bc350cfda31"
+mapping_decision_id = "MAP_DEC_F4C8DF7812B1D0A696195BCA"
+mapping_reviewed_source_digest = "sha256:37ad62f74cbcf3d37b30a6d3034e4e823cc698e3cca543611dedd3a5c608555d"
+mapping_assertion_review_digest = "sha256:7a8041906294dfdad0e123a06872506e804e9603d1c1b00eebd76267db4e6ee8"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/e2e_scheduler.rs" = "sha256:37ad62f74cbcf3d37b30a6d3034e4e823cc698e3cca543611dedd3a5c608555d" }
+mapping_behavior_refs = ["RT_RESOURCE_SCHEDULER_E2E_001#behavior:4"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_891F1D234DBDE29429A4"
+subject_kind = "generated_test"
+discovery_id = "DISC_891F1D234DBDE29429A4"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/e2e_scheduler.rs"
+name = "resumed_clock_jump_runs_once_and_records_missed_intervals"
+command = "cargo nextest run -p trust-runtime --test e2e_scheduler --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::e2e_scheduler) & test(=resumed_clock_jump_runs_once_and_records_missed_intervals)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_RESOURCE_SCHEDULER_E2E_001", "RT_TASK_READINESS_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#resource-runner-cycle-transaction"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#resource-runner-cycle-transaction", "SPEC_RUNTIME_ENGINE_001#task-readiness-and-overrun-accounting"]
+expected_result = "A forward manual-clock jump spanning five intervals executes the reviewed periodic program once while the readiness boundary records four missed intervals. A forward jump emits one activation at the first nominal deadline, reports n-1 missed intervals, saturating-adds them to cumulative overruns, and advances last_run to now."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_891F1D234DBDE29429A4.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_891F1D234DBDE29429A4_5E24F3D23C4C"
+mapping_proposal_digest = "sha256:5e24f3d23c4c173ce580ffb6c6a31cee8b0dbcbd5b0cffbc2031386b44f7df2e"
+mapping_decision_id = "MAP_DEC_17F82FB78914BF886857A628"
+mapping_reviewed_source_digest = "sha256:37ad62f74cbcf3d37b30a6d3034e4e823cc698e3cca543611dedd3a5c608555d"
+mapping_assertion_review_digest = "sha256:8a473c913d9ef84f9cc29b47aca8f34ad17c7d890de178650423d2f186267e8e"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/e2e_scheduler.rs" = "sha256:37ad62f74cbcf3d37b30a6d3034e4e823cc698e3cca543611dedd3a5c608555d" }
+mapping_behavior_refs = ["RT_RESOURCE_SCHEDULER_E2E_001#behavior:2", "RT_TASK_READINESS_001#behavior:6"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_B02C23A795AF36ACE7B5"
+subject_kind = "generated_test"
+discovery_id = "DISC_B02C23A795AF36ACE7B5"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/e2e_scheduler.rs"
+name = "periodic_and_event"
+command = "cargo nextest run -p trust-runtime --test e2e_scheduler --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::e2e_scheduler) & test(=periodic_and_event)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_RESOURCE_SCHEDULER_E2E_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#resource-runner-cycle-transaction"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#resource-runner-cycle-transaction"]
+expected_result = "The reviewed zero-, ten-, and twenty-millisecond ticks execute neither program, then both the periodic and rising-edge event programs, then only the periodic program."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_B02C23A795AF36ACE7B5.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_B02C23A795AF36ACE7B5_404277B221AF"
+mapping_proposal_digest = "sha256:404277b221afbc754378ca0b1afd8bc93ce61b55d01a67227753b932e1c4420b"
+mapping_decision_id = "MAP_DEC_7DB7CDD31E6BFA5ADC4C6347"
+mapping_reviewed_source_digest = "sha256:37ad62f74cbcf3d37b30a6d3034e4e823cc698e3cca543611dedd3a5c608555d"
+mapping_assertion_review_digest = "sha256:218fea36c99cdc553cdd67d7765f427f2cf16cbc42a3234c5eadcb2452a77ba2"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/e2e_scheduler.rs" = "sha256:37ad62f74cbcf3d37b30a6d3034e4e823cc698e3cca543611dedd3a5c608555d" }
+mapping_behavior_refs = ["RT_RESOURCE_SCHEDULER_E2E_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_D8D92D6082D7DAB2FA44"
+subject_kind = "generated_test"
+discovery_id = "DISC_D8D92D6082D7DAB2FA44"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/e2e_scheduler.rs"
+name = "overrun_and_fault"
+command = "cargo nextest run -p trust-runtime --test e2e_scheduler --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::e2e_scheduler) & test(=overrun_and_fault)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_RESOURCE_SCHEDULER_E2E_001", "RT_TASK_READINESS_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#resource-runner-cycle-transaction"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#resource-runner-cycle-transaction", "SPEC_RUNTIME_ENGINE_001#task-readiness-and-overrun-accounting"]
+expected_result = "The reviewed division-by-zero task error is returned and latches the runtime fault state; the next tick rejects as ResourceFaulted without claiming rollback of earlier work. A forward jump emits one activation at the first nominal deadline, reports n-1 missed intervals, saturating-adds them to cumulative overruns, and advances last_run to now."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_D8D92D6082D7DAB2FA44.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_D8D92D6082D7DAB2FA44_37E834EA7492"
+mapping_proposal_digest = "sha256:37e834ea7492e923a6d8861a19737b35f88f967fcfb4fdd4bbf8dd2be93f22e1"
+mapping_decision_id = "MAP_DEC_3C3F2D375A781316CA6E1D15"
+mapping_reviewed_source_digest = "sha256:37ad62f74cbcf3d37b30a6d3034e4e823cc698e3cca543611dedd3a5c608555d"
+mapping_assertion_review_digest = "sha256:a98c44be37c00ec6f79136b8a4c56a285c17986836df9a1045526ea291ed9fd5"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/e2e_scheduler.rs" = "sha256:37ad62f74cbcf3d37b30a6d3034e4e823cc698e3cca543611dedd3a5c608555d" }
+mapping_behavior_refs = ["RT_RESOURCE_SCHEDULER_E2E_001#behavior:3", "RT_TASK_READINESS_001#behavior:6"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_F6508FDFBB3BD1D4F440"
+subject_kind = "generated_test"
+discovery_id = "DISC_F6508FDFBB3BD1D4F440"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/e2e_scheduler.rs"
+name = "backward_clock_step_does_not_replay_or_overrun_periodic_task"
+command = "cargo nextest run -p trust-runtime --test e2e_scheduler --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::e2e_scheduler) & test(=backward_clock_step_does_not_replay_or_overrun_periodic_task)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_RESOURCE_SCHEDULER_E2E_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#resource-runner-cycle-transaction"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#resource-runner-cycle-transaction"]
+expected_result = "After one periodic execution, a backward manual-clock sample neither executes nor records an overrun, and a later next-deadline sample executes exactly once."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_F6508FDFBB3BD1D4F440.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_F6508FDFBB3BD1D4F440_C6DF20ED0CF2"
+mapping_proposal_digest = "sha256:c6df20ed0cf239bba94aef17d8e5d36d21c84df3904d00a694817e62361bb9e7"
+mapping_decision_id = "MAP_DEC_E966CF99AAD660DE10223068"
+mapping_reviewed_source_digest = "sha256:37ad62f74cbcf3d37b30a6d3034e4e823cc698e3cca543611dedd3a5c608555d"
+mapping_assertion_review_digest = "sha256:a670ffe04193d41bb1c59224233784769eefa9791fb20435beb280f96d94e29e"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/e2e_scheduler.rs" = "sha256:37ad62f74cbcf3d37b30a6d3034e4e823cc698e3cca543611dedd3a5c608555d" }
+mapping_behavior_refs = ["RT_RESOURCE_SCHEDULER_E2E_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
