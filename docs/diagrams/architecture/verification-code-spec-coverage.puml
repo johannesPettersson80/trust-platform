@@ -160,6 +160,8 @@ note bottom of TargetProfiles
   it makes no external ADS endpoint or TwinCAT interoperability claim.
   The runtime bundle-builder profile is closed to its unit-test module;
   it does not promote graph fixtures to general filesystem or registry proof.
+  The ST test CLI profile is closed to one integration target and may bind
+  assertions across reviewed reporting, execution, and build invariants.
 end note
 
 note bottom of RustImportResolver

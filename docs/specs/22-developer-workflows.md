@@ -98,6 +98,9 @@ not additional IEC 61131-3 POU kinds and not IEC deviations.
 `trust-dev test` prepares one compiled runtime for the selected source set and
 cold-restarts it before every selected case. The cold restart restores declared
 initial values, so state written by one test case is not inherited by the next.
+Shared discovery, compilation, and runtime preparation occur outside the
+per-case execution deadline; that deadline begins immediately before the
+selected case is invoked.
 The selected declaration is then invoked at its own boundary:
 `TEST_PROGRAM` as a program and `TEST_FUNCTION_BLOCK` as a function-block
 instance.

@@ -1733,12 +1733,13 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/specs/22-developer-workflows.md"
 version = "current"
-last_reviewed = "2026-07-26"
+last_reviewed = "2026-07-28"
 covers = [
   "source_discovery",
   "supported_source_extensions",
   "test_pou_discovery",
   "test_case_execution",
+  "per_case_deadline_scope",
   "test_reporting_and_ci_output",
   "developer_ci_exit_classification",
   "api_documentation_generation",

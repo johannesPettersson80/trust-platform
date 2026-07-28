@@ -82,6 +82,15 @@ no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "error" }
 rationale = "The specification requires a non-assertion runtime failure to remain an error, but this batch has no direct execution test for that partition."
 
+[[behavior]]
+partition = { equals = "PREPARED_CASE_WITHIN_DEADLINE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#test-case-execution"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "The project is compiled before per-case execution timing begins, so the reviewed two-second case deadline measures the selected OSCAT case rather than project recompilation."
+
 [[coverage.cells]]
 dimension = "failure_path"
 state = "covered"

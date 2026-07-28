@@ -560,6 +560,15 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
             ("--test", "runtime_safety_fail_closed"),
             safety.cargo_target_args,
         )
+        st_test_cli = get_target_profile(
+            "runtime-remaining",
+            path="crates/trust-runtime/tests/st_test_cli_command.rs",
+        )
+        self.assertEqual(
+            ("--test", "st_test_cli_command"),
+            st_test_cli.cargo_target_args,
+        )
+        self.assertEqual("", st_test_cli.test_prefix)
         self.assertEqual(
             "trust-runtime::runtime_safety_fail_closed",
             safety.binary_id,

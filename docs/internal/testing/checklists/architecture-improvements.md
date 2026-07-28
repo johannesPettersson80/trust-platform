@@ -288,3 +288,14 @@ Issue #51 init benchmark baseline evidence (2026-04-28):
   native Rust unit tests pass on `trust-builder`, and
   `verification-code-spec-coverage.puml` records the closed profile and proof
   boundary.
+- [x] `ARCH-VERIF-P18-11` Close the seven actionable ST test CLI integration
+  tests with one exact integration profile and one multi-invariant semantic
+  assignment owner. Keep subprocess/filesystem/JSON parsing assertions as
+  setup, split timeout status from timeout prose, and bind only the reviewed
+  reporting, execution, and build outcomes. Evidence required: focused
+  assignment/profile tests, seven exact remote integration tests, and explicit
+  diagram scope. Completed 2026-07-28: the 47 focused local generator/profile
+  tests pass; the frozen remote-builder selection passed all seven actionable
+  tests plus its already-catalogued companion (8/8); and
+  `verification-code-spec-coverage.puml` records the closed profile and
+  multi-invariant proof boundary.
