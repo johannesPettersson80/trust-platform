@@ -10,21 +10,14 @@ claim = "HIR-clean constructs that the bytecode encoder cannot lower must fail b
 proof_level = "G1"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-runtime/src/bytecode/encoder"]
-tests = [
-  "TEST_VM_LOWERING_SUPPORTED_CONTROL_FLOW_001",
-  "TEST_VM_LOWERING_UNSUPPORTED_STATEMENT_001",
-  "TEST_VM_LOWERING_UNSUPPORTED_EXPRESSION_001",
-  "TEST_VM_ENCODER_FAIL_CLOSED_TRACE_001",
-]
+tests = ["TEST_AUTO_2D17DC9BA441E47099C3", "TEST_AUTO_9754A8A2443EE9A1BED9", "TEST_VM_ENCODER_FAIL_CLOSED_TRACE_001", "TEST_VM_LOWERING_SUPPORTED_CONTROL_FLOW_001", "TEST_VM_LOWERING_UNSUPPORTED_EXPRESSION_001", "TEST_VM_LOWERING_UNSUPPORTED_STATEMENT_001"]
 gates = ["veryquick", "pr"]
 evidence_refs = [
   "EVID_TEST_VM_ENCODER_FAIL_CLOSED_TRACE_001_LOCK_BASELINE",
   "EVID_TEST_VM_ENCODER_FAIL_CLOSED_TRACE_001_LOCK_COMPARE",
 ]
 spec_gap_refs = []
-missing = [
-  "broad_remote_gate",
-]
+missing = ["broad_remote_gate"]
 
 [input]
 name = "hir_statement"

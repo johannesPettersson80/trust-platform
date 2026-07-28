@@ -112980,3 +112980,206 @@ mapping_assertion_review_digest = "sha256:2f554eed05fb3b815ccac4b644795135259e6c
 mapping_assertion_source_digests = { "crates/trust-runtime/tests/st_test_cli_command.rs" = "sha256:cea67f74a852421b48bceb7b9dc27a855068df59823979570bceca4578c99551" }
 mapping_behavior_refs = ["DEV_TEST_EXECUTION_001#behavior:3"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_2D17DC9BA441E47099C3"
+subject_kind = "generated_test"
+discovery_id = "DISC_2D17DC9BA441E47099C3"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/expr_calls.rs"
+name = "function_in_out_with_conversion_expression_regression_issue_13"
+command = "cargo nextest run -p trust-runtime --test expr_calls --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::expr_calls) & test(=function_in_out_with_conversion_expression_regression_issue_13)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_SEAM_ENC_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001"]
+expected_result = "The reviewed explicit : VOID function form rejects bytecode-module construction with the cause-identifying unsupported generic type diagnostic before its VAR_IN_OUT body can execute."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_2D17DC9BA441E47099C3.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_2D17DC9BA441E47099C3_8CEE2AE38877"
+mapping_proposal_digest = "sha256:8cee2ae38877f2066ff0f3f14b20f9fa80d6d1fa2c0840e89e9c232778f3ee1c"
+mapping_decision_id = "MAP_DEC_4B7A7F18B5E3CC6CEAB317A8"
+mapping_reviewed_source_digest = "sha256:7fad496741ac4c92ee36275418ace98afdec229682dec90c32f9211ecbe67a32"
+mapping_assertion_review_digest = "sha256:019277381bad4b85f0ce41f99db298d5bb6cfda1e55281407dc59cd4d11decd0"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/expr_calls.rs" = "sha256:7fad496741ac4c92ee36275418ace98afdec229682dec90c32f9211ecbe67a32" }
+mapping_behavior_refs = ["VM_SEAM_ENC_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_3FEF14488929BE4E886D"
+subject_kind = "generated_test"
+discovery_id = "DISC_3FEF14488929BE4E886D"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-runtime/tests/expr_calls.rs"
+name = "function_call_output_positional"
+command = "cargo nextest run -p trust-runtime --test expr_calls --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::expr_calls) & test(=function_call_output_positional)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_CALL_BINDING_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001#3-1-shared-call-syntax"
+oracle_refs = ["SPEC_IEC_STATEMENTS_001#3-1-shared-call-syntax"]
+expected_result = "A complete non-formal list binds an output parameter positionally in declaration order."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_3FEF14488929BE4E886D.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_3FEF14488929BE4E886D_412B69A1F5EC"
+mapping_proposal_digest = "sha256:412b69a1f5ec23f580b87f228c86957540ab4def79e7dcfaf4c0d3cb2c7bbb29"
+mapping_decision_id = "MAP_DEC_07B17E20CFDA624790CD6863"
+mapping_reviewed_source_digest = "sha256:7fad496741ac4c92ee36275418ace98afdec229682dec90c32f9211ecbe67a32"
+mapping_assertion_review_digest = "sha256:691044905f2d418038c13005f3397c02cc21e6ae0a156648e85d9ea9328af41d"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/expr_calls.rs" = "sha256:7fad496741ac4c92ee36275418ace98afdec229682dec90c32f9211ecbe67a32" }
+mapping_behavior_refs = ["IEC_HIR_CALL_BINDING_001#behavior:12"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_4670B9A0570719575EB2"
+subject_kind = "generated_test"
+discovery_id = "DISC_4670B9A0570719575EB2"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/expr_calls.rs"
+name = "function_call_named_args"
+command = "cargo nextest run -p trust-runtime --test expr_calls --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::expr_calls) & test(=function_call_named_args)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_CALL_BINDING_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#vm-call-binding-and-copy-back"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001#vm-call-binding-and-copy-back"]
+expected_result = "Positional and named arguments bind to declaration order, including fixed and variadic standard functions, without reordering the declared parameter model."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_4670B9A0570719575EB2.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_4670B9A0570719575EB2_C71A12A49CE1"
+mapping_proposal_digest = "sha256:c71a12a49ce1d030e03b5b705a4d70d344419011fa1a5cc5e547bb4d3c7d2ce9"
+mapping_decision_id = "MAP_DEC_24AC311C22E96D4B5A28BE16"
+mapping_reviewed_source_digest = "sha256:7fad496741ac4c92ee36275418ace98afdec229682dec90c32f9211ecbe67a32"
+mapping_assertion_review_digest = "sha256:eb832e70cc8bb674ff386e76547691f0ba853424d66a11e6df6cc20cae7f43ba"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/expr_calls.rs" = "sha256:7fad496741ac4c92ee36275418ace98afdec229682dec90c32f9211ecbe67a32" }
+mapping_behavior_refs = ["VM_CALL_BINDING_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_9754A8A2443EE9A1BED9"
+subject_kind = "generated_test"
+discovery_id = "DISC_9754A8A2443EE9A1BED9"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/expr_calls.rs"
+name = "function_in_out_without_conversion_expression_baseline"
+command = "cargo nextest run -p trust-runtime --test expr_calls --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::expr_calls) & test(=function_in_out_without_conversion_expression_baseline)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_SEAM_ENC_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001"]
+expected_result = "The reviewed explicit : VOID function form rejects bytecode-module construction with the cause-identifying unsupported generic type diagnostic before its VAR_IN_OUT body can execute."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_9754A8A2443EE9A1BED9.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_9754A8A2443EE9A1BED9_350BA3CFDCF4"
+mapping_proposal_digest = "sha256:350ba3cfdcf4a5d8a549e0948f7a4e1e02ff2739ed23fda4880733d3404d4031"
+mapping_decision_id = "MAP_DEC_63960C1187D57A8895BD7440"
+mapping_reviewed_source_digest = "sha256:7fad496741ac4c92ee36275418ace98afdec229682dec90c32f9211ecbe67a32"
+mapping_assertion_review_digest = "sha256:88ecbd182f27c97a2b792a7fd9d2c7db069a7fb6cbaae7192f0e3f8d65c3b0b2"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/expr_calls.rs" = "sha256:7fad496741ac4c92ee36275418ace98afdec229682dec90c32f9211ecbe67a32" }
+mapping_behavior_refs = ["VM_SEAM_ENC_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_C61007734167A2A4CE7E"
+subject_kind = "generated_test"
+discovery_id = "DISC_C61007734167A2A4CE7E"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-runtime/tests/expr_calls.rs"
+name = "function_block_call"
+command = "cargo nextest run -p trust-runtime --test expr_calls --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::expr_calls) & test(=function_block_call)'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_CALL_BINDING_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001#3-1-shared-call-syntax"
+oracle_refs = ["SPEC_IEC_STATEMENTS_001#3-1-shared-call-syntax"]
+expected_result = "A resolved function-block instance accepts a direction-correct formal parameter list."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_C61007734167A2A4CE7E.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_C61007734167A2A4CE7E_4BAF967CB7AF"
+mapping_proposal_digest = "sha256:4baf967cb7afa79d4a6b26c8b2bff66a1359b542be25e07e4494021ccedf3214"
+mapping_decision_id = "MAP_DEC_C7381B8F8BEFB9A925CDAD33"
+mapping_reviewed_source_digest = "sha256:7fad496741ac4c92ee36275418ace98afdec229682dec90c32f9211ecbe67a32"
+mapping_assertion_review_digest = "sha256:6c295e880e9981e148c4bb06936ca232fce13f70395df46d709ef65c5fecde55"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/expr_calls.rs" = "sha256:7fad496741ac4c92ee36275418ace98afdec229682dec90c32f9211ecbe67a32" }
+mapping_behavior_refs = ["IEC_HIR_CALL_BINDING_001#behavior:14"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_D125E8A7C82805AEE276"
+subject_kind = "generated_test"
+discovery_id = "DISC_D125E8A7C82805AEE276"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "bytecode_vm"
+path = "crates/trust-runtime/tests/expr_calls.rs"
+name = "function_call_expr"
+command = "cargo nextest run -p trust-runtime --test expr_calls --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::expr_calls) & test(=function_call_expr)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["VM_CALL_BINDING_001"]
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#vm-call-binding-and-copy-back"
+oracle_refs = ["SPEC_BYTECODE_FORMAT_001#vm-call-binding-and-copy-back"]
+expected_result = "Positional and named arguments bind to declaration order, including fixed and variadic standard functions, without reordering the declared parameter model."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_D125E8A7C82805AEE276.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_D125E8A7C82805AEE276_6D44C01F0E7B"
+mapping_proposal_digest = "sha256:6d44c01f0e7bfc4999c194fdcf4dd4142a5edfd6246cf6a61c2d9795d570ff18"
+mapping_decision_id = "MAP_DEC_641D5860F2C08102B78E841D"
+mapping_reviewed_source_digest = "sha256:7fad496741ac4c92ee36275418ace98afdec229682dec90c32f9211ecbe67a32"
+mapping_assertion_review_digest = "sha256:856aa9ea79176c0ddd00f14096e0d2da7a41e27dc8c1b48dd402df5168ac6963"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/expr_calls.rs" = "sha256:7fad496741ac4c92ee36275418ace98afdec229682dec90c32f9211ecbe67a32" }
+mapping_behavior_refs = ["VM_CALL_BINDING_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
