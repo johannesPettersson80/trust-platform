@@ -1221,6 +1221,10 @@ If preparation fails, the request returns an error and leaves the prior
 executable module, task schedule, variable storage, process image and bindings,
 debug mutations, logical time, cycle counter, and runtime fault/status state
 unchanged. The old program remains executable on the next scan.
+For the reviewed retained `INT(0..10)` value `100`, this rejection retains the
+cause-identifying diagnostic text `outside declared subrange 0..10`.
+The reviewed malformed byte sequence `[00, 01, 02, 03]` fails preparation as
+the typed `RuntimeError::Bytecode`; no stable message text is implied.
 
 After successful preparation, the commit replaces the executable and resource
 metadata as one cycle-boundary operation, restarts at the program entry point,

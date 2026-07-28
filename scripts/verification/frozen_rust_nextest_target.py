@@ -319,6 +319,7 @@ RUNTIME_REMAINING_INTEGRATION_PATHS = frozenset(
         "crates/trust-runtime/tests/fb_counters_full.rs",
         "crates/trust-runtime/tests/fb_edges.rs",
         "crates/trust-runtime/tests/fb_timers.rs",
+        "crates/trust-runtime/tests/hot_reload.rs",
         "crates/trust-runtime/tests/iec_counters.rs",
         "crates/trust-runtime/tests/iec_examples.rs",
         "crates/trust-runtime/tests/iec_timers.rs",

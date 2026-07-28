@@ -6,6 +6,29 @@ in `IEC_DECISIONS.md`; PLCopen profile decisions belong in
 `PLCOPEN_DECISIONS.md`. Product behavior recorded here MUST NOT be copied to an
 IEC or PLCopen deviation log merely because truST owns the behavior.
 
+## 2026-07-28 - Runtime hot-reload transaction boundary
+
+- Area: Runtime online change
+- Decision:
+  - A reload commits only after the in-flight scan completes. A successful warm
+    reload preserves reviewed retained values, warm-initializes non-retained
+    storage and instances, rebinds I/O, restarts at the new entry point, and
+    resets the scan counter.
+  - Preparation failure preserves the live runtime. For the reviewed retained
+    `INT(0..10)` value `100`, rejection retains the cause text
+    `outside declared subrange 0..10`; malformed bytes `[00, 01, 02, 03]`
+    return the typed `RuntimeError::Bytecode` failure.
+- Supersedes:
+  - Any interpretation that a reload may report success before the complete
+    cycle-boundary commit, or that these focused tests prove reload latency,
+    external I/O hardware, DAP state preservation, or every malformed module.
+- Authority:
+  - `docs/specs/11-runtime-engine.md`
+- Reason:
+  - Online change is a truST runtime transaction outside IEC 61131-3. Its
+    commit, restart, and failure identities belong here rather than in
+    `IEC_DEVIATIONS.md`.
+
 ## 2026-07-28 - Explicit VOID function bytecode rejection
 
 - Area: Source-to-bytecode lowering

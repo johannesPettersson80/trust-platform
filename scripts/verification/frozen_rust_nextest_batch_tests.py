@@ -569,6 +569,15 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
             st_test_cli.cargo_target_args,
         )
         self.assertEqual("", st_test_cli.test_prefix)
+        hot_reload = get_target_profile(
+            "runtime-remaining",
+            path="crates/trust-runtime/tests/hot_reload.rs",
+        )
+        self.assertEqual(
+            ("--test", "hot_reload"),
+            hot_reload.cargo_target_args,
+        )
+        self.assertEqual("", hot_reload.test_prefix)
         self.assertEqual(
             "trust-runtime::runtime_safety_fail_closed",
             safety.binary_id,

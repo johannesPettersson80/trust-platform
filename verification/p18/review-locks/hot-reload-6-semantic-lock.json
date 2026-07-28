@@ -1,0 +1,826 @@
+{
+  "id": "HOT_RELOAD_6_SEMANTIC_LOCK",
+  "schema_version": 1,
+  "tests": [
+    {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_DA35F7BFC83C68EA2C3E2F8E",
+          "behavior_label": "RETAIN_MIGRATION_REJECTION_PRESERVES_LIVE_RUNTIME",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (first_cycle . errors . is_empty () , \"initial cycle failed: {first_cycle:?}\")",
+          "function": "hot_reload_retain_migration_failure_preserves_live_runtime",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "macro:assert"
+        },
+        {
+          "assertion_id": "ASSERT_0EFDD57986AFB66DED032186",
+          "behavior_label": "RETAIN_MIGRATION_REJECTION_PRESERVES_LIVE_RUNTIME",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (program_numeric_output (& harness , \"P1\" , \"marker\") , 1)",
+          "function": "hot_reload_retain_migration_failure_preserves_live_runtime",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_625CAED2005DDF4B20E850CB",
+          "behavior_label": "RETAIN_MIGRATION_REJECTION_PRESERVES_LIVE_RUNTIME",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (harness . runtime () . cycle_counter () , 1)",
+          "function": "hot_reload_retain_migration_failure_preserves_live_runtime",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_C9C895ECDAAD585A38AB88BB",
+          "behavior_label": "RETAIN_MIGRATION_REJECTION_PRESERVES_LIVE_RUNTIME",
+          "disposition": "setup_or_precondition",
+          "expression": "bytecode_bytes_from_source (source_v2) . expect (\"build bytecode v2\")",
+          "function": "hot_reload_retain_migration_failure_preserves_live_runtime",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_C59349633E7221CB8D457BB5",
+          "behavior_label": "RETAIN_MIGRATION_REJECTION_PRESERVES_LIVE_RUNTIME",
+          "disposition": "oracle_bound",
+          "expression": "harness . runtime_mut () . apply_online_change_bytes (& bytes_v2 , None) . expect_err (\"invalid retained state must reject the online change\")",
+          "function": "hot_reload_retain_migration_failure_preserves_live_runtime",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect_err"
+        },
+        {
+          "assertion_id": "ASSERT_FFBBEB0E73C46FBC503F8C7C",
+          "behavior_label": "RETAIN_MIGRATION_REJECTION_PRESERVES_LIVE_RUNTIME",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (error . to_string () . contains (\"outside declared subrange 0..10\") , \"expected retained migration rejection, got {error}\")",
+          "function": "hot_reload_retain_migration_failure_preserves_live_runtime",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "macro:assert"
+        },
+        {
+          "assertion_id": "ASSERT_71E5047A08D10FD15889EC69",
+          "behavior_label": "RETAIN_MIGRATION_REJECTION_PRESERVES_LIVE_RUNTIME",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (program_numeric_output (& harness , \"P1\" , \"marker\") , 1)",
+          "function": "hot_reload_retain_migration_failure_preserves_live_runtime",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_4EB172F018AB80FC2763D170",
+          "behavior_label": "RETAIN_MIGRATION_REJECTION_PRESERVES_LIVE_RUNTIME",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (harness . runtime () . cycle_counter () , 1 , \"rejected reload must preserve the scan counter\")",
+          "function": "hot_reload_retain_migration_failure_preserves_live_runtime",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_B9EB3308EAA9867D461056DD",
+          "behavior_label": "RETAIN_MIGRATION_REJECTION_PRESERVES_LIVE_RUNTIME",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (next_cycle . errors . is_empty () , \"old runtime must remain executable: {next_cycle:?}\")",
+          "function": "hot_reload_retain_migration_failure_preserves_live_runtime",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "macro:assert"
+        },
+        {
+          "assertion_id": "ASSERT_CD7D224AD732FD90380E16E9",
+          "behavior_label": "RETAIN_MIGRATION_REJECTION_PRESERVES_LIVE_RUNTIME",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (program_numeric_output (& harness , \"P1\" , \"marker\") , 2)",
+          "function": "hot_reload_retain_migration_failure_preserves_live_runtime",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_96E199D09BC74D3224134FC8",
+          "behavior_label": "RETAIN_MIGRATION_REJECTION_PRESERVES_LIVE_RUNTIME",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (harness . runtime () . cycle_counter () , 2)",
+          "function": "hot_reload_retain_migration_failure_preserves_live_runtime",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_0D41661CCC2DDEB39E172615",
+          "behavior_label": "RETAIN_MIGRATION_REJECTION_PRESERVES_LIVE_RUNTIME",
+          "disposition": "setup_or_precondition",
+          "expression": "TestHarness :: from_source (source) . expect (\"compile harness\")",
+          "function": "vm_harness",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_874365149FFDDC80703CC78F",
+          "behavior_label": "RETAIN_MIGRATION_REJECTION_PRESERVES_LIVE_RUNTIME",
+          "disposition": "setup_or_precondition",
+          "expression": "bytecode_bytes_from_source (source) . expect (\"build bytecode\")",
+          "function": "vm_harness",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_5DBA4BABDA005CC827296C22",
+          "behavior_label": "RETAIN_MIGRATION_REJECTION_PRESERVES_LIVE_RUNTIME",
+          "disposition": "setup_or_precondition",
+          "expression": "harness . runtime_mut () . apply_bytecode_bytes (& bytes , None) . expect (\"apply bytecode\")",
+          "function": "vm_harness",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_C696B5E0091FD2648728D86C",
+          "behavior_label": "RETAIN_MIGRATION_REJECTION_PRESERVES_LIVE_RUNTIME",
+          "disposition": "setup_or_precondition",
+          "expression": "harness . runtime_mut () . set_execution_backend (ExecutionBackend :: BytecodeVm) . expect (\"select vm backend\")",
+          "function": "vm_harness",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_D100462FA338C7FC18186AB5",
+          "behavior_label": "RETAIN_MIGRATION_REJECTION_PRESERVES_LIVE_RUNTIME",
+          "disposition": "setup_or_precondition",
+          "expression": "harness . runtime_mut () . restart (trust_runtime :: RestartMode :: Cold) . expect (\"restart runtime\")",
+          "function": "vm_harness",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        }
+      ],
+      "exclusions": [
+        "The test covers one custom-store out-of-range INT and proves only executable and cycle-counter preservation.",
+        "The test does not prove process images, bindings, forces, logical time, status, tasks, or the durable-file codec.",
+        "No test in this batch proves DAP stReload, paused frames or breakpoints, source compilation, file watching, metadata publication, concurrency stress, or external interoperability."
+      ],
+      "name": "hot_reload_retain_migration_failure_preserves_live_runtime",
+      "path": "crates/trust-runtime/tests/hot_reload.rs"
+    },
+    {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_40A09EE56EB564AE0305D228",
+          "behavior_label": "SUCCESSFUL_IO_REBIND",
+          "disposition": "setup_or_precondition",
+          "expression": "session_v1 . build_runtime () . expect (\"build runtime\")",
+          "function": "hot_reload_rebinds_instance_backed_io_after_warm_restart",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_4CC073840094EE8C839AB12F",
+          "behavior_label": "SUCCESSFUL_IO_REBIND",
+          "disposition": "setup_or_precondition",
+          "expression": "session_v1 . build_bytecode_bytes () . expect (\"build bytecode v1\")",
+          "function": "hot_reload_rebinds_instance_backed_io_after_warm_restart",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_19C14C682C512D98C234DC3F",
+          "behavior_label": "SUCCESSFUL_IO_REBIND",
+          "disposition": "setup_or_precondition",
+          "expression": "session_v2 . build_bytecode_bytes () . expect (\"build bytecode v2\")",
+          "function": "hot_reload_rebinds_instance_backed_io_after_warm_restart",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_14A89AB015F59BC3F190640B",
+          "behavior_label": "SUCCESSFUL_IO_REBIND",
+          "disposition": "setup_or_precondition",
+          "expression": "runtime . apply_bytecode_bytes (& bytes_v1 , None) . expect (\"apply bytecode v1\")",
+          "function": "hot_reload_rebinds_instance_backed_io_after_warm_restart",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_08D67D34FA5B8C6CB7E9B11D",
+          "behavior_label": "SUCCESSFUL_IO_REBIND",
+          "disposition": "setup_or_precondition",
+          "expression": "runtime . set_execution_backend (ExecutionBackend :: BytecodeVm) . expect (\"select vm backend\")",
+          "function": "hot_reload_rebinds_instance_backed_io_after_warm_restart",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_17D66A33855D12863E211334",
+          "behavior_label": "SUCCESSFUL_IO_REBIND",
+          "disposition": "setup_or_precondition",
+          "expression": "runtime . restart (trust_runtime :: RestartMode :: Cold) . expect (\"restart runtime\")",
+          "function": "hot_reload_rebinds_instance_backed_io_after_warm_restart",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_13C741244B419A271452D909",
+          "behavior_label": "SUCCESSFUL_IO_REBIND",
+          "disposition": "setup_or_precondition",
+          "expression": "runtime . execute_cycle () . expect (\"execute initial cycle\")",
+          "function": "hot_reload_rebinds_instance_backed_io_after_warm_restart",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_C0743260EB26ABBB644CD24D",
+          "behavior_label": "SUCCESSFUL_IO_REBIND",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (before . outputs . len () , 1 , \"expected one output binding\")",
+          "function": "hot_reload_rebinds_instance_backed_io_after_warm_restart",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_3AF8449732D4A3FFFC1D4F9C",
+          "behavior_label": "SUCCESSFUL_IO_REBIND",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (before . outputs [0] . address . area , trust_runtime :: memory :: IoArea :: Output)",
+          "function": "hot_reload_rebinds_instance_backed_io_after_warm_restart",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_86EBA383A108A2A40B4C6254",
+          "behavior_label": "SUCCESSFUL_IO_REBIND",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (before . outputs [0] . address . byte , 0)",
+          "function": "hot_reload_rebinds_instance_backed_io_after_warm_restart",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_8798F73EA3FAC50FC6D25D49",
+          "behavior_label": "SUCCESSFUL_IO_REBIND",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (before . outputs [0] . address . bit , 0)",
+          "function": "hot_reload_rebinds_instance_backed_io_after_warm_restart",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_9B1A60980279553941869B73",
+          "behavior_label": "SUCCESSFUL_IO_REBIND",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (matches ! (before . outputs [0] . value , trust_runtime :: io :: IoSnapshotValue :: Value (Value :: Bool (false))))",
+          "function": "hot_reload_rebinds_instance_backed_io_after_warm_restart",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "macro:assert"
+        },
+        {
+          "assertion_id": "ASSERT_1ADDE8185D955818F0A66179",
+          "behavior_label": "SUCCESSFUL_IO_REBIND",
+          "disposition": "oracle_bound",
+          "expression": "runtime . apply_online_change_bytes (& bytes_v2 , None) . expect (\"apply online change\")",
+          "function": "hot_reload_rebinds_instance_backed_io_after_warm_restart",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_FDACF60866AF14B23F367251",
+          "behavior_label": "SUCCESSFUL_IO_REBIND",
+          "disposition": "oracle_bound",
+          "expression": "runtime . execute_cycle () . expect (\"execute post-reload cycle\")",
+          "function": "hot_reload_rebinds_instance_backed_io_after_warm_restart",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_A19BD4CE43DA586C148C82D0",
+          "behavior_label": "SUCCESSFUL_IO_REBIND",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (after . outputs . len () , 1 , \"expected one output binding after reload\")",
+          "function": "hot_reload_rebinds_instance_backed_io_after_warm_restart",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_56EA08AACBDD6A2112237B7D",
+          "behavior_label": "SUCCESSFUL_IO_REBIND",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (matches ! (after . outputs [0] . value , trust_runtime :: io :: IoSnapshotValue :: Value (Value :: Bool (true))))",
+          "function": "hot_reload_rebinds_instance_backed_io_after_warm_restart",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "macro:assert"
+        }
+      ],
+      "exclusions": [
+        "The test covers one BOOL output at %QX0.0, not inputs, multiple bindings, physical drivers, or external hardware.",
+        "The test does not independently reassert the post-reload address beyond the single-binding value evidence.",
+        "No test in this batch proves DAP stReload, paused frames or breakpoints, source compilation, file watching, metadata publication, concurrency stress, or external interoperability."
+      ],
+      "name": "hot_reload_rebinds_instance_backed_io_after_warm_restart",
+      "path": "crates/trust-runtime/tests/hot_reload.rs"
+    },
+    {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_1FD132444DC00518C1EBF19A",
+          "behavior_label": "INVALID_BYTECODE_TYPED_REJECTION",
+          "disposition": "setup_or_precondition",
+          "expression": "runner . spawn (\"hot-reload-invalid-bytecode\") . expect (\"spawn\")",
+          "function": "hot_reload_invalid_module_reports_deterministic_error",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_B1E996E1CD369537A7B07A2E",
+          "behavior_label": "INVALID_BYTECODE_TYPED_REJECTION",
+          "disposition": "setup_or_precondition",
+          "expression": "control . send_command (ResourceCommand :: ReloadBytecode { bytes : vec ! [0x00 , 0x01 , 0x02 , 0x03] , respond_to : tx , }) . expect (\"send reload command\")",
+          "function": "hot_reload_invalid_module_reports_deterministic_error",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_E30E4E8D88E7B4F5B5A0BA82",
+          "behavior_label": "INVALID_BYTECODE_TYPED_REJECTION",
+          "disposition": "setup_or_precondition",
+          "expression": "rx . recv_timeout (StdDuration :: from_secs (2)) . expect (\"reload response\")",
+          "function": "hot_reload_invalid_module_reports_deterministic_error",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_B7FDA156150519BA2E86D37E",
+          "behavior_label": "INVALID_BYTECODE_TYPED_REJECTION",
+          "disposition": "oracle_bound",
+          "expression": "result . expect_err (\"reload should fail\")",
+          "function": "hot_reload_invalid_module_reports_deterministic_error",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect_err"
+        },
+        {
+          "assertion_id": "ASSERT_D53D4FDC4594E8038AE6CF35",
+          "behavior_label": "INVALID_BYTECODE_TYPED_REJECTION",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (matches ! (err , RuntimeError :: Bytecode { .. }) , \"expected coded bytecode error, got {err:?}\")",
+          "function": "hot_reload_invalid_module_reports_deterministic_error",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "macro:assert"
+        },
+        {
+          "assertion_id": "ASSERT_9F7A6B0611C8428D46D0A436",
+          "behavior_label": "INVALID_BYTECODE_TYPED_REJECTION",
+          "disposition": "setup_or_precondition",
+          "expression": "handle . join () . expect (\"join resource thread\")",
+          "function": "hot_reload_invalid_module_reports_deterministic_error",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_DFAF9C1ABF626C08120A4F9E",
+          "behavior_label": "INVALID_BYTECODE_TYPED_REJECTION",
+          "disposition": "setup_or_precondition",
+          "expression": "TestHarness :: from_source (source) . expect (\"compile harness\")",
+          "function": "vm_harness",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_7AA3363867FD6644CCA6599B",
+          "behavior_label": "INVALID_BYTECODE_TYPED_REJECTION",
+          "disposition": "setup_or_precondition",
+          "expression": "bytecode_bytes_from_source (source) . expect (\"build bytecode\")",
+          "function": "vm_harness",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_20A30E90E932F3C6869B0CC6",
+          "behavior_label": "INVALID_BYTECODE_TYPED_REJECTION",
+          "disposition": "setup_or_precondition",
+          "expression": "harness . runtime_mut () . apply_bytecode_bytes (& bytes , None) . expect (\"apply bytecode\")",
+          "function": "vm_harness",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_D33459274B873A44AB7776C0",
+          "behavior_label": "INVALID_BYTECODE_TYPED_REJECTION",
+          "disposition": "setup_or_precondition",
+          "expression": "harness . runtime_mut () . set_execution_backend (ExecutionBackend :: BytecodeVm) . expect (\"select vm backend\")",
+          "function": "vm_harness",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_07B8E8892A3648CE5336B5F9",
+          "behavior_label": "INVALID_BYTECODE_TYPED_REJECTION",
+          "disposition": "setup_or_precondition",
+          "expression": "harness . runtime_mut () . restart (trust_runtime :: RestartMode :: Cold) . expect (\"restart runtime\")",
+          "function": "vm_harness",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        }
+      ],
+      "exclusions": [
+        "The test does not prove old-runtime preservation, a stable message, repeat determinism, validator completeness, or resource errors.",
+        "No test in this batch proves DAP stReload, paused frames or breakpoints, source compilation, file watching, metadata publication, concurrency stress, or external interoperability."
+      ],
+      "name": "hot_reload_invalid_module_reports_deterministic_error",
+      "path": "crates/trust-runtime/tests/hot_reload.rs"
+    },
+    {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_2BAC4ABE19657A51322A84D6",
+          "behavior_label": "COMPLETED_SCAN_BOUNDARY_COMMIT",
+          "disposition": "setup_or_precondition",
+          "expression": "session_v1 . build_runtime () . expect (\"build runtime\")",
+          "function": "hot_reload_cycle_boundary_contract_holds_for_vm_reload",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_1A0A58CC1651C9FDE7A2DAB5",
+          "behavior_label": "COMPLETED_SCAN_BOUNDARY_COMMIT",
+          "disposition": "setup_or_precondition",
+          "expression": "session_v1 . build_bytecode_bytes () . expect (\"build bytecode v1\")",
+          "function": "hot_reload_cycle_boundary_contract_holds_for_vm_reload",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_7D8AD7C25D661E296C5DCB34",
+          "behavior_label": "COMPLETED_SCAN_BOUNDARY_COMMIT",
+          "disposition": "setup_or_precondition",
+          "expression": "session_v2 . build_bytecode_bytes () . expect (\"build bytecode v2\")",
+          "function": "hot_reload_cycle_boundary_contract_holds_for_vm_reload",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_9F98D2A4393AD7CB7AA4136D",
+          "behavior_label": "COMPLETED_SCAN_BOUNDARY_COMMIT",
+          "disposition": "setup_or_precondition",
+          "expression": "runtime . apply_bytecode_bytes (& initial_bytes , None) . expect (\"apply bytecode v1\")",
+          "function": "hot_reload_cycle_boundary_contract_holds_for_vm_reload",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_B86EE5DE23BF76D092AB5ED1",
+          "behavior_label": "COMPLETED_SCAN_BOUNDARY_COMMIT",
+          "disposition": "setup_or_precondition",
+          "expression": "runtime . set_execution_backend (ExecutionBackend :: BytecodeVm) . expect (\"select vm backend\")",
+          "function": "hot_reload_cycle_boundary_contract_holds_for_vm_reload",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_E9F7A8DB71CEBEAABF286AD1",
+          "behavior_label": "COMPLETED_SCAN_BOUNDARY_COMMIT",
+          "disposition": "setup_or_precondition",
+          "expression": "runtime . restart (trust_runtime :: RestartMode :: Cold) . expect (\"restart runtime\")",
+          "function": "hot_reload_cycle_boundary_contract_holds_for_vm_reload",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_6CEC4F0BB6206FBD9E3BF656",
+          "behavior_label": "COMPLETED_SCAN_BOUNDARY_COMMIT",
+          "disposition": "setup_or_precondition",
+          "expression": "runner . spawn (\"hot-reload-cycle-boundary\") . expect (\"spawn\")",
+          "function": "hot_reload_cycle_boundary_contract_holds_for_vm_reload",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_7098508A74F24A8700AF3CF0",
+          "behavior_label": "COMPLETED_SCAN_BOUNDARY_COMMIT",
+          "disposition": "setup_or_precondition",
+          "expression": "read_entered_rx . recv_timeout (StdDuration :: from_secs (1)) . expect (\"runtime should enter the first blocking input read\")",
+          "function": "hot_reload_cycle_boundary_contract_holds_for_vm_reload",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_D73D6179EF1E94D48A25E24F",
+          "behavior_label": "COMPLETED_SCAN_BOUNDARY_COMMIT",
+          "disposition": "setup_or_precondition",
+          "expression": "control . send_command (ResourceCommand :: ReloadBytecode { bytes : updated_bytes , respond_to : tx , }) . expect (\"queue reload command\")",
+          "function": "hot_reload_cycle_boundary_contract_holds_for_vm_reload",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_2CAD803FBD1355B18C5C8804",
+          "behavior_label": "COMPLETED_SCAN_BOUNDARY_COMMIT",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (matches ! (early , Err (RecvTimeoutError :: Timeout)) , \"reload should not complete while cycle is in-flight\")",
+          "function": "hot_reload_cycle_boundary_contract_holds_for_vm_reload",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "macro:assert"
+        },
+        {
+          "assertion_id": "ASSERT_5A388C7498F82F38129F743E",
+          "behavior_label": "COMPLETED_SCAN_BOUNDARY_COMMIT",
+          "disposition": "setup_or_precondition",
+          "expression": "release_read_tx . send (()) . expect (\"release first blocking input read\")",
+          "function": "hot_reload_cycle_boundary_contract_holds_for_vm_reload",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_2A75CA2D571CF01E7D9BE9FE",
+          "behavior_label": "COMPLETED_SCAN_BOUNDARY_COMMIT",
+          "disposition": "setup_or_precondition",
+          "expression": "rx . recv_timeout (StdDuration :: from_secs (2)) . expect (\"reload response\")",
+          "function": "hot_reload_cycle_boundary_contract_holds_for_vm_reload",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_D80C3DCCB39EC014821DF903",
+          "behavior_label": "COMPLETED_SCAN_BOUNDARY_COMMIT",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (result . is_ok () , \"reload failed: {result:?}\")",
+          "function": "hot_reload_cycle_boundary_contract_holds_for_vm_reload",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "macro:assert"
+        },
+        {
+          "assertion_id": "ASSERT_AC225DA913E3C3E1725BFB6F",
+          "behavior_label": "COMPLETED_SCAN_BOUNDARY_COMMIT",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (queued_at . elapsed () >= StdDuration :: from_millis (40) , \"reload should complete only after cycle-boundary handoff\")",
+          "function": "hot_reload_cycle_boundary_contract_holds_for_vm_reload",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "macro:assert"
+        },
+        {
+          "assertion_id": "ASSERT_388AFAE3D783BD78CBA2F5E6",
+          "behavior_label": "COMPLETED_SCAN_BOUNDARY_COMMIT",
+          "disposition": "setup_or_precondition",
+          "expression": "handle . join () . expect (\"join resource thread\")",
+          "function": "hot_reload_cycle_boundary_contract_holds_for_vm_reload",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        }
+      ],
+      "exclusions": [
+        "The 40 ms delay is orchestration evidence, not a latency SLA.",
+        "The test does not prove that the changed +10 program body executes.",
+        "No test in this batch proves DAP stReload, paused frames or breakpoints, source compilation, file watching, metadata publication, concurrency stress, or external interoperability."
+      ],
+      "name": "hot_reload_cycle_boundary_contract_holds_for_vm_reload",
+      "path": "crates/trust-runtime/tests/hot_reload.rs"
+    },
+    {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_6D6AD47B0598D199D5061E46",
+          "behavior_label": "SUCCESSFUL_WARM_RELOAD_STORAGE_IMAGE",
+          "disposition": "oracle_bound",
+          "expression": "panic ! (\"missing output '{name}'\")",
+          "function": "assert_numeric_output",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "macro:panic"
+        },
+        {
+          "assertion_id": "ASSERT_A69BAD735458F6A87F2D84A0",
+          "behavior_label": "SUCCESSFUL_WARM_RELOAD_STORAGE_IMAGE",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (value , expected , \"unexpected value for '{name}'\")",
+          "function": "assert_numeric_output",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_57AF67FAE9D9B62187C10385",
+          "behavior_label": "SUCCESSFUL_WARM_RELOAD_STORAGE_IMAGE",
+          "disposition": "setup_or_precondition",
+          "expression": "panic ! (\"expected g_fb instance before reload, got {other:?}\")",
+          "function": "hot_reload_migrates_retain_and_resets_nonretain_and_instances",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "macro:panic"
+        },
+        {
+          "assertion_id": "ASSERT_680E2FB71C0EB1D183B438B9",
+          "behavior_label": "SUCCESSFUL_WARM_RELOAD_STORAGE_IMAGE",
+          "disposition": "setup_or_precondition",
+          "expression": "bytecode_bytes_from_source (source_v2) . expect (\"build bytecode v2\")",
+          "function": "hot_reload_migrates_retain_and_resets_nonretain_and_instances",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_7D07BAF40823683F1EF57BAC",
+          "behavior_label": "SUCCESSFUL_WARM_RELOAD_STORAGE_IMAGE",
+          "disposition": "oracle_bound",
+          "expression": "harness . runtime_mut () . apply_online_change_bytes (& bytes_v2 , None) . expect (\"apply online change\")",
+          "function": "hot_reload_migrates_retain_and_resets_nonretain_and_instances",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_70233D5D15AF26A9092B494B",
+          "behavior_label": "SUCCESSFUL_WARM_RELOAD_STORAGE_IMAGE",
+          "disposition": "oracle_bound",
+          "expression": "panic ! (\"expected g_fb instance after reload, got {other:?}\")",
+          "function": "hot_reload_migrates_retain_and_resets_nonretain_and_instances",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "macro:panic"
+        },
+        {
+          "assertion_id": "ASSERT_7F40780CBD84A701E1339455",
+          "behavior_label": "SUCCESSFUL_WARM_RELOAD_STORAGE_IMAGE",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (matches ! (count_after , Some (Value :: Int (0)) | Some (Value :: DInt (0)) | Some (Value :: LInt (0))) , \"expected recreated instance count to reset to 0, got {count_after:?}\")",
+          "function": "hot_reload_migrates_retain_and_resets_nonretain_and_instances",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "macro:assert"
+        },
+        {
+          "assertion_id": "ASSERT_8D3117B55B70B1264F376734",
+          "behavior_label": "SUCCESSFUL_WARM_RELOAD_STORAGE_IMAGE",
+          "disposition": "oracle_bound",
+          "expression": "panic ! (\"unexpected numeric type for '{name}': {other:?}\")",
+          "function": "numeric_output",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "macro:panic"
+        },
+        {
+          "assertion_id": "ASSERT_3E91B68084B04287B7EA1542",
+          "behavior_label": "SUCCESSFUL_WARM_RELOAD_STORAGE_IMAGE",
+          "disposition": "setup_or_precondition",
+          "expression": "TestHarness :: from_source (source) . expect (\"compile harness\")",
+          "function": "vm_harness",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_3840C0BC38B95BD4B5C01860",
+          "behavior_label": "SUCCESSFUL_WARM_RELOAD_STORAGE_IMAGE",
+          "disposition": "setup_or_precondition",
+          "expression": "bytecode_bytes_from_source (source) . expect (\"build bytecode\")",
+          "function": "vm_harness",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_E83FDD839C63C5C5D60EB015",
+          "behavior_label": "SUCCESSFUL_WARM_RELOAD_STORAGE_IMAGE",
+          "disposition": "setup_or_precondition",
+          "expression": "harness . runtime_mut () . apply_bytecode_bytes (& bytes , None) . expect (\"apply bytecode\")",
+          "function": "vm_harness",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_ADDEECECE78C3DE07C1C44B5",
+          "behavior_label": "SUCCESSFUL_WARM_RELOAD_STORAGE_IMAGE",
+          "disposition": "setup_or_precondition",
+          "expression": "harness . runtime_mut () . set_execution_backend (ExecutionBackend :: BytecodeVm) . expect (\"select vm backend\")",
+          "function": "vm_harness",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_6438F08DCBB2446478D2A6F5",
+          "behavior_label": "SUCCESSFUL_WARM_RELOAD_STORAGE_IMAGE",
+          "disposition": "setup_or_precondition",
+          "expression": "harness . runtime_mut () . restart (trust_runtime :: RestartMode :: Cold) . expect (\"restart runtime\")",
+          "function": "vm_harness",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        }
+      ],
+      "exclusions": [
+        "The test covers identical-schema reload only; it does not prove type or shape migration.",
+        "The test does not prove reload events, durable-file state, logical time, orphan cleanup, or structural migration.",
+        "No test in this batch proves DAP stReload, paused frames or breakpoints, source compilation, file watching, metadata publication, concurrency stress, or external interoperability."
+      ],
+      "name": "hot_reload_migrates_retain_and_resets_nonretain_and_instances",
+      "path": "crates/trust-runtime/tests/hot_reload.rs"
+    },
+    {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_DE39D90ECF794B32EA1D7C68",
+          "behavior_label": "ENTRYPOINT_AND_SCAN_COUNTER_RESTART",
+          "disposition": "oracle_bound",
+          "expression": "panic ! (\"missing output '{name}'\")",
+          "function": "assert_numeric_output",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "macro:panic"
+        },
+        {
+          "assertion_id": "ASSERT_C8488926885D1DBEA59B63D7",
+          "behavior_label": "ENTRYPOINT_AND_SCAN_COUNTER_RESTART",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (value , expected , \"unexpected value for '{name}'\")",
+          "function": "assert_numeric_output",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_A9A89D2FEF28361E72A39D8B",
+          "behavior_label": "ENTRYPOINT_AND_SCAN_COUNTER_RESTART",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (harness . runtime () . cycle_counter () , 3)",
+          "function": "hot_reload_changed_body_restarts_at_entrypoint_policy",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_73BC7D08944A86D66613F072",
+          "behavior_label": "ENTRYPOINT_AND_SCAN_COUNTER_RESTART",
+          "disposition": "setup_or_precondition",
+          "expression": "bytecode_bytes_from_source (source_v2) . expect (\"build bytecode v2\")",
+          "function": "hot_reload_changed_body_restarts_at_entrypoint_policy",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_47093AF60C9E02FF1CBCDE5F",
+          "behavior_label": "ENTRYPOINT_AND_SCAN_COUNTER_RESTART",
+          "disposition": "oracle_bound",
+          "expression": "harness . runtime_mut () . apply_online_change_bytes (& bytes_v2 , None) . expect (\"apply online change\")",
+          "function": "hot_reload_changed_body_restarts_at_entrypoint_policy",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_8B2426A66E797D1D1585BFF3",
+          "behavior_label": "ENTRYPOINT_AND_SCAN_COUNTER_RESTART",
+          "disposition": "oracle_bound",
+          "expression": "assert_eq ! (harness . runtime () . cycle_counter () , 0)",
+          "function": "hot_reload_changed_body_restarts_at_entrypoint_policy",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "macro:assert_eq"
+        },
+        {
+          "assertion_id": "ASSERT_F8440FCAC7D33C8E9CB3A284",
+          "behavior_label": "ENTRYPOINT_AND_SCAN_COUNTER_RESTART",
+          "disposition": "oracle_bound",
+          "expression": "assert ! (cycle . errors . is_empty () , \"unexpected errors after reload: {:?}\" , cycle . errors)",
+          "function": "hot_reload_changed_body_restarts_at_entrypoint_policy",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "macro:assert"
+        },
+        {
+          "assertion_id": "ASSERT_82468D144D401DE923B06AF4",
+          "behavior_label": "ENTRYPOINT_AND_SCAN_COUNTER_RESTART",
+          "disposition": "oracle_bound",
+          "expression": "panic ! (\"unexpected numeric type for '{name}': {other:?}\")",
+          "function": "numeric_output",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "macro:panic"
+        },
+        {
+          "assertion_id": "ASSERT_811A52580240E7CD065750A2",
+          "behavior_label": "ENTRYPOINT_AND_SCAN_COUNTER_RESTART",
+          "disposition": "setup_or_precondition",
+          "expression": "TestHarness :: from_source (source) . expect (\"compile harness\")",
+          "function": "vm_harness",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_047EBC126CDCBEB29BC949A5",
+          "behavior_label": "ENTRYPOINT_AND_SCAN_COUNTER_RESTART",
+          "disposition": "setup_or_precondition",
+          "expression": "bytecode_bytes_from_source (source) . expect (\"build bytecode\")",
+          "function": "vm_harness",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_FE19D95F631B3CFC674F9898",
+          "behavior_label": "ENTRYPOINT_AND_SCAN_COUNTER_RESTART",
+          "disposition": "setup_or_precondition",
+          "expression": "harness . runtime_mut () . apply_bytecode_bytes (& bytes , None) . expect (\"apply bytecode\")",
+          "function": "vm_harness",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_34DBADBCD4AEEFF43BC6A170",
+          "behavior_label": "ENTRYPOINT_AND_SCAN_COUNTER_RESTART",
+          "disposition": "setup_or_precondition",
+          "expression": "harness . runtime_mut () . set_execution_backend (ExecutionBackend :: BytecodeVm) . expect (\"select vm backend\")",
+          "function": "vm_harness",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        },
+        {
+          "assertion_id": "ASSERT_646807BF5F669EC97E93765A",
+          "behavior_label": "ENTRYPOINT_AND_SCAN_COUNTER_RESTART",
+          "disposition": "setup_or_precondition",
+          "expression": "harness . runtime_mut () . restart (trust_runtime :: RestartMode :: Cold) . expect (\"restart runtime\")",
+          "function": "vm_harness",
+          "invariant_id": "RT_RELOAD_001",
+          "kind": "method:expect"
+        }
+      ],
+      "exclusions": [
+        "The test covers one VM program and one non-retained scalar, not task schedules, retained state, I/O, debug mutation, or multiple resources.",
+        "No test in this batch proves DAP stReload, paused frames or breakpoints, source compilation, file watching, metadata publication, concurrency stress, or external interoperability."
+      ],
+      "name": "hot_reload_changed_body_restarts_at_entrypoint_policy",
+      "path": "crates/trust-runtime/tests/hot_reload.rs"
+    }
+  ]
+}
