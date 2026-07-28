@@ -1,0 +1,23 @@
+info: experimental features enabled: wrapper-scripts
+   Compiling serde_core v1.0.228
+   Compiling trust-runtime-core v0.24.59 (/home/johannes/projects/trust-platform-p18-ads-proof/crates/trust-runtime-core)
+   Compiling serde v1.0.228
+   Compiling serde_json v1.0.149
+   Compiling trust-ads-core v0.24.59 (/home/johannes/projects/trust-platform-p18-ads-proof/crates/trust-ads-core)
+   Compiling trust-ads-server v0.24.59 (/home/johannes/projects/trust-platform-p18-ads-proof/crates/trust-ads-server)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.69s
+────────────
+ Nextest run ID e1975249-4fa4-4201-ab99-0d6856a85c70 with nextest profile: default
+    Starting 10 tests across 1 binary (87 tests skipped)
+        PASS [   0.006s] ( 1/10) trust-ads-server commands::tests::malformed_command_payloads_fail_without_state_mutation
+        PASS [   0.006s] ( 2/10) trust-ads-server commands::tests::handle_by_name_enforces_handle_limit
+        PASS [   0.006s] ( 3/10) trust-ads-server commands::tests::aggregate_tests::sumup_write_returns_per_item_results
+        PASS [   0.007s] ( 4/10) trust-ads-server commands::tests::aggregate_tests::direct_write_enforces_write_byte_limit
+        PASS [   0.007s] ( 5/10) trust-ads-server commands::tests::aggregate_tests::sumup_write_rejects_truncated_later_item_before_any_write
+        PASS [   0.007s] ( 6/10) trust-ads-server commands::tests::aggregate_tests::sumup_readwrite_rejects_truncated_later_item_before_any_write
+        PASS [   0.008s] ( 7/10) trust-ads-server commands::tests::policy_rejection_precedes_write_and_records_audit
+        PASS [   0.009s] ( 8/10) trust-ads-server commands::tests::handle_by_name_wraps_without_aliasing_live_handles
+        PASS [   0.004s] ( 9/10) trust-ads-server commands::tests::write_rejects_readonly_symbol_without_runtime_mutation
+        PASS [   0.005s] (10/10) trust-ads-server commands::tests::write_enqueues_and_audits_writable_symbol
+────────────
+     Summary [   0.013s] 10 tests run: 10 passed, 87 skipped

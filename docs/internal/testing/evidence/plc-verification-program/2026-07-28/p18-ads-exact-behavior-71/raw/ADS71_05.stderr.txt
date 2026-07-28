@@ -1,0 +1,49 @@
+info: experimental features enabled: wrapper-scripts
+   Compiling trust-runtime v0.24.59 (/home/johannes/projects/trust-platform-p18-ads-proof/crates/trust-runtime)
+warning: function `promote_rejected_opcua_client_server_certificates` is never used
+   --> crates/trust-runtime/src/host/opcua/client.rs:132:4
+    |
+132 | fn promote_rejected_opcua_client_server_certificates() -> Result<usize, RuntimeError> {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `validate_opcua_result_cardinality` is never used
+   --> crates/trust-runtime/src/host/opcua/client.rs:451:4
+    |
+451 | fn validate_opcua_result_cardinality(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `value_from_opcua_variant` is never used
+   --> crates/trust-runtime/src/host/opcua/client.rs:749:4
+    |
+749 | fn value_from_opcua_variant(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `ensure_certificate_directory` is never used
+   --> crates/trust-runtime/src/host/opcua/client.rs:860:4
+    |
+860 | fn ensure_certificate_directory(root: &std::path::Path) -> Result<(), RuntimeError> {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: method `snapshot` is never used
+   --> crates/trust-runtime/src/runtime/io_subsystem.rs:130:19
+    |
+ 22 | impl IoSubsystem {
+    | ---------------- method in this implementation
+...
+130 |     pub(super) fn snapshot(&self) -> IoSnapshot {
+    |                   ^^^^^^^^
+
+warning: `trust-runtime` (lib) generated 5 warnings
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 34.84s
+────────────
+ Nextest run ID 5f17b31c-5e81-4788-9f76-2c9ac7a67297 with nextest profile: default
+    Starting 5 tests across 1 binary (12 tests skipped)
+        PASS [   0.017s] (1/5) trust-runtime::ads_cli_command ads_discover_cli_requires_ads_wire_feature_without_faking_results
+        PASS [   0.023s] (2/5) trust-runtime::ads_cli_command ads_validate_live_cli_requires_ads_wire_feature_without_reading_files
+        PASS [   0.024s] (3/5) trust-runtime::ads_cli_command ads_import_symbols_cli_requires_ads_wire_feature_without_faking_results
+        PASS [   0.029s] (4/5) trust-runtime::ads_cli_command ads_doctor_cli_requires_ads_wire_feature_without_faking_results
+        PASS [   0.031s] (5/5) trust-runtime::ads_cli_command ads_browse_cli_requires_ads_wire_feature_without_faking_results
+────────────
+     Summary [   0.032s] 5 tests run: 5 passed, 12 skipped

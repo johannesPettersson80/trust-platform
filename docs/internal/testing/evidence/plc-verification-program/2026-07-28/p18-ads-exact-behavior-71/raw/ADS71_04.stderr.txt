@@ -1,0 +1,44 @@
+info: experimental features enabled: wrapper-scripts
+   Compiling trust-runtime v0.24.59 (/home/johannes/projects/trust-platform-p18-ads-proof/crates/trust-runtime)
+warning: field `debug` is never read
+ --> crates/trust-runtime/src/host/eval/types.rs:8:9
+  |
+2 | pub(crate) struct EvalContext<'a> {
+  |                   ----------- field in this struct
+...
+8 |     pub debug: Option<&'a mut dyn crate::debug::DebugHook>,
+  |         ^^^^^
+  |
+  = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `value_from_opcua_variant` is never used
+   --> crates/trust-runtime/src/host/opcua/client.rs:749:4
+    |
+749 | fn value_from_opcua_variant(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: method `snapshot` is never used
+   --> crates/trust-runtime/src/runtime/io_subsystem.rs:130:19
+    |
+ 22 | impl IoSubsystem {
+    | ---------------- method in this implementation
+...
+130 |     pub(super) fn snapshot(&self) -> IoSnapshot {
+    |                   ^^^^^^^^
+
+warning: `trust-runtime` (lib test) generated 3 warnings
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 34.50s
+────────────
+ Nextest run ID 3ff5b7cd-9101-4156-b819-b93f294c6264 with nextest profile: default
+    Starting 9 tests across 1 binary (1032 tests skipped)
+        PASS [   0.010s] (1/9) trust-runtime ads::backend_ads_rs::tests::connect_rejects_invalid_local_identity_before_connector_or_state_cleanup
+        PASS [   0.010s] (2/9) trust-runtime ads::backend_ads_rs::tests::connect_rejects_auto_add_route_before_network
+        PASS [   0.018s] (3/9) trust-runtime ads::backend_ads_rs::tests::connect_accepts_canonical_authority_and_reaches_connector
+        PASS [   0.019s] (4/9) trust-runtime ads::backend_ads_rs::tests::subscribe_rejects_poll_mode_before_connection
+        PASS [   0.020s] (5/9) trust-runtime ads::backend_ads_rs::tests::connect_rejects_secure_transport_before_network
+        PASS [   0.020s] (6/9) trust-runtime ads::backend_ads_rs::tests::connect_rejects_invalid_target_or_zero_port_before_connector_or_state_cleanup
+        PASS [   0.020s] (7/9) trust-runtime ads::backend_ads_rs::tests::persistent_ads_symbol_sets_retain_guardrail_flag
+        PASS [   0.008s] (8/9) trust-runtime ads::backend_ads_rs::tests::unsupported_compound_symbol_is_not_a_bindable_descriptor
+        PASS [   0.022s] (9/9) trust-runtime ads::backend_ads_rs::tests::readonly_ads_symbol_does_not_get_write_flag
+────────────
+     Summary [   0.023s] 9 tests run: 9 passed, 1032 skipped

@@ -1040,6 +1040,32 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   recorded in
   `docs/internal/testing/evidence/plc-verification-program/2026-07-28-p18-stale-case-authority-refresh-54.md`.
   <!-- generated:stale-case-authority-refresh-54:end -->
+  <!-- generated:ads-exact-behavior-71:start -->
+
+  ADS exact-behavior coherent-campaign progress (2026-07-28): all 71 frozen
+  ADS behavior demands are now bound to 145 exact catalog tests across 24
+  source paths and 20 accepted invariants. Seventy demands reuse existing
+  reviewed tests through invariant-local exact-name assignments; the sole
+  genuine residue,
+  `RT_ADS_ONBOARDING_WIRE_SAFETY_001#behavior:4`, received a new failing
+  regression. Clean builder commit
+  `f86c117b5219e3a0409df1113c028ce3233f6ab2` failed by assertion because an
+  empty sum-up result manufactured a successful wire projection. Descendant
+  commit `1ed0f2c1b255c1608c92d2c54505c2a440a08eac` requires a complete
+  one-to-one result set before projecting any value and passes the unified
+  145/145-test campaign in six exact default, no-default, ads-wire-only,
+  ADS-server, and CLI shards. The new scanner identity is cataloged and
+  denominator-mapped, the user-visible fix is recorded for `0.24.59`, and the
+  frozen equations now report 4,394 live tests, 3,884 `catalog_mapped`, 510
+  owned `reviewed_nonmapping`, zero missing authority, and 196 confirmed
+  missing behavior tests. This is large-batch `P18-004`/`P18-005` progress
+  plus one honest `P18-006` red-green repair; none of those rows closes
+  globally. The repository metadata baseline, the remaining behavior domains,
+  bidirectional terminal-evidence validation, reachability, mutation
+  sensitivity, and final broad gates remain open. No broad workspace gate
+  ran. Focused evidence and raw shard results are recorded in
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-28-p18-ads-exact-behavior-71.md`.
+  <!-- generated:ads-exact-behavior-71:end -->
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device
