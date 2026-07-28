@@ -114332,3 +114332,138 @@ mapping_assertion_review_digest = "sha256:caca5b878d96a5fa813eef5b4b74a637fce40e
 mapping_assertion_source_digests = { "crates/trust-runtime/tests/e2e_multifile.rs" = "sha256:bb1db94f51f020672b4d83b6dd1d721024cd7aa50bae56dbc882a63c661fe183" }
 mapping_behavior_refs = ["RT_NAMESPACE_MULTIFILE_001#behavior:0"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_04E3AE8E579EE7353332"
+subject_kind = "generated_test"
+discovery_id = "DISC_04E3AE8E579EE7353332"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/platform_std.rs"
+name = "monotonic_time"
+command = "cargo nextest run -p trust-runtime --test platform_std --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::platform_std) & test(=monotonic_time)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_RUNTIME_CLOCK_BOUNDARY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#5-2-1-runtime-logical-time-and-non-pacing-tick"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#5-2-1-runtime-logical-time-and-non-pacing-tick"]
+expected_result = "Two reviewed StdClock samples never move backward; equality is permitted and no minimum progress or resolution is claimed."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_04E3AE8E579EE7353332.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_04E3AE8E579EE7353332_D6028F469833"
+mapping_proposal_digest = "sha256:d6028f469833d3bfd8d01ea05d40a14493dc85df30a292bb2d953e7bb9db3687"
+mapping_decision_id = "MAP_DEC_166AC956849B187300B5AE23"
+mapping_reviewed_source_digest = "sha256:07120e0efa78e224d4b3362ad69572f8c266a79fa24cedb8c203b3fa231e7feb"
+mapping_assertion_review_digest = "sha256:e55a8c3a60109df14ccb0fdede5aff57604655aea22e74b496484360c8a9a8c4"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/platform_std.rs" = "sha256:07120e0efa78e224d4b3362ad69572f8c266a79fa24cedb8c203b3fa231e7feb" }
+mapping_behavior_refs = ["RT_RUNTIME_CLOCK_BOUNDARY_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_27187199BD3E588FC6BB"
+subject_kind = "generated_test"
+discovery_id = "DISC_27187199BD3E588FC6BB"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/platform_std.rs"
+name = "sleep_not_in_tests"
+command = "cargo nextest run -p trust-runtime --test platform_std --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::platform_std) & test(=sleep_not_in_tests)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_RUNTIME_CLOCK_BOUNDARY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#5-2-1-runtime-logical-time-and-non-pacing-tick"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#5-2-1-runtime-logical-time-and-non-pacing-tick"]
+expected_result = "One direct ResourceRunner tick completes against a manual clock without invoking its sleep boundary."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_27187199BD3E588FC6BB.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_27187199BD3E588FC6BB_D1D60062ED43"
+mapping_proposal_digest = "sha256:d1d60062ed434cb1ca4af6df7ae2391d6fd23c77b6011463c5203ce8d5f2c99d"
+mapping_decision_id = "MAP_DEC_3799CA82BD7C703EF5BA488F"
+mapping_reviewed_source_digest = "sha256:07120e0efa78e224d4b3362ad69572f8c266a79fa24cedb8c203b3fa231e7feb"
+mapping_assertion_review_digest = "sha256:455ac8cc26fd7310dc1c44306927d7894bbbc6e7932be6197103fe43d1b679ad"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/platform_std.rs" = "sha256:07120e0efa78e224d4b3362ad69572f8c266a79fa24cedb8c203b3fa231e7feb" }
+mapping_behavior_refs = ["RT_RUNTIME_CLOCK_BOUNDARY_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_3D9BC624619267817197"
+subject_kind = "generated_test"
+discovery_id = "DISC_3D9BC624619267817197"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/platform_std.rs"
+name = "time_builtin_uses_runtime_clock"
+command = "cargo nextest run -p trust-runtime --test platform_std --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::platform_std) & test(=time_builtin_uses_runtime_clock)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_RUNTIME_CLOCK_BOUNDARY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#5-2-1-runtime-logical-time-and-non-pacing-tick"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#5-2-1-runtime-logical-time-and-non-pacing-tick"]
+expected_result = "After explicit harness time advancement, zero-argument TIME returns the same logical elapsed TIME value and the cycle reports no errors."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_3D9BC624619267817197.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_3D9BC624619267817197_209CB8E02208"
+mapping_proposal_digest = "sha256:209cb8e022087b55dd07305bdfa26d729836331e3ef19e585fec536356df2d4f"
+mapping_decision_id = "MAP_DEC_0D62522167606654A4671600"
+mapping_reviewed_source_digest = "sha256:07120e0efa78e224d4b3362ad69572f8c266a79fa24cedb8c203b3fa231e7feb"
+mapping_assertion_review_digest = "sha256:44cab31c3873dc1ef5ad7b025036a20119933686d6ba4e58d4df027ea484e188"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/platform_std.rs" = "sha256:07120e0efa78e224d4b3362ad69572f8c266a79fa24cedb8c203b3fa231e7feb" }
+mapping_behavior_refs = ["RT_RUNTIME_CLOCK_BOUNDARY_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_AC89BA6FAA7BC42ACCBC"
+subject_kind = "generated_test"
+discovery_id = "DISC_AC89BA6FAA7BC42ACCBC"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/platform_std.rs"
+name = "scheduler_ignores_wall_time_when_monotonic_clock_is_fixed"
+command = "cargo nextest run -p trust-runtime --test platform_std --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::platform_std) & test(=scheduler_ignores_wall_time_when_monotonic_clock_is_fixed)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_RUNTIME_CLOCK_BOUNDARY_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#5-2-1-runtime-logical-time-and-non-pacing-tick"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#5-2-1-runtime-logical-time-and-non-pacing-tick"]
+expected_result = "A fixed manual clock leaves the periodic program at zero; advancing it by the one-millisecond deadline makes exactly one activation ready."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_AC89BA6FAA7BC42ACCBC.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_AC89BA6FAA7BC42ACCBC_7EAA3EF0B175"
+mapping_proposal_digest = "sha256:7eaa3ef0b175efcc415db0a288d54f113bf83c88a8c2659f3cb96022f7efc4b0"
+mapping_decision_id = "MAP_DEC_B3213723892E35E5F6255225"
+mapping_reviewed_source_digest = "sha256:07120e0efa78e224d4b3362ad69572f8c266a79fa24cedb8c203b3fa231e7feb"
+mapping_assertion_review_digest = "sha256:b342c4d9f1bceacc66cf8e105de861b4ab82b3fd129bc5f16628487fa4578e6e"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/platform_std.rs" = "sha256:07120e0efa78e224d4b3362ad69572f8c266a79fa24cedb8c203b3fa231e7feb" }
+mapping_behavior_refs = ["RT_RUNTIME_CLOCK_BOUNDARY_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
