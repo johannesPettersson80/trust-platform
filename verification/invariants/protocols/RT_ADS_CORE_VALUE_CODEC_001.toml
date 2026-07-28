@@ -14,26 +14,11 @@ source_refs = [
   "crates/trust-ads-core/src/mapping.rs",
   "crates/trust-ads-core/src/symbols.rs",
 ]
-tests = []
+tests = ["TEST_AUTO_1D6E58EA1086E540DC5C", "TEST_AUTO_3737DBBECC6A1F11CE4B", "TEST_AUTO_480337BF8DA6C4EF9244", "TEST_AUTO_579B6529D2570159E0DD", "TEST_AUTO_96DA4A9A9A08F096DFD3", "TEST_AUTO_E9971665AB644E8D9A59"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = [
-  "cataloged_tests",
-  "focused_execution_evidence",
-  "assertion_reachability",
-  "mutation_sensitivity",
-  "broad_remote_gate",
-  "bool_false_and_noncanonical_bytes",
-  "unicode_invalid_unterminated_or_over_capacity_string",
-  "multidimensional_or_overflowing_array_shapes",
-  "array_element_type_failures",
-  "descriptor_size_overflow",
-  "complete_error_precedence",
-  "nonfinite_egress",
-  "external_ads_target",
-  "twincat_interoperability",
-]
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate", "bool_false_and_noncanonical_bytes", "unicode_invalid_unterminated_or_over_capacity_string", "multidimensional_or_overflowing_array_shapes", "array_element_type_failures", "descriptor_size_overflow", "complete_error_precedence", "nonfinite_egress", "external_ads_target", "twincat_interoperability"]
 
 [spec]
 status = "specified"
