@@ -885,7 +885,12 @@ The reviewed lowering partitions are:
   reviewed bytecode lowering, rejects bytecode-module construction; and
 - an executable array-initializer assignment, including one following an
   otherwise supported statement, rejects bytecode-module construction while
-  that expression remains unsupported by the encoder.
+  that expression remains unsupported by the encoder; and
+- a function declared with the reviewed explicit `: VOID` return type rejects
+  bytecode-module construction with a diagnostic containing
+  `unsupported generic type`. This failure occurs before the function body's
+  `VAR_IN_OUT` expressions execute and therefore proves no copy-back or
+  conversion behavior.
 
 During source lowering, an explicit empty label is the sole reviewed
 intentional no-action statement that may emit `NOP`. The presence of the

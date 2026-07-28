@@ -5,7 +5,7 @@ area = "bytecode_vm"
 risk = "silent_corruption"
 status = "implemented"
 owner = "trust-runtime"
-last_reviewed = "2026-07-17"
+last_reviewed = "2026-07-28"
 claim = "HIR-clean constructs that the bytecode encoder cannot lower must fail bytecode-module construction visibly rather than emitting NOP or returning partial bytecode."
 proof_level = "G1"
 contract_kind = "decision_table"
@@ -64,6 +64,15 @@ outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
 rationale = "An executable array-initializer assignment unsupported by the encoder rejects the complete module even after a supported assignment has already emitted bytes."
+
+[[behavior]]
+partition = { equals = "EXPLICIT_VOID_FUNCTION_RETURN_TYPE" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#source-to-bytecode-fail-closed-boundary"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "The reviewed explicit : VOID function form rejects bytecode-module construction with the cause-identifying unsupported generic type diagnostic before its VAR_IN_OUT body can execute."
 
 [[coverage.cells]]
 dimension = "happy_path"

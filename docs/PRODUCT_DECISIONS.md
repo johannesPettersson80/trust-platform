@@ -6,6 +6,24 @@ in `IEC_DECISIONS.md`; PLCopen profile decisions belong in
 `PLCOPEN_DECISIONS.md`. Product behavior recorded here MUST NOT be copied to an
 IEC or PLCopen deviation log merely because truST owns the behavior.
 
+## 2026-07-28 - Explicit VOID function bytecode rejection
+
+- Area: Source-to-bytecode lowering
+- Decision:
+  - A function declared with the reviewed explicit `: VOID` return type is
+    rejected during bytecode construction with a diagnostic containing
+    `unsupported generic type`; no partial module is returned.
+- Supersedes:
+  - Any interpretation that the two reviewed `expr_calls` regressions prove
+    `VAR_IN_OUT` conversion or copy-back behavior when lowering fails earlier
+    on the explicit return type.
+- Authority:
+  - `docs/specs/12-bytecode.md`
+- Reason:
+  - This is a fail-closed truST encoder boundary. IEC no-result function syntax
+    omits the colon and return type, so the reviewed explicit `: VOID` form is
+    not an IEC deviation and must not be recorded in `IEC_DEVIATIONS.md`.
+
 ## 2026-07-28 - Browser and WebAssembly analysis projection
 
 - Area: Browser-hosted Structured Text analysis
