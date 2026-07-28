@@ -1113,6 +1113,31 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   machine-readable artifacts are recorded in
   `docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-runtime-cloud-exact-behavior-23.md`.
   <!-- generated:runtime-cloud-exact-behavior-23:end -->
+  <!-- generated:protocol-exact-behavior-29:start -->
+
+  Protocol exact-behavior coherent-campaign progress (2026-07-29): all 29
+  frozen MQTT, OPC UA, and Modbus behavior demands are bound to 32 exact tests
+  and 35 assignment links across seven invariants. The accepted clean builder
+  campaign at `8f3139a0a424ba7e89fa95c868113daaa7883898` passes 32/32
+  tests in four exact `cargo nextest` groups. A focused Modbus reconnect
+  assertion first failed honestly with `attempts=1`; the corrected stimulus
+  crosses the worker's 100 ms backoff and proves the next connection attempt
+  without production changes. Three OPC UA wire tests are promoted only after
+  dynamic fixture reads were replaced by digest-bound `include_str!` inputs;
+  their accepted assertion inventories have zero unresolved helpers. The
+  atomic metadata transaction at
+  `0c129691cd22d830e537d5c1f2e25ad3396f98d7` promotes those three tests,
+  refreshes the Modbus mapping decision, and passes the complete focused suite
+  42/42 locally and on the exact clean builder checkout. The frozen equations
+  remain 4,399 live tests with zero authority debt, while mapped tests rise
+  from 3,918 to 3,921, reviewed nonmapping falls from 481 to 478, and confirmed
+  missing behavior tests fall from 67 to 38. Four helper annotations on
+  already-cataloged selected tests remain explicit `P18-007` debt. This is
+  large-batch `P18-003` through `P18-006` progress, not global row closure.
+  No broad workspace gate ran. Focused evidence and retained machine-readable
+  artifacts are recorded in
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-protocol-exact-behavior-29.md`.
+  <!-- generated:protocol-exact-behavior-29:end -->
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device

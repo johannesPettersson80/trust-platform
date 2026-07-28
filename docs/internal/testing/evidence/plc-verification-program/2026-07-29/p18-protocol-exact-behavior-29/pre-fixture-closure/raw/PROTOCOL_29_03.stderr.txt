@@ -1,0 +1,9 @@
+info: experimental features enabled: wrapper-scripts
+   Compiling trust-runtime v0.24.59 (/home/johannes/projects/trust-platform-p18-runtime-cloud-23/crates/trust-runtime)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.93s
+────────────
+ Nextest run ID 514c3c8e-f22b-4cae-bec6-0ac2b2a4a6ce with nextest profile: default
+    Starting 1 test across 1 binary (1 test skipped)
+        PASS [   0.050s] (1/1) trust-runtime::opcua_client_runtime opcua_client_accepts_vs_code_global_var_names
+────────────
+     Summary [   0.051s] 1 test run: 1 passed, 1 skipped

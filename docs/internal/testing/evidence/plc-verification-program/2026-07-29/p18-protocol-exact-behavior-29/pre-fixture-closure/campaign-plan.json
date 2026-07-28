@@ -1,0 +1,293 @@
+{
+  "basis": "p18_protocol_exact_behavior_assignment_29",
+  "behavior_count": 29,
+  "group_count": 4,
+  "groups": [
+    {
+      "binary_id": "trust-runtime",
+      "command": [
+        "cargo",
+        "nextest",
+        "run",
+        "-p",
+        "trust-runtime",
+        "--lib",
+        "--no-fail-fast",
+        "--message-format",
+        "libtest-json-plus",
+        "--message-format-version",
+        "0.1",
+        "--user-config-file",
+        "none",
+        "-E",
+        "(binary_id(=trust-runtime) & test(=io::modbus::point_map::tests::mapped_f32_process_image_encoding_rejects_narrowing_overflow)) | (binary_id(=trust-runtime) & test(=io::modbus::point_map::tests::mapped_f32_wire_encoding_rejects_narrowing_overflow)) | (binary_id(=trust-runtime) & test(=io::modbus::worker::tests::input_deadline_follows_error_policy_without_fault_copy)) | (binary_id(=trust-runtime) & test(=io::modbus::worker::tests::output_deadline_follows_error_policy_without_cancelling_handoff)) | (binary_id(=trust-runtime) & test(=io::mqtt::tests::mqtt_default_fault_rejects_output_handoff_timeout)) | (binary_id(=trust-runtime) & test(=io::mqtt::tests::mqtt_default_fault_rejects_stale_snapshot_when_refresh_times_out)) | (binary_id(=trust-runtime) & test(=io::mqtt::tests::mqtt_policy_preserves_sparkplug_output_preflight_failure)) | (binary_id(=trust-runtime) & test(=io::mqtt::tests::mqtt_policy_preserves_typed_output_preflight_failure)) | (binary_id(=trust-runtime) & test(=io::mqtt::tests::mqtt_raw_read_uses_newest_payload_from_drained_batch)) | (binary_id(=trust-runtime) & test(=io::mqtt::tests::mqtt_stale_snapshot_is_returned_without_fresh_payload)) | (binary_id(=trust-runtime) & test(=opcua::tests::client_contracts::client_config_rejects_ambiguous_identity_auth_and_access)) | (binary_id(=trust-runtime) & test(=opcua::tests::client_contracts::client_pki_operations_do_not_follow_symbolic_links)) | (binary_id(=trust-runtime) & test(=opcua::tests::client_contracts::client_pki_promotion_target_link_is_rejected)) | (binary_id(=trust-runtime) & test(=opcua::tests::client_contracts::client_pki_root_links_are_not_traversed)) | (binary_id(=trust-runtime) & test(=opcua::tests::client_contracts::one_shot_service_vectors_require_exact_cardinality)) | (binary_id(=trust-runtime) & test(=opcua::tests::persistent_worker_applies_subscription_updates_without_reconnecting_per_scan)) | (binary_id(=trust-runtime) & test(=opcua::tests::worker_integrity::current_session_samples_require_exact_configured_identity)) | (binary_id(=trust-runtime) & test(=opcua::tests::worker_integrity::non_finite_outputs_cancel_pending_and_allow_later_finite_value)) | (binary_id(=trust-runtime) & test(=opcua::tests::worker_integrity::older_active_session_sample_cannot_replace_newer_value)) | (binary_id(=trust-runtime) & test(=opcua::tests::worker_integrity::older_session_callbacks_cannot_regress_reconnected_worker)) | (binary_id(=trust-runtime) & test(=opcua::tests::worker_integrity::wire_write_status_cardinality_must_match_request)) | (binary_id(=trust-runtime) & test(=opcua::tests::worker_integrity::worker_shutdown_interrupts_idle_wait_and_revokes_good_authority)) | (binary_id(=trust-runtime) & test(=opcua::tests::worker_integrity::write_completion_preserves_newer_pending_generation))"
+      ],
+      "encoded_test_name_prefix": "trust-runtime::trust_runtime$",
+      "exact_terms": [
+        "(binary_id(=trust-runtime) & test(=io::modbus::point_map::tests::mapped_f32_process_image_encoding_rejects_narrowing_overflow))",
+        "(binary_id(=trust-runtime) & test(=io::modbus::point_map::tests::mapped_f32_wire_encoding_rejects_narrowing_overflow))",
+        "(binary_id(=trust-runtime) & test(=io::modbus::worker::tests::input_deadline_follows_error_policy_without_fault_copy))",
+        "(binary_id(=trust-runtime) & test(=io::modbus::worker::tests::output_deadline_follows_error_policy_without_cancelling_handoff))",
+        "(binary_id(=trust-runtime) & test(=io::mqtt::tests::mqtt_default_fault_rejects_output_handoff_timeout))",
+        "(binary_id(=trust-runtime) & test(=io::mqtt::tests::mqtt_default_fault_rejects_stale_snapshot_when_refresh_times_out))",
+        "(binary_id(=trust-runtime) & test(=io::mqtt::tests::mqtt_policy_preserves_sparkplug_output_preflight_failure))",
+        "(binary_id(=trust-runtime) & test(=io::mqtt::tests::mqtt_policy_preserves_typed_output_preflight_failure))",
+        "(binary_id(=trust-runtime) & test(=io::mqtt::tests::mqtt_raw_read_uses_newest_payload_from_drained_batch))",
+        "(binary_id(=trust-runtime) & test(=io::mqtt::tests::mqtt_stale_snapshot_is_returned_without_fresh_payload))",
+        "(binary_id(=trust-runtime) & test(=opcua::tests::client_contracts::client_config_rejects_ambiguous_identity_auth_and_access))",
+        "(binary_id(=trust-runtime) & test(=opcua::tests::client_contracts::client_pki_operations_do_not_follow_symbolic_links))",
+        "(binary_id(=trust-runtime) & test(=opcua::tests::client_contracts::client_pki_promotion_target_link_is_rejected))",
+        "(binary_id(=trust-runtime) & test(=opcua::tests::client_contracts::client_pki_root_links_are_not_traversed))",
+        "(binary_id(=trust-runtime) & test(=opcua::tests::client_contracts::one_shot_service_vectors_require_exact_cardinality))",
+        "(binary_id(=trust-runtime) & test(=opcua::tests::persistent_worker_applies_subscription_updates_without_reconnecting_per_scan))",
+        "(binary_id(=trust-runtime) & test(=opcua::tests::worker_integrity::current_session_samples_require_exact_configured_identity))",
+        "(binary_id(=trust-runtime) & test(=opcua::tests::worker_integrity::non_finite_outputs_cancel_pending_and_allow_later_finite_value))",
+        "(binary_id(=trust-runtime) & test(=opcua::tests::worker_integrity::older_active_session_sample_cannot_replace_newer_value))",
+        "(binary_id(=trust-runtime) & test(=opcua::tests::worker_integrity::older_session_callbacks_cannot_regress_reconnected_worker))",
+        "(binary_id(=trust-runtime) & test(=opcua::tests::worker_integrity::wire_write_status_cardinality_must_match_request))",
+        "(binary_id(=trust-runtime) & test(=opcua::tests::worker_integrity::worker_shutdown_interrupts_idle_wait_and_revokes_good_authority))",
+        "(binary_id(=trust-runtime) & test(=opcua::tests::worker_integrity::write_completion_preserves_newer_pending_generation))"
+      ],
+      "full_names": [
+        "io::modbus::point_map::tests::mapped_f32_process_image_encoding_rejects_narrowing_overflow",
+        "io::modbus::point_map::tests::mapped_f32_wire_encoding_rejects_narrowing_overflow",
+        "io::modbus::worker::tests::input_deadline_follows_error_policy_without_fault_copy",
+        "io::modbus::worker::tests::output_deadline_follows_error_policy_without_cancelling_handoff",
+        "io::mqtt::tests::mqtt_default_fault_rejects_output_handoff_timeout",
+        "io::mqtt::tests::mqtt_default_fault_rejects_stale_snapshot_when_refresh_times_out",
+        "io::mqtt::tests::mqtt_policy_preserves_sparkplug_output_preflight_failure",
+        "io::mqtt::tests::mqtt_policy_preserves_typed_output_preflight_failure",
+        "io::mqtt::tests::mqtt_raw_read_uses_newest_payload_from_drained_batch",
+        "io::mqtt::tests::mqtt_stale_snapshot_is_returned_without_fresh_payload",
+        "opcua::tests::client_contracts::client_config_rejects_ambiguous_identity_auth_and_access",
+        "opcua::tests::client_contracts::client_pki_operations_do_not_follow_symbolic_links",
+        "opcua::tests::client_contracts::client_pki_promotion_target_link_is_rejected",
+        "opcua::tests::client_contracts::client_pki_root_links_are_not_traversed",
+        "opcua::tests::client_contracts::one_shot_service_vectors_require_exact_cardinality",
+        "opcua::tests::persistent_worker_applies_subscription_updates_without_reconnecting_per_scan",
+        "opcua::tests::worker_integrity::current_session_samples_require_exact_configured_identity",
+        "opcua::tests::worker_integrity::non_finite_outputs_cancel_pending_and_allow_later_finite_value",
+        "opcua::tests::worker_integrity::older_active_session_sample_cannot_replace_newer_value",
+        "opcua::tests::worker_integrity::older_session_callbacks_cannot_regress_reconnected_worker",
+        "opcua::tests::worker_integrity::wire_write_status_cardinality_must_match_request",
+        "opcua::tests::worker_integrity::worker_shutdown_interrupts_idle_wait_and_revokes_good_authority",
+        "opcua::tests::worker_integrity::write_completion_preserves_newer_pending_generation"
+      ],
+      "id": "PROTOCOL_29_01",
+      "package": "trust-runtime",
+      "paths": [
+        "crates/trust-runtime/src/host/opcua/tests.rs",
+        "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs",
+        "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs",
+        "crates/trust-runtime/src/io/modbus/point_map.rs",
+        "crates/trust-runtime/src/io/modbus/worker.rs",
+        "crates/trust-runtime/src/io/mqtt/tests.rs"
+      ],
+      "target_kind": "lib",
+      "target_name": null,
+      "test_count": 23,
+      "test_ids": [
+        "TEST_MODBUS_DECLARED_F32_FINITE_MAPPED_F32_PROCESS_IMAGE_ENCODING_REJECTS_NARROWING_OVERFLOW_001",
+        "TEST_MODBUS_DECLARED_F32_FINITE_MAPPED_F32_WIRE_ENCODING_REJECTS_NARROWING_OVERFLOW_001",
+        "TEST_MODBUS_WORKER_DEADLINE_POLICY_INPUT_DEADLINE_FOLLOWS_ERROR_POLICY_WITHOUT_FAULT_COPY_001",
+        "TEST_MODBUS_WORKER_DEADLINE_POLICY_OUTPUT_DEADLINE_FOLLOWS_ERROR_POLICY_WITHOUT_CANCELLING_HANDOFF_001",
+        "TEST_MQTT_DEFAULT_FAULT_LATEST_VALUE_MQTT_DEFAULT_FAULT_REJECTS_OUTPUT_HANDOFF_TIMEOUT_001",
+        "TEST_MQTT_DEFAULT_FAULT_LATEST_VALUE_MQTT_DEFAULT_FAULT_REJECTS_STALE_SNAPSHOT_WHEN_REFRESH_TIMES_OUT_001",
+        "TEST_MQTT_DEFAULT_FAULT_LATEST_VALUE_MQTT_POLICY_PRESERVES_SPARKPLUG_OUTPUT_PREFLIGHT_FAILURE_001",
+        "TEST_MQTT_DEFAULT_FAULT_LATEST_VALUE_MQTT_POLICY_PRESERVES_TYPED_OUTPUT_PREFLIGHT_FAILURE_001",
+        "TEST_MQTT_DEFAULT_FAULT_LATEST_VALUE_MQTT_RAW_READ_USES_NEWEST_PAYLOAD_FROM_DRAINED_BATCH_001",
+        "TEST_MQTT_DEFAULT_FAULT_LATEST_VALUE_MQTT_STALE_SNAPSHOT_IS_RETURNED_WITHOUT_FRESH_PAYLOAD_001",
+        "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_CONFIG_REJECTS_AMBIGUOUS_IDENTITY_AUTH_AND_ACCESS_001",
+        "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_OPERATIONS_DO_NOT_FOLLOW_SYMBOLIC_LINKS_001",
+        "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_PROMOTION_TARGET_LINK_IS_REJECTED_001",
+        "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_ROOT_LINKS_ARE_NOT_TRAVERSED_001",
+        "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_ONE_SHOT_SERVICE_VECTORS_REQUIRE_EXACT_CARDINALITY_001",
+        "TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_PERSISTENT_WORKER_APPLIES_SUBSCRIPTION_UPDATES_WITHOUT_RECONNECTING_PER_SCAN_001",
+        "TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_CURRENT_SESSION_SAMPLES_REQUIRE_EXACT_CONFIGURED_IDENTITY_001",
+        "TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_NON_FINITE_OUTPUTS_CANCEL_PENDING_AND_ALLOW_LATER_FINITE_VALUE_001",
+        "TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_OLDER_ACTIVE_SESSION_SAMPLE_CANNOT_REPLACE_NEWER_VALUE_001",
+        "TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_OLDER_SESSION_CALLBACKS_CANNOT_REGRESS_RECONNECTED_WORKER_001",
+        "TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_WIRE_WRITE_STATUS_CARDINALITY_MUST_MATCH_REQUEST_001",
+        "TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_WORKER_SHUTDOWN_INTERRUPTS_IDLE_WAIT_AND_REVOKES_GOOD_AUTHORITY_001",
+        "TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_WRITE_COMPLETION_PRESERVES_NEWER_PENDING_GENERATION_001"
+      ],
+      "tests_by_full_name": {
+        "io::modbus::point_map::tests::mapped_f32_process_image_encoding_rejects_narrowing_overflow": "TEST_MODBUS_DECLARED_F32_FINITE_MAPPED_F32_PROCESS_IMAGE_ENCODING_REJECTS_NARROWING_OVERFLOW_001",
+        "io::modbus::point_map::tests::mapped_f32_wire_encoding_rejects_narrowing_overflow": "TEST_MODBUS_DECLARED_F32_FINITE_MAPPED_F32_WIRE_ENCODING_REJECTS_NARROWING_OVERFLOW_001",
+        "io::modbus::worker::tests::input_deadline_follows_error_policy_without_fault_copy": "TEST_MODBUS_WORKER_DEADLINE_POLICY_INPUT_DEADLINE_FOLLOWS_ERROR_POLICY_WITHOUT_FAULT_COPY_001",
+        "io::modbus::worker::tests::output_deadline_follows_error_policy_without_cancelling_handoff": "TEST_MODBUS_WORKER_DEADLINE_POLICY_OUTPUT_DEADLINE_FOLLOWS_ERROR_POLICY_WITHOUT_CANCELLING_HANDOFF_001",
+        "io::mqtt::tests::mqtt_default_fault_rejects_output_handoff_timeout": "TEST_MQTT_DEFAULT_FAULT_LATEST_VALUE_MQTT_DEFAULT_FAULT_REJECTS_OUTPUT_HANDOFF_TIMEOUT_001",
+        "io::mqtt::tests::mqtt_default_fault_rejects_stale_snapshot_when_refresh_times_out": "TEST_MQTT_DEFAULT_FAULT_LATEST_VALUE_MQTT_DEFAULT_FAULT_REJECTS_STALE_SNAPSHOT_WHEN_REFRESH_TIMES_OUT_001",
+        "io::mqtt::tests::mqtt_policy_preserves_sparkplug_output_preflight_failure": "TEST_MQTT_DEFAULT_FAULT_LATEST_VALUE_MQTT_POLICY_PRESERVES_SPARKPLUG_OUTPUT_PREFLIGHT_FAILURE_001",
+        "io::mqtt::tests::mqtt_policy_preserves_typed_output_preflight_failure": "TEST_MQTT_DEFAULT_FAULT_LATEST_VALUE_MQTT_POLICY_PRESERVES_TYPED_OUTPUT_PREFLIGHT_FAILURE_001",
+        "io::mqtt::tests::mqtt_raw_read_uses_newest_payload_from_drained_batch": "TEST_MQTT_DEFAULT_FAULT_LATEST_VALUE_MQTT_RAW_READ_USES_NEWEST_PAYLOAD_FROM_DRAINED_BATCH_001",
+        "io::mqtt::tests::mqtt_stale_snapshot_is_returned_without_fresh_payload": "TEST_MQTT_DEFAULT_FAULT_LATEST_VALUE_MQTT_STALE_SNAPSHOT_IS_RETURNED_WITHOUT_FRESH_PAYLOAD_001",
+        "opcua::tests::client_contracts::client_config_rejects_ambiguous_identity_auth_and_access": "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_CONFIG_REJECTS_AMBIGUOUS_IDENTITY_AUTH_AND_ACCESS_001",
+        "opcua::tests::client_contracts::client_pki_operations_do_not_follow_symbolic_links": "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_OPERATIONS_DO_NOT_FOLLOW_SYMBOLIC_LINKS_001",
+        "opcua::tests::client_contracts::client_pki_promotion_target_link_is_rejected": "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_PROMOTION_TARGET_LINK_IS_REJECTED_001",
+        "opcua::tests::client_contracts::client_pki_root_links_are_not_traversed": "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_CLIENT_PKI_ROOT_LINKS_ARE_NOT_TRAVERSED_001",
+        "opcua::tests::client_contracts::one_shot_service_vectors_require_exact_cardinality": "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_ONE_SHOT_SERVICE_VECTORS_REQUIRE_EXACT_CARDINALITY_001",
+        "opcua::tests::persistent_worker_applies_subscription_updates_without_reconnecting_per_scan": "TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_PERSISTENT_WORKER_APPLIES_SUBSCRIPTION_UPDATES_WITHOUT_RECONNECTING_PER_SCAN_001",
+        "opcua::tests::worker_integrity::current_session_samples_require_exact_configured_identity": "TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_CURRENT_SESSION_SAMPLES_REQUIRE_EXACT_CONFIGURED_IDENTITY_001",
+        "opcua::tests::worker_integrity::non_finite_outputs_cancel_pending_and_allow_later_finite_value": "TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_NON_FINITE_OUTPUTS_CANCEL_PENDING_AND_ALLOW_LATER_FINITE_VALUE_001",
+        "opcua::tests::worker_integrity::older_active_session_sample_cannot_replace_newer_value": "TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_OLDER_ACTIVE_SESSION_SAMPLE_CANNOT_REPLACE_NEWER_VALUE_001",
+        "opcua::tests::worker_integrity::older_session_callbacks_cannot_regress_reconnected_worker": "TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_OLDER_SESSION_CALLBACKS_CANNOT_REGRESS_RECONNECTED_WORKER_001",
+        "opcua::tests::worker_integrity::wire_write_status_cardinality_must_match_request": "TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_WIRE_WRITE_STATUS_CARDINALITY_MUST_MATCH_REQUEST_001",
+        "opcua::tests::worker_integrity::worker_shutdown_interrupts_idle_wait_and_revokes_good_authority": "TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_WORKER_SHUTDOWN_INTERRUPTS_IDLE_WAIT_AND_REVOKES_GOOD_AUTHORITY_001",
+        "opcua::tests::worker_integrity::write_completion_preserves_newer_pending_generation": "TEST_OPCUA_CLIENT_WORKER_CACHE_INTEGRITY_WRITE_COMPLETION_PRESERVES_NEWER_PENDING_GENERATION_001"
+      }
+    },
+    {
+      "binary_id": "trust-runtime::modbus_driver",
+      "command": [
+        "cargo",
+        "nextest",
+        "run",
+        "-p",
+        "trust-runtime",
+        "--test",
+        "modbus_driver",
+        "--no-fail-fast",
+        "--message-format",
+        "libtest-json-plus",
+        "--message-format-version",
+        "0.1",
+        "--user-config-file",
+        "none",
+        "-E",
+        "(binary_id(=trust-runtime::modbus_driver) & test(=modbus_cold_start_no_data_follows_on_error_policy)) | (binary_id(=trust-runtime::modbus_driver) & test(=modbus_inverse_scaled_f32_write_rejects_declared_width_overflow_before_send)) | (binary_id(=trust-runtime::modbus_driver) & test(=modbus_reconnect_backoff_is_bounded_and_non_spinning)) | (binary_id(=trust-runtime::modbus_driver) & test(=modbus_safe_state_handoff_succeeds_when_worker_confirms_delivery)) | (binary_id(=trust-runtime::modbus_driver) & test(=modbus_scaled_f32_read_rejects_declared_width_overflow_without_mutation))"
+      ],
+      "encoded_test_name_prefix": "trust-runtime::modbus_driver$",
+      "exact_terms": [
+        "(binary_id(=trust-runtime::modbus_driver) & test(=modbus_cold_start_no_data_follows_on_error_policy))",
+        "(binary_id(=trust-runtime::modbus_driver) & test(=modbus_inverse_scaled_f32_write_rejects_declared_width_overflow_before_send))",
+        "(binary_id(=trust-runtime::modbus_driver) & test(=modbus_reconnect_backoff_is_bounded_and_non_spinning))",
+        "(binary_id(=trust-runtime::modbus_driver) & test(=modbus_safe_state_handoff_succeeds_when_worker_confirms_delivery))",
+        "(binary_id(=trust-runtime::modbus_driver) & test(=modbus_scaled_f32_read_rejects_declared_width_overflow_without_mutation))"
+      ],
+      "full_names": [
+        "modbus_cold_start_no_data_follows_on_error_policy",
+        "modbus_inverse_scaled_f32_write_rejects_declared_width_overflow_before_send",
+        "modbus_reconnect_backoff_is_bounded_and_non_spinning",
+        "modbus_safe_state_handoff_succeeds_when_worker_confirms_delivery",
+        "modbus_scaled_f32_read_rejects_declared_width_overflow_without_mutation"
+      ],
+      "id": "PROTOCOL_29_02",
+      "package": "trust-runtime",
+      "paths": [
+        "crates/trust-runtime/tests/modbus_driver.rs"
+      ],
+      "target_kind": "test",
+      "target_name": "modbus_driver",
+      "test_count": 5,
+      "test_ids": [
+        "TEST_MODBUS_WORKER_DEADLINE_POLICY_MODBUS_COLD_START_NO_DATA_FOLLOWS_ON_ERROR_POLICY_001",
+        "TEST_MODBUS_DECLARED_F32_FINITE_MODBUS_INVERSE_SCALED_F32_WRITE_REJECTS_DECLARED_WIDTH_OVERFLOW_BEFORE_SEND_001",
+        "TEST_AUTO_A89C5FA2356D682836D2",
+        "TEST_MODBUS_WORKER_DEADLINE_POLICY_MODBUS_SAFE_STATE_HANDOFF_SUCCEEDS_WHEN_WORKER_CONFIRMS_DELIVERY_001",
+        "TEST_MODBUS_DECLARED_F32_FINITE_MODBUS_SCALED_F32_READ_REJECTS_DECLARED_WIDTH_OVERFLOW_WITHOUT_MUTATION_001"
+      ],
+      "tests_by_full_name": {
+        "modbus_cold_start_no_data_follows_on_error_policy": "TEST_MODBUS_WORKER_DEADLINE_POLICY_MODBUS_COLD_START_NO_DATA_FOLLOWS_ON_ERROR_POLICY_001",
+        "modbus_inverse_scaled_f32_write_rejects_declared_width_overflow_before_send": "TEST_MODBUS_DECLARED_F32_FINITE_MODBUS_INVERSE_SCALED_F32_WRITE_REJECTS_DECLARED_WIDTH_OVERFLOW_BEFORE_SEND_001",
+        "modbus_reconnect_backoff_is_bounded_and_non_spinning": "TEST_AUTO_A89C5FA2356D682836D2",
+        "modbus_safe_state_handoff_succeeds_when_worker_confirms_delivery": "TEST_MODBUS_WORKER_DEADLINE_POLICY_MODBUS_SAFE_STATE_HANDOFF_SUCCEEDS_WHEN_WORKER_CONFIRMS_DELIVERY_001",
+        "modbus_scaled_f32_read_rejects_declared_width_overflow_without_mutation": "TEST_MODBUS_DECLARED_F32_FINITE_MODBUS_SCALED_F32_READ_REJECTS_DECLARED_WIDTH_OVERFLOW_WITHOUT_MUTATION_001"
+      }
+    },
+    {
+      "binary_id": "trust-runtime::opcua_client_runtime",
+      "command": [
+        "cargo",
+        "nextest",
+        "run",
+        "-p",
+        "trust-runtime",
+        "--test",
+        "opcua_client_runtime",
+        "--no-fail-fast",
+        "--message-format",
+        "libtest-json-plus",
+        "--message-format-version",
+        "0.1",
+        "--user-config-file",
+        "none",
+        "-E",
+        "(binary_id(=trust-runtime::opcua_client_runtime) & test(=opcua_client_accepts_vs_code_global_var_names))"
+      ],
+      "encoded_test_name_prefix": "trust-runtime::opcua_client_runtime$",
+      "exact_terms": [
+        "(binary_id(=trust-runtime::opcua_client_runtime) & test(=opcua_client_accepts_vs_code_global_var_names))"
+      ],
+      "full_names": [
+        "opcua_client_accepts_vs_code_global_var_names"
+      ],
+      "id": "PROTOCOL_29_03",
+      "package": "trust-runtime",
+      "paths": [
+        "crates/trust-runtime/tests/opcua_client_runtime.rs"
+      ],
+      "target_kind": "test",
+      "target_name": "opcua_client_runtime",
+      "test_count": 1,
+      "test_ids": [
+        "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_ACCEPTS_VS_CODE_GLOBAL_VAR_NAMES_001"
+      ],
+      "tests_by_full_name": {
+        "opcua_client_accepts_vs_code_global_var_names": "TEST_OPCUA_CLIENT_CONFIG_TRUST_INTEGRITY_OPCUA_CLIENT_ACCEPTS_VS_CODE_GLOBAL_VAR_NAMES_001"
+      }
+    },
+    {
+      "binary_id": "trust-runtime::opcua_integration",
+      "command": [
+        "cargo",
+        "nextest",
+        "run",
+        "-p",
+        "trust-runtime",
+        "--test",
+        "opcua_integration",
+        "--no-fail-fast",
+        "--message-format",
+        "libtest-json-plus",
+        "--message-format-version",
+        "0.1",
+        "--user-config-file",
+        "none",
+        "-E",
+        "(binary_id(=trust-runtime::opcua_integration) & test(=opcua_interop_reads_exposed_scalars_with_reference_client)) | (binary_id(=trust-runtime::opcua_integration) & test(=opcua_security_enforces_user_auth_and_certificate_trust)) | (binary_id(=trust-runtime::opcua_integration) & test(=opcua_server_cold_starts_before_first_runtime_snapshot))"
+      ],
+      "encoded_test_name_prefix": "trust-runtime::opcua_integration$",
+      "exact_terms": [
+        "(binary_id(=trust-runtime::opcua_integration) & test(=opcua_interop_reads_exposed_scalars_with_reference_client))",
+        "(binary_id(=trust-runtime::opcua_integration) & test(=opcua_security_enforces_user_auth_and_certificate_trust))",
+        "(binary_id(=trust-runtime::opcua_integration) & test(=opcua_server_cold_starts_before_first_runtime_snapshot))"
+      ],
+      "full_names": [
+        "opcua_interop_reads_exposed_scalars_with_reference_client",
+        "opcua_security_enforces_user_auth_and_certificate_trust",
+        "opcua_server_cold_starts_before_first_runtime_snapshot"
+      ],
+      "id": "PROTOCOL_29_04",
+      "package": "trust-runtime",
+      "paths": [
+        "crates/trust-runtime/tests/opcua_integration.rs"
+      ],
+      "target_kind": "test",
+      "target_name": "opcua_integration",
+      "test_count": 3,
+      "test_ids": [
+        "DISC_6847FE4C45F88000E0B4",
+        "DISC_B45DE574A2218F802B88",
+        "DISC_6236F0B25551D48929F7"
+      ],
+      "tests_by_full_name": {
+        "opcua_interop_reads_exposed_scalars_with_reference_client": "DISC_6847FE4C45F88000E0B4",
+        "opcua_security_enforces_user_auth_and_certificate_trust": "DISC_B45DE574A2218F802B88",
+        "opcua_server_cold_starts_before_first_runtime_snapshot": "DISC_6236F0B25551D48929F7"
+      }
+    }
+  ],
+  "schema_version": 1,
+  "test_count": 32
+}

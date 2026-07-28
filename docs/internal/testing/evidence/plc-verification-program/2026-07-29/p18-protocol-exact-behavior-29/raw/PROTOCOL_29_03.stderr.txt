@@ -1,0 +1,8 @@
+info: experimental features enabled: wrapper-scripts
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.29s
+────────────
+ Nextest run ID 9616ad04-8a71-4289-a044-65420a282a0b with nextest profile: default
+    Starting 1 test across 1 binary (1 test skipped)
+        PASS [   0.083s] (1/1) trust-runtime::opcua_client_runtime opcua_client_accepts_vs_code_global_var_names
+────────────
+     Summary [   0.083s] 1 test run: 1 passed, 1 skipped

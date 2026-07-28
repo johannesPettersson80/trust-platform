@@ -1,0 +1,3098 @@
+{
+  "inventories": {
+    "DISC_161DA7E6F22D5D5C82D2": {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_57F7817FB05D3DCE5658530A",
+          "expression": "toml :: from_str (& format ! (r#\" address = \"{addr}\" [[input_points]] image_offset = 0 address = 0 function = \"read_holding_registers\" data_type = \"f32\" scale = 2.0 \"#)) . expect (\"params\")",
+          "expression_digest": "sha256:127dadd10db669eae08b3a10c47e02fd8b1b881dda96f948eb9a2bb31563782e",
+          "function": "modbus_scaled_f32_read_rejects_declared_width_overflow_without_mutation",
+          "kind": "method:expect",
+          "line": 313,
+          "source_path": "crates/trust-runtime/tests/modbus_driver.rs"
+        },
+        {
+          "assertion_id": "ASSERT_3BED8F34E0A0046FCC5CBBC0",
+          "expression": "ModbusTcpDriver :: from_params (& params) . expect (\"driver\")",
+          "expression_digest": "sha256:1448490d7680c97d3b79ca30cea665845b58daae88b6835ac9148c603d7ef188",
+          "function": "modbus_scaled_f32_read_rejects_declared_width_overflow_without_mutation",
+          "kind": "method:expect",
+          "line": 326,
+          "source_path": "crates/trust-runtime/tests/modbus_driver.rs"
+        },
+        {
+          "assertion_id": "ASSERT_2F8DCC0E0C251D2782CA5E58",
+          "expression": "driver . read_inputs (& mut inputs) . expect_err (\"scaled F32 overflow must fail\")",
+          "expression_digest": "sha256:c5c7bad9ff7788c8716e372a263d7f7effcdcc8cd91a5ac0323a31c525da5d70",
+          "function": "modbus_scaled_f32_read_rejects_declared_width_overflow_without_mutation",
+          "kind": "method:expect_err",
+          "line": 329,
+          "source_path": "crates/trust-runtime/tests/modbus_driver.rs"
+        },
+        {
+          "assertion_id": "ASSERT_BE660E9FD10667D611BE5BF6",
+          "expression": "assert ! (error . to_string () . contains (\"finite\"))",
+          "expression_digest": "sha256:a95b83430280d39d8b29072ed1c2c9812a747c19c8ea0a4f0307d9807a25a621",
+          "function": "modbus_scaled_f32_read_rejects_declared_width_overflow_without_mutation",
+          "kind": "macro:assert",
+          "line": 332,
+          "source_path": "crates/trust-runtime/tests/modbus_driver.rs"
+        },
+        {
+          "assertion_id": "ASSERT_27081698E4068FA76058538B",
+          "expression": "assert_eq ! (inputs , [0xA5 ; 4])",
+          "expression_digest": "sha256:d40a721b683190c90e04931800e5e34bc9abec2eca6eb670202a705a7058bcd6",
+          "function": "modbus_scaled_f32_read_rejects_declared_width_overflow_without_mutation",
+          "kind": "macro:assert_eq",
+          "line": 333,
+          "source_path": "crates/trust-runtime/tests/modbus_driver.rs"
+        },
+        {
+          "assertion_id": "ASSERT_9E68F371DBF4DCB1A13D9279",
+          "expression": "state . lock () . expect (\"modbus state lock\")",
+          "expression_digest": "sha256:f0c3d630a9d6626ca522659fb47bc7d6051d1da142a872adf5074b1e8dff663f",
+          "function": "modbus_support::handle_modbus_request",
+          "kind": "method:expect",
+          "line": 90,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        },
+        {
+          "assertion_id": "ASSERT_ACC1E02AAB1A19749312152A",
+          "expression": "state . lock () . expect (\"modbus state lock\")",
+          "expression_digest": "sha256:f0c3d630a9d6626ca522659fb47bc7d6051d1da142a872adf5074b1e8dff663f",
+          "function": "modbus_support::handle_read_bits",
+          "kind": "method:expect",
+          "line": 119,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        },
+        {
+          "assertion_id": "ASSERT_E8AD8A317ADF65199B323C18",
+          "expression": "unreachable ! (\"read bits called with unsupported function\")",
+          "expression_digest": "sha256:5177e5fecab9ca14fb1cf772d9922e16b9af02e74d66ea701cd727b3ab858347",
+          "function": "modbus_support::handle_read_bits",
+          "kind": "macro:unreachable",
+          "line": 123,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        },
+        {
+          "assertion_id": "ASSERT_1FB41AD73700AC32A223A0B2",
+          "expression": "state . lock () . expect (\"modbus state lock\")",
+          "expression_digest": "sha256:f0c3d630a9d6626ca522659fb47bc7d6051d1da142a872adf5074b1e8dff663f",
+          "function": "modbus_support::handle_read_registers",
+          "kind": "method:expect",
+          "line": 142,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        },
+        {
+          "assertion_id": "ASSERT_416CCB54ECD1F063D89FA0FB",
+          "expression": "unreachable ! (\"read registers called with unsupported function\")",
+          "expression_digest": "sha256:b2580aa74fa77dfb856cb2bd73d69e84c8f2d5c329d4b731f371c750e54a45f1",
+          "function": "modbus_support::handle_read_registers",
+          "kind": "macro:unreachable",
+          "line": 146,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        },
+        {
+          "assertion_id": "ASSERT_B49FF577E530EA5E80D74EFF",
+          "expression": "state . lock () . expect (\"modbus state lock\")",
+          "expression_digest": "sha256:f0c3d630a9d6626ca522659fb47bc7d6051d1da142a872adf5074b1e8dff663f",
+          "function": "modbus_support::handle_write_multiple_coils",
+          "kind": "method:expect",
+          "line": 199,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        },
+        {
+          "assertion_id": "ASSERT_CB6179688E81C2636C7A38DD",
+          "expression": "state . lock () . expect (\"modbus state lock\")",
+          "expression_digest": "sha256:f0c3d630a9d6626ca522659fb47bc7d6051d1da142a872adf5074b1e8dff663f",
+          "function": "modbus_support::handle_write_multiple_registers",
+          "kind": "method:expect",
+          "line": 220,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        },
+        {
+          "assertion_id": "ASSERT_AF4E5D2AEC295BBAA7C76D39",
+          "expression": "state . lock () . expect (\"modbus state lock\")",
+          "expression_digest": "sha256:f0c3d630a9d6626ca522659fb47bc7d6051d1da142a872adf5074b1e8dff663f",
+          "function": "modbus_support::handle_write_single_coil",
+          "kind": "method:expect",
+          "line": 167,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        },
+        {
+          "assertion_id": "ASSERT_286E631F7332538A9FF45924",
+          "expression": "state . lock () . expect (\"modbus state lock\")",
+          "expression_digest": "sha256:f0c3d630a9d6626ca522659fb47bc7d6051d1da142a872adf5074b1e8dff663f",
+          "function": "modbus_support::handle_write_single_register",
+          "kind": "method:expect",
+          "line": 181,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        },
+        {
+          "assertion_id": "ASSERT_E8756B0023A3473F32B293B3",
+          "expression": "TcpListener :: bind (\"127.0.0.1:0\") . expect (\"bind modbus test server\")",
+          "expression_digest": "sha256:f9f2baa12a315dbda1240775eb2f143a3950f0f06c939c866837d48ee0a03030",
+          "function": "modbus_support::start_modbus_server",
+          "kind": "method:expect",
+          "line": 28,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        },
+        {
+          "assertion_id": "ASSERT_B37B77092CD945581321E62C",
+          "expression": "listener . local_addr () . expect (\"server addr\")",
+          "expression_digest": "sha256:0ff44040ca9570b29189ff47ed8f7a95542a46b37971682fd02652ab67a2b881",
+          "function": "modbus_support::start_modbus_server",
+          "kind": "method:expect",
+          "line": 29,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        },
+        {
+          "assertion_id": "ASSERT_55A7E9038678B4CB99156083",
+          "expression": "listener . accept () . expect (\"accept modbus\")",
+          "expression_digest": "sha256:2d54208bc51cec80e9ec21ad36186adfda5c3c86665c930c6ef1f04d154597bc",
+          "function": "modbus_support::start_modbus_server",
+          "kind": "method:expect",
+          "line": 31,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        }
+      ],
+      "inventory_digest": "sha256:bb3c3abedec440e59bea3049ec88fb835746c9909b8a91c5027d2229414cd84e",
+      "path": "crates/trust-runtime/tests/modbus_driver.rs",
+      "schema_version": 2,
+      "source_digest": "sha256:394c0acef636a9294ee42bdaffeb53bc5b9385f1f89af42d143ddb63df1329d1",
+      "source_digests": {
+        "crates/trust-runtime/tests/modbus_driver.rs": "sha256:394c0acef636a9294ee42bdaffeb53bc5b9385f1f89af42d143ddb63df1329d1",
+        "crates/trust-runtime/tests/support/modbus.rs": "sha256:6a789bcf29a6b5062bc63d756832bd952dbb66920b937694920a2256fe8dec25"
+      },
+      "test_name": "modbus_scaled_f32_read_rejects_declared_width_overflow_without_mutation",
+      "unresolved_assertion_helpers": []
+    },
+    "DISC_1B2A0E231FAC32C63820": {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_A5EF0275C8017B5238BFB56E",
+          "expression": "assert ! (parse_opcua_client_toml (input) . is_err () , \"{case} must fail closed\")",
+          "expression_digest": "sha256:c58ef1d58603169417c7b87f4be808f83e094173912962e3ecd3d4e9ac85e0b0",
+          "function": "client_config_rejects_ambiguous_identity_auth_and_access",
+          "kind": "macro:assert",
+          "line": 106,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+        },
+        {
+          "assertion_id": "ASSERT_8659B61B6C2566B6E5FC6E85",
+          "expression": "parse_opcua_client_toml (format ! (r#\" [[connections]] name = \"line\" endpoint_url = \"opc.tcp://127.0.0.1:4840\" auth = \"username\" username = \"\" password = \"{secret}\" [[connections.points]] var = \"first\" node_id = \"ns=2;i=1\" type = \"bool\" \"#) . as_str () ,) . expect_err (\"incomplete username authentication must fail\")",
+          "expression_digest": "sha256:d8fdcd532a5ee185ad2d38370f4a36ae710a1371e527c32d09cea980a5a84b6a",
+          "function": "client_config_rejects_ambiguous_identity_auth_and_access",
+          "kind": "method:expect_err",
+          "line": 113,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+        },
+        {
+          "assertion_id": "ASSERT_9688D9D10AD773E00FE97EAD",
+          "expression": "assert ! (! secret_error . to_string () . contains (secret) , \"configuration error exposed the password\")",
+          "expression_digest": "sha256:7bc746e3d0bdbde7c254d0e8e50c3d0b3603569f2823120f1a89f269f7c62b15",
+          "function": "client_config_rejects_ambiguous_identity_auth_and_access",
+          "kind": "macro:assert",
+          "line": 131,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+        }
+      ],
+      "inventory_digest": "sha256:1ff0b9cb84a89b76004c106fb9769c15c121b798f62c86e23b119229c74feb9a",
+      "path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs",
+      "schema_version": 2,
+      "source_digest": "sha256:fee611d3eff2840a38f0f0d49ae4ed27a8becfebcbcb4cc8a4cb7bef9c667784",
+      "source_digests": {
+        "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs": "sha256:fee611d3eff2840a38f0f0d49ae4ed27a8becfebcbcb4cc8a4cb7bef9c667784"
+      },
+      "test_name": "client_config_rejects_ambiguous_identity_auth_and_access",
+      "unresolved_assertion_helpers": []
+    },
+    "DISC_1C548923547EDCE58C71": {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_C47461619F701AFD86970548",
+          "expression": "OPCUA_CLIENT_PKI_ENV_LOCK . lock () . expect (\"OPC UA client PKI env lock\")",
+          "expression_digest": "sha256:b9d9414670d2ab63197eb82d3acf1bc920c718403e77f083bf6f817c75f24978",
+          "function": "client_pki_operations_do_not_follow_symbolic_links",
+          "kind": "method:expect",
+          "line": 194,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+        },
+        {
+          "assertion_id": "ASSERT_486285461455DD905789579E",
+          "expression": "std :: fs :: create_dir_all (root . join (\"trusted\")) . expect (\"trusted root\")",
+          "expression_digest": "sha256:d0de4fa282450c6f10ed84c4e38f97faeb19e0e7cdf7d9892925f5cc5ab780d4",
+          "function": "client_pki_operations_do_not_follow_symbolic_links",
+          "kind": "method:expect",
+          "line": 203,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+        },
+        {
+          "assertion_id": "ASSERT_86CE26558D16C6A0F3FCB77F",
+          "expression": "std :: fs :: create_dir_all (root . join (\"rejected\")) . expect (\"rejected root\")",
+          "expression_digest": "sha256:0bdefe2cab3d0958487d7eeb46e469f459c0a11d8ddb9b2729c3837225df2a32",
+          "function": "client_pki_operations_do_not_follow_symbolic_links",
+          "kind": "method:expect",
+          "line": 204,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+        },
+        {
+          "assertion_id": "ASSERT_2C76702F7C1B5AEA7350A1D6",
+          "expression": "std :: fs :: create_dir_all (& trusted_external) . expect (\"external trusted root\")",
+          "expression_digest": "sha256:3f8269cf46a928fd841a307294aa369ce4c4c2b7f1d5a03351df4587f57f1bc3",
+          "function": "client_pki_operations_do_not_follow_symbolic_links",
+          "kind": "method:expect",
+          "line": 205,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+        },
+        {
+          "assertion_id": "ASSERT_1FDB0AAEEBCACA3F0282993B",
+          "expression": "std :: fs :: create_dir_all (& rejected_external) . expect (\"external rejected root\")",
+          "expression_digest": "sha256:3f51cfe4c9427caac926ab8ce998ac3592b2a78da999c32979766dba103b9946",
+          "function": "client_pki_operations_do_not_follow_symbolic_links",
+          "kind": "method:expect",
+          "line": 206,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+        },
+        {
+          "assertion_id": "ASSERT_3C6B3B5B30CABABAB76B7D98",
+          "expression": "std :: fs :: write (& trusted_cert , b\"trusted outside\") . expect (\"external trusted cert\")",
+          "expression_digest": "sha256:be6c576e0070bb84a9b32e128d0a37ae6455f006b51da224aa72e87316ed1e6d",
+          "function": "client_pki_operations_do_not_follow_symbolic_links",
+          "kind": "method:expect",
+          "line": 209,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+        },
+        {
+          "assertion_id": "ASSERT_1E44893057DE78E9A5A239E4",
+          "expression": "std :: fs :: write (& rejected_cert , b\"rejected outside\") . expect (\"external rejected cert\")",
+          "expression_digest": "sha256:a729a8a49b1b90070ef5847ce67ccbe93118057e75dd1ebb2641eb78abb73507",
+          "function": "client_pki_operations_do_not_follow_symbolic_links",
+          "kind": "method:expect",
+          "line": 210,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+        },
+        {
+          "assertion_id": "ASSERT_CFBC27A4C4D3669EEF2ECCA3",
+          "expression": "symlink (& trusted_external , root . join (\"trusted\") . join (\"escape\")) . expect (\"trusted directory symlink\")",
+          "expression_digest": "sha256:bac6484d9a640dc41e3f4236bba0a150cdcc1711eefd8dcb0e57f462409311d5",
+          "function": "client_pki_operations_do_not_follow_symbolic_links",
+          "kind": "method:expect",
+          "line": 211,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+        },
+        {
+          "assertion_id": "ASSERT_B9BE0F41384EBACEF6E487F5",
+          "expression": "symlink (& rejected_external , root . join (\"rejected\") . join (\"escape\")) . expect (\"rejected directory symlink\")",
+          "expression_digest": "sha256:ea9c79e14b42dc6805ed7747d74e4ab90ce7f5bfe76e9d8a60feac04a5884547",
+          "function": "client_pki_operations_do_not_follow_symbolic_links",
+          "kind": "method:expect",
+          "line": 213,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+        },
+        {
+          "assertion_id": "ASSERT_B89ABE2AFDFF2D35BDC8805F",
+          "expression": "list_trusted_opcua_client_server_certificates () . expect (\"list trusted\")",
+          "expression_digest": "sha256:05cca2ff62adf67c4ef70723b15543883562b2256e5d97f642678c173498025b",
+          "function": "client_pki_operations_do_not_follow_symbolic_links",
+          "kind": "method:expect",
+          "line": 217,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+        },
+        {
+          "assertion_id": "ASSERT_169698C8BD40E3FB6B06DCAA",
+          "expression": "clear_trusted_opcua_client_server_certificates () . expect (\"clear trusted\")",
+          "expression_digest": "sha256:b2b38cc972d96290c19cd2b5f8769674aac20a207d26afc871b78e3f27c7a5c0",
+          "function": "client_pki_operations_do_not_follow_symbolic_links",
+          "kind": "method:expect",
+          "line": 218,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+        },
+        {
+          "assertion_id": "ASSERT_63DB7813F3A1311A2D2784A8",
+          "expression": "promote_rejected_opcua_client_server_certificates () . expect (\"promote rejected\")",
+          "expression_digest": "sha256:fbd4cff95103e97e21e1effb73fe5b7052d88eafec76ad88d5db0d5a16d23e96",
+          "function": "client_pki_operations_do_not_follow_symbolic_links",
+          "kind": "method:expect",
+          "line": 219,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+        },
+        {
+          "assertion_id": "ASSERT_C2E09C4D475398C4E10E0C68",
+          "expression": "assert ! (listed . is_empty () , \"trusted listing escaped through a symbolic-link directory\")",
+          "expression_digest": "sha256:bddef85a7a50e2dccf0ced726b93c5e2a8b16148d195be5fc9b9a9cf55f3ddf7",
+          "function": "client_pki_operations_do_not_follow_symbolic_links",
+          "kind": "macro:assert",
+          "line": 228,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+        },
+        {
+          "assertion_id": "ASSERT_60F575F6583B969F94907995",
+          "expression": "assert_eq ! (cleared , 0)",
+          "expression_digest": "sha256:f61190b05786e40ef4802d91c9f99d76bee8b64db690cef575cfe9941a3d436c",
+          "function": "client_pki_operations_do_not_follow_symbolic_links",
+          "kind": "macro:assert_eq",
+          "line": 232,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+        },
+        {
+          "assertion_id": "ASSERT_72EEBB4D622B2D426D8025CF",
+          "expression": "assert_eq ! (promoted , 0)",
+          "expression_digest": "sha256:1a7542074ac5d71b89a19770b8114e5d23e2a58ba880bc78445b024a2f7194ff",
+          "function": "client_pki_operations_do_not_follow_symbolic_links",
+          "kind": "macro:assert_eq",
+          "line": 233,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+        },
+        {
+          "assertion_id": "ASSERT_57B8E3DCC1FE25163C4ECA2B",
+          "expression": "assert ! (trusted_preserved , \"clear removed an external certificate\")",
+          "expression_digest": "sha256:748245bf99b11aca9a47e3814db0c75f91214d19c342c1aeb3eafaca48f1d79b",
+          "function": "client_pki_operations_do_not_follow_symbolic_links",
+          "kind": "macro:assert",
+          "line": 234,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+        },
+        {
+          "assertion_id": "ASSERT_778347A7070908970CA3F318",
+          "expression": "assert ! (rejected_preserved , \"promotion removed an external rejected certificate\")",
+          "expression_digest": "sha256:84c2ef08c1880a532443dbe49af4e22d50f54c91b9e08fe2d11d4fdc6eb56a69",
+          "function": "client_pki_operations_do_not_follow_symbolic_links",
+          "kind": "macro:assert",
+          "line": 235,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+        }
+      ],
+      "inventory_digest": "sha256:0ea686b82a37362d05f1abbf63cd4add8ef5c4c2989d1090e697e56429a6d050",
+      "path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs",
+      "schema_version": 2,
+      "source_digest": "sha256:fee611d3eff2840a38f0f0d49ae4ed27a8becfebcbcb4cc8a4cb7bef9c667784",
+      "source_digests": {
+        "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs": "sha256:fee611d3eff2840a38f0f0d49ae4ed27a8becfebcbcb4cc8a4cb7bef9c667784"
+      },
+      "test_name": "client_pki_operations_do_not_follow_symbolic_links",
+      "unresolved_assertion_helpers": []
+    },
+    "DISC_1CB48AECC527F05A7439": {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_B3F426F1343C0061929116EE",
+          "expression": "write_image_numeric (& mut image , 0 , ModbusPointType :: F32 , value) . expect_err (\"finite f64 that narrows to infinity must fail\")",
+          "expression_digest": "sha256:c1942710ef84cb421cf77832ab95cdfad7916aa7dea616eec783fb4d2210b5e4",
+          "function": "tests::mapped_f32_process_image_encoding_rejects_narrowing_overflow",
+          "kind": "method:expect_err",
+          "line": 612,
+          "source_path": "crates/trust-runtime/src/io/modbus/point_map.rs"
+        },
+        {
+          "assertion_id": "ASSERT_34EA049FBAAD40C9CCF67150",
+          "expression": "assert ! (error . to_string () . contains (\"finite\"))",
+          "expression_digest": "sha256:a95b83430280d39d8b29072ed1c2c9812a747c19c8ea0a4f0307d9807a25a621",
+          "function": "tests::mapped_f32_process_image_encoding_rejects_narrowing_overflow",
+          "kind": "macro:assert",
+          "line": 614,
+          "source_path": "crates/trust-runtime/src/io/modbus/point_map.rs"
+        },
+        {
+          "assertion_id": "ASSERT_A72EDEEA74E0443103E90428",
+          "expression": "assert_eq ! (image , [0xA5 ; 4] , \"failed encoding mutated the image\")",
+          "expression_digest": "sha256:c7e50d23090b9e3b79c68ce16f07ec4fe57f25f2798e1eb0b5d34e63dafabd8a",
+          "function": "tests::mapped_f32_process_image_encoding_rejects_narrowing_overflow",
+          "kind": "macro:assert_eq",
+          "line": 615,
+          "source_path": "crates/trust-runtime/src/io/modbus/point_map.rs"
+        }
+      ],
+      "inventory_digest": "sha256:72da2aa952af64d43d0b6bc759cd545c68a36d5d59de72f6cc940f69da5b14a6",
+      "path": "crates/trust-runtime/src/io/modbus/point_map.rs",
+      "schema_version": 2,
+      "source_digest": "sha256:55f1076cecd8d88169f571101eab2e8c799870dc09cba2fa4246eaeb46d736c4",
+      "source_digests": {
+        "crates/trust-runtime/src/io/modbus/point_map.rs": "sha256:55f1076cecd8d88169f571101eab2e8c799870dc09cba2fa4246eaeb46d736c4"
+      },
+      "test_name": "mapped_f32_process_image_encoding_rejects_narrowing_overflow",
+      "unresolved_assertion_helpers": [
+        "tests::mapped_f32_process_image_encoding_rejects_narrowing_overflow::write_image_numeric:unresolved"
+      ]
+    },
+    "DISC_24C74D0EC2E25DC16465": {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_86CEDB42B7919202FC914CAC",
+          "expression": "MqttIoDriver :: from_params_with_factory (& params (format ! (r#\" broker = \"127.0.0.1:1883\" on_error = \"{policy}\" [[output_points]] topic = \"line/out\" image_offset = 4 data_type = \"u16\" payload_format = \"binary_le\" \"#) . as_str () ,) , factory ,) . expect (\"construct mqtt driver\")",
+          "expression_digest": "sha256:3d374eb47c3100b0bfad12f4c0f5d7dd5c1953bc3cbea402ecb29454c125749d",
+          "function": "mqtt_policy_preserves_typed_output_preflight_failure",
+          "kind": "method:expect",
+          "line": 1225,
+          "source_path": "crates/trust-runtime/src/io/mqtt/tests.rs"
+        },
+        {
+          "assertion_id": "ASSERT_3BD2960EC0D6562F04CAE3D1",
+          "expression": "assert_eq ! (result . is_err () , should_error , \"{policy}\")",
+          "expression_digest": "sha256:d9d3a5666e83aa928731016ce53b129c7ebd7bc3f3d8ad7206af285aaa809558",
+          "function": "mqtt_policy_preserves_typed_output_preflight_failure",
+          "kind": "macro:assert_eq",
+          "line": 1246,
+          "source_path": "crates/trust-runtime/src/io/mqtt/tests.rs"
+        },
+        {
+          "assertion_id": "ASSERT_AE9152D60FA5C5D46CF37045",
+          "expression": "panic ! (\"unexpected {policy} health: {health:?}\")",
+          "expression_digest": "sha256:fb561466a35f76d6bdddd4bd19c9939091d70e45f3a7f460c3dff46ed613d9bf",
+          "function": "mqtt_policy_preserves_typed_output_preflight_failure",
+          "kind": "macro:panic",
+          "line": 1251,
+          "source_path": "crates/trust-runtime/src/io/mqtt/tests.rs"
+        },
+        {
+          "assertion_id": "ASSERT_DFC7F63ED52CC3DAA7E983E3",
+          "expression": "assert ! (detail . contains (\"image range 4..6 exceeds process image size 1\") , \"unexpected {policy} typed-output detail: {detail}\")",
+          "expression_digest": "sha256:f4d521f3f5e6db8d6d095cc3933eaf5df5ddf9a68e143874dd43dc8191f147b9",
+          "function": "mqtt_policy_preserves_typed_output_preflight_failure",
+          "kind": "macro:assert",
+          "line": 1253,
+          "source_path": "crates/trust-runtime/src/io/mqtt/tests.rs"
+        },
+        {
+          "assertion_id": "ASSERT_21B1E2E1D4560485E834A5A4",
+          "expression": "assert ! (state . lock () . unwrap_or_else (| error | error . into_inner ()) . published . is_empty () , \"failed {policy} preflight must not publish\")",
+          "expression_digest": "sha256:2b2e7a136f66e7178230191119705bf3da94793678b397eebbf9a0aab386eb00",
+          "function": "mqtt_policy_preserves_typed_output_preflight_failure",
+          "kind": "macro:assert",
+          "line": 1257,
+          "source_path": "crates/trust-runtime/src/io/mqtt/tests.rs"
+        },
+        {
+          "assertion_id": "ASSERT_456C981735B4721FA33E6780",
+          "expression": "toml :: from_str (text) . expect (\"parse toml params\")",
+          "expression_digest": "sha256:a4dc37a74bab65864b21828cae0699a8e07f7c64f562d83a74e486f35ace0d1c",
+          "function": "params",
+          "kind": "method:expect",
+          "line": 73,
+          "source_path": "crates/trust-runtime/src/io/mqtt/tests.rs"
+        }
+      ],
+      "inventory_digest": "sha256:35d04ed2774163eed6e55b705a2410e229b220d0cf8b4ea8af034afc23ba6fc8",
+      "path": "crates/trust-runtime/src/io/mqtt/tests.rs",
+      "schema_version": 2,
+      "source_digest": "sha256:7ebd21b16122bb6e2e0443a65462cbcf281f77f8646d4ed974e02eeda2e592e9",
+      "source_digests": {
+        "crates/trust-runtime/src/io/mqtt/tests.rs": "sha256:7ebd21b16122bb6e2e0443a65462cbcf281f77f8646d4ed974e02eeda2e592e9"
+      },
+      "test_name": "mqtt_policy_preserves_typed_output_preflight_failure",
+      "unresolved_assertion_helpers": []
+    },
+    "DISC_27C6F8C492004FEC4778": {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_0FC6A5C131566789E069B5C2",
+          "expression": "OPCUA_CLIENT_PKI_ENV_LOCK . lock () . expect (\"OPC UA client PKI env lock\")",
+          "expression_digest": "sha256:b9d9414670d2ab63197eb82d3acf1bc920c718403e77f083bf6f817c75f24978",
+          "function": "client_pki_promotion_target_link_is_rejected",
+          "kind": "method:expect",
+          "line": 296,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+        },
+        {
+          "assertion_id": "ASSERT_65E57ABD6193912955FF26A1",
+          "expression": "std :: fs :: create_dir_all (target_link_case . join (\"trusted\")) . expect (\"trusted target root\")",
+          "expression_digest": "sha256:793e5c49c5d04d4f7ec0a8b1e42437dbd459276fe486705b4456f8d27e6a7cec",
+          "function": "client_pki_promotion_target_link_is_rejected",
+          "kind": "method:expect",
+          "line": 304,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+        },
+        {
+          "assertion_id": "ASSERT_3B5A9C02B0BC092BC5CA38B6",
+          "expression": "std :: fs :: create_dir_all (target_link_case . join (\"rejected\")) . expect (\"rejected target root\")",
+          "expression_digest": "sha256:36d996ea46d4c797ad5adde0f08b122f507c2a545ab404dbe881aa7722b6b7d3",
+          "function": "client_pki_promotion_target_link_is_rejected",
+          "kind": "method:expect",
+          "line": 305,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+        },
+        {
+          "assertion_id": "ASSERT_D9029A117CF50A535E35BD13",
+          "expression": "std :: fs :: write (& rejected , b\"candidate\") . expect (\"rejected candidate\")",
+          "expression_digest": "sha256:ef7ea73983e6cb3b135955f0b06e91f74208854aead3fd27864e5256ebf80c82",
+          "function": "client_pki_promotion_target_link_is_rejected",
+          "kind": "method:expect",
+          "line": 307,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+        },
+        {
+          "assertion_id": "ASSERT_BBC015E9FDE15836B6F4FFEE",
+          "expression": "std :: fs :: write (& external_target , b\"external original\") . expect (\"external target\")",
+          "expression_digest": "sha256:1a5dff9bf8f38a8af034e99ffc1589b1e68d8ac7ffc1b1ba5bf3c62ae3b24caf",
+          "function": "client_pki_promotion_target_link_is_rejected",
+          "kind": "method:expect",
+          "line": 308,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+        },
+        {
+          "assertion_id": "ASSERT_F50A0886B050B651C8F03E7F",
+          "expression": "symlink (& external_target , target_link_case . join (\"trusted\") . join (\"server.pem\") ,) . expect (\"promotion target symlink\")",
+          "expression_digest": "sha256:da3554e5c63f46b8cca47a283d64e05b2880565338380a42be9ef80ff14f0f64",
+          "function": "client_pki_promotion_target_link_is_rejected",
+          "kind": "method:expect",
+          "line": 309,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+        },
+        {
+          "assertion_id": "ASSERT_063BFE79A6C87E64C0B7C995",
+          "expression": "std :: fs :: read (& external_target) . expect (\"external target after promotion\")",
+          "expression_digest": "sha256:72eee5514b8bc234716cd059e70aacaeb76ef219de2027b30a89aab2df7d03cc",
+          "function": "client_pki_promotion_target_link_is_rejected",
+          "kind": "method:expect",
+          "line": 316,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+        },
+        {
+          "assertion_id": "ASSERT_70076FD61DADF11C1692EDDF",
+          "expression": "assert ! (promotion . is_err () , \"promotion followed an existing destination symbolic link\")",
+          "expression_digest": "sha256:54c0191644014dc32b169393b5ce09470ff2e6e198b4cdb4ae0aa32600bc2aa0",
+          "function": "client_pki_promotion_target_link_is_rejected",
+          "kind": "macro:assert",
+          "line": 322,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+        },
+        {
+          "assertion_id": "ASSERT_D42B84F339103F04633CD462",
+          "expression": "assert_eq ! (external_after , b\"external original\" , \"promotion overwrote a file outside the PKI root\")",
+          "expression_digest": "sha256:847fb6f7a9a5cac18ddfd2c422caf860a29ae0ebd7954b6e8c753cf6ba6a19aa",
+          "function": "client_pki_promotion_target_link_is_rejected",
+          "kind": "macro:assert_eq",
+          "line": 326,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+        },
+        {
+          "assertion_id": "ASSERT_8123F4CD1C659A021B3628C3",
+          "expression": "assert ! (rejected_after , \"failed promotion removed the rejected source certificate\")",
+          "expression_digest": "sha256:374b0e9ce7e82667a4f2595a912a77f46845fb88b432b391b232925fb013cea7",
+          "function": "client_pki_promotion_target_link_is_rejected",
+          "kind": "macro:assert",
+          "line": 330,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+        }
+      ],
+      "inventory_digest": "sha256:66d1db9b23d0f8cf38d14c1ba0483111991bdf0e154c3f4f94877a2a0013a8cd",
+      "path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs",
+      "schema_version": 2,
+      "source_digest": "sha256:fee611d3eff2840a38f0f0d49ae4ed27a8becfebcbcb4cc8a4cb7bef9c667784",
+      "source_digests": {
+        "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs": "sha256:fee611d3eff2840a38f0f0d49ae4ed27a8becfebcbcb4cc8a4cb7bef9c667784"
+      },
+      "test_name": "client_pki_promotion_target_link_is_rejected",
+      "unresolved_assertion_helpers": [
+        "client_pki_promotion_target_link_is_rejected::std::fs::read:unresolved-oracle"
+      ]
+    },
+    "DISC_41FCECEDF690EB121E27": {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_3D0A4411ECE1ECE6C2A636FF",
+          "expression": "toml :: from_str (& format ! (\"address = \\\"{addr}\\\"\\nunit_id = 1\\ninput_start = 0\\noutput_start = 0\\ntimeout_ms = 1000\\non_error = \\\"warn\\\"\\n\")) . expect (\"params\")",
+          "expression_digest": "sha256:96f84befc87f19860f3e297d305adbf9e633ac337bc6736981af8072ad300454",
+          "function": "modbus_safe_state_handoff_succeeds_when_worker_confirms_delivery",
+          "kind": "method:expect",
+          "line": 828,
+          "source_path": "crates/trust-runtime/tests/modbus_driver.rs"
+        },
+        {
+          "assertion_id": "ASSERT_A3F71708BF8B58DA0FC80C45",
+          "expression": "IoAddress :: parse (\"%QW0\") . expect (\"safe-state output word\")",
+          "expression_digest": "sha256:b88474a4bb8dbc9b1a01053e3812e01a6a062d3d02a575e7c09e7027e693f985",
+          "function": "modbus_safe_state_handoff_succeeds_when_worker_confirms_delivery",
+          "kind": "method:expect",
+          "line": 836,
+          "source_path": "crates/trust-runtime/tests/modbus_driver.rs"
+        },
+        {
+          "assertion_id": "ASSERT_D4368D1A5EC0CB5CC2E885F0",
+          "expression": "ModbusTcpDriver :: from_params (& params) . expect (\"driver\")",
+          "expression_digest": "sha256:1448490d7680c97d3b79ca30cea665845b58daae88b6835ac9148c603d7ef188",
+          "function": "modbus_safe_state_handoff_succeeds_when_worker_confirms_delivery",
+          "kind": "method:expect",
+          "line": 842,
+          "source_path": "crates/trust-runtime/tests/modbus_driver.rs"
+        },
+        {
+          "assertion_id": "ASSERT_62921CF6DF00B490F4AC24AE",
+          "expression": "runtime . apply_io_safe_state () . expect (\"completed safe-state handoff should be confirmed\")",
+          "expression_digest": "sha256:2782793c7c7b19c2e5fead0fc8d724e88a88986d37b082ca8fd0305c11059332",
+          "function": "modbus_safe_state_handoff_succeeds_when_worker_confirms_delivery",
+          "kind": "method:expect",
+          "line": 846,
+          "source_path": "crates/trust-runtime/tests/modbus_driver.rs"
+        },
+        {
+          "assertion_id": "ASSERT_D154B65BBB9E25A75C8AA51C",
+          "expression": "assert ! (elapsed < MODBUS_CI_SCAN_BOUND , \"confirmed safe-state output handoff must remain bounded, elapsed={elapsed:?}\")",
+          "expression_digest": "sha256:9533e6a5ca3745cf779a4d7cece77a610f47ddedfd0ebb6298c486db9c301c00",
+          "function": "modbus_safe_state_handoff_succeeds_when_worker_confirms_delivery",
+          "kind": "macro:assert",
+          "line": 851,
+          "source_path": "crates/trust-runtime/tests/modbus_driver.rs"
+        },
+        {
+          "assertion_id": "ASSERT_483D16310FC5FCAFACB6F1C9",
+          "expression": "state . lock () . expect (\"modbus state lock\")",
+          "expression_digest": "sha256:f0c3d630a9d6626ca522659fb47bc7d6051d1da142a872adf5074b1e8dff663f",
+          "function": "modbus_safe_state_handoff_succeeds_when_worker_confirms_delivery",
+          "kind": "method:expect",
+          "line": 858,
+          "source_path": "crates/trust-runtime/tests/modbus_driver.rs"
+        },
+        {
+          "assertion_id": "ASSERT_67023653B6C24AA5839989C2",
+          "expression": "assert ! (Instant :: now () < deadline , \"safe-state output should eventually reach the delayed Modbus device, got 0x{value:04x}\")",
+          "expression_digest": "sha256:782c8c5f4bd5ace18b470b22f56b17d34888f9fe53b6480ea4836698ee3b8df8",
+          "function": "modbus_safe_state_handoff_succeeds_when_worker_confirms_delivery",
+          "kind": "macro:assert",
+          "line": 868,
+          "source_path": "crates/trust-runtime/tests/modbus_driver.rs"
+        },
+        {
+          "assertion_id": "ASSERT_284E7C961FF3F1DD7F2BD624",
+          "expression": "state . lock () . expect (\"modbus state lock\")",
+          "expression_digest": "sha256:f0c3d630a9d6626ca522659fb47bc7d6051d1da142a872adf5074b1e8dff663f",
+          "function": "modbus_support::handle_modbus_request",
+          "kind": "method:expect",
+          "line": 90,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        },
+        {
+          "assertion_id": "ASSERT_CAF9C7962BD27465239A9E1B",
+          "expression": "state . lock () . expect (\"modbus state lock\")",
+          "expression_digest": "sha256:f0c3d630a9d6626ca522659fb47bc7d6051d1da142a872adf5074b1e8dff663f",
+          "function": "modbus_support::handle_read_bits",
+          "kind": "method:expect",
+          "line": 119,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        },
+        {
+          "assertion_id": "ASSERT_3DF00D035F1981C574F69098",
+          "expression": "unreachable ! (\"read bits called with unsupported function\")",
+          "expression_digest": "sha256:5177e5fecab9ca14fb1cf772d9922e16b9af02e74d66ea701cd727b3ab858347",
+          "function": "modbus_support::handle_read_bits",
+          "kind": "macro:unreachable",
+          "line": 123,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        },
+        {
+          "assertion_id": "ASSERT_665EE7BAFDDCBBAF795A4AF2",
+          "expression": "state . lock () . expect (\"modbus state lock\")",
+          "expression_digest": "sha256:f0c3d630a9d6626ca522659fb47bc7d6051d1da142a872adf5074b1e8dff663f",
+          "function": "modbus_support::handle_read_registers",
+          "kind": "method:expect",
+          "line": 142,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        },
+        {
+          "assertion_id": "ASSERT_9E31A61E656F5F64C6820D32",
+          "expression": "unreachable ! (\"read registers called with unsupported function\")",
+          "expression_digest": "sha256:b2580aa74fa77dfb856cb2bd73d69e84c8f2d5c329d4b731f371c750e54a45f1",
+          "function": "modbus_support::handle_read_registers",
+          "kind": "macro:unreachable",
+          "line": 146,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        },
+        {
+          "assertion_id": "ASSERT_E2E5A444699E3344CC9246B0",
+          "expression": "state . lock () . expect (\"modbus state lock\")",
+          "expression_digest": "sha256:f0c3d630a9d6626ca522659fb47bc7d6051d1da142a872adf5074b1e8dff663f",
+          "function": "modbus_support::handle_write_multiple_coils",
+          "kind": "method:expect",
+          "line": 199,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        },
+        {
+          "assertion_id": "ASSERT_2AB2EE0D424D5525C552441B",
+          "expression": "state . lock () . expect (\"modbus state lock\")",
+          "expression_digest": "sha256:f0c3d630a9d6626ca522659fb47bc7d6051d1da142a872adf5074b1e8dff663f",
+          "function": "modbus_support::handle_write_multiple_registers",
+          "kind": "method:expect",
+          "line": 220,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        },
+        {
+          "assertion_id": "ASSERT_9DECB92E2A97433BDA092680",
+          "expression": "state . lock () . expect (\"modbus state lock\")",
+          "expression_digest": "sha256:f0c3d630a9d6626ca522659fb47bc7d6051d1da142a872adf5074b1e8dff663f",
+          "function": "modbus_support::handle_write_single_coil",
+          "kind": "method:expect",
+          "line": 167,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        },
+        {
+          "assertion_id": "ASSERT_61D3A5B582A275860083E8C8",
+          "expression": "state . lock () . expect (\"modbus state lock\")",
+          "expression_digest": "sha256:f0c3d630a9d6626ca522659fb47bc7d6051d1da142a872adf5074b1e8dff663f",
+          "function": "modbus_support::handle_write_single_register",
+          "kind": "method:expect",
+          "line": 181,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        },
+        {
+          "assertion_id": "ASSERT_703C4A3049BB7A8D4C354312",
+          "expression": "TcpListener :: bind (\"127.0.0.1:0\") . expect (\"bind delayed modbus test server\")",
+          "expression_digest": "sha256:6884fedaa6e3bf23e4c75c96655bbee2268fbc12cdf8c8e16fdafaa4609491a5",
+          "function": "modbus_support::start_delayed_modbus_server",
+          "kind": "method:expect",
+          "line": 47,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        },
+        {
+          "assertion_id": "ASSERT_26B3B7F4A8D3C0586C39BE06",
+          "expression": "listener . local_addr () . expect (\"server addr\")",
+          "expression_digest": "sha256:0ff44040ca9570b29189ff47ed8f7a95542a46b37971682fd02652ab67a2b881",
+          "function": "modbus_support::start_delayed_modbus_server",
+          "kind": "method:expect",
+          "line": 48,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        },
+        {
+          "assertion_id": "ASSERT_0B949D321DB585D26EC678EA",
+          "expression": "listener . accept () . expect (\"accept delayed modbus\")",
+          "expression_digest": "sha256:21ea2ead0fd734a3b7bd99f09b5dd4d488a39696797915c35283e8df6e6d037c",
+          "function": "modbus_support::start_delayed_modbus_server",
+          "kind": "method:expect",
+          "line": 50,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        }
+      ],
+      "inventory_digest": "sha256:dbdbb176d7fd294e8c65aca10da35af884f4a51072186120fbaaf4e2703555eb",
+      "path": "crates/trust-runtime/tests/modbus_driver.rs",
+      "schema_version": 2,
+      "source_digest": "sha256:394c0acef636a9294ee42bdaffeb53bc5b9385f1f89af42d143ddb63df1329d1",
+      "source_digests": {
+        "crates/trust-runtime/tests/modbus_driver.rs": "sha256:394c0acef636a9294ee42bdaffeb53bc5b9385f1f89af42d143ddb63df1329d1",
+        "crates/trust-runtime/tests/support/modbus.rs": "sha256:6a789bcf29a6b5062bc63d756832bd952dbb66920b937694920a2256fe8dec25"
+      },
+      "test_name": "modbus_safe_state_handoff_succeeds_when_worker_confirms_delivery",
+      "unresolved_assertion_helpers": []
+    },
+    "DISC_527407FEFDE8AF0BE17D": {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_82212572C7097D8DF3088745",
+          "expression": "MqttIoDriver :: from_params_with_factory (& params (format ! (r#\" broker = \"127.0.0.1:1883\" client_id = \"sparkplug-preflight-{policy}\" on_error = \"{policy}\" [sparkplug] enabled = true group_id = \"trust\" edge_node_id = \"runtime-a\" [[output_points]] topic = \"legacy/out/speed\" metric_name = \"drive/speed\" image_offset = 4 data_type = \"u16\" payload_format = \"json\" \"#) . as_str () ,) , factory ,) . expect (\"construct Sparkplug MQTT driver\")",
+          "expression_digest": "sha256:304b1b40918efdb99592ff7bbe89f21126b53fb6ef52cb4285bfeefc2ab2b826",
+          "function": "mqtt_policy_preserves_sparkplug_output_preflight_failure",
+          "kind": "method:expect",
+          "line": 1281,
+          "source_path": "crates/trust-runtime/src/io/mqtt/tests.rs"
+        },
+        {
+          "assertion_id": "ASSERT_A0BF2E25F464DC11A6587C8B",
+          "expression": "assert_eq ! (result . is_err () , should_error , \"{policy}\")",
+          "expression_digest": "sha256:d9d3a5666e83aa928731016ce53b129c7ebd7bc3f3d8ad7206af285aaa809558",
+          "function": "mqtt_policy_preserves_sparkplug_output_preflight_failure",
+          "kind": "macro:assert_eq",
+          "line": 1309,
+          "source_path": "crates/trust-runtime/src/io/mqtt/tests.rs"
+        },
+        {
+          "assertion_id": "ASSERT_E8FC2B02DBE951264D6B5C6E",
+          "expression": "panic ! (\"unexpected {policy} health: {health:?}\")",
+          "expression_digest": "sha256:fb561466a35f76d6bdddd4bd19c9939091d70e45f3a7f460c3dff46ed613d9bf",
+          "function": "mqtt_policy_preserves_sparkplug_output_preflight_failure",
+          "kind": "macro:panic",
+          "line": 1314,
+          "source_path": "crates/trust-runtime/src/io/mqtt/tests.rs"
+        },
+        {
+          "assertion_id": "ASSERT_3A00C129E76E7E5369DE1EAA",
+          "expression": "assert ! (detail . contains (\"image range 4..6 exceeds process image size 1\") , \"unexpected {policy} Sparkplug preflight detail: {detail}\")",
+          "expression_digest": "sha256:bed9971fa02a2d878bff5175efa73956d3dbd9e38a88b02baeeedb40aa062761",
+          "function": "mqtt_policy_preserves_sparkplug_output_preflight_failure",
+          "kind": "macro:assert",
+          "line": 1316,
+          "source_path": "crates/trust-runtime/src/io/mqtt/tests.rs"
+        },
+        {
+          "assertion_id": "ASSERT_0277D044573F22788341BF95",
+          "expression": "assert ! (state . lock () . unwrap_or_else (| error | error . into_inner ()) . published . iter () . all (| (topic , _) | ! topic . contains (\"/NDATA/\")) , \"failed {policy} Sparkplug preflight must not publish NDATA\")",
+          "expression_digest": "sha256:cf548df91502f7aa2842321f8e2ed89b50d981d6095b7cfd20d040dd1684a98e",
+          "function": "mqtt_policy_preserves_sparkplug_output_preflight_failure",
+          "kind": "macro:assert",
+          "line": 1320,
+          "source_path": "crates/trust-runtime/src/io/mqtt/tests.rs"
+        },
+        {
+          "assertion_id": "ASSERT_8E8F0F2A9BE7315224106F78",
+          "expression": "toml :: from_str (text) . expect (\"parse toml params\")",
+          "expression_digest": "sha256:a4dc37a74bab65864b21828cae0699a8e07f7c64f562d83a74e486f35ace0d1c",
+          "function": "params",
+          "kind": "method:expect",
+          "line": 73,
+          "source_path": "crates/trust-runtime/src/io/mqtt/tests.rs"
+        }
+      ],
+      "inventory_digest": "sha256:a0c01bc1a76f707092c1566ee6376848811a84c1293d5574c1662e2b7727a193",
+      "path": "crates/trust-runtime/src/io/mqtt/tests.rs",
+      "schema_version": 2,
+      "source_digest": "sha256:7ebd21b16122bb6e2e0443a65462cbcf281f77f8646d4ed974e02eeda2e592e9",
+      "source_digests": {
+        "crates/trust-runtime/src/io/mqtt/tests.rs": "sha256:7ebd21b16122bb6e2e0443a65462cbcf281f77f8646d4ed974e02eeda2e592e9"
+      },
+      "test_name": "mqtt_policy_preserves_sparkplug_output_preflight_failure",
+      "unresolved_assertion_helpers": []
+    },
+    "DISC_538F8E2411E58B38A182": {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_C62D668BB144B88183AED1ED",
+          "expression": "MqttIoDriver :: from_params_with_factory (& params (r#\" broker = \"127.0.0.1:1883\" topic_in = \"line/in\" \"# ,) , factory ,) . expect (\"construct mqtt driver\")",
+          "expression_digest": "sha256:64d3712fb6309d38c2d35905e439a1ea397bfa9a2b49906adc7d2600ca803648",
+          "function": "mqtt_default_fault_rejects_stale_snapshot_when_refresh_times_out",
+          "kind": "method:expect",
+          "line": 1040,
+          "source_path": "crates/trust-runtime/src/io/mqtt/tests.rs"
+        },
+        {
+          "assertion_id": "ASSERT_59E14B0909B1069539486898",
+          "expression": "driver . read_inputs (& mut [0u8 ; 4]) . expect (\"initial payload\")",
+          "expression_digest": "sha256:e23af0cd581990fe4258aa036d3c1b534ff01e95b506d6405de34dbe0556eebe",
+          "function": "mqtt_default_fault_rejects_stale_snapshot_when_refresh_times_out",
+          "kind": "method:expect",
+          "line": 1051,
+          "source_path": "crates/trust-runtime/src/io/mqtt/tests.rs"
+        },
+        {
+          "assertion_id": "ASSERT_C2655A87263035A6A5892678",
+          "expression": "driver . read_inputs (& mut stale) . expect_err (\"default fault policy must reject a stale snapshot\")",
+          "expression_digest": "sha256:c0a678535ea4f25a4a469c1d9f3d36d9e909a48de97c0ff9fe9341edb7dc3b36",
+          "function": "mqtt_default_fault_rejects_stale_snapshot_when_refresh_times_out",
+          "kind": "method:expect_err",
+          "line": 1053,
+          "source_path": "crates/trust-runtime/src/io/mqtt/tests.rs"
+        },
+        {
+          "assertion_id": "ASSERT_A241EDBE390427BF8855E0E1",
+          "expression": "assert ! (matches ! (error , RuntimeError :: IoFreshness (_)))",
+          "expression_digest": "sha256:185c914a6a6bb3554bb5a4f7fa7167b95cc71622a008a293c76d2b2e0a703f69",
+          "function": "mqtt_default_fault_rejects_stale_snapshot_when_refresh_times_out",
+          "kind": "macro:assert",
+          "line": 1056,
+          "source_path": "crates/trust-runtime/src/io/mqtt/tests.rs"
+        },
+        {
+          "assertion_id": "ASSERT_61D27BAC1EE2B9BDD09A605E",
+          "expression": "assert ! (error . to_string () . contains (\"mqtt input refresh pending\"))",
+          "expression_digest": "sha256:e79edc307b9ec7d2b2942da003aa1e73cd14550c5780ccb7a84bd89d334d46d6",
+          "function": "mqtt_default_fault_rejects_stale_snapshot_when_refresh_times_out",
+          "kind": "macro:assert",
+          "line": 1057,
+          "source_path": "crates/trust-runtime/src/io/mqtt/tests.rs"
+        },
+        {
+          "assertion_id": "ASSERT_0DF66E099149AF6D1D9811B6",
+          "expression": "assert_eq ! (stale , [0xA5 ; 4] , \"faulted read exposed stale input bytes\")",
+          "expression_digest": "sha256:09d05a2bb870871ab14b70ce85287bc4c1765d07009419bb5f243c86762a47b8",
+          "function": "mqtt_default_fault_rejects_stale_snapshot_when_refresh_times_out",
+          "kind": "macro:assert_eq",
+          "line": 1058,
+          "source_path": "crates/trust-runtime/src/io/mqtt/tests.rs"
+        },
+        {
+          "assertion_id": "ASSERT_B0F5B26FCA12F71AC9BA45B6",
+          "expression": "assert ! (matches ! (driver . health () , IoDriverHealth :: Faulted { .. }))",
+          "expression_digest": "sha256:2379a49b39dbc123e01761bd5f95725e4086883b514f798319056247df474cdc",
+          "function": "mqtt_default_fault_rejects_stale_snapshot_when_refresh_times_out",
+          "kind": "macro:assert",
+          "line": 1059,
+          "source_path": "crates/trust-runtime/src/io/mqtt/tests.rs"
+        },
+        {
+          "assertion_id": "ASSERT_CCA7B4F21C6275EE58963C03",
+          "expression": "toml :: from_str (text) . expect (\"parse toml params\")",
+          "expression_digest": "sha256:a4dc37a74bab65864b21828cae0699a8e07f7c64f562d83a74e486f35ace0d1c",
+          "function": "params",
+          "kind": "method:expect",
+          "line": 73,
+          "source_path": "crates/trust-runtime/src/io/mqtt/tests.rs"
+        }
+      ],
+      "inventory_digest": "sha256:fc17513362579008d7f33351393f3c7c4105fa953b966b05ad37fd5fcd7a2d9b",
+      "path": "crates/trust-runtime/src/io/mqtt/tests.rs",
+      "schema_version": 2,
+      "source_digest": "sha256:7ebd21b16122bb6e2e0443a65462cbcf281f77f8646d4ed974e02eeda2e592e9",
+      "source_digests": {
+        "crates/trust-runtime/src/io/mqtt/tests.rs": "sha256:7ebd21b16122bb6e2e0443a65462cbcf281f77f8646d4ed974e02eeda2e592e9"
+      },
+      "test_name": "mqtt_default_fault_rejects_stale_snapshot_when_refresh_times_out",
+      "unresolved_assertion_helpers": []
+    },
+    "DISC_58C4F9FEBAD2FEFEAA75": {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_7BDBF03264416FA294E0C5EF",
+          "expression": "runtime . storage () . ref_for_global (point . var . as_str ()) . expect (\"global ref\")",
+          "expression_digest": "sha256:781dcd6a09c840f4c29ac58c617b211937ce92584025042872cead3fc8bb08ae",
+          "function": "opcua_bindings",
+          "kind": "method:expect",
+          "line": 876,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests.rs"
+        },
+        {
+          "assertion_id": "ASSERT_60EAE157FBD5826E97B63939",
+          "expression": "OpcUaClientBridge :: with_transport (connection , MockOpcUaClientTransport :: default () , bindings ,) . expect (\"bridge\")",
+          "expression_digest": "sha256:c5713404088d334ce513d1098da5fbd6e701fbf70a66b2fffcc94c9f7fa42c32",
+          "function": "persistent_worker_applies_subscription_updates_without_reconnecting_per_scan",
+          "kind": "method:expect",
+          "line": 205,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests.rs"
+        },
+        {
+          "assertion_id": "ASSERT_033C1761CD62F56AF38F8620",
+          "expression": "worker . tick (0) . expect (\"connect\")",
+          "expression_digest": "sha256:67e5055c6023e8af530f9747aac633bdff6e7c88c213deba6a390570bcf14e28",
+          "function": "persistent_worker_applies_subscription_updates_without_reconnecting_per_scan",
+          "kind": "method:expect",
+          "line": 212,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests.rs"
+        },
+        {
+          "assertion_id": "ASSERT_182BD2EA38F1F3A0C6E7E9DD",
+          "expression": "assert_eq ! (worker . transport () . connect_count , 1)",
+          "expression_digest": "sha256:b02d62ce284acf0c0a1b069869bbcc0665376b5fa98be32b20633beb47cffb49",
+          "function": "persistent_worker_applies_subscription_updates_without_reconnecting_per_scan",
+          "kind": "macro:assert_eq",
+          "line": 213,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests.rs"
+        },
+        {
+          "assertion_id": "ASSERT_5670AEB3AD512BC8F64ED002",
+          "expression": "assert_eq ! (worker . transport () . subscribe_count , 1)",
+          "expression_digest": "sha256:4e063b8f8207d2b5ba9a86201b5d4444930880a5b07491bcde8f99c3e654b313",
+          "function": "persistent_worker_applies_subscription_updates_without_reconnecting_per_scan",
+          "kind": "macro:assert_eq",
+          "line": 214,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests.rs"
+        },
+        {
+          "assertion_id": "ASSERT_6A7CB4D19BB4B9B794CDAE64",
+          "expression": "worker . tick (10) . expect (\"drain update\")",
+          "expression_digest": "sha256:165b5f69acb375c66b907d6d8f3e53024b7656dd5b22036b5ddeb7865e0012e7",
+          "function": "persistent_worker_applies_subscription_updates_without_reconnecting_per_scan",
+          "kind": "method:expect",
+          "line": 219,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests.rs"
+        },
+        {
+          "assertion_id": "ASSERT_E62BA1693C91B1706B025257",
+          "expression": "assert_eq ! (runtime . storage () . get_global (\"line1_temp\") , Some (& Value :: Real (0.0)) , \"worker callbacks must not mutate runtime storage mid-scan\")",
+          "expression_digest": "sha256:3adc4605b8e34d6675e5a343a64ed08f2988dc2a946ff1b07d26cd431aab2e79",
+          "function": "persistent_worker_applies_subscription_updates_without_reconnecting_per_scan",
+          "kind": "macro:assert_eq",
+          "line": 220,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests.rs"
+        },
+        {
+          "assertion_id": "ASSERT_A72FD7BD5F8E572E62D5D189",
+          "expression": "bridge . apply_inputs (runtime . storage_mut () , 11) . expect (\"apply input\")",
+          "expression_digest": "sha256:860806f1f5ae832dc9d5904010e033d45a3e1266428bec2e5eb67a19ac318759",
+          "function": "persistent_worker_applies_subscription_updates_without_reconnecting_per_scan",
+          "kind": "method:expect",
+          "line": 226,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests.rs"
+        },
+        {
+          "assertion_id": "ASSERT_AEDF9037C1436BF0E23B2FDE",
+          "expression": "assert_eq ! (runtime . storage () . get_global (\"line1_temp\") , Some (& Value :: Real (22.5)))",
+          "expression_digest": "sha256:16e76f345d69f5aeabf993aa3525ec2fa4ce2ab6ff3795548e2442e1983e5466",
+          "function": "persistent_worker_applies_subscription_updates_without_reconnecting_per_scan",
+          "kind": "macro:assert_eq",
+          "line": 229,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests.rs"
+        },
+        {
+          "assertion_id": "ASSERT_D6BFD8B194C87DE97D343599",
+          "expression": "worker . tick (20) . expect (\"second worker tick\")",
+          "expression_digest": "sha256:54fd39461f326e432bd00ed098d48db78f194d23f92d67e0aed9c13b35d53cc0",
+          "function": "persistent_worker_applies_subscription_updates_without_reconnecting_per_scan",
+          "kind": "method:expect",
+          "line": 234,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests.rs"
+        },
+        {
+          "assertion_id": "ASSERT_0598EB7E4AEF6A02BEC34615",
+          "expression": "bridge . apply_inputs (runtime . storage_mut () , 21) . expect (\"second scan\")",
+          "expression_digest": "sha256:8df6232d9fe0cec360a034e3b75b3883e8e0032a8fd615594e8f911069e9df4d",
+          "function": "persistent_worker_applies_subscription_updates_without_reconnecting_per_scan",
+          "kind": "method:expect",
+          "line": 235,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests.rs"
+        },
+        {
+          "assertion_id": "ASSERT_58711FB27FEE55172CA8C9F5",
+          "expression": "assert_eq ! (worker . transport () . connect_count , 1 , \"scan-cycle reads must reuse the persistent session\")",
+          "expression_digest": "sha256:3497a1c40e9220c21a8f50023ebcee788c50cea1d4e9f5a9859b180b9dba5f83",
+          "function": "persistent_worker_applies_subscription_updates_without_reconnecting_per_scan",
+          "kind": "macro:assert_eq",
+          "line": 238,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests.rs"
+        }
+      ],
+      "inventory_digest": "sha256:2bdb29c88b9111a85737ed4c788a13e4e628a28ce763b2f07107a0ce7a1db63c",
+      "path": "crates/trust-runtime/src/host/opcua/tests.rs",
+      "schema_version": 2,
+      "source_digest": "sha256:8a49e8b30972da26f2d096db3c3066f374f0fc10fe67c89fc8f07ac5e8c31c63",
+      "source_digests": {
+        "crates/trust-runtime/src/host/opcua/tests.rs": "sha256:8a49e8b30972da26f2d096db3c3066f374f0fc10fe67c89fc8f07ac5e8c31c63"
+      },
+      "test_name": "persistent_worker_applies_subscription_updates_without_reconnecting_per_scan",
+      "unresolved_assertion_helpers": []
+    },
+    "DISC_594D34B8573DA8A8BFE9": {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_145E03C02746F417736A516A",
+          "expression": "OpcUaClientBridge :: with_transport (connection , MockOpcUaClientTransport :: default () , bindings ,) . expect (\"bridge\")",
+          "expression_digest": "sha256:c5713404088d334ce513d1098da5fbd6e701fbf70a66b2fffcc94c9f7fa42c32",
+          "function": "older_active_session_sample_cannot_replace_newer_value",
+          "kind": "method:expect",
+          "line": 147,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+        },
+        {
+          "assertion_id": "ASSERT_0D2F53648DD49F977FDED716",
+          "expression": "worker . tick (0) . expect (\"connect\")",
+          "expression_digest": "sha256:67e5055c6023e8af530f9747aac633bdff6e7c88c213deba6a390570bcf14e28",
+          "function": "older_active_session_sample_cannot_replace_newer_value",
+          "kind": "method:expect",
+          "line": 154,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+        },
+        {
+          "assertion_id": "ASSERT_949FB17F5097DDBE845C6C8F",
+          "expression": "worker . tick (20) . expect (\"drain samples\")",
+          "expression_digest": "sha256:db431698b418da501af256b7a436ee966381d19f3ad58ae091e28796b4822ff3",
+          "function": "older_active_session_sample_cannot_replace_newer_value",
+          "kind": "method:expect",
+          "line": 161,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+        },
+        {
+          "assertion_id": "ASSERT_5F20C4B66DBE8E4A5BA9528A",
+          "expression": "assert_eq ! (bridge . snapshot () . values . get (\"line1_temp\") , Some (& Value :: Real (20.0)) , \"an older sample replaced the newer accepted value\")",
+          "expression_digest": "sha256:45d6fd25c8220171760118f7f3872c9d0d42bf4b7a4f109c75048c1022588027",
+          "function": "older_active_session_sample_cannot_replace_newer_value",
+          "kind": "macro:assert_eq",
+          "line": 163,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+        }
+      ],
+      "inventory_digest": "sha256:b1113bc075217d78d7b3c3ea954f8d49c0d8a5e43d84468a1028b42d89fb9d57",
+      "path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs",
+      "schema_version": 2,
+      "source_digest": "sha256:6f2d6a5aeb4a55e47a486b0644a1a398dae4337e51bc9a2ae2fcdbbf8a82f250",
+      "source_digests": {
+        "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs": "sha256:6f2d6a5aeb4a55e47a486b0644a1a398dae4337e51bc9a2ae2fcdbbf8a82f250"
+      },
+      "test_name": "older_active_session_sample_cannot_replace_newer_value",
+      "unresolved_assertion_helpers": []
+    },
+    "DISC_6236F0B25551D48929F7": {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_E79088E42C545BFA4035FE10",
+          "expression": "TestHarness :: from_source (include_str ! (\"fixtures/opcua/program/main.st\")) . expect (\"build opcua harness\")",
+          "expression_digest": "sha256:d1533bdf66eb9601e5f6d533b0b928de61809bbbd35cbe691117935b0888a750",
+          "function": "fixture_snapshot",
+          "kind": "method:expect",
+          "line": 59,
+          "source_path": "crates/trust-runtime/tests/opcua_integration.rs"
+        },
+        {
+          "assertion_id": "ASSERT_FD5049BB374D85744DAA1D6C",
+          "expression": "std :: fs :: read_to_string (& fixture) . expect (\"read opcua fixture\")",
+          "expression_digest": "sha256:3e5154e8c5de192a7ef360d1d11d6ecaa12c2959836c031ac6120cab99b69352",
+          "function": "load_runtime_fixture",
+          "kind": "method:expect",
+          "line": 36,
+          "source_path": "crates/trust-runtime/tests/opcua_integration.rs"
+        },
+        {
+          "assertion_id": "ASSERT_A43C08FFA462198DA8307406",
+          "expression": "validate_runtime_toml_text (& text) . expect (\"runtime fixture validates\")",
+          "expression_digest": "sha256:76cc69843959bd7dd408601b737797e2034ab2e181424bbeaf5aebae12b28ad5",
+          "function": "load_runtime_fixture",
+          "kind": "method:expect",
+          "line": 38,
+          "source_path": "crates/trust-runtime/tests/opcua_integration.rs"
+        },
+        {
+          "assertion_id": "ASSERT_3486F93A2F4FDBFDE95A1E30",
+          "expression": "std :: fs :: write (& runtime_path , text) . expect (\"write runtime fixture\")",
+          "expression_digest": "sha256:649a8eb2acebe71f4ab6c43b5ce9a4989a2123259e77da65964b70da52cbab65",
+          "function": "load_runtime_fixture",
+          "kind": "method:expect",
+          "line": 41,
+          "source_path": "crates/trust-runtime/tests/opcua_integration.rs"
+        },
+        {
+          "assertion_id": "ASSERT_75089B1AEA2244F2354CB654",
+          "expression": "RuntimeConfig :: load (runtime_path) . expect (\"load runtime fixture\")",
+          "expression_digest": "sha256:392c79451d58e74f4673ef6d18f9e94fa6526f9df447e432a507d064a17e66c6",
+          "function": "load_runtime_fixture",
+          "kind": "method:expect",
+          "line": 42,
+          "source_path": "crates/trust-runtime/tests/opcua_integration.rs"
+        },
+        {
+          "assertion_id": "ASSERT_9B8A8B7809155A528CDAA887",
+          "expression": "provider_slot . lock () . expect (\"snapshot slot\")",
+          "expression_digest": "sha256:87803689fc64d2740ff29e4941f30103d4aec1a933d90edefad77398587f1703",
+          "function": "opcua_server_cold_starts_before_first_runtime_snapshot",
+          "kind": "method:expect",
+          "line": 130,
+          "source_path": "crates/trust-runtime/tests/opcua_integration.rs"
+        },
+        {
+          "assertion_id": "ASSERT_96E65090C61BCAB719FA05BE",
+          "expression": "start_wire_server (runtime . resource_name . as_str () , & runtime . opcua , provider , Some (runtime_root . as_path ()) ,) . expect (\"cold-start opcua wire server\")",
+          "expression_digest": "sha256:0aa9803c0974e24d58014decb4c76d33adba8a05390336f73a6ef58d9260d576",
+          "function": "opcua_server_cold_starts_before_first_runtime_snapshot",
+          "kind": "method:expect",
+          "line": 137,
+          "source_path": "crates/trust-runtime/tests/opcua_integration.rs"
+        },
+        {
+          "assertion_id": "ASSERT_D9840F617FA35CA9C21884B2",
+          "expression": "start_wire_server (runtime . resource_name . as_str () , & runtime . opcua , provider , Some (runtime_root . as_path ()) ,) . expect (\"cold-start opcua wire server\") . expect (\"opcua enabled\")",
+          "expression_digest": "sha256:0005a602171014f7d4382aef59439a60c604e5e95832242196dbd4f6f744c2c1",
+          "function": "opcua_server_cold_starts_before_first_runtime_snapshot",
+          "kind": "method:expect",
+          "line": 137,
+          "source_path": "crates/trust-runtime/tests/opcua_integration.rs"
+        },
+        {
+          "assertion_id": "ASSERT_11EA1953C081A1E5C25B3C58",
+          "expression": "snapshot_slot . lock () . expect (\"snapshot slot\")",
+          "expression_digest": "sha256:0202541f431885201b213b3f7de3bc4927bd7399f4d0d9295dec2009b5827ff3",
+          "function": "opcua_server_cold_starts_before_first_runtime_snapshot",
+          "kind": "method:expect",
+          "line": 146,
+          "source_path": "crates/trust-runtime/tests/opcua_integration.rs"
+        },
+        {
+          "assertion_id": "ASSERT_83834D48C32536C2F7473D32",
+          "expression": "assert_eq ! (value , OpcUaVariant :: Int32 (42))",
+          "expression_digest": "sha256:d745067ce3f68e8baf697feee607fe32fb9a1d398e221c3968079b62a6120801",
+          "function": "opcua_server_cold_starts_before_first_runtime_snapshot",
+          "kind": "macro:assert_eq",
+          "line": 152,
+          "source_path": "crates/trust-runtime/tests/opcua_integration.rs"
+        },
+        {
+          "assertion_id": "ASSERT_56A814A01126ABDA974C9C23",
+          "expression": "panic ! (\"counter was not published after snapshot: {last_error:?}\")",
+          "expression_digest": "sha256:385fe19219c21b1cc94036103b70f6afb3c3a8a4cff541b8b7fe39c65ac7834c",
+          "function": "opcua_server_cold_starts_before_first_runtime_snapshot",
+          "kind": "macro:panic",
+          "line": 162,
+          "source_path": "crates/trust-runtime/tests/opcua_integration.rs"
+        },
+        {
+          "assertion_id": "ASSERT_8B97B80E369B125F06DA37BF",
+          "expression": "TcpListener :: bind (\"127.0.0.1:0\") . expect (\"bind local port\")",
+          "expression_digest": "sha256:525e9748b11e384263a708ca04914122c86893260a63b0f848fbe04df60853e4",
+          "function": "reserve_loopback_port",
+          "kind": "method:expect",
+          "line": 15,
+          "source_path": "crates/trust-runtime/tests/opcua_integration.rs"
+        },
+        {
+          "assertion_id": "ASSERT_B97CE9DE131E1AC88CD9DFD6",
+          "expression": "listener . local_addr () . expect (\"local addr\")",
+          "expression_digest": "sha256:6e624988e0370eac744f045f7d374bbb5522995edc3468384ffb15f36e4ee23f",
+          "function": "reserve_loopback_port",
+          "kind": "method:expect",
+          "line": 16,
+          "source_path": "crates/trust-runtime/tests/opcua_integration.rs"
+        },
+        {
+          "assertion_id": "ASSERT_37D1AACC08EB497EC2AEA25C",
+          "expression": "SystemTime :: now () . duration_since (UNIX_EPOCH) . expect (\"clock\")",
+          "expression_digest": "sha256:988183946f8fc54531a42a5c0b7eeb3a6e4ceaead97b5314036d8c9c5d563c51",
+          "function": "temp_runtime_root",
+          "kind": "method:expect",
+          "line": 22,
+          "source_path": "crates/trust-runtime/tests/opcua_integration.rs"
+        },
+        {
+          "assertion_id": "ASSERT_0564B11F2246166B37699F26",
+          "expression": "std :: fs :: create_dir_all (& root) . expect (\"create temp runtime root\")",
+          "expression_digest": "sha256:d5351922441f8e12dadad5eabc0501390d3840a8fdc9eed222c306215001fbe4",
+          "function": "temp_runtime_root",
+          "kind": "method:expect",
+          "line": 27,
+          "source_path": "crates/trust-runtime/tests/opcua_integration.rs"
+        }
+      ],
+      "inventory_digest": "sha256:242d46a70ab8f61965d356eb35042c15b601ebd1e3691c0f741a9f5259a3c363",
+      "path": "crates/trust-runtime/tests/opcua_integration.rs",
+      "schema_version": 2,
+      "source_digest": "sha256:0151f037ccd5c23e62e77f52e50204accf8a9b95414bae1240a8bb39f9d57264",
+      "source_digests": {
+        "crates/trust-runtime/tests/fixtures/opcua/program/main.st": "sha256:f1353e72f61fc21cc68fad03ebe61fe0c02a264c9ff8c570a78c87e5ddba7fe9",
+        "crates/trust-runtime/tests/opcua_integration.rs": "sha256:0151f037ccd5c23e62e77f52e50204accf8a9b95414bae1240a8bb39f9d57264"
+      },
+      "test_name": "opcua_server_cold_starts_before_first_runtime_snapshot",
+      "unresolved_assertion_helpers": [
+        "load_runtime_fixture::std::fs::read_to_string:unresolved-oracle"
+      ]
+    },
+    "DISC_6847FE4C45F88000E0B4": {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_5F2C2169926C272A545448EE",
+          "expression": "std :: fs :: read_to_string (& fixture) . expect (\"read opcua fixture\")",
+          "expression_digest": "sha256:3e5154e8c5de192a7ef360d1d11d6ecaa12c2959836c031ac6120cab99b69352",
+          "function": "load_runtime_fixture",
+          "kind": "method:expect",
+          "line": 36,
+          "source_path": "crates/trust-runtime/tests/opcua_integration.rs"
+        },
+        {
+          "assertion_id": "ASSERT_E5E639903641C4C46F0A09BE",
+          "expression": "validate_runtime_toml_text (& text) . expect (\"runtime fixture validates\")",
+          "expression_digest": "sha256:76cc69843959bd7dd408601b737797e2034ab2e181424bbeaf5aebae12b28ad5",
+          "function": "load_runtime_fixture",
+          "kind": "method:expect",
+          "line": 38,
+          "source_path": "crates/trust-runtime/tests/opcua_integration.rs"
+        },
+        {
+          "assertion_id": "ASSERT_7D93E108701B60C3BE8BDD08",
+          "expression": "std :: fs :: write (& runtime_path , text) . expect (\"write runtime fixture\")",
+          "expression_digest": "sha256:649a8eb2acebe71f4ab6c43b5ce9a4989a2123259e77da65964b70da52cbab65",
+          "function": "load_runtime_fixture",
+          "kind": "method:expect",
+          "line": 41,
+          "source_path": "crates/trust-runtime/tests/opcua_integration.rs"
+        },
+        {
+          "assertion_id": "ASSERT_1EFC205D2695A8EB316E68BD",
+          "expression": "RuntimeConfig :: load (runtime_path) . expect (\"load runtime fixture\")",
+          "expression_digest": "sha256:392c79451d58e74f4673ef6d18f9e94fa6526f9df447e432a507d064a17e66c6",
+          "function": "load_runtime_fixture",
+          "kind": "method:expect",
+          "line": 42,
+          "source_path": "crates/trust-runtime/tests/opcua_integration.rs"
+        },
+        {
+          "assertion_id": "ASSERT_1B9FCE123115FE5163BC8552",
+          "expression": "assert ! (! server . exposed_nodes () . is_empty () , \"expected at least one exposed OPC UA node\")",
+          "expression_digest": "sha256:034b1cd68a620d6ad8aeb4b6d9639fb6dbfd71a89f01c3bdad19443f5379f253",
+          "function": "opcua_interop_reads_exposed_scalars_with_reference_client",
+          "kind": "macro:assert",
+          "line": 96,
+          "source_path": "crates/trust-runtime/tests/opcua_integration.rs"
+        },
+        {
+          "assertion_id": "ASSERT_7AA4834CF2B13003B94743B9",
+          "expression": "server . probe_read (node_name . as_str () , OpcUaClientIdentity :: Anonymous) . expect (\"read exposed node\")",
+          "expression_digest": "sha256:b8a026f6e2251600296d14d51265cf749fdfd9e6d4f43f4cec6b07819ed39ebc",
+          "function": "opcua_interop_reads_exposed_scalars_with_reference_client",
+          "kind": "method:expect",
+          "line": 102,
+          "source_path": "crates/trust-runtime/tests/opcua_integration.rs"
+        },
+        {
+          "assertion_id": "ASSERT_17F28E7BB26CB11D7C9BF3FF",
+          "expression": "assert ! (matches ! (value , OpcUaVariant :: Boolean (_) | OpcUaVariant :: Int16 (_) | OpcUaVariant :: Int32 (_) | OpcUaVariant :: Int64 (_) | OpcUaVariant :: UInt16 (_) | OpcUaVariant :: UInt32 (_) | OpcUaVariant :: UInt64 (_) | OpcUaVariant :: Float (_) | OpcUaVariant :: Double (_) | OpcUaVariant :: String (_)))",
+          "expression_digest": "sha256:608c199cb4b217973c6fb4c726019830be1a281f3d3ec45ed6a08fef3e1d5d14",
+          "function": "opcua_interop_reads_exposed_scalars_with_reference_client",
+          "kind": "macro:assert",
+          "line": 105,
+          "source_path": "crates/trust-runtime/tests/opcua_integration.rs"
+        },
+        {
+          "assertion_id": "ASSERT_8D4C1257C254435865744855",
+          "expression": "server . exposed_nodes () . iter () . find (| node | matches ! (node . data_type , OpcUaDataType :: Int32)) . or_else (| | server . exposed_nodes () . first ()) . map (| node | node . name . to_string ()) . expect (\"at least one exposed node\")",
+          "expression_digest": "sha256:dce22f947defc38937cda488b0dddf9e4eab8989bfb67dfaba9f66f7423726d4",
+          "function": "preferred_node_name",
+          "kind": "method:expect",
+          "line": 84,
+          "source_path": "crates/trust-runtime/tests/opcua_integration.rs"
+        },
+        {
+          "assertion_id": "ASSERT_6471980F7319BAAE3CD0C8F7",
+          "expression": "TcpListener :: bind (\"127.0.0.1:0\") . expect (\"bind local port\")",
+          "expression_digest": "sha256:525e9748b11e384263a708ca04914122c86893260a63b0f848fbe04df60853e4",
+          "function": "reserve_loopback_port",
+          "kind": "method:expect",
+          "line": 15,
+          "source_path": "crates/trust-runtime/tests/opcua_integration.rs"
+        },
+        {
+          "assertion_id": "ASSERT_E81CF79EFCBF6B11DCFB0DED",
+          "expression": "listener . local_addr () . expect (\"local addr\")",
+          "expression_digest": "sha256:6e624988e0370eac744f045f7d374bbb5522995edc3468384ffb15f36e4ee23f",
+          "function": "reserve_loopback_port",
+          "kind": "method:expect",
+          "line": 16,
+          "source_path": "crates/trust-runtime/tests/opcua_integration.rs"
+        },
+        {
+          "assertion_id": "ASSERT_F02B7F8149A371DB831775FC",
+          "expression": "TestHarness :: from_source (include_str ! (\"fixtures/opcua/program/main.st\")) . expect (\"build opcua harness\")",
+          "expression_digest": "sha256:d1533bdf66eb9601e5f6d533b0b928de61809bbbd35cbe691117935b0888a750",
+          "function": "snapshot_provider",
+          "kind": "method:expect",
+          "line": 47,
+          "source_path": "crates/trust-runtime/tests/opcua_integration.rs"
+        },
+        {
+          "assertion_id": "ASSERT_640316097D8213903052A512",
+          "expression": "start_wire_server (runtime . resource_name . as_str () , & runtime . opcua , snapshot_provider () , Some (runtime_root . as_path ()) ,) . expect (\"start opcua wire server\") . expect (\"opcua enabled\")",
+          "expression_digest": "sha256:d670d4012db4cf4ea02c3e4cd596a5a0b4fe0ebf52a2a5bede0a84117ff33b44",
+          "function": "start_fixture_server",
+          "kind": "method:expect",
+          "line": 73,
+          "source_path": "crates/trust-runtime/tests/opcua_integration.rs"
+        },
+        {
+          "assertion_id": "ASSERT_756C50233D58C127F93D594C",
+          "expression": "start_wire_server (runtime . resource_name . as_str () , & runtime . opcua , snapshot_provider () , Some (runtime_root . as_path ()) ,) . expect (\"start opcua wire server\")",
+          "expression_digest": "sha256:885bed61512b8de807baa32eead4e871d390a79a0f9b53d52cefca83b23d3f09",
+          "function": "start_fixture_server",
+          "kind": "method:expect",
+          "line": 73,
+          "source_path": "crates/trust-runtime/tests/opcua_integration.rs"
+        },
+        {
+          "assertion_id": "ASSERT_710193E8109B20B733830F2D",
+          "expression": "SystemTime :: now () . duration_since (UNIX_EPOCH) . expect (\"clock\")",
+          "expression_digest": "sha256:988183946f8fc54531a42a5c0b7eeb3a6e4ceaead97b5314036d8c9c5d563c51",
+          "function": "temp_runtime_root",
+          "kind": "method:expect",
+          "line": 22,
+          "source_path": "crates/trust-runtime/tests/opcua_integration.rs"
+        },
+        {
+          "assertion_id": "ASSERT_37C1A7917D88846758ADA489",
+          "expression": "std :: fs :: create_dir_all (& root) . expect (\"create temp runtime root\")",
+          "expression_digest": "sha256:d5351922441f8e12dadad5eabc0501390d3840a8fdc9eed222c306215001fbe4",
+          "function": "temp_runtime_root",
+          "kind": "method:expect",
+          "line": 27,
+          "source_path": "crates/trust-runtime/tests/opcua_integration.rs"
+        }
+      ],
+      "inventory_digest": "sha256:e229d6e4186abf1b94bed3b53c20495e8fb36380184bb6614e7235ab7887c5a9",
+      "path": "crates/trust-runtime/tests/opcua_integration.rs",
+      "schema_version": 2,
+      "source_digest": "sha256:0151f037ccd5c23e62e77f52e50204accf8a9b95414bae1240a8bb39f9d57264",
+      "source_digests": {
+        "crates/trust-runtime/tests/fixtures/opcua/program/main.st": "sha256:f1353e72f61fc21cc68fad03ebe61fe0c02a264c9ff8c570a78c87e5ddba7fe9",
+        "crates/trust-runtime/tests/opcua_integration.rs": "sha256:0151f037ccd5c23e62e77f52e50204accf8a9b95414bae1240a8bb39f9d57264"
+      },
+      "test_name": "opcua_interop_reads_exposed_scalars_with_reference_client",
+      "unresolved_assertion_helpers": [
+        "load_runtime_fixture::std::fs::read_to_string:unresolved-oracle"
+      ]
+    },
+    "DISC_711C040BD66EBFF93B84": {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_1398DB02AB1D3AB1327CCBC5",
+          "expression": "toml :: from_str (& format ! (\"address = \\\"{addr}\\\"\\nunit_id = 1\\ninput_start = 0\\noutput_start = 0\\ntimeout_ms = 1000\\non_error = \\\"{policy}\\\"\\n\")) . expect (\"params\")",
+          "expression_digest": "sha256:ee1f3007214cef8d9a6bf0472472b2b741acc8e3830ca32eb97b88aa9742548d",
+          "function": "modbus_cold_start_no_data_follows_on_error_policy",
+          "kind": "method:expect",
+          "line": 729,
+          "source_path": "crates/trust-runtime/tests/modbus_driver.rs"
+        },
+        {
+          "assertion_id": "ASSERT_7EE47CB2E3730A1144C75921",
+          "expression": "ModbusTcpDriver :: from_params (& params) . expect (\"driver\")",
+          "expression_digest": "sha256:1448490d7680c97d3b79ca30cea665845b58daae88b6835ac9148c603d7ef188",
+          "function": "modbus_cold_start_no_data_follows_on_error_policy",
+          "kind": "method:expect",
+          "line": 733,
+          "source_path": "crates/trust-runtime/tests/modbus_driver.rs"
+        },
+        {
+          "assertion_id": "ASSERT_22662F9FC1F1B142DD0B4397",
+          "expression": "assert ! (elapsed < MODBUS_CI_SCAN_BOUND , \"{policy} cold-start no-data handling must be scan-bounded, elapsed={elapsed:?}\")",
+          "expression_digest": "sha256:3f2a15f219a063620463112173c6b1cdb1dcade92cba0b0624799dd4eed8cde9",
+          "function": "modbus_cold_start_no_data_follows_on_error_policy",
+          "kind": "macro:assert",
+          "line": 740,
+          "source_path": "crates/trust-runtime/tests/modbus_driver.rs"
+        },
+        {
+          "assertion_id": "ASSERT_C240B9069E3E8AE30BF07AEC",
+          "expression": "assert_eq ! (result . is_err () , should_error , \"{policy} result should match on_error policy for cold-start no-data\")",
+          "expression_digest": "sha256:6d6d95f5967f07645d2d89188f3c08cd985aec0586027390964598448c18f047",
+          "function": "modbus_cold_start_no_data_follows_on_error_policy",
+          "kind": "macro:assert_eq",
+          "line": 744,
+          "source_path": "crates/trust-runtime/tests/modbus_driver.rs"
+        },
+        {
+          "assertion_id": "ASSERT_A4BA226B130D4B26351FE912",
+          "expression": "panic ! (\"unexpected {policy} health for cold-start no-data: {other:?}\")",
+          "expression_digest": "sha256:eb4b14fd9c61f54b72994ac05bdfbdafd18a8f3c3dc46495195ab30ed6679ae9",
+          "function": "modbus_cold_start_no_data_follows_on_error_policy",
+          "kind": "macro:panic",
+          "line": 752,
+          "source_path": "crates/trust-runtime/tests/modbus_driver.rs"
+        },
+        {
+          "assertion_id": "ASSERT_699681474E9FEFD8517124F0",
+          "expression": "state . lock () . expect (\"modbus state lock\")",
+          "expression_digest": "sha256:f0c3d630a9d6626ca522659fb47bc7d6051d1da142a872adf5074b1e8dff663f",
+          "function": "modbus_support::handle_modbus_request",
+          "kind": "method:expect",
+          "line": 90,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        },
+        {
+          "assertion_id": "ASSERT_B4487DD438AE61A26A8363B6",
+          "expression": "state . lock () . expect (\"modbus state lock\")",
+          "expression_digest": "sha256:f0c3d630a9d6626ca522659fb47bc7d6051d1da142a872adf5074b1e8dff663f",
+          "function": "modbus_support::handle_read_bits",
+          "kind": "method:expect",
+          "line": 119,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        },
+        {
+          "assertion_id": "ASSERT_F1BF31A026B9FCCD179A536D",
+          "expression": "unreachable ! (\"read bits called with unsupported function\")",
+          "expression_digest": "sha256:5177e5fecab9ca14fb1cf772d9922e16b9af02e74d66ea701cd727b3ab858347",
+          "function": "modbus_support::handle_read_bits",
+          "kind": "macro:unreachable",
+          "line": 123,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        },
+        {
+          "assertion_id": "ASSERT_1E84F9D60C277D0228250506",
+          "expression": "state . lock () . expect (\"modbus state lock\")",
+          "expression_digest": "sha256:f0c3d630a9d6626ca522659fb47bc7d6051d1da142a872adf5074b1e8dff663f",
+          "function": "modbus_support::handle_read_registers",
+          "kind": "method:expect",
+          "line": 142,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        },
+        {
+          "assertion_id": "ASSERT_BCD247F250A702286D9B44F1",
+          "expression": "unreachable ! (\"read registers called with unsupported function\")",
+          "expression_digest": "sha256:b2580aa74fa77dfb856cb2bd73d69e84c8f2d5c329d4b731f371c750e54a45f1",
+          "function": "modbus_support::handle_read_registers",
+          "kind": "macro:unreachable",
+          "line": 146,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        },
+        {
+          "assertion_id": "ASSERT_46646ADA25285E99372581C9",
+          "expression": "state . lock () . expect (\"modbus state lock\")",
+          "expression_digest": "sha256:f0c3d630a9d6626ca522659fb47bc7d6051d1da142a872adf5074b1e8dff663f",
+          "function": "modbus_support::handle_write_multiple_coils",
+          "kind": "method:expect",
+          "line": 199,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        },
+        {
+          "assertion_id": "ASSERT_BBE05FF338A10B5F58AB5BF3",
+          "expression": "state . lock () . expect (\"modbus state lock\")",
+          "expression_digest": "sha256:f0c3d630a9d6626ca522659fb47bc7d6051d1da142a872adf5074b1e8dff663f",
+          "function": "modbus_support::handle_write_multiple_registers",
+          "kind": "method:expect",
+          "line": 220,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        },
+        {
+          "assertion_id": "ASSERT_BCC447F931024748C4F95704",
+          "expression": "state . lock () . expect (\"modbus state lock\")",
+          "expression_digest": "sha256:f0c3d630a9d6626ca522659fb47bc7d6051d1da142a872adf5074b1e8dff663f",
+          "function": "modbus_support::handle_write_single_coil",
+          "kind": "method:expect",
+          "line": 167,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        },
+        {
+          "assertion_id": "ASSERT_A0E6520710DC9E6DBFB91767",
+          "expression": "state . lock () . expect (\"modbus state lock\")",
+          "expression_digest": "sha256:f0c3d630a9d6626ca522659fb47bc7d6051d1da142a872adf5074b1e8dff663f",
+          "function": "modbus_support::handle_write_single_register",
+          "kind": "method:expect",
+          "line": 181,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        },
+        {
+          "assertion_id": "ASSERT_83EB9D0259749DC3F7A21255",
+          "expression": "TcpListener :: bind (\"127.0.0.1:0\") . expect (\"bind delayed modbus test server\")",
+          "expression_digest": "sha256:6884fedaa6e3bf23e4c75c96655bbee2268fbc12cdf8c8e16fdafaa4609491a5",
+          "function": "modbus_support::start_delayed_modbus_server",
+          "kind": "method:expect",
+          "line": 47,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        },
+        {
+          "assertion_id": "ASSERT_052D115D3AA9C2F69F6437EC",
+          "expression": "listener . local_addr () . expect (\"server addr\")",
+          "expression_digest": "sha256:0ff44040ca9570b29189ff47ed8f7a95542a46b37971682fd02652ab67a2b881",
+          "function": "modbus_support::start_delayed_modbus_server",
+          "kind": "method:expect",
+          "line": 48,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        },
+        {
+          "assertion_id": "ASSERT_724AE563BFDA55CFA63C6ECE",
+          "expression": "listener . accept () . expect (\"accept delayed modbus\")",
+          "expression_digest": "sha256:21ea2ead0fd734a3b7bd99f09b5dd4d488a39696797915c35283e8df6e6d037c",
+          "function": "modbus_support::start_delayed_modbus_server",
+          "kind": "method:expect",
+          "line": 50,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        }
+      ],
+      "inventory_digest": "sha256:114f7d3ac69474fe682af62970cd40b739712900f1677c75ee7d22e447253a65",
+      "path": "crates/trust-runtime/tests/modbus_driver.rs",
+      "schema_version": 2,
+      "source_digest": "sha256:394c0acef636a9294ee42bdaffeb53bc5b9385f1f89af42d143ddb63df1329d1",
+      "source_digests": {
+        "crates/trust-runtime/tests/modbus_driver.rs": "sha256:394c0acef636a9294ee42bdaffeb53bc5b9385f1f89af42d143ddb63df1329d1",
+        "crates/trust-runtime/tests/support/modbus.rs": "sha256:6a789bcf29a6b5062bc63d756832bd952dbb66920b937694920a2256fe8dec25"
+      },
+      "test_name": "modbus_cold_start_no_data_follows_on_error_policy",
+      "unresolved_assertion_helpers": []
+    },
+    "DISC_7EA277F1D09BF524610E": {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_EC71C1A86E4560AF21BF4D2F",
+          "expression": "OpcUaClientBridge :: with_transport (connection , MockOpcUaClientTransport :: default () , bindings ,) . expect (\"bridge\")",
+          "expression_digest": "sha256:c5713404088d334ce513d1098da5fbd6e701fbf70a66b2fffcc94c9f7fa42c32",
+          "function": "older_session_callbacks_cannot_regress_reconnected_worker",
+          "kind": "method:expect",
+          "line": 110,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+        },
+        {
+          "assertion_id": "ASSERT_2D74F07469D2B56BDA5FD304",
+          "expression": "worker . tick (0) . expect (\"initial connect\")",
+          "expression_digest": "sha256:7f6f613892a81d43880c3e78a64c7223f27d173f6367fa9be18eefb0e5bc85d3",
+          "function": "older_session_callbacks_cannot_regress_reconnected_worker",
+          "kind": "method:expect",
+          "line": 117,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+        },
+        {
+          "assertion_id": "ASSERT_C6EBFD0216A73E35687ECDCA",
+          "expression": "worker . transport () . sink . clone () . expect (\"initial event sink\")",
+          "expression_digest": "sha256:0fd0858993901bf69e85ab12a52cd6eec2938339cde2e423387899ca2717649c",
+          "function": "older_session_callbacks_cannot_regress_reconnected_worker",
+          "kind": "method:expect",
+          "line": 118,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+        },
+        {
+          "assertion_id": "ASSERT_0EB6AE7EE02D4B296D5AF0EA",
+          "expression": "assert ! (old_sink . publish_connection_status (false , 100 , \"first session lost\"))",
+          "expression_digest": "sha256:203f6f8ff1894baa15a099667ca252d7439616328137fd20bb1613e075a1903c",
+          "function": "older_session_callbacks_cannot_regress_reconnected_worker",
+          "kind": "macro:assert",
+          "line": 119,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+        },
+        {
+          "assertion_id": "ASSERT_4A3187AC5DB103191588D910",
+          "expression": "worker . tick (100) . expect (\"enter reconnecting\")",
+          "expression_digest": "sha256:0ef7e4e95e9ccf3ef11c320f7b1f246194908c79634d43abc4c612b973c05fad",
+          "function": "older_session_callbacks_cannot_regress_reconnected_worker",
+          "kind": "method:expect",
+          "line": 120,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+        },
+        {
+          "assertion_id": "ASSERT_17C53D41F7B8D7E00FAC157C",
+          "expression": "worker . tick (2_101) . expect (\"replacement connection\")",
+          "expression_digest": "sha256:5ddf528e8750af4eb52302226e7109fc864e9254e0f1d467ce63e8424abc9230",
+          "function": "older_session_callbacks_cannot_regress_reconnected_worker",
+          "kind": "method:expect",
+          "line": 121,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+        },
+        {
+          "assertion_id": "ASSERT_B9D80FF234B7670A51C4A2FC",
+          "expression": "assert_eq ! (bridge . state () , OpcUaClientConnectionState :: Connected)",
+          "expression_digest": "sha256:b71a3767b8216a1f7da79b409b35a445a840c0fe1ceb9086a0a9b6d8ef83437d",
+          "function": "older_session_callbacks_cannot_regress_reconnected_worker",
+          "kind": "macro:assert_eq",
+          "line": 122,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+        },
+        {
+          "assertion_id": "ASSERT_BBD4936D8E289F044B88F3F7",
+          "expression": "assert ! (old_sink . publish_session_closed (2_200 , \"delayed close from first session\"))",
+          "expression_digest": "sha256:4b2f15c7e95107f4997914aa7aac69530703eaff1f0421a02d0c9ef5f39880f9",
+          "function": "older_session_callbacks_cannot_regress_reconnected_worker",
+          "kind": "macro:assert",
+          "line": 124,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+        },
+        {
+          "assertion_id": "ASSERT_1A112B7C8389F9036862A197",
+          "expression": "worker . tick (2_200) . expect (\"drain delayed old-session callback\")",
+          "expression_digest": "sha256:dff9097808a298c431237dba0b6f9c98330169d1fae6e135ae3563e794ba65d9",
+          "function": "older_session_callbacks_cannot_regress_reconnected_worker",
+          "kind": "method:expect",
+          "line": 125,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+        },
+        {
+          "assertion_id": "ASSERT_EE032FF99275C6A7A3152BAE",
+          "expression": "assert_eq ! (bridge . state () , OpcUaClientConnectionState :: Connected , \"a callback from the replaced session regressed current authority\")",
+          "expression_digest": "sha256:e82a8d52a2308b48723bf3916a790d4ede65bbbaf7fe745297efcff6c23a272d",
+          "function": "older_session_callbacks_cannot_regress_reconnected_worker",
+          "kind": "macro:assert_eq",
+          "line": 129,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+        }
+      ],
+      "inventory_digest": "sha256:c505e62414c4529f8b83f41abd0edcd88055caffcfde6da1cadea1d56f2c8caa",
+      "path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs",
+      "schema_version": 2,
+      "source_digest": "sha256:6f2d6a5aeb4a55e47a486b0644a1a398dae4337e51bc9a2ae2fcdbbf8a82f250",
+      "source_digests": {
+        "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs": "sha256:6f2d6a5aeb4a55e47a486b0644a1a398dae4337e51bc9a2ae2fcdbbf8a82f250"
+      },
+      "test_name": "older_session_callbacks_cannot_regress_reconnected_worker",
+      "unresolved_assertion_helpers": []
+    },
+    "DISC_8D9187DA8A6124C23590": {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_7A17892DDF403B7660956AAF",
+          "expression": "toml :: from_str (& format ! (r#\" address = \"{addr}\" [[output_points]] image_offset = 0 address = 0 function = \"write_multiple_registers\" data_type = \"f32\" scale = 0.5 \"#)) . expect (\"params\")",
+          "expression_digest": "sha256:6e7e313acbb48308a4e47910382d0c68e740fd1e84d46887ced47c493d8b5f04",
+          "function": "modbus_inverse_scaled_f32_write_rejects_declared_width_overflow_before_send",
+          "kind": "method:expect",
+          "line": 343,
+          "source_path": "crates/trust-runtime/tests/modbus_driver.rs"
+        },
+        {
+          "assertion_id": "ASSERT_94BBADAE784785E4B3FD32DC",
+          "expression": "ModbusTcpDriver :: from_params (& params) . expect (\"driver\")",
+          "expression_digest": "sha256:1448490d7680c97d3b79ca30cea665845b58daae88b6835ac9148c603d7ef188",
+          "function": "modbus_inverse_scaled_f32_write_rejects_declared_width_overflow_before_send",
+          "kind": "method:expect",
+          "line": 356,
+          "source_path": "crates/trust-runtime/tests/modbus_driver.rs"
+        },
+        {
+          "assertion_id": "ASSERT_2B6B39D4E0D2B6A18F6F7D3A",
+          "expression": "driver . write_outputs (& f32 :: MAX . to_le_bytes ()) . expect_err (\"inverse-scaled F32 overflow must fail\")",
+          "expression_digest": "sha256:14957be166c70d5820e5e771b3859dbb9d2a672a524549a4bd7337e10a011c95",
+          "function": "modbus_inverse_scaled_f32_write_rejects_declared_width_overflow_before_send",
+          "kind": "method:expect_err",
+          "line": 358,
+          "source_path": "crates/trust-runtime/tests/modbus_driver.rs"
+        },
+        {
+          "assertion_id": "ASSERT_B22FC46D1AE08B34A692FA16",
+          "expression": "assert ! (error . to_string () . contains (\"finite\"))",
+          "expression_digest": "sha256:a95b83430280d39d8b29072ed1c2c9812a747c19c8ea0a4f0307d9807a25a621",
+          "function": "modbus_inverse_scaled_f32_write_rejects_declared_width_overflow_before_send",
+          "kind": "macro:assert",
+          "line": 361,
+          "source_path": "crates/trust-runtime/tests/modbus_driver.rs"
+        },
+        {
+          "assertion_id": "ASSERT_1941BF0BFFCEF3CD6705D085",
+          "expression": "state . lock () . expect (\"modbus state lock\")",
+          "expression_digest": "sha256:f0c3d630a9d6626ca522659fb47bc7d6051d1da142a872adf5074b1e8dff663f",
+          "function": "modbus_inverse_scaled_f32_write_rejects_declared_width_overflow_before_send",
+          "kind": "method:expect",
+          "line": 362,
+          "source_path": "crates/trust-runtime/tests/modbus_driver.rs"
+        },
+        {
+          "assertion_id": "ASSERT_C6023C2E299FFD99213CB014",
+          "expression": "assert ! (guard . functions . is_empty () , \"failed preflight reached server\")",
+          "expression_digest": "sha256:bc3cdd17a143046f7f21d6f34075218c358520b7311285e8bf723626a773dc9b",
+          "function": "modbus_inverse_scaled_f32_write_rejects_declared_width_overflow_before_send",
+          "kind": "macro:assert",
+          "line": 363,
+          "source_path": "crates/trust-runtime/tests/modbus_driver.rs"
+        },
+        {
+          "assertion_id": "ASSERT_2C85E673A6D5DD5F44D16410",
+          "expression": "assert_eq ! (guard . holding_registers , vec ! [0 ; 2])",
+          "expression_digest": "sha256:71602747d56f516304aeb73e81c0cbd3c8e4b6635180325fbc373da2f707f2af",
+          "function": "modbus_inverse_scaled_f32_write_rejects_declared_width_overflow_before_send",
+          "kind": "macro:assert_eq",
+          "line": 367,
+          "source_path": "crates/trust-runtime/tests/modbus_driver.rs"
+        },
+        {
+          "assertion_id": "ASSERT_4A09DEC56E109C883BC0B9E0",
+          "expression": "state . lock () . expect (\"modbus state lock\")",
+          "expression_digest": "sha256:f0c3d630a9d6626ca522659fb47bc7d6051d1da142a872adf5074b1e8dff663f",
+          "function": "modbus_support::handle_modbus_request",
+          "kind": "method:expect",
+          "line": 90,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        },
+        {
+          "assertion_id": "ASSERT_71A3B55B8F7D02F9F07D3CF9",
+          "expression": "state . lock () . expect (\"modbus state lock\")",
+          "expression_digest": "sha256:f0c3d630a9d6626ca522659fb47bc7d6051d1da142a872adf5074b1e8dff663f",
+          "function": "modbus_support::handle_read_bits",
+          "kind": "method:expect",
+          "line": 119,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        },
+        {
+          "assertion_id": "ASSERT_508EF4536CAB767FC7EF6F66",
+          "expression": "unreachable ! (\"read bits called with unsupported function\")",
+          "expression_digest": "sha256:5177e5fecab9ca14fb1cf772d9922e16b9af02e74d66ea701cd727b3ab858347",
+          "function": "modbus_support::handle_read_bits",
+          "kind": "macro:unreachable",
+          "line": 123,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        },
+        {
+          "assertion_id": "ASSERT_72FA5C0AE713D82B3146EFAB",
+          "expression": "state . lock () . expect (\"modbus state lock\")",
+          "expression_digest": "sha256:f0c3d630a9d6626ca522659fb47bc7d6051d1da142a872adf5074b1e8dff663f",
+          "function": "modbus_support::handle_read_registers",
+          "kind": "method:expect",
+          "line": 142,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        },
+        {
+          "assertion_id": "ASSERT_03939103698DD8E190BB9A68",
+          "expression": "unreachable ! (\"read registers called with unsupported function\")",
+          "expression_digest": "sha256:b2580aa74fa77dfb856cb2bd73d69e84c8f2d5c329d4b731f371c750e54a45f1",
+          "function": "modbus_support::handle_read_registers",
+          "kind": "macro:unreachable",
+          "line": 146,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        },
+        {
+          "assertion_id": "ASSERT_E6A091A53E308A04777D6520",
+          "expression": "state . lock () . expect (\"modbus state lock\")",
+          "expression_digest": "sha256:f0c3d630a9d6626ca522659fb47bc7d6051d1da142a872adf5074b1e8dff663f",
+          "function": "modbus_support::handle_write_multiple_coils",
+          "kind": "method:expect",
+          "line": 199,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        },
+        {
+          "assertion_id": "ASSERT_B82AC2260521BFFB332B6327",
+          "expression": "state . lock () . expect (\"modbus state lock\")",
+          "expression_digest": "sha256:f0c3d630a9d6626ca522659fb47bc7d6051d1da142a872adf5074b1e8dff663f",
+          "function": "modbus_support::handle_write_multiple_registers",
+          "kind": "method:expect",
+          "line": 220,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        },
+        {
+          "assertion_id": "ASSERT_AE025D427FD1A7C3C22FF7B3",
+          "expression": "state . lock () . expect (\"modbus state lock\")",
+          "expression_digest": "sha256:f0c3d630a9d6626ca522659fb47bc7d6051d1da142a872adf5074b1e8dff663f",
+          "function": "modbus_support::handle_write_single_coil",
+          "kind": "method:expect",
+          "line": 167,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        },
+        {
+          "assertion_id": "ASSERT_DC4A3BC4BB8410F985B1EB43",
+          "expression": "state . lock () . expect (\"modbus state lock\")",
+          "expression_digest": "sha256:f0c3d630a9d6626ca522659fb47bc7d6051d1da142a872adf5074b1e8dff663f",
+          "function": "modbus_support::handle_write_single_register",
+          "kind": "method:expect",
+          "line": 181,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        },
+        {
+          "assertion_id": "ASSERT_3B42FB40B22E1980F085E9AB",
+          "expression": "TcpListener :: bind (\"127.0.0.1:0\") . expect (\"bind modbus test server\")",
+          "expression_digest": "sha256:f9f2baa12a315dbda1240775eb2f143a3950f0f06c939c866837d48ee0a03030",
+          "function": "modbus_support::start_modbus_server",
+          "kind": "method:expect",
+          "line": 28,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        },
+        {
+          "assertion_id": "ASSERT_4B82219A667F515D7DCAA336",
+          "expression": "listener . local_addr () . expect (\"server addr\")",
+          "expression_digest": "sha256:0ff44040ca9570b29189ff47ed8f7a95542a46b37971682fd02652ab67a2b881",
+          "function": "modbus_support::start_modbus_server",
+          "kind": "method:expect",
+          "line": 29,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        },
+        {
+          "assertion_id": "ASSERT_886D69DDE5FE8F4E568CC791",
+          "expression": "listener . accept () . expect (\"accept modbus\")",
+          "expression_digest": "sha256:2d54208bc51cec80e9ec21ad36186adfda5c3c86665c930c6ef1f04d154597bc",
+          "function": "modbus_support::start_modbus_server",
+          "kind": "method:expect",
+          "line": 31,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        }
+      ],
+      "inventory_digest": "sha256:9b61caac4ad43e5eeb8a97d3e005ecaaebb6f17867b80147808e91eb87e5b83f",
+      "path": "crates/trust-runtime/tests/modbus_driver.rs",
+      "schema_version": 2,
+      "source_digest": "sha256:394c0acef636a9294ee42bdaffeb53bc5b9385f1f89af42d143ddb63df1329d1",
+      "source_digests": {
+        "crates/trust-runtime/tests/modbus_driver.rs": "sha256:394c0acef636a9294ee42bdaffeb53bc5b9385f1f89af42d143ddb63df1329d1",
+        "crates/trust-runtime/tests/support/modbus.rs": "sha256:6a789bcf29a6b5062bc63d756832bd952dbb66920b937694920a2256fe8dec25"
+      },
+      "test_name": "modbus_inverse_scaled_f32_write_rejects_declared_width_overflow_before_send",
+      "unresolved_assertion_helpers": []
+    },
+    "DISC_8FCEB5672760D0A4F323": {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_BEE9EBDFC410C7E13F6E3D47",
+          "expression": "encode_modbus_numeric (ModbusPointType :: F32 , value , ModbusByteOrder :: Big , ModbusWordOrder :: Big ,) . expect_err (\"finite f64 that narrows to infinity must not reach the wire\")",
+          "expression_digest": "sha256:ac64551687fd9003192c60c940cb95e0e93cf92ad2868a0d3843859fa8dc0e2f",
+          "function": "tests::mapped_f32_wire_encoding_rejects_narrowing_overflow",
+          "kind": "method:expect_err",
+          "line": 622,
+          "source_path": "crates/trust-runtime/src/io/modbus/point_map.rs"
+        },
+        {
+          "assertion_id": "ASSERT_10EC59FC854F044FF6800BDA",
+          "expression": "assert ! (error . to_string () . contains (\"finite\"))",
+          "expression_digest": "sha256:a95b83430280d39d8b29072ed1c2c9812a747c19c8ea0a4f0307d9807a25a621",
+          "function": "tests::mapped_f32_wire_encoding_rejects_narrowing_overflow",
+          "kind": "macro:assert",
+          "line": 629,
+          "source_path": "crates/trust-runtime/src/io/modbus/point_map.rs"
+        }
+      ],
+      "inventory_digest": "sha256:f33edb420654bcf7b335cadaeccbb978cfb755b0cde1a32165e30caee22d094a",
+      "path": "crates/trust-runtime/src/io/modbus/point_map.rs",
+      "schema_version": 2,
+      "source_digest": "sha256:55f1076cecd8d88169f571101eab2e8c799870dc09cba2fa4246eaeb46d736c4",
+      "source_digests": {
+        "crates/trust-runtime/src/io/modbus/point_map.rs": "sha256:55f1076cecd8d88169f571101eab2e8c799870dc09cba2fa4246eaeb46d736c4"
+      },
+      "test_name": "mapped_f32_wire_encoding_rejects_narrowing_overflow",
+      "unresolved_assertion_helpers": [
+        "tests::mapped_f32_wire_encoding_rejects_narrowing_overflow::encode_modbus_numeric:unresolved"
+      ]
+    },
+    "DISC_9875E7BDA7C3B55909BE": {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_A52C91198DF4E94B11EE2870",
+          "expression": "OpcUaClientBridge :: with_transport (connection , MockOpcUaClientTransport :: default () , bindings ,) . expect (\"bridge\")",
+          "expression_digest": "sha256:c5713404088d334ce513d1098da5fbd6e701fbf70a66b2fffcc94c9f7fa42c32",
+          "function": "current_session_samples_require_exact_configured_identity",
+          "kind": "method:expect",
+          "line": 54,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+        },
+        {
+          "assertion_id": "ASSERT_D35DCCF7A4ED0197E62F0552",
+          "expression": "worker . tick (0) . expect (\"connect\")",
+          "expression_digest": "sha256:67e5055c6023e8af530f9747aac633bdff6e7c88c213deba6a390570bcf14e28",
+          "function": "current_session_samples_require_exact_configured_identity",
+          "kind": "method:expect",
+          "line": 60,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+        },
+        {
+          "assertion_id": "ASSERT_27087F26849FA5A92AAA5DA3",
+          "expression": "worker . transport () . sink . clone () . expect (\"connected event sink\")",
+          "expression_digest": "sha256:bdc32b002ed0e48c9a63189aa5a7eaaefffb064edaf1aae4e4a7209e571d8afc",
+          "function": "current_session_samples_require_exact_configured_identity",
+          "kind": "method:expect",
+          "line": 61,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+        },
+        {
+          "assertion_id": "ASSERT_D276ED89099572F151749155",
+          "expression": "assert ! (sink . publish_sample (OpcUaClientSample { var : observed . var , node_id : observed . node_id , data_type : observed . data_type , access : observed . access , value : Some (Value :: Real (22.5)) , state : OpcUaClientConnectionState :: Connected , last_seen_ms : Some (10) , detail : \"mismatched subscription sample\" . to_string () , }))",
+          "expression_digest": "sha256:aa57a71d7c6e328f51fcee1139a4941d69678bf94a2f2bfebb3de16656c93d05",
+          "function": "current_session_samples_require_exact_configured_identity",
+          "kind": "macro:assert",
+          "line": 67,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+        },
+        {
+          "assertion_id": "ASSERT_61A19706429FCB4EE88D7686",
+          "expression": "worker . tick (10) . expect (\"drain invalid sample\")",
+          "expression_digest": "sha256:7f32179d8f6570e1c9f5cafd3f77027442f3cae59a30bbcb523e88df9a7bd309",
+          "function": "current_session_samples_require_exact_configured_identity",
+          "kind": "method:expect",
+          "line": 77,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+        },
+        {
+          "assertion_id": "ASSERT_848DCC6F57759DFCF8DE48A9",
+          "expression": "assert_eq ! (snapshot . state , OpcUaClientConnectionState :: Faulted , \"{case_name}: invalid identity must be a visible fault\")",
+          "expression_digest": "sha256:85cb5b52b5b1138df28615bd512c9bb8b1efb44986aef8924fbafc3f9e961d1d",
+          "function": "current_session_samples_require_exact_configured_identity",
+          "kind": "macro:assert_eq",
+          "line": 80,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+        },
+        {
+          "assertion_id": "ASSERT_C03FF182A6F8C87ABECD9BA5",
+          "expression": "assert ! (snapshot . values . is_empty () , \"{case_name}: invalid identity entered the accepted-value cache\")",
+          "expression_digest": "sha256:8cdb63a088515f5c3bac8f3b912bd310f74acb3b7db4faed04b6ddcb13123125",
+          "function": "current_session_samples_require_exact_configured_identity",
+          "kind": "macro:assert",
+          "line": 85,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+        },
+        {
+          "assertion_id": "ASSERT_4BBCFEEA06E9CB471923995A",
+          "expression": "assert_eq ! (snapshot . point_statuses . len () , 1 , \"{case_name}: invalid identity created a dynamic point status\")",
+          "expression_digest": "sha256:4e30b438cc3e8cb40b62fa319f87d9eb43d695be0a100e7015b21f08d598facd",
+          "function": "current_session_samples_require_exact_configured_identity",
+          "kind": "macro:assert_eq",
+          "line": 89,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+        },
+        {
+          "assertion_id": "ASSERT_70830F9E0C4521C92F3D02D5",
+          "expression": "assert_eq ! (snapshot . point_statuses [0] . var , configured . var)",
+          "expression_digest": "sha256:4705c03287b5634cc946dbddd2ad9687a473741972e065e595bbc9737a022cef",
+          "function": "current_session_samples_require_exact_configured_identity",
+          "kind": "macro:assert_eq",
+          "line": 94,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+        },
+        {
+          "assertion_id": "ASSERT_711375ED7F03DAD2DFE1F62F",
+          "expression": "assert_eq ! (snapshot . point_statuses [0] . node_id , configured . node_id)",
+          "expression_digest": "sha256:eefbf1e05ef0ddb31c790e7ca95cfb888e9b62b4a881b85e02b2eb4945e985f2",
+          "function": "current_session_samples_require_exact_configured_identity",
+          "kind": "macro:assert_eq",
+          "line": 95,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+        }
+      ],
+      "inventory_digest": "sha256:fec5d49dbf59d6c565f8a9ca77e63d2620af134a50e041dbfc26a43b6b8de9d6",
+      "path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs",
+      "schema_version": 2,
+      "source_digest": "sha256:6f2d6a5aeb4a55e47a486b0644a1a398dae4337e51bc9a2ae2fcdbbf8a82f250",
+      "source_digests": {
+        "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs": "sha256:6f2d6a5aeb4a55e47a486b0644a1a398dae4337e51bc9a2ae2fcdbbf8a82f250"
+      },
+      "test_name": "current_session_samples_require_exact_configured_identity",
+      "unresolved_assertion_helpers": []
+    },
+    "DISC_9A385C52E8EA2DBD2BF4": {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_DDDB588B64E727D5EFDD807E",
+          "expression": "assert_eq ! (error . as_str () , expected_error)",
+          "expression_digest": "sha256:f54ef144473c938d56555fdabdc0eba11ccd7a7feb6d36458f3cb0181ac57a13",
+          "function": "tests::assert_health",
+          "kind": "macro:assert_eq",
+          "line": 419,
+          "source_path": "crates/trust-runtime/src/io/modbus/worker.rs"
+        },
+        {
+          "assertion_id": "ASSERT_C56F9BCD67AFA481631FC6BC",
+          "expression": "panic ! (\"expected faulted={expected_faulted}, got {other:?}\")",
+          "expression_digest": "sha256:8283d02dd7abbd7929b6552a39cf244adc59af5bb0e65be514e2c8ecda4b825d",
+          "function": "tests::assert_health",
+          "kind": "macro:panic",
+          "line": 422,
+          "source_path": "crates/trust-runtime/src/io/modbus/worker.rs"
+        },
+        {
+          "assertion_id": "ASSERT_CB8DD0B111390A3C0D2B9E0C",
+          "expression": "assert ! (result . is_err () , \"fault must reject a pending output deadline\")",
+          "expression_digest": "sha256:6e3d7849b98bfc5b7774d656690fd463c565d4c572476f5b60f59c92c655f5df",
+          "function": "tests::output_deadline_follows_error_policy_without_cancelling_handoff",
+          "kind": "macro:assert",
+          "line": 356,
+          "source_path": "crates/trust-runtime/src/io/modbus/worker.rs"
+        },
+        {
+          "assertion_id": "ASSERT_4C2BC30FBFCA3FF9C99D2FAB",
+          "expression": "result . expect (\"warn and ignore must return degraded success\")",
+          "expression_digest": "sha256:0a468bb9ce5aa39fa34498c87ea1fd2d3173f96f56e137590e725d998dfad4ea",
+          "function": "tests::output_deadline_follows_error_policy_without_cancelling_handoff",
+          "kind": "method:expect",
+          "line": 364,
+          "source_path": "crates/trust-runtime/src/io/modbus/worker.rs"
+        },
+        {
+          "assertion_id": "ASSERT_41ED3D4BA8B771A59A8C1145",
+          "expression": "assert_eq ! (state . pending_output , Some ((1 , vec ! [0x33 , 0x44])) , \"deadline reporting must not cancel the accepted output handoff\")",
+          "expression_digest": "sha256:59790ef2d4b83b67943943178c8ff6696763b963a6ded621ddfb5e99627816ce",
+          "function": "tests::output_deadline_follows_error_policy_without_cancelling_handoff",
+          "kind": "macro:assert_eq",
+          "line": 377,
+          "source_path": "crates/trust-runtime/src/io/modbus/worker.rs"
+        },
+        {
+          "assertion_id": "ASSERT_1707951432426D990780F9A1",
+          "expression": "assert ! (! state . output_inflight)",
+          "expression_digest": "sha256:8f337e8a05763492ee2a406ab6693110ff2b34a3a18748fdf817644d3b61ffbc",
+          "function": "tests::output_deadline_follows_error_policy_without_cancelling_handoff",
+          "kind": "macro:assert",
+          "line": 382,
+          "source_path": "crates/trust-runtime/src/io/modbus/worker.rs"
+        },
+        {
+          "assertion_id": "ASSERT_A9E27B68446E2DD4BA262E31",
+          "expression": "assert_eq ! (state . last_error . as_deref () , Some (\"modbus output handoff pending\"))",
+          "expression_digest": "sha256:29c40fb0831a6a921b9a315d632f52360df46acce0c42abc2ecd1a5fa8ac5ef5",
+          "function": "tests::output_deadline_follows_error_policy_without_cancelling_handoff",
+          "kind": "macro:assert_eq",
+          "line": 383,
+          "source_path": "crates/trust-runtime/src/io/modbus/worker.rs"
+        },
+        {
+          "assertion_id": "ASSERT_1B7EAE1F0B2E965CB32237DF",
+          "expression": "shared . lock () . expect (\"worker state lock\")",
+          "expression_digest": "sha256:d79e15bf45733fe2cc57fd8cd19800933e5c1755f51fc1263630c133092165cc",
+          "function": "tests::stalled_worker",
+          "kind": "method:expect",
+          "line": 396,
+          "source_path": "crates/trust-runtime/src/io/modbus/worker.rs"
+        }
+      ],
+      "inventory_digest": "sha256:32c185272b915003822b08dc0a62cfcf257394c7d34c2ca44294829f15b7a997",
+      "path": "crates/trust-runtime/src/io/modbus/worker.rs",
+      "schema_version": 2,
+      "source_digest": "sha256:dfb43440bdb6af80ac95ce3fc7d5e123059503ee39502a00c7685b2c2b06b74a",
+      "source_digests": {
+        "crates/trust-runtime/src/io/modbus/worker.rs": "sha256:dfb43440bdb6af80ac95ce3fc7d5e123059503ee39502a00c7685b2c2b06b74a"
+      },
+      "test_name": "output_deadline_follows_error_policy_without_cancelling_handoff",
+      "unresolved_assertion_helpers": []
+    },
+    "DISC_A4A87F179D0CC41E298C": {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_2094DA9375EDA2DCB14A3033",
+          "expression": "TestHarness :: from_source (source) . expect (\"project should compile\")",
+          "expression_digest": "sha256:4a68fce648112c5f76e2d6564c394fcb44fb53047c800ceafaa1939c76904514",
+          "function": "opcua_client_accepts_vs_code_global_var_names",
+          "kind": "method:expect",
+          "line": 65,
+          "source_path": "crates/trust-runtime/tests/opcua_client_runtime.rs"
+        },
+        {
+          "assertion_id": "ASSERT_4887986244FB7F554259333D",
+          "expression": "parse_opcua_client_toml (r#\" [[connections]] name = \"line1\" endpoint_url = \"opc.tcp://127.0.0.1:4840/trust\" security_policy = \"none\" security_mode = \"none\" auth = \"anonymous\" trust_server_certificate = true [[connections.points]] var = \"global.ConveyorRunning\" node_id = \"ns=2;i=2\" type = \"bool\" access = \"read\" \"# ,) . expect (\"OPC UA client config should parse\")",
+          "expression_digest": "sha256:7a22b4884be6a372e74e6bd760cb57d59aec01909dff9fa62480377d10eb4afc",
+          "function": "opcua_client_accepts_vs_code_global_var_names",
+          "kind": "method:expect",
+          "line": 66,
+          "source_path": "crates/trust-runtime/tests/opcua_client_runtime.rs"
+        },
+        {
+          "assertion_id": "ASSERT_B3EF480F00175D31E0480780",
+          "expression": "harness . runtime_mut () . configure_opcua_client (& config) . expect (\"UI-generated global.X point should bind to runtime storage\")",
+          "expression_digest": "sha256:48db7f2a63cd96b27306a1da670b3c165114e8a8a36e52d94133c0270a2518fe",
+          "function": "opcua_client_accepts_vs_code_global_var_names",
+          "kind": "method:expect",
+          "line": 85,
+          "source_path": "crates/trust-runtime/tests/opcua_client_runtime.rs"
+        },
+        {
+          "assertion_id": "ASSERT_0F5BE343DA156AA7F8D9C522",
+          "expression": "assert_eq ! (status . connections . len () , 1)",
+          "expression_digest": "sha256:31c32c487e58a75ab6d6a3603ffa3edd4153d55dd76e963b5ea42d504bcb728a",
+          "function": "opcua_client_accepts_vs_code_global_var_names",
+          "kind": "macro:assert_eq",
+          "line": 91,
+          "source_path": "crates/trust-runtime/tests/opcua_client_runtime.rs"
+        },
+        {
+          "assertion_id": "ASSERT_43B7BC35D95D18EAE3EE7BCD",
+          "expression": "assert_eq ! (status . connections [0] . points [0] . var , \"global.ConveyorRunning\")",
+          "expression_digest": "sha256:458d254ff149dbd3345c0709362ee6f2e8565e136b5844275c546bcee3e0a346",
+          "function": "opcua_client_accepts_vs_code_global_var_names",
+          "kind": "macro:assert_eq",
+          "line": 92,
+          "source_path": "crates/trust-runtime/tests/opcua_client_runtime.rs"
+        }
+      ],
+      "inventory_digest": "sha256:b8c62af310b6c77296374903f15cbaab4887f79ba0481c987ab1fa5e2f34a574",
+      "path": "crates/trust-runtime/tests/opcua_client_runtime.rs",
+      "schema_version": 2,
+      "source_digest": "sha256:341c598c819b148cc683f869fa273c6f85af9e272ffbffa8a04a9e687537f7a0",
+      "source_digests": {
+        "crates/trust-runtime/tests/opcua_client_runtime.rs": "sha256:341c598c819b148cc683f869fa273c6f85af9e272ffbffa8a04a9e687537f7a0"
+      },
+      "test_name": "opcua_client_accepts_vs_code_global_var_names",
+      "unresolved_assertion_helpers": []
+    },
+    "DISC_A89C5FA2356D682836D2": {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_C2885F284A890AEAC971B4A8",
+          "expression": "toml :: from_str (& format ! (\"address = \\\"{addr}\\\"\\nunit_id = 1\\ninput_start = 0\\noutput_start = 0\\ntimeout_ms = 50\\non_error = \\\"warn\\\"\\n\")) . expect (\"params\")",
+          "expression_digest": "sha256:995479bb86f23285b98d7e3381acb4be5ff66f55267e51f054d5ba5a53a4a4a9",
+          "function": "modbus_reconnect_backoff_is_bounded_and_non_spinning",
+          "kind": "method:expect",
+          "line": 761,
+          "source_path": "crates/trust-runtime/tests/modbus_driver.rs"
+        },
+        {
+          "assertion_id": "ASSERT_2462397FE15213EC5ED9520F",
+          "expression": "ModbusTcpDriver :: from_params (& params) . expect (\"driver\")",
+          "expression_digest": "sha256:1448490d7680c97d3b79ca30cea665845b58daae88b6835ac9148c603d7ef188",
+          "function": "modbus_reconnect_backoff_is_bounded_and_non_spinning",
+          "kind": "method:expect",
+          "line": 765,
+          "source_path": "crates/trust-runtime/tests/modbus_driver.rs"
+        },
+        {
+          "assertion_id": "ASSERT_6E7985F08E597079A9AC6E0B",
+          "expression": "driver . read_inputs (& mut inputs) . expect (\"warn policy should degrade without faulting\")",
+          "expression_digest": "sha256:4fdfa4ff8d4905bde8ec65603c4a5b362eab0ccf0c5c599d712d8c06d2a47e2f",
+          "function": "modbus_reconnect_backoff_is_bounded_and_non_spinning",
+          "kind": "method:expect",
+          "line": 769,
+          "source_path": "crates/trust-runtime/tests/modbus_driver.rs"
+        },
+        {
+          "assertion_id": "ASSERT_011E0F70A47B2BA39D6E3195",
+          "expression": "assert ! (attempts <= 4 , \"worker reconnect backoff must avoid scan-thread driven reconnect spinning, attempts={attempts}\")",
+          "expression_digest": "sha256:443440ade967a9f41eaf3426a6fbe6652e06273291df2b33c8bf6a492613d97a",
+          "function": "modbus_reconnect_backoff_is_bounded_and_non_spinning",
+          "kind": "macro:assert",
+          "line": 776,
+          "source_path": "crates/trust-runtime/tests/modbus_driver.rs"
+        },
+        {
+          "assertion_id": "ASSERT_B231FD5702C7B07735702371",
+          "expression": "driver . read_inputs (& mut inputs) . expect (\"warn policy should retry without faulting\")",
+          "expression_digest": "sha256:ea7389c71f35ff2249d53d0533bd0098674e69c9b1f97a4b9257ddbaaff85c11",
+          "function": "modbus_reconnect_backoff_is_bounded_and_non_spinning",
+          "kind": "method:expect",
+          "line": 782,
+          "source_path": "crates/trust-runtime/tests/modbus_driver.rs"
+        },
+        {
+          "assertion_id": "ASSERT_3D4226304A41DFD03DAF58DD",
+          "expression": "assert ! (retry_attempts >= 2 , \"an unavailable endpoint must produce a reconnect attempt, attempts={retry_attempts}\")",
+          "expression_digest": "sha256:6e9d0298b5b08b426448f9145e67d150331f3e45f5819ae8ced7fd2a8275665d",
+          "function": "modbus_reconnect_backoff_is_bounded_and_non_spinning",
+          "kind": "macro:assert",
+          "line": 786,
+          "source_path": "crates/trust-runtime/tests/modbus_driver.rs"
+        },
+        {
+          "assertion_id": "ASSERT_B4984644CECA255C0C336994",
+          "expression": "TcpListener :: bind (\"127.0.0.1:0\") . expect (\"bind closing modbus test server\")",
+          "expression_digest": "sha256:2f8183187e245dcabc6f3877ecdb6362d2b6942c5369aef003a7011f525c7089",
+          "function": "modbus_support::start_closing_modbus_server",
+          "kind": "method:expect",
+          "line": 60,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        },
+        {
+          "assertion_id": "ASSERT_A90777341677DF3AA4225439",
+          "expression": "listener . local_addr () . expect (\"server addr\")",
+          "expression_digest": "sha256:0ff44040ca9570b29189ff47ed8f7a95542a46b37971682fd02652ab67a2b881",
+          "function": "modbus_support::start_closing_modbus_server",
+          "kind": "method:expect",
+          "line": 61,
+          "source_path": "crates/trust-runtime/tests/support/modbus.rs"
+        }
+      ],
+      "inventory_digest": "sha256:d29ac691e48908e32b4589b450dafb5881d31bfd0cedd69e9e469df08da6e19a",
+      "path": "crates/trust-runtime/tests/modbus_driver.rs",
+      "schema_version": 2,
+      "source_digest": "sha256:394c0acef636a9294ee42bdaffeb53bc5b9385f1f89af42d143ddb63df1329d1",
+      "source_digests": {
+        "crates/trust-runtime/tests/modbus_driver.rs": "sha256:394c0acef636a9294ee42bdaffeb53bc5b9385f1f89af42d143ddb63df1329d1",
+        "crates/trust-runtime/tests/support/modbus.rs": "sha256:6a789bcf29a6b5062bc63d756832bd952dbb66920b937694920a2256fe8dec25"
+      },
+      "test_name": "modbus_reconnect_backoff_is_bounded_and_non_spinning",
+      "unresolved_assertion_helpers": []
+    },
+    "DISC_ADB41A6325C30D12D0AD": {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_1F453AE4231AFFD80E2B6583",
+          "expression": "MqttIoDriver :: from_params_with_factory (& params (r#\" broker = \"127.0.0.1:1883\" topic_in = \"line/in\" on_error = \"warn\" \"# ,) , factory ,) . expect (\"construct mqtt driver\")",
+          "expression_digest": "sha256:684601ec3df301c2ed03dd993e0e074d38e755fb316ee6348462234768cb2ced",
+          "function": "mqtt_stale_snapshot_is_returned_without_fresh_payload",
+          "kind": "method:expect",
+          "line": 992,
+          "source_path": "crates/trust-runtime/src/io/mqtt/tests.rs"
+        },
+        {
+          "assertion_id": "ASSERT_D2CECD6E4848089796051D7B",
+          "expression": "driver . read_inputs (& mut first) . expect (\"initial payload\")",
+          "expression_digest": "sha256:397e17da2c1335d615df515f87931adf3e3995f0ec0b78117fd53192e6829a88",
+          "function": "mqtt_stale_snapshot_is_returned_without_fresh_payload",
+          "kind": "method:expect",
+          "line": 1005,
+          "source_path": "crates/trust-runtime/src/io/mqtt/tests.rs"
+        },
+        {
+          "assertion_id": "ASSERT_E0B1D81B80902BA91A75EBA8",
+          "expression": "assert_eq ! (& first [.. 3] , & [7 , 8 , 9])",
+          "expression_digest": "sha256:c150463b20e46af1a44ab9e6c9fe9cc0be76c8ebbfee353db5a976b32cdeec98",
+          "function": "mqtt_stale_snapshot_is_returned_without_fresh_payload",
+          "kind": "macro:assert_eq",
+          "line": 1006,
+          "source_path": "crates/trust-runtime/src/io/mqtt/tests.rs"
+        },
+        {
+          "assertion_id": "ASSERT_D588169B577270679B7B377F",
+          "expression": "driver . read_inputs (& mut stale) . expect (\"warn policy should return stale snapshot without fresh payload\")",
+          "expression_digest": "sha256:0c8f1f507c69d24b2c64c6d170ed49c1cccc630cd4bc8d80b675243af795daf8",
+          "function": "mqtt_stale_snapshot_is_returned_without_fresh_payload",
+          "kind": "method:expect",
+          "line": 1010,
+          "source_path": "crates/trust-runtime/src/io/mqtt/tests.rs"
+        },
+        {
+          "assertion_id": "ASSERT_37C3EBC95EE648ACA546813C",
+          "expression": "assert ! (elapsed < MQTT_WORKER_SCAN_WAIT_BOUND + MQTT_CI_TIMING_SLACK , \"stale MQTT snapshot must be returned without waiting for broker freshness, elapsed={elapsed:?}\")",
+          "expression_digest": "sha256:da2eefd27cedd657b2c891f185b5f2cb51e6f8b5dfc77340dceebb0bc632dda0",
+          "function": "mqtt_stale_snapshot_is_returned_without_fresh_payload",
+          "kind": "macro:assert",
+          "line": 1015,
+          "source_path": "crates/trust-runtime/src/io/mqtt/tests.rs"
+        },
+        {
+          "assertion_id": "ASSERT_3A5E3C85141D5F1BEFB1128E",
+          "expression": "assert_eq ! (& stale [.. 3] , & [7 , 8 , 9] , \"worker snapshot should preserve the last known MQTT input image\")",
+          "expression_digest": "sha256:0085025a2fc40225b9397fc0f55689e828a46e0d2078a04ed55e49f3b42734a1",
+          "function": "mqtt_stale_snapshot_is_returned_without_fresh_payload",
+          "kind": "macro:assert_eq",
+          "line": 1019,
+          "source_path": "crates/trust-runtime/src/io/mqtt/tests.rs"
+        },
+        {
+          "assertion_id": "ASSERT_A453BED267AD2F9B5DE3D8DC",
+          "expression": "assert ! (matches ! (driver . health () , IoDriverHealth :: Degraded { .. }))",
+          "expression_digest": "sha256:d8531c6c499f1318e6463291592a38c3cef24d79575547b2cc21584f91883092",
+          "function": "mqtt_stale_snapshot_is_returned_without_fresh_payload",
+          "kind": "macro:assert",
+          "line": 1024,
+          "source_path": "crates/trust-runtime/src/io/mqtt/tests.rs"
+        },
+        {
+          "assertion_id": "ASSERT_C31996B2DB3AD87E2C3806AB",
+          "expression": "toml :: from_str (text) . expect (\"parse toml params\")",
+          "expression_digest": "sha256:a4dc37a74bab65864b21828cae0699a8e07f7c64f562d83a74e486f35ace0d1c",
+          "function": "params",
+          "kind": "method:expect",
+          "line": 73,
+          "source_path": "crates/trust-runtime/src/io/mqtt/tests.rs"
+        }
+      ],
+      "inventory_digest": "sha256:bc731f5f8a2db048d3085b6ae2bb1993b91de8afbe2fdab8ac1802e1dcc0a9ed",
+      "path": "crates/trust-runtime/src/io/mqtt/tests.rs",
+      "schema_version": 2,
+      "source_digest": "sha256:7ebd21b16122bb6e2e0443a65462cbcf281f77f8646d4ed974e02eeda2e592e9",
+      "source_digests": {
+        "crates/trust-runtime/src/io/mqtt/tests.rs": "sha256:7ebd21b16122bb6e2e0443a65462cbcf281f77f8646d4ed974e02eeda2e592e9"
+      },
+      "test_name": "mqtt_stale_snapshot_is_returned_without_fresh_payload",
+      "unresolved_assertion_helpers": []
+    },
+    "DISC_B45DE574A2218F802B88": {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_753342711A4F0CE698ACC4EE",
+          "expression": "std :: fs :: read_to_string (& fixture) . expect (\"read opcua fixture\")",
+          "expression_digest": "sha256:3e5154e8c5de192a7ef360d1d11d6ecaa12c2959836c031ac6120cab99b69352",
+          "function": "load_runtime_fixture",
+          "kind": "method:expect",
+          "line": 36,
+          "source_path": "crates/trust-runtime/tests/opcua_integration.rs"
+        },
+        {
+          "assertion_id": "ASSERT_9BFC23F1120DD88BBCE01081",
+          "expression": "validate_runtime_toml_text (& text) . expect (\"runtime fixture validates\")",
+          "expression_digest": "sha256:76cc69843959bd7dd408601b737797e2034ab2e181424bbeaf5aebae12b28ad5",
+          "function": "load_runtime_fixture",
+          "kind": "method:expect",
+          "line": 38,
+          "source_path": "crates/trust-runtime/tests/opcua_integration.rs"
+        },
+        {
+          "assertion_id": "ASSERT_ABF90854C5A2056F767DDB41",
+          "expression": "std :: fs :: write (& runtime_path , text) . expect (\"write runtime fixture\")",
+          "expression_digest": "sha256:649a8eb2acebe71f4ab6c43b5ce9a4989a2123259e77da65964b70da52cbab65",
+          "function": "load_runtime_fixture",
+          "kind": "method:expect",
+          "line": 41,
+          "source_path": "crates/trust-runtime/tests/opcua_integration.rs"
+        },
+        {
+          "assertion_id": "ASSERT_F46772E8012E4F785BD9C69D",
+          "expression": "RuntimeConfig :: load (runtime_path) . expect (\"load runtime fixture\")",
+          "expression_digest": "sha256:392c79451d58e74f4673ef6d18f9e94fa6526f9df447e432a507d064a17e66c6",
+          "function": "load_runtime_fixture",
+          "kind": "method:expect",
+          "line": 42,
+          "source_path": "crates/trust-runtime/tests/opcua_integration.rs"
+        },
+        {
+          "assertion_id": "ASSERT_B69F8AF3E95F98357B49A366",
+          "expression": "assert ! (anonymous . is_err () , \"anonymous read unexpectedly succeeded\")",
+          "expression_digest": "sha256:74092bdaf4dd986587e00b99bda2f3240f09ff1a8804831ec341b8f109553216",
+          "function": "opcua_security_enforces_user_auth_and_certificate_trust",
+          "kind": "macro:assert",
+          "line": 170,
+          "source_path": "crates/trust-runtime/tests/opcua_integration.rs"
+        },
+        {
+          "assertion_id": "ASSERT_62D0AC72A4F8C98F3D169C8E",
+          "expression": "assert ! (untrusted . is_err () , \"read with certificate verification unexpectedly succeeded\")",
+          "expression_digest": "sha256:07f371a5c7cd0615e7ad3a87328adbf66da837adfc4dfccd81fd38bd3b3cc231",
+          "function": "opcua_security_enforces_user_auth_and_certificate_trust",
+          "kind": "macro:assert",
+          "line": 182,
+          "source_path": "crates/trust-runtime/tests/opcua_integration.rs"
+        },
+        {
+          "assertion_id": "ASSERT_02FD617D3D493ADC0ADB59A0",
+          "expression": "server . probe_read (node_name . as_str () , OpcUaClientIdentity :: UserName { username : \"operator\" , password : \"secret\" , } ,) . expect (\"authenticated read\")",
+          "expression_digest": "sha256:5ce658ee52cf2e3e3d50b61117cba2800e47999d167f33a62fdbc3ea38c42e3c",
+          "function": "opcua_security_enforces_user_auth_and_certificate_trust",
+          "kind": "method:expect",
+          "line": 187,
+          "source_path": "crates/trust-runtime/tests/opcua_integration.rs"
+        },
+        {
+          "assertion_id": "ASSERT_2FFA18EC909FE945D84C090B",
+          "expression": "assert ! (matches ! (trusted , OpcUaVariant :: Boolean (_) | OpcUaVariant :: Int16 (_) | OpcUaVariant :: Int32 (_) | OpcUaVariant :: Int64 (_) | OpcUaVariant :: UInt16 (_) | OpcUaVariant :: UInt32 (_) | OpcUaVariant :: UInt64 (_) | OpcUaVariant :: Float (_) | OpcUaVariant :: Double (_) | OpcUaVariant :: String (_)))",
+          "expression_digest": "sha256:07294c991d1976ff4872eadb9be81996f855afe7f5669454956b9167f4e3f7df",
+          "function": "opcua_security_enforces_user_auth_and_certificate_trust",
+          "kind": "macro:assert",
+          "line": 196,
+          "source_path": "crates/trust-runtime/tests/opcua_integration.rs"
+        },
+        {
+          "assertion_id": "ASSERT_0EE245A42702CEE8E5A94492",
+          "expression": "server . exposed_nodes () . iter () . find (| node | matches ! (node . data_type , OpcUaDataType :: Int32)) . or_else (| | server . exposed_nodes () . first ()) . map (| node | node . name . to_string ()) . expect (\"at least one exposed node\")",
+          "expression_digest": "sha256:dce22f947defc38937cda488b0dddf9e4eab8989bfb67dfaba9f66f7423726d4",
+          "function": "preferred_node_name",
+          "kind": "method:expect",
+          "line": 84,
+          "source_path": "crates/trust-runtime/tests/opcua_integration.rs"
+        },
+        {
+          "assertion_id": "ASSERT_3062979DA85857ED288AAD40",
+          "expression": "TcpListener :: bind (\"127.0.0.1:0\") . expect (\"bind local port\")",
+          "expression_digest": "sha256:525e9748b11e384263a708ca04914122c86893260a63b0f848fbe04df60853e4",
+          "function": "reserve_loopback_port",
+          "kind": "method:expect",
+          "line": 15,
+          "source_path": "crates/trust-runtime/tests/opcua_integration.rs"
+        },
+        {
+          "assertion_id": "ASSERT_5C9D8C683748E55A41AB6C1B",
+          "expression": "listener . local_addr () . expect (\"local addr\")",
+          "expression_digest": "sha256:6e624988e0370eac744f045f7d374bbb5522995edc3468384ffb15f36e4ee23f",
+          "function": "reserve_loopback_port",
+          "kind": "method:expect",
+          "line": 16,
+          "source_path": "crates/trust-runtime/tests/opcua_integration.rs"
+        },
+        {
+          "assertion_id": "ASSERT_FCA2FEEAE581CA18AABAE31B",
+          "expression": "TestHarness :: from_source (include_str ! (\"fixtures/opcua/program/main.st\")) . expect (\"build opcua harness\")",
+          "expression_digest": "sha256:d1533bdf66eb9601e5f6d533b0b928de61809bbbd35cbe691117935b0888a750",
+          "function": "snapshot_provider",
+          "kind": "method:expect",
+          "line": 47,
+          "source_path": "crates/trust-runtime/tests/opcua_integration.rs"
+        },
+        {
+          "assertion_id": "ASSERT_19EC2EB429506B06C363BF38",
+          "expression": "start_wire_server (runtime . resource_name . as_str () , & runtime . opcua , snapshot_provider () , Some (runtime_root . as_path ()) ,) . expect (\"start opcua wire server\")",
+          "expression_digest": "sha256:885bed61512b8de807baa32eead4e871d390a79a0f9b53d52cefca83b23d3f09",
+          "function": "start_fixture_server",
+          "kind": "method:expect",
+          "line": 73,
+          "source_path": "crates/trust-runtime/tests/opcua_integration.rs"
+        },
+        {
+          "assertion_id": "ASSERT_7E46EFAF0BBFA4902915A594",
+          "expression": "start_wire_server (runtime . resource_name . as_str () , & runtime . opcua , snapshot_provider () , Some (runtime_root . as_path ()) ,) . expect (\"start opcua wire server\") . expect (\"opcua enabled\")",
+          "expression_digest": "sha256:d670d4012db4cf4ea02c3e4cd596a5a0b4fe0ebf52a2a5bede0a84117ff33b44",
+          "function": "start_fixture_server",
+          "kind": "method:expect",
+          "line": 73,
+          "source_path": "crates/trust-runtime/tests/opcua_integration.rs"
+        },
+        {
+          "assertion_id": "ASSERT_1614856B23399DFD08727B24",
+          "expression": "SystemTime :: now () . duration_since (UNIX_EPOCH) . expect (\"clock\")",
+          "expression_digest": "sha256:988183946f8fc54531a42a5c0b7eeb3a6e4ceaead97b5314036d8c9c5d563c51",
+          "function": "temp_runtime_root",
+          "kind": "method:expect",
+          "line": 22,
+          "source_path": "crates/trust-runtime/tests/opcua_integration.rs"
+        },
+        {
+          "assertion_id": "ASSERT_48337F79B84D18C8FBD45134",
+          "expression": "std :: fs :: create_dir_all (& root) . expect (\"create temp runtime root\")",
+          "expression_digest": "sha256:d5351922441f8e12dadad5eabc0501390d3840a8fdc9eed222c306215001fbe4",
+          "function": "temp_runtime_root",
+          "kind": "method:expect",
+          "line": 27,
+          "source_path": "crates/trust-runtime/tests/opcua_integration.rs"
+        }
+      ],
+      "inventory_digest": "sha256:671aafd340989aac2dabd978312f55553fd54bb014f3d0384171502c16d58bc6",
+      "path": "crates/trust-runtime/tests/opcua_integration.rs",
+      "schema_version": 2,
+      "source_digest": "sha256:0151f037ccd5c23e62e77f52e50204accf8a9b95414bae1240a8bb39f9d57264",
+      "source_digests": {
+        "crates/trust-runtime/tests/fixtures/opcua/program/main.st": "sha256:f1353e72f61fc21cc68fad03ebe61fe0c02a264c9ff8c570a78c87e5ddba7fe9",
+        "crates/trust-runtime/tests/opcua_integration.rs": "sha256:0151f037ccd5c23e62e77f52e50204accf8a9b95414bae1240a8bb39f9d57264"
+      },
+      "test_name": "opcua_security_enforces_user_auth_and_certificate_trust",
+      "unresolved_assertion_helpers": [
+        "load_runtime_fixture::std::fs::read_to_string:unresolved-oracle"
+      ]
+    },
+    "DISC_BFD1EDB670F606C7C411": {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_2924855FB233B5D2105960A4",
+          "expression": "MqttIoDriver :: from_params_with_factory (& params (r#\" broker = \"127.0.0.1:1883\" \"# ,) , factory ,) . expect (\"construct mqtt driver\")",
+          "expression_digest": "sha256:48cada00396f80e0858768cb842d202e9c42d99f9470b5c7793c85f8f645ffb1",
+          "function": "mqtt_default_fault_rejects_output_handoff_timeout",
+          "kind": "method:expect",
+          "line": 1195,
+          "source_path": "crates/trust-runtime/src/io/mqtt/tests.rs"
+        },
+        {
+          "assertion_id": "ASSERT_278C7D30A24461F3C00B9F31",
+          "expression": "driver . write_outputs (& [1 , 2 , 3]) . expect_err (\"default fault policy must reject a pending output handoff\")",
+          "expression_digest": "sha256:e8b76df3d206795cfc1eb0966b30ab65ee196cfe851550d75bbbcdbedb8946f7",
+          "function": "mqtt_default_fault_rejects_output_handoff_timeout",
+          "kind": "method:expect_err",
+          "line": 1205,
+          "source_path": "crates/trust-runtime/src/io/mqtt/tests.rs"
+        },
+        {
+          "assertion_id": "ASSERT_95B326B6A3E4E33971974304",
+          "expression": "assert ! (error . to_string () . contains (\"mqtt output handoff pending\"))",
+          "expression_digest": "sha256:08795ff2d19ad91e3b3fdc34e482ff40aca424bd214c6394202f9589a76172e5",
+          "function": "mqtt_default_fault_rejects_output_handoff_timeout",
+          "kind": "macro:assert",
+          "line": 1208,
+          "source_path": "crates/trust-runtime/src/io/mqtt/tests.rs"
+        },
+        {
+          "assertion_id": "ASSERT_52C10181FDFEAFBF5BB7A628",
+          "expression": "assert ! (matches ! (driver . health () , IoDriverHealth :: Faulted { .. }))",
+          "expression_digest": "sha256:2379a49b39dbc123e01761bd5f95725e4086883b514f798319056247df474cdc",
+          "function": "mqtt_default_fault_rejects_output_handoff_timeout",
+          "kind": "macro:assert",
+          "line": 1209,
+          "source_path": "crates/trust-runtime/src/io/mqtt/tests.rs"
+        },
+        {
+          "assertion_id": "ASSERT_9B32EF8162639E12E74CBC58",
+          "expression": "toml :: from_str (text) . expect (\"parse toml params\")",
+          "expression_digest": "sha256:a4dc37a74bab65864b21828cae0699a8e07f7c64f562d83a74e486f35ace0d1c",
+          "function": "params",
+          "kind": "method:expect",
+          "line": 73,
+          "source_path": "crates/trust-runtime/src/io/mqtt/tests.rs"
+        }
+      ],
+      "inventory_digest": "sha256:1814366c49c296f93cb57bc6c721cd2be6bf33dfa5557820372064e631238b24",
+      "path": "crates/trust-runtime/src/io/mqtt/tests.rs",
+      "schema_version": 2,
+      "source_digest": "sha256:7ebd21b16122bb6e2e0443a65462cbcf281f77f8646d4ed974e02eeda2e592e9",
+      "source_digests": {
+        "crates/trust-runtime/src/io/mqtt/tests.rs": "sha256:7ebd21b16122bb6e2e0443a65462cbcf281f77f8646d4ed974e02eeda2e592e9"
+      },
+      "test_name": "mqtt_default_fault_rejects_output_handoff_timeout",
+      "unresolved_assertion_helpers": []
+    },
+    "DISC_C001B994FE7AE2B5A2B5": {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_56C2870B40F9527E1DC1A74B",
+          "expression": "OpcUaClientBridge :: new (bindings) . expect (\"bridge\")",
+          "expression_digest": "sha256:b5ca550074862387ce34fe51bfba4491559f342e390a55e037f92f447173abe2",
+          "function": "non_finite_outputs_cancel_pending_and_allow_later_finite_value",
+          "kind": "method:expect",
+          "line": 243,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+        },
+        {
+          "assertion_id": "ASSERT_8F0E23515552847C86369521",
+          "expression": "bridge . capture_outputs (runtime . storage_mut () , 1) . expect (\"queue finite baseline\")",
+          "expression_digest": "sha256:12a07848c622f76be31cb2270e174df8c6bfa4c0db1f55b8b6a9c452f9b4c376",
+          "function": "non_finite_outputs_cancel_pending_and_allow_later_finite_value",
+          "kind": "method:expect",
+          "line": 245,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+        },
+        {
+          "assertion_id": "ASSERT_294F830805F46655C9CDF04A",
+          "expression": "assert_eq ! (bridge . pending_write (\"line1_setpoint\") , Some (first . clone ()))",
+          "expression_digest": "sha256:8a137cfdcb6ef9b9ad462c4b68252e6509bcedf7bd78b5bb1bcb4779697bc32d",
+          "function": "non_finite_outputs_cancel_pending_and_allow_later_finite_value",
+          "kind": "macro:assert_eq",
+          "line": 248,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+        },
+        {
+          "assertion_id": "ASSERT_6077848E9CF43BB87817AA5F",
+          "expression": "bridge . capture_outputs (runtime . storage_mut () , 2) . expect (\"reject non-finite output\")",
+          "expression_digest": "sha256:0affbe2f7b98e23c320f0c373049493d0db5d1730e19132a995b54a788c8105a",
+          "function": "non_finite_outputs_cancel_pending_and_allow_later_finite_value",
+          "kind": "method:expect",
+          "line": 251,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+        },
+        {
+          "assertion_id": "ASSERT_727B7A80DF60AD20E8A5A1C8",
+          "expression": "assert_eq ! (bridge . pending_write (\"line1_setpoint\") , None , \"{case_name}: non-finite output remained queued\")",
+          "expression_digest": "sha256:334d32268330d9031168daad3b141f57062d01057b9109e2b3543d3f98d07132",
+          "function": "non_finite_outputs_cancel_pending_and_allow_later_finite_value",
+          "kind": "macro:assert_eq",
+          "line": 254,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+        },
+        {
+          "assertion_id": "ASSERT_394B0709E09FA4157D9B0902",
+          "expression": "bridge . snapshot () . point_statuses . into_iter () . find (| status | status . var == \"line1_setpoint\") . expect (\"point status\")",
+          "expression_digest": "sha256:b4d161de6b726ed6bee5e237c4c3d8fd550bada4ba75a185e66664cb4f22212c",
+          "function": "non_finite_outputs_cancel_pending_and_allow_later_finite_value",
+          "kind": "method:expect",
+          "line": 259,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+        },
+        {
+          "assertion_id": "ASSERT_CD0988EDAC0922D2D88202AF",
+          "expression": "assert_eq ! (status . state , OpcUaClientConnectionState :: Faulted , \"{case_name}\")",
+          "expression_digest": "sha256:ccda26204fe8f4db45879e2de2b5c8a1dc0a3f159c4832a5e20fa09ffe02643b",
+          "function": "non_finite_outputs_cancel_pending_and_allow_later_finite_value",
+          "kind": "macro:assert_eq",
+          "line": 265,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+        },
+        {
+          "assertion_id": "ASSERT_6F2B80FAF6436B7F99A60F43",
+          "expression": "assert ! (status . detail . contains (\"non-finite\") , \"{case_name}: unexpected detail: {}\" , status . detail)",
+          "expression_digest": "sha256:38e407b014a573540508f53f6a3fd7f33f004651b1e0ca1e7ca2f3c9ef8bedb7",
+          "function": "non_finite_outputs_cancel_pending_and_allow_later_finite_value",
+          "kind": "macro:assert",
+          "line": 270,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+        },
+        {
+          "assertion_id": "ASSERT_2D45C50C36D8480F82674151",
+          "expression": "bridge . capture_outputs (runtime . storage_mut () , 3) . expect (\"queue finite recovery\")",
+          "expression_digest": "sha256:d2bf99c8a2e2c67f493e31d4c44b52350b337c1dff2f45e29446924ca19774d5",
+          "function": "non_finite_outputs_cancel_pending_and_allow_later_finite_value",
+          "kind": "method:expect",
+          "line": 277,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+        },
+        {
+          "assertion_id": "ASSERT_4CE009EB9E0326638E14F4E7",
+          "expression": "assert_eq ! (bridge . pending_write (\"line1_setpoint\") , Some (recovery) , \"{case_name}: finite recovery was suppressed\")",
+          "expression_digest": "sha256:835d2de4e4748e8f65f8dd40f0e32b81305c2279cd6b6f84d17d9dac6cd389d8",
+          "function": "non_finite_outputs_cancel_pending_and_allow_later_finite_value",
+          "kind": "macro:assert_eq",
+          "line": 280,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+        }
+      ],
+      "inventory_digest": "sha256:6d0414e7c66a7c53453a9598819c58a745c369318d8a4ef3ebc407a43c771b3c",
+      "path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs",
+      "schema_version": 2,
+      "source_digest": "sha256:6f2d6a5aeb4a55e47a486b0644a1a398dae4337e51bc9a2ae2fcdbbf8a82f250",
+      "source_digests": {
+        "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs": "sha256:6f2d6a5aeb4a55e47a486b0644a1a398dae4337e51bc9a2ae2fcdbbf8a82f250"
+      },
+      "test_name": "non_finite_outputs_cancel_pending_and_allow_later_finite_value",
+      "unresolved_assertion_helpers": []
+    },
+    "DISC_CF8FEB2C530D5491FA6A": {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_5CC39E470EE45E5E1C56984B",
+          "expression": "validate_opcua_write_statuses (values . as_slice () , statuses . as_slice ()) . expect_err (case_name)",
+          "expression_digest": "sha256:0074821bd2743c62eae4745c815542df74b3ae3f6cc5ad4466d51207221be62c",
+          "function": "wire_write_status_cardinality_must_match_request",
+          "kind": "method:expect_err",
+          "line": 365,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+        },
+        {
+          "assertion_id": "ASSERT_47B62FFDFBDB0CC768D14109",
+          "expression": "assert ! (error . message () . contains (\"returned\") && error . message () . contains (\"status\") && error . message () . contains (\"requested\") , \"{case_name}: unexpected error: {error}\")",
+          "expression_digest": "sha256:831b515a1ba49a6dc8f8aaf16307e6718e6c75997c4ab7ea525e6f5382405def",
+          "function": "wire_write_status_cardinality_must_match_request",
+          "kind": "macro:assert",
+          "line": 367,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+        }
+      ],
+      "inventory_digest": "sha256:d9b0fdc625c27e33bb40dbe4489ad8773b160a4db42e260c6d218a953910f6d6",
+      "path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs",
+      "schema_version": 2,
+      "source_digest": "sha256:6f2d6a5aeb4a55e47a486b0644a1a398dae4337e51bc9a2ae2fcdbbf8a82f250",
+      "source_digests": {
+        "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs": "sha256:6f2d6a5aeb4a55e47a486b0644a1a398dae4337e51bc9a2ae2fcdbbf8a82f250"
+      },
+      "test_name": "wire_write_status_cardinality_must_match_request",
+      "unresolved_assertion_helpers": []
+    },
+    "DISC_D28E6BEDE474849C675E": {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_FF124097B431AE22889FA97A",
+          "expression": "OpcUaClientBridge :: new (bindings) . expect (\"bridge\")",
+          "expression_digest": "sha256:b5ca550074862387ce34fe51bfba4491559f342e390a55e037f92f447173abe2",
+          "function": "write_completion_preserves_newer_pending_generation",
+          "kind": "method:expect",
+          "line": 182,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+        },
+        {
+          "assertion_id": "ASSERT_70BDB857BDB2DBDD2EC03B93",
+          "expression": "worker . tick (0) . expect (\"connect\")",
+          "expression_digest": "sha256:67e5055c6023e8af530f9747aac633bdff6e7c88c213deba6a390570bcf14e28",
+          "function": "write_completion_preserves_newer_pending_generation",
+          "kind": "method:expect",
+          "line": 190,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+        },
+        {
+          "assertion_id": "ASSERT_5D39C75470A0304C5A2EEC22",
+          "expression": "bridge . capture_outputs (runtime . storage_mut () , 10) . expect (\"queue transmitted generation\")",
+          "expression_digest": "sha256:7a465026e22f3b69dee1e09e4ec36f7494309f66d756feec6968a494eba607f2",
+          "function": "write_completion_preserves_newer_pending_generation",
+          "kind": "method:expect",
+          "line": 193,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+        },
+        {
+          "assertion_id": "ASSERT_5CD808905771AD2DB6250720",
+          "expression": "worker . tick (11) . expect (\"validation rejection remains point-local\")",
+          "expression_digest": "sha256:cd0d3b7b177276cd6b66d1fe258a8672fcc3f8b24f5f25a65285fcc7abe51c38",
+          "function": "write_completion_preserves_newer_pending_generation",
+          "kind": "method:expect",
+          "line": 196,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+        },
+        {
+          "assertion_id": "ASSERT_3D1505276AA82297334615BB",
+          "expression": "assert_eq ! (bridge . pending_write (\"line1_setpoint\") , Some (Value :: Real (44.0)) , \"completion for an older generation removed its replacement; reject={reject_transmitted}\")",
+          "expression_digest": "sha256:0bedcc24f9d7b4a8220d88b13d5361bf6ec46c299ae743de3404863ca725690c",
+          "function": "write_completion_preserves_newer_pending_generation",
+          "kind": "macro:assert_eq",
+          "line": 200,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+        }
+      ],
+      "inventory_digest": "sha256:2b9a804df8859f92a8e37998ea94f14458b2ccc0e067b90d47df6a88e49dc40e",
+      "path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs",
+      "schema_version": 2,
+      "source_digest": "sha256:6f2d6a5aeb4a55e47a486b0644a1a398dae4337e51bc9a2ae2fcdbbf8a82f250",
+      "source_digests": {
+        "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs": "sha256:6f2d6a5aeb4a55e47a486b0644a1a398dae4337e51bc9a2ae2fcdbbf8a82f250"
+      },
+      "test_name": "write_completion_preserves_newer_pending_generation",
+      "unresolved_assertion_helpers": []
+    },
+    "DISC_D69495A86153D3531B6D": {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_CC5F389AB3F7FD07EB279CE0",
+          "expression": "MqttIoDriver :: from_params_with_factory (& params (r#\" broker = \"127.0.0.1:1883\" topic_in = \"line/in\" \"# ,) , factory ,) . expect (\"construct mqtt driver\")",
+          "expression_digest": "sha256:64d3712fb6309d38c2d35905e439a1ea397bfa9a2b49906adc7d2600ca803648",
+          "function": "mqtt_raw_read_uses_newest_payload_from_drained_batch",
+          "kind": "method:expect",
+          "line": 154,
+          "source_path": "crates/trust-runtime/src/io/mqtt/tests.rs"
+        },
+        {
+          "assertion_id": "ASSERT_2D59ECC785F959239E37C835",
+          "expression": "driver . read_inputs (& mut inputs) . expect (\"read newest payload\")",
+          "expression_digest": "sha256:03252a6afd8509a84dbb3a12c08099371e889ce931c7bc47800cc51bf515e5e2",
+          "function": "mqtt_raw_read_uses_newest_payload_from_drained_batch",
+          "kind": "method:expect",
+          "line": 166,
+          "source_path": "crates/trust-runtime/src/io/mqtt/tests.rs"
+        },
+        {
+          "assertion_id": "ASSERT_2D231ADF3E977745ED0EA49E",
+          "expression": "assert_eq ! (inputs , [7 , 8 , 9])",
+          "expression_digest": "sha256:ff510258f5d415a2025ed6fcaefecfe854fb257189f8a678b138209ce6e1600f",
+          "function": "mqtt_raw_read_uses_newest_payload_from_drained_batch",
+          "kind": "macro:assert_eq",
+          "line": 169,
+          "source_path": "crates/trust-runtime/src/io/mqtt/tests.rs"
+        },
+        {
+          "assertion_id": "ASSERT_709B69DCD4F58FB7420C9C4C",
+          "expression": "toml :: from_str (text) . expect (\"parse toml params\")",
+          "expression_digest": "sha256:a4dc37a74bab65864b21828cae0699a8e07f7c64f562d83a74e486f35ace0d1c",
+          "function": "params",
+          "kind": "method:expect",
+          "line": 73,
+          "source_path": "crates/trust-runtime/src/io/mqtt/tests.rs"
+        }
+      ],
+      "inventory_digest": "sha256:2f6f21d7c050532808e5c80db3a12ce3063a2b1d283bcfd83d6209fb0f6fb17b",
+      "path": "crates/trust-runtime/src/io/mqtt/tests.rs",
+      "schema_version": 2,
+      "source_digest": "sha256:7ebd21b16122bb6e2e0443a65462cbcf281f77f8646d4ed974e02eeda2e592e9",
+      "source_digests": {
+        "crates/trust-runtime/src/io/mqtt/tests.rs": "sha256:7ebd21b16122bb6e2e0443a65462cbcf281f77f8646d4ed974e02eeda2e592e9"
+      },
+      "test_name": "mqtt_raw_read_uses_newest_payload_from_drained_batch",
+      "unresolved_assertion_helpers": []
+    },
+    "DISC_E61CF90D81EF3A4069DD": {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_54A529C4AE6ADE6B821FC121",
+          "expression": "validate_opcua_result_cardinality (operation , expected , actual) . expect_err (\"mismatched service vector must fail\")",
+          "expression_digest": "sha256:98abe0cae1318ee4b51ab7c22d2db9131b7aa4cc82bebb6270811942d8547160",
+          "function": "one_shot_service_vectors_require_exact_cardinality",
+          "kind": "method:expect_err",
+          "line": 344,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+        },
+        {
+          "assertion_id": "ASSERT_E28B6C5314D8E1984AB4C458",
+          "expression": "assert ! (detail . contains (operation) && detail . contains (expected . to_string () . as_str ()) && detail . contains (actual . to_string () . as_str ()) , \"unexpected cardinality diagnostic: {detail}\")",
+          "expression_digest": "sha256:f25b18475189da18ff44c8b648fa211fb705eb3be43d4b733857560d84c01c17",
+          "function": "one_shot_service_vectors_require_exact_cardinality",
+          "kind": "macro:assert",
+          "line": 347,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+        },
+        {
+          "assertion_id": "ASSERT_BA830BD6E3635800D5891B89",
+          "expression": "validate_opcua_result_cardinality (\"read\" , 2 , 2) . expect (\"exact read vector\")",
+          "expression_digest": "sha256:8dd6b7bf20b9e87c04d6bc892e43640b79c4546761512b468e4e90087c238510",
+          "function": "one_shot_service_vectors_require_exact_cardinality",
+          "kind": "method:expect",
+          "line": 354,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+        },
+        {
+          "assertion_id": "ASSERT_D8A5B278A14FC96F24CDF702",
+          "expression": "validate_opcua_result_cardinality (\"write\" , 2 , 2) . expect (\"exact write vector\")",
+          "expression_digest": "sha256:cff03f555f25f5d75ab79e0b20d9eeb6c571e5054a23bbef2a05bb840f66bac6",
+          "function": "one_shot_service_vectors_require_exact_cardinality",
+          "kind": "method:expect",
+          "line": 355,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+        }
+      ],
+      "inventory_digest": "sha256:1a51daa4249a9355704b9b2c672a7be66f908f5fd095e5b2235f5672d23c7ec0",
+      "path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs",
+      "schema_version": 2,
+      "source_digest": "sha256:fee611d3eff2840a38f0f0d49ae4ed27a8becfebcbcb4cc8a4cb7bef9c667784",
+      "source_digests": {
+        "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs": "sha256:fee611d3eff2840a38f0f0d49ae4ed27a8becfebcbcb4cc8a4cb7bef9c667784"
+      },
+      "test_name": "one_shot_service_vectors_require_exact_cardinality",
+      "unresolved_assertion_helpers": []
+    },
+    "DISC_EF19FDB7F2CC0535B8D8": {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_59E4FE6E14A73FEB43D9B7EA",
+          "expression": "OpcUaClientBridge :: with_transport (connection , MockOpcUaClientTransport :: default () , bindings ,) . expect (\"bridge\")",
+          "expression_digest": "sha256:c5713404088d334ce513d1098da5fbd6e701fbf70a66b2fffcc94c9f7fa42c32",
+          "function": "worker_shutdown_interrupts_idle_wait_and_revokes_good_authority",
+          "kind": "method:expect",
+          "line": 299,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+        },
+        {
+          "assertion_id": "ASSERT_F705B241E726BBD28D78C5D2",
+          "expression": "worker . spawn (std :: time :: Duration :: from_secs (2)) . expect (\"spawn worker\")",
+          "expression_digest": "sha256:b1e0186a99895c0ef7e575211a28c49397986571ed66d45853225821f2c9f477",
+          "function": "worker_shutdown_interrupts_idle_wait_and_revokes_good_authority",
+          "kind": "method:expect",
+          "line": 305,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+        },
+        {
+          "assertion_id": "ASSERT_F451AED17991DF33DB07FE37",
+          "expression": "assert_eq ! (bridge . state () , OpcUaClientConnectionState :: Connected , \"worker did not connect before shutdown probe\")",
+          "expression_digest": "sha256:53cd3bb9cb0e85b8060599bbddeff62b0a407c08db66b0fa3f6b6693f8b9a849",
+          "function": "worker_shutdown_interrupts_idle_wait_and_revokes_good_authority",
+          "kind": "macro:assert_eq",
+          "line": 315,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+        },
+        {
+          "assertion_id": "ASSERT_AEBF1432B515270D4C93C982",
+          "expression": "thread . shutdown () . expect (\"shutdown worker\")",
+          "expression_digest": "sha256:fa76e3a60478acdcfd73fc3728f921facf433cb9c22f13f35d53a9ef677fea39",
+          "function": "worker_shutdown_interrupts_idle_wait_and_revokes_good_authority",
+          "kind": "method:expect",
+          "line": 322,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+        },
+        {
+          "assertion_id": "ASSERT_7EA4776B411429F896DEB857",
+          "expression": "assert ! (elapsed < std :: time :: Duration :: from_millis (500) , \"idle shutdown waited for the tick interval: {elapsed:?}\")",
+          "expression_digest": "sha256:43ee749af32698e6e951d46e23ca8e6d8cea8734a06948e7e902efa87cd4aedf",
+          "function": "worker_shutdown_interrupts_idle_wait_and_revokes_good_authority",
+          "kind": "macro:assert",
+          "line": 325,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+        },
+        {
+          "assertion_id": "ASSERT_EFA5DAD7B23FF9EA6F2D5A4E",
+          "expression": "assert_ne ! (bridge . state () , OpcUaClientConnectionState :: Connected , \"shutdown left stale Good connection authority visible\")",
+          "expression_digest": "sha256:309e21c5647bd02f16248187cb00b95568fd0f979da9acb65d45d84c3f06e335",
+          "function": "worker_shutdown_interrupts_idle_wait_and_revokes_good_authority",
+          "kind": "macro:assert_ne",
+          "line": 329,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs"
+        }
+      ],
+      "inventory_digest": "sha256:1f59543f17a350fd5065764e8b370986069ad363cf56b5708c9506563b0ee61e",
+      "path": "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs",
+      "schema_version": 2,
+      "source_digest": "sha256:6f2d6a5aeb4a55e47a486b0644a1a398dae4337e51bc9a2ae2fcdbbf8a82f250",
+      "source_digests": {
+        "crates/trust-runtime/src/host/opcua/tests/worker_integrity.rs": "sha256:6f2d6a5aeb4a55e47a486b0644a1a398dae4337e51bc9a2ae2fcdbbf8a82f250"
+      },
+      "test_name": "worker_shutdown_interrupts_idle_wait_and_revokes_good_authority",
+      "unresolved_assertion_helpers": []
+    },
+    "DISC_F71FD4244E231373CC1B": {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_2776A2DCE1DBB3F70D476167",
+          "expression": "assert_eq ! (error . as_str () , expected_error)",
+          "expression_digest": "sha256:f54ef144473c938d56555fdabdc0eba11ccd7a7feb6d36458f3cb0181ac57a13",
+          "function": "tests::assert_health",
+          "kind": "macro:assert_eq",
+          "line": 419,
+          "source_path": "crates/trust-runtime/src/io/modbus/worker.rs"
+        },
+        {
+          "assertion_id": "ASSERT_309153DEC536D93A248C93AC",
+          "expression": "panic ! (\"expected faulted={expected_faulted}, got {other:?}\")",
+          "expression_digest": "sha256:8283d02dd7abbd7929b6552a39cf244adc59af5bb0e65be514e2c8ecda4b825d",
+          "function": "tests::assert_health",
+          "kind": "macro:panic",
+          "line": 422,
+          "source_path": "crates/trust-runtime/src/io/modbus/worker.rs"
+        },
+        {
+          "assertion_id": "ASSERT_599E97FC180C7A9835ED41B0",
+          "expression": "assert_eq ! (state . last_error . as_deref () , Some (expected_error))",
+          "expression_digest": "sha256:a3e7e57d88656d7299cd327771be38df16603e66f57feb0a61424586337f1258",
+          "function": "tests::assert_last_error",
+          "kind": "macro:assert_eq",
+          "line": 432,
+          "source_path": "crates/trust-runtime/src/io/modbus/worker.rs"
+        },
+        {
+          "assertion_id": "ASSERT_71CAE131B2D3F78C0901D387",
+          "expression": "assert ! (result . is_err () , \"fault must reject a stale input deadline\")",
+          "expression_digest": "sha256:3228b23232e48ba372d3de77f65448c04ac607af8f8f068e73bac27c483a4538",
+          "function": "tests::input_deadline_follows_error_policy_without_fault_copy",
+          "kind": "macro:assert",
+          "line": 313,
+          "source_path": "crates/trust-runtime/src/io/modbus/worker.rs"
+        },
+        {
+          "assertion_id": "ASSERT_878F7C685E2CD49260483C61",
+          "expression": "assert_eq ! (inputs , [0xAA , 0xBB] , \"fault must not copy the cached snapshot\")",
+          "expression_digest": "sha256:2fac480653d003bbd3ed6eb6af78972da23c2b43a8ca8b993044da8226019298",
+          "function": "tests::input_deadline_follows_error_policy_without_fault_copy",
+          "kind": "macro:assert_eq",
+          "line": 314,
+          "source_path": "crates/trust-runtime/src/io/modbus/worker.rs"
+        },
+        {
+          "assertion_id": "ASSERT_BBE47F1390AA46AA006DCF6A",
+          "expression": "result . expect (\"warn and ignore must return degraded success\")",
+          "expression_digest": "sha256:0a468bb9ce5aa39fa34498c87ea1fd2d3173f96f56e137590e725d998dfad4ea",
+          "function": "tests::input_deadline_follows_error_policy_without_fault_copy",
+          "kind": "method:expect",
+          "line": 326,
+          "source_path": "crates/trust-runtime/src/io/modbus/worker.rs"
+        },
+        {
+          "assertion_id": "ASSERT_37BCCC43CC723ACF40CEAD0A",
+          "expression": "assert_eq ! (inputs , [0x11 , 0x22] , \"warn and ignore may copy the last accepted snapshot\")",
+          "expression_digest": "sha256:743bf646858a9c3b8c1a5cc8d1cb1a7a00348c05784b96e5824f214965fe0cf7",
+          "function": "tests::input_deadline_follows_error_policy_without_fault_copy",
+          "kind": "macro:assert_eq",
+          "line": 327,
+          "source_path": "crates/trust-runtime/src/io/modbus/worker.rs"
+        },
+        {
+          "assertion_id": "ASSERT_45D2696EC259CC9DBC70B6BB",
+          "expression": "shared . lock () . expect (\"worker state lock\")",
+          "expression_digest": "sha256:d79e15bf45733fe2cc57fd8cd19800933e5c1755f51fc1263630c133092165cc",
+          "function": "tests::stalled_worker",
+          "kind": "method:expect",
+          "line": 396,
+          "source_path": "crates/trust-runtime/src/io/modbus/worker.rs"
+        }
+      ],
+      "inventory_digest": "sha256:b3f6100eab4caa8806b66b076e090cbf4640092e4863bfcf7ed9ab258d87522d",
+      "path": "crates/trust-runtime/src/io/modbus/worker.rs",
+      "schema_version": 2,
+      "source_digest": "sha256:dfb43440bdb6af80ac95ce3fc7d5e123059503ee39502a00c7685b2c2b06b74a",
+      "source_digests": {
+        "crates/trust-runtime/src/io/modbus/worker.rs": "sha256:dfb43440bdb6af80ac95ce3fc7d5e123059503ee39502a00c7685b2c2b06b74a"
+      },
+      "test_name": "input_deadline_follows_error_policy_without_fault_copy",
+      "unresolved_assertion_helpers": []
+    },
+    "DISC_F74C14B624882A0A39C1": {
+      "assertions": [
+        {
+          "assertion_id": "ASSERT_94CB4385BDD1B4B11D86D137",
+          "expression": "OPCUA_CLIENT_PKI_ENV_LOCK . lock () . expect (\"OPC UA client PKI env lock\")",
+          "expression_digest": "sha256:b9d9414670d2ab63197eb82d3acf1bc920c718403e77f083bf6f817c75f24978",
+          "function": "client_pki_root_links_are_not_traversed",
+          "kind": "method:expect",
+          "line": 246,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+        },
+        {
+          "assertion_id": "ASSERT_B02650C53F2FCC8F8C876625",
+          "expression": "std :: fs :: create_dir_all (& root_link_case) . expect (\"root-link fixture\")",
+          "expression_digest": "sha256:335218c5bb6d97a4604393d999775d07f11bdd1538a723feb77a18df1813aaac",
+          "function": "client_pki_root_links_are_not_traversed",
+          "kind": "method:expect",
+          "line": 254,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+        },
+        {
+          "assertion_id": "ASSERT_12B873A2206722B55B22CF13",
+          "expression": "std :: fs :: create_dir_all (root_link_case . join (\"rejected\")) . expect (\"rejected fixture\")",
+          "expression_digest": "sha256:0bde66d269da5cdf13f56ba9f7cf2ae8966f93f5cfe5caef2b6f4d720a91f9e7",
+          "function": "client_pki_root_links_are_not_traversed",
+          "kind": "method:expect",
+          "line": 255,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+        },
+        {
+          "assertion_id": "ASSERT_F839B4EB75682D949EDB056D",
+          "expression": "std :: fs :: create_dir_all (& external_trusted) . expect (\"external trusted fixture\")",
+          "expression_digest": "sha256:1dabd05bd9ed6c07cb68ca3f89b462040b43d51026945adfae3f3be6b30f647b",
+          "function": "client_pki_root_links_are_not_traversed",
+          "kind": "method:expect",
+          "line": 256,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+        },
+        {
+          "assertion_id": "ASSERT_E11668599915ACC71C53D4EE",
+          "expression": "std :: fs :: write (& external_listed , b\"outside\") . expect (\"external listed cert\")",
+          "expression_digest": "sha256:679c7d77194cbdb7da1f4d78cbb8b3a68ba4ddb120d9dd0301f2b5babede1440",
+          "function": "client_pki_root_links_are_not_traversed",
+          "kind": "method:expect",
+          "line": 258,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+        },
+        {
+          "assertion_id": "ASSERT_2B309ABC152DF935EB4C2587",
+          "expression": "std :: fs :: write (& rejected , b\"candidate\") . expect (\"rejected candidate\")",
+          "expression_digest": "sha256:ef7ea73983e6cb3b135955f0b06e91f74208854aead3fd27864e5256ebf80c82",
+          "function": "client_pki_root_links_are_not_traversed",
+          "kind": "method:expect",
+          "line": 260,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+        },
+        {
+          "assertion_id": "ASSERT_0B8E216B8C71F3FE7EA29791",
+          "expression": "symlink (& external_trusted , root_link_case . join (\"trusted\")) . expect (\"trusted root symlink\")",
+          "expression_digest": "sha256:e2abf1600c662a621e0c94b794abffd7608f98a4627b6ee8335c7101aba41697",
+          "function": "client_pki_root_links_are_not_traversed",
+          "kind": "method:expect",
+          "line": 261,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+        },
+        {
+          "assertion_id": "ASSERT_A73720DD0547671771E4D999",
+          "expression": "list_trusted_opcua_client_server_certificates () . expect (\"list linked trusted root\")",
+          "expression_digest": "sha256:85e40174527dc234802096412eecc7af86d186ca92384cbae8e96dd22096a20a",
+          "function": "client_pki_root_links_are_not_traversed",
+          "kind": "method:expect",
+          "line": 264,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+        },
+        {
+          "assertion_id": "ASSERT_411E333C2427167689C363F6",
+          "expression": "std :: fs :: read (& external_listed) . expect (\"external cert after rejected promotion\")",
+          "expression_digest": "sha256:32732917c0c4085c1496cfe1a46969aef27dd290ba9c859185bbb07213066f97",
+          "function": "client_pki_root_links_are_not_traversed",
+          "kind": "method:expect",
+          "line": 268,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+        },
+        {
+          "assertion_id": "ASSERT_E69369556BFAAF5F606E01CE",
+          "expression": "assert ! (listed_via_root_link . is_empty () , \"listing followed a trusted root symbolic link\")",
+          "expression_digest": "sha256:9f387d227115b2ae9322fa5b31c29a16bfbb636d08c47686db04ec7aec2b3a40",
+          "function": "client_pki_root_links_are_not_traversed",
+          "kind": "macro:assert",
+          "line": 273,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+        },
+        {
+          "assertion_id": "ASSERT_C1B102D34C26B5E47EADC45C",
+          "expression": "assert ! (promotion_via_root_link . is_err () , \"promotion followed a trusted root symbolic link\")",
+          "expression_digest": "sha256:922d60f7a7d2d35b6bdbc949413357384bdb2bd1bf93d27b7971079f7e5ee942",
+          "function": "client_pki_root_links_are_not_traversed",
+          "kind": "macro:assert",
+          "line": 277,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+        },
+        {
+          "assertion_id": "ASSERT_0F6274144862005BA9C07B5B",
+          "expression": "assert ! (rejected_preserved , \"failed root-link promotion removed the rejected source\")",
+          "expression_digest": "sha256:ad4c75f257ea242bb5a5052ac88d4a0d5e508c7cd86191600404069c24984494",
+          "function": "client_pki_root_links_are_not_traversed",
+          "kind": "macro:assert",
+          "line": 281,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+        },
+        {
+          "assertion_id": "ASSERT_6DDDF2BC55F3E7DBF9056063",
+          "expression": "assert_eq ! (external_preserved , b\"outside\" , \"promotion through a linked root modified an external certificate\")",
+          "expression_digest": "sha256:f83d26631e78f1c387cdc47e166ea9895e6726fe0e64b6c3194b50b569c92a6f",
+          "function": "client_pki_root_links_are_not_traversed",
+          "kind": "macro:assert_eq",
+          "line": 285,
+          "source_path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs"
+        }
+      ],
+      "inventory_digest": "sha256:87c94937f20294bf2a83bf9594d07e29dc7792ac32f8057cfdb31cccdcdba070",
+      "path": "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs",
+      "schema_version": 2,
+      "source_digest": "sha256:fee611d3eff2840a38f0f0d49ae4ed27a8becfebcbcb4cc8a4cb7bef9c667784",
+      "source_digests": {
+        "crates/trust-runtime/src/host/opcua/tests/client_contracts.rs": "sha256:fee611d3eff2840a38f0f0d49ae4ed27a8becfebcbcb4cc8a4cb7bef9c667784"
+      },
+      "test_name": "client_pki_root_links_are_not_traversed",
+      "unresolved_assertion_helpers": [
+        "client_pki_root_links_are_not_traversed::std::fs::read:unresolved-oracle"
+      ]
+    }
+  },
+  "schema_version": 2
+}

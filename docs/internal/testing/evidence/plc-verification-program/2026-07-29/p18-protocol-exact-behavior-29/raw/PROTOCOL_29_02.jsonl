@@ -1,0 +1,12 @@
+{"type":"suite","event":"started","test_count":5,"nextest":{"crate":"trust-runtime","test_binary":"modbus_driver","kind":"test"}}
+{"type":"test","event":"started","name":"trust-runtime::modbus_driver$modbus_cold_start_no_data_follows_on_error_policy"}
+{"type":"test","event":"started","name":"trust-runtime::modbus_driver$modbus_safe_state_handoff_succeeds_when_worker_confirms_delivery"}
+{"type":"test","event":"started","name":"trust-runtime::modbus_driver$modbus_reconnect_backoff_is_bounded_and_non_spinning"}
+{"type":"test","event":"started","name":"trust-runtime::modbus_driver$modbus_inverse_scaled_f32_write_rejects_declared_width_overflow_before_send"}
+{"type":"test","event":"started","name":"trust-runtime::modbus_driver$modbus_scaled_f32_read_rejects_declared_width_overflow_without_mutation"}
+{"type":"test","event":"ok","name":"trust-runtime::modbus_driver$modbus_safe_state_handoff_succeeds_when_worker_confirms_delivery","exec_time":0.012596929}
+{"type":"test","event":"ok","name":"trust-runtime::modbus_driver$modbus_scaled_f32_read_rejects_declared_width_overflow_without_mutation","exec_time":0.013963229}
+{"type":"test","event":"ok","name":"trust-runtime::modbus_driver$modbus_inverse_scaled_f32_write_rejects_declared_width_overflow_before_send","exec_time":0.014191603}
+{"type":"test","event":"ok","name":"trust-runtime::modbus_driver$modbus_cold_start_no_data_follows_on_error_policy","exec_time":0.129809191}
+{"type":"test","event":"ok","name":"trust-runtime::modbus_driver$modbus_reconnect_backoff_is_bounded_and_non_spinning","exec_time":0.190868088}
+{"type":"suite","event":"ok","passed":5,"failed":0,"ignored":0,"measured":0,"filtered_out":20,"exec_time":0.36142904,"nextest":{"crate":"trust-runtime","test_binary":"modbus_driver","kind":"test"}}
