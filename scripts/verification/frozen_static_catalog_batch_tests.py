@@ -5,6 +5,7 @@ import unittest
 from scripts.verification.frozen_static_catalog_batch import (
     _assertion_dispositions,
     _catalog_command,
+    _proposal_timestamp,
     _required_test_prefix,
     assign_behavior_refs,
     assign_behaviors,
@@ -25,6 +26,18 @@ from scripts.verification.frozen_static_semantic_assignments import (
 
 
 class FrozenStaticCatalogBatchTests(unittest.TestCase):
+    def test_proposal_timestamp_is_canonical_utc_seconds(self) -> None:
+        self.assertEqual(
+            "2026-07-28T07:02:20Z",
+            _proposal_timestamp("2026-07-28T07:02:20.747878Z"),
+        )
+        self.assertEqual(
+            "2026-07-28T07:02:20Z",
+            _proposal_timestamp("2026-07-28T09:02:20+02:00"),
+        )
+        with self.assertRaisesRegex(ValueError, "timezone-aware"):
+            _proposal_timestamp("2026-07-28T07:02:20")
+
     def test_assertion_dispositions_are_exact_and_disjoint(self) -> None:
         inventories = {
             "DISC_A": {

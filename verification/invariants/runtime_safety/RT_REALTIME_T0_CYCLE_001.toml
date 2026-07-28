@@ -2,8 +2,8 @@ schema_version = 1
 id = "RT_REALTIME_T0_CYCLE_001"
 title = "Realtime T0 cycle ordering isolates bounded cloud work"
 area = "runtime_safety"
-risk = "timing"
-status = "planned"
+risk = "wrong_result"
+status = "mapped"
 owner = "trust-runtime"
 last_reviewed = "2026-07-28"
 claim = "The Realtime T0 cycle model enforces pre-task before post-task exchange and resets its bounded cloud-operation allowance per cycle without claiming a hard-realtime latency guarantee."
@@ -13,7 +13,7 @@ source_refs = [
   "docs/specs/11-runtime-engine.md",
   "crates/trust-runtime/src/host/realtime/realtime_part_02.rs",
 ]
-tests = []
+tests = ["TEST_AUTO_678ACD2B87F05E88AA1A", "TEST_AUTO_6E5750801DC19C4E3BDA", "TEST_AUTO_89CD61302AF3809955E3"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
@@ -64,10 +64,10 @@ rationale = "Across the reviewed 24-cycle sequence, pre/post exchange, payload s
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
-state = "gap_open"
-rationale = "Pre/post ordering and the bounded multi-cycle functional sequence are specified; the frozen existing tests await generated catalog mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in RT_REALTIME_T0_CYCLE_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "resource_limit"
-state = "gap_open"
-rationale = "Per-cycle cloud-budget grant and denial accounting are specified; the frozen existing tests await generated catalog mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every resource_limit behavior in RT_REALTIME_T0_CYCLE_001; dynamic proof and broad remote validation remain explicit debt."

@@ -2,8 +2,8 @@ schema_version = 1
 id = "RT_REALTIME_T0_TRANSPORT_001"
 title = "Realtime T0 transport preserves fixed-layout shared-memory contracts"
 area = "runtime_safety"
-risk = "fail_open"
-status = "planned"
+risk = "safety_critical"
+status = "mapped"
 owner = "trust-runtime"
 last_reviewed = "2026-07-28"
 claim = "Realtime T0 accepts only its reviewed same-host fixed-layout shared-memory route, fails closed before use when setup or binding authority is invalid, and preserves the reviewed payload, counter, and error projections."
@@ -16,7 +16,7 @@ source_refs = [
   "crates/trust-runtime/src/host/realtime/shm.rs",
   "crates/trust-runtime/src/host/realtime/transport.rs",
 ]
-tests = []
+tests = ["TEST_AUTO_2E815DCD279686A7B9C8", "TEST_AUTO_34C0BCBE4BD82D8B80D0", "TEST_AUTO_55CAADD3CCB4DC311F46", "TEST_AUTO_5E088D53395CC4F852E5", "TEST_AUTO_6627DC479523620038C1", "TEST_AUTO_734111DCA27247D1378A", "TEST_AUTO_81373063FE7D545520F8", "TEST_AUTO_8C06F16AC40A8DA036BF", "TEST_AUTO_94AB7B525581745D39D1", "TEST_AUTO_9D4A488E4E903C1DC0B2", "TEST_AUTO_D0737A7878036279A9A4", "TEST_AUTO_E1D3B90728072A5E5DE4"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
@@ -133,40 +133,40 @@ rationale = "A parent publisher and child subscriber using the same configured s
 
 [[coverage.cells]]
 dimension = "platform_or_filesystem_variation"
-state = "gap_open"
-rationale = "The shared-memory root failure behavior is specified; the frozen existing test awaits generated catalog mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every platform_or_filesystem_variation behavior in RT_REALTIME_T0_TRANSPORT_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "hardware_or_network_fault"
-state = "gap_open"
-rationale = "The required-pinning failure behavior is specified; the frozen existing test awaits generated catalog mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every hardware_or_network_fault behavior in RT_REALTIME_T0_TRANSPORT_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "gap_open"
-rationale = "Schema, layout, route, and readiness rejection behaviors are specified; the frozen existing tests await generated catalog mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every wrong_type_or_shape behavior in RT_REALTIME_T0_TRANSPORT_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "QoS legality, error mapping, and legal same-process exchange are specified; the frozen existing tests await generated catalog mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in RT_REALTIME_T0_TRANSPORT_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "resource_limit"
-state = "gap_open"
-rationale = "Stale-miss and bounded-spin exhaustion are specified; the frozen existing test awaits generated catalog mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every resource_limit behavior in RT_REALTIME_T0_TRANSPORT_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
-state = "gap_open"
-rationale = "Latest-payload and overrun accounting are specified; the frozen existing test awaits generated catalog mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in RT_REALTIME_T0_TRANSPORT_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "missing_required"
-state = "gap_open"
-rationale = "Unpinned channel rejection is specified; the frozen existing test awaits generated catalog mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every missing_required behavior in RT_REALTIME_T0_TRANSPORT_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "concurrency_or_cancellation"
-state = "gap_open"
-rationale = "Cross-process shared-memory payload visibility is specified; the frozen existing test awaits generated catalog mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every concurrency_or_cancellation behavior in RT_REALTIME_T0_TRANSPORT_001; dynamic proof and broad remote validation remain explicit debt."

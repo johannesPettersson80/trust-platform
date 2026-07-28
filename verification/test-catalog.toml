@@ -110922,3 +110922,509 @@ mapping_assertion_review_digest = "sha256:adae6eca0fa2e950c3319dca35baefb33ef03b
 mapping_assertion_source_digests = { "crates/trust-runtime/tests/stdlib_string_full.rs" = "sha256:bb6fac90e261a319f5a351a4fd177ed596bed28040cf09c758c0d85179ae9083" }
 mapping_behavior_refs = ["RT_STDLIB_STRING_001#behavior:0"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_2E815DCD279686A7B9C8"
+subject_kind = "generated_test"
+discovery_id = "DISC_2E815DCD279686A7B9C8"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/host/realtime/realtime_tests_part_01.rs"
+name = "t0_shm_registration_fails_fast_when_root_path_is_not_directory"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=realtime::tests::t0_shm_registration_fails_fast_when_root_path_is_not_directory)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_REALTIME_T0_TRANSPORT_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#realtime-t0-transport-and-cycle-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#realtime-t0-transport-and-cycle-contract"]
+expected_result = "Registration against a configured shared-memory root that is not a directory fails with TransportFailure and the stable diagnostic fragment 'failed to create T0 SHM directory'; the test does not claim post-state."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_2E815DCD279686A7B9C8.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_2E815DCD279686A7B9C8_C427BB555A06"
+mapping_proposal_digest = "sha256:c427bb555a0655202f7a107e2db0c61503206cf766756560ac3d96b9dc6822c0"
+mapping_decision_id = "MAP_DEC_B3456B729C5BECE933C278E7"
+mapping_reviewed_source_digest = "sha256:11a68c54dbc976ee3c99706489fe31e5f80d31bb586fb31bf03b40b2862584f8"
+mapping_assertion_review_digest = "sha256:1aa5acaf7ef0c6b49a5f93b39a27b598bfe387763d055f7def513d68d3d79c19"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/host/realtime/realtime_tests_part_01.rs" = "sha256:11a68c54dbc976ee3c99706489fe31e5f80d31bb586fb31bf03b40b2862584f8" }
+mapping_behavior_refs = ["RT_REALTIME_T0_TRANSPORT_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_734111DCA27247D1378A"
+subject_kind = "generated_test"
+discovery_id = "DISC_734111DCA27247D1378A"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/host/realtime/realtime_tests_part_01.rs"
+name = "t0_shm_registration_fails_fast_when_required_pinning_is_unavailable"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=realtime::tests::t0_shm_registration_fails_fast_when_required_pinning_is_unavailable)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_REALTIME_T0_TRANSPORT_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#realtime-t0-transport-and-cycle-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#realtime-t0-transport-and-cycle-contract"]
+expected_result = "When required page pinning is unavailable, registration fails with TransportFailure and the stable diagnostic fragment 'required page pinning failed'; the test does not claim post-state."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_734111DCA27247D1378A.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_734111DCA27247D1378A_2DB5EA62288C"
+mapping_proposal_digest = "sha256:2db5ea62288cbcff32471fde0f00c6deb7dbe8900867b88abf5fd6400e4551ab"
+mapping_decision_id = "MAP_DEC_DF60E691D9216EB3BCA02538"
+mapping_reviewed_source_digest = "sha256:11a68c54dbc976ee3c99706489fe31e5f80d31bb586fb31bf03b40b2862584f8"
+mapping_assertion_review_digest = "sha256:39b02acb15ab963f1d7bd4c31ef702a40a7df9b0d0c0a2a441e985c258a3c4bb"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/host/realtime/realtime_tests_part_01.rs" = "sha256:11a68c54dbc976ee3c99706489fe31e5f80d31bb586fb31bf03b40b2862584f8" }
+mapping_behavior_refs = ["RT_REALTIME_T0_TRANSPORT_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_94AB7B525581745D39D1"
+subject_kind = "generated_test"
+discovery_id = "DISC_94AB7B525581745D39D1"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/host/realtime/realtime_tests_part_01.rs"
+name = "t0_shm_contract_mismatch_is_rejected_before_run"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=realtime::tests::t0_shm_contract_mismatch_is_rejected_before_run)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_REALTIME_T0_TRANSPORT_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#realtime-t0-transport-and-cycle-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#realtime-t0-transport-and-cycle-contract"]
+expected_result = "A second registration for the same channel name with a different schema hash fails before run with TransportFailure and the stable diagnostic fragment 'schema_hash contract mismatch'; the test does not claim post-state."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_94AB7B525581745D39D1.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_94AB7B525581745D39D1_CA31565481AF"
+mapping_proposal_digest = "sha256:ca31565481af1351a19975761fa0f22276b7fabda99b8393c10e49210828968a"
+mapping_decision_id = "MAP_DEC_25BA3446508B1F7225105EEF"
+mapping_reviewed_source_digest = "sha256:11a68c54dbc976ee3c99706489fe31e5f80d31bb586fb31bf03b40b2862584f8"
+mapping_assertion_review_digest = "sha256:cbc06237804141b1ada34d13b7a8c3293035c95eba00270a8f019c316e8fcbbc"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/host/realtime/realtime_tests_part_01.rs" = "sha256:11a68c54dbc976ee3c99706489fe31e5f80d31bb586fb31bf03b40b2862584f8" }
+mapping_behavior_refs = ["RT_REALTIME_T0_TRANSPORT_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_34C0BCBE4BD82D8B80D0"
+subject_kind = "generated_test"
+discovery_id = "DISC_34C0BCBE4BD82D8B80D0"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/host/realtime/realtime_tests_part_02.rs"
+name = "qos_tier_route_legality_matrix_matches_contract"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=realtime::tests::qos_tier_route_legality_matrix_matches_contract)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_REALTIME_T0_TRANSPORT_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#realtime-t0-transport-and-cycle-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#realtime-t0-transport-and-cycle-contract"]
+expected_result = "T0HardRt is legal only on the T0HardRt route, while T1Fast, T2Ops, and T3Diag are legal on MeshIp and are not legal on the T0HardRt route."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_34C0BCBE4BD82D8B80D0.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_34C0BCBE4BD82D8B80D0_C2C80314178D"
+mapping_proposal_digest = "sha256:c2c80314178d8788ececcadda87233521516cf0427ed08c1ab0dc48cb4a0b8dc"
+mapping_decision_id = "MAP_DEC_17EE221E025B83ECBBD01E38"
+mapping_reviewed_source_digest = "sha256:9ff26f14b2ec065620d4a54d2b34a4d4865df87c39a54471e6a6d403c2ee27c0"
+mapping_assertion_review_digest = "sha256:d9e8a655b3db53a22946e768f4249eea1000bd4411967fd020cd65a889c34423"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/host/realtime/realtime_tests_part_02.rs" = "sha256:9ff26f14b2ec065620d4a54d2b34a4d4865df87c39a54471e6a6d403c2ee27c0" }
+mapping_behavior_refs = ["RT_REALTIME_T0_TRANSPORT_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_55CAADD3CCB4DC311F46"
+subject_kind = "generated_test"
+discovery_id = "DISC_55CAADD3CCB4DC311F46"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/host/realtime/realtime_tests_part_02.rs"
+name = "t0_bind_rejects_non_t0_route_and_denies_fallback"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=realtime::tests::t0_bind_rejects_non_t0_route_and_denies_fallback)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_REALTIME_T0_TRANSPORT_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#realtime-t0-transport-and-cycle-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#realtime-t0-transport-and-cycle-contract"]
+expected_result = "Binding a T0 channel through MeshIp fails with ContractViolation and the stable diagnostic fragment 'non-HardRT', increments both transport and channel fallback-denied counters, and never substitutes generic mesh transport."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_55CAADD3CCB4DC311F46.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_55CAADD3CCB4DC311F46_8BED9E4EC346"
+mapping_proposal_digest = "sha256:8bed9e4ec346519c1297fad61a13ee76b1db12e3c8aeb4a5480903870547abf3"
+mapping_decision_id = "MAP_DEC_E2985FD4176EA2531861FAAF"
+mapping_reviewed_source_digest = "sha256:9ff26f14b2ec065620d4a54d2b34a4d4865df87c39a54471e6a6d403c2ee27c0"
+mapping_assertion_review_digest = "sha256:49f6baaf13f4838253ba98475c66ce38d142b86f8c16b7e3bfac03f367e92b2a"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/host/realtime/realtime_tests_part_02.rs" = "sha256:9ff26f14b2ec065620d4a54d2b34a4d4865df87c39a54471e6a6d403c2ee27c0" }
+mapping_behavior_refs = ["RT_REALTIME_T0_TRANSPORT_001#behavior:4"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_5E088D53395CC4F852E5"
+subject_kind = "generated_test"
+discovery_id = "DISC_5E088D53395CC4F852E5"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/host/realtime/realtime_tests_part_02.rs"
+name = "t0_read_surfaces_stale_after_bounded_misses_and_spin_limit"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=realtime::tests::t0_read_surfaces_stale_after_bounded_misses_and_spin_limit)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_REALTIME_T0_TRANSPORT_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#realtime-t0-transport-and-cycle-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#realtime-t0-transport-and-cycle-contract"]
+expected_result = "A bounded initial miss returns NoUpdate, the configured subsequent miss returns StaleData, bounded writer-spin exhaustion also returns StaleData, and stale plus spin-exhausted counters increment exactly."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_5E088D53395CC4F852E5.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_5E088D53395CC4F852E5_7E14FC44687D"
+mapping_proposal_digest = "sha256:7e14fc44687d5f5cc7837ca7942603182d9b51e306391134a7582766bb9eb85c"
+mapping_decision_id = "MAP_DEC_F31251006CF82B222C9556BF"
+mapping_reviewed_source_digest = "sha256:9ff26f14b2ec065620d4a54d2b34a4d4865df87c39a54471e6a6d403c2ee27c0"
+mapping_assertion_review_digest = "sha256:f93bff8c25ef6abfb93e5bf25cb29cb9857fecc3f9132eb5369ea5b87cd9b7ac"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/host/realtime/realtime_tests_part_02.rs" = "sha256:9ff26f14b2ec065620d4a54d2b34a4d4865df87c39a54471e6a6d403c2ee27c0" }
+mapping_behavior_refs = ["RT_REALTIME_T0_TRANSPORT_001#behavior:5"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_81373063FE7D545520F8"
+subject_kind = "generated_test"
+discovery_id = "DISC_81373063FE7D545520F8"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/host/realtime/realtime_tests_part_02.rs"
+name = "t0_error_codes_map_to_canonical_comms_contract_codes"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=realtime::tests::t0_error_codes_map_to_canonical_comms_contract_codes)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_REALTIME_T0_TRANSPORT_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#realtime-t0-transport-and-cycle-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#realtime-t0-transport-and-cycle-contract"]
+expected_result = "NotConfigured maps to the canonical communications NotConfigured code, ContractViolation maps to RtContractViolation, and the reviewed remediation directs callers to pre-bound T0 handles and fixed-layout payloads."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_81373063FE7D545520F8.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_81373063FE7D545520F8_87508002AB5D"
+mapping_proposal_digest = "sha256:87508002ab5de0d6ddb6d31572a7956b22bdf46d84962ac2a1721813fb5a5f66"
+mapping_decision_id = "MAP_DEC_8C11D269ADAFEFB8DF047D50"
+mapping_reviewed_source_digest = "sha256:9ff26f14b2ec065620d4a54d2b34a4d4865df87c39a54471e6a6d403c2ee27c0"
+mapping_assertion_review_digest = "sha256:55d87da134e3222c425b0d2b3947919f2f8a8e40d80974e0ca95f76fe7066e35"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/host/realtime/realtime_tests_part_02.rs" = "sha256:9ff26f14b2ec065620d4a54d2b34a4d4865df87c39a54471e6a6d403c2ee27c0" }
+mapping_behavior_refs = ["RT_REALTIME_T0_TRANSPORT_001#behavior:6"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_8C06F16AC40A8DA036BF"
+subject_kind = "generated_test"
+discovery_id = "DISC_8C06F16AC40A8DA036BF"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/host/realtime/realtime_tests_part_02.rs"
+name = "t0_publish_and_read_track_overrun_and_latest_payload"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=realtime::tests::t0_publish_and_read_track_overrun_and_latest_payload)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_REALTIME_T0_TRANSPORT_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#realtime-t0-transport-and-cycle-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#realtime-t0-transport-and-cycle-contract"]
+expected_result = "Two publishes before a read expose the latest payload, report one dropped update and one overrun in the fresh-read details, and persist one channel overrun."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_8C06F16AC40A8DA036BF.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_8C06F16AC40A8DA036BF_3A48C5E6D336"
+mapping_proposal_digest = "sha256:3a48c5e6d336c453a9585d704d668b47eb4979ec9d66d894e2623b5621a20e63"
+mapping_decision_id = "MAP_DEC_605E75E2BE634883EC077924"
+mapping_reviewed_source_digest = "sha256:9ff26f14b2ec065620d4a54d2b34a4d4865df87c39a54471e6a6d403c2ee27c0"
+mapping_assertion_review_digest = "sha256:b5593b39865375cac0edec93f6a1ba5bcfaf959f12369486b3a740f995fb141e"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/host/realtime/realtime_tests_part_02.rs" = "sha256:9ff26f14b2ec065620d4a54d2b34a4d4865df87c39a54471e6a6d403c2ee27c0" }
+mapping_behavior_refs = ["RT_REALTIME_T0_TRANSPORT_001#behavior:7"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_9D4A488E4E903C1DC0B2"
+subject_kind = "generated_test"
+discovery_id = "DISC_9D4A488E4E903C1DC0B2"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/host/realtime/realtime_tests_part_02.rs"
+name = "t0_bind_enforces_schema_hash_and_fixed_layout_contract"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=realtime::tests::t0_bind_enforces_schema_hash_and_fixed_layout_contract)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_REALTIME_T0_TRANSPORT_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#realtime-t0-transport-and-cycle-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#realtime-t0-transport-and-cycle-contract"]
+expected_result = "Publisher binding rejects a mismatched schema hash with SchemaMismatch and rejects a variable-layout payload with ContractViolation before returning a usable handle."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_9D4A488E4E903C1DC0B2.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_9D4A488E4E903C1DC0B2_32453CA8D5D3"
+mapping_proposal_digest = "sha256:32453ca8d5d35a738c59b4e8dbfa9b7faa7c5f3e55ac8081f70c1ea389596599"
+mapping_decision_id = "MAP_DEC_BC0BA85992259CC5AE362F71"
+mapping_reviewed_source_digest = "sha256:9ff26f14b2ec065620d4a54d2b34a4d4865df87c39a54471e6a6d403c2ee27c0"
+mapping_assertion_review_digest = "sha256:0db8a23bd24564bcd4298d4660ebd122cc258879564af58153db5bf0a157bd16"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/host/realtime/realtime_tests_part_02.rs" = "sha256:9ff26f14b2ec065620d4a54d2b34a4d4865df87c39a54471e6a6d403c2ee27c0" }
+mapping_behavior_refs = ["RT_REALTIME_T0_TRANSPORT_001#behavior:8"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_678ACD2B87F05E88AA1A"
+subject_kind = "generated_test"
+discovery_id = "DISC_678ACD2B87F05E88AA1A"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/host/realtime/realtime_tests_part_03.rs"
+name = "t0_scheduler_budget_isolated_under_cloud_stress_across_cycles"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=realtime::tests::t0_scheduler_budget_isolated_under_cloud_stress_across_cycles)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_REALTIME_T0_CYCLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#realtime-t0-transport-and-cycle-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#realtime-t0-transport-and-cycle-contract"]
+expected_result = "Each completed exchange cycle resets the configured cloud-operation allowance, grants no more than that allowance, and accumulates every denied excess operation."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_678ACD2B87F05E88AA1A.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_678ACD2B87F05E88AA1A_B99CBA7020BA"
+mapping_proposal_digest = "sha256:b99cba7020ba92bec49730f1df097a3a630610427ef13882af726157116aa799"
+mapping_decision_id = "MAP_DEC_D6252641A28F795A42F41DAE"
+mapping_reviewed_source_digest = "sha256:f65cb758e709043a3c2404b1c8a12ef05152fcada10788159b153bd24dbfe9de"
+mapping_assertion_review_digest = "sha256:ecc71b2b3a08dac5d270eeb194e90c704a64b8ea4d3df7964c6af9cf99b105cd"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/host/realtime/realtime_tests_part_03.rs" = "sha256:f65cb758e709043a3c2404b1c8a12ef05152fcada10788159b153bd24dbfe9de" }
+mapping_behavior_refs = ["RT_REALTIME_T0_CYCLE_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_6E5750801DC19C4E3BDA"
+subject_kind = "generated_test"
+discovery_id = "DISC_6E5750801DC19C4E3BDA"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/host/realtime/realtime_tests_part_03.rs"
+name = "t0_cycle_scheduler_enforces_pre_post_order_and_cloud_budget"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=realtime::tests::t0_cycle_scheduler_enforces_pre_post_order_and_cloud_budget)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_REALTIME_T0_CYCLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#realtime-t0-transport-and-cycle-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#realtime-t0-transport-and-cycle-contract"]
+expected_result = "PostTask before PreTask returns ContractViolation; the test does not claim the rejected call's post-state. An executed PreTask then PostTask pair records both exchange points in the current cycle. Each completed exchange cycle resets the configured cloud-operation allowance, grants no more than that allowance, and accumulates every denied excess operation."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_6E5750801DC19C4E3BDA.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_6E5750801DC19C4E3BDA_1787EFA7D778"
+mapping_proposal_digest = "sha256:1787efa7d77848ac403fb5b62b2446af74695cefb652f80cdb0c5d48e83a0154"
+mapping_decision_id = "MAP_DEC_0DF56D4EB2C7CBD0DFE52274"
+mapping_reviewed_source_digest = "sha256:f65cb758e709043a3c2404b1c8a12ef05152fcada10788159b153bd24dbfe9de"
+mapping_assertion_review_digest = "sha256:5d4f1955aa084239923ef474cdc0960ab4a6b47e8b4bc072fac652f2dc41b35f"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/host/realtime/realtime_tests_part_03.rs" = "sha256:f65cb758e709043a3c2404b1c8a12ef05152fcada10788159b153bd24dbfe9de" }
+mapping_behavior_refs = ["RT_REALTIME_T0_CYCLE_001#behavior:0", "RT_REALTIME_T0_CYCLE_001#behavior:1", "RT_REALTIME_T0_CYCLE_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_E1D3B90728072A5E5DE4"
+subject_kind = "generated_test"
+discovery_id = "DISC_E1D3B90728072A5E5DE4"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/src/host/realtime/realtime_tests_part_03.rs"
+name = "t0_publish_and_read_reject_uninitialized_or_unpinned_channel_state"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=realtime::tests::t0_publish_and_read_reject_uninitialized_or_unpinned_channel_state)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_REALTIME_T0_TRANSPORT_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#realtime-t0-transport-and-cycle-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#realtime-t0-transport-and-cycle-contract"]
+expected_result = "A bound channel whose pinned readiness is deliberately cleared rejects both hard-realtime publish and read with TransportFailure; this behavior does not claim a distinct uninitialized-state test."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_E1D3B90728072A5E5DE4.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_E1D3B90728072A5E5DE4_CE2AF062E07C"
+mapping_proposal_digest = "sha256:ce2af062e07c238e408ec6a45575d5613e12abeeb77df2e949c89f264d0684e6"
+mapping_decision_id = "MAP_DEC_55DC7B65AF8393E969A7ADA2"
+mapping_reviewed_source_digest = "sha256:f65cb758e709043a3c2404b1c8a12ef05152fcada10788159b153bd24dbfe9de"
+mapping_assertion_review_digest = "sha256:0356e9dbeeff2eac21af168d1367389a7118ab29af1e827315e9497ac16a7451"
+mapping_assertion_source_digests = { "crates/trust-runtime/src/host/realtime/realtime_tests_part_03.rs" = "sha256:f65cb758e709043a3c2404b1c8a12ef05152fcada10788159b153bd24dbfe9de" }
+mapping_behavior_refs = ["RT_REALTIME_T0_TRANSPORT_001#behavior:9"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_6627DC479523620038C1"
+subject_kind = "generated_test"
+discovery_id = "DISC_6627DC479523620038C1"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/realtime_t0_integration.rs"
+name = "realtime_t0_route_does_not_fallback_to_mesh_ip_path"
+command = "cargo nextest run -p trust-runtime --test realtime_t0_integration --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::realtime_t0_integration) & test(=realtime_t0_route_does_not_fallback_to_mesh_ip_path)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_REALTIME_T0_TRANSPORT_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#realtime-t0-transport-and-cycle-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#realtime-t0-transport-and-cycle-contract"]
+expected_result = "Binding a T0 channel through MeshIp fails with ContractViolation and the stable diagnostic fragment 'non-HardRT', increments both transport and channel fallback-denied counters, and never substitutes generic mesh transport. A legally registered, schema-matched, fixed-layout T0 publisher and subscriber exchange the exact four-byte payload and return a Fresh read."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_6627DC479523620038C1.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_6627DC479523620038C1_A44C08B4886D"
+mapping_proposal_digest = "sha256:a44c08b4886dd87ad7f442c9ccbe384054cbaf0987a24fb4367c5904c15cbc65"
+mapping_decision_id = "MAP_DEC_FA4DFC5FD97770C4149F8CE1"
+mapping_reviewed_source_digest = "sha256:b30ce8e7d47948558612f8b0b8731121d611a606a1572607b0d8871f2f1fc31e"
+mapping_assertion_review_digest = "sha256:5f16d5e9927ae73fda8b1a45c280d1a358a49ea23b96b9ce148ae8f4d9f1a7d3"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/realtime_t0_integration.rs" = "sha256:b30ce8e7d47948558612f8b0b8731121d611a606a1572607b0d8871f2f1fc31e" }
+mapping_behavior_refs = ["RT_REALTIME_T0_TRANSPORT_001#behavior:10", "RT_REALTIME_T0_TRANSPORT_001#behavior:4"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_89CD61302AF3809955E3"
+subject_kind = "generated_test"
+discovery_id = "DISC_89CD61302AF3809955E3"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/realtime_t0_integration.rs"
+name = "realtime_t0_determinism_holds_under_cloud_budget_pressure"
+command = "cargo nextest run -p trust-runtime --test realtime_t0_integration --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::realtime_t0_integration) & test(=realtime_t0_determinism_holds_under_cloud_budget_pressure)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_REALTIME_T0_CYCLE_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#realtime-t0-transport-and-cycle-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#realtime-t0-transport-and-cycle-contract"]
+expected_result = "Across the reviewed 24-cycle sequence, pre/post exchange, payload sequence and size, zero-drop transport counters, and positive cloud-denial accounting remain deterministic functional results without proving elapsed-time determinism."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_89CD61302AF3809955E3.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_89CD61302AF3809955E3_1E84D46D7687"
+mapping_proposal_digest = "sha256:1e84d46d76876a2ea866e877d585aeca1d252cd96818f79163ff9e5188657f74"
+mapping_decision_id = "MAP_DEC_9B233C91CB0226D9D6974B6C"
+mapping_reviewed_source_digest = "sha256:b30ce8e7d47948558612f8b0b8731121d611a606a1572607b0d8871f2f1fc31e"
+mapping_assertion_review_digest = "sha256:b1ac1a00614ab5702411283b004f5c8c4615efe7995928a416d0fff4e3c3e5a0"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/realtime_t0_integration.rs" = "sha256:b30ce8e7d47948558612f8b0b8731121d611a606a1572607b0d8871f2f1fc31e" }
+mapping_behavior_refs = ["RT_REALTIME_T0_CYCLE_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_D0737A7878036279A9A4"
+subject_kind = "generated_test"
+discovery_id = "DISC_D0737A7878036279A9A4"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "runtime_safety"
+path = "crates/trust-runtime/tests/realtime_t0_integration.rs"
+name = "realtime_t0_multi_process_shm_exchange_succeeds"
+command = "cargo nextest run -p trust-runtime --test realtime_t0_integration --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::realtime_t0_integration) & test(=realtime_t0_multi_process_shm_exchange_succeeds)'"
+owner = "trust-runtime"
+status = "mapped"
+invariants = ["RT_REALTIME_T0_TRANSPORT_001"]
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#realtime-t0-transport-and-cycle-contract"
+oracle_refs = ["SPEC_RUNTIME_ENGINE_001#realtime-t0-transport-and-cycle-contract"]
+expected_result = "A parent publisher and child subscriber using the same configured shared-memory root exchange the exact reviewed payload and the child completes successfully."
+expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_D0737A7878036279A9A4.json"
+last_reviewed = "2026-07-28"
+mapping_proposal_id = "MAP_CAND_D0737A7878036279A9A4_645EBBF0E9AE"
+mapping_proposal_digest = "sha256:645ebbf0e9aedf420010bb07959b8c71e88e0d40735935942ed04cb381e3800d"
+mapping_decision_id = "MAP_DEC_E3E244E7367280C2FA5C3ADA"
+mapping_reviewed_source_digest = "sha256:b30ce8e7d47948558612f8b0b8731121d611a606a1572607b0d8871f2f1fc31e"
+mapping_assertion_review_digest = "sha256:a6e9d8b3871fc6f6bbbe55ec9bbf966e6ce37ea1994e0f5f6c0289d067bd9212"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/realtime_t0_integration.rs" = "sha256:b30ce8e7d47948558612f8b0b8731121d611a606a1572607b0d8871f2f1fc31e" }
+mapping_behavior_refs = ["RT_REALTIME_T0_TRANSPORT_001#behavior:11"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]

@@ -7,6 +7,7 @@ import json
 import subprocess
 import tomllib
 from collections.abc import Mapping, Sequence
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -54,6 +55,20 @@ CATALOG_MAPPING_DEBT = frozenset(
     {"cataloged_behavior_tests", "catalog_mapping"}
 )
 MAPPING_DEBT_REASON = "no_reviewed_spec_or_invariant_binding"
+
+
+def _proposal_timestamp(value: str) -> str:
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as error:
+        raise ValueError("plan timestamp must be timezone-aware ISO-8601") from error
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise ValueError("plan timestamp must be timezone-aware ISO-8601")
+    return (
+        parsed.astimezone(timezone.utc)
+        .replace(microsecond=0)
+        .strftime("%Y-%m-%dT%H:%M:%SZ")
+    )
 
 
 def compile_batch(
@@ -318,7 +333,7 @@ def compile_batch(
         "source_commit": source_commit,
         "trace_digest": _digest_document(results_document),
         "candidate_report_digest": _digest_document(plan),
-        "last_generated": timestamp,
+        "last_generated": _proposal_timestamp(timestamp),
         "proposals": proposals,
     }
     review_inputs = []

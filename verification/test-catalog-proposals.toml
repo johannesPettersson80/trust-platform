@@ -1,10 +1,10 @@
 schema_version = 1
 generator = "test-catalog-proposals"
 generator_version = "1"
-source_commit = "8e43bb9c30c4b721109bd715e4534886a4948de8"
-trace_digest = "sha256:8d525a14cde7f41e2a48fc0107512527775ed29146f4a58e551d9ba0aab18cbb"
-candidate_report_digest = "sha256:d156958e6e200455c5773ddb0d1dfea25f920cdad300deef5056cbfed0c44a7e"
-last_generated = "2026-07-27T10:39:58Z"
+source_commit = "55306b92c67be21349dfa567050d169423779dd7"
+trace_digest = "sha256:740f8f71dbe45af4d9a09aae4bf2bf75260c808383dd62ee898940bcd469a249"
+candidate_report_digest = "sha256:53e45a4975da777774542caa1104dff2d88c59942ebaa93529786181703def33"
+last_generated = "2026-07-28T07:02:20Z"
 proposals = []
 
 [[demands]]

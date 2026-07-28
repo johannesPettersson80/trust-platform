@@ -549,7 +549,7 @@ def main() -> int:
             output_dir=_rooted(root, args.plans_out),
             reviewed_date=args.reviewed_date,
             timestamp=args.timestamp,
-            target_profile="realtime-t0-remaining",
+            target_profile="runtime-remaining",
         )
         print(
             "Realtime T0 catalog plans generated: "
