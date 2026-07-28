@@ -19,7 +19,9 @@ use import_resolution::{
     candidate_paths, definition_is_visible, imports_from_items, ImportReachability,
 };
 
+mod generated_inputs;
 mod import_resolution;
+mod repository_source_tree;
 
 const ASSERTION_ROOT_MODULE: &str = "__trust_assertion_root__";
 const ASSERTION_SCHEMA_VERSION: u32 = 2;
@@ -93,6 +95,7 @@ struct ExtractionContext {
 struct CallReference {
     leading_colon: bool,
     segments: Vec<String>,
+    generated_argument_paths: generated_inputs::GeneratedArgumentPaths,
 }
 
 impl CallReference {
@@ -389,7 +392,7 @@ fn extract_from_built_context(
         )
     }
     let by_simple_name = index_functions(&context.functions);
-    let mut queue = vec![candidates[0]];
+    let mut queue = vec![(candidates[0], generated_inputs::GeneratedPaths::new())];
     let mut visited = BTreeSet::new();
     let mut by_qualified: BTreeMap<String, Vec<&FunctionRecord>> = BTreeMap::new();
     for record in &context.functions {
@@ -400,12 +403,13 @@ fn extract_from_built_context(
     }
     let mut sites = Vec::new();
     let mut unresolved = BTreeSet::new();
-    while let Some(function) = queue.pop() {
+    while let Some((function, inherited_generated_paths)) = queue.pop() {
         let function_name = function.qualified_name.clone();
         let function_identity = (
             function_name.clone(),
             function.source_path.clone(),
             function.item.sig.ident.span().start().line,
+            inherited_generated_paths.clone(),
         );
         if !visited.insert(function_identity) {
             continue;
@@ -422,7 +426,10 @@ fn extract_from_built_context(
         let mut visitor = AssertionVisitor {
             function: function_name.clone(),
             source_path: function.source_path.clone(),
-            generated_output_roots: generated_output_roots(&function.item.block),
+            generated_paths: generated_inputs::generated_paths(
+                &function.item.block,
+                &inherited_generated_paths,
+            ),
             test_context: function.test_context,
             observations: BodyObservations::default(),
         };
@@ -438,7 +445,13 @@ fn extract_from_built_context(
                 .collect::<BTreeSet<_>>();
             match qualified_names.len() {
                 1 => {
-                    queue.extend(reachable);
+                    queue.extend(reachable.into_iter().map(|matched| {
+                        let inherited = generated_inputs::inherited_parameter_paths(
+                            &matched.item.sig,
+                            &called.generated_argument_paths,
+                        );
+                        (matched, inherited)
+                    }));
                 }
                 count if count > 1 => {
                     unresolved.insert(format!("{function_name}::{}:ambiguous", called.display()));
@@ -670,7 +683,7 @@ fn assertion_module_segments(module: &str) -> Result<Vec<String>> {
 struct AssertionVisitor {
     function: String,
     source_path: String,
-    generated_output_roots: BTreeSet<String>,
+    generated_paths: generated_inputs::GeneratedPaths,
     test_context: bool,
     observations: BodyObservations,
 }
@@ -730,7 +743,7 @@ impl<'ast> Visit<'ast> for AssertionVisitor {
                         .any(|component| matches!(component, Component::ParentDir))
             });
             if !closed_static_literal
-                && !is_generated_output_read(expression, &self.generated_output_roots)
+                && !generated_inputs::is_generated_read(expression, &self.generated_paths)
             {
                 self.observations
                     .unresolved_assertion_helpers
@@ -746,6 +759,10 @@ impl<'ast> Visit<'ast> for AssertionVisitor {
                     .iter()
                     .map(|segment| segment.ident.to_string())
                     .collect(),
+                generated_argument_paths: generated_inputs::generated_argument_paths(
+                    expression,
+                    &self.generated_paths,
+                ),
             });
         }
         visit::visit_expr_call(self, expression);
@@ -754,10 +771,7 @@ impl<'ast> Visit<'ast> for AssertionVisitor {
 
 mod external_oracles;
 
-use external_oracles::{
-    external_oracle_digests, generated_output_roots, is_generated_output_read,
-    runtime_fixture_reader,
-};
+use external_oracles::{external_oracle_digests, runtime_fixture_reader};
 fn has_test_attribute(attributes: &[Attribute]) -> bool {
     attributes.iter().any(|attribute| {
         attribute

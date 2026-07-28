@@ -508,12 +508,8 @@ fn from_source() {
     assert!(true);
 }
 "#;
-    let inventory = extract(
-        "crates/example/src/harness.rs",
-        "from_source",
-        source,
-    )
-    .expect("extract qualified external calls");
+    let inventory = extract("crates/example/src/harness.rs", "from_source", source)
+        .expect("extract qualified external calls");
 
     assert!(inventory.unresolved_assertion_helpers.is_empty());
     assert_eq!(
@@ -706,8 +702,7 @@ fn binds_static_runtime_fixture_reads_and_rejects_dynamic_paths() {
         "test-created project output is not an external fixture oracle"
     );
     assert_eq!(
-        static_inventory.source_digests,
-        generated_inventory.source_digests,
+        static_inventory.source_digests, generated_inventory.source_digests,
         "generated outputs do not add source-closure dependencies"
     );
     for name in [
@@ -717,20 +712,13 @@ fn binds_static_runtime_fixture_reads_and_rejects_dynamic_paths() {
         "generated_reassigned_escape",
         "generated_report_path_is_not_trusted",
     ] {
-        let inventory = extract_from_repository(
-            &root,
-            test_path,
-            name,
-            "rust_integration_test",
-        )
-        .expect("extract rejected generated-output path");
+        let inventory = extract_from_repository(&root, test_path, name, "rust_integration_test")
+            .expect("extract rejected generated-output path");
         assert!(
             inventory
                 .unresolved_assertion_helpers
                 .iter()
-                .any(|helper| helper.ends_with(
-                    "std::fs::read_to_string:unresolved-oracle"
-                )),
+                .any(|helper| helper.ends_with("std::fs::read_to_string:unresolved-oracle")),
             "{name} must remain unresolved"
         );
     }
@@ -764,4 +752,171 @@ fn external_runtime_observation_is_unresolved_only_when_reachable() {
         vec!["read_host_metric::std::fs::read_to_string:unresolved-oracle"],
         observed.unresolved_assertion_helpers
     );
+}
+
+#[test]
+fn generated_inputs_flow_through_helper_parameters_and_struct_fields() {
+    let source = r#"
+use std::path::{Path, PathBuf};
+
+struct Config {
+    case_file: PathBuf,
+}
+
+fn temp_dir(_: &str) -> PathBuf { todo!() }
+
+fn digest(path: impl AsRef<Path>) {
+    let path = path.as_ref();
+    let bytes = std::fs::read(path).unwrap();
+    assert!(!bytes.is_empty());
+}
+
+fn run_case(config: &Config) {
+    let bytes = std::fs::read(&config.case_file).unwrap();
+    assert!(!bytes.is_empty());
+}
+
+#[test]
+fn generated_case() {
+    let root = temp_dir("generated-case");
+    let case_file = root.join("case.toml");
+    let config = Config {
+        case_file: case_file.clone(),
+    };
+    crate::digest(&case_file);
+    run_case(&config);
+}
+"#;
+
+    let inventory = extract(
+        "crates/example/tests/generated_case.rs",
+        "generated_case",
+        source,
+    )
+    .expect("extract generated helper inputs");
+
+    assert!(
+        inventory.unresolved_assertion_helpers.is_empty(),
+        "generated path provenance must cross helper parameters and struct fields: {:?}",
+        inventory.unresolved_assertion_helpers
+    );
+    assert_eq!(4, inventory.assertions.len());
+}
+
+#[test]
+fn generated_input_provenance_does_not_trust_unclosed_struct_fields() {
+    let source = r#"
+use std::path::{Path, PathBuf};
+
+struct Config {
+    case_file: PathBuf,
+}
+
+fn fixture_path() -> PathBuf { todo!() }
+
+fn run_case(config: &Config) {
+    let bytes = std::fs::read(&config.case_file).unwrap();
+    assert!(!bytes.is_empty());
+}
+
+#[test]
+fn external_case() {
+    let config = Config {
+        case_file: fixture_path(),
+    };
+    run_case(&config);
+}
+"#;
+
+    let inventory = extract(
+        "crates/example/tests/external_case.rs",
+        "external_case",
+        source,
+    )
+    .expect("extract external helper input");
+
+    assert_eq!(
+        vec!["run_case::std::fs::read:unresolved-oracle"],
+        inventory.unresolved_assertion_helpers
+    );
+}
+
+#[test]
+fn repository_source_tree_macro_binds_every_allowed_source_file() {
+    let root = assertion_fixture_root("repository-source-tree");
+    let test_path = "crates/example/tests/inventory.rs";
+    let source_path = root.join(test_path);
+    fs::create_dir_all(source_path.parent().unwrap()).unwrap();
+    fs::create_dir_all(root.join("crates/other/src")).unwrap();
+    fs::create_dir_all(root.join("tests/support")).unwrap();
+    fs::write(
+        &source_path,
+        concat!(
+            "#[test]\n",
+            "fn inventory() {\n",
+            "  let path = fixture_path();\n",
+            "  let value = repository_source_tree_read_to_string!(\n",
+            "    path,\n",
+            "    roots = [\"crates\", \"tests\"],\n",
+            "    extension = \"rs\",\n",
+            "  ).unwrap();\n",
+            "  assert!(!value.is_empty());\n",
+            "}\n",
+        ),
+    )
+    .unwrap();
+    fs::write(
+        root.join("crates/other/src/lib.rs"),
+        "pub fn covered() {}\n",
+    )
+    .unwrap();
+    fs::write(root.join("tests/support/mod.rs"), "pub fn support() {}\n").unwrap();
+    fs::write(root.join("tests/support/ignored.txt"), "not Rust\n").unwrap();
+
+    let inventory = extract_from_repository(&root, test_path, "inventory", "rust_integration_test")
+        .expect("extract repository source-tree oracle");
+
+    assert!(inventory.unresolved_assertion_helpers.is_empty());
+    assert!(inventory
+        .source_digests
+        .contains_key("crates/other/src/lib.rs"));
+    assert!(inventory
+        .source_digests
+        .contains_key("tests/support/mod.rs"));
+    assert!(!inventory
+        .source_digests
+        .contains_key("tests/support/ignored.txt"));
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn repository_source_tree_macro_rejects_noncanonical_roots() {
+    for (index, roots) in [
+        "[\"../outside\"]",
+        "[\"/absolute\"]",
+        "[\"crates\", dynamic_root()]",
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let root = assertion_fixture_root(&format!("repository-source-tree-bad-{index}"));
+        let test_path = "crates/example/tests/inventory.rs";
+        let source_path = root.join(test_path);
+        fs::create_dir_all(source_path.parent().unwrap()).unwrap();
+        let source = format!(
+            "#[test]\nfn inventory() {{\n  let _ = \
+             repository_source_tree_read_to_string!(path, roots = {roots}, \
+             extension = \"rs\");\n  assert!(true);\n}}\n"
+        );
+        fs::write(&source_path, source).unwrap();
+        let error = extract_from_repository(&root, test_path, "inventory", "rust_integration_test")
+            .expect_err("noncanonical repository source tree must fail closed");
+        assert!(
+            error
+                .to_string()
+                .contains("repository_source_tree_read_to_string"),
+            "unexpected error: {error:#}"
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
 }
