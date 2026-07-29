@@ -281230,7 +281230,7 @@ path = "scripts/verification_metadata_gate.sh"
 qualified_symbol = "scripts::verification_metadata_gate::<entrypoint>"
 item_kind = "shell_entrypoint"
 signature_digest = "sha256:7ea33e535bdd1008b90798d757a412cd89dee8cbfb7cbe3c763e71f7a40bc177"
-reviewed_body_digest = "sha256:f92dd815a4af7bf6f5681c7fb234352a7f27529328d3ba78a168771eb62afb6f"
+reviewed_body_digest = "sha256:90f37a6c9a4e1051ffd616a3cb74f7e36a5a7ae7293e48d944b8ec3158673933"
 owner = "verification"
 area = "verification"
 visibility = "public"
@@ -314237,6 +314237,642 @@ visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_C064D4BCFDDC0093DBFDF1851ED703749143A04E0A558F767E1E76046951F22C"
 owner_ack_expires_on = "2026-10-29"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_02C7031F6A8FFBAD63058ECF81CE546D51244B2F4206BF6AE5ED68E829F82E53"
+source_kind = "python"
+path = "scripts/verification/code_spec_authority_reuse_projection.py"
+qualified_symbol = "scripts::verification::code_spec_authority_reuse_projection::_group_index"
+item_kind = "python_function"
+signature_digest = "sha256:5a3db8413c846584bf0463f00b12a1229782f54da44b5905267e3f0044624c27"
+reviewed_body_digest = "sha256:484824c4112c1756029b698ed79ef34dd9b09cac263cec37fbd74b760a61fa30"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "RISK_ACK_02C7031F6A8FFBAD63058ECF81CE546D51244B2F4206BF6AE5ED68E829F82E53"
+owner_ack_expires_on = "2026-10-29"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_0AADD733BA06C7DA07F700AFE37AE48A3BE05B5A78814DB10D81BEE6F11F4C7E"
+source_kind = "python"
+path = "scripts/verification/code_spec_authority_reuse.py"
+qualified_symbol = "scripts::verification::code_spec_authority_reuse::_oracle_eligible"
+item_kind = "python_function"
+signature_digest = "sha256:dd3298e72a684ff9e035a8e0a5a7437ef0fb893009af36162e806d030864d351"
+reviewed_body_digest = "sha256:612b33ecc1c37ac09911125090eccc7db2790cb9a5cb11b392d524f5ed0ef130"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = ["protocol_response_or_status"]
+owner_ack = "RISK_ACK_0AADD733BA06C7DA07F700AFE37AE48A3BE05B5A78814DB10D81BEE6F11F4C7E"
+owner_ack_expires_on = "2026-10-29"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_1563EBCFD239E3C21AC430265F6B39D93281C1F2A31B9BD1E7DD2779C7EC2C2A"
+source_kind = "python"
+path = "scripts/verification/code_spec_authority_reuse.py"
+qualified_symbol = "scripts::verification::code_spec_authority_reuse::_string_array"
+item_kind = "python_function"
+signature_digest = "sha256:812b2f7056cccda9587363b2f34bcf919bae5186f46c4a03fa8730ef1ff6646a"
+reviewed_body_digest = "sha256:76db557b574638c8ef1f785dac0b2c0c016fb1daf6dedc2af5faaa643fc45c34"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = []
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_194E19FA446163E4E597DD3BD8A886E5AB7CA7A277B22B791405AC150529341B"
+source_kind = "python"
+path = "scripts/verification/code_spec_authority_reuse.py"
+qualified_symbol = "scripts::verification::code_spec_authority_reuse::_validate_report"
+item_kind = "python_function"
+signature_digest = "sha256:1e58eaa4ad9a127d65d94de5e0c60921797a67d25ea69b0b7bec9e18646d2a60"
+reviewed_body_digest = "sha256:979cee4b93fc0f328bddbc7edd3a20248f29eac01323143d07903afce34115bd"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = ["protocol_response_or_status"]
+owner_ack = "RISK_ACK_194E19FA446163E4E597DD3BD8A886E5AB7CA7A277B22B791405AC150529341B"
+owner_ack_expires_on = "2026-10-29"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_195691C06D3551F774BB1C1E6CFFCD8BB1E1BF3DEEB15E488715CA8FF754EE6F"
+source_kind = "python"
+path = "scripts/verification/code_spec_authority_reuse.py"
+qualified_symbol = "scripts::verification::code_spec_authority_reuse::build_authority_reuse_proposal"
+item_kind = "python_function"
+signature_digest = "sha256:8ff9dd3affe50bec29f071eb26deeeda3dfd818ba714c3b09bb4152da0ee3754"
+reviewed_body_digest = "sha256:a263096143a8c0a422919a0ce9119f4b19a0fef8b1cf8019feeb12de27ea4c59"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = [
+  "authorization",
+  "fault_mapping",
+  "protocol_response_or_status",
+  "state_mutation",
+]
+owner_ack = "RISK_ACK_195691C06D3551F774BB1C1E6CFFCD8BB1E1BF3DEEB15E488715CA8FF754EE6F"
+owner_ack_expires_on = "2026-10-29"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_23D39AD87B6B2D8523AB2238F7176BC91533B335681AE8265B8D90D6A7068785"
+source_kind = "python"
+path = "scripts/verification/code_spec_authority_reuse.py"
+qualified_symbol = "scripts::verification::code_spec_authority_reuse::_build_from_root"
+item_kind = "python_function"
+signature_digest = "sha256:e51981cf95b74f316db289f050bbc0a17c4ed9177ab13f6602b969a36fe0b5b7"
+reviewed_body_digest = "sha256:8cc461e87518357ae3e165ea88434b89ab21e6ee7bcdf168054ebfa78890dc1e"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = ["filesystem_or_environment", "state_mutation"]
+owner_ack = "RISK_ACK_23D39AD87B6B2D8523AB2238F7176BC91533B335681AE8265B8D90D6A7068785"
+owner_ack_expires_on = "2026-10-29"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_27B605C23F7CED87765CC3A1EA682B540F12471070A2FDBD20994C5ECB7FC9FB"
+source_kind = "python"
+path = "scripts/verification/code_spec_authority_reuse_selection.py"
+qualified_symbol = "scripts::verification::code_spec_authority_reuse_selection::apply_authority_reuse_application::validate"
+item_kind = "python_function"
+signature_digest = "sha256:1d7045caa2012c46093a05ad45b14cc73f540331eed8bbb7971f8550bdefb837"
+reviewed_body_digest = "sha256:394392002a75d269e953da399f3ac0c2101ef0c3313b7f27c7c82265d4d6bfba"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = ["filesystem_or_environment", "state_mutation"]
+owner_ack = "RISK_ACK_27B605C23F7CED87765CC3A1EA682B540F12471070A2FDBD20994C5ECB7FC9FB"
+owner_ack_expires_on = "2026-10-29"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_38408E4CE3B5F0071BFAE4E84A168BE7DD6037A8B47D7302A6B94435A8510930"
+source_kind = "python"
+path = "scripts/generate_code_spec_authority_reuse_proposals.py"
+qualified_symbol = "scripts::generate_code_spec_authority_reuse_proposals::<entrypoint>"
+item_kind = "python_entrypoint"
+signature_digest = "sha256:8a5ee10fc503f004c43e3347166e4df4ff99e71c7cc86c31b057a9a90bcb1586"
+reviewed_body_digest = "sha256:0d9048239b79d1a38bd3997865c321d7abc7dcf6708cf2036f21be8a2039d93a"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = []
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_44E409514EC3AB4C052C910AAA894CBF0FB41593F19215BF16A5758C6DDE5AFA"
+source_kind = "python"
+path = "scripts/apply_code_spec_authority_reuse_selection.py"
+qualified_symbol = "scripts::apply_code_spec_authority_reuse_selection::<entrypoint>"
+item_kind = "python_entrypoint"
+signature_digest = "sha256:8a5ee10fc503f004c43e3347166e4df4ff99e71c7cc86c31b057a9a90bcb1586"
+reviewed_body_digest = "sha256:0d9048239b79d1a38bd3997865c321d7abc7dcf6708cf2036f21be8a2039d93a"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = []
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_462C1F70582F1C579AD7B1679A6CAD14A7D384C170AA5553968F186AA13DEDFF"
+source_kind = "python"
+path = "scripts/verification/code_spec_authority_reuse_selection.py"
+qualified_symbol = "scripts::verification::code_spec_authority_reuse_selection::<entrypoint>"
+item_kind = "python_entrypoint"
+signature_digest = "sha256:8a5ee10fc503f004c43e3347166e4df4ff99e71c7cc86c31b057a9a90bcb1586"
+reviewed_body_digest = "sha256:0d9048239b79d1a38bd3997865c321d7abc7dcf6708cf2036f21be8a2039d93a"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = []
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_4B44870836F4FA0D8021E8B99D4FE9572F038F8AE5C43EC6302C150BA2419657"
+source_kind = "python"
+path = "scripts/verification/code_spec_authority_reuse_selection.py"
+qualified_symbol = "scripts::verification::code_spec_authority_reuse_selection::apply_authority_reuse_application"
+item_kind = "python_function"
+signature_digest = "sha256:72a75ff7268c69c2d90f6e4fe315d6222d7eb42bec4477af08fb91c98ce3f3a9"
+reviewed_body_digest = "sha256:cc2d077a0487b88dea53258efeb101c0b25c56730ee22f5b91916d1ca8daaa57"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = []
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_59F1B4F2E4A5F69F54034D008C636A2813AE94C0E78C82F42C21A2128FBB2C2D"
+source_kind = "python"
+path = "scripts/verification/code_spec_authority_reuse.py"
+qualified_symbol = "scripts::verification::code_spec_authority_reuse::_toml_index"
+item_kind = "python_function"
+signature_digest = "sha256:85a993ee75e0343000b9dbd842dedb0bab913dcd9b6eedd5d1982cc4a941818f"
+reviewed_body_digest = "sha256:85e7cb22fa1912a9f3e9539ced7508a8b25897c53ee794fc23b908c899ccfe0e"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "RISK_ACK_59F1B4F2E4A5F69F54034D008C636A2813AE94C0E78C82F42C21A2128FBB2C2D"
+owner_ack_expires_on = "2026-10-29"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_6A582A0A47C4EF95B3407FF480DFDA7B408912E23EAA3A6BB6BFB7ED71B3F8F4"
+source_kind = "python"
+path = "scripts/verification/code_spec_authority_reuse_selection.py"
+qualified_symbol = "scripts::verification::code_spec_authority_reuse_selection::main"
+item_kind = "python_function"
+signature_digest = "sha256:1361286b4b6198bd2e2680c811e38b874d084b4d5871bbfd63c03d08e983b251"
+reviewed_body_digest = "sha256:ca382fac6ca5766d7050ae756853e890f85582e7953e9f038dbbb66ca26311c9"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = ["fault_mapping"]
+owner_ack = "RISK_ACK_6A582A0A47C4EF95B3407FF480DFDA7B408912E23EAA3A6BB6BFB7ED71B3F8F4"
+owner_ack_expires_on = "2026-10-29"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_742691916007BBB61DD5FA3CEA917DABB486FA1BBD6B82AF4EE2274BFEDB999A"
+source_kind = "python"
+path = "scripts/verification/code_spec_authority_reuse.py"
+qualified_symbol = "scripts::verification::code_spec_authority_reuse::_canonical_json"
+item_kind = "python_function"
+signature_digest = "sha256:11c3121f0d679f4b98125f7ee874c61af26fc2cb51654ef0fc77eeaee159f04d"
+reviewed_body_digest = "sha256:873691119b26f960509047f5dfa05423bbb01101ebdea90b9ce75bb98d7384e8"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = []
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_7D0B7248E06BD1EADE9050CE499B062C3C31C59D7D9E4A9D44250959E0A517F7"
+source_kind = "python"
+path = "scripts/verification/code_spec_authority_reuse.py"
+qualified_symbol = "scripts::verification::code_spec_authority_reuse::<entrypoint>"
+item_kind = "python_entrypoint"
+signature_digest = "sha256:8a5ee10fc503f004c43e3347166e4df4ff99e71c7cc86c31b057a9a90bcb1586"
+reviewed_body_digest = "sha256:0d9048239b79d1a38bd3997865c321d7abc7dcf6708cf2036f21be8a2039d93a"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = []
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_8322427727BFD6A395CB695D1585ACBBE8E4A02CECEF01E37A13D4970C4171C6"
+source_kind = "python"
+path = "scripts/verification/code_spec_authority_reuse.py"
+qualified_symbol = "scripts::verification::code_spec_authority_reuse::write_authority_reuse_proposal"
+item_kind = "python_function"
+signature_digest = "sha256:9c41ce9bd579b9314c4a892aed231f17224e3d8fbed8ede2b46c08aff5e14e11"
+reviewed_body_digest = "sha256:b95e836cc18aecb75a0a043570df3e6e996cabafe999605b4ac18649988c7c59"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = ["filesystem_or_environment"]
+owner_ack = "RISK_ACK_8322427727BFD6A395CB695D1585ACBBE8E4A02CECEF01E37A13D4970C4171C6"
+owner_ack_expires_on = "2026-10-29"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_8DE06A3FB398F2266ACF2984D06F17E504B9BFAA8EE0DCC5BACEDC9490E102E2"
+source_kind = "python"
+path = "scripts/verification/code_spec_authority_reuse.py"
+qualified_symbol = "scripts::verification::code_spec_authority_reuse::_json_object"
+item_kind = "python_function"
+signature_digest = "sha256:253c2a2feed434c63cafdaec3ccf899f3c91fa5b2e2d468fe8cd7f91ce0ee42a"
+reviewed_body_digest = "sha256:f8c5e164176b8c01d403437c4e181b26cef191f6d3f7f9a162bdbf94106bea18"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = []
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_8EA9CE8D865582C05F190D9E97F819E45A9E3912D980544053D122B3A39968C3"
+source_kind = "python"
+path = "scripts/verification/code_spec_authority_reuse.py"
+qualified_symbol = "scripts::verification::code_spec_authority_reuse::_digest"
+item_kind = "python_function"
+signature_digest = "sha256:08d605de386a5a2de1dc54d417ed5220a855a81ceff1b8e44392aa262e9f1a03"
+reviewed_body_digest = "sha256:f10d54aa63c53f41b1fa1ab89e306ada59436f519c9da858dd6ee1adbe3612ba"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = []
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_964143B93924132BC72113402E2096AE8FC01E681B0767B5F3814DEDBA39F5E7"
+source_kind = "python"
+path = "scripts/verification/code_spec_authority_reuse.py"
+qualified_symbol = "scripts::verification::code_spec_authority_reuse::_require_clean_tracked_worktree"
+item_kind = "python_function"
+signature_digest = "sha256:4e35e529a60a783de6c9e77c73dedd9b3f9847dfc70778fbf4e6801cb126c429"
+reviewed_body_digest = "sha256:169c1a649553c5ea8de6653d5ffde790f94af1f5de0e3f5783953dec21b263da"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = ["protocol_response_or_status", "subprocess_or_thread"]
+owner_ack = "RISK_ACK_964143B93924132BC72113402E2096AE8FC01E681B0767B5F3814DEDBA39F5E7"
+owner_ack_expires_on = "2026-10-29"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_9A619259D5F4CD1C5215291DDC563E4A13EA96C120FE758EC68893482066AFE6"
+source_kind = "python"
+path = "scripts/verification/code_spec_authority_reuse.py"
+qualified_symbol = "scripts::verification::code_spec_authority_reuse::_report_facts"
+item_kind = "python_function"
+signature_digest = "sha256:e94ae4ad665919a31886ea3b70a0df04516d2ae5f909aa1db797807df134483d"
+reviewed_body_digest = "sha256:b020cc4d80025c59e223e163274bd2de5f60678e3a5699cb79e846cb02845515"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "RISK_ACK_9A619259D5F4CD1C5215291DDC563E4A13EA96C120FE758EC68893482066AFE6"
+owner_ack_expires_on = "2026-10-29"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_A8484722E37CBFEEC973C9FEEF0B4D25D28FE6E56285CEA6580BEA3E3750AF19"
+source_kind = "python"
+path = "scripts/verification/code_spec_authority_reuse.py"
+qualified_symbol = "scripts::verification::code_spec_authority_reuse::_is_code_path"
+item_kind = "python_function"
+signature_digest = "sha256:bcee0d3c468dc54a647269f2389eeec8aaa06190987e2a70824237327bd84e3f"
+reviewed_body_digest = "sha256:914c240ba24478d2a4fff1f3892cb52a87eb19aa1a2e0c0261d12644cc356b95"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = []
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_B21E9F6BB43BB64EC23606842324A07827691913399A45822B34AB76DAB15DD2"
+source_kind = "python"
+path = "scripts/verification/code_spec_authority_reuse.py"
+qualified_symbol = "scripts::verification::code_spec_authority_reuse::main"
+item_kind = "python_function"
+signature_digest = "sha256:1361286b4b6198bd2e2680c811e38b874d084b4d5871bbfd63c03d08e983b251"
+reviewed_body_digest = "sha256:390dfe8db5d31d1efc871b4998f2faf626ff89687cf33e30c746b135f80384c5"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = ["fault_mapping"]
+owner_ack = "RISK_ACK_B21E9F6BB43BB64EC23606842324A07827691913399A45822B34AB76DAB15DD2"
+owner_ack_expires_on = "2026-10-29"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_B5ADDC927884B1C20AE38603A83528987DE07F85177B96EE381712725C3D54BC"
+source_kind = "python"
+path = "scripts/verification/code_spec_authority_reuse.py"
+qualified_symbol = "scripts::verification::code_spec_authority_reuse::_required_string"
+item_kind = "python_function"
+signature_digest = "sha256:cf86a2db202135639ec7ca286e8a337b977ec91cc973437d3dd648ea1c3888e8"
+reviewed_body_digest = "sha256:067efaba6744e6621d29d9d11c73ce5461b47fc29e68a138fe40e370904d69cd"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = []
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_BC386298F7C7565ADE6BB5B8C658D9F86AB0BD5C8584C62958BD321C13A9EADF"
+source_kind = "python"
+path = "scripts/verification/code_spec_authority_reuse_projection.py"
+qualified_symbol = "scripts::verification::code_spec_authority_reuse_projection::_decision_index"
+item_kind = "python_function"
+signature_digest = "sha256:bd4626b799e43faea7454d772012db42cc2bccf21d157ea22738c77403b74964"
+reviewed_body_digest = "sha256:63c5a697a3541babeaeb3874e64f908ff1c16761d8b510f1eb71eda7cefd9f55"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "RISK_ACK_BC386298F7C7565ADE6BB5B8C658D9F86AB0BD5C8584C62958BD321C13A9EADF"
+owner_ack_expires_on = "2026-10-29"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_BE1593F7A0B7175D045ADD9403AEF2B0021B9C2FFB73ACC9E1452F28ED19D965"
+source_kind = "python"
+path = "scripts/verification/code_spec_authority_reuse.py"
+qualified_symbol = "scripts::verification::code_spec_authority_reuse::_candidate_invariant"
+item_kind = "python_function"
+signature_digest = "sha256:dc35ac7a2401b02016ab18d746cda5dc711edea3f1549e9cd24c238923a7d497"
+reviewed_body_digest = "sha256:165c934422079d5839c8f267a4b835446c54c4caca5e8c0971e77fe5dbf7f634"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = ["protocol_response_or_status"]
+owner_ack = "RISK_ACK_BE1593F7A0B7175D045ADD9403AEF2B0021B9C2FFB73ACC9E1452F28ED19D965"
+owner_ack_expires_on = "2026-10-29"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_BEE7DDC21452944EBAC11661398CF7C5E1DD9A5219F2AAE267BC3A2601FFBA05"
+source_kind = "python"
+path = "scripts/verification/code_spec_authority_reuse_projection.py"
+qualified_symbol = "scripts::verification::code_spec_authority_reuse_projection::project_authority_reuse_selection"
+item_kind = "python_function"
+signature_digest = "sha256:0181c558c0a9b924bd81e0770579e4d39b14125564b6938c7b3b858a7e8b8c0f"
+reviewed_body_digest = "sha256:f25c796a2711a60927ef84335edc25d837a9c3d87de7774b447dd969b3e5e636"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = ["fault_mapping", "state_mutation"]
+owner_ack = "RISK_ACK_BEE7DDC21452944EBAC11661398CF7C5E1DD9A5219F2AAE267BC3A2601FFBA05"
+owner_ack_expires_on = "2026-10-29"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_C3485AE5A75F6FD96A105F7091142658079E3D581C3FEEFD7B57E6E7518BEB16"
+source_kind = "python"
+path = "scripts/verification/code_spec_authority_reuse_projection.py"
+qualified_symbol = "scripts::verification::code_spec_authority_reuse_projection::_validate_proposal"
+item_kind = "python_function"
+signature_digest = "sha256:43d7dbba548bcc48b81cfa67be33ea5263f1071b1cf531794811917e90d376d5"
+reviewed_body_digest = "sha256:1e3a85417825a62c27f694bce09a48e642a2d5bcf01f0f61730e93e15eefb7bf"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = []
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_D293DB99E9F14A20D394806FAF3175ADFE96A801236153DCFF6E65AFDAEA434E"
+source_kind = "python"
+path = "scripts/verification/code_spec_authority_reuse_projection.py"
+qualified_symbol = "scripts::verification::code_spec_authority_reuse_projection::_invariant_index"
+item_kind = "python_function"
+signature_digest = "sha256:43f68efbff00b903c6cdbab6acc0a1e0b8ffc35830c26ff6eda7cb698324e741"
+reviewed_body_digest = "sha256:1b01fe8ffdefe404b2bfe8a37f19c2f52cc8837fabb36a6b4de723d8e74c4a10"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = ["state_mutation"]
+owner_ack = "RISK_ACK_D293DB99E9F14A20D394806FAF3175ADFE96A801236153DCFF6E65AFDAEA434E"
+owner_ack_expires_on = "2026-10-29"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_D7BF6B632010E1C928550D80B3D16AE186577487BCFD40F751905102E88267A1"
+source_kind = "python"
+path = "scripts/verification/code_spec_authority_reuse_projection.py"
+qualified_symbol = "scripts::verification::code_spec_authority_reuse_projection::_validate_selection"
+item_kind = "python_function"
+signature_digest = "sha256:3c5eccfa7cd3f918aae4a9a659053949531553552b6123b81ed738c82eabb9d5"
+reviewed_body_digest = "sha256:f1c0344aa0fc13e2f5b53099ffac05351deafd3e219ac852facb542c2f5d61f2"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = []
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_D9B328ED3A7E373498DA9CA37DA896E6AEA08F54CB69CEC8FF61017525550DA9"
+source_kind = "python"
+path = "scripts/verification/code_spec_authority_reuse.py"
+qualified_symbol = "scripts::verification::code_spec_authority_reuse::reconstruct_live_authority_reuse_proposal"
+item_kind = "python_function"
+signature_digest = "sha256:ae667f24cb9b55dc9fd863070d4aef142e1ac4d665815dafe36b13b543ef20de"
+reviewed_body_digest = "sha256:3fa90001b7cab1fe75867689481db1ae33b42578ba2568ffa6119aa9da595cb3"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = []
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_E6C69D29B6301C3B398AA0B52A7FA4ADBE53CC18FD13E2268EF03E426F867B9B"
+source_kind = "python"
+path = "scripts/verification/code_spec_authority_reuse_selection.py"
+qualified_symbol = "scripts::verification::code_spec_authority_reuse_selection::build_authority_reuse_application"
+item_kind = "python_function"
+signature_digest = "sha256:97d0190d547f49785e61c42771f6a8cbdba0cc98aaffd180f3c346845d7c70a9"
+reviewed_body_digest = "sha256:2954bdaf68be4086b9f8f7c619d28d63ce6addd80c3b5a95c305969343a9b618"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = ["filesystem_or_environment"]
+owner_ack = "RISK_ACK_E6C69D29B6301C3B398AA0B52A7FA4ADBE53CC18FD13E2268EF03E426F867B9B"
+owner_ack_expires_on = "2026-10-29"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_F9ED0583CE438B4B87D3F8798071F0D68DC687BA9DD4B8926A1FB078142BAE6F"
+source_kind = "python"
+path = "scripts/verification/code_spec_authority_reuse.py"
+qualified_symbol = "scripts::verification::code_spec_authority_reuse::_object_digest"
+item_kind = "python_function"
+signature_digest = "sha256:34458e53610bd9c3a148d784da2e38e6d982a46d28ed612b24daf5355bea4480"
+reviewed_body_digest = "sha256:30b4533b464fa4f21b91170e42a8bd3f883c1c7f64fe2ece771c26e3ea58aba1"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = []
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_F9FD84A74EE5E9F59023F89AA95D4BFAB6FA7266BA65051BC315DCB4C23B4934"
+source_kind = "python"
+path = "scripts/verification/code_spec_authority_reuse.py"
+qualified_symbol = "scripts::verification::code_spec_authority_reuse::_git_head"
+item_kind = "python_function"
+signature_digest = "sha256:7e09b4c08c9d8df4adfffaf569e6c344d46c6c6d711eafba40af2d0d147c8b25"
+reviewed_body_digest = "sha256:a623c63a994cf51c8d520b5dc9f1234881595513eefb5d9297c8c73dfe9efd90"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = ["subprocess_or_thread"]
+owner_ack = "RISK_ACK_F9FD84A74EE5E9F59023F89AA95D4BFAB6FA7266BA65051BC315DCB4C23B4934"
+owner_ack_expires_on = "2026-10-29"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_FA206C8A6D18F1EF5F2B3A900ACFFF32B0EA05910080295A61D7915DEE705430"
+source_kind = "python"
+path = "scripts/verification/code_spec_authority_reuse_projection.py"
+qualified_symbol = "scripts::verification::code_spec_authority_reuse_projection::_validate_denominators"
+item_kind = "python_function"
+signature_digest = "sha256:0cd9ede77ca3ef061a9dea6446d2255c52d56504e0d80565f718431468f9cabf"
+reviewed_body_digest = "sha256:220a5dde8aaafcbcadb6b0da4a43166c2889cea7b16802ef66c33ef218a141b3"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = []
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_FC7593F974A7368584F266D6C959A73AD66EEB164CE8205AE53A641C177730CA"
+source_kind = "python"
+path = "scripts/verification/code_spec_authority_reuse.py"
+qualified_symbol = "scripts::verification::code_spec_authority_reuse::_validate_report_fact"
+item_kind = "python_function"
+signature_digest = "sha256:cb0e342b320281d5c634b681911bc968554bdca37863d7b8be00cb35049180fc"
+reviewed_body_digest = "sha256:fe7ec4d07e611205dcb6f66cb3c434f93e78a72a10d59c88fd9b5fa928ac1692"
+owner = "verification"
+area = "verification"
+visibility = "private"
+risk_signals = []
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
 last_reviewed = "2026-07-29"

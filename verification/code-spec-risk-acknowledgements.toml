@@ -81625,9 +81625,9 @@ id = "RISK_ACK_B0AF247D489DF0CA6A91568659FC43CC34009CACA24F136D491B7A7B9617C9D4"
 code_id = "CODE_B0AF247D489DF0CA6A91568659FC43CC34009CACA24F136D491B7A7B9617C9D4"
 owner = "verification"
 area = "verification"
-body_digest = "sha256:f92dd815a4af7bf6f5681c7fb234352a7f27529328d3ba78a168771eb62afb6f"
+body_digest = "sha256:90f37a6c9a4e1051ffd616a3cb74f7e36a5a7ae7293e48d944b8ec3158673933"
 risk_signals = ["filesystem_or_environment", "state_mutation", "subprocess_or_thread"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-semantic-review.md#semantic-review"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-authority-reuse.md#identity-maintenance"
 reviewed_by = "verification"
 reviewed_on = "2026-07-29"
 expires_on = "2026-10-29"
@@ -95017,6 +95017,263 @@ area = "verification"
 body_digest = "sha256:6526dfd5641ea135813c5386810bfcf86ebb999c5a6781f874a8c187a15c1b86"
 risk_signals = ["state_mutation"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-semantic-review.md#semantic-review"
+reviewed_by = "verification"
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_02C7031F6A8FFBAD63058ECF81CE546D51244B2F4206BF6AE5ED68E829F82E53"
+code_id = "CODE_02C7031F6A8FFBAD63058ECF81CE546D51244B2F4206BF6AE5ED68E829F82E53"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:484824c4112c1756029b698ed79ef34dd9b09cac263cec37fbd74b760a61fa30"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-authority-reuse.md#identity-maintenance"
+reviewed_by = "verification"
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_0AADD733BA06C7DA07F700AFE37AE48A3BE05B5A78814DB10D81BEE6F11F4C7E"
+code_id = "CODE_0AADD733BA06C7DA07F700AFE37AE48A3BE05B5A78814DB10D81BEE6F11F4C7E"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:612b33ecc1c37ac09911125090eccc7db2790cb9a5cb11b392d524f5ed0ef130"
+risk_signals = ["protocol_response_or_status"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-authority-reuse.md#identity-maintenance"
+reviewed_by = "verification"
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_194E19FA446163E4E597DD3BD8A886E5AB7CA7A277B22B791405AC150529341B"
+code_id = "CODE_194E19FA446163E4E597DD3BD8A886E5AB7CA7A277B22B791405AC150529341B"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:979cee4b93fc0f328bddbc7edd3a20248f29eac01323143d07903afce34115bd"
+risk_signals = ["protocol_response_or_status"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-authority-reuse.md#identity-maintenance"
+reviewed_by = "verification"
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_195691C06D3551F774BB1C1E6CFFCD8BB1E1BF3DEEB15E488715CA8FF754EE6F"
+code_id = "CODE_195691C06D3551F774BB1C1E6CFFCD8BB1E1BF3DEEB15E488715CA8FF754EE6F"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:a263096143a8c0a422919a0ce9119f4b19a0fef8b1cf8019feeb12de27ea4c59"
+risk_signals = [
+  "authorization",
+  "fault_mapping",
+  "protocol_response_or_status",
+  "state_mutation",
+]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-authority-reuse.md#identity-maintenance"
+reviewed_by = "verification"
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_23D39AD87B6B2D8523AB2238F7176BC91533B335681AE8265B8D90D6A7068785"
+code_id = "CODE_23D39AD87B6B2D8523AB2238F7176BC91533B335681AE8265B8D90D6A7068785"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:8cc461e87518357ae3e165ea88434b89ab21e6ee7bcdf168054ebfa78890dc1e"
+risk_signals = ["filesystem_or_environment", "state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-authority-reuse.md#identity-maintenance"
+reviewed_by = "verification"
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_27B605C23F7CED87765CC3A1EA682B540F12471070A2FDBD20994C5ECB7FC9FB"
+code_id = "CODE_27B605C23F7CED87765CC3A1EA682B540F12471070A2FDBD20994C5ECB7FC9FB"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:394392002a75d269e953da399f3ac0c2101ef0c3313b7f27c7c82265d4d6bfba"
+risk_signals = ["filesystem_or_environment", "state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-authority-reuse.md#identity-maintenance"
+reviewed_by = "verification"
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_59F1B4F2E4A5F69F54034D008C636A2813AE94C0E78C82F42C21A2128FBB2C2D"
+code_id = "CODE_59F1B4F2E4A5F69F54034D008C636A2813AE94C0E78C82F42C21A2128FBB2C2D"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:85e7cb22fa1912a9f3e9539ced7508a8b25897c53ee794fc23b908c899ccfe0e"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-authority-reuse.md#identity-maintenance"
+reviewed_by = "verification"
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_6A582A0A47C4EF95B3407FF480DFDA7B408912E23EAA3A6BB6BFB7ED71B3F8F4"
+code_id = "CODE_6A582A0A47C4EF95B3407FF480DFDA7B408912E23EAA3A6BB6BFB7ED71B3F8F4"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:ca382fac6ca5766d7050ae756853e890f85582e7953e9f038dbbb66ca26311c9"
+risk_signals = ["fault_mapping"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-authority-reuse.md#identity-maintenance"
+reviewed_by = "verification"
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_8322427727BFD6A395CB695D1585ACBBE8E4A02CECEF01E37A13D4970C4171C6"
+code_id = "CODE_8322427727BFD6A395CB695D1585ACBBE8E4A02CECEF01E37A13D4970C4171C6"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:b95e836cc18aecb75a0a043570df3e6e996cabafe999605b4ac18649988c7c59"
+risk_signals = ["filesystem_or_environment"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-authority-reuse.md#identity-maintenance"
+reviewed_by = "verification"
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_964143B93924132BC72113402E2096AE8FC01E681B0767B5F3814DEDBA39F5E7"
+code_id = "CODE_964143B93924132BC72113402E2096AE8FC01E681B0767B5F3814DEDBA39F5E7"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:169c1a649553c5ea8de6653d5ffde790f94af1f5de0e3f5783953dec21b263da"
+risk_signals = ["protocol_response_or_status", "subprocess_or_thread"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-authority-reuse.md#identity-maintenance"
+reviewed_by = "verification"
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_9A619259D5F4CD1C5215291DDC563E4A13EA96C120FE758EC68893482066AFE6"
+code_id = "CODE_9A619259D5F4CD1C5215291DDC563E4A13EA96C120FE758EC68893482066AFE6"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:b020cc4d80025c59e223e163274bd2de5f60678e3a5699cb79e846cb02845515"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-authority-reuse.md#identity-maintenance"
+reviewed_by = "verification"
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_B21E9F6BB43BB64EC23606842324A07827691913399A45822B34AB76DAB15DD2"
+code_id = "CODE_B21E9F6BB43BB64EC23606842324A07827691913399A45822B34AB76DAB15DD2"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:390dfe8db5d31d1efc871b4998f2faf626ff89687cf33e30c746b135f80384c5"
+risk_signals = ["fault_mapping"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-authority-reuse.md#identity-maintenance"
+reviewed_by = "verification"
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_BC386298F7C7565ADE6BB5B8C658D9F86AB0BD5C8584C62958BD321C13A9EADF"
+code_id = "CODE_BC386298F7C7565ADE6BB5B8C658D9F86AB0BD5C8584C62958BD321C13A9EADF"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:63c5a697a3541babeaeb3874e64f908ff1c16761d8b510f1eb71eda7cefd9f55"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-authority-reuse.md#identity-maintenance"
+reviewed_by = "verification"
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_BE1593F7A0B7175D045ADD9403AEF2B0021B9C2FFB73ACC9E1452F28ED19D965"
+code_id = "CODE_BE1593F7A0B7175D045ADD9403AEF2B0021B9C2FFB73ACC9E1452F28ED19D965"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:165c934422079d5839c8f267a4b835446c54c4caca5e8c0971e77fe5dbf7f634"
+risk_signals = ["protocol_response_or_status"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-authority-reuse.md#identity-maintenance"
+reviewed_by = "verification"
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_BEE7DDC21452944EBAC11661398CF7C5E1DD9A5219F2AAE267BC3A2601FFBA05"
+code_id = "CODE_BEE7DDC21452944EBAC11661398CF7C5E1DD9A5219F2AAE267BC3A2601FFBA05"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:f25c796a2711a60927ef84335edc25d837a9c3d87de7774b447dd969b3e5e636"
+risk_signals = ["fault_mapping", "state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-authority-reuse.md#identity-maintenance"
+reviewed_by = "verification"
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_D293DB99E9F14A20D394806FAF3175ADFE96A801236153DCFF6E65AFDAEA434E"
+code_id = "CODE_D293DB99E9F14A20D394806FAF3175ADFE96A801236153DCFF6E65AFDAEA434E"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:1b01fe8ffdefe404b2bfe8a37f19c2f52cc8837fabb36a6b4de723d8e74c4a10"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-authority-reuse.md#identity-maintenance"
+reviewed_by = "verification"
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_E6C69D29B6301C3B398AA0B52A7FA4ADBE53CC18FD13E2268EF03E426F867B9B"
+code_id = "CODE_E6C69D29B6301C3B398AA0B52A7FA4ADBE53CC18FD13E2268EF03E426F867B9B"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:2954bdaf68be4086b9f8f7c619d28d63ce6addd80c3b5a95c305969343a9b618"
+risk_signals = ["filesystem_or_environment"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-authority-reuse.md#identity-maintenance"
+reviewed_by = "verification"
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_F9FD84A74EE5E9F59023F89AA95D4BFAB6FA7266BA65051BC315DCB4C23B4934"
+code_id = "CODE_F9FD84A74EE5E9F59023F89AA95D4BFAB6FA7266BA65051BC315DCB4C23B4934"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:a623c63a994cf51c8d520b5dc9f1234881595513eefb5d9297c8c73dfe9efd90"
+risk_signals = ["subprocess_or_thread"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-authority-reuse.md#identity-maintenance"
 reviewed_by = "verification"
 reviewed_on = "2026-07-29"
 expires_on = "2026-10-29"
