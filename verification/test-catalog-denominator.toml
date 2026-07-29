@@ -3,7 +3,7 @@ id = "TEST_CATALOG_DENOMINATOR_REVIEW_V1"
 title = "Exhaustive reviewed existing-test catalog denominator"
 denominator_basis = "all_live_existing_test_scanner_facts"
 review_basis = "explicit_per_discovery_id_no_semantic_inference"
-last_reviewed = "2026-07-29"
+last_reviewed = "2026-07-30"
 
 [reason_definitions]
 assertion_oracle_unresolved = "The test has product-facing assertions, but the reviewed assertion extractor cannot close one or more helper or external-oracle calls. It remains runnable and explicit without claiming catalog proof."
@@ -5334,6 +5334,16 @@ catalog_test_id = "TEST_RUNTIME_SCHEMA_DEFAULTS_ADS_DISABLED_001"
 last_reviewed = "2026-07-22"
 
 [[reviews]]
+discovery_id = "DISC_1DE736DC8363021976F3"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-debug/src/protocol/wire_schema_tests.rs"
+name = "custom_state_payloads_preserve_force_scan_frame_and_instance_identity"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_AUTO_1DE736DC8363021976F3"
+last_reviewed = "2026-07-30"
+
+[[reviews]]
 discovery_id = "DISC_1E10178DCFD82C695E1E"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-ide/tests/ide_features/ide_features_part_02.rs"
@@ -8554,6 +8564,16 @@ catalog_test_id = "TEST_AUTO_2EC86AB9B1842161F6A7"
 last_reviewed = "2026-07-26"
 
 [[reviews]]
+discovery_id = "DISC_2EDC4B78F56295D7D60E"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-debug/src/protocol/wire_schema_tests.rs"
+name = "dap_envelopes_use_canonical_keys_and_legacy_input_only"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_AUTO_2EDC4B78F56295D7D60E"
+last_reviewed = "2026-07-30"
+
+[[reviews]]
 discovery_id = "DISC_2EEB083ACDA59C7173DC"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/openot_capstone.rs"
@@ -9952,6 +9972,16 @@ ignore_state = "not_ignored"
 disposition = "catalog_mapped"
 catalog_test_id = "TEST_AUTO_387A16F1CA5BE0E19F0C"
 last_reviewed = "2026-07-26"
+
+[[reviews]]
+discovery_id = "DISC_3888AD70C3CBE039E116"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-debug/src/protocol/wire_schema_tests.rs"
+name = "standard_session_inspection_and_mutation_payloads_keep_dap_field_names"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_AUTO_3888AD70C3CBE039E116"
+last_reviewed = "2026-07-30"
 
 [[reviews]]
 discovery_id = "DISC_3911B97AE9075CB3498D"
@@ -19664,6 +19694,16 @@ catalog_test_id = "TEST_ADS_SERVER_COMMAND_RAW_TASK_INFO_BASE_ADDRESS_READS_FULL
 last_reviewed = "2026-07-22"
 
 [[reviews]]
+discovery_id = "DISC_72502B08E14242668C7F"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-debug/src/protocol/wire_schema_tests.rs"
+name = "custom_mutation_payloads_use_required_fields_and_lowercase_discriminators"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_AUTO_72502B08E14242668C7F"
+last_reviewed = "2026-07-30"
+
+[[reviews]]
 discovery_id = "DISC_72551A20B1AE70779134"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/config/tests.rs"
@@ -20192,6 +20232,16 @@ ignore_state = "not_ignored"
 disposition = "catalog_mapped"
 catalog_test_id = "TEST_AUTO_74B77F20409806BB46F0"
 last_reviewed = "2026-07-26"
+
+[[reviews]]
+discovery_id = "DISC_74C5FF80143642347190"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-debug/src/protocol/wire_schema_tests.rs"
+name = "missing_required_fields_and_invalid_discriminators_fail_closed"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_AUTO_74C5FF80143642347190"
+last_reviewed = "2026-07-30"
 
 [[reviews]]
 discovery_id = "DISC_74E35A77C5958C9561B8"
@@ -34072,6 +34122,16 @@ ignore_state = "not_ignored"
 disposition = "catalog_mapped"
 catalog_test_id = "TEST_AUTO_C5C0E5DDF023301B75C5"
 last_reviewed = "2026-07-26"
+
+[[reviews]]
+discovery_id = "DISC_C5C3B1D03B182CB79A85"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-debug/src/protocol/wire_schema_tests.rs"
+name = "breakpoint_and_reload_payloads_preserve_positions_and_optional_inputs"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_AUTO_C5C3B1D03B182CB79A85"
+last_reviewed = "2026-07-30"
 
 [[reviews]]
 discovery_id = "DISC_C5D7E155E16209E766B8"

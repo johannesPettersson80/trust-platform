@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "id": "DEBUG_DAP_WIRE_6_SEMANTIC_LOCK",
+  "source_path": "crates/trust-debug/src/protocol/wire_schema_tests.rs",
+  "source_digest": "sha256:263af5a0d9d9a00fdca13caa6a244ffe3e2d023e34f5a366448345752c82b8e6",
+  "invariant_id": "DEBUG_DAP_WIRE_SCHEMA_001",
+  "assertion_review": {
+    "setup_or_precondition_kinds": [
+      "method:expect"
+    ],
+    "oracle_bound_kinds": [
+      "macro:assert",
+      "macro:assert_eq",
+      "macro:assert_rejected"
+    ],
+    "non_oracle_kinds": []
+  },
+  "tests": [
+    {
+      "discovery_id": "DISC_1DE736DC8363021976F3",
+      "name": "custom_state_payloads_preserve_force_scan_frame_and_instance_identity",
+      "inventory_digest": "sha256:96a4b20550f6ac943beb0b3cf40ee67871196ca407277853be1b62b1d99b1229",
+      "behavior_index": 1,
+      "behavior_partition": "CUSTOM_IO_AND_VARIABLE_STATE"
+    },
+    {
+      "discovery_id": "DISC_2EDC4B78F56295D7D60E",
+      "name": "dap_envelopes_use_canonical_keys_and_legacy_input_only",
+      "inventory_digest": "sha256:fb5e5672ee994fba0f1e51e143021383ee1359638e32565f2b491d3b0f9dc532",
+      "behavior_index": 0,
+      "behavior_partition": "ENVELOPE_CORRELATION_AND_COMPATIBILITY"
+    },
+    {
+      "discovery_id": "DISC_3888AD70C3CBE039E116",
+      "name": "standard_session_inspection_and_mutation_payloads_keep_dap_field_names",
+      "inventory_digest": "sha256:34753cfc72c11f592a3b4a72a846395ec494dc85b5cbf147fa731a26478caafa",
+      "behavior_index": 3,
+      "behavior_partition": "STANDARD_SESSION_AND_INSPECTION_PAYLOADS"
+    },
+    {
+      "discovery_id": "DISC_72502B08E14242668C7F",
+      "name": "custom_mutation_payloads_use_required_fields_and_lowercase_discriminators",
+      "inventory_digest": "sha256:0aaf8af5f42744acebdda3c254d8fa2ef97ca6d06b35eec7d104b43ea01f2b6e",
+      "behavior_index": 2,
+      "behavior_partition": "CUSTOM_MUTATION_ARGUMENTS"
+    },
+    {
+      "discovery_id": "DISC_74C5FF80143642347190",
+      "name": "missing_required_fields_and_invalid_discriminators_fail_closed",
+      "inventory_digest": "sha256:26f2e52908500d231f257245bfb455d5861483b93043361fae0efedf975d3bdd",
+      "behavior_index": 5,
+      "behavior_partition": "MISSING_REQUIRED_OR_INVALID_ENUM"
+    },
+    {
+      "discovery_id": "DISC_C5C3B1D03B182CB79A85",
+      "name": "breakpoint_and_reload_payloads_preserve_positions_and_optional_inputs",
+      "inventory_digest": "sha256:156a26cc2f28c8485395ec528e7aff23272e9fd9293e6f580ac5829644b57d24",
+      "behavior_index": 4,
+      "behavior_partition": "BREAKPOINT_AND_RELOAD_PAYLOADS"
+    }
+  ],
+  "reviewed_date": "2026-07-30",
+  "reviewer_ids": [
+    "codex-main",
+    "codex-assertion-review"
+  ]
+}

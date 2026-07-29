@@ -3,7 +3,7 @@ id = "DEBUG_DAP_WIRE_SCHEMA_001"
 title = "The debug adapter preserves its complete DAP JSON wire schema"
 area = "editor_safety"
 risk = "false_status"
-status = "specified"
+status = "mapped"
 owner = "trust-debug"
 last_reviewed = "2026-07-30"
 claim = "Every standard and truST-specific debug protocol type serializes and deserializes with the required DAP field names, omission/default rules, correlation identity, and fail-closed required fields defined by SPEC_DEBUG_ADAPTER_001."
@@ -13,16 +13,11 @@ source_refs = [
   "docs/specs/13-debug-adapter.md",
   "crates/trust-debug/src/protocol.rs",
 ]
-tests = []
+tests = ["TEST_AUTO_1DE736DC8363021976F3", "TEST_AUTO_2EDC4B78F56295D7D60E", "TEST_AUTO_3888AD70C3CBE039E116", "TEST_AUTO_72502B08E14242668C7F", "TEST_AUTO_74C5FF80143642347190", "TEST_AUTO_C5C3B1D03B182CB79A85"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = [
-  "cataloged_wire_schema_tests",
-  "focused_execution_evidence",
-  "assertion_reachability",
-  "broad_remote_gate",
-]
+missing = ["cataloged_wire_schema_tests", "focused_execution_evidence", "assertion_reachability", "broad_remote_gate"]
 
 [spec]
 status = "specified"
