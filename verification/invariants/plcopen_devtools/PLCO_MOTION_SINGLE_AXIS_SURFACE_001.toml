@@ -5,7 +5,7 @@ area = "plcopen_devtools"
 risk = "wrong_result"
 status = "mapped"
 owner = "trust-runtime"
-last_reviewed = "2026-07-26"
+last_reviewed = "2026-07-29"
 claim = "The Phase A package publishes its supported axis handle, enums, constants, and classic command, motion, administrative, and parameter FB signatures."
 proof_level = "S0"
 contract_kind = "decision_table"
@@ -14,7 +14,7 @@ tests = ["TEST_AUTO_0E3779AB9BF08FFFF3D0", "TEST_AUTO_19E87247417B85193F74", "TE
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["assertion_reachability", "broad_remote_gate"]
+missing = ["broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -148,5 +148,5 @@ rationale = "Accepted catalog mappings bind reviewed assertions to every happy_p
 
 [[coverage.cells]]
 dimension = "missing_required"
-state = "gap_open"
-rationale = "Seven existing negative fixtures await catalog binding to the selected-surface absence contract and focused compile-failure evidence."
+state = "covered"
+rationale = "Six source-bound compile-negative fixtures are catalog-bound through TEST_AUTO_CC70827DE7EF2C10480D and passed exact focused execution at 63532855; the final broad remote gate remains explicit debt."

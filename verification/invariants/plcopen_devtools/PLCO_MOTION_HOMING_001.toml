@@ -5,7 +5,7 @@ area = "plcopen_devtools"
 risk = "wrong_result"
 status = "mapped"
 owner = "trust-plcopen"
-last_reviewed = "2026-07-27"
+last_reviewed = "2026-07-29"
 claim = "The selected Phase D profile publishes its homing types and active FBs, preserves switch/block/reference/finish semantics, and leaves deferred passive names absent."
 proof_level = "S0"
 contract_kind = "state_machine"
@@ -75,5 +75,5 @@ rationale = "Homing step and completion assertions await catalog binding and foc
 
 [[coverage.cells]]
 dimension = "missing_required"
-state = "gap_open"
-rationale = "Deferred-surface absence awaits catalog binding and focused negative execution evidence."
+state = "covered"
+rationale = "The source-bound homing compile-negative fixture is catalog-bound through TEST_AUTO_CC70827DE7EF2C10480D and passed exact focused execution at 63532855; the final remote gate remains explicit debt."

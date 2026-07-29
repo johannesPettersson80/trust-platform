@@ -122150,13 +122150,13 @@ requires_hardware = false
 requires_network = false
 duration_class = "slow"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_FD2311D3995B059E552D.json"
-last_reviewed = "2026-07-28"
-mapping_proposal_id = "MAP_CAND_FD2311D3995B059E552D_03770E026930"
-mapping_proposal_digest = "sha256:03770e026930c61c7b8e7c94060f867f508f6a5afb5f8d2b4b9df6e0588a9f32"
-mapping_decision_id = "MAP_DEC_2D23F7F374939DCBAB59DF74"
-mapping_reviewed_source_digest = "sha256:7c6e590c8d5d823e133aff532353d8c35c71a731171180856520fb291dcf46b5"
-mapping_assertion_review_digest = "sha256:384212f58f7b9621ae7581f49bcbf878240050a20f9f32fab5b37a0964d4590d"
-mapping_assertion_source_digests = { "crates/trust-dev/tests/cli_smoke.rs" = "sha256:7c6e590c8d5d823e133aff532353d8c35c71a731171180856520fb291dcf46b5", "crates/trust-runtime/tests/fixtures/oscat/negative_public_surface/src/main.st" = "sha256:7f678818ebddaaf446fc6163cc3b62578a957f70032f93bc860a14116bd195d7" }
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_FD2311D3995B059E552D_53F2D4B3FAFD"
+mapping_proposal_digest = "sha256:53f2d4b3fafd5d245bf3f3f764a27142e9ed74acbcda83520824e8f2a6343245"
+mapping_decision_id = "MAP_DEC_E1E56B419A0B776BE86D6FC9"
+mapping_reviewed_source_digest = "sha256:a62763d151fdee0f1a5d63cac7cc3e2783db2806d5cb8fedd7d600e74d7119ca"
+mapping_assertion_review_digest = "sha256:a3cb4655587ebe2bdf23999a8e352a5866e3f1cf61e66584aecf2b109251fabe"
+mapping_assertion_source_digests = { "crates/trust-dev/tests/cli_smoke.rs" = "sha256:a62763d151fdee0f1a5d63cac7cc3e2783db2806d5cb8fedd7d600e74d7119ca", "crates/trust-runtime/tests/fixtures/oscat/negative_public_surface/src/main.st" = "sha256:7f678818ebddaaf446fc6163cc3b62578a957f70032f93bc860a14116bd195d7", "crates/trust-runtime/tests/fixtures/oscat/negative_public_surface/src/tests.st" = "sha256:d176fd191ae8c9942eb5f00fb435b81c9f2e2c1bd8e72de69856f76c8fd6e75b" }
 mapping_behavior_refs = ["OSCAT_CLASSIC_LIBRARY_PROFILE_001#behavior:1"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
@@ -122964,12 +122964,12 @@ requires_network = false
 duration_class = "slow"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_CC70827DE7EF2C10480D.json"
 last_reviewed = "2026-07-29"
-mapping_proposal_id = "MAP_CAND_CC70827DE7EF2C10480D_20BC1A512C1D"
-mapping_proposal_digest = "sha256:20bc1a512c1d9257b539b9c2e41425b08526eac46e8a995df03b17ee98c3e7c1"
-mapping_decision_id = "MAP_DEC_A943A936350099381156F294"
-mapping_reviewed_source_digest = "sha256:1847b8f5ab1ef852189134fdef6c642dae9579cc3beb6130f902c73561ec3b2e"
-mapping_assertion_review_digest = "sha256:cfdfbb6fdd604c3faed6c5e44fa320ca01201a9bd7e17058c6149870e64d6276"
-mapping_assertion_source_digests = { "crates/trust-runtime/tests/plcopen_motion_oop_library.rs" = "sha256:1847b8f5ab1ef852189134fdef6c642dae9579cc3beb6130f902c73561ec3b2e" }
+mapping_proposal_id = "MAP_CAND_CC70827DE7EF2C10480D_44BE28634A87"
+mapping_proposal_digest = "sha256:44be28634a87b3888038da1739c7ba5f7038616248b6d8dff9505cd6f41596bd"
+mapping_decision_id = "MAP_DEC_6523FD1ED8B471BBA8D40C67"
+mapping_reviewed_source_digest = "sha256:160e5158d2485ea4c4dacd2729134d7011ad8368e358f74544498a3cea38a649"
+mapping_assertion_review_digest = "sha256:95a3e3e3f3e4f78633e7e16f78d088ef9b765c6ba98a3d92567b45f30eacb895"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/plcopen_motion/coordinated_motion_negative_deferred_public_surface/src/main.st" = "sha256:21ea7f75188b62639b6217e782f5c53a16a9b3f77014629fb41b1fd43f39d2da", "crates/trust-runtime/tests/fixtures/plcopen_motion/coordinated_motion_negative_deferred_public_surface/src/tests.st" = "sha256:3013341da880e4211dddf72dcfb9bd515e6bfa009dc16af7231b7c1a36b34da3", "crates/trust-runtime/tests/fixtures/plcopen_motion/homing_negative_deferred_public_surface/src/main.st" = "sha256:abbf387d71cb1f7b3537c26b463c5803021dd185d16b0bff866ed73544125bfe", "crates/trust-runtime/tests/fixtures/plcopen_motion/homing_negative_deferred_public_surface/src/tests.st" = "sha256:d06c58440046e312b84a8533e450bc1ac98172acccabf28bc08b0b386f845d1c", "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_negative_deferred_public_surface/src/main.st" = "sha256:6fb69762e1887a3fd70c0f12396e4f570bc2a54bcff2979629a35aa5d780aa6c", "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_negative_deferred_public_surface/src/tests.st" = "sha256:32de3224e164bc4da8a8a6c28e74211defb9c93f1822ef01ec15b30e546b5be5", "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_negative_group_label/src/tests.st" = "sha256:9838532ed173bdfbd683958e3194c953a0f80860d99237b98c281fccdb2d149a", "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_negative_power_enable_split/src/main.st" = "sha256:85d9f60eae1b23e29c7d7d85d8bae30405cc4f5dba30d64644878d3bd2a7a36c", "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_negative_power_enable_split/src/tests.st" = "sha256:853318e831a895280f0625d40fe9f7e28f1155cb10643f399a92501f8c8f9c81", "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_negative_public_surface/src/main.st" = "sha256:5a6c1bb4b42ccb22a24e3d55edad8cafdef04317002a1df1a09adfb5b81f053b", "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_negative_public_surface/src/tests.st" = "sha256:f93883e5e6072545d3f74a86f96899dd589cb11f92dddceca7c8a1c501b038c4", "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_negative_transition_vel_next/src/tests.st" = "sha256:65fa4f4c5226beed359175929e3eec4b4d9f479abeb3a193e0df6289e8e2b630", "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_negative_transition_vel_zero/src/tests.st" = "sha256:d8be3ea3fc9a02b8885a4cf24df3f0bfe1ec38043689f298cb76aa86579b0acd", "crates/trust-runtime/tests/fixtures/plcopen_motion/synchronization_negative_deferred_public_surface/src/main.st" = "sha256:21e4b21a71ed35146ed7362cca7f2d731f6f88114a7287718507b913723d0cf5", "crates/trust-runtime/tests/fixtures/plcopen_motion/synchronization_negative_deferred_public_surface/src/tests.st" = "sha256:c8a82ca30aa0e57df74c56c9c4add85e500e9bb5fdf56baa150647c35eb69479", "crates/trust-runtime/tests/plcopen_motion_oop_library.rs" = "sha256:160e5158d2485ea4c4dacd2729134d7011ad8368e358f74544498a3cea38a649", "tests/support/repository_source_oracle.rs" = "sha256:620b5143ba2dddf6781084e90d9182fec6d2d9321c7fe139c32ecf67f4ee2803" }
 mapping_behavior_refs = ["PLCO_MOTION_COORDINATED_001#behavior:4", "PLCO_MOTION_HOMING_001#behavior:3", "PLCO_MOTION_SINGLE_AXIS_SURFACE_001#behavior:12", "PLCO_MOTION_SYNCHRONIZATION_001#behavior:1"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 

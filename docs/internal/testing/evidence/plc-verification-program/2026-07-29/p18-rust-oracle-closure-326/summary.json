@@ -1,0 +1,122 @@
+{
+  "schema_version": 1,
+  "date": "2026-07-29",
+  "canonical_checkout": "/home/johannes/projects/trust-platform",
+  "branch": "plc-verification-program",
+  "source_checkpoints": {
+    "dynamic_oracle_closure": "cbcef0c6d69feacb46a3fd6d6495f94e850ffa54",
+    "zero_assertion_closure": "63532855e2eaedb714469817f8411c56c2743676"
+  },
+  "exact_builder_checkout": {
+    "host": "scena-rust-builder",
+    "path": "/home/johannes/projects/trust-platform-p18-zero-63532855",
+    "head": "63532855e2eaedb714469817f8411c56c2743676",
+    "branch": null,
+    "agent_bootstrap_match": true
+  },
+  "population": {
+    "inventory_count": 326,
+    "assertion_count": 3539,
+    "unresolved_test_count": 0,
+    "unresolved_helper_count": 0,
+    "zero_assertion_count": 0
+  },
+  "denominator": {
+    "scanner_facts": 4401,
+    "catalog_mapped": 3983,
+    "reviewed_nonmapping": 418,
+    "unreviewed": 0,
+    "assertion_oracle_unresolved_reason": 245,
+    "not_catalogable_product_oracle_reason": 83,
+    "gate_inventory_owned_reason": 59,
+    "ignored_test_registry_owned_reason": 23,
+    "fuzz_program_owned_reason": 8
+  },
+  "focused_proof": {
+    "trust_dev_runner_unit_tests": {
+      "passed": 21,
+      "failed": 0
+    },
+    "dynamic_oracle_tests": {
+      "passed": 79,
+      "failed": 0,
+      "elapsed_seconds": 229.427
+    },
+    "oscat_compile_negative": {
+      "passed": 1,
+      "failed": 0,
+      "elapsed_seconds": 19.937146499
+    },
+    "plcopen_compile_negative": {
+      "passed": 1,
+      "failed": 0,
+      "elapsed_seconds": 23.370337568,
+      "fixture_projects": 9
+    },
+    "opcua_compile_contract": {
+      "passed": 1,
+      "failed": 0,
+      "elapsed_seconds": 0.012753981
+    },
+    "valid_zero_test_project": {
+      "compile_succeeded": true,
+      "discovered": 0,
+      "failed": 0,
+      "errors": 0
+    },
+    "assertion_inventory_gate": {
+      "python_passed": 8,
+      "xtask_passed": 37,
+      "failed": 0
+    },
+    "diagram_drift": "passed"
+  },
+  "changed_mapping_reviews": [
+    {
+      "test_id": "TEST_AUTO_CC70827DE7EF2C10480D",
+      "proposal_id": "MAP_CAND_CC70827DE7EF2C10480D_44BE28634A87",
+      "decision_id": "MAP_DEC_6523FD1ED8B471BBA8D40C67",
+      "assertion_inventory_digest": "sha256:178e7259fe4d6f930ee552f509b0d924cd93f7d9de7865cbab2678bbd006d57b",
+      "assertion_count": 9,
+      "oracle_bound_count": 2,
+      "setup_count": 7
+    },
+    {
+      "test_id": "TEST_AUTO_FD2311D3995B059E552D",
+      "proposal_id": "MAP_CAND_FD2311D3995B059E552D_53F2D4B3FAFD",
+      "decision_id": "MAP_DEC_E1E56B419A0B776BE86D6FC9",
+      "assertion_inventory_digest": "sha256:29dbe0db3039bbf904061892d5274f5424f3bd92ef9bf32c7360c48ced503f75",
+      "assertion_count": 6,
+      "oracle_bound_count": 3,
+      "setup_count": 3
+    }
+  ],
+  "raw_artifacts": [
+    {
+      "path": "/home/johannes/projects/trust-platform-p18-zero-63532855/target/gate-artifacts/verification/p18-zero-assertion-63532855/remaining-326-exact-63532855.json",
+      "sha256": "83425b3b2eaf066ce120f82b9d150b6672c3fdca63de3777a387b2665d3980ac"
+    },
+    {
+      "path": "/home/johannes/projects/trust-platform-p18-zero-63532855/target/gate-artifacts/verification/p18-zero-assertion-63532855/focused-tests.log",
+      "sha256": "755b4aea1654b24b4129b204c3139f0dfaf0e43f0100dac308e024019aab6a54"
+    },
+    {
+      "path": "/home/johannes/projects/trust-platform-p18-zero-63532855/target/gate-artifacts/verification/p18-zero-assertion-63532855/changed-mapped-assertion-inventories.json",
+      "sha256": "9f9a1a477bdc418f44ccbdc90f53f1c3f1422e3eb803df89dcd3e10e5a6c8af5"
+    },
+    {
+      "path": "/home/johannes/projects/trust-platform-p18-zero-63532855/target/gate-artifacts/verification/p18-zero-assertion-63532855-live-scan.json",
+      "sha256": "186f0ac319b66c5844e3ad912ba6a087c8c98172a882a15bec02ac277613b1ab"
+    },
+    {
+      "path": "/home/johannes/projects/trust-platform-p18-oracle-cbcef0c6/target/gate-artifacts/verification/p18-oracle-closure/remaining-336-exact-cbcef0c6.json",
+      "sha256": "8084438ce13afb0664083d6fa40b6724a66c3e6c340ad91fcc6a16fa1fae3c61"
+    },
+    {
+      "path": "/home/johannes/projects/trust-platform-p18-oracle-cbcef0c6/target/gate-artifacts/verification/p18-oracle-closure/focused-79.log",
+      "sha256": "b2d0e0ee8082803157780d28109cee58f26eacf5eb42795c8333929573336b89"
+    }
+  ],
+  "broad_gates_run": false,
+  "remaining_global_rows_open": true
+}

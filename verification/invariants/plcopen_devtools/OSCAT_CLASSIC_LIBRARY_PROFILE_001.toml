@@ -5,7 +5,7 @@ area = "plcopen_devtools"
 risk = "wrong_result"
 status = "mapped"
 owner = "trust-plcopen"
-last_reviewed = "2026-07-27"
+last_reviewed = "2026-07-29"
 claim = "The shipped classic OSCAT chapters expose the documented truST-adapted public surface and preserve their specified pure and scan-state behavior."
 proof_level = "S0"
 contract_kind = "decision_table"
@@ -108,5 +108,5 @@ rationale = "Buffer/list boundary assertions await the same focused catalogue an
 
 [[coverage.cells]]
 dimension = "missing_required"
-state = "gap_open"
-rationale = "The renamed-public-surface absence test awaits catalog binding and focused negative execution evidence."
+state = "covered"
+rationale = "The source-bound OSCAT renamed-surface fixture is catalog-bound through TEST_AUTO_FD2311D3995B059E552D and passed exact focused execution at 63532855; the remaining catalog, focused, and final remote debt stays explicit."

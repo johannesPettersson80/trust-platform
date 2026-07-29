@@ -1239,6 +1239,38 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   observations. No broad workspace gate ran. Evidence:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-rust-assertion-helper-closure.md`.
   <!-- generated:rust-assertion-helper-closure:end -->
+  <!-- generated:rust-assertion-oracle-closure-326:start -->
+
+  Rust assertion-oracle and compile-negative coherent-batch progress
+  (2026-07-29): the 85 dynamic oracle reads across 79 tests now bind immutable
+  repository inputs or explicit runtime observations, and exact focused
+  execution passes 79/79. The remaining 11 assertion-empty inventories were
+  closed by explicit compile contracts or by converting compile-negative
+  Structured Text declarations from test POUs to ordinary programs. An
+  expected-red OSCAT assertion exposed that unfiltered `trust-dev test`
+  returned false success without compiling a zero-test project; the runner now
+  compiles before reporting an empty unfiltered result while preserving
+  discovery-only `--list` and filter-empty behavior. The PLCopen mapped
+  negative test now source-binds and executes all nine selected fixture
+  projects, and the OPC UA subscription API contract exposes an explicit
+  compile-time assertion. On the manually bootstrapped clean builder checkout
+  at `63532855e2eaedb714469817f8411c56c2743676`, 21/21 runner unit tests,
+  both mapped compile-negative tests, the OPC UA compile contract, a valid
+  zero-test project compile, 45/45 assertion-inventory checks, and diagram
+  drift pass. The complete remaining extractable population is 326 inventories
+  with 3,539 assertions, zero unresolved helpers, and zero assertion-empty
+  identities. The exact scanner records 4,401 live facts with zero warnings,
+  making the unchanged mapping equation 4,401 live = 3,983
+  `catalog_mapped` + 418 `reviewed_nonmapping`. The 245 denominator facts still
+  carrying the historical `assertion_oracle_unresolved` reason remain open
+  until semantic mapping transactions replace that reason; extractor closure
+  is not mapping proof. The two changed mapped absence tests received fresh,
+  hand-reviewed assertion provenance rather than a blind digest refresh, and
+  their five missing-required invariant cells now record exact focused
+  coverage. `VERIF-P18-005` and the global program rows remain open. No broad
+  workspace gate ran. Evidence:
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-rust-oracle-closure-326.md`.
+  <!-- generated:rust-assertion-oracle-closure-326:end -->
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device
