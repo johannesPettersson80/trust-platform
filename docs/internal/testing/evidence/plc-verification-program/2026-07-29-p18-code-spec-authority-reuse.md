@@ -267,9 +267,53 @@ The gap ledger moved from
 `sha256:c743e1b16c21d15e5600ce6687c31a67ef2afac02b62559cf56bbd1cc48c1f3b`
 to
 `sha256:da13286bce2567fb7d55cb2eaa1536d42b0572bb4a0f4286a5a3a9d28588dc71`.
+The complete decision set and transaction bindings are frozen in
+`verification/p18/review-locks/plcopen-contract-authority-reuse-lock.json`.
 This follow-up specifies only those 21 declarations. It does not select
 numbered authority for `shims_metrics.rs`, catalog the three new contract
 tests, or close any execution, reachability, adequacy, or broad-gate row.
+
+### Accepted follow-up proof
+
+Canonical checkout:
+`/home/johannes/projects/trust-platform`
+
+Clean validation checkout:
+`trust-builder:/home/johannes/projects/trust-platform-p18-e67270f8`
+
+The validation checkout was created detached at
+`e67270f887e6a347e3f651a8609736c8fd26fd9d`. The root `AGENTS.md` and all
+25 `.codex/skills/**` files were manually copied from the canonical builder
+checkout and verified exact before validation. The scanner's ignored
+`.claude/hooks/**` source root was also copied and verified exact, and its
+TypeScript extractor used the canonical checkout's installed TypeScript
+5.9.3 dependency after confirming that version exactly matched the
+destination lockfile.
+
+The accepted report is
+`sha256:8505842b9ef4ea5ca44b22aabee52c249a3fd10dfe13ddff4d91b2ace574447a`
+with input digest
+`sha256:bbcd397c0581254f339825e2a3d37d52b4981fc9b6a4f06c573599630a883a4b`.
+It contains 17,227 live = 17,227 mapped facts, zero findings, 15,164
+`spec_gap`, 2,028 `specified`, 30 `inherits_spec`, two `generated`, two
+`non_behavioral`, and one `vendored_external`.
+
+The post-transaction identity/semantic refresh proposal is empty:
+`sha256:ec3f6e2d46b3190df015458c6626b66cf5f8bed28665f89b5b4006aaca5d7bb3`
+with operation-set digest
+`sha256:9c029f348397cd6f8be5c8b9c925de27b5584f9039f2d3e6a67327505d84fdd4`.
+The residual authority-reuse proposal is
+`sha256:ca3a6c3f46907feca2b6047d9fa220ada4877dc265671f9027b251d70d7bc41e`
+with operation-set digest
+`sha256:1e23671f29efa936ebefeff491d0eb2e4f4f025b914817272545c0d69f412b55`.
+It retains exactly the 21 explicitly withheld groups: 176
+singular-candidate facts and 86 ambiguous-candidate facts.
+
+Two earlier attempts in the new validation worktree stopped before producing
+an accepted report because the ignored TypeScript dependency and private hook
+source root had not yet been installed. Those environment failures are not
+counted as proof. No `just fmt`, `just clippy`, `just test`, `just test-all`,
+coverage campaign, mutation campaign, or final broad gate ran.
 
 ## Boundary
 
