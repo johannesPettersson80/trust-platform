@@ -1,12 +1,12 @@
 schema_version = 1
 id = "VERIFICATION_ASSERTION_INVENTORY_CLOSURE_001"
-title = "Assertion inventories close reachable same-file helper oracles"
+title = "Assertion inventories close reachable TypeScript and Rust helper oracles"
 area = "verification"
 risk = "silent_corruption"
 status = "mapped"
 owner = "verification"
 last_reviewed = "2026-07-29"
-claim = "TypeScript assertion extraction must include direct and reachable unambiguous same-file helper assertions exactly once without treating imported product calls as proof."
+claim = "TypeScript and Rust assertion extraction must include direct and reachable unambiguous test-helper assertions exactly once, bind the owning source closure, and never treat ordinary product calls as delegated proof."
 proof_level = "T1"
 contract_kind = "protocol_trace"
 source_refs = [
@@ -14,6 +14,9 @@ source_refs = [
   "scripts/verification/test_assertions_ts_scan.mjs",
   "scripts/verification/mapping_assertions_tests.py",
   "scripts/verification_assertion_inventory_gate.sh",
+  "xtask/src/test_assertions.rs",
+  "xtask/src/test_assertions/import_resolution.rs",
+  "xtask/src/test_assertions/unit_context.rs",
 ]
 tests = ["TEST_VERIFICATION_ASSERTION_INVENTORY_GATE_001"]
 gates = ["veryquick", "pr"]
@@ -37,7 +40,20 @@ outcome = "accept_value"
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
 rationale = "The exact test callback closes unambiguous same-file helper calls recursively, de-duplicates stable assertions, and leaves imported product calls outside the oracle closure."
 
+[[behavior]]
+partition = { equals = "RUST_OWNING_TARGET_TEST_HELPER_CLOSURE" }
+case_family = "missing_required"
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#reachable-assertion-helper-closure"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Rust extraction selects the owning Cargo target, includes cfg(test) module sources, follows visibility-valid local, named, glob, and re-exported test helpers, and excludes ordinary production execution from delegated oracle closure."
+
 [[coverage.cells]]
 dimension = "missing_required"
 state = "covered"
 rationale = "Focused HMI and Ladder fixtures prove helper reachability, assertion de-duplication, and elimination of the two prior unresolved VS Code helper facts."
+
+[[coverage.cells]]
+dimension = "missing_required"
+state = "covered"
+rationale = "Focused Rust fixtures prove owning-target selection, cfg(test) sibling closure, restricted visibility, repeated-super and transitive named/glob imports, function-local imports, and the production-call exclusion boundary."

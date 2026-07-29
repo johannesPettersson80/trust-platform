@@ -248,12 +248,14 @@ Issue #51 init benchmark baseline evidence (2026-04-28):
   `debug-step-sequence.puml` record the execution flow.
 - [x] `ARCH-VERIF-P18-06` Keep Rust assertion-helper import resolution in a
   bounded owner separate from assertion traversal: retain imports for
-  function-free wrapper modules, follow only exact named imports and
-  visibility-valid cycle-guarded glob chains, and preserve private sibling or
-  multi-target calls as unresolved/ambiguous. Evidence: 19 focused xtask tests
-  pass on `trust-builder`, the 15 selected WASM browser-analysis inventories
-  have zero unresolved helpers with four exact fixture digests per row, and
-  `verification-code-spec-coverage.puml` records the ownership boundary.
+  function-free wrapper modules, resolve the owning Cargo target and complete
+  `cfg(test)` module context in a separate owner, follow exact function-local
+  and module-level named imports plus visibility-valid cycle-guarded glob
+  chains, and preserve ordinary product execution and multi-target calls
+  outside delegated proof. Evidence: the focused xtask assertion suite passes
+  on `trust-builder`; the complete remaining Rust population has zero
+  unresolved function helpers, while dynamic oracle reads remain explicit;
+  `verification-code-spec-coverage.puml` records the ownership boundaries.
 - [x] `ARCH-VERIF-P18-07` Close the functional browser-analysis catalog lane
   with one path-aware frozen nextest profile and one bounded semantic assignment
   owner: combined reviewed inventories filter to the requested source path,

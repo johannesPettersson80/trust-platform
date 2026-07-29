@@ -14,7 +14,9 @@ use syn::spanned::Spanned;
 use syn::visit::{self, Visit};
 use syn::{Attribute, Expr, ExprCall, ExprMethodCall, Item, ItemFn, Macro};
 
-use crate::code_spec_scan::scan_crate_root_module_graph;
+use crate::code_spec_scan::{
+    scan_crate_root_module_graph, scan_crate_root_module_graph_including_tests,
+};
 use import_resolution::{
     candidate_paths, definition_is_visible, imports_from_items, ImportReachability,
 };
@@ -22,6 +24,7 @@ use import_resolution::{
 mod generated_inputs;
 mod import_resolution;
 mod repository_source_tree;
+mod unit_context;
 
 const ASSERTION_ROOT_MODULE: &str = "__trust_assertion_root__";
 const ASSERTION_SCHEMA_VERSION: u32 = 2;
@@ -75,6 +78,7 @@ struct FunctionRecord {
     source_path: String,
     module: Vec<String>,
     test_context: bool,
+    local_imports: ImportReachability,
     item: ItemFn,
 }
 
@@ -237,6 +241,7 @@ pub fn extract(path: &str, test_name: &str, source: &str) -> Result<AssertionInv
             module: Vec::new(),
             source: source.to_string(),
         }],
+        &BTreeSet::new(),
     )?;
     extract_from_built_context(path, test_name, &context)
 }
@@ -253,7 +258,14 @@ fn extract_from_repository(
 
 fn repository_context_key(root: &Path, path: &str, source_kind: &str) -> Result<String> {
     if source_kind == "rust_unit_test" {
-        return Ok(format!("unit:{path}"));
+        let module_root = unit_context::target_root(root, Path::new(path))?;
+        let relative = module_root
+            .strip_prefix(root)
+            .with_context(|| format!("unit-test root escapes repository for {path}"))?;
+        return Ok(format!(
+            "unit:{}",
+            relative.to_string_lossy().replace('\\', "/")
+        ));
     }
     if source_kind != "rust_integration_test" {
         bail!("unsupported Rust assertion source kind {source_kind}")
@@ -274,18 +286,14 @@ fn build_repository_context(
     path: &str,
     source_kind: &str,
 ) -> Result<ExtractionContext> {
-    let selected_path = root.join(path);
     if source_kind == "rust_unit_test" {
-        let source = fs::read_to_string(&selected_path)
-            .with_context(|| format!("read Rust test source {}", selected_path.display()))?;
-        return build_context(
-            Some(root),
-            vec![ContextSource {
-                path: path.to_string(),
-                module: Vec::new(),
-                source,
-            }],
-        );
+        let module_root = unit_context::target_root(root, Path::new(path))?;
+        let graph = scan_crate_root_module_graph_including_tests(
+            root,
+            &module_root,
+            ASSERTION_ROOT_MODULE,
+        )?;
+        return build_context_from_module_graph(root, path, graph);
     }
     if source_kind != "rust_integration_test" {
         bail!("unsupported Rust assertion source kind {source_kind}")
@@ -294,12 +302,25 @@ fn build_repository_context(
         bail!("cannot resolve integration-test module root for {path}")
     };
     let graph = scan_crate_root_module_graph(root, &module_root, ASSERTION_ROOT_MODULE)?;
+    build_context_from_module_graph(root, path, graph)
+}
+
+fn build_context_from_module_graph(
+    root: &Path,
+    path: &str,
+    graph: crate::code_spec_scan::ModuleGraph,
+) -> Result<ExtractionContext> {
     if !graph.diagnostics.is_empty() {
         bail!(
             "Rust assertion context for {path} has module diagnostics: {}",
             graph.diagnostics.join("; ")
         )
     }
+    let test_context_paths = graph
+        .test_only_sources
+        .iter()
+        .cloned()
+        .collect::<BTreeSet<_>>();
     let mut sources = Vec::new();
     for source in graph.sources {
         let source_path = root.join(&source.path);
@@ -314,7 +335,7 @@ fn build_repository_context(
     if !sources.iter().any(|source| source.path == path) {
         bail!("Rust assertion context does not contain selected test source {path}")
     }
-    build_context(Some(root), sources)
+    build_context(Some(root), sources, &test_context_paths)
 }
 
 fn extract_from_context(
@@ -322,11 +343,15 @@ fn extract_from_context(
     test_name: &str,
     sources: Vec<ContextSource>,
 ) -> Result<AssertionInventory> {
-    let context = build_context(None, sources)?;
+    let context = build_context(None, sources, &BTreeSet::new())?;
     extract_from_built_context(path, test_name, &context)
 }
 
-fn build_context(root: Option<&Path>, sources: Vec<ContextSource>) -> Result<ExtractionContext> {
+fn build_context(
+    root: Option<&Path>,
+    sources: Vec<ContextSource>,
+    test_context_paths: &BTreeSet<String>,
+) -> Result<ExtractionContext> {
     let mut functions = Vec::new();
     let mut imports_by_module = BTreeMap::new();
     let mut source_by_path = BTreeMap::new();
@@ -338,7 +363,7 @@ fn build_context(root: Option<&Path>, sources: Vec<ContextSource>) -> Result<Ext
             &file.items,
             &context.path,
             &mut context.module.clone(),
-            is_integration_test_source(&context.path),
+            is_integration_test_source(&context.path) || test_context_paths.contains(&context.path),
             &mut functions,
             &mut imports_by_module,
         );
@@ -439,13 +464,23 @@ fn extract_from_built_context(
         for called in visitor.observations.calls {
             let reachable =
                 resolve_call(function, &called, &by_qualified, &context.imports_by_module);
-            let qualified_names = reachable
+            let followable = reachable
+                .iter()
+                .copied()
+                .filter(|matched| {
+                    matched.test_context || matched.source_path == function.source_path
+                })
+                .collect::<Vec<_>>();
+            if followable.is_empty() && !reachable.is_empty() {
+                continue;
+            }
+            let qualified_names = followable
                 .iter()
                 .map(|matched| matched.qualified_name.as_str())
                 .collect::<BTreeSet<_>>();
             match qualified_names.len() {
                 1 => {
-                    queue.extend(reachable.into_iter().map(|matched| {
+                    queue.extend(followable.into_iter().map(|matched| {
                         let inherited = generated_inputs::inherited_parameter_paths(
                             &matched.item.sig,
                             &called.generated_argument_paths,
@@ -545,6 +580,7 @@ fn collect_functions(
                     source_path: source_path.to_string(),
                     module: modules.clone(),
                     test_context: test_context || has_test_attribute(&function.attrs),
+                    local_imports: function_local_imports(function, modules),
                     item: function.clone(),
                 });
             }
@@ -565,6 +601,19 @@ fn collect_functions(
             _ => {}
         }
     }
+}
+
+fn function_local_imports(function: &ItemFn, module: &[String]) -> ImportReachability {
+    let items = function
+        .block
+        .stmts
+        .iter()
+        .filter_map(|statement| match statement {
+            syn::Stmt::Item(Item::Use(item)) => Some(Item::Use(item.clone())),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    imports_from_items(&items, module)
 }
 
 fn is_integration_test_source(path: &str) -> bool {
@@ -624,6 +673,7 @@ fn resolve_call<'a>(
         &function.module,
         call.leading_colon,
         &call.segments,
+        &function.local_imports,
         imports_by_module,
     )
     .into_iter()
@@ -710,7 +760,7 @@ impl<'ast> Visit<'ast> for AssertionVisitor {
 
     fn visit_expr_method_call(&mut self, expression: &'ast ExprMethodCall) {
         let method = expression.method.to_string();
-        if is_assertion_method(&method) {
+        if self.test_context && is_assertion_method(&method) {
             self.observations.sites.push(RawAssertion {
                 kind: format!("method:{method}"),
                 source_path: self.source_path.clone(),
@@ -727,6 +777,10 @@ impl<'ast> Visit<'ast> for AssertionVisitor {
     }
 
     fn visit_expr_call(&mut self, expression: &'ast ExprCall) {
+        if !self.test_context {
+            visit::visit_expr_call(self, expression);
+            return;
+        }
         if let Some(reader) = runtime_fixture_reader(expression) {
             let closed_static_literal = expression.args.first().is_some_and(|argument| {
                 let Expr::Lit(value) = argument else {
@@ -827,4 +881,8 @@ fn sha256_hex(value: &[u8]) -> String {
 }
 
 #[cfg(test)]
+mod import_resolution_tests;
+#[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod unit_context_tests;

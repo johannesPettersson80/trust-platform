@@ -4,16 +4,10 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use syn::{Item, UseTree, Visibility};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-enum ImportVisibility {
-    Private,
-    Crate,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct ImportPath {
     path: Vec<String>,
-    visibility: ImportVisibility,
+    visible_from: Vec<String>,
 }
 
 #[derive(Clone, Default)]
@@ -42,7 +36,7 @@ pub(super) fn imports_from_items(items: &[Item], current_module: &[String]) -> I
             current_module,
             Vec::new(),
             false,
-            import_visibility(&item_use.vis),
+            import_visibility(&item_use.vis, current_module),
             &mut imports,
         );
     }
@@ -53,6 +47,7 @@ pub(super) fn candidate_paths(
     current_module: &[String],
     leading_colon: bool,
     segments: &[String],
+    local_imports: &ImportReachability,
     imports_by_module: &BTreeMap<Vec<String>, ImportReachability>,
 ) -> BTreeSet<Vec<String>> {
     if segments.is_empty() {
@@ -87,10 +82,14 @@ pub(super) fn candidate_paths(
             candidates.insert(path);
         }
         first => {
-            let imports = imports_by_module.get(current_module);
-            if let Some(bindings) = imports.and_then(|imports| imports.bindings.get(first)) {
+            let module_imports = imports_by_module.get(current_module);
+            for bindings in local_imports.bindings.get(first).into_iter().chain(
+                module_imports
+                    .and_then(|imports| imports.bindings.get(first))
+                    .into_iter(),
+            ) {
                 for binding in bindings {
-                    if import_is_visible(binding, current_module, current_module) {
+                    if import_is_visible(binding, current_module) {
                         let mut path = binding.path.clone();
                         path.extend_from_slice(&segments[1..]);
                         candidates.insert(path);
@@ -101,9 +100,9 @@ pub(super) fn candidate_paths(
                 let mut local = current_module.to_vec();
                 local.push(first.to_string());
                 candidates.insert(local);
-                if let Some(imports) = imports {
+                for imports in std::iter::once(local_imports).chain(module_imports.into_iter()) {
                     for glob in &imports.glob_modules {
-                        if import_is_visible(glob, current_module, current_module) {
+                        if import_is_visible(glob, current_module) {
                             collect_glob_candidates(
                                 current_module,
                                 &glob.path,
@@ -123,7 +122,63 @@ pub(super) fn candidate_paths(
             }
         }
     }
-    candidates
+    let initial = candidates;
+    let mut expanded = BTreeSet::new();
+    for candidate in initial {
+        collect_named_import_candidates(
+            current_module,
+            &candidate,
+            imports_by_module,
+            &mut BTreeSet::new(),
+            &mut expanded,
+        );
+    }
+    expanded
+}
+
+fn collect_named_import_candidates(
+    requester: &[String],
+    candidate: &[String],
+    imports_by_module: &BTreeMap<Vec<String>, ImportReachability>,
+    visited: &mut BTreeSet<Vec<String>>,
+    candidates: &mut BTreeSet<Vec<String>>,
+) {
+    if !visited.insert(candidate.to_vec()) {
+        return;
+    }
+    candidates.insert(candidate.to_vec());
+    let Some((name, declaring_module)) = candidate.split_last() else {
+        return;
+    };
+    let Some(imports) = imports_by_module.get(declaring_module) else {
+        return;
+    };
+    if let Some(bindings) = imports.bindings.get(name) {
+        for binding in bindings {
+            if import_is_visible(binding, requester) {
+                collect_named_import_candidates(
+                    requester,
+                    &binding.path,
+                    imports_by_module,
+                    visited,
+                    candidates,
+                );
+            }
+        }
+    }
+    for glob in &imports.glob_modules {
+        if import_is_visible(glob, requester) {
+            let mut imported = glob.path.clone();
+            imported.push(name.clone());
+            collect_named_import_candidates(
+                requester,
+                &imported,
+                imports_by_module,
+                visited,
+                candidates,
+            );
+        }
+    }
 }
 
 pub(super) fn definition_is_visible(
@@ -133,19 +188,51 @@ pub(super) fn definition_is_visible(
 ) -> bool {
     match visibility {
         Visibility::Public(_) => true,
-        Visibility::Restricted(restricted) if restricted.path.is_ident("crate") => true,
         Visibility::Inherited => requester.starts_with(declaring_module),
-        Visibility::Restricted(_) => false,
+        Visibility::Restricted(restricted) => {
+            restricted_visibility_scope(&restricted.path, declaring_module)
+                .is_some_and(|scope| requester.starts_with(&scope))
+        }
     }
 }
 
-fn import_visibility(visibility: &Visibility) -> ImportVisibility {
-    match visibility {
-        Visibility::Public(_) => ImportVisibility::Crate,
-        Visibility::Restricted(restricted) if restricted.path.is_ident("crate") => {
-            ImportVisibility::Crate
+fn restricted_visibility_scope(
+    path: &syn::Path,
+    declaring_module: &[String],
+) -> Option<Vec<String>> {
+    let segments = path
+        .segments
+        .iter()
+        .map(|segment| segment.ident.to_string())
+        .collect::<Vec<_>>();
+    let first = segments.first()?.as_str();
+    let mut index = 1;
+    let mut scope = match first {
+        "crate" => Vec::new(),
+        "self" => declaring_module.to_vec(),
+        "super" => {
+            let mut scope = declaring_module.to_vec();
+            scope.pop()?;
+            while segments.get(index).map(String::as_str) == Some("super") {
+                scope.pop()?;
+                index += 1;
+            }
+            scope
         }
-        Visibility::Inherited | Visibility::Restricted(_) => ImportVisibility::Private,
+        _ => return None,
+    };
+    scope.extend_from_slice(&segments[index..]);
+    Some(scope)
+}
+
+fn import_visibility(visibility: &Visibility, declaring_module: &[String]) -> Vec<String> {
+    match visibility {
+        Visibility::Public(_) => Vec::new(),
+        Visibility::Inherited => declaring_module.to_vec(),
+        Visibility::Restricted(restricted) => {
+            restricted_visibility_scope(&restricted.path, declaring_module)
+                .unwrap_or_else(|| declaring_module.to_vec())
+        }
     }
 }
 
@@ -154,7 +241,7 @@ fn collect_use_tree(
     current_module: &[String],
     mut prefix: Vec<String>,
     anchored: bool,
-    visibility: ImportVisibility,
+    visible_from: Vec<String>,
     imports: &mut ImportReachability,
 ) {
     match tree {
@@ -180,6 +267,8 @@ fn collect_use_tree(
                         anchored = true;
                     }
                 }
+            } else if segment == "super" {
+                prefix.pop();
             } else if segment != "self" {
                 prefix.push(segment);
             }
@@ -188,7 +277,7 @@ fn collect_use_tree(
                 current_module,
                 prefix,
                 anchored,
-                visibility,
+                visible_from,
                 imports,
             );
         }
@@ -204,7 +293,7 @@ fn collect_use_tree(
                 .or_default()
                 .insert(ImportPath {
                     path: prefix,
-                    visibility,
+                    visible_from,
                 });
         }
         UseTree::Rename(rename) => {
@@ -218,13 +307,13 @@ fn collect_use_tree(
                 .or_default()
                 .insert(ImportPath {
                     path: prefix,
-                    visibility,
+                    visible_from,
                 });
         }
         UseTree::Glob(_) => {
             imports.glob_modules.insert(ImportPath {
                 path: prefix,
-                visibility,
+                visible_from,
             });
         }
         UseTree::Group(group) => {
@@ -234,7 +323,7 @@ fn collect_use_tree(
                     current_module,
                     prefix.clone(),
                     anchored,
-                    visibility,
+                    visible_from.clone(),
                     imports,
                 );
             }
@@ -260,7 +349,7 @@ fn collect_glob_candidates(
         return;
     };
     for glob in &imports.glob_modules {
-        if import_is_visible(glob, module, requester) {
+        if import_is_visible(glob, requester) {
             collect_glob_candidates(
                 requester,
                 &glob.path,
@@ -273,10 +362,6 @@ fn collect_glob_candidates(
     }
 }
 
-fn import_is_visible(
-    import: &ImportPath,
-    declaring_module: &[String],
-    requester: &[String],
-) -> bool {
-    import.visibility == ImportVisibility::Crate || requester.starts_with(declaring_module)
+fn import_is_visible(import: &ImportPath, requester: &[String]) -> bool {
+    requester.starts_with(&import.visible_from)
 }

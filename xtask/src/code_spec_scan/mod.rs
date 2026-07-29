@@ -17,10 +17,13 @@ mod universe;
 
 #[cfg(test)]
 pub use cargo_universe::discover_cargo_targets;
-pub use model::{RustFact, RustScan};
+pub use model::{ModuleGraph, RustFact, RustScan};
 #[cfg(test)]
 pub use module_graph::scan_source_topology;
-pub use module_graph::{scan_crate_root_module_graph, scan_module_graph, scan_source_topologies};
+pub use module_graph::{
+    scan_crate_root_module_graph, scan_crate_root_module_graph_including_tests, scan_module_graph,
+    scan_source_topologies,
+};
 pub use rust_extract::extract_rust_source;
 pub use tooling_universe::scan_tooling_rust_universe;
 pub use universe::scan_rust_universe;

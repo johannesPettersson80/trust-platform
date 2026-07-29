@@ -57,12 +57,28 @@ named, same-file function or function-valued variable that is reachable from
 the callback. Local helper traversal is recursive, visits each helper at most
 once, and de-duplicates an assertion by its stable assertion identity.
 
-Imported product functions and ambiguous same-name declarations are not
-treated as assertion helpers. An unresolved call whose name claims to assert
-remains visible in `unresolved_assertion_helpers`; the extractor must not infer
-its oracle. This closure establishes static assertion reachability only. It
-does not prove that the test executed or that an assertion is adequate for a
-product invariant.
+For a Rust integration or unit test, the inventory begins at the exact
+`#[test]` function in the owning Cargo target. Unit-test extraction resolves
+the target that owns the selected source, loads its complete module graph
+including `cfg(test)` sources, and binds every participating source digest.
+Reachable test-only helpers may cross source files through function-local or
+module-level named imports, glob imports, and transitive re-exports. Resolution
+honors private, public, `pub(crate)`, `pub(self)`, `pub(super)`, and
+`pub(in path)` scopes and remains cycle-safe and ambiguity-preserving.
+
+Ordinary imported product functions are not traversed as test-oracle helpers.
+A same-source production helper may contribute its direct assertion macros,
+but production method calls, runtime file observations, and further product
+calls do not become delegated test assertions. Dynamic file reads reached in
+the test-only closure remain explicit `unresolved-oracle` facts until closed
+generated-path provenance or immutable repository input authority is proven.
+
+Imported product functions, ambiguous same-name declarations, and unresolved
+calls whose names claim to assert are never inferred as proof. They remain
+visible in `unresolved_assertion_helpers` when no exact target can be resolved.
+This closure establishes static assertion reachability only. It does not prove
+that the test executed or that an assertion is adequate for a product
+invariant.
 
 ## Exact VS Code execution evidence
 

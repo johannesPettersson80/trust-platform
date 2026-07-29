@@ -74,10 +74,12 @@ Target release: `v0.24.60`
 - Debug breakpoints now emit at most one stop per breakpoint identity within a
   runtime scan, preventing overlapping debug-map entries from repeatedly
   stopping the same scan while preserving breakpoint re-hits on later scans.
-- Verification assertion extraction now follows visibility-valid transitive
-  Rust glob re-exports while keeping private sibling imports, private target
-  functions, and ambiguous targets unresolved; WASM parity fixtures are
-  compile-time bound into the reviewed oracle digest closure.
+- Verification assertion extraction now selects the owning Rust Cargo target,
+  includes `cfg(test)` module sources, and follows visibility-valid local,
+  named, glob, restricted, and transitive re-exports while keeping ordinary
+  product execution and ambiguous targets outside delegated test proof; WASM
+  parity fixtures remain compile-time bound into the reviewed oracle digest
+  closure.
 - Runtime bytecode documentation now matches the executable STBC 1.1 opcode
   set and specifies source-to-section, resource/process-image, variable
   metadata, and validation contracts used by the existing encoder and runtime.

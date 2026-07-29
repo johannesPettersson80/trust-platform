@@ -11,7 +11,7 @@ use super::cfg_policy::is_test_only;
 use super::model::{ModuleGraph, RustSourceUnit};
 
 pub fn scan_module_graph(root: &Path, source_root: &Path, module: &str) -> Result<ModuleGraph> {
-    scan_module_graph_with_directory(root, source_root, module, None).map(|result| result.0)
+    scan_module_graph_with_directory(root, source_root, module, None, false).map(|result| result.0)
 }
 
 pub fn scan_crate_root_module_graph(
@@ -24,6 +24,22 @@ pub fn scan_crate_root_module_graph(
         source_root,
         module,
         source_root.parent().map(Path::to_path_buf),
+        false,
+    )
+    .map(|result| result.0)
+}
+
+pub fn scan_crate_root_module_graph_including_tests(
+    root: &Path,
+    source_root: &Path,
+    module: &str,
+) -> Result<ModuleGraph> {
+    scan_module_graph_with_directory(
+        root,
+        source_root,
+        module,
+        source_root.parent().map(Path::to_path_buf),
+        true,
     )
     .map(|result| result.0)
 }
@@ -82,7 +98,8 @@ pub fn scan_source_topologies(
     if selected_relatives.len() != selected_paths.len() {
         anyhow::bail!("selected Rust topology paths must be unique")
     }
-    let (graph, topology) = scan_module_graph_with_directory(root, source_root, module, None)?;
+    let (graph, topology) =
+        scan_module_graph_with_directory(root, source_root, module, None, false)?;
     Ok(selected_relatives
         .into_iter()
         .map(|selected_relative| {
@@ -113,6 +130,7 @@ fn scan_module_graph_with_directory(
     source_root: &Path,
     module: &str,
     module_dir: Option<PathBuf>,
+    include_test_sources: bool,
 ) -> Result<(ModuleGraph, Vec<SourceTopologyBinding>)> {
     let canonical_root = root.canonicalize().context("canonicalize code-spec root")?;
     let mut scanner = ModuleScanner {
@@ -123,6 +141,7 @@ fn scan_module_graph_with_directory(
         test_only_sources: BTreeSet::new(),
         diagnostics: Vec::new(),
         topology: Vec::new(),
+        include_test_sources,
     };
     scanner.scan_file(source_root, module, module_dir, false, Vec::new());
     scanner
@@ -130,16 +149,20 @@ fn scan_module_graph_with_directory(
         .sort_by(|left, right| (&left.path, &left.module).cmp(&(&right.path, &right.module)));
     scanner.diagnostics.sort();
     scanner.diagnostics.dedup();
-    let production_paths = scanner
-        .sources
-        .iter()
-        .map(|source| source.path.clone())
-        .collect::<BTreeSet<_>>();
-    let test_only_sources = scanner
-        .test_only_sources
-        .into_iter()
-        .filter(|path| !production_paths.contains(path))
-        .collect();
+    let test_only_sources = if include_test_sources {
+        scanner.test_only_sources.into_iter().collect::<Vec<_>>()
+    } else {
+        let production_paths = scanner
+            .sources
+            .iter()
+            .map(|source| source.path.clone())
+            .collect::<BTreeSet<_>>();
+        scanner
+            .test_only_sources
+            .into_iter()
+            .filter(|path| !production_paths.contains(path))
+            .collect::<Vec<_>>()
+    };
     scanner.topology.sort();
     scanner.topology.dedup();
     Ok((
@@ -160,6 +183,7 @@ struct ModuleScanner<'a> {
     test_only_sources: BTreeSet<String>,
     diagnostics: Vec<String>,
     topology: Vec<SourceTopologyBinding>,
+    include_test_sources: bool,
 }
 
 impl ModuleScanner<'_> {
@@ -207,7 +231,8 @@ impl ModuleScanner<'_> {
         }
         if test_only {
             self.test_only_sources.insert(relative.clone());
-        } else {
+        }
+        if !test_only || self.include_test_sources {
             self.sources.push(RustSourceUnit {
                 path: relative.clone(),
                 module: module.to_string(),
@@ -216,7 +241,7 @@ impl ModuleScanner<'_> {
         let source = match fs::read_to_string(&canonical) {
             Ok(source) => source,
             Err(error) => {
-                if !test_only {
+                if !test_only || self.include_test_sources {
                     self.diagnostics
                         .push(format!("unreadable Rust source {relative}: {error}"));
                 }
@@ -226,7 +251,7 @@ impl ModuleScanner<'_> {
         let file = match syn::parse_file(&source) {
             Ok(file) => file,
             Err(error) => {
-                if !test_only {
+                if !test_only || self.include_test_sources {
                     self.diagnostics
                         .push(format!("unsupported Rust syntax in {relative}: {error}"));
                 }
@@ -328,11 +353,11 @@ impl ModuleScanner<'_> {
             .collect::<Vec<_>>();
         match existing.as_slice() {
             [path] => self.scan_file(path, child_module, None, test_only, topology_paths.to_vec()),
-            [] if !test_only => self.diagnostics.push(format!(
+            [] if !test_only || self.include_test_sources => self.diagnostics.push(format!(
                 "unresolved module {child_module} from {}",
                 display_path(self.root, current_file)
             )),
-            _ if !test_only => self.diagnostics.push(format!(
+            _ if !test_only || self.include_test_sources => self.diagnostics.push(format!(
                 "multiply-resolved module {child_module} from {}",
                 display_path(self.root, current_file)
             )),
@@ -366,7 +391,7 @@ impl ModuleScanner<'_> {
                     topology_paths.to_vec(),
                 );
             }
-            Err(_) if !test_only => self.diagnostics.push(format!(
+            Err(_) if !test_only || self.include_test_sources => self.diagnostics.push(format!(
                 "unsupported include! expression in {}: {}",
                 display_path(self.root, current_file),
                 item.mac.tokens.to_token_stream()
