@@ -3624,16 +3624,6 @@ catalog_test_id = "TEST_AUTO_14BC1CE4E9E9F95209A4"
 last_reviewed = "2026-07-26"
 
 [[reviews]]
-discovery_id = "DISC_14C879F39AC65611F817"
-discovery_source_kind = "structured_text_test"
-path = "crates/trust-runtime/tests/fixtures/oscat/negative_public_surface/src/tests.st"
-name = "oscat_negative_public_surface"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "not_catalogable_product_oracle"
-last_reviewed = "2026-07-27"
-
-[[reviews]]
 discovery_id = "DISC_150C5F31955DE2E77E2D"
 discovery_source_kind = "vscode_test"
 path = "editors/vscode/src/test/suite/ladder-editor-ops.test.ts"
@@ -6994,16 +6984,6 @@ reason_code = "not_catalogable_product_oracle"
 last_reviewed = "2026-07-26"
 
 [[reviews]]
-discovery_id = "DISC_277B1E3ECB7578728A7B"
-discovery_source_kind = "structured_text_test"
-path = "crates/trust-runtime/tests/fixtures/plcopen_motion/coordinated_motion_negative_deferred_public_surface/src/tests.st"
-name = "plcopen_motion_coordinated_motion_deferred_public_surface_is_absent"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "not_catalogable_product_oracle"
-last_reviewed = "2026-07-27"
-
-[[reviews]]
 discovery_id = "DISC_2783C316D82A0848BAF3"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/initializer_architecture.rs"
@@ -9482,16 +9462,6 @@ ignore_state = "not_ignored"
 disposition = "catalog_mapped"
 catalog_test_id = "TEST_AUTO_344B0884C064AD660CED"
 last_reviewed = "2026-07-26"
-
-[[reviews]]
-discovery_id = "DISC_346BB29CCAA752BB63BD"
-discovery_source_kind = "structured_text_test"
-path = "crates/trust-runtime/tests/fixtures/plcopen_motion/homing_negative_deferred_public_surface/src/tests.st"
-name = "plcopen_motion_homing_deferred_public_surface_is_absent"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "not_catalogable_product_oracle"
-last_reviewed = "2026-07-27"
 
 [[reviews]]
 discovery_id = "DISC_3470D15CD11D722E8027"
@@ -18054,16 +18024,6 @@ catalog_test_id = "TEST_AUTO_68DA65888D7C2439D11F"
 last_reviewed = "2026-07-26"
 
 [[reviews]]
-discovery_id = "DISC_68F811AD03D9E9630BBF"
-discovery_source_kind = "structured_text_test"
-path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_negative_transition_vel_zero/src/tests.st"
-name = "plcopen_motion_single_axis_negative_transition_vel_zero"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "not_catalogable_product_oracle"
-last_reviewed = "2026-07-27"
-
-[[reviews]]
 discovery_id = "DISC_68F815D41F8F071CF379"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs"
@@ -20984,16 +20944,6 @@ catalog_test_id = "TEST_RUNTIME_VERSIONED_DEPLOY_DEPLOY_COPIES_ENABLED_PROTOCOL_
 last_reviewed = "2026-07-23"
 
 [[reviews]]
-discovery_id = "DISC_7A2CB667ED84A152C014"
-discovery_source_kind = "structured_text_test"
-path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_negative_group_label/src/tests.st"
-name = "plcopen_motion_single_axis_negative_group_label"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "not_catalogable_product_oracle"
-last_reviewed = "2026-07-27"
-
-[[reviews]]
 discovery_id = "DISC_7A2D118AB75A3D4305F9"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/bin/trust-runtime/config_ui.rs"
@@ -22894,16 +22844,6 @@ catalog_test_id = "TEST_AUTO_86419F8A4B09368E6ABB"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
-discovery_id = "DISC_86494BA1EAA94FE694AA"
-discovery_source_kind = "structured_text_test"
-path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_negative_deferred_public_surface/src/tests.st"
-name = "plcopen_motion_single_axis_deferred_public_fbs_are_absent"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "not_catalogable_product_oracle"
-last_reviewed = "2026-07-27"
-
-[[reviews]]
 discovery_id = "DISC_864A8087002B21079481"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-hir/tests/semantic_scope.rs"
@@ -23632,16 +23572,6 @@ ignore_state = "not_ignored"
 disposition = "catalog_mapped"
 catalog_test_id = "TEST_AUTO_8A5177A2CAABE2525469"
 last_reviewed = "2026-07-26"
-
-[[reviews]]
-discovery_id = "DISC_8A532A8654EA2567E64D"
-discovery_source_kind = "structured_text_test"
-path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_negative_power_enable_split/src/tests.st"
-name = "plcopen_motion_single_axis_negative_power_enable_split"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "not_catalogable_product_oracle"
-last_reviewed = "2026-07-27"
 
 [[reviews]]
 discovery_id = "DISC_8A5B38193F3984D765B5"
@@ -27152,16 +27082,6 @@ ignore_state = "not_ignored"
 disposition = "catalog_mapped"
 catalog_test_id = "TEST_ADS_CLIENT_WORKER_CACHE_INTEGRITY_NOTIFY_BINDING_RESUBSCRIBES_AFTER_SYMBOL_VERSION_CHANGE_001"
 last_reviewed = "2026-07-23"
-
-[[reviews]]
-discovery_id = "DISC_9EF2D37CA6E7DE6E97D2"
-discovery_source_kind = "structured_text_test"
-path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_negative_transition_vel_next/src/tests.st"
-name = "plcopen_motion_single_axis_negative_transition_vel_next"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "not_catalogable_product_oracle"
-last_reviewed = "2026-07-27"
 
 [[reviews]]
 discovery_id = "DISC_9EFAA9ABCB79F54A1627"
@@ -36364,16 +36284,6 @@ reason_code = "assertion_oracle_unresolved"
 last_reviewed = "2026-07-26"
 
 [[reviews]]
-discovery_id = "DISC_D48517ABAE500DF29D18"
-discovery_source_kind = "structured_text_test"
-path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_negative_public_surface/src/tests.st"
-name = "plcopen_motion_single_axis_negative_public_surface"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "not_catalogable_product_oracle"
-last_reviewed = "2026-07-27"
-
-[[reviews]]
 discovery_id = "DISC_D49FE0224AAC6E84626F"
 discovery_source_kind = "vscode_test"
 path = "editors/vscode/src/test/suite/ux-shell-contract.test.ts"
@@ -43352,16 +43262,6 @@ ignore_state = "not_ignored"
 disposition = "catalog_mapped"
 catalog_test_id = "TEST_RUNTIME_SCHEMA_REJECTS_DUPLICATE_REALTIME_CPU_AFFINITY_001"
 last_reviewed = "2026-07-22"
-
-[[reviews]]
-discovery_id = "DISC_FB8A8871D2132A36C266"
-discovery_source_kind = "structured_text_test"
-path = "crates/trust-runtime/tests/fixtures/plcopen_motion/synchronization_negative_deferred_public_surface/src/tests.st"
-name = "plcopen_motion_synchronization_deferred_public_surface_is_absent"
-ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "not_catalogable_product_oracle"
-last_reviewed = "2026-07-27"
 
 [[reviews]]
 discovery_id = "DISC_FB97F87B230CB3AAE6BE"

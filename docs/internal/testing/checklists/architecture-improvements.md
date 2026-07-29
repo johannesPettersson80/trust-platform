@@ -312,3 +312,12 @@ Issue #51 init benchmark baseline evidence (2026-04-28):
   inventories in the frozen remaining population have zero unresolved
   helpers, and `verification-code-spec-coverage.puml` records the classifier
   boundary.
+- [x] `ARCH-VERIF-P18-13` Keep ST discovery and compile validation distinct:
+  list mode remains discovery-only, an explicit filter with no matches remains
+  an empty execution, and an unfiltered project with no test POU compiles before
+  reporting zero tests. Compile-negative OSCAT and PLCopen inputs therefore use
+  ordinary `PROGRAM` declarations and remain owned by source-bound Rust
+  contracts instead of appearing as assertion-empty ST test identities.
+  Evidence: the focused runner, OSCAT, and PLCopen contracts pass on
+  `trust-builder`; `system-architecture.puml` records the compile-before-empty
+  execution boundary.

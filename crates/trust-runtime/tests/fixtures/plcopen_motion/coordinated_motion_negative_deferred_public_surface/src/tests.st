@@ -1,4 +1,4 @@
-TEST_PROGRAM plcopen_motion_coordinated_motion_deferred_public_surface_is_absent
+PROGRAM plcopen_motion_coordinated_motion_deferred_public_surface_is_absent
 VAR
     MoveCircularAbsolute : MC_MoveCircularAbsolute;
     MoveCircularRelative : MC_MoveCircularRelative;
@@ -31,4 +31,4 @@ VAR
     SyncGroupToAxis : MC_SyncGroupToAxis;
     TrackRotaryTable : MC_TrackRotaryTable;
 END_VAR
-END_TEST_PROGRAM
+END_PROGRAM

@@ -58,6 +58,9 @@ Target release: `v0.24.60`
 
 ### Fixed
 
+- `trust-dev test` now compiles projects that contain no test POU before
+  reporting an empty run, so compile-negative fixtures cannot become false
+  successes merely by using ordinary `PROGRAM` declarations.
 - HIR and runtime timer registration now support the IEC 61131-3 Table 46
   `TP_TIME`, `TON_TIME`, and `TOF_TIME` names with fixed TIME `PT`/`ET`
   signatures and the same scan-step behavior as their overloaded base forms.

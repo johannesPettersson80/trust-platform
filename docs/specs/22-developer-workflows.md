@@ -126,6 +126,12 @@ initial values, so state written by one test case is not inherited by the next.
 Shared discovery, compilation, and runtime preparation occur outside the
 per-case execution deadline; that deadline begins immediately before the
 selected case is invoked.
+
+Execution mode also compiles the complete project when discovery finds no test
+POU. An invalid project therefore fails visibly instead of being reported as a
+successful empty test run. Listing remains discovery-only, and an explicit
+filter that matches none of the discovered tests does not execute or compile a
+test case.
 The selected declaration is then invoked at its own boundary:
 `TEST_PROGRAM` as a program and `TEST_FUNCTION_BLOCK` as a function-block
 instance.

@@ -44,10 +44,14 @@ fn trust_dev_subcommand_help_is_stable() {
 fn oscat_replaced_upstream_name_remains_absent() {
     let project = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../trust-runtime/tests/fixtures/oscat/negative_public_surface");
-    let sentinel = include_str!(
+    let main_source = include_str!(
         "../../trust-runtime/tests/fixtures/oscat/negative_public_surface/src/main.st"
     );
-    assert!(sentinel.contains("OVERRIDE("));
+    let compile_fixture_source = include_str!(
+        "../../trust-runtime/tests/fixtures/oscat/negative_public_surface/src/tests.st"
+    );
+    assert!(main_source.contains("OVERRIDE("));
+    assert!(compile_fixture_source.contains("OVERRIDE("));
     let output = trust_dev()
         .args(["test", "--project"])
         .arg(&project)
