@@ -218,11 +218,64 @@ no code-spec finding or identity/semantic refresh item.
 No `just fmt`, `just clippy`, `just test`, `just test-all`, coverage campaign,
 mutation campaign, or final broad gate ran.
 
+## PLCopen contract ownership follow-up
+
+Date: 2026-07-30
+
+The PLCopen interchange contract declarations were subsequently partitioned
+into six flattened ownership files. The exact-path proposal at
+`9a921237a02a6dbb2e558dbc00035745970f1164` therefore replaced the former
+mixed `contracts.rs` group with six singular groups. Each new group was
+reviewed against the complete claim and public contract table of its one
+candidate invariant:
+
+| Source path | Existing invariant | Facts |
+| --- | --- | ---: |
+| `crates/trust-plcopen/src/plcopen/contracts_export.rs` | `PLCO_EXPORT_ADAPTERS_001` | 7 |
+| `crates/trust-plcopen/src/plcopen/contracts_import.rs` | `PLCO_ST_COMPLETE_INTERCHANGE_001` | 3 |
+| `crates/trust-plcopen/src/plcopen/contracts_migration.rs` | `PLCO_MIGRATION_REPORT_AND_EXTENSION_001` | 4 |
+| `crates/trust-plcopen/src/plcopen/contracts_pou.rs` | `PLCO_ST_COMPLETE_INTERCHANGE_001` | 4 |
+| `crates/trust-plcopen/src/plcopen/contracts_profile.rs` | `PLCO_ST_COMPLETE_PROFILE_001` | 2 |
+| `crates/trust-plcopen/src/plcopen/contracts_shims.rs` | `PLCO_VENDOR_LIBRARY_SHIMS_001` | 1 |
+
+All six groups, containing 21 code facts, were accepted. The other 21
+candidate groups were explicitly withheld. Twenty unchanged groups retained
+their prior semantic decisions. The 15-fact
+`crates/trust-plcopen/src/plcopen/shims_metrics.rs` group is now
+mechanically ambiguous between migration-report and vendor-shim authority,
+so it was withheld as `ambiguous_authority`; no path-level guess was made.
+
+The transaction was bound to:
+
+- source report:
+  `sha256:0769732012188541c21c38b90542b3b0f9880403314935a7c706822ede826652`;
+- source proposal:
+  `sha256:3be3854135988312f2bebace20a262d49b7aa176adc22249b59b52ae57a5fd75`;
+- operation-set digest:
+  `sha256:bf75d5a40014fffcf523fcbf409edb94055fb34176b944be9394d681da151685`;
+- reviewed selection:
+  `sha256:615d42b02f5f34ef620367fac3f485740f5365a7324836d51fd4f16b4f8cf444`;
+- application:
+  `sha256:8cb71bec69efcaa38459bba109a672b0414a431794f13c0c7e1e90a0d0bfe82b`.
+
+The live reconstruction accepted six of 27 groups and exactly 21 mappings.
+The code map moved from
+`sha256:70b967c27d0f7e0a34e0ca511073ccff01732fcfdfe2e245f245914104a5056f`
+to
+`sha256:2fb0a259134f02e415fd80b5fe1a213be6f1179c1fbd102f48a0d7aa0c3caf84`.
+The gap ledger moved from
+`sha256:c743e1b16c21d15e5600ce6687c31a67ef2afac02b62559cf56bbd1cc48c1f3b`
+to
+`sha256:da13286bce2567fb7d55cb2eaa1536d42b0572bb4a0f4286a5a3a9d28588dc71`.
+This follow-up specifies only those 21 declarations. It does not select
+numbered authority for `shims_metrics.rs`, catalog the three new contract
+tests, or close any execution, reachability, adequacy, or broad-gate row.
+
 ## Boundary
 
-This batch closes reusable existing specification authority for 356 exact
-code facts only. It does not close `VERIF-P18-003` globally. The remaining
-15,185 `spec_gap` facts, 173 gap-open coverage cells, eleven historical
+These transactions close reusable existing specification authority for 377
+exact code facts only. They do not close `VERIF-P18-003` globally. The
+remaining 15,164 `spec_gap` facts, 173 gap-open coverage cells, eleven historical
 placeholder invariants, missing-test review, execution, bidirectional-chain,
 reachability, mutation, adequacy, environment, candidate, release, and
 independent-review rows remain open.

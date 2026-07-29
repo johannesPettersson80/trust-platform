@@ -317689,9 +317689,21 @@ owner = "developer-tools"
 area = "plcopen_devtools"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#migration-report-and-vendor-extension-contract"
+invariant_ids = ["PLCO_MIGRATION_REPORT_AND_EXTENSION_001"]
+test_ids = [
+  "TEST_AUTO_143454B2FC319D8BA62A",
+  "TEST_AUTO_25F483302A5EF4F26FB0",
+  "TEST_AUTO_301EDA33666512C82363",
+  "TEST_AUTO_831A1BDFCC60EA9890D7",
+  "TEST_AUTO_91CEB1B564AAB5846E55",
+  "TEST_AUTO_AAD54BEEA40B87DE33E6",
+  "TEST_AUTO_ADAC5790426C0B7CA267",
+  "TEST_AUTO_C25C8C90385A10DF98DA",
+  "TEST_AUTO_DB8B3550451ED603EF91",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -317706,9 +317718,16 @@ owner = "developer-tools"
 area = "plcopen_devtools"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#export-adapter-artifact-contract"
+invariant_ids = ["PLCO_EXPORT_ADAPTERS_001"]
+test_ids = [
+  "TEST_AUTO_2E0C4F00C6F5D55A425C",
+  "TEST_AUTO_956052E097086C1F1216",
+  "TEST_AUTO_9D2B8EFC26FB91B93EF1",
+  "TEST_AUTO_D01FB47BC5C8523C52F9",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -317723,9 +317742,16 @@ owner = "developer-tools"
 area = "plcopen_devtools"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#export-adapter-artifact-contract"
+invariant_ids = ["PLCO_EXPORT_ADAPTERS_001"]
+test_ids = [
+  "TEST_AUTO_2E0C4F00C6F5D55A425C",
+  "TEST_AUTO_956052E097086C1F1216",
+  "TEST_AUTO_9D2B8EFC26FB91B93EF1",
+  "TEST_AUTO_D01FB47BC5C8523C52F9",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -317740,9 +317766,22 @@ owner = "developer-tools"
 area = "plcopen_devtools"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#st-complete-interchange-contract"
+invariant_ids = ["PLCO_ST_COMPLETE_INTERCHANGE_001"]
+test_ids = [
+  "TEST_AUTO_04B923076AA8CF91500E",
+  "TEST_AUTO_31ABDD3E296B44F4976F",
+  "TEST_AUTO_59C58D10EEA63CF2DA67",
+  "TEST_AUTO_59F1D40C7F63F81C2A2A",
+  "TEST_AUTO_8DEF54CCCE9994233D00",
+  "TEST_AUTO_BF9E9F0DB4780106B366",
+  "TEST_AUTO_C256D0AA8F2B315BE2DD",
+  "TEST_AUTO_D161A8256FACEA1961D8",
+  "TEST_AUTO_D9822A35CDB64036BFA5",
+  "TEST_AUTO_FB9F285A2AD8FA0A3FAB",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -317757,9 +317796,22 @@ owner = "developer-tools"
 area = "plcopen_devtools"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#st-complete-interchange-contract"
+invariant_ids = ["PLCO_ST_COMPLETE_INTERCHANGE_001"]
+test_ids = [
+  "TEST_AUTO_04B923076AA8CF91500E",
+  "TEST_AUTO_31ABDD3E296B44F4976F",
+  "TEST_AUTO_59C58D10EEA63CF2DA67",
+  "TEST_AUTO_59F1D40C7F63F81C2A2A",
+  "TEST_AUTO_8DEF54CCCE9994233D00",
+  "TEST_AUTO_BF9E9F0DB4780106B366",
+  "TEST_AUTO_C256D0AA8F2B315BE2DD",
+  "TEST_AUTO_D161A8256FACEA1961D8",
+  "TEST_AUTO_D9822A35CDB64036BFA5",
+  "TEST_AUTO_FB9F285A2AD8FA0A3FAB",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -317774,9 +317826,11 @@ owner = "developer-tools"
 area = "plcopen_devtools"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#st-complete-profile-contract"
+invariant_ids = ["PLCO_ST_COMPLETE_PROFILE_001"]
+test_ids = ["TEST_AUTO_28B62203DD44F1A78720", "TEST_AUTO_D1F203125AB5E09674C3"]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -317791,9 +317845,22 @@ owner = "developer-tools"
 area = "plcopen_devtools"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#st-complete-interchange-contract"
+invariant_ids = ["PLCO_ST_COMPLETE_INTERCHANGE_001"]
+test_ids = [
+  "TEST_AUTO_04B923076AA8CF91500E",
+  "TEST_AUTO_31ABDD3E296B44F4976F",
+  "TEST_AUTO_59C58D10EEA63CF2DA67",
+  "TEST_AUTO_59F1D40C7F63F81C2A2A",
+  "TEST_AUTO_8DEF54CCCE9994233D00",
+  "TEST_AUTO_BF9E9F0DB4780106B366",
+  "TEST_AUTO_C256D0AA8F2B315BE2DD",
+  "TEST_AUTO_D161A8256FACEA1961D8",
+  "TEST_AUTO_D9822A35CDB64036BFA5",
+  "TEST_AUTO_FB9F285A2AD8FA0A3FAB",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -317808,9 +317875,22 @@ owner = "developer-tools"
 area = "plcopen_devtools"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#st-complete-interchange-contract"
+invariant_ids = ["PLCO_ST_COMPLETE_INTERCHANGE_001"]
+test_ids = [
+  "TEST_AUTO_04B923076AA8CF91500E",
+  "TEST_AUTO_31ABDD3E296B44F4976F",
+  "TEST_AUTO_59C58D10EEA63CF2DA67",
+  "TEST_AUTO_59F1D40C7F63F81C2A2A",
+  "TEST_AUTO_8DEF54CCCE9994233D00",
+  "TEST_AUTO_BF9E9F0DB4780106B366",
+  "TEST_AUTO_C256D0AA8F2B315BE2DD",
+  "TEST_AUTO_D161A8256FACEA1961D8",
+  "TEST_AUTO_D9822A35CDB64036BFA5",
+  "TEST_AUTO_FB9F285A2AD8FA0A3FAB",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -317825,9 +317905,22 @@ owner = "developer-tools"
 area = "plcopen_devtools"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#st-complete-interchange-contract"
+invariant_ids = ["PLCO_ST_COMPLETE_INTERCHANGE_001"]
+test_ids = [
+  "TEST_AUTO_04B923076AA8CF91500E",
+  "TEST_AUTO_31ABDD3E296B44F4976F",
+  "TEST_AUTO_59C58D10EEA63CF2DA67",
+  "TEST_AUTO_59F1D40C7F63F81C2A2A",
+  "TEST_AUTO_8DEF54CCCE9994233D00",
+  "TEST_AUTO_BF9E9F0DB4780106B366",
+  "TEST_AUTO_C256D0AA8F2B315BE2DD",
+  "TEST_AUTO_D161A8256FACEA1961D8",
+  "TEST_AUTO_D9822A35CDB64036BFA5",
+  "TEST_AUTO_FB9F285A2AD8FA0A3FAB",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -317842,9 +317935,16 @@ owner = "developer-tools"
 area = "plcopen_devtools"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#export-adapter-artifact-contract"
+invariant_ids = ["PLCO_EXPORT_ADAPTERS_001"]
+test_ids = [
+  "TEST_AUTO_2E0C4F00C6F5D55A425C",
+  "TEST_AUTO_956052E097086C1F1216",
+  "TEST_AUTO_9D2B8EFC26FB91B93EF1",
+  "TEST_AUTO_D01FB47BC5C8523C52F9",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -317859,9 +317959,22 @@ owner = "developer-tools"
 area = "plcopen_devtools"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#st-complete-interchange-contract"
+invariant_ids = ["PLCO_ST_COMPLETE_INTERCHANGE_001"]
+test_ids = [
+  "TEST_AUTO_04B923076AA8CF91500E",
+  "TEST_AUTO_31ABDD3E296B44F4976F",
+  "TEST_AUTO_59C58D10EEA63CF2DA67",
+  "TEST_AUTO_59F1D40C7F63F81C2A2A",
+  "TEST_AUTO_8DEF54CCCE9994233D00",
+  "TEST_AUTO_BF9E9F0DB4780106B366",
+  "TEST_AUTO_C256D0AA8F2B315BE2DD",
+  "TEST_AUTO_D161A8256FACEA1961D8",
+  "TEST_AUTO_D9822A35CDB64036BFA5",
+  "TEST_AUTO_FB9F285A2AD8FA0A3FAB",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -317876,9 +317989,16 @@ owner = "developer-tools"
 area = "plcopen_devtools"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#export-adapter-artifact-contract"
+invariant_ids = ["PLCO_EXPORT_ADAPTERS_001"]
+test_ids = [
+  "TEST_AUTO_2E0C4F00C6F5D55A425C",
+  "TEST_AUTO_956052E097086C1F1216",
+  "TEST_AUTO_9D2B8EFC26FB91B93EF1",
+  "TEST_AUTO_D01FB47BC5C8523C52F9",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -317893,9 +318013,21 @@ owner = "developer-tools"
 area = "plcopen_devtools"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#migration-report-and-vendor-extension-contract"
+invariant_ids = ["PLCO_MIGRATION_REPORT_AND_EXTENSION_001"]
+test_ids = [
+  "TEST_AUTO_143454B2FC319D8BA62A",
+  "TEST_AUTO_25F483302A5EF4F26FB0",
+  "TEST_AUTO_301EDA33666512C82363",
+  "TEST_AUTO_831A1BDFCC60EA9890D7",
+  "TEST_AUTO_91CEB1B564AAB5846E55",
+  "TEST_AUTO_AAD54BEEA40B87DE33E6",
+  "TEST_AUTO_ADAC5790426C0B7CA267",
+  "TEST_AUTO_C25C8C90385A10DF98DA",
+  "TEST_AUTO_DB8B3550451ED603EF91",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -317910,9 +318042,21 @@ owner = "developer-tools"
 area = "plcopen_devtools"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#migration-report-and-vendor-extension-contract"
+invariant_ids = ["PLCO_MIGRATION_REPORT_AND_EXTENSION_001"]
+test_ids = [
+  "TEST_AUTO_143454B2FC319D8BA62A",
+  "TEST_AUTO_25F483302A5EF4F26FB0",
+  "TEST_AUTO_301EDA33666512C82363",
+  "TEST_AUTO_831A1BDFCC60EA9890D7",
+  "TEST_AUTO_91CEB1B564AAB5846E55",
+  "TEST_AUTO_AAD54BEEA40B87DE33E6",
+  "TEST_AUTO_ADAC5790426C0B7CA267",
+  "TEST_AUTO_C25C8C90385A10DF98DA",
+  "TEST_AUTO_DB8B3550451ED603EF91",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -317927,9 +318071,16 @@ owner = "developer-tools"
 area = "plcopen_devtools"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#export-adapter-artifact-contract"
+invariant_ids = ["PLCO_EXPORT_ADAPTERS_001"]
+test_ids = [
+  "TEST_AUTO_2E0C4F00C6F5D55A425C",
+  "TEST_AUTO_956052E097086C1F1216",
+  "TEST_AUTO_9D2B8EFC26FB91B93EF1",
+  "TEST_AUTO_D01FB47BC5C8523C52F9",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -317944,9 +318095,21 @@ owner = "developer-tools"
 area = "plcopen_devtools"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#migration-report-and-vendor-extension-contract"
+invariant_ids = ["PLCO_MIGRATION_REPORT_AND_EXTENSION_001"]
+test_ids = [
+  "TEST_AUTO_143454B2FC319D8BA62A",
+  "TEST_AUTO_25F483302A5EF4F26FB0",
+  "TEST_AUTO_301EDA33666512C82363",
+  "TEST_AUTO_831A1BDFCC60EA9890D7",
+  "TEST_AUTO_91CEB1B564AAB5846E55",
+  "TEST_AUTO_AAD54BEEA40B87DE33E6",
+  "TEST_AUTO_ADAC5790426C0B7CA267",
+  "TEST_AUTO_C25C8C90385A10DF98DA",
+  "TEST_AUTO_DB8B3550451ED603EF91",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -317961,9 +318124,22 @@ owner = "developer-tools"
 area = "plcopen_devtools"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#st-complete-interchange-contract"
+invariant_ids = ["PLCO_ST_COMPLETE_INTERCHANGE_001"]
+test_ids = [
+  "TEST_AUTO_04B923076AA8CF91500E",
+  "TEST_AUTO_31ABDD3E296B44F4976F",
+  "TEST_AUTO_59C58D10EEA63CF2DA67",
+  "TEST_AUTO_59F1D40C7F63F81C2A2A",
+  "TEST_AUTO_8DEF54CCCE9994233D00",
+  "TEST_AUTO_BF9E9F0DB4780106B366",
+  "TEST_AUTO_C256D0AA8F2B315BE2DD",
+  "TEST_AUTO_D161A8256FACEA1961D8",
+  "TEST_AUTO_D9822A35CDB64036BFA5",
+  "TEST_AUTO_FB9F285A2AD8FA0A3FAB",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -317978,9 +318154,16 @@ owner = "developer-tools"
 area = "plcopen_devtools"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#export-adapter-artifact-contract"
+invariant_ids = ["PLCO_EXPORT_ADAPTERS_001"]
+test_ids = [
+  "TEST_AUTO_2E0C4F00C6F5D55A425C",
+  "TEST_AUTO_956052E097086C1F1216",
+  "TEST_AUTO_9D2B8EFC26FB91B93EF1",
+  "TEST_AUTO_D01FB47BC5C8523C52F9",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -317995,9 +318178,17 @@ owner = "developer-tools"
 area = "plcopen_devtools"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#vendor-library-shim-contract"
+invariant_ids = ["PLCO_VENDOR_LIBRARY_SHIMS_001"]
+test_ids = [
+  "TEST_AUTO_00B66157915C56E44641",
+  "TEST_AUTO_3BE66B444B69BE64121D",
+  "TEST_AUTO_9F9C54D5425826CC8238",
+  "TEST_AUTO_B114AF6BF1B27DD82EB5",
+  "TEST_AUTO_EC08DF4942B2E64E8495",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -318012,9 +318203,16 @@ owner = "developer-tools"
 area = "plcopen_devtools"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#export-adapter-artifact-contract"
+invariant_ids = ["PLCO_EXPORT_ADAPTERS_001"]
+test_ids = [
+  "TEST_AUTO_2E0C4F00C6F5D55A425C",
+  "TEST_AUTO_956052E097086C1F1216",
+  "TEST_AUTO_9D2B8EFC26FB91B93EF1",
+  "TEST_AUTO_D01FB47BC5C8523C52F9",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -318029,6 +318227,8 @@ owner = "developer-tools"
 area = "plcopen_devtools"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#st-complete-profile-contract"
+invariant_ids = ["PLCO_ST_COMPLETE_PROFILE_001"]
+test_ids = ["TEST_AUTO_28B62203DD44F1A78720", "TEST_AUTO_D1F203125AB5E09674C3"]
+last_reviewed = "2026-07-30"
