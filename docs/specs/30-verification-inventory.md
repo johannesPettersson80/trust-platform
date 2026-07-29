@@ -48,3 +48,32 @@ deterministic and review-locked. It does not:
 IEC product proof requires separate specification, invariant, catalog, oracle,
 execution, and evidence bindings. This governance inventory cannot substitute
 for any of them.
+
+## Reachable assertion-helper closure
+
+For a literal VS Code test, the assertion inventory begins at that test's exact
+callback. It includes direct assertions and assertions in an unambiguously
+named, same-file function or function-valued variable that is reachable from
+the callback. Local helper traversal is recursive, visits each helper at most
+once, and de-duplicates an assertion by its stable assertion identity.
+
+Imported product functions and ambiguous same-name declarations are not
+treated as assertion helpers. An unresolved call whose name claims to assert
+remains visible in `unresolved_assertion_helpers`; the extractor must not infer
+its oracle. This closure establishes static assertion reachability only. It
+does not prove that the test executed or that an assertion is adequate for a
+product invariant.
+
+## Exact VS Code execution evidence
+
+The extension test harness accepts the opt-in
+`TRUST_VSCODE_TEST_GREP` regular expression. A missing or whitespace-only value
+preserves the ordinary unfiltered suite. A configured value selects Mocha test
+full titles and does not change the default `npm test` contract.
+
+When `TRUST_VSCODE_TEST_EVIDENCE` is configured, the harness also requires
+`TRUST_VSCODE_TEST_SOURCE_COMMIT`. At suite completion it atomically writes a
+JSON document containing that source commit, the exact selector, every
+executed full title, pass/fail state, duration, and reconciled totals. This
+artifact proves only the selected extension-host execution; it is not the
+final unfiltered VS Code or repository-wide gate.

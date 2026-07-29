@@ -774,6 +774,27 @@ package, or end-to-end evidence.
   They MUST NOT weaken generated Structured Text semantics, including
   divide-by-zero faults.
 
+#### 11.4.1 Retained component-model locks
+
+The following tests may remain as explicitly non-primary component or
+historical behavior locks:
+
+- the retained Ladder engine locks deterministic component scan order,
+  buffering, topology rejection, supported logical nodes, symbol resolution,
+  and its UI timer/counter projection;
+- the retired embedded Ladder I/O projection locks deterministic symbolic
+  qualification, direct-address canonicalization, pending confirmation, and
+  row replacement;
+- the retained Statechart component locks awaited hardware actions,
+  fail-closed invalid or unreadable guards, bounded request-listener cleanup,
+  and editor-session cleanup;
+- the retired visual runtime controller and panel bridge lock only their
+  message schema, mode/status projection, and action routing.
+
+These locks MUST be labeled as component evidence. They do not authorize a
+visible embedded runtime panel, establish IEC/runtime semantics, or replace
+generated Structured Text execution and rendered extension evidence.
+
 ### 11.5 HMI language-model tools and evidence
 
 - HMI language-model tools validate inputs and cancellation before committing

@@ -29,6 +29,31 @@ last_reviewed = "2026-07-24"
 
 [[tests]]
 schema_version = 2
+id = "TEST_VERIFICATION_ASSERTION_INVENTORY_GATE_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_DACF8592FA71FC6656F2"
+discovery_source_kind = "gate_script"
+test_class = "metadata_validation"
+area = "verification"
+path = "scripts/verification_assertion_inventory_gate.sh"
+name = "verification_assertion_inventory_gate"
+command = "scripts/verification_assertion_inventory_gate.sh"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_ASSERTION_INVENTORY_CLOSURE_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#reachable-assertion-helper-closure"
+expected_result = "TypeScript assertion extraction includes direct and reachable unambiguous same-file helper assertions exactly once without treating imported product calls as proof."
+expected_failure_mode = "An executed local assertion helper is omitted, duplicated, or inferred through an imported or ambiguous product call."
+suite_tiers = ["veryquick", "pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_VERIFICATION_ASSERTION_INVENTORY_GATE_001.json"
+last_reviewed = "2026-07-29"
+mapping_behavior_refs = ["VERIFICATION_ASSERTION_INVENTORY_CLOSURE_001#behavior:0"]
+
+[[tests]]
+schema_version = 2
 id = "TEST_VERIFICATION_P18_ZERO_DEBT_GATE_001"
 subject_kind = "generated_test"
 discovery_id = "DISC_0F77A231E09CE5746803"

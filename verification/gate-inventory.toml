@@ -726,6 +726,28 @@ rationale = "This is the narrow existing control-plane gate; final veryquick rec
 
 [[surfaces]]
 schema_version = 1
+id = "GATE_SCRIPT_VERIFICATION_ASSERTION_INVENTORY"
+discovery_id = "DISC_DACF8592FA71FC6656F2"
+source_kind = "gate_script"
+path = "scripts/verification_assertion_inventory_gate.sh"
+name = "verification_assertion_inventory_gate"
+command = "scripts/verification_assertion_inventory_gate.sh"
+variant = "TypeScript reachable assertion-helper closure"
+command_role = "helper"
+disposition = "supporting"
+suite_ids = ["supporting_local"]
+owner = "verification"
+duration_class = "fast"
+environment = "local_or_ci"
+artifact_kind = "none"
+artifact_paths = []
+artifact_retention = "none"
+enforcement = "supporting"
+required_env = []
+rationale = "The verification metadata gate runs this focused extractor regression suite so reachable same-file assertion helpers remain part of the canonical assertion inventory."
+
+[[surfaces]]
+schema_version = 1
 id = "GATE_SCRIPT_VERIFICATION_REPORT"
 discovery_id = "DISC_C04DF07CD4649EF5B41B"
 source_kind = "gate_script"

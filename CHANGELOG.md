@@ -494,6 +494,13 @@ Target release: `v0.24.60`
 
 ### Added
 
+- The VS Code extension test harness now accepts an opt-in
+  `TRUST_VSCODE_TEST_GREP` regular expression for exact Phase 18 execution
+  campaigns, emits optional commit-bound per-test JSON evidence, and preserves
+  the unfiltered `npm test` default.
+- Verification assertion extraction now follows reachable unambiguous
+  same-file TypeScript helpers with cycle protection and assertion
+  de-duplication instead of leaving executed helper oracles unresolved.
 - verification: add a parser-backed production code-to-spec denominator for
   Rust, shipped TypeScript/JavaScript, and verification tooling, with exact
   reviewed mappings, delete-only debt, machine-resolved risk acknowledgements,

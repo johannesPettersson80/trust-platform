@@ -1,0 +1,86 @@
+schema_version = 1
+id = "VS_CODE_RETAINED_COMPONENT_MODELS_001"
+title = "Retained visual-editor components remain bounded non-primary models"
+area = "editor_safety"
+risk = "wrong_result"
+status = "gap_open"
+owner = "editors-vscode"
+last_reviewed = "2026-07-29"
+claim = "Retained Ladder, Statechart, and visual-runtime components preserve only their reviewed component behavior locks and cannot be treated as shipped runtime or IEC semantic authority."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = [
+  "docs/specs/16-ladder-profile-trust.md",
+  "docs/specs/17-visual-editors-runtime-unification.md",
+  "docs/specs/25-vscode-product-contract.md#1141-retained-component-model-locks",
+  "editors/vscode/src/ladder/ladderEngine.ts",
+  "editors/vscode/src/ladder/ladderEditor.ts",
+  "editors/vscode/src/statechart/stateMachineEngine.ts",
+  "editors/vscode/src/statechart/runtimeClient.ts",
+  "editors/vscode/src/visual/runtime",
+]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_behavior_tests", "focused_execution_evidence", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"
+
+[[behavior]]
+partition = { equals = "LADDER_COMPONENT_EVALUATION_LOCK" }
+case_family = "happy_path"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "The retained Ladder component preserves reviewed scan, buffering, topology, node, symbol, and timer/counter projections without claiming runtime authority."
+
+[[behavior]]
+partition = { equals = "LADDER_LEGACY_IO_PROJECTION_LOCK" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "expected_delta" }
+rationale = "The retired embedded Ladder I/O projection preserves qualification, canonicalization, pending confirmation, and row replacement only as a historical component lock."
+
+[[behavior]]
+partition = { equals = "STATECHART_COMPONENT_LIFECYCLE_LOCK" }
+case_family = "hardware_or_network_fault"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"
+outcome = "reject"
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "status_degraded" }
+rationale = "The retained Statechart component awaits hardware actions, fails closed on invalid or unreadable guards, and cleans request and editor-session resources."
+
+[[behavior]]
+partition = { equals = "VISUAL_RUNTIME_LEGACY_BRIDGE_LOCK" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "expected_delta" }
+rationale = "The retired visual runtime controller and panel bridge preserve only their reviewed message schema, mode/status projection, and action routing."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "The Ladder component assertions await catalog mapping."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "The legacy Ladder I/O assertions await catalog mapping."
+
+[[coverage.cells]]
+dimension = "hardware_or_network_fault"
+state = "gap_open"
+rationale = "The Statechart failure and cleanup assertions await catalog mapping."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "The visual runtime bridge assertions await catalog mapping."

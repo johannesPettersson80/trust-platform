@@ -302,6 +302,60 @@ class MappingAssertionInventoryTests(unittest.TestCase):
             all(assertion["function"] == "assert.strictEqual" for assertion in assertions)
         )
 
+    def test_vscode_inventory_follows_reachable_local_assertion_helpers(self) -> None:
+        root = Path(__file__).resolve().parents[2]
+        hmi_id = "DISC_00000000000000000004"
+        ladder_id = "DISC_00000000000000000005"
+
+        inventories = invoke_vscode_assertion_inventory(
+            root,
+            [
+                {
+                    "discovery_id": hmi_id,
+                    "discovery_source_kind": "vscode_test",
+                    "path": "editors/vscode/src/test/suite/hmi.integration.test.ts",
+                    "name": "descriptor refreshes open panel on hmi toml and svg changes",
+                },
+                {
+                    "discovery_id": ladder_id,
+                    "discovery_source_kind": "vscode_test",
+                    "path": (
+                        "editors/vscode/src/test/suite/"
+                        "ladder-editor-ops.test.ts"
+                    ),
+                    "name": "routes branch edges through split/merge node x positions",
+                },
+            ],
+        )
+
+        hmi = inventories[hmi_id]
+        self.assertGreaterEqual(len(hmi["assertions"]), 2)
+        self.assertEqual([], hmi["unresolved_assertion_helpers"])
+        self.assertTrue(
+            any(
+                assertion["expression"].startswith("assert.ok(predicate()")
+                for assertion in hmi["assertions"]
+            )
+        )
+        self.assertTrue(
+            any(
+                assertion["expression"].startswith("assert.strictEqual(refreshed")
+                for assertion in hmi["assertions"]
+            )
+        )
+
+        ladder = inventories[ladder_id]
+        self.assertEqual(8, len(ladder["assertions"]))
+        self.assertEqual([], ladder["unresolved_assertion_helpers"])
+        self.assertTrue(
+            any(
+                assertion["expression"].startswith(
+                    "assert.strictEqual(edge.points[1].x"
+                )
+                for assertion in ladder["assertions"]
+            )
+        )
+
     def test_conformance_inventory_binds_the_expected_oracle_content(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

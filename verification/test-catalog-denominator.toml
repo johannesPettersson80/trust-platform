@@ -37234,6 +37234,16 @@ catalog_test_id = "TEST_AUTO_DACDD3A6D0D36B117FEA"
 last_reviewed = "2026-07-26"
 
 [[reviews]]
+discovery_id = "DISC_DACF8592FA71FC6656F2"
+discovery_source_kind = "gate_script"
+path = "scripts/verification_assertion_inventory_gate.sh"
+name = "verification_assertion_inventory_gate"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_VERIFICATION_ASSERTION_INVENTORY_GATE_001"
+last_reviewed = "2026-07-29"
+
+[[reviews]]
 discovery_id = "DISC_DAEE09612892723F2F46"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-ads-server/src/listener.rs"
@@ -43862,6 +43872,16 @@ ignore_state = "not_ignored"
 disposition = "catalog_mapped"
 catalog_test_id = "TEST_AUTO_FEC5B699FE0A81B32CDD"
 last_reviewed = "2026-07-26"
+
+[[reviews]]
+discovery_id = "DISC_FECBD2B6CEFEE9FE7DE1"
+discovery_source_kind = "vscode_test"
+path = "editors/vscode/src/test/suite/mocha-selection.test.ts"
+name = "uses an opt-in grep while preserving the unfiltered default"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-29"
 
 [[reviews]]
 discovery_id = "DISC_FEE0FCC8ED6D6FC3B206"

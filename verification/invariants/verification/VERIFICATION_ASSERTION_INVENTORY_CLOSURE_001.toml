@@ -1,0 +1,43 @@
+schema_version = 1
+id = "VERIFICATION_ASSERTION_INVENTORY_CLOSURE_001"
+title = "Assertion inventories close reachable same-file helper oracles"
+area = "verification"
+risk = "silent_corruption"
+status = "mapped"
+owner = "verification"
+last_reviewed = "2026-07-29"
+claim = "TypeScript assertion extraction must include direct and reachable unambiguous same-file helper assertions exactly once without treating imported product calls as proof."
+proof_level = "T1"
+contract_kind = "protocol_trace"
+source_refs = [
+  "docs/specs/30-verification-inventory.md#reachable-assertion-helper-closure",
+  "scripts/verification/test_assertions_ts_scan.mjs",
+  "scripts/verification/mapping_assertions_tests.py",
+  "scripts/verification_assertion_inventory_gate.sh",
+]
+tests = ["TEST_VERIFICATION_ASSERTION_INVENTORY_GATE_001"]
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_VERIFICATION_INVENTORY_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_VERIFICATION_INVENTORY_001#reachable-assertion-helper-closure"
+
+[[behavior]]
+partition = { equals = "REACHABLE_LOCAL_HELPER_ASSERTION_CLOSURE" }
+case_family = "missing_required"
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#reachable-assertion-helper-closure"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The exact test callback closes unambiguous same-file helper calls recursively, de-duplicates stable assertions, and leaves imported product calls outside the oracle closure."
+
+[[coverage.cells]]
+dimension = "missing_required"
+state = "covered"
+rationale = "Focused HMI and Ladder fixtures prove helper reachability, assertion de-duplication, and elimination of the two prior unresolved VS Code helper facts."

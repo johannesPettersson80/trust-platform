@@ -35,6 +35,7 @@ function inventory(test) {
     relative.endsWith(".js") ? ts.ScriptKind.JS : ts.ScriptKind.TS
   );
   const assertionImports = importedAssertionNames(sourceFile);
+  const localCallables = localCallableBodies(sourceFile);
   const matches = [];
   visit(sourceFile, (node) => {
     if (!ts.isCallExpression(node) || !isTestCall(node.expression)) {
@@ -62,8 +63,13 @@ function inventory(test) {
     );
   }
   const assertions = [];
+  const assertionIds = new Set();
   const helpers = new Set();
-  visit(matches[0].body, (node) => {
+  const visitedHelpers = new Set();
+  collectAssertions(matches[0].body);
+
+  function collectAssertions(body) {
+    visit(body, (node) => {
     if (!ts.isCallExpression(node)) {
       return;
     }
@@ -75,6 +81,16 @@ function inventory(test) {
       callee.startsWith("expect.") ||
       assertionImports.has(callee);
     if (!recognized) {
+      if (ts.isIdentifier(node.expression)) {
+        const candidates = localCallables.get(node.expression.text) ?? [];
+        if (candidates.length === 1) {
+          if (!visitedHelpers.has(node.expression.text)) {
+            visitedHelpers.add(node.expression.text);
+            collectAssertions(candidates[0]);
+          }
+          return;
+        }
+      }
       if (/assert/i.test(callee)) {
         helpers.add(callee);
       }
@@ -84,16 +100,21 @@ function inventory(test) {
     const line =
       sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1;
     const expressionDigest = digest(expression);
+    const id = assertionId({
+      path: relative,
+      name: test.name,
+      assertionSourcePath: relative,
+      functionName: callee,
+      kind: `call:${callee}`,
+      line,
+      expressionDigest,
+    });
+    if (assertionIds.has(id)) {
+      return;
+    }
+    assertionIds.add(id);
     assertions.push({
-      assertion_id: assertionId({
-        path: relative,
-        name: test.name,
-        assertionSourcePath: relative,
-        functionName: callee,
-        kind: `call:${callee}`,
-        line,
-        expressionDigest,
-      }),
+      assertion_id: id,
       kind: `call:${callee}`,
       source_path: relative,
       function: callee,
@@ -101,7 +122,8 @@ function inventory(test) {
       expression_digest: expressionDigest,
       expression,
     });
-  });
+    });
+  }
   assertions.sort((left, right) =>
     left.line - right.line ||
     left.function.localeCompare(right.function) ||
@@ -116,6 +138,34 @@ function inventory(test) {
     assertions,
     unresolved_assertion_helpers: [...helpers].sort(),
   };
+}
+
+function localCallableBodies(sourceFile) {
+  const callables = new Map();
+  visit(sourceFile, (node) => {
+    let name;
+    let body;
+    if (ts.isFunctionDeclaration(node) && node.name && node.body) {
+      name = node.name.text;
+      body = node.body;
+    } else if (
+      ts.isVariableDeclaration(node) &&
+      ts.isIdentifier(node.name) &&
+      node.initializer &&
+      (ts.isFunctionExpression(node.initializer) ||
+        ts.isArrowFunction(node.initializer))
+    ) {
+      name = node.name.text;
+      body = node.initializer.body;
+    }
+    if (!name || !body) {
+      return;
+    }
+    const candidates = callables.get(name) ?? [];
+    candidates.push(body);
+    callables.set(name, candidates);
+  });
+  return callables;
 }
 
 function importedAssertionNames(sourceFile) {
