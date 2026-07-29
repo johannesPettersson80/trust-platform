@@ -1408,13 +1408,13 @@ id = "RISK_ACK_231D503859C2C96FCC08D183A08C7D8B93E7A0FFBA2D31D1E5E3A2D0E0039CC3"
 code_id = "CODE_231D503859C2C96FCC08D183A08C7D8B93E7A0FFBA2D31D1E5E3A2D0E0039CC3"
 owner = "trust-runtime"
 area = "bytecode_vm"
-body_digest = "sha256:65c91d400a6745475e0fdf16ba671052308cfbfef38a32beaa438721cbcb41a4"
+body_digest = "sha256:17f72170c1047b37450e2e8debd8231494d8f66aec6aaee57165f875161233c8"
 risk_signals = ["broad_error_suppression", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#bytecode-vm-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -2542,13 +2542,13 @@ id = "RISK_ACK_4F424A4F65177429F8F9432F619C9245BF8BD3CCD90D7616ABCFFDB3980E829F"
 code_id = "CODE_4F424A4F65177429F8F9432F619C9245BF8BD3CCD90D7616ABCFFDB3980E829F"
 owner = "trust-runtime"
 area = "bytecode_vm"
-body_digest = "sha256:a9e6ea138d90e9fa9ba32e81eda367a581a454c55001e69b0519587ce4ae2f58"
+body_digest = "sha256:8d2f46739c551d0d3d5143d897783f7115f0309cabb161c46f94e9eb551f554e"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#bytecode-vm-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -2780,13 +2780,13 @@ id = "RISK_ACK_5BCFA478C6F876A5A91258AA8783288F877D28EC57D07FDB2C12E6065F967F1A"
 code_id = "CODE_5BCFA478C6F876A5A91258AA8783288F877D28EC57D07FDB2C12E6065F967F1A"
 owner = "trust-runtime"
 area = "bytecode_vm"
-body_digest = "sha256:d005862007f19917ed2c2e5cfae8517b5b5d8531ff76cfa1f2ae043ba8267a3f"
+body_digest = "sha256:6d49f4da0802ec5acabd5cb0d531dffa8e5a394bf7d76a873c8fb16f786e4577"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#bytecode-vm-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -2934,13 +2934,13 @@ id = "RISK_ACK_609ABD848DD458D68FF955935BE85FBDFA7B1FC297F7901BD834337A5C488F10"
 code_id = "CODE_609ABD848DD458D68FF955935BE85FBDFA7B1FC297F7901BD834337A5C488F10"
 owner = "trust-runtime"
 area = "bytecode_vm"
-body_digest = "sha256:631bfd6a3f18c8f1afd10376399a7e0cdd4824aed353e759ad8ebf4151b86fdf"
+body_digest = "sha256:b56abc6f5c6378c7af68ae0683e0057222fc73707932451267b264404bb7ea92"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#bytecode-vm-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -4166,13 +4166,13 @@ id = "RISK_ACK_85F06389FFBD3E7D2D52516005EFF9DA5275290A5BBDBD117129CCAD5C51B54E"
 code_id = "CODE_85F06389FFBD3E7D2D52516005EFF9DA5275290A5BBDBD117129CCAD5C51B54E"
 owner = "trust-runtime"
 area = "bytecode_vm"
-body_digest = "sha256:bf9b42a3349f68a3ee2b40dc476530cd04eb9a90f02f068b959146567f5be808"
+body_digest = "sha256:1f453c2edca1a90a7ab28ec994b02083599e7738e93f782b0ca9e6519fe773aa"
 risk_signals = ["broad_error_suppression", "persistence_retain_reload_restart", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#bytecode-vm-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -5776,13 +5776,13 @@ id = "RISK_ACK_C2BE1D2AE04F8EA5656E46A6A2CF89A70AA88F12130E8E57BA08B7767CC66B1B"
 code_id = "CODE_C2BE1D2AE04F8EA5656E46A6A2CF89A70AA88F12130E8E57BA08B7767CC66B1B"
 owner = "trust-runtime"
 area = "bytecode_vm"
-body_digest = "sha256:0502dde56cc3e880956c93a909293c72d53d74b7e6f252c4a3aedd4c79db26f0"
+body_digest = "sha256:d0146a56a0e68ac7f9441b6a3bf97709fed0c8656dd23fe84c04dd0b6b10d273"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#bytecode-vm-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -5860,13 +5860,13 @@ id = "RISK_ACK_C7666ACC317F8F3608E62050F235CF9E5F3EBBFABECBF6968A7D4E6D2E8858FF"
 code_id = "CODE_C7666ACC317F8F3608E62050F235CF9E5F3EBBFABECBF6968A7D4E6D2E8858FF"
 owner = "trust-runtime"
 area = "bytecode_vm"
-body_digest = "sha256:06aaa68ae159f82509298156129c77354599c3147f9321b86bb4a5e3d9684fa6"
+body_digest = "sha256:a10fe7fbbc74267471057ad0ad5c7ff8a0b930ec4324631d89c7fc5925891ac8"
 risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#bytecode-vm-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -6070,13 +6070,13 @@ id = "RISK_ACK_D16385E537727A07A2583C2BB4DCD8B95645884FD5D1F2FFF56485752CCA7D7B"
 code_id = "CODE_D16385E537727A07A2583C2BB4DCD8B95645884FD5D1F2FFF56485752CCA7D7B"
 owner = "trust-runtime"
 area = "bytecode_vm"
-body_digest = "sha256:aa483f0119484c418e98180679beaecf2e9927583eba7954d189505092659a1c"
+body_digest = "sha256:d3ecfe1f358404568dd28b5fb14dd67860af2326862052fc6abd977bea911eed"
 risk_signals = ["persistence_retain_reload_restart", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#bytecode-vm-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -7610,13 +7610,13 @@ id = "RISK_ACK_2A0F5F7753BC490C0C8F73AD3EC384308ACB1D1598D1AE50062579061CAAC829"
 code_id = "CODE_2A0F5F7753BC490C0C8F73AD3EC384308ACB1D1598D1AE50062579061CAAC829"
 owner = "language"
 area = "compiler_iec"
-body_digest = "sha256:b889b846cd8926557789d877ce3aa4dc9eb1a464e41670fe77128b8eebf98d81"
+body_digest = "sha256:0b4fe8c2c521ce9bd374dd2fa31dd526fc96ce3c310e7a7c892d331c2b3f73c3"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#compiler-iec-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "language"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -7666,13 +7666,13 @@ id = "RISK_ACK_2BF9EF8635BB0F1616084836E5B7EF32AB1B1929CE2C942A52F65324927B02B8"
 code_id = "CODE_2BF9EF8635BB0F1616084836E5B7EF32AB1B1929CE2C942A52F65324927B02B8"
 owner = "language"
 area = "compiler_iec"
-body_digest = "sha256:636e7fcd1a8d9389071ca1084d53abd73c960376658a2ab778214f4fb99232f8"
+body_digest = "sha256:816e029aeacc1c8735e04b62bfdaa9bc50bbe597a270f7278b717581078051e2"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#compiler-iec-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "language"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -7792,13 +7792,13 @@ id = "RISK_ACK_3196214AE63794DE58A51823FBF098D7179B7E566BD0ED4FFA3D947EE3D5E109"
 code_id = "CODE_3196214AE63794DE58A51823FBF098D7179B7E566BD0ED4FFA3D947EE3D5E109"
 owner = "language"
 area = "compiler_iec"
-body_digest = "sha256:9191359e0fea7f9ed4529b4c13918419fc87c365e75a4d209c72352fa896df46"
+body_digest = "sha256:2b1de02ed815fb24190f30aa81eb353560a2f32733447810819ccf0b3c821f2b"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#compiler-iec-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "language"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -8478,13 +8478,13 @@ id = "RISK_ACK_534BE9E85F5E35F7DB94E26806CB02C56975DCC00268DF7030ADADDE9FE33E53"
 code_id = "CODE_534BE9E85F5E35F7DB94E26806CB02C56975DCC00268DF7030ADADDE9FE33E53"
 owner = "language"
 area = "compiler_iec"
-body_digest = "sha256:89b6d89c7f24b6e7b07ce0421276379b5e93c71e59c07ddebd81ca1605485935"
+body_digest = "sha256:f459d00c49c624b4513390eb8225e55466a12a006eae5f9e9d99c07b89036981"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#compiler-iec-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "language"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -11460,13 +11460,13 @@ id = "RISK_ACK_E6D2E6312883F002C4538CA625C26B57D0840FDF6B1A912C6B0AE42B2C69420C"
 code_id = "CODE_E6D2E6312883F002C4538CA625C26B57D0840FDF6B1A912C6B0AE42B2C69420C"
 owner = "language"
 area = "compiler_iec"
-body_digest = "sha256:8df0bfeb7e7b303b75767aaff6552b3da69eec56f70058964d45b66e9564088f"
+body_digest = "sha256:ca0df7cfe1f6fc623e0ebe444c4d5276051302d3802b4bd8a1ac00daebedbc54"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#compiler-iec-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "language"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -15814,13 +15814,13 @@ id = "RISK_ACK_41B0247C40EEBEDA67763F2EB5488E57001C0F2F27E64FB133F8E14065582D28"
 code_id = "CODE_41B0247C40EEBEDA67763F2EB5488E57001C0F2F27E64FB133F8E14065582D28"
 owner = "trust-runtime"
 area = "control_security"
-body_digest = "sha256:b0a580f1b14e1533bc9df1df41a400eaa18ba65724ec391584e206b14dffe00a"
+body_digest = "sha256:66e6998fa211bf050adf6862576d8029ca51bf827d908c9369770d90ed605aea"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -16860,20 +16860,6 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_51865FCDAB6D8A86616C0FEB179F359149CDDE01BEC5573912A5C4B2A88EC424"
-code_id = "CODE_51865FCDAB6D8A86616C0FEB179F359149CDDE01BEC5573912A5C4B2A88EC424"
-owner = "trust-runtime"
-area = "control_security"
-body_digest = "sha256:59032653fd5fabb1a7c1682e92ee09103cceaf606899ed81fdeaabfeab5dc071"
-risk_signals = ["filesystem_or_environment", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_519728C6FD7A8DB062572A9C67351FD630ADB827D296B49D5BA2724061AA320B"
 code_id = "CODE_519728C6FD7A8DB062572A9C67351FD630ADB827D296B49D5BA2724061AA320B"
 owner = "trust-runtime"
@@ -17074,13 +17060,13 @@ id = "RISK_ACK_54C9D10EDE00E8BD545B4F2B653BCD0B20D52401F505FC325769852607562F7A"
 code_id = "CODE_54C9D10EDE00E8BD545B4F2B653BCD0B20D52401F505FC325769852607562F7A"
 owner = "trust-runtime"
 area = "control_security"
-body_digest = "sha256:26c6dd329dff4c2cddf303497c5e72bf6d888c577d3fba3a55ff233a3191b914"
+body_digest = "sha256:36f400fe1aab24234290ed4343bdac4418f96aee67b4b3a501514c8652d73404"
 risk_signals = ["filesystem_or_environment", "protocol_response_or_status", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -22740,20 +22726,6 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_B188AB87823E91A710C6DE6A28C9C2193BAC01294B97E4B4DBA9BC44EE6D1485"
-code_id = "CODE_B188AB87823E91A710C6DE6A28C9C2193BAC01294B97E4B4DBA9BC44EE6D1485"
-owner = "trust-runtime"
-area = "control_security"
-body_digest = "sha256:3538a27509dc0d5775d857d9876b2f8458050621f4931926482bd7f1163afaa5"
-risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_B194A5AD3967C45B53C4BC5F5AAE6782B42504F0139B864571636E8846735A53"
 code_id = "CODE_B194A5AD3967C45B53C4BC5F5AAE6782B42504F0139B864571636E8846735A53"
 owner = "trust-runtime"
@@ -24216,20 +24188,6 @@ owner = "trust-runtime"
 area = "control_security"
 body_digest = "sha256:4b3846a1a39c283348df1b063f8af8f9eca604e00c4b0ee579afba5817e2310e"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_C8ECA96CD1FB2654FC37D262768CBF9760446C13A952AD82C0156F2ADF39C728"
-code_id = "CODE_C8ECA96CD1FB2654FC37D262768CBF9760446C13A952AD82C0156F2ADF39C728"
-owner = "trust-runtime"
-area = "control_security"
-body_digest = "sha256:a4b00354b4efe43562a1453d1cf9f12f788583586554b65d08fb447a81e3292b"
-risk_signals = ["protocol_response_or_status", "state_mutation"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-21"
@@ -26048,13 +26006,13 @@ id = "RISK_ACK_E6FFBFD253361EFD7CFA6A43C44C65B249BB8987FD3CE1A8B3C9A41F83B3190E"
 code_id = "CODE_E6FFBFD253361EFD7CFA6A43C44C65B249BB8987FD3CE1A8B3C9A41F83B3190E"
 owner = "trust-runtime"
 area = "control_security"
-body_digest = "sha256:40db127e6298ae9abafa638df2edea0b47b9013ff7103e149346ea02b4e7b946"
+body_digest = "sha256:2f136cb2996ffa1fa26183c0b92cb6564ae4c9169985fb626fe3be71e5d33329"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -26062,13 +26020,13 @@ id = "RISK_ACK_E71D506187C9C45399240682B581F6A6F01A6D0191CF64BECEFDF72D08CF1EF4"
 code_id = "CODE_E71D506187C9C45399240682B581F6A6F01A6D0191CF64BECEFDF72D08CF1EF4"
 owner = "trust-runtime"
 area = "control_security"
-body_digest = "sha256:e4e69202aa11e216b77c8fe02f9e8e604cb4093507361e7f3b85d22e2cf78667"
+body_digest = "sha256:d005413efbe5915af749887164726d4935449e3c0c97b716c8cdb26b180d7d5f"
 risk_signals = ["persistence_retain_reload_restart", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -26328,13 +26286,13 @@ id = "RISK_ACK_EB0C791D1C268F2F1C6E8F8F36581BCF38E9412C7B21219028DA32EB290FAB77"
 code_id = "CODE_EB0C791D1C268F2F1C6E8F8F36581BCF38E9412C7B21219028DA32EB290FAB77"
 owner = "trust-runtime"
 area = "control_security"
-body_digest = "sha256:5e326bdc29c3343b1e9cc0f1a9efd43bdb955942744788b89cf3977229258108"
+body_digest = "sha256:1c18185522902ba8d254b151a42b6e672360aaed425d222cf5b8a3e0b734118e"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -27576,20 +27534,6 @@ owner = "trust-runtime"
 area = "control_security"
 body_digest = "sha256:b342b96c9a22c80354eae203a94cc6c522310df39a3a736ba6988e922670c50f"
 risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_FB9C6E22ACFA7AA8553C1F49BAE83CE23D39C9471F7744C48BAE576A07637A2E"
-code_id = "CODE_FB9C6E22ACFA7AA8553C1F49BAE83CE23D39C9471F7744C48BAE576A07637A2E"
-owner = "trust-runtime"
-area = "control_security"
-body_digest = "sha256:48c3948eae1b53cf7b549efcb67297f9597667d2fa17837bfd9c38e6e4a6850c"
-risk_signals = ["broad_error_suppression"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#control-security-historical-risk-gap"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-21"
@@ -28864,20 +28808,6 @@ owner = "editor"
 area = "editor_safety"
 body_digest = "sha256:05dbeab906332153389c3bdfdc94e1cbbb0108cce677b8f83119d2932ced9d95"
 risk_signals = ["broad_error_suppression"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#editor-safety-historical-risk-gap"
-reviewed_by = "editor"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_146F476ED43B4920EFF836BD40CAE566DE8B502AF50A0AA7236B796DC6EDED28"
-code_id = "CODE_146F476ED43B4920EFF836BD40CAE566DE8B502AF50A0AA7236B796DC6EDED28"
-owner = "editor"
-area = "editor_safety"
-body_digest = "sha256:6b799f72f265ef8b269d1f32b38472583cf52a8d3cfa415500a6e66f603fd49c"
-risk_signals = ["state_mutation"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#editor-safety-historical-risk-gap"
 reviewed_by = "editor"
 reviewed_on = "2026-07-21"
@@ -33034,13 +32964,13 @@ id = "RISK_ACK_5E2E37F3BB26210BA4171EFDD5DAD12D0DE8A9E45C4857E467BE24DAFD8DB641"
 code_id = "CODE_5E2E37F3BB26210BA4171EFDD5DAD12D0DE8A9E45C4857E467BE24DAFD8DB641"
 owner = "editor"
 area = "editor_safety"
-body_digest = "sha256:c8d4c4773f99e9fa20ef43a2083c68734ebe554c7df61cb267929a007debf1a1"
+body_digest = "sha256:f884b6c98851e704b4729a0d33c6c28533d6e37c57ce37430d989559e754f059"
 risk_signals = ["broad_error_suppression", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#editor-safety-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "editor"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -43478,13 +43408,13 @@ id = "RISK_ACK_3393F450C9990C4BC1E8F6A310843133F259A7BB95FEBD40BB6F9D8D8AD507F6"
 code_id = "CODE_3393F450C9990C4BC1E8F6A310843133F259A7BB95FEBD40BB6F9D8D8AD507F6"
 owner = "hmi"
 area = "hmi_ui"
-body_digest = "sha256:4b5056e0f55536410fa3a596bdd0e6968a32be3bf7a5e2cdb79fbbb5a6709ef8"
+body_digest = "sha256:19aa512d1700a091fb94e973327a801b830a132baea77c11f17bdbc1c9c3c7e8"
 risk_signals = ["authorization", "protocol_response_or_status"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#hmi-ui-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "hmi"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -44318,13 +44248,13 @@ id = "RISK_ACK_759FE5D025ED929F570BE5B74F1BF2CE2F9FB9CE8E9B87AEE9A905D2B9C74FB9"
 code_id = "CODE_759FE5D025ED929F570BE5B74F1BF2CE2F9FB9CE8E9B87AEE9A905D2B9C74FB9"
 owner = "hmi"
 area = "hmi_ui"
-body_digest = "sha256:e9d8c0f9a1930728b1dda24d16a5eb5b9b06a7d9731e3916b5691f537fa73a79"
+body_digest = "sha256:8d45c13e147da2ee51963e97ad64f7f5ffb7358b1816d12971398b9c761db199"
 risk_signals = ["authorization", "protocol_response_or_status", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#hmi-ui-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "hmi"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -45074,13 +45004,13 @@ id = "RISK_ACK_B81966989CD0F7231E1EE6057EA156B1BC0A2B8CE39B8F8ABA4960DDB11B33BB"
 code_id = "CODE_B81966989CD0F7231E1EE6057EA156B1BC0A2B8CE39B8F8ABA4960DDB11B33BB"
 owner = "hmi"
 area = "hmi_ui"
-body_digest = "sha256:c385f4994ca225e1be168220cfb8ad8b5c9dabc61fd5050751b4606bb43b5aab"
+body_digest = "sha256:790fd0a9362cfeed94d68553c74189e61030cfcf7780b229e338de49a1b7181b"
 risk_signals = ["authorization", "protocol_response_or_status", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#hmi-ui-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "hmi"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -46474,13 +46404,13 @@ id = "RISK_ACK_2779A7BCE4BA458D30A4FE111C5393B22F166E53A3E1BF22D893231B69DD5D78"
 code_id = "CODE_2779A7BCE4BA458D30A4FE111C5393B22F166E53A3E1BF22D893231B69DD5D78"
 owner = "developer-tools"
 area = "plcopen_devtools"
-body_digest = "sha256:4a61a9a9d85fd87c7c3f3d8165338d475f0ff7a40f00a8b7ea2552951bf5a9c3"
+body_digest = "sha256:ccc461d4d9007e86c4a6a7a92a1cd99ac8b8787a4acacd3941cadc033afa2dd5"
 risk_signals = ["filesystem_or_environment", "persistence_retain_reload_restart", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#plcopen-devtools-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "developer-tools"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -47538,13 +47468,13 @@ id = "RISK_ACK_9D5E6E868CCFF30CFEDFA2DF53CBA3E229999F44E9151D34E34F2939142290FE"
 code_id = "CODE_9D5E6E868CCFF30CFEDFA2DF53CBA3E229999F44E9151D34E34F2939142290FE"
 owner = "developer-tools"
 area = "plcopen_devtools"
-body_digest = "sha256:1595fe4a9d2238b30e5e6f451f785a7e0b99f8cad5b744fd78b796b99248ae3d"
+body_digest = "sha256:2168381b7e99eac1ccb920195fdd5527765878c8b8f309c32833b584c3ba6a0a"
 risk_signals = ["filesystem_or_environment", "persistence_retain_reload_restart", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#plcopen-devtools-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "developer-tools"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -48756,13 +48686,13 @@ id = "RISK_ACK_272A53339228676B6EF5EB600DB44211BD03C04AA630709294202F5FF135E4D8"
 code_id = "CODE_272A53339228676B6EF5EB600DB44211BD03C04AA630709294202F5FF135E4D8"
 owner = "trust-runtime"
 area = "protocols"
-body_digest = "sha256:2fc0c3170f90d29841bcef7a994beb690766fcfd3cf51314d5930cccd25e6eb7"
+body_digest = "sha256:16ee3521acf06f5548fcd7dc5f0bae396d666299b16cfd45b03e21d875980801"
 risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -49064,13 +48994,13 @@ id = "RISK_ACK_3C66AC97368B5303E91589BFD1E8C17F2A315B085B2F9FDDBFF351FAF6C7EF3E"
 code_id = "CODE_3C66AC97368B5303E91589BFD1E8C17F2A315B085B2F9FDDBFF351FAF6C7EF3E"
 owner = "trust-runtime"
 area = "protocols"
-body_digest = "sha256:01d66293bd8b84b56badcfc533ccd1bf67d7324ea0a913a5a29a547002978652"
+body_digest = "sha256:ce3b5e1be857d6f0c8009fafbdee71a472c09fd855bd89ca37acc29b7589d036"
 risk_signals = ["protocol_response_or_status", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -49246,13 +49176,13 @@ id = "RISK_ACK_487C953A8E35DAAD61AF7B301A1CC6039A73CCBE3E34D1401429B1EB41C22F1B"
 code_id = "CODE_487C953A8E35DAAD61AF7B301A1CC6039A73CCBE3E34D1401429B1EB41C22F1B"
 owner = "trust-runtime"
 area = "protocols"
-body_digest = "sha256:479542941afa74cd897f8b1969b28400cad4c767a4ab7f0dea34c6f7697f2a4d"
+body_digest = "sha256:01bbf95102aea3a41b92a1f9f1667e06a5216d94a71c7c7b51c8017af33e8fa1"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -49288,13 +49218,13 @@ id = "RISK_ACK_4C1ADF2637BC61AA4A95D9A83039110D7D70C74786AF0F253672E3FB36B4609F"
 code_id = "CODE_4C1ADF2637BC61AA4A95D9A83039110D7D70C74786AF0F253672E3FB36B4609F"
 owner = "trust-runtime"
 area = "protocols"
-body_digest = "sha256:a809f7ba28c3ea8bfcb11a77b9b827ffd578c3e18d2877064a00449c5bd9a795"
+body_digest = "sha256:2b31ead7a86e2c8c1e63dcff4b5dea8d104091fda0c2d842e323a18308201c9e"
 risk_signals = ["protocol_response_or_status", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -49330,13 +49260,13 @@ id = "RISK_ACK_4FBD83863C88F1958712784882FD3E0ED552958D2D36E2EEC1E99665F1D56DC4"
 code_id = "CODE_4FBD83863C88F1958712784882FD3E0ED552958D2D36E2EEC1E99665F1D56DC4"
 owner = "trust-runtime"
 area = "protocols"
-body_digest = "sha256:7e92e46e9df1d085c57039da5500f0d473a1ff71349a843e192524b31d1ef06e"
-risk_signals = ["fault_mapping", "state_mutation"]
-review_ref = "docs/specs/11-runtime-engine.md#ads-onboarding-live-wire-and-guarded-write-recovery"
+body_digest = "sha256:cd986167cdd1f28f44833bf64cf850593e7a0b27c432838613ef5a92f175a140"
+risk_signals = ["fault_mapping"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-22"
-expires_on = "2026-10-22"
-rationale = "Binds scanner-derived ADS live-wire and deterministic mock facts to endpoint identity, fail-closed value handling, and guarded-write restoration rules."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -49778,13 +49708,13 @@ id = "RISK_ACK_678F4B92BDF7D1F7DCF44CDAF10011FAB78EA74147B1203B38BFED35EFBF47CD"
 code_id = "CODE_678F4B92BDF7D1F7DCF44CDAF10011FAB78EA74147B1203B38BFED35EFBF47CD"
 owner = "trust-runtime"
 area = "protocols"
-body_digest = "sha256:5ca77f6c45bac83226634e41dfa6d1ea324ffbb9dbcf938959e34ca8d3ad0968"
+body_digest = "sha256:123ad96d7981590a2d36d3537b9a98796011cec67574c087d94557e5e0c8fb04"
 risk_signals = ["fault_mapping", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -50002,13 +49932,13 @@ id = "RISK_ACK_76D6118E7E8FD9D0A4D0EA3965B8569982E4B1EDDCC7D4C46EFE600DF1983353"
 code_id = "CODE_76D6118E7E8FD9D0A4D0EA3965B8569982E4B1EDDCC7D4C46EFE600DF1983353"
 owner = "trust-runtime"
 area = "protocols"
-body_digest = "sha256:ec4ec649d09f5ae6403ebb82da1837203e764ee8c2cb55c7c5a0b505e1117c8c"
+body_digest = "sha256:47e64b97fba29efae2f66346ab741383c18ee314f48aa8c4367428c77e90d446"
 risk_signals = ["protocol_response_or_status"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -51038,13 +50968,13 @@ id = "RISK_ACK_B1D6C6EB87B545CFBB9661B68BEEF0EB0E39CF1CC699CD39068C33D35E2AFB6C"
 code_id = "CODE_B1D6C6EB87B545CFBB9661B68BEEF0EB0E39CF1CC699CD39068C33D35E2AFB6C"
 owner = "trust-runtime"
 area = "protocols"
-body_digest = "sha256:373c6ff808b95b26c4c20027ee30b482ffd9d1252edbdebfeee845d9d79ed4c4"
+body_digest = "sha256:77f0d68bd78afe64b0101f4dd3ff22b1bdd8cde0cc6f5cef371648fdf66d8796"
 risk_signals = ["protocol_response_or_status", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -51388,13 +51318,13 @@ id = "RISK_ACK_C5CFB1F9BDBCC93278957CC832FB02F418497544F53D4481861E6D21FB6E11DE"
 code_id = "CODE_C5CFB1F9BDBCC93278957CC832FB02F418497544F53D4481861E6D21FB6E11DE"
 owner = "trust-runtime"
 area = "protocols"
-body_digest = "sha256:354d6e1c92c3801537efb15afa1b78f390d0c1bd4813a2b512800b32842d20b1"
+body_digest = "sha256:884d9982f20a1bd319a4b59a74e3d75ce201dba63789b4dafd98596f903bf7c5"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -51556,13 +51486,13 @@ id = "RISK_ACK_CE1F23F457D28ED960A4DC203B7DA2D9E32FD6BB80F0BE74CAB3901218F7C4FC"
 code_id = "CODE_CE1F23F457D28ED960A4DC203B7DA2D9E32FD6BB80F0BE74CAB3901218F7C4FC"
 owner = "trust-runtime"
 area = "protocols"
-body_digest = "sha256:1cfad5d6d66c9edc5b7faae8720803e14ceeb667121e2b100f874514a23a5420"
+body_digest = "sha256:bf0324dcc0c346213545bf498cc6e4bc0490920cc605f2e7a973bb8600b85362"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -51850,13 +51780,13 @@ id = "RISK_ACK_DE8406DEB4E8F2FB305D33AB345D1A4057AF38D5EC552D860909613B237F8BE2"
 code_id = "CODE_DE8406DEB4E8F2FB305D33AB345D1A4057AF38D5EC552D860909613B237F8BE2"
 owner = "trust-runtime"
 area = "protocols"
-body_digest = "sha256:cf2440cc67915ce72f286ded254467bf46fab55653ae3e62b01286f0cb3d3d87"
+body_digest = "sha256:143772d8234303a7f4b5339d0b9a049d2b6eaa3a3d95a131022b20834e7186f2"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#protocols-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -52798,20 +52728,6 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_034154731CFDA15C829EB8648F65BA68DBE7E9CB14898B84FC217E35C3DE1111"
-code_id = "CODE_034154731CFDA15C829EB8648F65BA68DBE7E9CB14898B84FC217E35C3DE1111"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:537ead533ebcee0a74979c8a9261a72bad07bc0087b1c18dfab5e0f2abf3c223"
-risk_signals = ["filesystem_or_environment", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_0353F88E6F6561144DB01136B59053D5770D2F1320C400EEE3866E14621EB44B"
 code_id = "CODE_0353F88E6F6561144DB01136B59053D5770D2F1320C400EEE3866E14621EB44B"
 owner = "trust-runtime"
@@ -53208,13 +53124,21 @@ id = "RISK_ACK_11259AAA569CC3F26F20FC65D0DDBB8E7F3031FCBCD65A814F92DAEDC0CC5FCF"
 code_id = "CODE_11259AAA569CC3F26F20FC65D0DDBB8E7F3031FCBCD65A814F92DAEDC0CC5FCF"
 owner = "trust-runtime"
 area = "runtime_safety"
-body_digest = "sha256:bd41b3e26e643914d27b9caf70a9101a660596ea12e724478da128b19e67832f"
-risk_signals = ["broad_error_suppression", "fault_mapping", "host_time", "persistence_retain_reload_restart", "protocol_response_or_status", "state_mutation", "subprocess_or_thread"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
+body_digest = "sha256:d192678dc54b79ffbeb8c950e67c7a4a15341c670d9ec3e8db0289d692267211"
+risk_signals = [
+  "broad_error_suppression",
+  "fault_mapping",
+  "host_time",
+  "persistence_retain_reload_restart",
+  "protocol_response_or_status",
+  "state_mutation",
+  "subprocess_or_thread",
+]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -53292,13 +53216,13 @@ id = "RISK_ACK_137CF3B53D5B173BC693DC9F2369D3961D94A325EDEB369FA88F1F13C6B8AE0C"
 code_id = "CODE_137CF3B53D5B173BC693DC9F2369D3961D94A325EDEB369FA88F1F13C6B8AE0C"
 owner = "trust-runtime"
 area = "runtime_safety"
-body_digest = "sha256:f567f84175d44db44abea3371489dce958db17b0d90648ec6fa57dd89a29b582"
+body_digest = "sha256:42c3a9170697203942d2945b1de47ec296096b6327e74dfd631fe9a5c74ac8e2"
 risk_signals = ["persistence_retain_reload_restart"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -53376,13 +53300,13 @@ id = "RISK_ACK_1961B150BB070ED9267D48240EC0385D07C23791904D6B0976D6973065DDBB1D"
 code_id = "CODE_1961B150BB070ED9267D48240EC0385D07C23791904D6B0976D6973065DDBB1D"
 owner = "trust-runtime"
 area = "runtime_safety"
-body_digest = "sha256:2f7854e2d7bb688caad718e5efc4d2579df157d78adee43b0e69b27e483c6e31"
+body_digest = "sha256:f0d37030fa72130ebf1b3717aa7652c47fc25b04c64a95150871d2a09b3a1601"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -53992,13 +53916,13 @@ id = "RISK_ACK_30FCFA4614FB8656FCE47390E3B1A6CFB4A5E6DA70A45006C385926D76DAE29C"
 code_id = "CODE_30FCFA4614FB8656FCE47390E3B1A6CFB4A5E6DA70A45006C385926D76DAE29C"
 owner = "trust-runtime"
 area = "runtime_safety"
-body_digest = "sha256:d014d10626b17282c8ec755ed1c0232893f54e7efa697fcb1b68ccca3cec4140"
+body_digest = "sha256:2ccd96f735c720f8cc02d0d72b07888f47c8262214b86d7dd376a2060d9c575b"
 risk_signals = ["fault_mapping", "persistence_retain_reload_restart", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -54412,13 +54336,13 @@ id = "RISK_ACK_3D40EF8DCB95DCF398A88273671FAB8A36150B5D291A2A47F1FF3218A0F46CFB"
 code_id = "CODE_3D40EF8DCB95DCF398A88273671FAB8A36150B5D291A2A47F1FF3218A0F46CFB"
 owner = "trust-runtime"
 area = "runtime_safety"
-body_digest = "sha256:7bfcc5fd96bd1f757926e75dcba23ea8285073105820685c12d608bcc8b817b6"
+body_digest = "sha256:7f4282fc02375d0b6f4350a324dcba4b8bdf75817a2164b6c6b8ae7e0e2982a4"
 risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -55108,20 +55032,6 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_556510DB49D222DF913E3C68278E2EA2EC70DDD9EA28386EE7D13E634789FFD1"
-code_id = "CODE_556510DB49D222DF913E3C68278E2EA2EC70DDD9EA28386EE7D13E634789FFD1"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:2f57bfaca82bcedadd1fc50761f12ade3f5c67c0a7c1b07becfea7a2a87e9257"
-risk_signals = ["persistence_retain_reload_restart", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_55D60E1DF0ABAF7E0D171C8B39B1EE6DB9FDED236BB37CE95F94E1013CF8DDB3"
 code_id = "CODE_55D60E1DF0ABAF7E0D171C8B39B1EE6DB9FDED236BB37CE95F94E1013CF8DDB3"
 owner = "trust-runtime"
@@ -55322,13 +55232,13 @@ id = "RISK_ACK_5F4C05E4BCC50DEF018A9F846EEC9AA12009C0CFE4F3F818F7871D2F649A9FC4"
 code_id = "CODE_5F4C05E4BCC50DEF018A9F846EEC9AA12009C0CFE4F3F818F7871D2F649A9FC4"
 owner = "trust-runtime"
 area = "runtime_safety"
-body_digest = "sha256:77a33bfcb0df818cf694aae80249005536f752261b796098f766d0b7bc94cfe0"
+body_digest = "sha256:73974da946eff1eb86a32d29453dc4d147ba98fd007edca157449675d5bf9724"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -55366,20 +55276,6 @@ owner = "trust-runtime"
 area = "runtime_safety"
 body_digest = "sha256:b0f2dd938c5ed3217ec1bf9b2ea45e8abdcfd8cd1a1281b9e24482700bcef95e"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_5FB6F78738CAE258C5EE3B74774B13EDD593D0A68FBC17886AF6BF02A9C79488"
-code_id = "CODE_5FB6F78738CAE258C5EE3B74774B13EDD593D0A68FBC17886AF6BF02A9C79488"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:530d98b9544cbb747fcea3e18cd5e8ac0d06b3b34a5ec9e568694e7e3509262d"
-risk_signals = ["fault_mapping"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-21"
@@ -55514,20 +55410,6 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_65569FEC6F6BF239D315979994A0F0527098C723527C9CC9C439B624046E4578"
-code_id = "CODE_65569FEC6F6BF239D315979994A0F0527098C723527C9CC9C439B624046E4578"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:98dc6073fdbb0b99cffe1b38960efb9cce41bfe6c169bb3686bdb6c501c881c9"
-risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_6557B0C7DC38B0ACE20921E90326233F0AB4FD95C0CA34F68BFB1C7D543E4A6A"
 code_id = "CODE_6557B0C7DC38B0ACE20921E90326233F0AB4FD95C0CA34F68BFB1C7D543E4A6A"
 owner = "trust-runtime"
@@ -55618,20 +55500,6 @@ owner = "trust-runtime"
 area = "runtime_safety"
 body_digest = "sha256:45bdc5371abaf956d0ceb521c68734515bc1b6e4830bfb842a0d41c8e785d82f"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_6DB0902860790B6C7DBB90E4CE0E3B83C62CC109B62AA4F39BD3C95FD484ABAB"
-code_id = "CODE_6DB0902860790B6C7DBB90E4CE0E3B83C62CC109B62AA4F39BD3C95FD484ABAB"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:1e38f27f36d030c9228ba7cd4d6570e7c3ef1902e0ff7622a7cbc82372ee1d94"
-risk_signals = ["fault_mapping", "persistence_retain_reload_restart", "state_mutation"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-21"
@@ -56274,13 +56142,13 @@ id = "RISK_ACK_8A1F36F127FE19CAC1F2820F986D73BE170CD0D548DA923856774B68D87905A2"
 code_id = "CODE_8A1F36F127FE19CAC1F2820F986D73BE170CD0D548DA923856774B68D87905A2"
 owner = "trust-runtime"
 area = "runtime_safety"
-body_digest = "sha256:8914af8668e842f1eea42a7cbc56cb97776c79ef830294f23aeec13cec5ea497"
+body_digest = "sha256:446eb5e3ba32ec7362c5367902e7508c7ba25f4ff6cf1bd5ed663a2925977b77"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -56984,20 +56852,6 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_9F86C6624210E3C829C44431589E52BA8484B2B805169991FC2EEFDEFA20A094"
-code_id = "CODE_9F86C6624210E3C829C44431589E52BA8484B2B805169991FC2EEFDEFA20A094"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:add9c33d6ad270a985dcf314d367c0bf593b21ba11cfdfa8fa4fe81180154e1c"
-risk_signals = ["fault_mapping", "persistence_retain_reload_restart", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_9F968502B7721FB8C18A563C586B062492C8DD8E2865DDA524035D89133D275E"
 code_id = "CODE_9F968502B7721FB8C18A563C586B062492C8DD8E2865DDA524035D89133D275E"
 owner = "trust-runtime"
@@ -57254,13 +57108,13 @@ id = "RISK_ACK_A45512A661DB2AB97D6082B904BA57E455EFF45EE4B42A5A48C12087487FA67C"
 code_id = "CODE_A45512A661DB2AB97D6082B904BA57E455EFF45EE4B42A5A48C12087487FA67C"
 owner = "trust-runtime"
 area = "runtime_safety"
-body_digest = "sha256:9ac936c82a08b50c8936638dbf81363d1e69c226d4c73f4370da2edef93a1580"
+body_digest = "sha256:8bceedc7c915f8567386555606796b50e7f029ba47a8042fcdfbfba4b069d7b8"
 risk_signals = ["fault_mapping", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -57604,13 +57458,13 @@ id = "RISK_ACK_B21083831231040B1EDBD0F511F6A2966503BD646FA5D1779ABE402EDDF3D6A8"
 code_id = "CODE_B21083831231040B1EDBD0F511F6A2966503BD646FA5D1779ABE402EDDF3D6A8"
 owner = "trust-runtime"
 area = "runtime_safety"
-body_digest = "sha256:fbb1a0bb479c7924a8e0347bdfa4facf86967696cb7feb27634e4882a4df64f9"
+body_digest = "sha256:c422817803113ada33f77c7ba53c2d30e2fbe363343152c80790f365fd4c3e8f"
 risk_signals = ["filesystem_or_environment"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -57800,13 +57654,13 @@ id = "RISK_ACK_BA8C972A3975225271BB19C0E84CF2865F26EB56E72336E15416A2A90CA42198"
 code_id = "CODE_BA8C972A3975225271BB19C0E84CF2865F26EB56E72336E15416A2A90CA42198"
 owner = "trust-runtime"
 area = "runtime_safety"
-body_digest = "sha256:ca511e99a8f10f5c18202e44c29f75819d6dc0746927a529852a2aa92c3f17c0"
+body_digest = "sha256:fccd29575db252e8f5ce607a5814bdf8cd945ec4c3fd4f9a4d5c6fdeda9bb01d"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -58076,20 +57930,6 @@ rationale = "Acknowledges exact scanner-derived filesystem, authorization, time,
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_C1F0C03BBC592CEB64E3250EF4B7FC286C7947229BCB1CB7C015D15361E8A366"
-code_id = "CODE_C1F0C03BBC592CEB64E3250EF4B7FC286C7947229BCB1CB7C015D15361E8A366"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:ed1251e46ae7ca2bd8c5a461122296b48284ec774a45e968ed85fed1f5a3ec7f"
-risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_C27E1F40774E2729BB9AF7FC2A2B6B2659E4014723A8FC657C3947969D845EC6"
 code_id = "CODE_C27E1F40774E2729BB9AF7FC2A2B6B2659E4014723A8FC657C3947969D845EC6"
 owner = "trust-runtime"
@@ -58136,13 +57976,13 @@ id = "RISK_ACK_C460590BAE320B251B7B375AB80D679E022CC1D9354CFD205C9E41FD13DF94C7"
 code_id = "CODE_C460590BAE320B251B7B375AB80D679E022CC1D9354CFD205C9E41FD13DF94C7"
 owner = "trust-runtime"
 area = "runtime_safety"
-body_digest = "sha256:94d6aeb22ed0e8f6a0f276a05da26a351537031f9e71b3ca8fb1ca62f475a00d"
+body_digest = "sha256:7d5dd2ab393f56412d8f73a3052e71be30c0cec4502b21dc5bbab7ef7ce8f3b4"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -58598,13 +58438,13 @@ id = "RISK_ACK_D40F55E5C4894F6B52C66DEA92F2726CA5F35E45CF124037E54A7CFADCE9459F"
 code_id = "CODE_D40F55E5C4894F6B52C66DEA92F2726CA5F35E45CF124037E54A7CFADCE9459F"
 owner = "trust-runtime"
 area = "runtime_safety"
-body_digest = "sha256:1653af1bcc27cee55aed2bf48f0b2a415d31474d08b670a069ab53df9c7cd06a"
+body_digest = "sha256:44d70f9a448f76c8647c45e06921ba9b9711f05e0f1d98be52b53567d6e5ba99"
 risk_signals = ["fault_mapping", "filesystem_or_environment"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -58766,13 +58606,13 @@ id = "RISK_ACK_D792EEFD09BBCBF7C2AA3B0CDEBA11E0F84BA368E0553E55DB9A24BC25C6BA56"
 code_id = "CODE_D792EEFD09BBCBF7C2AA3B0CDEBA11E0F84BA368E0553E55DB9A24BC25C6BA56"
 owner = "trust-runtime"
 area = "runtime_safety"
-body_digest = "sha256:c5c9ddcacbf18213c2fd264e06f9bffce3e60476e7465d887dc1b6375c9c3e01"
-risk_signals = ["persistence_retain_reload_restart", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
+body_digest = "sha256:6f8e24f88cb062b7c786c3bc52883151b803a442bdf400c7397f0fd1c7440477"
+risk_signals = ["persistence_retain_reload_restart"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -58906,13 +58746,13 @@ id = "RISK_ACK_DB67392AAE6B92462E9382F77F3D9BD6AB08579FA0DE04F8A1F85C53C756EC22"
 code_id = "CODE_DB67392AAE6B92462E9382F77F3D9BD6AB08579FA0DE04F8A1F85C53C756EC22"
 owner = "trust-runtime"
 area = "runtime_safety"
-body_digest = "sha256:087972a2b7dec570dd65e0b31b948ca2ba753e5992f15daa7c484d1f5561b28a"
+body_digest = "sha256:f6a05b9ff30343b28574e987edc5d7c640bbb7498982e0676dbb4c80a8579af7"
 risk_signals = ["persistence_retain_reload_restart", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -59032,13 +58872,13 @@ id = "RISK_ACK_DDA4DC4520E2F7AA346969BB049F3B06A7CC99124E758361D1E847EE5A0F4198"
 code_id = "CODE_DDA4DC4520E2F7AA346969BB049F3B06A7CC99124E758361D1E847EE5A0F4198"
 owner = "trust-runtime"
 area = "runtime_safety"
-body_digest = "sha256:5926651c4e5fa311ff409ffdfcaece0b5b9a25c4403f00cdba81d01c56eb89ca"
+body_digest = "sha256:d6845c28e4ccfbbba5abbb4aa12f20ee123dcfdaeb6fbc63cb25dcc3d47b8e68"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -59182,20 +59022,6 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_E2D438B7D11B59669ED9DA115ED84355D6DF92FFF05B4004117682577FB9258A"
-code_id = "CODE_E2D438B7D11B59669ED9DA115ED84355D6DF92FFF05B4004117682577FB9258A"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:d12b1d784e59c85c39e290c851aec74fe0321b36b5e30e012f1152dca1a76189"
-risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_E2F62510DC4978F6B107A4AEE14054782C125421BBED9BBE3BA42DA1DA2B7A81"
 code_id = "CODE_E2F62510DC4978F6B107A4AEE14054782C125421BBED9BBE3BA42DA1DA2B7A81"
 owner = "trust-runtime"
@@ -59270,13 +59096,13 @@ id = "RISK_ACK_E5CB30A653DA71695E6C2B21C0E5C00FF9BF329AE007E06B07D92D43A1449A79"
 code_id = "CODE_E5CB30A653DA71695E6C2B21C0E5C00FF9BF329AE007E06B07D92D43A1449A79"
 owner = "trust-runtime"
 area = "runtime_safety"
-body_digest = "sha256:fa7ec15930f9081abf0095f80a26ef63c12684d08fc30b51b16bb11310bf2853"
+body_digest = "sha256:e67b979deb8b9375eeb1713bc69db7b5df6b2f07b425d72915d387e23551cdbe"
 risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#runtime-safety-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -61370,13 +61196,13 @@ id = "RISK_ACK_C12D2507363D27A5AE6853927B20A42F006D6A8A36E0AEB76E355E920620D9C2"
 code_id = "CODE_C12D2507363D27A5AE6853927B20A42F006D6A8A36E0AEB76E355E920620D9C2"
 owner = "release-engineering"
 area = "supply_chain_platform"
-body_digest = "sha256:bdd109b438a1f581d39035304f62abf9864aae32a05e222fdbe7d6fd38f1d180"
+body_digest = "sha256:3402c500e8426d8c296acce4753bb13ae7961c9580780d10dcbd206e0b7cde1b"
 risk_signals = ["filesystem_or_environment", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#supply-chain-platform-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "release-engineering"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -62140,13 +61966,13 @@ id = "RISK_ACK_059DD4F48EFEDC894BA2C2FA56C8C9B6D50240265BB489E4DBF79CB817A99CA1"
 code_id = "CODE_059DD4F48EFEDC894BA2C2FA56C8C9B6D50240265BB489E4DBF79CB817A99CA1"
 owner = "verification"
 area = "verification"
-body_digest = "sha256:a27bd3067d7e5e75e93f66d201a157d35ead2be12ff9d153f48289e50e8d691a"
+body_digest = "sha256:1d24087518d131d98b4abe4f5e6271e09899a94d316972c8618fb967a237a6db"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#verification-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "verification"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -62976,20 +62802,6 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_134A5395E28CCF80588A5C910381A8360191617CDF39320B515422D864B6BCBE"
-code_id = "CODE_134A5395E28CCF80588A5C910381A8360191617CDF39320B515422D864B6BCBE"
-owner = "verification"
-area = "verification"
-body_digest = "sha256:86252730da439655fb4838d442d9d259999abb8d4ed327bd0a08bd9cb1e474c3"
-risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#verification-historical-risk-gap"
-reviewed_by = "verification"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_135126B1B7E1B805EC61DC6B70AD7BD2BB2ED70A52CB3889D3EE367E8FC3CECC"
 code_id = "CODE_135126B1B7E1B805EC61DC6B70AD7BD2BB2ED70A52CB3889D3EE367E8FC3CECC"
 owner = "verification"
@@ -63708,13 +63520,13 @@ id = "RISK_ACK_2047ABF848EF5FF0144439A4538C28D9841A488858F38E4116A398FA0913FF8E"
 code_id = "CODE_2047ABF848EF5FF0144439A4538C28D9841A488858F38E4116A398FA0913FF8E"
 owner = "verification"
 area = "verification"
-body_digest = "sha256:de8454effa30d15d527b8eb7e0fac46048629cc416aa03200ae26b425f03555b"
+body_digest = "sha256:23adc62fc8550d5c04a942c585ddcdc5b382977390b62cfc96104558fd286590"
 risk_signals = ["protocol_response_or_status", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-22-p18-planner-routing-repair.md#code-fact-review"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "verification"
-reviewed_on = "2026-07-22"
-expires_on = "2026-10-22"
-rationale = "Acknowledges the exact reviewed Planner.plan body and its protocol/status and state-mutation risk signals after the docs-only routing repair; the fact remains bound to the explicit open historical verification gap, and this acknowledgement neither infers correctness nor suppresses either signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -64254,13 +64066,13 @@ id = "RISK_ACK_2995E58B68CA985096720AA324F37E77A9D9C811463F652BA467B77B47E76C26"
 code_id = "CODE_2995E58B68CA985096720AA324F37E77A9D9C811463F652BA467B77B47E76C26"
 owner = "verification"
 area = "verification"
-body_digest = "sha256:7f5b8451ed707c1f0d2eeea2eac996485dc800ebecb8632e5da115fbbec3f908"
+body_digest = "sha256:131161fe1127b7422122fdb9412e6e37f89a3ab9991078680fb33e9cb9efbd15"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#verification-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "verification"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -64296,13 +64108,13 @@ id = "RISK_ACK_29E8DEB7F742726C5F95251966D5A2640A7D740E0132CC1918CA7FC4E8B43DCB"
 code_id = "CODE_29E8DEB7F742726C5F95251966D5A2640A7D740E0132CC1918CA7FC4E8B43DCB"
 owner = "verification"
 area = "verification"
-body_digest = "sha256:61b04debbd4a0b831111a2302ee27bb0f12308e77e161532bec8b462789f5a5d"
+body_digest = "sha256:aa4504dabfe97b3fede7ea319c4e65cf6c14f0f286642964e516f4f9d7c54d14"
 risk_signals = ["filesystem_or_environment"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#verification-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "verification"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -65164,13 +64976,13 @@ id = "RISK_ACK_3B9B61E39EBE3C330CB0D4EE2A7E20667B504FBE5ED09E9527A48A8043B52E10"
 code_id = "CODE_3B9B61E39EBE3C330CB0D4EE2A7E20667B504FBE5ED09E9527A48A8043B52E10"
 owner = "verification"
 area = "verification"
-body_digest = "sha256:64e4fccf8ec394ffe7868fc7fc0ec3ab911b023e67f4d7fa253b10eb61fe3cf8"
+body_digest = "sha256:6c69a160aaeb33c4e3f4f6386823a9b8b7829050350a63798ca073b4efc153cf"
 risk_signals = ["protocol_response_or_status"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#verification-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "verification"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -65570,13 +65382,13 @@ id = "RISK_ACK_432D054F045DD28BC0348AA6286DB745F6154B2EF7E1C2A6799E6E9033BCFB2E"
 code_id = "CODE_432D054F045DD28BC0348AA6286DB745F6154B2EF7E1C2A6799E6E9033BCFB2E"
 owner = "verification"
 area = "verification"
-body_digest = "sha256:04e97ba78a9253ea47b25bbe072ec659fcb801f30afb53e7b52c68a685b9aab4"
+body_digest = "sha256:8503fd6ead0faadc9881e7b9586f1c933a050f355d7859453fcfa79e64fdcf41"
 risk_signals = ["broad_error_suppression", "filesystem_or_environment"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#verification-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "verification"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -67112,20 +66924,6 @@ owner = "verification"
 area = "verification"
 body_digest = "sha256:1bf75766dae7f30ef023cb6d3c6d75fcd3c25322134127660d0ad5a15cfc5d02"
 risk_signals = ["subprocess_or_thread"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#verification-historical-risk-gap"
-reviewed_by = "verification"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_5BA8C81BD3852596B3DB7EC3C08C6696E160E63E0A8127D1E17387CA7E46C54D"
-code_id = "CODE_5BA8C81BD3852596B3DB7EC3C08C6696E160E63E0A8127D1E17387CA7E46C54D"
-owner = "verification"
-area = "verification"
-body_digest = "sha256:1264c3af42e3c54e45d67ee215d9de90e8deb1e03c1dd2c68993e7a37355ecc6"
-risk_signals = ["state_mutation"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#verification-historical-risk-gap"
 reviewed_by = "verification"
 reviewed_on = "2026-07-21"
@@ -70200,20 +69998,6 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_8A66C869F6DC9355DA61E48EB2BB207685CB726E4901CB83E70B0F0D39F91DD4"
-code_id = "CODE_8A66C869F6DC9355DA61E48EB2BB207685CB726E4901CB83E70B0F0D39F91DD4"
-owner = "verification"
-area = "verification"
-body_digest = "sha256:daff0395bb431247008331a0dbfea5bf9ebf07c8598c1885ea9b1ac58c58b372"
-risk_signals = ["filesystem_or_environment", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#verification-historical-risk-gap"
-reviewed_by = "verification"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_8A73D9F2FD70AA01C9C0C76D6E3791650A30A1FA111E5F25CB28CCE963284A07"
 code_id = "CODE_8A73D9F2FD70AA01C9C0C76D6E3791650A30A1FA111E5F25CB28CCE963284A07"
 owner = "verification"
@@ -70276,20 +70060,6 @@ owner = "verification"
 area = "verification"
 body_digest = "sha256:484c1272958862226f05028eb5763dd544e7488999c258ae127099720294a5c4"
 risk_signals = ["protocol_response_or_status", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#verification-historical-risk-gap"
-reviewed_by = "verification"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_8BFB2A76FFD2F6E962ED35B20B4437687BCE78A7DCC224358389D5B8EF6230D2"
-code_id = "CODE_8BFB2A76FFD2F6E962ED35B20B4437687BCE78A7DCC224358389D5B8EF6230D2"
-owner = "verification"
-area = "verification"
-body_digest = "sha256:ac562a1eadc52bfc675b02a7db10b472f18be82731413f4debfeffdfc3b3d5c9"
-risk_signals = ["broad_error_suppression", "filesystem_or_environment", "state_mutation"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#verification-historical-risk-gap"
 reviewed_by = "verification"
 reviewed_on = "2026-07-21"
@@ -71460,20 +71230,6 @@ rationale = "Acknowledges the parser-derived risk signals for this exact body di
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_9A863EE3EA177430C0E99FD42663BEBDD521E931B1BE6C2094F8976B840D5500"
-code_id = "CODE_9A863EE3EA177430C0E99FD42663BEBDD521E931B1BE6C2094F8976B840D5500"
-owner = "verification"
-area = "verification"
-body_digest = "sha256:5d735ec0c36b1cb68d2bef2d5eadae6f7b2935c794f9447bcd1dd2ded4b2d889"
-risk_signals = ["filesystem_or_environment", "protocol_response_or_status", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#verification-historical-risk-gap"
-reviewed_by = "verification"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_9A9ACF5A8DD14E72132DC1FAD6761964D9C056AC0E1110B9F5CC322189F8AE82"
 code_id = "CODE_9A9ACF5A8DD14E72132DC1FAD6761964D9C056AC0E1110B9F5CC322189F8AE82"
 owner = "verification"
@@ -72584,13 +72340,13 @@ id = "RISK_ACK_ABA1BF0710121CDFDF6875C02DFBB2DFEBBB4DCDB70292CD68AD42A844BE9AC9"
 code_id = "CODE_ABA1BF0710121CDFDF6875C02DFBB2DFEBBB4DCDB70292CD68AD42A844BE9AC9"
 owner = "verification"
 area = "verification"
-body_digest = "sha256:74807315137f23802a9646a15e11ab43f48d9f09818bf278d417ae3b0ed4da4a"
+body_digest = "sha256:f9f3232f7cf8bb579bb756185205d4510abdaf760d795201ff5954913322f304"
 risk_signals = ["state_mutation", "subprocess_or_thread"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#verification-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "verification"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -73102,13 +72858,18 @@ id = "RISK_ACK_B349A73BC2EDE8620F5F032C278D75BD63E5FC885A8B80A38417368970C2EE0E"
 code_id = "CODE_B349A73BC2EDE8620F5F032C278D75BD63E5FC885A8B80A38417368970C2EE0E"
 owner = "verification"
 area = "verification"
-body_digest = "sha256:01c4b5e05398555fc9b1f8ec704578174da039dce8e21766293476197cb7c4c2"
-risk_signals = ["fault_mapping", "filesystem_or_environment", "protocol_response_or_status", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#verification-historical-risk-gap"
+body_digest = "sha256:0aba1d7cce26f493c2df5c90f743f9da85873aed771bc4f9f036916ca1462687"
+risk_signals = [
+  "fault_mapping",
+  "filesystem_or_environment",
+  "protocol_response_or_status",
+  "state_mutation",
+]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "verification"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -73522,13 +73283,18 @@ id = "RISK_ACK_BA26E045C07B9BD3E3068693AC1824EBC089C5D7EC8E5D12844D9A77DA8B2D46"
 code_id = "CODE_BA26E045C07B9BD3E3068693AC1824EBC089C5D7EC8E5D12844D9A77DA8B2D46"
 owner = "verification"
 area = "verification"
-body_digest = "sha256:7730f0288408b1c9386366e2eb14062f2b0feffd47d68e160cb98811211d6576"
-risk_signals = ["broad_error_suppression", "filesystem_or_environment", "protocol_response_or_status", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#verification-historical-risk-gap"
+body_digest = "sha256:79a00f14b8b833dbc7d40dba817a7cedb43240740e510b7c93a966774a5d8785"
+risk_signals = [
+  "broad_error_suppression",
+  "filesystem_or_environment",
+  "protocol_response_or_status",
+  "state_mutation",
+]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "verification"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -73900,13 +73666,13 @@ id = "RISK_ACK_BF67244C9501E83D4E33EF8F05BDA275EC28383BE57C68DC4AF7059FCB461DF6"
 code_id = "CODE_BF67244C9501E83D4E33EF8F05BDA275EC28383BE57C68DC4AF7059FCB461DF6"
 owner = "verification"
 area = "verification"
-body_digest = "sha256:7005f7e8229c819d7b8c07277512b775e659c0a82b07ebb9b6cd42c9bfedb47b"
+body_digest = "sha256:e1501f84c419d69bd6909bc71ac385e455b327036190856a29de2401f7100f7e"
 risk_signals = ["state_mutation", "subprocess_or_thread"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#verification-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "verification"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -74166,13 +73932,13 @@ id = "RISK_ACK_C3ED120232C6C51CB22A9CAD2235DF0102AB0B1F1939A7E1D4E5E894B0822327"
 code_id = "CODE_C3ED120232C6C51CB22A9CAD2235DF0102AB0B1F1939A7E1D4E5E894B0822327"
 owner = "verification"
 area = "verification"
-body_digest = "sha256:6f8f7dd870e878960021c276a643cf2bdcf7c6765f160676d19850502e749fcc"
+body_digest = "sha256:7b2e5c8819edf4fef38daa7d830faf62705161e242603a69edf989e8189cc3d6"
 risk_signals = ["broad_error_suppression", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#verification-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "verification"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -75106,20 +74872,6 @@ owner = "verification"
 area = "verification"
 body_digest = "sha256:f4d790733bdf9009d9dd7958c725c1ca8d22c30da7bd2bde8e51e4eaf4720494"
 risk_signals = ["filesystem_or_environment", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#verification-historical-risk-gap"
-reviewed_by = "verification"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_D0ADB7AE5C40D4CD57A3F3D898BC98E23ED74597FCE4A1D720F94E89A922BD6E"
-code_id = "CODE_D0ADB7AE5C40D4CD57A3F3D898BC98E23ED74597FCE4A1D720F94E89A922BD6E"
-owner = "verification"
-area = "verification"
-body_digest = "sha256:a5ad4ebec8ee0451dee703318c2c762bf7786fc0ed0f20c1ba20897ea4af7588"
-risk_signals = ["state_mutation"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#verification-historical-risk-gap"
 reviewed_by = "verification"
 reviewed_on = "2026-07-21"
@@ -76084,13 +75836,13 @@ id = "RISK_ACK_DEE423E420B1DDCE407659D4FECCFC3CA8D0538772F100AAF1C9DA49093E9734"
 code_id = "CODE_DEE423E420B1DDCE407659D4FECCFC3CA8D0538772F100AAF1C9DA49093E9734"
 owner = "verification"
 area = "verification"
-body_digest = "sha256:fd1b6377ee33d27dd9277e917a9503e18bc17c9065caa425334695a70cfebc5c"
+body_digest = "sha256:c00a49a466e1a674011323f507c87065b9d6762205c8a569cf7f2f29f1d9945d"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#verification-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "verification"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -76546,13 +76298,13 @@ id = "RISK_ACK_E46A2F4960A8553DFB7B9BAA09A2F0CEE0B44C5A896FF8169DEE98827B16E645"
 code_id = "CODE_E46A2F4960A8553DFB7B9BAA09A2F0CEE0B44C5A896FF8169DEE98827B16E645"
 owner = "verification"
 area = "verification"
-body_digest = "sha256:f7a7fcc1df6ed3f6c930382db63666d7cd8a731fc31a0f8ba947263f2c234a3b"
+body_digest = "sha256:f633a6255462342ca499a561d5dd1c6c019872e21ab41a286994c5b78de927ca"
 risk_signals = ["broad_error_suppression", "filesystem_or_environment"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#verification-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "verification"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -77120,13 +76872,13 @@ id = "RISK_ACK_EEE2C17295C8DDE1C3DFBF13B634DC0C36E1C4D224CA34102E7A9857F151CDCA"
 code_id = "CODE_EEE2C17295C8DDE1C3DFBF13B634DC0C36E1C4D224CA34102E7A9857F151CDCA"
 owner = "verification"
 area = "verification"
-body_digest = "sha256:149d070f6593593a1b59e799f6750fbd49e5f52a78f2dc08e5e53f6303d5e794"
+body_digest = "sha256:ba956451caffbda7988ca30620afbacc1da77b4f51c48823e4f9cbda6d38aaa4"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#verification-historical-risk-gap"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "verification"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -77584,20 +77336,6 @@ owner = "verification"
 area = "verification"
 body_digest = "sha256:695b7618e8569ffe68215963629986ac06e36d8bfcf806db724bf70016c16b1b"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#verification-historical-risk-gap"
-reviewed_by = "verification"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_F720C495190ADAC9A4C4CCDCA8CD487FB8810B56BC6F50EE22F82BED2072D440"
-code_id = "CODE_F720C495190ADAC9A4C4CCDCA8CD487FB8810B56BC6F50EE22F82BED2072D440"
-owner = "verification"
-area = "verification"
-body_digest = "sha256:c5cda8081bd216087645dd97a61be0ae857d9a13d1de4215655ad1d69c358f0d"
-risk_signals = ["subprocess_or_thread"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#verification-historical-risk-gap"
 reviewed_by = "verification"
 reviewed_on = "2026-07-21"
@@ -78144,20 +77882,6 @@ owner = "verification"
 area = "verification"
 body_digest = "sha256:7142936494d304bbca30a307d1380267d4efba5af68834c6e8efb61071a0c248"
 risk_signals = ["filesystem_or_environment"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#verification-historical-risk-gap"
-reviewed_by = "verification"
-reviewed_on = "2026-07-21"
-expires_on = "2026-10-21"
-rationale = "Acknowledges the parser-derived risk signals for this exact body digest while the fact remains bound to an explicit open historical code-spec gap; it neither infers correctness nor suppresses any signal."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_FF4C34CD4E3095E1CEF27131FAD467F9C8985AFE82CA6F7377E3BF88011549B3"
-code_id = "CODE_FF4C34CD4E3095E1CEF27131FAD467F9C8985AFE82CA6F7377E3BF88011549B3"
-owner = "verification"
-area = "verification"
-body_digest = "sha256:b22ccd4fb5098a6f836f7fa4e4271f29502aec093e471fde88000aeac8300775"
-risk_signals = ["broad_error_suppression", "filesystem_or_environment", "protocol_response_or_status", "state_mutation"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-21-p17-historical-debt-routing-review.md#verification-historical-risk-gap"
 reviewed_by = "verification"
 reviewed_on = "2026-07-21"
@@ -79736,13 +79460,13 @@ id = "RISK_ACK_43FA2478A1FC0EC19A1A414FA07108D017BFCD68BABAC5956D968820ED3071F1"
 code_id = "CODE_43FA2478A1FC0EC19A1A414FA07108D017BFCD68BABAC5956D968820ED3071F1"
 owner = "trust-runtime"
 area = "protocols"
-body_digest = "sha256:a4043f0c2466d86f9d5673302b881b9c9670a441c511ad8e6445e0af57a95257"
+body_digest = "sha256:c88faaf72c57d92e6684185a1898df7422f06e7d299504b1a6443e47732d7dee"
 risk_signals = ["fault_mapping", "state_mutation"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2027-01-23"
-rationale = "ADS server publication and listener lifecycle are externally reachable runtime authority; deterministic bounds, exact namespace mapping, fail-closed value publication, and socket release were reviewed against focused product-contract tests."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -79764,13 +79488,14 @@ id = "RISK_ACK_BE1F4EAEB0C8A574810803E1D2B15624850FC6407CCA8CE8E4FE6AE94D38A8F7"
 code_id = "CODE_BE1F4EAEB0C8A574810803E1D2B15624850FC6407CCA8CE8E4FE6AE94D38A8F7"
 owner = "trust-runtime"
 area = "protocols"
-body_digest = "sha256:d6df580520593f62b2de30699011b47d1a440ce7c2b07f3cab5145c0f885eb9c"
+body_digest = "sha256:afe72af63c5aadce529f3335e4d3642677804de3359f86649c2007318908b1eb"
 risk_signals = ["fault_mapping"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#ads-server-runtime-publication-and-lifecycle"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2027-01-23"
-rationale = "ADS server publication and listener lifecycle are externally reachable runtime authority; deterministic bounds, exact namespace mapping, fail-closed value publication, and socket release were reviewed against focused product-contract tests."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
+
 [[acknowledgements]]
 schema_version = 1
 id = "RISK_ACK_1C75B9C12FB34575D060F097386768EECB3F719197106CD9B5C821604C62C725"
@@ -80892,13 +80617,13 @@ id = "RISK_ACK_588270C389493858745D29F38E7C4F72B0A6E781140E505B796AE6292AC328F2"
 code_id = "CODE_588270C389493858745D29F38E7C4F72B0A6E781140E505B796AE6292AC328F2"
 owner = "trust-runtime"
 area = "protocols"
-body_digest = "sha256:2314de7a4ec672770287432cd4ef91ef5e3fb4191b166021e492f8af60c31ef1"
+body_digest = "sha256:12d4fd555fd2c1bd3dfbd7fa91faedc460e272f23be26e2e94ba317a2234fbe9"
 risk_signals = ["protocol_response_or_status", "state_mutation"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#modbus-default-fault-and-deadline-integrity"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2027-07-23"
-rationale = "Modbus deadline policy projection can otherwise report stale input or unconfirmed output as successful under the fault policy."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -80906,13 +80631,13 @@ id = "RISK_ACK_64208E137D287D461EC6CBC0CC45EE27CF3743CAB3C91A99FB428759E9BC6CC1"
 code_id = "CODE_64208E137D287D461EC6CBC0CC45EE27CF3743CAB3C91A99FB428759E9BC6CC1"
 owner = "trust-runtime"
 area = "protocols"
-body_digest = "sha256:f7139f1e64e12d6f4d5075d44fdbeea72b401cb3d2928d2a7779424db9fe01af"
+body_digest = "sha256:fd8235c05c1a22a2bb5d0bb0faf867f2ca8f0740588410196d760995041c71a5"
 risk_signals = ["protocol_response_or_status", "state_mutation"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#modbus-default-fault-and-deadline-integrity"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2027-07-23"
-rationale = "Modbus deadline policy projection can otherwise report stale input or unconfirmed output as successful under the fault policy."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -80920,13 +80645,14 @@ id = "RISK_ACK_AB4EF39D032179DBE5B99DA9DD3A47AB511FE670AB3F1A704CCCB05F3159FEA7"
 code_id = "CODE_AB4EF39D032179DBE5B99DA9DD3A47AB511FE670AB3F1A704CCCB05F3159FEA7"
 owner = "trust-runtime"
 area = "protocols"
-body_digest = "sha256:c6d76276980699fdc123319c6c11b30301926b75c62bfa749ef71da136398e62"
+body_digest = "sha256:b7ee881e0cb4bf09067025277c6a0b7d08c17b82fb93d69a2204af0c85a6a16e"
 risk_signals = ["protocol_response_or_status"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#modbus-default-fault-and-deadline-integrity"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2027-07-23"
-rationale = "Modbus deadline policy projection can otherwise report stale input or unconfirmed output as successful under the fault policy."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
+
 [[acknowledgements]]
 schema_version = 1
 id = "RISK_ACK_8E63740D4D5EB6224201AB10162CB5E0CB3DD8E08764D028A0A942FF9EEC15F0"
@@ -80946,13 +80672,13 @@ id = "RISK_ACK_AF22EA3E5628784A9ECEEC1D365F4320298489B632D8CA25D8881C2B393C8406"
 code_id = "CODE_AF22EA3E5628784A9ECEEC1D365F4320298489B632D8CA25D8881C2B393C8406"
 owner = "trust-runtime"
 area = "runtime_safety"
-body_digest = "sha256:a35f001f5facec81e908bd52023194674b2a0006d6dfa4712f2c4dc01a5af696"
+body_digest = "sha256:b7891a4ea678b01318d0c67bd3821947a2eeed3c66cf57ed10087aabb2234d32"
 risk_signals = ["broad_error_suppression", "fault_mapping", "filesystem_or_environment"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#runtime-cli-entrypoint-diagnostics-and-dispatch-contract"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2027-07-23"
-rationale = "Standalone IDE startup must not bind a server for an invalid project, choose the wrong runtime or source set, or expose a synthetic state as a live executing runtime."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -80960,13 +80686,13 @@ id = "RISK_ACK_D4FCD73147CD5795CE14F876EFD5B9996820F26B56C3824C4552287D127A154C"
 code_id = "CODE_D4FCD73147CD5795CE14F876EFD5B9996820F26B56C3824C4552287D127A154C"
 owner = "trust-runtime"
 area = "runtime_safety"
-body_digest = "sha256:ad36c109ce045ccc58d16237ac74e8c98c6ffcc7a01327c3d27459c71472bd05"
+body_digest = "sha256:b7d13bcc4858d159c5d683bf53b4396343e03582d5d583a3a45e131d021397a1"
 risk_signals = ["broad_error_suppression"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#runtime-cli-entrypoint-diagnostics-and-dispatch-contract"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2027-07-23"
-rationale = "Standalone IDE startup must not bind a server for an invalid project, choose the wrong runtime or source set, or expose a synthetic state as a live executing runtime."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -80974,13 +80700,14 @@ id = "RISK_ACK_F73082C57CA6B684940B29D198BE5BC9AC21D47E064B01ABDCFFAD07667EE4CB"
 code_id = "CODE_F73082C57CA6B684940B29D198BE5BC9AC21D47E064B01ABDCFFAD07667EE4CB"
 owner = "trust-runtime"
 area = "runtime_safety"
-body_digest = "sha256:65d933e84e84d1f0a4437bea320f260c8358f1248891311527b7a68c7b836b00"
+body_digest = "sha256:32aacc18f0fa989216da764934758db21b3e64d485359dd31795448e59e161d5"
 risk_signals = ["fault_mapping", "state_mutation", "subprocess_or_thread"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#runtime-cli-entrypoint-diagnostics-and-dispatch-contract"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2027-07-23"
-rationale = "Standalone IDE startup must not bind a server for an invalid project, choose the wrong runtime or source set, or expose a synthetic state as a live executing runtime."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
+
 [[acknowledgements]]
 schema_version = 1
 id = "RISK_ACK_0590F6818083629C2A2450AED407BD350A9F98132E521DE6402E5379C8CE4B66"
@@ -81154,13 +80881,13 @@ id = "RISK_ACK_1CEB402FCC8C5C367F62ECFCB857F3D1CEFB7203927C29869A8B96ACD3090215"
 code_id = "CODE_1CEB402FCC8C5C367F62ECFCB857F3D1CEFB7203927C29869A8B96ACD3090215"
 owner = "trust-runtime"
 area = "runtime_safety"
-body_digest = "sha256:f17ed35a3413c6c523922b1229ab2735397b380ef0980ec5b2438d031016db61"
+body_digest = "sha256:c216e602869b7ce2ad0b83391653099e76d974a38a9e6922a46a1bbb0c0ea21c"
 risk_signals = ["network_io"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1-scriptable-control-client"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2027-07-23"
-rationale = "The reviewed CLI intentionally sends authenticated control actions to local or explicitly configured endpoints; focused process-isolated tests prove credential precedence, wire shape, failure classification, and compact rendering without exposing token material."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -81168,13 +80895,13 @@ id = "RISK_ACK_2C1A832B12A4C03107AB797C5E443CBD1CCA8FD5FFCDEEFA6B23300F224F687F"
 code_id = "CODE_2C1A832B12A4C03107AB797C5E443CBD1CCA8FD5FFCDEEFA6B23300F224F687F"
 owner = "trust-runtime"
 area = "runtime_safety"
-body_digest = "sha256:51ec15f8b8c8895fe3d2dd00fe95a7054407ed038c53f47a1f9564217071db12"
+body_digest = "sha256:a2367380fb84a219d6d9961cb7a54a74c6a6859bf2a02dcd37e176c751e1dcd0"
 risk_signals = ["protocol_response_or_status"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1-scriptable-control-client"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2027-07-23"
-rationale = "The reviewed CLI intentionally sends authenticated control actions to local or explicitly configured endpoints; focused process-isolated tests prove credential precedence, wire shape, failure classification, and compact rendering without exposing token material."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -81182,13 +80909,13 @@ id = "RISK_ACK_334E13F9554E29FB50D45199162B809589B59C13AA94538F6A0DC52960F329D4"
 code_id = "CODE_334E13F9554E29FB50D45199162B809589B59C13AA94538F6A0DC52960F329D4"
 owner = "trust-runtime"
 area = "runtime_safety"
-body_digest = "sha256:0d21ead3d7f86e7d63251b4dc84fc322f6a82fdbe2f41f3fa2b67120879f52a8"
+body_digest = "sha256:cf3187aea1ba9527df18f1f986b36f02073d778bc1938d65fe37fe4a1015f05d"
 risk_signals = ["state_mutation"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1-scriptable-control-client"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2027-07-23"
-rationale = "The reviewed CLI intentionally sends authenticated control actions to local or explicitly configured endpoints; focused process-isolated tests prove credential precedence, wire shape, failure classification, and compact rendering without exposing token material."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -81196,26 +80923,27 @@ id = "RISK_ACK_6BD601F0A080A36AC3B73E6BBF6622679CAEE46CB6E2E3D49B7C478F9D5F5802"
 code_id = "CODE_6BD601F0A080A36AC3B73E6BBF6622679CAEE46CB6E2E3D49B7C478F9D5F5802"
 owner = "trust-runtime"
 area = "runtime_safety"
-body_digest = "sha256:cf27dbb39a1d2e043c847da20dae804b125972f367e8811a2684b729f07d0ad0"
+body_digest = "sha256:6bdad11bd514116a657e3fe2055dcb192d087183f355bde4c537abf0477eff6d"
 risk_signals = ["broad_error_suppression", "filesystem_or_environment", "state_mutation"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1-scriptable-control-client"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2027-07-23"
-rationale = "The reviewed CLI intentionally sends authenticated control actions to local or explicitly configured endpoints; focused process-isolated tests prove credential precedence, wire shape, failure classification, and compact rendering without exposing token material."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
+
 [[acknowledgements]]
 schema_version = 1
 id = "RISK_ACK_1CB120F946B3EF9E1646EDBFADA218D431C5C355B76E3F98175A8D43DA71EED4"
 code_id = "CODE_1CB120F946B3EF9E1646EDBFADA218D431C5C355B76E3F98175A8D43DA71EED4"
 owner = "trust-runtime"
 area = "runtime_safety"
-body_digest = "sha256:5ea2c86520396173667860f6df94c5ff8a37f3c9936de03a5c359d6ff818f468"
+body_digest = "sha256:1976face1e006e92dd5b699b4b8ebe3205594a9bfca114050afc58b5197c09fa"
 risk_signals = ["filesystem_or_environment", "state_mutation"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2027-07-23"
-rationale = "Deployment intentionally changes versioned bundle and pointer state. Focused unit and process-isolated integration tests prove validation, containment, copy closure, summary truth, pointer transitions, rollback, and pruning without relying on live hardware or external services."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -81237,13 +80965,13 @@ id = "RISK_ACK_3D4C19481409D9CB4A38D64A41BFE1C655F94157D1ED5FB481E77F915F2931DD"
 code_id = "CODE_3D4C19481409D9CB4A38D64A41BFE1C655F94157D1ED5FB481E77F915F2931DD"
 owner = "trust-runtime"
 area = "runtime_safety"
-body_digest = "sha256:73a1c62763c7e0dfa66ac1d0ea88edb025a47d3470ff3b945dde773be5d31f09"
+body_digest = "sha256:c5f75ee74bced7b6ee73f123842265612414a5700fa1457ad2b96f9fc0e27ea9"
 risk_signals = ["broad_error_suppression", "state_mutation"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2027-07-23"
-rationale = "Deployment intentionally changes versioned bundle and pointer state. Focused unit and process-isolated integration tests prove validation, containment, copy closure, summary truth, pointer transitions, rollback, and pruning without relying on live hardware or external services."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -81265,13 +80993,13 @@ id = "RISK_ACK_6C3B037D5DA1ED0D05C9865FF5C22BB5C0C5C23B1D32759F02B27D7421FDCF41"
 code_id = "CODE_6C3B037D5DA1ED0D05C9865FF5C22BB5C0C5C23B1D32759F02B27D7421FDCF41"
 owner = "trust-runtime"
 area = "runtime_safety"
-body_digest = "sha256:007655358691bb7809b16f35609350c5ad8ca62bfa3c2d0c3c0c6da811b1e9c6"
+body_digest = "sha256:24a5bfc13aaa32e51436456e9d47e10e33829df53ac3aec34f506f19c84a1f17"
 risk_signals = ["state_mutation"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2027-07-23"
-rationale = "Deployment intentionally changes versioned bundle and pointer state. Focused unit and process-isolated integration tests prove validation, containment, copy closure, summary truth, pointer transitions, rollback, and pruning without relying on live hardware or external services."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -81279,13 +81007,13 @@ id = "RISK_ACK_74001CF804CC6A12EEA8B05D791E685F3AA0F4E7843C589DA980AF72E8A88739"
 code_id = "CODE_74001CF804CC6A12EEA8B05D791E685F3AA0F4E7843C589DA980AF72E8A88739"
 owner = "trust-runtime"
 area = "runtime_safety"
-body_digest = "sha256:769aab6658e4a300d6db59cd5fcb38ca6d0b2c3935af03c3dc922806dc349cbc"
+body_digest = "sha256:9a88b64ceadb4fc37bbb7fccc26dda90cf56b7eef60022c995fffb04441295f9"
 risk_signals = ["broad_error_suppression", "host_time"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2027-07-23"
-rationale = "Deployment intentionally changes versioned bundle and pointer state. Focused unit and process-isolated integration tests prove validation, containment, copy closure, summary truth, pointer transitions, rollback, and pruning without relying on live hardware or external services."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -81293,27 +81021,13 @@ id = "RISK_ACK_7488C53C99E67311F68A97965ED140C840321CCEEA65623FE42CEEEB50E658A3"
 code_id = "CODE_7488C53C99E67311F68A97965ED140C840321CCEEA65623FE42CEEEB50E658A3"
 owner = "trust-runtime"
 area = "runtime_safety"
-body_digest = "sha256:ebfd2da0aa81bec9912c01f70696cf6106cd271b695eecb1b2a7204425f3246d"
+body_digest = "sha256:977f041c9b3fa74b8e78db0b9b1de84138829db6edbbac66ce8d10ce6bf0bf05"
 risk_signals = ["persistence_retain_reload_restart", "state_mutation"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2027-07-23"
-rationale = "Deployment intentionally changes versioned bundle and pointer state. Focused unit and process-isolated integration tests prove validation, containment, copy closure, summary truth, pointer transitions, rollback, and pruning without relying on live hardware or external services."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_849A55FF5CDD94B99BF20FFE223F26C00BD988D8987FC8010F608D0ECA5A0586"
-code_id = "CODE_849A55FF5CDD94B99BF20FFE223F26C00BD988D8987FC8010F608D0ECA5A0586"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:3e8632a6587b05d1658b55a46040d2ab32225c799ee37f32e1a26559c0d0c42b"
-risk_signals = ["broad_error_suppression"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2027-07-23"
-rationale = "Deployment intentionally changes versioned bundle and pointer state. Focused unit and process-isolated integration tests prove validation, containment, copy closure, summary truth, pointer transitions, rollback, and pruning without relying on live hardware or external services."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -81321,13 +81035,13 @@ id = "RISK_ACK_87B226DD45BAF86E9FBF472DEEDE6CAA96FC5BA95CF91CA9571291E232FD3B0F"
 code_id = "CODE_87B226DD45BAF86E9FBF472DEEDE6CAA96FC5BA95CF91CA9571291E232FD3B0F"
 owner = "trust-runtime"
 area = "runtime_safety"
-body_digest = "sha256:3fe574ca80df571fa6bfb0ee34de95500aac6e5a77de53982d8ad8d851b8cec4"
+body_digest = "sha256:7d50b2c234776ca0aa731d4e32659a1df3fd3ffbf30076c906631a156753e51e"
 risk_signals = ["state_mutation"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2027-07-23"
-rationale = "Deployment intentionally changes versioned bundle and pointer state. Focused unit and process-isolated integration tests prove validation, containment, copy closure, summary truth, pointer transitions, rollback, and pruning without relying on live hardware or external services."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -81359,20 +81073,6 @@ rationale = "Deployment intentionally changes versioned bundle and pointer state
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_AF1A2C101BE12F8E39DDA825480476B982C628CBEAF5608C932549F2D861FB53"
-code_id = "CODE_AF1A2C101BE12F8E39DDA825480476B982C628CBEAF5608C932549F2D861FB53"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:da770afd1e8aafbc73f75471f7d65da8991936993c76a5db163160930d017a5b"
-risk_signals = ["state_mutation"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2027-07-23"
-rationale = "Deployment intentionally changes versioned bundle and pointer state. Focused unit and process-isolated integration tests prove validation, containment, copy closure, summary truth, pointer transitions, rollback, and pruning without relying on live hardware or external services."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_CD4FB2BC730C7C99E868922AC3634E2133ABC6FECE96C6E21B2C31CD139435E4"
 code_id = "CODE_CD4FB2BC730C7C99E868922AC3634E2133ABC6FECE96C6E21B2C31CD139435E4"
 owner = "trust-runtime"
@@ -81391,13 +81091,13 @@ id = "RISK_ACK_D1216A4DC04DC83162A5CB65560AF8BE39D06ADBCB2987D5A833CD230657866C"
 code_id = "CODE_D1216A4DC04DC83162A5CB65560AF8BE39D06ADBCB2987D5A833CD230657866C"
 owner = "trust-runtime"
 area = "runtime_safety"
-body_digest = "sha256:1f3a9d7a48d6be6940a7b1f0bf1ba26bb37a996bc3b9d928398be4b3b4a38516"
+body_digest = "sha256:54f782e469b7992f0385b0bd4de31b9b882dc6686cf2af3d09ef3d773b321f9c"
 risk_signals = ["state_mutation"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2027-07-23"
-rationale = "Deployment intentionally changes versioned bundle and pointer state. Focused unit and process-isolated integration tests prove validation, containment, copy closure, summary truth, pointer transitions, rollback, and pruning without relying on live hardware or external services."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -81405,13 +81105,13 @@ id = "RISK_ACK_D9DF2515953C4E6CD38382E6C3690DBB0564DD04B6E3B67763277CCA2C69A032"
 code_id = "CODE_D9DF2515953C4E6CD38382E6C3690DBB0564DD04B6E3B67763277CCA2C69A032"
 owner = "trust-runtime"
 area = "runtime_safety"
-body_digest = "sha256:7421a603994915093e3a1f4d050f690ec8173c8796f701cdff3ac47eea9aaa91"
-risk_signals = ["filesystem_or_environment", "state_mutation"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+body_digest = "sha256:53686acb38c2b375ab7ba12e5a010a732ce8f4bb5e66777635350b245fc3b135"
+risk_signals = ["filesystem_or_environment"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2027-07-23"
-rationale = "Deployment intentionally changes versioned bundle and pointer state. Focused unit and process-isolated integration tests prove validation, containment, copy closure, summary truth, pointer transitions, rollback, and pruning without relying on live hardware or external services."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -81419,13 +81119,13 @@ id = "RISK_ACK_DA6325BCB9573ADA61A29BB21BB8878A6F9002F1E028F9C962C4B0DADBAF7C3D"
 code_id = "CODE_DA6325BCB9573ADA61A29BB21BB8878A6F9002F1E028F9C962C4B0DADBAF7C3D"
 owner = "trust-runtime"
 area = "runtime_safety"
-body_digest = "sha256:ada35487434fe9ec5cf1be1d9d9df8e317bf25bcedfca324b45b5fb7af58f106"
+body_digest = "sha256:0a838b0bde716633d522fbea232a574f4d987ac403a34107740c75431a4de8f3"
 risk_signals = ["state_mutation"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2027-07-23"
-rationale = "Deployment intentionally changes versioned bundle and pointer state. Focused unit and process-isolated integration tests prove validation, containment, copy closure, summary truth, pointer transitions, rollback, and pruning without relying on live hardware or external services."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -81433,13 +81133,14 @@ id = "RISK_ACK_DD3F7A453B8DE80431DED656024FD86EF67AF32E71A43B8422819D36A1C93257"
 code_id = "CODE_DD3F7A453B8DE80431DED656024FD86EF67AF32E71A43B8422819D36A1C93257"
 owner = "trust-runtime"
 area = "runtime_safety"
-body_digest = "sha256:e8563a94bd73b59d54afc2c92100cbe40088c05e7158c7650360b965abd18261"
+body_digest = "sha256:7be81f8d311b4948de1a491ccb529261ecf370a8f9dd17ac66ec1f3b7bfef08b"
 risk_signals = ["broad_error_suppression", "state_mutation"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-2-versioned-deployment-and-rollback"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2027-07-23"
-rationale = "Deployment intentionally changes versioned bundle and pointer state. Focused unit and process-isolated integration tests prove validation, containment, copy closure, summary truth, pointer transitions, rollback, and pruning without relying on live hardware or external services."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
+
 [[acknowledgements]]
 schema_version = 1
 id = "RISK_ACK_26E05028E7297CE1978DBC5F6A55FFA1834596BA2FBFD87D3CF03D0F6F2C9D89"
@@ -81502,13 +81203,18 @@ id = "RISK_ACK_459DF82729F56D50B40EF7592B333B14258EF68EF2639DB534DD8DB93864FBFA"
 code_id = "CODE_459DF82729F56D50B40EF7592B333B14258EF68EF2639DB534DD8DB93864FBFA"
 owner = "trust-runtime"
 area = "runtime_safety"
-body_digest = "sha256:d16ca2f0f64888da5e19471ee73ae3dc18626d2cee2d1cc9c99e02b700058a5c"
-risk_signals = ["broad_error_suppression", "fault_mapping", "network_io", "protocol_response_or_status"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+body_digest = "sha256:baa2c56763ade5fce7a578602a41b29092ddffef0ba98c5dcacb4c42fc9f4de7"
+risk_signals = [
+  "broad_error_suppression",
+  "fault_mapping",
+  "network_io",
+  "protocol_response_or_status",
+]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2027-07-23"
-rationale = "Managed fleet commands create projects and credentials, select local listeners, persist lifecycle state, and exchange authenticated control messages. Focused unit and shipped-CLI tests prove validation, output, protocol, cleanup, and process lifecycle behavior without external hardware."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -81516,13 +81222,13 @@ id = "RISK_ACK_51A0CD14551093C94F8ABFC93B0614116DE217C8462EAE887E1969C61E445346"
 code_id = "CODE_51A0CD14551093C94F8ABFC93B0614116DE217C8462EAE887E1969C61E445346"
 owner = "trust-runtime"
 area = "runtime_safety"
-body_digest = "sha256:ce8e31896555ac49a8ba26ad7a01ef65e7bc0e7f1cbf0f202d545ca1e94b9f0c"
+body_digest = "sha256:6475090930f190054e20a74d1c6f5b99c85a412396b72215f63f5a38ad1fc59f"
 risk_signals = ["state_mutation"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2027-07-23"
-rationale = "Managed fleet commands create projects and credentials, select local listeners, persist lifecycle state, and exchange authenticated control messages. Focused unit and shipped-CLI tests prove validation, output, protocol, cleanup, and process lifecycle behavior without external hardware."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -81586,13 +81292,13 @@ id = "RISK_ACK_A31BA137DE566F68E1574BB916EA2D03FDC2FC81208D54114C6673CF9B3746C9"
 code_id = "CODE_A31BA137DE566F68E1574BB916EA2D03FDC2FC81208D54114C6673CF9B3746C9"
 owner = "trust-runtime"
 area = "runtime_safety"
-body_digest = "sha256:eec2832cd31bed218b18f31d99258c68135d1d9575cd008df0210b7d15ea3948"
-risk_signals = ["filesystem_or_environment"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+body_digest = "sha256:0d37d5f78188bd720ca22f0ae56babfc1d98789890c91b6306d81c4d4b140032"
+risk_signals = ["fault_mapping", "filesystem_or_environment"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2027-07-23"
-rationale = "Managed fleet commands create projects and credentials, select local listeners, persist lifecycle state, and exchange authenticated control messages. Focused unit and shipped-CLI tests prove validation, output, protocol, cleanup, and process lifecycle behavior without external hardware."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -81698,13 +81404,13 @@ id = "RISK_ACK_DA3B48B6B2BAAA7E99B883D29F942EC1E8C16DD3F750A7A9129FF788CC20EA4F"
 code_id = "CODE_DA3B48B6B2BAAA7E99B883D29F942EC1E8C16DD3F750A7A9129FF788CC20EA4F"
 owner = "trust-runtime"
 area = "runtime_safety"
-body_digest = "sha256:12edbf2c549cb9b04f162752955a4cbb6a4898e76144f275d5aea8020c9870b9"
+body_digest = "sha256:56799d04ef07696630daf079ec137d3dc26a4cbb37e5deb87a15e5ec3822387d"
 risk_signals = ["fault_mapping"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#6-8-3-managed-local-fleet-scaffolding"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2027-07-23"
-rationale = "Managed fleet commands create projects and credentials, select local listeners, persist lifecycle state, and exchange authenticated control messages. Focused unit and shipped-CLI tests prove validation, output, protocol, cleanup, and process lifecycle behavior without external hardware."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -81787,20 +81493,6 @@ reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-23"
 expires_on = "2027-07-23"
 rationale = "Registry publication must select the intended project deterministically. Inventing the current directory, discarding detection failures, or publishing contradictory help can target the wrong bundle."
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_BCD26DEB6B67C204368BFD7038609A778311F45E5C27A85669CFB0232C796AEB"
-code_id = "CODE_BCD26DEB6B67C204368BFD7038609A778311F45E5C27A85669CFB0232C796AEB"
-owner = "trust-runtime"
-area = "runtime_safety"
-body_digest = "sha256:6527cdeb7ec3db3af89465dde4d61063cbf00ca2ed7962fbcccd41c080b8fff7"
-risk_signals = ["fault_mapping", "state_mutation"]
-review_ref = "SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-startup-contract"
-reviewed_by = "trust-runtime"
-reviewed_on = "2026-07-23"
-expires_on = "2027-07-23"
-rationale = "Play is the first-run mutation boundary. It must validate launch options before mutation, distinguish ordinary project absence from detection failures, and delegate the exact selected project to runtime startup."
-
 [[acknowledgements]]
 schema_version = 1
 id = "RISK_ACK_18509DE7678382AB1B47F5C3FC453912F6399C386345319B8BA2626DC9FAE51A"
@@ -81933,13 +81625,13 @@ id = "RISK_ACK_B0AF247D489DF0CA6A91568659FC43CC34009CACA24F136D491B7A7B9617C9D4"
 code_id = "CODE_B0AF247D489DF0CA6A91568659FC43CC34009CACA24F136D491B7A7B9617C9D4"
 owner = "verification"
 area = "verification"
-body_digest = "sha256:a73ca14eaf605b28cb7c6be0bad83f252c6219595027b2e2b1da1850a9d67f55"
+body_digest = "sha256:c33187a35d9d02b494edf211ffe79f43aa720fddd64cfe68afe699c55a8e6a2c"
 risk_signals = ["filesystem_or_environment", "state_mutation", "subprocess_or_thread"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-24/code-spec-refresh-quarantine-risk-review.md#accepted-path-coherent-risk-batch"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "verification"
-reviewed_on = "2026-07-24"
-expires_on = "2026-10-24"
-rationale = "Accepts the scanner-derived risk signals for the exact code-spec refresh quarantine fact; the reviewed path batch forbids accepted-map writes, semantic inference, gap closure, and proof promotion."
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -83867,11 +83559,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 body_digest = "sha256:e4225f575c9ff21674ae9066bee418a36c4053566bf8043901316262db6f5a3a"
 risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-refresh-missing-1750.md#selection-and-risk-review"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-29"
 expires_on = "2026-10-29"
-rationale = "Acknowledges the scanner-derived risk signals for this exact reviewed body while the singular-area fact remains bound to an explicit open historical code-spec gap; it neither specifies behavior nor suppresses any risk signal."
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -85029,11 +84721,11 @@ owner = "verification"
 area = "verification"
 body_digest = "sha256:488bb514d1b9dc403e8246d2c0ffa8a1f3cc9dd03f23c6032530f3a019209bc3"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-refresh-missing-1750.md#selection-and-risk-review"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "verification"
 reviewed_on = "2026-07-29"
 expires_on = "2026-10-29"
-rationale = "Acknowledges the scanner-derived risk signals for this exact reviewed body while the singular-area fact remains bound to an explicit open historical code-spec gap; it neither specifies behavior nor suppresses any risk signal."
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -87969,11 +87661,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 body_digest = "sha256:38a2bf86db78bfa0df62396bc58dc174c46ff66f7cd68d680f3fca2959e7fe6e"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-refresh-missing-1750.md#selection-and-risk-review"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-29"
 expires_on = "2026-10-29"
-rationale = "Acknowledges the scanner-derived risk signals for this exact reviewed body while the singular-area fact remains bound to an explicit open historical code-spec gap; it neither specifies behavior nor suppresses any risk signal."
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -88794,12 +88486,17 @@ code_id = "CODE_86D2E237F19663232B7D24A18CCF89D129AE996EFF40CDC30BB4C2B75BF52DB8
 owner = "verification"
 area = "verification"
 body_digest = "sha256:96d7b6bbdfc2f051111d52c319a6558a2b2371a4e6dbd52e5c217c558873e32d"
-risk_signals = ["broad_error_suppression", "filesystem_or_environment", "protocol_response_or_status", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-refresh-missing-1750.md#selection-and-risk-review"
+risk_signals = [
+  "broad_error_suppression",
+  "filesystem_or_environment",
+  "protocol_response_or_status",
+  "state_mutation",
+]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "verification"
 reviewed_on = "2026-07-29"
 expires_on = "2026-10-29"
-rationale = "Acknowledges the scanner-derived risk signals for this exact reviewed body while the singular-area fact remains bound to an explicit open historical code-spec gap; it neither specifies behavior nor suppresses any risk signal."
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -88963,11 +88660,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 body_digest = "sha256:c1cc04317183f5cb6fddf9029ff8c293d6470c369f105dee6f6f95bb174e47b4"
 risk_signals = ["output_or_safe_state_commit"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-refresh-missing-1750.md#selection-and-risk-review"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "trust-runtime"
 reviewed_on = "2026-07-29"
 expires_on = "2026-10-29"
-rationale = "Acknowledges the scanner-derived risk signals for this exact reviewed body while the singular-area fact remains bound to an explicit open historical code-spec gap; it neither specifies behavior nor suppresses any risk signal."
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -89747,11 +89444,11 @@ owner = "verification"
 area = "verification"
 body_digest = "sha256:0ca053df497eb69b9e4fcf2a200ff6dba24c9ae8ed5434888e8d58f0501115f7"
 risk_signals = ["subprocess_or_thread"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-refresh-missing-1750.md#selection-and-risk-review"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "verification"
 reviewed_on = "2026-07-29"
 expires_on = "2026-10-29"
-rationale = "Acknowledges the scanner-derived risk signals for this exact reviewed body while the singular-area fact remains bound to an explicit open historical code-spec gap; it neither specifies behavior nor suppresses any risk signal."
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -90573,11 +90270,11 @@ owner = "verification"
 area = "verification"
 body_digest = "sha256:717365b5801d7e9de6714253c5c18e73f9121376c84d2e0ef175f62df937b532"
 risk_signals = ["filesystem_or_environment", "protocol_response_or_status", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-refresh-missing-1750.md#selection-and-risk-review"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "verification"
 reviewed_on = "2026-07-29"
 expires_on = "2026-10-29"
-rationale = "Acknowledges the scanner-derived risk signals for this exact reviewed body while the singular-area fact remains bound to an explicit open historical code-spec gap; it neither specifies behavior nor suppresses any risk signal."
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -91693,11 +91390,11 @@ owner = "verification"
 area = "verification"
 body_digest = "sha256:75b65ce8cc176850ddcdf63a691d70609f12291bf6b8679d5d58f65f9f8104e3"
 risk_signals = ["filesystem_or_environment", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-refresh-missing-1750.md#selection-and-risk-review"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "verification"
 reviewed_on = "2026-07-29"
 expires_on = "2026-10-29"
-rationale = "Acknowledges the scanner-derived risk signals for this exact reviewed body while the singular-area fact remains bound to an explicit open historical code-spec gap; it neither specifies behavior nor suppresses any risk signal."
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -93247,11 +92944,11 @@ owner = "verification"
 area = "verification"
 body_digest = "sha256:da8e432e8df65a0efc174742b2164580e272e0d9a263a4e728798bf4f7445440"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-refresh-missing-1750.md#selection-and-risk-review"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
 reviewed_by = "verification"
 reviewed_on = "2026-07-29"
 expires_on = "2026-10-29"
-rationale = "Acknowledges the scanner-derived risk signals for this exact reviewed body while the singular-area fact remains bound to an explicit open historical code-spec gap; it neither specifies behavior nor suppresses any risk signal."
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -94862,3 +94559,353 @@ reviewed_by = "verification"
 reviewed_on = "2026-07-29"
 expires_on = "2026-10-29"
 rationale = "Acknowledges the scanner-derived risk signals for this exact reviewed body while the singular-area fact remains bound to an explicit open historical code-spec gap; it neither specifies behavior nor suppresses any risk signal."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_03D91C3DB5D54D741743B8FA4C6CA40B1DB3CFE31C9323135CDF95309E5D4A15"
+code_id = "CODE_03D91C3DB5D54D741743B8FA4C6CA40B1DB3CFE31C9323135CDF95309E5D4A15"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:b42e2cf05391dc63aff44948c6982cdb8a25c8e22ff0a05fcab8b46815ba15cc"
+risk_signals = ["filesystem_or_environment"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
+reviewed_by = "verification"
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_1102D8D69842D52D04B2560C0107BD7F21B2D5E58AE82AAC655213F8745408B1"
+code_id = "CODE_1102D8D69842D52D04B2560C0107BD7F21B2D5E58AE82AAC655213F8745408B1"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:8b22c6f2175a1a7e3d08cd4b305755f80c73cf2f902760a20cb6734cd2fc1ab0"
+risk_signals = ["filesystem_or_environment", "state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
+reviewed_by = "verification"
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_12529488FB28AD44368D757E3A823175B9793BED086360A75F80F4FAD1F4AD50"
+code_id = "CODE_12529488FB28AD44368D757E3A823175B9793BED086360A75F80F4FAD1F4AD50"
+owner = "trust-runtime"
+area = "control_security"
+body_digest = "sha256:29f95109f3d123b3c7146e42f3c055d0394b06024c9f07f61f744b93c79a16a9"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_1E6C72B1F6F9957D36401CCA2F25CC9E8E61268AB971570E480ADB5D44807D00"
+code_id = "CODE_1E6C72B1F6F9957D36401CCA2F25CC9E8E61268AB971570E480ADB5D44807D00"
+owner = "trust-runtime"
+area = "control_security"
+body_digest = "sha256:4ffab0ea413480ecdc8a0e2cbb704285db4d3b53e2db873e94a20ad9850e6c97"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_2826E80DFC5C68171DD4CE22ECF47EDF8E7D6E2A4FBE64A94419300F87AB03F6"
+code_id = "CODE_2826E80DFC5C68171DD4CE22ECF47EDF8E7D6E2A4FBE64A94419300F87AB03F6"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:c5ede2c1cf1455669fb8fd3af4a912988c18fe961a46fb442d8752c24ed61f04"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
+reviewed_by = "verification"
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_32948E18FD5D7AC9CE99DCF50C42808CBB81BC87EE77FE9D8FE2BB095B565928"
+code_id = "CODE_32948E18FD5D7AC9CE99DCF50C42808CBB81BC87EE77FE9D8FE2BB095B565928"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:34df4eda13e4bf02a59347162ac76c9d5e4f59b51e6df14244ffaf48e86ae9ea"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
+reviewed_by = "verification"
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_34AAC26C55C189E9D09CFD2BBA753D60C13B989C9D90AA00B755E401F7034BA1"
+code_id = "CODE_34AAC26C55C189E9D09CFD2BBA753D60C13B989C9D90AA00B755E401F7034BA1"
+owner = "editor"
+area = "editor_safety"
+body_digest = "sha256:2f0cf8d448959e1a39ec9ca2f583daf75536cd2720e1a13b950ff209d59e686c"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
+reviewed_by = "editor"
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_358085CFB3CE2B799EBAFEF461EC6C015265035F0C6DE9E66E3639C960F464CD"
+code_id = "CODE_358085CFB3CE2B799EBAFEF461EC6C015265035F0C6DE9E66E3639C960F464CD"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:a5f2831b5dc94731bb73b2607c48e69c62b615093c44a36b62b68586536ed259"
+risk_signals = ["filesystem_or_environment"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
+reviewed_by = "verification"
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_3D98D944D7B193E8F8B488094BB17BB97BEE4050CE266FDD3ACE6085A79EA1C5"
+code_id = "CODE_3D98D944D7B193E8F8B488094BB17BB97BEE4050CE266FDD3ACE6085A79EA1C5"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:2e6715e99e6aa1f958e12dab7970251c32722bf0e8b744dc4d19f78de104a1b3"
+risk_signals = ["broad_error_suppression", "persistence_retain_reload_restart", "state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
+reviewed_by = "verification"
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_55209CA90268F494E225B739ECA7EE291F4FD38E1926D5E3BF7C9DBBDD6354F0"
+code_id = "CODE_55209CA90268F494E225B739ECA7EE291F4FD38E1926D5E3BF7C9DBBDD6354F0"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:3ae56faa8d93e46e435c742d8cc1e7104a23df281b7a9fb6928c612fd2b570a3"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
+reviewed_by = "verification"
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_6E5593482926D9226E631973EFC2C6057EF9CFF1372F43C7627179701857241F"
+code_id = "CODE_6E5593482926D9226E631973EFC2C6057EF9CFF1372F43C7627179701857241F"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:243bb491f387124a6a6fb15dc1db18c39af70912faf6d23b7314f6db368c9cc8"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
+reviewed_by = "verification"
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_7CB7739D84CAE3911F3DAB100991C96345DEE6261E6DC759180C99AC63526A88"
+code_id = "CODE_7CB7739D84CAE3911F3DAB100991C96345DEE6261E6DC759180C99AC63526A88"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:73a335461528a42405def9a8bb6cbcdd03f60ee1bdde10af50026a445539415d"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
+reviewed_by = "verification"
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_7FF3DAC586E85696927AA774D9ACD2923351797D405C2954A06AFCAF5215B08E"
+code_id = "CODE_7FF3DAC586E85696927AA774D9ACD2923351797D405C2954A06AFCAF5215B08E"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:3abcf5001e28d4db2992b07a893f4a7b3f28853d9fd26e3132f3f91851ed59b0"
+risk_signals = ["fault_mapping", "state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
+reviewed_by = "verification"
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_861021D61F6561C125BFAE8EBC5F9B46B069FE15476E8D25DB03EF3C2A1BB447"
+code_id = "CODE_861021D61F6561C125BFAE8EBC5F9B46B069FE15476E8D25DB03EF3C2A1BB447"
+owner = "hmi"
+area = "hmi_ui"
+body_digest = "sha256:80fa8ed049488e53aa7357409255fcd664535c2d3935beabf038bd6adceae699"
+risk_signals = ["protocol_response_or_status"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
+reviewed_by = "hmi"
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_88A5C19C8F05717652E04C89E51015801BBFFFCE2C9AF8715E37EEB645256674"
+code_id = "CODE_88A5C19C8F05717652E04C89E51015801BBFFFCE2C9AF8715E37EEB645256674"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:7c46d2b2beef33c6a41416ec23438f5e05dcd6380e5f810e94d21daf856509fd"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
+reviewed_by = "verification"
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_92C581C51A9E517FED17205729488A474E19981FBC35A90D46604776A2A82E2C"
+code_id = "CODE_92C581C51A9E517FED17205729488A474E19981FBC35A90D46604776A2A82E2C"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:75992646d950ce85065b4c7a6232e7f76e707d6a2b120e38785c6191933d936f"
+risk_signals = ["fault_mapping"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
+reviewed_by = "verification"
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_96404B0DAF36544BA14B4A58C8FBD6084D7AD0B9FD1A1F1252B9376454FB6B99"
+code_id = "CODE_96404B0DAF36544BA14B4A58C8FBD6084D7AD0B9FD1A1F1252B9376454FB6B99"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:394392002a75d269e953da399f3ac0c2101ef0c3313b7f27c7c82265d4d6bfba"
+risk_signals = ["filesystem_or_environment", "state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
+reviewed_by = "verification"
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_96E0B391940706B4F9CE2577C7100580E3022E065E2732AC3FA280E1F698B15F"
+code_id = "CODE_96E0B391940706B4F9CE2577C7100580E3022E065E2732AC3FA280E1F698B15F"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:ff24ac4c5600c60541d52268a03dfbed2b0abfe61c8993e120d705df1b374696"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_B4A602645504CB170647D47222EAE98CC5B058058292AA8BD03DF716B6932AA7"
+code_id = "CODE_B4A602645504CB170647D47222EAE98CC5B058058292AA8BD03DF716B6932AA7"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:199c957a0a53b1f01500b25d86c00caa87d114f353996b1d235ab47c10aec36f"
+risk_signals = ["subprocess_or_thread"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
+reviewed_by = "verification"
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_B9041EE3336C09EEAFFF72802D7446D6DD27BA5F8B33BBCD65FAEB4A686B814A"
+code_id = "CODE_B9041EE3336C09EEAFFF72802D7446D6DD27BA5F8B33BBCD65FAEB4A686B814A"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:b46447bc2e517a72b5a428051bbd5c083b83e27e6e363070d3910c7ebccb09ad"
+risk_signals = ["persistence_retain_reload_restart", "state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_CF6FA0186286A9BBABF19CC499E1005EEB2D1117569483B4952655279C9046C3"
+code_id = "CODE_CF6FA0186286A9BBABF19CC499E1005EEB2D1117569483B4952655279C9046C3"
+owner = "trust-runtime"
+area = "runtime_safety"
+body_digest = "sha256:9867812fc057751cb853cd8cfa07394af058719f7e1be4c72c804873ed1be02e"
+risk_signals = ["protocol_response_or_status"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
+reviewed_by = "trust-runtime"
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_D9987AF56F814A7AC30671CF7D9B655F87964ADA79370355C144013FACE66DD4"
+code_id = "CODE_D9987AF56F814A7AC30671CF7D9B655F87964ADA79370355C144013FACE66DD4"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:a26d001dd9563a64fd7f09d4413b05096530b4100c459156ceb86a7dae23559d"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
+reviewed_by = "verification"
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_DC2241A1674B9FD5E2982EE780D2267F4DCA2E60980511E9B9C6205D3866A89F"
+code_id = "CODE_DC2241A1674B9FD5E2982EE780D2267F4DCA2E60980511E9B9C6205D3866A89F"
+owner = "editor"
+area = "editor_safety"
+body_digest = "sha256:2b3bab3e6cbd073deedaed216508ddea6e675eb1f23863fdc7e4cadd8f4fa95b"
+risk_signals = ["protocol_response_or_status"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
+reviewed_by = "editor"
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_F184661A7FAEBA667AC8D9531276B8F8900BC32B841AA6BD8FD6FD1A4ED3FFB0"
+code_id = "CODE_F184661A7FAEBA667AC8D9531276B8F8900BC32B841AA6BD8FD6FD1A4ED3FFB0"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:6dc99969192547893d7810fc98240851bae0cb767ca5f0f7d9aa952c2ae2520b"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
+reviewed_by = "verification"
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_F8233F60BF3D346BDB2C4C9B2B73C031F87F574D7368142AC5D10A9AB5E76D89"
+code_id = "CODE_F8233F60BF3D346BDB2C4C9B2B73C031F87F574D7368142AC5D10A9AB5E76D89"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:c0ad2fa712c7193762f16784fc67f82b8c2893a0c76c0f19962063f74d4bf0ae"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
+reviewed_by = "verification"
+reviewed_on = "2026-07-29"
+expires_on = "2026-10-29"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
