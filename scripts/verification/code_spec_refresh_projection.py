@@ -70,6 +70,7 @@ MAPPING_FIELD_ORDER = (
     "risk_signals",
     "owner_ack",
     "owner_ack_expires_on",
+    "cross_area_decision_ref",
     "disposition",
     "spec_ref",
     "spec_gap_ref",

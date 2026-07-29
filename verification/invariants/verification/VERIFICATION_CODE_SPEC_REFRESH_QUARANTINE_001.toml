@@ -6,7 +6,7 @@ risk = "silent_corruption"
 status = "mapped"
 owner = "verification"
 last_reviewed = "2026-07-29"
-claim = "An at-rest-canonical code-spec report must partition every finding exactly once into deterministic untrusted review-required proposals without inferring source liveness or semantic bindings, while a complete reviewed acceptance selection must live-reconstruct the exact report and proposal, project only the selected identity transition, rebuild before mutation, and apply the code map, risk ledger, gap ledger, and manifest through one recoverable compare-and-swap transaction without closing gaps or creating proof."
+claim = "An at-rest-canonical code-spec report must partition every finding exactly once into deterministic untrusted review-required proposals without inferring source liveness or semantic bindings. Complete reviewed identity and semantic selections must live-reconstruct the exact report and proposal, project only the selected transition, rebuild before mutation, and apply their canonical replacement set and manifest through one recoverable compare-and-swap transaction without closing gaps or creating proof."
 proof_level = "T1"
 contract_kind = "protocol_trace"
 source_refs = [
@@ -16,6 +16,8 @@ source_refs = [
   "scripts/verification/code_spec_refresh_projection.py",
   "scripts/verification/code_spec_refresh_projection_support.py",
   "scripts/verification/code_spec_refresh_selection.py",
+  "scripts/verification/code_spec_semantic_projection.py",
+  "scripts/verification/code_spec_semantic_selection.py",
   "verification/schemas/code-spec-refresh-proposals.schema.json",
 ]
 tests = ["TEST_VERIFICATION_METADATA_GATE_001"]
@@ -35,12 +37,12 @@ ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001"
 [[coverage.cells]]
 dimension = "happy_path"
 state = "covered"
-rationale = "Focused fixtures generate a schema-valid proposal plane whose exact partition and operation-set digest reconcile, then project a complete reviewed missing/rebind/stale queue without mutating unselected semantic groups."
+rationale = "Focused fixtures generate a schema-valid proposal plane whose exact partition and operation-set digest reconcile, then project complete reviewed identity and semantic queues without inferring unrelated proof links."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
 state = "covered"
-rationale = "The closed proposal and selection contracts reject proof, partial review queues, unrecognized fields, invalid successor transfers, and area choices outside the live candidate set."
+rationale = "The closed proposal and selection contracts reject proof, partial identity or semantic review queues, unrecognized fields, invalid successor transfers, unrelated test relations, and area choices outside the live candidate set."
 
 [[coverage.cells]]
 dimension = "supply_chain_or_artifact_fault"
@@ -55,4 +57,4 @@ rationale = "An unknown report finding fails closed instead of disappearing from
 [[coverage.cells]]
 dimension = "auth_or_permission"
 state = "covered"
-rationale = "Stale successors require the exact path, qualified-symbol, and item-kind tuple; direct cross-area decisions require an explicit live-candidate area, owner, and existing gap; risk-bearing transitions receive exact current-body acknowledgements."
+rationale = "Stale successors require the exact path, qualified-symbol, and item-kind tuple; direct missing mappings require an explicit live-candidate area, owner, and existing gap; cross-area semantic decisions bind an anchored review, unrelated mapped tests are removed without inventing proof links, and risk-bearing transitions receive exact current-body acknowledgements."

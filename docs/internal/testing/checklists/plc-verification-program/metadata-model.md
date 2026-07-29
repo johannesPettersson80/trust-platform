@@ -1223,6 +1223,15 @@ listed test. A test is not evidence for an unrelated listed invariant merely
 because both apply to the same code fact. Missing coverage on either side
 remains a semantic-review finding and cannot be suppressed by another mapping.
 
+A semantic acceptance selection is valid only when the reconstructed proposal
+has an empty missing/rebind/stale identity queue, zero unclassified findings,
+and one explicit decision for every semantic group. An accepted cross-area
+decision adds only an anchored `cross_area_decision_ref` to the exact affected
+specified mappings. An unrelated mapped test is removed only from the exact
+affected code mappings; acceptance must not invent a catalog-to-invariant or
+invariant-to-test link. The command rebuilds the report and proposal before
+projection and again before one recoverable compare-and-swap replacement.
+
 All three Phase 2 reports are report-only. A complete, exhaustively reviewed
 denominator returns success; corrupt
 metadata, stale joins, unsafe or symlinked input paths, dirty source commits,
