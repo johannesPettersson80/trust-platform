@@ -3,7 +3,7 @@ id = "VS_CODE_RETAINED_COMPONENT_MODELS_001"
 title = "Retained visual-editor components remain bounded non-primary models"
 area = "editor_safety"
 risk = "wrong_result"
-status = "gap_open"
+status = "mapped"
 owner = "editors-vscode"
 last_reviewed = "2026-07-29"
 claim = "Retained Ladder, Statechart, and visual-runtime components preserve only their reviewed component behavior locks and cannot be treated as shipped runtime or IEC semantic authority."
@@ -19,11 +19,11 @@ source_refs = [
   "editors/vscode/src/statechart/runtimeClient.ts",
   "editors/vscode/src/visual/runtime",
 ]
-tests = []
+tests = ["TEST_AUTO_06C9F375ACF5C7378008", "TEST_AUTO_07486C548E10932C2E39", "TEST_AUTO_07FC7111DE22CBCC25DC", "TEST_AUTO_15A0E67FA29C8111BFE1", "TEST_AUTO_1677D830A336C8F5C258", "TEST_AUTO_17F50377B8A048BCD8C3", "TEST_AUTO_2C8EBA4B2DA06E88C4BD", "TEST_AUTO_33AEB77AC1C4D59D4762", "TEST_AUTO_42EA19A189BB3D741986", "TEST_AUTO_4FE33FA3D455F1A5C1DE", "TEST_AUTO_537C8C1BA0F4691432C5", "TEST_AUTO_571790EA1A64FABC5505", "TEST_AUTO_5B9660200BF4D381F91A", "TEST_AUTO_65286B83D8871F8B4B71", "TEST_AUTO_73D70852591F6D41A57F", "TEST_AUTO_74E35A77C5958C9561B8", "TEST_AUTO_8189DEDD635FB39B41F6", "TEST_AUTO_84CB52EBFBF0F798EBA3", "TEST_AUTO_8904E723E9006EA42832", "TEST_AUTO_9B8E3C672377BC5A42F1", "TEST_AUTO_9E7C80F4B686C2EB5FC1", "TEST_AUTO_ABB7C7B58E6F3BEEA562", "TEST_AUTO_AF0F41C194540E7A7AFE", "TEST_AUTO_B4F300EA5F20BEE609A6", "TEST_AUTO_C77D180F1CEB748DC536", "TEST_AUTO_D29DC78389C9E7C836E9", "TEST_AUTO_EE7C152DD89753ED4963", "TEST_AUTO_F01D0837A17A31A084A0", "TEST_AUTO_FC396F7F2CBA56D40FFC"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_behavior_tests", "focused_execution_evidence", "broad_remote_gate"]
+missing = ["broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -67,20 +67,20 @@ rationale = "The retired visual runtime controller and panel bridge preserve onl
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "The Ladder component assertions await catalog mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in VS_CODE_RETAINED_COMPONENT_MODELS_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
-state = "gap_open"
-rationale = "The legacy Ladder I/O assertions await catalog mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in VS_CODE_RETAINED_COMPONENT_MODELS_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "hardware_or_network_fault"
-state = "gap_open"
-rationale = "The Statechart failure and cleanup assertions await catalog mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every hardware_or_network_fault behavior in VS_CODE_RETAINED_COMPONENT_MODELS_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "gap_open"
-rationale = "The visual runtime bridge assertions await catalog mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every wrong_type_or_shape behavior in VS_CODE_RETAINED_COMPONENT_MODELS_001; dynamic proof and broad remote validation remain explicit debt."

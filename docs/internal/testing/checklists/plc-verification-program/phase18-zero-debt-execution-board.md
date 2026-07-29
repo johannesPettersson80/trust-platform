@@ -4,7 +4,7 @@ Status: zero-debt contract accepted by commit-bound independent R3 review.
 Findings `P18-C01` through `P18-C08` and `P18-R2-01` are resolved.
 
 Current row: `VERIF-P18-003`, continuing as one repository-wide
-authority/mapping campaign over the remaining 467 owned nonmapping tests, 208
+authority/mapping campaign over the remaining 428 owned nonmapping tests, 208
 gap-open coverage cells, nine current exact-behavior-marker debts, and eleven
 empty historical placeholder invariants. The accepted P18-002 ledger owns and
 orders every current fact; it does not close any semantic, mapping, execution,
@@ -1191,6 +1191,33 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   artifacts are recorded in
   `docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-residual-exact-behavior-27.md`.
   <!-- generated:residual-exact-behavior-27:end -->
+  <!-- generated:vscode-authority-40:start -->
+
+  VS Code authority coherent-campaign progress (2026-07-29): a new opt-in
+  exact Mocha selector preserves the unfiltered default and emits atomic,
+  commit-bound per-test JSON evidence. Two focused expected-red assertions
+  separately exposed the absent selector and absent evidence writer before
+  their paired green implementation. A third expected-red assertion exposed
+  that TypeScript assertion inventories omitted reachable same-file helpers;
+  the cycle-safe unambiguous helper closure is now locked by eight focused
+  extractor tests. On the manually bootstrapped clean builder checkout at
+  `1c09656eed64d2b8a9800eb402de98b3399c9a72`, the harness contract passes
+  1/1 and the real VS Code Extension Development Host executes exactly 39
+  selected tests with 39 passes and zero failures. The 40 accepted inventories
+  contain 186 assertions and zero unresolved helpers. Twenty-nine tests bind
+  explicitly non-primary retained component locks, ten bind existing shipped
+  VS Code product behaviors, and one binds the exact-execution harness. The
+  clean scanner records 4,411 live facts with zero warnings. The atomic
+  transaction makes the test equations 4,411 live = 3,983 `catalog_mapped` +
+  428 `reviewed_nonmapping`, with zero missing authority and zero confirmed
+  missing behavior tests. The 428 owned nonmapping facts, 208 specified
+  gap-open cells, nine current exact-behavior-marker debts, eleven empty
+  historical placeholder invariants, bidirectional reachability, mutation
+  sensitivity, and final broad gates remain open. This is large-batch
+  `P18-003` through `P18-006` progress, not global row closure. No broad
+  workspace or unfiltered VS Code gate ran. Evidence:
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-vscode-authority-40.md`.
+  <!-- generated:vscode-authority-40:end -->
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device

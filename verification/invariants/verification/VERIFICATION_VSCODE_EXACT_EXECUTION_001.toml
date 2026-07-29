@@ -3,7 +3,7 @@ id = "VERIFICATION_VSCODE_EXACT_EXECUTION_001"
 title = "Exact VS Code campaigns preserve the default suite and emit commit-bound evidence"
 area = "verification"
 risk = "silent_corruption"
-status = "gap_open"
+status = "mapped"
 owner = "verification"
 last_reviewed = "2026-07-29"
 claim = "The VS Code test harness must preserve its unfiltered default while allowing an opt-in exact selector and atomic per-test evidence bound to the caller-declared source commit."
@@ -15,11 +15,11 @@ source_refs = [
   "editors/vscode/src/test/suite/index.ts",
   "editors/vscode/src/test/suite/mochaSelection.ts",
 ]
-tests = []
+tests = ["TEST_AUTO_FECBD2B6CEFEE9FE7DE1"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_behavior_tests", "focused_execution_evidence", "broad_remote_gate"]
+missing = ["broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -47,10 +47,10 @@ rationale = "An opt-in evidence path produces one atomic JSON artifact with sour
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
-state = "gap_open"
-rationale = "The selector/default assertions await catalog mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in VERIFICATION_VSCODE_EXACT_EXECUTION_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "supply_chain_or_artifact_fault"
-state = "gap_open"
-rationale = "The machine-readable evidence assertions await catalog mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every supply_chain_or_artifact_fault behavior in VERIFICATION_VSCODE_EXACT_EXECUTION_001; dynamic proof and broad remote validation remain explicit debt."

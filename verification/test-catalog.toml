@@ -123006,3 +123006,1362 @@ mapping_assertion_review_digest = "sha256:9850fa8e207c425a30066d4c4dcff8affdda9f
 mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:50b9c0fb7a3f17f12b3fbffae7b3e485bd78ce18794361b3c46a2af2b626577e", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:374ca9d462efa90245fa30d0bb294ec59291f3253f1d3a0461e5e4af50d13f5d", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/phase18_behavior_closure.rs" = "sha256:3fca21cfd3962b9c5775201f958c8360ddf1a9bea1bd7393ef5f074fca790ce6", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
 mapping_behavior_refs = ["IEC_HIR_ASSIGNMENT_TARGET_001#behavior:0"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_06C9F375ACF5C7378008"
+subject_kind = "generated_test"
+discovery_id = "DISC_06C9F375ACF5C7378008"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/statechart-engine.test.ts"
+name = "fails closed when guard I/O read errors in hardware mode"
+command = "bash target/gate-artifacts/verification/p18-vscode-authority/run_exact_vscode_authority.sh"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_RETAINED_COMPONENT_MODELS_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"]
+expected_result = "The retained Statechart component awaits hardware actions, fails closed on invalid or unreadable guards, and cleans request and editor-session resources."
+expected_failure_mode = "The selected behavior violates the reviewed contract while the focused test reports success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_06C9F375ACF5C7378008.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_06C9F375ACF5C7378008_A7631232EADA"
+mapping_proposal_digest = "sha256:a7631232eadac4875bbb6732280e2eaada80d7ca53fa8025f8b53b18986d8191"
+mapping_decision_id = "MAP_DEC_6A14D6E5AB8DDB0022122390"
+mapping_reviewed_source_digest = "sha256:eed7c53e6e9238bbb43224d0994ae905843eb04c4af35476b864ce16a54081ef"
+mapping_assertion_review_digest = "sha256:1a8dbde7fa578a4a5405a6a9bf7bf97d3860868f47f339469ef9ecf3563704ab"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/statechart-engine.test.ts" = "sha256:eed7c53e6e9238bbb43224d0994ae905843eb04c4af35476b864ce16a54081ef" }
+mapping_behavior_refs = ["VS_CODE_RETAINED_COMPONENT_MODELS_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_07486C548E10932C2E39"
+subject_kind = "generated_test"
+discovery_id = "DISC_07486C548E10932C2E39"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/visual-runtime-panel-bridge.test.ts"
+name = "maps runtime mode consistently"
+command = "bash target/gate-artifacts/verification/p18-vscode-authority/run_exact_vscode_authority.sh"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_RETAINED_COMPONENT_MODELS_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"]
+expected_result = "The retired visual runtime controller and panel bridge preserve only their reviewed message schema, mode/status projection, and action routing."
+expected_failure_mode = "The selected behavior violates the reviewed contract while the focused test reports success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_07486C548E10932C2E39.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_07486C548E10932C2E39_5992C35E3459"
+mapping_proposal_digest = "sha256:5992c35e3459579859941aa355f9b2ff6257585a014e7e72603c5751096173d3"
+mapping_decision_id = "MAP_DEC_3F8826F8076BDBB077C6E0DE"
+mapping_reviewed_source_digest = "sha256:bdf0fb750ff11640ac2325b68fc4382d4b30e2a1673bac4d70cf200209939330"
+mapping_assertion_review_digest = "sha256:b33cd5d13c7a35811c111ba46db05568151a4fa03ababbabec8e5b11b0dba6f1"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/visual-runtime-panel-bridge.test.ts" = "sha256:bdf0fb750ff11640ac2325b68fc4382d4b30e2a1673bac4d70cf200209939330" }
+mapping_behavior_refs = ["VS_CODE_RETAINED_COMPONENT_MODELS_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_07FC7111DE22CBCC25DC"
+subject_kind = "generated_test"
+discovery_id = "DISC_07FC7111DE22CBCC25DC"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/ladder-engine.test.ts"
+name = "drives outputs correctly for parallel branch + NC rung"
+command = "bash target/gate-artifacts/verification/p18-vscode-authority/run_exact_vscode_authority.sh"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_RETAINED_COMPONENT_MODELS_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"]
+expected_result = "The retained Ladder component preserves reviewed scan, buffering, topology, node, symbol, and timer/counter projections without claiming runtime authority."
+expected_failure_mode = "The selected behavior violates the reviewed contract while the focused test reports success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_07FC7111DE22CBCC25DC.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_07FC7111DE22CBCC25DC_2A5098AB574A"
+mapping_proposal_digest = "sha256:2a5098ab574a031bb943730aa0ee21992c814e7805f3625d2e73dfdc45d7f827"
+mapping_decision_id = "MAP_DEC_9DFC563958B8C8852C7FE515"
+mapping_reviewed_source_digest = "sha256:d43d1ad43176fad2027b0db4c8c2fe007a4b8c473eca4b11195c084c2b536f58"
+mapping_assertion_review_digest = "sha256:922850ce843e55779130d00f8ab2fc25d76d112a739a768991341a2ddd4c5162"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/ladder-engine.test.ts" = "sha256:d43d1ad43176fad2027b0db4c8c2fe007a4b8c473eca4b11195c084c2b536f58" }
+mapping_behavior_refs = ["VS_CODE_RETAINED_COMPONENT_MODELS_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_15A0E67FA29C8111BFE1"
+subject_kind = "generated_test"
+discovery_id = "DISC_15A0E67FA29C8111BFE1"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/ladder-engine.test.ts"
+name = "supports numeric symbol operands and outputs for compare/math nodes"
+command = "bash target/gate-artifacts/verification/p18-vscode-authority/run_exact_vscode_authority.sh"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_RETAINED_COMPONENT_MODELS_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"]
+expected_result = "The retained Ladder component preserves reviewed scan, buffering, topology, node, symbol, and timer/counter projections without claiming runtime authority."
+expected_failure_mode = "The selected behavior violates the reviewed contract while the focused test reports success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_15A0E67FA29C8111BFE1.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_15A0E67FA29C8111BFE1_E174070B6E87"
+mapping_proposal_digest = "sha256:e174070b6e87267cfe9d849881d262c3dd0269edcb0d4648cdae260fdcfd25da"
+mapping_decision_id = "MAP_DEC_3E72A870371C26589B6DE751"
+mapping_reviewed_source_digest = "sha256:d43d1ad43176fad2027b0db4c8c2fe007a4b8c473eca4b11195c084c2b536f58"
+mapping_assertion_review_digest = "sha256:6c8bb9ab057b52f1da034a75d9f4800dd45f24f0ea47e9ac8ced330b617707ef"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/ladder-engine.test.ts" = "sha256:d43d1ad43176fad2027b0db4c8c2fe007a4b8c473eca4b11195c084c2b536f58" }
+mapping_behavior_refs = ["VS_CODE_RETAINED_COMPONENT_MODELS_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_1677D830A336C8F5C258"
+subject_kind = "generated_test"
+discovery_id = "DISC_1677D830A336C8F5C258"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/ladder-runtime-io-panel.test.ts"
+name = "maps local symbols to FB-qualified write targets"
+command = "bash target/gate-artifacts/verification/p18-vscode-authority/run_exact_vscode_authority.sh"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_RETAINED_COMPONENT_MODELS_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"]
+expected_result = "The retired embedded Ladder I/O projection preserves qualification, canonicalization, pending confirmation, and row replacement only as a historical component lock."
+expected_failure_mode = "The selected behavior violates the reviewed contract while the focused test reports success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_1677D830A336C8F5C258.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_1677D830A336C8F5C258_7DD78FCD6880"
+mapping_proposal_digest = "sha256:7dd78fcd688022c45d9d8ad8edf6f621823f7c09b8b2a7c04f0a4685316e5754"
+mapping_decision_id = "MAP_DEC_1FFA80D01AE465F35368EC6B"
+mapping_reviewed_source_digest = "sha256:89ef1e5d6d0f03af06a746fe1c2d126d5b02a0b842bae0e402bc1177e4358fd4"
+mapping_assertion_review_digest = "sha256:a7db60706d5ff761b24fda20f94a84fb601bf2a8897cf25cf761c9a8b4ff3292"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/ladder-runtime-io-panel.test.ts" = "sha256:89ef1e5d6d0f03af06a746fe1c2d126d5b02a0b842bae0e402bc1177e4358fd4" }
+mapping_behavior_refs = ["VS_CODE_RETAINED_COMPONENT_MODELS_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_17F50377B8A048BCD8C3"
+subject_kind = "generated_test"
+discovery_id = "DISC_17F50377B8A048BCD8C3"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/ladder-engine.test.ts"
+name = "implements TON and TOF timer behaviors"
+command = "bash target/gate-artifacts/verification/p18-vscode-authority/run_exact_vscode_authority.sh"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_RETAINED_COMPONENT_MODELS_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"]
+expected_result = "The retained Ladder component preserves reviewed scan, buffering, topology, node, symbol, and timer/counter projections without claiming runtime authority."
+expected_failure_mode = "The selected behavior violates the reviewed contract while the focused test reports success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_17F50377B8A048BCD8C3.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_17F50377B8A048BCD8C3_66207FFDC829"
+mapping_proposal_digest = "sha256:66207ffdc8297876fc46da72b02a2b7e382e0f76a1f88617910053ac994782a4"
+mapping_decision_id = "MAP_DEC_2A16BAA5F8AAB1A335FABE09"
+mapping_reviewed_source_digest = "sha256:d43d1ad43176fad2027b0db4c8c2fe007a4b8c473eca4b11195c084c2b536f58"
+mapping_assertion_review_digest = "sha256:f72beae984a042256844956cc826bd561d56daa48475a099be223e8a0e76908a"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/ladder-engine.test.ts" = "sha256:d43d1ad43176fad2027b0db4c8c2fe007a4b8c473eca4b11195c084c2b536f58" }
+mapping_behavior_refs = ["VS_CODE_RETAINED_COMPONENT_MODELS_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_2C8EBA4B2DA06E88C4BD"
+subject_kind = "generated_test"
+discovery_id = "DISC_2C8EBA4B2DA06E88C4BD"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/statechart-runtime-client.test.ts"
+name = "cleans request listeners when a request times out"
+command = "bash target/gate-artifacts/verification/p18-vscode-authority/run_exact_vscode_authority.sh"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_RETAINED_COMPONENT_MODELS_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"]
+expected_result = "The retained Statechart component awaits hardware actions, fails closed on invalid or unreadable guards, and cleans request and editor-session resources."
+expected_failure_mode = "The selected behavior violates the reviewed contract while the focused test reports success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_2C8EBA4B2DA06E88C4BD.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_2C8EBA4B2DA06E88C4BD_99907E800348"
+mapping_proposal_digest = "sha256:99907e800348e39201149b04aec332b2ae62ed348663c37b95b1da6dd0f0dfdb"
+mapping_decision_id = "MAP_DEC_854369500C192B026AB6DFA0"
+mapping_reviewed_source_digest = "sha256:ad00353d3f29633d2d91eddd4d664313e4a447132ba7c27562896c297f67bb9e"
+mapping_assertion_review_digest = "sha256:60496883855352c02c2c5146e5a9bb46944c4027a1994495644ef059586985ec"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/statechart-runtime-client.test.ts" = "sha256:ad00353d3f29633d2d91eddd4d664313e4a447132ba7c27562896c297f67bb9e" }
+mapping_behavior_refs = ["VS_CODE_RETAINED_COMPONENT_MODELS_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_33AEB77AC1C4D59D4762"
+subject_kind = "generated_test"
+discovery_id = "DISC_33AEB77AC1C4D59D4762"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/ladder-runtime-io-panel.test.ts"
+name = "confirms symbolic memory force immediately without stIoState roundtrip"
+command = "bash target/gate-artifacts/verification/p18-vscode-authority/run_exact_vscode_authority.sh"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_RETAINED_COMPONENT_MODELS_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"]
+expected_result = "The retired embedded Ladder I/O projection preserves qualification, canonicalization, pending confirmation, and row replacement only as a historical component lock."
+expected_failure_mode = "The selected behavior violates the reviewed contract while the focused test reports success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_33AEB77AC1C4D59D4762.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_33AEB77AC1C4D59D4762_A3161FCA44D2"
+mapping_proposal_digest = "sha256:a3161fca44d2315c9c21410dbbcaad2932e3ce8aadc3142ddc4ad10471e6e336"
+mapping_decision_id = "MAP_DEC_B6156F4821D1031C3AC9EE8C"
+mapping_reviewed_source_digest = "sha256:89ef1e5d6d0f03af06a746fe1c2d126d5b02a0b842bae0e402bc1177e4358fd4"
+mapping_assertion_review_digest = "sha256:d51f50f69595324f318554d07931b1a9651959d91de474ae9487520ff0a60e03"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/ladder-runtime-io-panel.test.ts" = "sha256:89ef1e5d6d0f03af06a746fe1c2d126d5b02a0b842bae0e402bc1177e4358fd4" }
+mapping_behavior_refs = ["VS_CODE_RETAINED_COMPONENT_MODELS_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_42EA19A189BB3D741986"
+subject_kind = "generated_test"
+discovery_id = "DISC_42EA19A189BB3D741986"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/ladder-engine.test.ts"
+name = "keeps buffered write commit semantics across networks"
+command = "bash target/gate-artifacts/verification/p18-vscode-authority/run_exact_vscode_authority.sh"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_RETAINED_COMPONENT_MODELS_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"]
+expected_result = "The retained Ladder component preserves reviewed scan, buffering, topology, node, symbol, and timer/counter projections without claiming runtime authority."
+expected_failure_mode = "The selected behavior violates the reviewed contract while the focused test reports success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_42EA19A189BB3D741986.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_42EA19A189BB3D741986_DCA69AA86A63"
+mapping_proposal_digest = "sha256:dca69aa86a633baa4583af93c5b205ec07053ba53ef151c18e04a1b5c02a3864"
+mapping_decision_id = "MAP_DEC_1F0D57B29C00FCC878D76F7F"
+mapping_reviewed_source_digest = "sha256:d43d1ad43176fad2027b0db4c8c2fe007a4b8c473eca4b11195c084c2b536f58"
+mapping_assertion_review_digest = "sha256:1152e23e77d9b874ebff5197612315bc31cca39ff15da59ad8110b87569d8db7"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/ladder-engine.test.ts" = "sha256:d43d1ad43176fad2027b0db4c8c2fe007a4b8c473eca4b11195c084c2b536f58" }
+mapping_behavior_refs = ["VS_CODE_RETAINED_COMPONENT_MODELS_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_4FE33FA3D455F1A5C1DE"
+subject_kind = "generated_test"
+discovery_id = "DISC_4FE33FA3D455F1A5C1DE"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/ladder-engine.test.ts"
+name = "implements TP pulse timer and counter FB behavior"
+command = "bash target/gate-artifacts/verification/p18-vscode-authority/run_exact_vscode_authority.sh"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_RETAINED_COMPONENT_MODELS_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"]
+expected_result = "The retained Ladder component preserves reviewed scan, buffering, topology, node, symbol, and timer/counter projections without claiming runtime authority."
+expected_failure_mode = "The selected behavior violates the reviewed contract while the focused test reports success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_4FE33FA3D455F1A5C1DE.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_4FE33FA3D455F1A5C1DE_1744367F5F7F"
+mapping_proposal_digest = "sha256:1744367f5f7f6d218242dd9054fef5a167c600feaa4cfce442342960bda268b4"
+mapping_decision_id = "MAP_DEC_7E4966C7BF22D376A1523AC5"
+mapping_reviewed_source_digest = "sha256:d43d1ad43176fad2027b0db4c8c2fe007a4b8c473eca4b11195c084c2b536f58"
+mapping_assertion_review_digest = "sha256:3c9a9a83b394e78d4af1f7afe86c8c419f7cfa73c36dbc87ad4d365c2ef58a7d"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/ladder-engine.test.ts" = "sha256:d43d1ad43176fad2027b0db4c8c2fe007a4b8c473eca4b11195c084c2b536f58" }
+mapping_behavior_refs = ["VS_CODE_RETAINED_COMPONENT_MODELS_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_537C8C1BA0F4691432C5"
+subject_kind = "generated_test"
+discovery_id = "DISC_537C8C1BA0F4691432C5"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/ladder-engine.test.ts"
+name = "emits diagnostics for unresolved symbols and non-assignable coil targets"
+command = "bash target/gate-artifacts/verification/p18-vscode-authority/run_exact_vscode_authority.sh"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_RETAINED_COMPONENT_MODELS_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"]
+expected_result = "The retained Ladder component preserves reviewed scan, buffering, topology, node, symbol, and timer/counter projections without claiming runtime authority."
+expected_failure_mode = "The selected behavior violates the reviewed contract while the focused test reports success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_537C8C1BA0F4691432C5.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_537C8C1BA0F4691432C5_0931CA1AFDD7"
+mapping_proposal_digest = "sha256:0931ca1afdd7bb936829b0439ad4943a02848e973df9e2f16dfeebb79eecdd54"
+mapping_decision_id = "MAP_DEC_78C64FB216B1DD0B5ECD57EE"
+mapping_reviewed_source_digest = "sha256:d43d1ad43176fad2027b0db4c8c2fe007a4b8c473eca4b11195c084c2b536f58"
+mapping_assertion_review_digest = "sha256:b7decedd5ebcbaeb17315c67f56ea192a709f80862545e0335f052ec8a0817a6"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/ladder-engine.test.ts" = "sha256:d43d1ad43176fad2027b0db4c8c2fe007a4b8c473eca4b11195c084c2b536f58" }
+mapping_behavior_refs = ["VS_CODE_RETAINED_COMPONENT_MODELS_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_565EB6C92141562C5923"
+subject_kind = "generated_test"
+discovery_id = "DISC_565EB6C92141562C5923"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/ladder-editor-ops.test.ts"
+name = "adds repeated parallel contact legs on existing branch"
+command = "bash target/gate-artifacts/verification/p18-vscode-authority/run_exact_vscode_authority.sh"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "Ladder, Blockly, and SFC transformations preserve deterministic authoring structure, and all visual runtime authority converges on generated Structured Text rather than retained component engines."
+expected_failure_mode = "The selected behavior violates the reviewed contract while the focused test reports success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_565EB6C92141562C5923.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_565EB6C92141562C5923_86F4323B7762"
+mapping_proposal_digest = "sha256:86f4323b776239be550c680bbdebf26b7c7e0ec0699bace9626df127a6a14673"
+mapping_decision_id = "MAP_DEC_5122B1BC2FCD496F58659FF3"
+mapping_reviewed_source_digest = "sha256:15a221011a610ca8025607bcb3c963140f2aa128b8cebac6e7dff20a6ac3a777"
+mapping_assertion_review_digest = "sha256:2b0f1ffbdca74ace1970e0a7d0c1e46ba33cca3f83a10e5cd3ff8dd7029b33c4"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/ladder-editor-ops.test.ts" = "sha256:15a221011a610ca8025607bcb3c963140f2aa128b8cebac6e7dff20a6ac3a777" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:12"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_571790EA1A64FABC5505"
+subject_kind = "generated_test"
+discovery_id = "DISC_571790EA1A64FABC5505"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/ladder-engine.test.ts"
+name = "validates deterministic series NO/NC contact semantics"
+command = "bash target/gate-artifacts/verification/p18-vscode-authority/run_exact_vscode_authority.sh"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_RETAINED_COMPONENT_MODELS_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"]
+expected_result = "The retained Ladder component preserves reviewed scan, buffering, topology, node, symbol, and timer/counter projections without claiming runtime authority."
+expected_failure_mode = "The selected behavior violates the reviewed contract while the focused test reports success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_571790EA1A64FABC5505.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_571790EA1A64FABC5505_590063661436"
+mapping_proposal_digest = "sha256:590063661436aa36d595d09b90d83d7f471f2bd0a63bc6d42ecfba7c1b66c1ba"
+mapping_decision_id = "MAP_DEC_8EBF3244D3A804D0A545393C"
+mapping_reviewed_source_digest = "sha256:d43d1ad43176fad2027b0db4c8c2fe007a4b8c473eca4b11195c084c2b536f58"
+mapping_assertion_review_digest = "sha256:9782f80caa49a4a0a0ecc25fedfebae53ab524c4b8b3cb95844415f01384161d"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/ladder-engine.test.ts" = "sha256:d43d1ad43176fad2027b0db4c8c2fe007a4b8c473eca4b11195c084c2b536f58" }
+mapping_behavior_refs = ["VS_CODE_RETAINED_COMPONENT_MODELS_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_5B9660200BF4D381F91A"
+subject_kind = "generated_test"
+discovery_id = "DISC_5B9660200BF4D381F91A"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/ladder-engine.test.ts"
+name = "rejects unsupported coil symbol types"
+command = "bash target/gate-artifacts/verification/p18-vscode-authority/run_exact_vscode_authority.sh"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_RETAINED_COMPONENT_MODELS_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"]
+expected_result = "The retained Ladder component preserves reviewed scan, buffering, topology, node, symbol, and timer/counter projections without claiming runtime authority."
+expected_failure_mode = "The selected behavior violates the reviewed contract while the focused test reports success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_5B9660200BF4D381F91A.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_5B9660200BF4D381F91A_55B6BBDFC4BC"
+mapping_proposal_digest = "sha256:55b6bbdfc4bc7c24caff1eb7be870858136dbff15d449b87c3ba4332806f590f"
+mapping_decision_id = "MAP_DEC_10BAAB88AE869A4B374436A0"
+mapping_reviewed_source_digest = "sha256:d43d1ad43176fad2027b0db4c8c2fe007a4b8c473eca4b11195c084c2b536f58"
+mapping_assertion_review_digest = "sha256:64698ac7d9c1d0347fa585473b5a4f8ab8f9c7a4c643ae7e4117111fbc203d4f"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/ladder-engine.test.ts" = "sha256:d43d1ad43176fad2027b0db4c8c2fe007a4b8c473eca4b11195c084c2b536f58" }
+mapping_behavior_refs = ["VS_CODE_RETAINED_COMPONENT_MODELS_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_65286B83D8871F8B4B71"
+subject_kind = "generated_test"
+discovery_id = "DISC_65286B83D8871F8B4B71"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/ladder-runtime-io-panel.test.ts"
+name = "keeps symbolic debug addresses case-preserved while canonicalizing direct I/O"
+command = "bash target/gate-artifacts/verification/p18-vscode-authority/run_exact_vscode_authority.sh"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_RETAINED_COMPONENT_MODELS_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"]
+expected_result = "The retired embedded Ladder I/O projection preserves qualification, canonicalization, pending confirmation, and row replacement only as a historical component lock."
+expected_failure_mode = "The selected behavior violates the reviewed contract while the focused test reports success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_65286B83D8871F8B4B71.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_65286B83D8871F8B4B71_CC4474D987B2"
+mapping_proposal_digest = "sha256:cc4474d987b2170d3462a7c32159d4f95d12fe813e4365a52bef3c35da896ecf"
+mapping_decision_id = "MAP_DEC_39E92819A21070A10DBE358E"
+mapping_reviewed_source_digest = "sha256:89ef1e5d6d0f03af06a746fe1c2d126d5b02a0b842bae0e402bc1177e4358fd4"
+mapping_assertion_review_digest = "sha256:cb823cd474f91681b0569fe7efa9b2dfbbba27b70a9c0f1350560e702c1b51d1"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/ladder-runtime-io-panel.test.ts" = "sha256:89ef1e5d6d0f03af06a746fe1c2d126d5b02a0b842bae0e402bc1177e4358fd4" }
+mapping_behavior_refs = ["VS_CODE_RETAINED_COMPONENT_MODELS_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_65E03CFD6240A504624F"
+subject_kind = "generated_test"
+discovery_id = "DISC_65E03CFD6240A504624F"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/ladder-editor-ops.test.ts"
+name = "routes branch edges through split/merge node x positions"
+command = "bash target/gate-artifacts/verification/p18-vscode-authority/run_exact_vscode_authority.sh"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "Ladder, Blockly, and SFC transformations preserve deterministic authoring structure, and all visual runtime authority converges on generated Structured Text rather than retained component engines."
+expected_failure_mode = "The selected behavior violates the reviewed contract while the focused test reports success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_65E03CFD6240A504624F.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_65E03CFD6240A504624F_876459295D4E"
+mapping_proposal_digest = "sha256:876459295d4e93383ea8e65da5c059226df4e706f04e222a9193e54a746e6e5d"
+mapping_decision_id = "MAP_DEC_8192A6A0A5378B0D562D8BDF"
+mapping_reviewed_source_digest = "sha256:15a221011a610ca8025607bcb3c963140f2aa128b8cebac6e7dff20a6ac3a777"
+mapping_assertion_review_digest = "sha256:ceca108b21f73962759d06b2f8636c6538b5b89608ab27ec2e8e25a2d78c3b44"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/ladder-editor-ops.test.ts" = "sha256:15a221011a610ca8025607bcb3c963140f2aa128b8cebac6e7dff20a6ac3a777" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:12"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_73D70852591F6D41A57F"
+subject_kind = "generated_test"
+discovery_id = "DISC_73D70852591F6D41A57F"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/ladder-runtime-io-panel.test.ts"
+name = "updates existing symbolic row by write target without duplicates"
+command = "bash target/gate-artifacts/verification/p18-vscode-authority/run_exact_vscode_authority.sh"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_RETAINED_COMPONENT_MODELS_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"]
+expected_result = "The retired embedded Ladder I/O projection preserves qualification, canonicalization, pending confirmation, and row replacement only as a historical component lock."
+expected_failure_mode = "The selected behavior violates the reviewed contract while the focused test reports success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_73D70852591F6D41A57F.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_73D70852591F6D41A57F_54221695765F"
+mapping_proposal_digest = "sha256:54221695765fc8b1092a77a38651671199557834ccf659de346ebbeb784fd8ee"
+mapping_decision_id = "MAP_DEC_B85161DB2A2EAE9426CAC868"
+mapping_reviewed_source_digest = "sha256:89ef1e5d6d0f03af06a746fe1c2d126d5b02a0b842bae0e402bc1177e4358fd4"
+mapping_assertion_review_digest = "sha256:0ba4887eb72116c157e8afc1150b40a8f327af5fcf91da80bbe0e32d0e694887"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/ladder-runtime-io-panel.test.ts" = "sha256:89ef1e5d6d0f03af06a746fe1c2d126d5b02a0b842bae0e402bc1177e4358fd4" }
+mapping_behavior_refs = ["VS_CODE_RETAINED_COMPONENT_MODELS_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_74E35A77C5958C9561B8"
+subject_kind = "generated_test"
+discovery_id = "DISC_74E35A77C5958C9561B8"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/ladder-engine.test.ts"
+name = "resolves local/global symbols with local-first precedence"
+command = "bash target/gate-artifacts/verification/p18-vscode-authority/run_exact_vscode_authority.sh"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_RETAINED_COMPONENT_MODELS_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"]
+expected_result = "The retained Ladder component preserves reviewed scan, buffering, topology, node, symbol, and timer/counter projections without claiming runtime authority."
+expected_failure_mode = "The selected behavior violates the reviewed contract while the focused test reports success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_74E35A77C5958C9561B8.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_74E35A77C5958C9561B8_659CDFC97CF0"
+mapping_proposal_digest = "sha256:659cdfc97cf0f3271da8d205c736b4f5119ecee8ff6dccb0ce65239a3a731bd3"
+mapping_decision_id = "MAP_DEC_C8C0E22F9DAEB112A5929C8C"
+mapping_reviewed_source_digest = "sha256:d43d1ad43176fad2027b0db4c8c2fe007a4b8c473eca4b11195c084c2b536f58"
+mapping_assertion_review_digest = "sha256:54a807da5afe6c12b28eb21fdad1e54e4bd02eb5de9ddf5eedc26f3cefd21b69"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/ladder-engine.test.ts" = "sha256:d43d1ad43176fad2027b0db4c8c2fe007a4b8c473eca4b11195c084c2b536f58" }
+mapping_behavior_refs = ["VS_CODE_RETAINED_COMPONENT_MODELS_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_8189DEDD635FB39B41F6"
+subject_kind = "generated_test"
+discovery_id = "DISC_8189DEDD635FB39B41F6"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/statechart-editor.lifecycle.test.ts"
+name = "disposes running execution session when panel is closed"
+command = "bash target/gate-artifacts/verification/p18-vscode-authority/run_exact_vscode_authority.sh"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_RETAINED_COMPONENT_MODELS_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"]
+expected_result = "The retained Statechart component awaits hardware actions, fails closed on invalid or unreadable guards, and cleans request and editor-session resources."
+expected_failure_mode = "The selected behavior violates the reviewed contract while the focused test reports success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_8189DEDD635FB39B41F6.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_8189DEDD635FB39B41F6_9333CCA5F770"
+mapping_proposal_digest = "sha256:9333cca5f7709abefe98b85b5040b2090be95959726ae983e57af7ea469446b4"
+mapping_decision_id = "MAP_DEC_2746C9596D44F619E5D4551B"
+mapping_reviewed_source_digest = "sha256:01cffcb0280274c95e293a07b518e7b5608884c27d95e6767238d7933b757e5c"
+mapping_assertion_review_digest = "sha256:8b197aa338db477397285d7d835153341d3197ed259bc3b54b832b54e5e2b06e"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/statechart-editor.lifecycle.test.ts" = "sha256:01cffcb0280274c95e293a07b518e7b5608884c27d95e6767238d7933b757e5c" }
+mapping_behavior_refs = ["VS_CODE_RETAINED_COMPONENT_MODELS_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_84CB52EBFBF0F798EBA3"
+subject_kind = "generated_test"
+discovery_id = "DISC_84CB52EBFBF0F798EBA3"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/ladder-engine.test.ts"
+name = "rejects invalid topology with actionable diagnostics"
+command = "bash target/gate-artifacts/verification/p18-vscode-authority/run_exact_vscode_authority.sh"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_RETAINED_COMPONENT_MODELS_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"]
+expected_result = "The retained Ladder component preserves reviewed scan, buffering, topology, node, symbol, and timer/counter projections without claiming runtime authority."
+expected_failure_mode = "The selected behavior violates the reviewed contract while the focused test reports success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_84CB52EBFBF0F798EBA3.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_84CB52EBFBF0F798EBA3_C35E79115816"
+mapping_proposal_digest = "sha256:c35e791158163b4771ff44793c3e4630ceec7b22afe4cb526404f93433fc6241"
+mapping_decision_id = "MAP_DEC_E0170EE5BBC66384DEDDB58D"
+mapping_reviewed_source_digest = "sha256:d43d1ad43176fad2027b0db4c8c2fe007a4b8c473eca4b11195c084c2b536f58"
+mapping_assertion_review_digest = "sha256:8cbe9460e1286d2d99a8f312fb2a7131cb57f5ba89b393c6dbbebe736512de72"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/ladder-engine.test.ts" = "sha256:d43d1ad43176fad2027b0db4c8c2fe007a4b8c473eca4b11195c084c2b536f58" }
+mapping_behavior_refs = ["VS_CODE_RETAINED_COMPONENT_MODELS_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_8790D7660B5F5125760D"
+subject_kind = "generated_test"
+discovery_id = "DISC_8790D7660B5F5125760D"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/hmi.integration.test.ts"
+name = "descriptor refreshes open panel on hmi toml and svg changes"
+command = "bash target/gate-artifacts/verification/p18-vscode-authority/run_exact_vscode_authority.sh"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "HMI, Devices and Connections, SFC, Statechart, Ladder, and Blockly share theme and authoring structure, keep runtime controls in their owning surfaces, and preserve visible edit/recovery behavior."
+expected_failure_mode = "The selected behavior violates the reviewed contract while the focused test reports success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_8790D7660B5F5125760D.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_8790D7660B5F5125760D_6A4048C7D98F"
+mapping_proposal_digest = "sha256:6a4048c7d98f24903e2fa738d20903f33243fd88fa539cbfa8a6d2b69e7e8cc0"
+mapping_decision_id = "MAP_DEC_A2921E70A5841992955AC432"
+mapping_reviewed_source_digest = "sha256:bd91333472b1681299d9319b76014849ae159077df8877adb811ed10b3dc3eef"
+mapping_assertion_review_digest = "sha256:4014c3997ced6f1095a205d26570c9603d4226e42e7de30c9ed68fad62e7422f"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/hmi.integration.test.ts" = "sha256:bd91333472b1681299d9319b76014849ae159077df8877adb811ed10b3dc3eef" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:7"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_8904E723E9006EA42832"
+subject_kind = "generated_test"
+discovery_id = "DISC_8904E723E9006EA42832"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/statechart-engine.test.ts"
+name = "fails closed when guard expression is invalid in hardware mode"
+command = "bash target/gate-artifacts/verification/p18-vscode-authority/run_exact_vscode_authority.sh"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_RETAINED_COMPONENT_MODELS_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"]
+expected_result = "The retained Statechart component awaits hardware actions, fails closed on invalid or unreadable guards, and cleans request and editor-session resources."
+expected_failure_mode = "The selected behavior violates the reviewed contract while the focused test reports success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_8904E723E9006EA42832.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_8904E723E9006EA42832_98F059F72BA2"
+mapping_proposal_digest = "sha256:98f059f72ba2eaefc9ab17f5e891edcc8a7198abb52dd812b3ffb8dc5efa8746"
+mapping_decision_id = "MAP_DEC_44431A1A7E65D5F1A85B036E"
+mapping_reviewed_source_digest = "sha256:eed7c53e6e9238bbb43224d0994ae905843eb04c4af35476b864ce16a54081ef"
+mapping_assertion_review_digest = "sha256:58d79d1e72890be163f526edaefedc5cda314b6436b4e1cc41e6e31a06238ed8"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/statechart-engine.test.ts" = "sha256:eed7c53e6e9238bbb43224d0994ae905843eb04c4af35476b864ce16a54081ef" }
+mapping_behavior_refs = ["VS_CODE_RETAINED_COMPONENT_MODELS_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_8AD54E0E8B8724B3CF3F"
+subject_kind = "generated_test"
+discovery_id = "DISC_8AD54E0E8B8724B3CF3F"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/lm-tools-contract.test.ts"
+name = "synthetic registration drift is detected by the contract check"
+command = "bash target/gate-artifacts/verification/p18-vscode-authority/run_exact_vscode_authority.sh"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "HMI language-model tools validate inputs and cancellation and produce deterministic, bounded candidate, intent, lock, trace, snapshot, journey, binding, and provenance artifacts."
+expected_failure_mode = "The selected behavior violates the reviewed contract while the focused test reports success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_8AD54E0E8B8724B3CF3F.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_8AD54E0E8B8724B3CF3F_90D0552B738A"
+mapping_proposal_digest = "sha256:90d0552b738a9a350484f37efc5388812f609134952a8b74efeca3b58ec8b586"
+mapping_decision_id = "MAP_DEC_055EDF1FCB96C3C2E1C538DA"
+mapping_reviewed_source_digest = "sha256:56f02c6e796e997c21690c7819237c0971a702265e840a110755909fcec8d731"
+mapping_assertion_review_digest = "sha256:3ae12bc9e09993bc7604552d5008e2a8eae6579e5147b8380fa393e728ebcaae"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/lm-tools-contract.test.ts" = "sha256:56f02c6e796e997c21690c7819237c0971a702265e840a110755909fcec8d731" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:13"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_8DB58FC532A558D6739E"
+subject_kind = "generated_test"
+discovery_id = "DISC_8DB58FC532A558D6739E"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/runtime-shared-utils.test.ts"
+name = "normalizeStringArray trims and filters non-string values"
+command = "bash target/gate-artifacts/verification/p18-vscode-authority/run_exact_vscode_authority.sh"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "Library edits, code actions, project creation, authoring-pane persistence, runtime source defaults, and focused recovery preserve unrelated state and make cancellation or failure explicit."
+expected_failure_mode = "The selected behavior violates the reviewed contract while the focused test reports success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_8DB58FC532A558D6739E.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_8DB58FC532A558D6739E_F72206BDF321"
+mapping_proposal_digest = "sha256:f72206bdf3212c1c78cbf2bac187988aac82cf36aa63ccef4ba931cc21b38c39"
+mapping_decision_id = "MAP_DEC_4AF2FA7DF692F8AE9EEDE1F6"
+mapping_reviewed_source_digest = "sha256:ee87aea9073636bbb62ee019574b18509ae34a8a23a533ec6243c55692de8afe"
+mapping_assertion_review_digest = "sha256:6188efcf734e0ec295102d3887fd38b00b5f4b59021e6082dd2bc03ac00e6901"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/runtime-shared-utils.test.ts" = "sha256:ee87aea9073636bbb62ee019574b18509ae34a8a23a533ec6243c55692de8afe" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:14"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_9B8E3C672377BC5A42F1"
+subject_kind = "generated_test"
+discovery_id = "DISC_9B8E3C672377BC5A42F1"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/ladder-engine.test.ts"
+name = "executes compare and math blocks for all configured operations"
+command = "bash target/gate-artifacts/verification/p18-vscode-authority/run_exact_vscode_authority.sh"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_RETAINED_COMPONENT_MODELS_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"]
+expected_result = "The retained Ladder component preserves reviewed scan, buffering, topology, node, symbol, and timer/counter projections without claiming runtime authority."
+expected_failure_mode = "The selected behavior violates the reviewed contract while the focused test reports success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_9B8E3C672377BC5A42F1.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_9B8E3C672377BC5A42F1_3EAC9EF99B8C"
+mapping_proposal_digest = "sha256:3eac9ef99b8c788c75e6756924f04a559010b1db519541e9889a7844fb51b6b5"
+mapping_decision_id = "MAP_DEC_762FCBFFBD89DB29E55DEB13"
+mapping_reviewed_source_digest = "sha256:d43d1ad43176fad2027b0db4c8c2fe007a4b8c473eca4b11195c084c2b536f58"
+mapping_assertion_review_digest = "sha256:588b11734ca0b5cc83e702e7a14819095849023c51ef62e9f695840c673a2177"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/ladder-engine.test.ts" = "sha256:d43d1ad43176fad2027b0db4c8c2fe007a4b8c473eca4b11195c084c2b536f58" }
+mapping_behavior_refs = ["VS_CODE_RETAINED_COMPONENT_MODELS_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_9C9760812C6BE468A20F"
+subject_kind = "generated_test"
+discovery_id = "DISC_9C9760812C6BE468A20F"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/snippets.test.ts"
+name = "expanded snippet bodies are syntactically valid ST"
+command = "bash target/gate-artifacts/verification/p18-vscode-authority/run_exact_vscode_authority.sh"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "Native Testing discovery, execution, refresh, and result state stay synchronized with live TEST_PROGRAM and TEST_FUNCTION_BLOCK declarations, while snippet identity and syntax proof remain affirmative."
+expected_failure_mode = "The selected behavior violates the reviewed contract while the focused test reports success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_9C9760812C6BE468A20F.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_9C9760812C6BE468A20F_675DA1DD7333"
+mapping_proposal_digest = "sha256:675da1dd7333d256e348012e24862bda0f428f7ac822f549531d4012e7cef5f0"
+mapping_decision_id = "MAP_DEC_59FD1C7E6B7CDD36ED4BBC9A"
+mapping_reviewed_source_digest = "sha256:d026190852f45ae93f156f94adc3abade9b1aeb02fe10727e1d0dfb219278d9d"
+mapping_assertion_review_digest = "sha256:4d33c2e71dde736922dc256c1a2538fbedf2e8bbf59b41788c323eb4b8c3be3a"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/snippets.test.ts" = "sha256:d026190852f45ae93f156f94adc3abade9b1aeb02fe10727e1d0dfb219278d9d" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:9"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_9E7C80F4B686C2EB5FC1"
+subject_kind = "generated_test"
+discovery_id = "DISC_9E7C80F4B686C2EB5FC1"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/visual-runtime-controller.test.ts"
+name = "runtime message schema guard accepts shared payloads"
+command = "bash target/gate-artifacts/verification/p18-vscode-authority/run_exact_vscode_authority.sh"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_RETAINED_COMPONENT_MODELS_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"]
+expected_result = "The retired visual runtime controller and panel bridge preserve only their reviewed message schema, mode/status projection, and action routing."
+expected_failure_mode = "The selected behavior violates the reviewed contract while the focused test reports success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_9E7C80F4B686C2EB5FC1.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_9E7C80F4B686C2EB5FC1_F9718E07B632"
+mapping_proposal_digest = "sha256:f9718e07b6329a93bf1a2cc9bbad7406bb817a0689763056966acba5cc6b09c0"
+mapping_decision_id = "MAP_DEC_E7F133246D1D465DE3E3050C"
+mapping_reviewed_source_digest = "sha256:b0701a637b404b8862f320240a23d5636c1bfacbaf6ef37b7d962393a3cdb78d"
+mapping_assertion_review_digest = "sha256:a5635ef8a2eaa0028e21315c7d65cee8268e01d74ebedc22d79829e20e65b6aa"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/visual-runtime-controller.test.ts" = "sha256:b0701a637b404b8862f320240a23d5636c1bfacbaf6ef37b7d962393a3cdb78d" }
+mapping_behavior_refs = ["VS_CODE_RETAINED_COMPONENT_MODELS_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_A301AFA625E6785DCC4F"
+subject_kind = "generated_test"
+discovery_id = "DISC_A301AFA625E6785DCC4F"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/visual-webview-vscode-api.test.ts"
+name = "acquires VS Code API only once per webview runtime"
+command = "bash target/gate-artifacts/verification/p18-vscode-authority/run_exact_vscode_authority.sh"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "HMI, Devices and Connections, SFC, Statechart, Ladder, and Blockly share theme and authoring structure, keep runtime controls in their owning surfaces, and preserve visible edit/recovery behavior."
+expected_failure_mode = "The selected behavior violates the reviewed contract while the focused test reports success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_A301AFA625E6785DCC4F.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_A301AFA625E6785DCC4F_AA851EE09CB9"
+mapping_proposal_digest = "sha256:aa851ee09cb927f534ff376ec727efe4bd4b2651092057b5574839d461477c67"
+mapping_decision_id = "MAP_DEC_2203FC6C126F56EBAAEB8FE0"
+mapping_reviewed_source_digest = "sha256:e8742bd8a9c4e8b131a2298c40cce3ba94bd9b86ec35d041fd7f6eda2b23e3d9"
+mapping_assertion_review_digest = "sha256:1ccbc304f33f30ae12dee441c721a2f51095a446f016d4a188a8606d2bebb913"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/visual-webview-vscode-api.test.ts" = "sha256:e8742bd8a9c4e8b131a2298c40cce3ba94bd9b86ec35d041fd7f6eda2b23e3d9" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:7"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_AA4B8BE45C466AA24CB8"
+subject_kind = "generated_test"
+discovery_id = "DISC_AA4B8BE45C466AA24CB8"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/visual-webview-vscode-api.test.ts"
+name = "returns a stable no-op API when VS Code API is unavailable"
+command = "bash target/gate-artifacts/verification/p18-vscode-authority/run_exact_vscode_authority.sh"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "HMI, Devices and Connections, SFC, Statechart, Ladder, and Blockly share theme and authoring structure, keep runtime controls in their owning surfaces, and preserve visible edit/recovery behavior."
+expected_failure_mode = "The selected behavior violates the reviewed contract while the focused test reports success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_AA4B8BE45C466AA24CB8.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_AA4B8BE45C466AA24CB8_4229F7D965AA"
+mapping_proposal_digest = "sha256:4229f7d965aaa1e1a584bd47472b86a1805d06ae673c4799934d47ecaf551640"
+mapping_decision_id = "MAP_DEC_7F84C7496927E95184CF28D2"
+mapping_reviewed_source_digest = "sha256:e8742bd8a9c4e8b131a2298c40cce3ba94bd9b86ec35d041fd7f6eda2b23e3d9"
+mapping_assertion_review_digest = "sha256:03c82f4d4e7a4b81ce83d8a957f18a30a40d3e7e9d8662ad095db65697774726"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/visual-webview-vscode-api.test.ts" = "sha256:e8742bd8a9c4e8b131a2298c40cce3ba94bd9b86ec35d041fd7f6eda2b23e3d9" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:7"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_ABB7C7B58E6F3BEEA562"
+subject_kind = "generated_test"
+discovery_id = "DISC_ABB7C7B58E6F3BEEA562"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/ladder-runtime-io-panel.test.ts"
+name = "marks write operations pending until matching runtime I/O confirmation arrives"
+command = "bash target/gate-artifacts/verification/p18-vscode-authority/run_exact_vscode_authority.sh"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_RETAINED_COMPONENT_MODELS_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"]
+expected_result = "The retired embedded Ladder I/O projection preserves qualification, canonicalization, pending confirmation, and row replacement only as a historical component lock."
+expected_failure_mode = "The selected behavior violates the reviewed contract while the focused test reports success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_ABB7C7B58E6F3BEEA562.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_ABB7C7B58E6F3BEEA562_D94C6E439525"
+mapping_proposal_digest = "sha256:d94c6e439525bc2cc95b50cd1d9968ba01a57dfcdd237e125754cf5e21466e94"
+mapping_decision_id = "MAP_DEC_5F85F7B7222AD12BC94F8082"
+mapping_reviewed_source_digest = "sha256:89ef1e5d6d0f03af06a746fe1c2d126d5b02a0b842bae0e402bc1177e4358fd4"
+mapping_assertion_review_digest = "sha256:f8ddd12274e5d23e9de6717212c3ce3e68f8dcb3837f93bb9b621cee34d0d71e"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/ladder-runtime-io-panel.test.ts" = "sha256:89ef1e5d6d0f03af06a746fe1c2d126d5b02a0b842bae0e402bc1177e4358fd4" }
+mapping_behavior_refs = ["VS_CODE_RETAINED_COMPONENT_MODELS_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_AF0F41C194540E7A7AFE"
+subject_kind = "generated_test"
+discovery_id = "DISC_AF0F41C194540E7A7AFE"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/ladder-engine.test.ts"
+name = "executes all coil modes (NORMAL/SET/RESET/NEGATED)"
+command = "bash target/gate-artifacts/verification/p18-vscode-authority/run_exact_vscode_authority.sh"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_RETAINED_COMPONENT_MODELS_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"]
+expected_result = "The retained Ladder component preserves reviewed scan, buffering, topology, node, symbol, and timer/counter projections without claiming runtime authority."
+expected_failure_mode = "The selected behavior violates the reviewed contract while the focused test reports success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_AF0F41C194540E7A7AFE.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_AF0F41C194540E7A7AFE_FACF6C9A8412"
+mapping_proposal_digest = "sha256:facf6c9a8412a9125289568124346ea9e45825c9ad50835ad1439e090d39c49d"
+mapping_decision_id = "MAP_DEC_93C5AE1845B896C05826D5EF"
+mapping_reviewed_source_digest = "sha256:d43d1ad43176fad2027b0db4c8c2fe007a4b8c473eca4b11195c084c2b536f58"
+mapping_assertion_review_digest = "sha256:20eb36cb857735898d5a47e44723817c432b5339108799b4b0d93a2c4ad0be03"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/ladder-engine.test.ts" = "sha256:d43d1ad43176fad2027b0db4c8c2fe007a4b8c473eca4b11195c084c2b536f58" }
+mapping_behavior_refs = ["VS_CODE_RETAINED_COMPONENT_MODELS_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_B4F300EA5F20BEE609A6"
+subject_kind = "generated_test"
+discovery_id = "DISC_B4F300EA5F20BEE609A6"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/visual-runtime-controller.test.ts"
+name = "routes runtime panel and settings actions"
+command = "bash target/gate-artifacts/verification/p18-vscode-authority/run_exact_vscode_authority.sh"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_RETAINED_COMPONENT_MODELS_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"]
+expected_result = "The retired visual runtime controller and panel bridge preserve only their reviewed message schema, mode/status projection, and action routing."
+expected_failure_mode = "The selected behavior violates the reviewed contract while the focused test reports success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_B4F300EA5F20BEE609A6.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_B4F300EA5F20BEE609A6_F41AF2859B59"
+mapping_proposal_digest = "sha256:f41af2859b597da136bdca7a7792878c8a173617c5171da82e02fa62e8bb227c"
+mapping_decision_id = "MAP_DEC_13BC3C52EFDF4ED313CDAAF9"
+mapping_reviewed_source_digest = "sha256:b0701a637b404b8862f320240a23d5636c1bfacbaf6ef37b7d962393a3cdb78d"
+mapping_assertion_review_digest = "sha256:16aa4eab35819dfa0da17bc74d7cc0866e9ada2c9c77d1520428a4b8ae253f6c"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/visual-runtime-controller.test.ts" = "sha256:b0701a637b404b8862f320240a23d5636c1bfacbaf6ef37b7d962393a3cdb78d" }
+mapping_behavior_refs = ["VS_CODE_RETAINED_COMPONENT_MODELS_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_B83DB16F80E857413A39"
+subject_kind = "generated_test"
+discovery_id = "DISC_B83DB16F80E857413A39"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/plcopen-ld-interop.test.ts"
+name = "exports schema v2 ladder and imports it back as schema v2"
+command = "bash target/gate-artifacts/verification/p18-vscode-authority/run_exact_vscode_authority.sh"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_PRODUCT_CONTRACT_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001"]
+expected_result = "PLCopen import and export are cancellation-safe and confirmation-gated, preserve selected identities, report operation-specific failures, and reject malformed or unsupported Ladder interchange without coercion."
+expected_failure_mode = "The selected behavior violates the reviewed contract while the focused test reports success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_B83DB16F80E857413A39.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_B83DB16F80E857413A39_3700FADD5C9A"
+mapping_proposal_digest = "sha256:3700fadd5c9abfe3cf750f135eec8414d6080816f0936e3f4f3bc5e958348e4a"
+mapping_decision_id = "MAP_DEC_F2B5708C19D5DA42FCA72B54"
+mapping_reviewed_source_digest = "sha256:0c3cd86177639b2ff136ceafb2ae32d22b3f8956de042d490e0b80f28f88e199"
+mapping_assertion_review_digest = "sha256:9ca7c42816c0bba7399010e6e80c81b89d76fb8ac04038896f88805d5e138540"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/plcopen-ld-interop.test.ts" = "sha256:0c3cd86177639b2ff136ceafb2ae32d22b3f8956de042d490e0b80f28f88e199" }
+mapping_behavior_refs = ["VS_CODE_PRODUCT_CONTRACT_001#behavior:11"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_C77D180F1CEB748DC536"
+subject_kind = "generated_test"
+discovery_id = "DISC_C77D180F1CEB748DC536"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/statechart-engine.test.ts"
+name = "awaits hardware actions before transition completes"
+command = "bash target/gate-artifacts/verification/p18-vscode-authority/run_exact_vscode_authority.sh"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_RETAINED_COMPONENT_MODELS_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"]
+expected_result = "The retained Statechart component awaits hardware actions, fails closed on invalid or unreadable guards, and cleans request and editor-session resources."
+expected_failure_mode = "The selected behavior violates the reviewed contract while the focused test reports success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_C77D180F1CEB748DC536.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_C77D180F1CEB748DC536_1F01E22B674B"
+mapping_proposal_digest = "sha256:1f01e22b674b85d1b5bff63266de383febbe4bf830897084386b9d427700658c"
+mapping_decision_id = "MAP_DEC_A58C04638AB7B5AD1849E9AA"
+mapping_reviewed_source_digest = "sha256:eed7c53e6e9238bbb43224d0994ae905843eb04c4af35476b864ce16a54081ef"
+mapping_assertion_review_digest = "sha256:9c21e67dee13ae0a3d943952f29a26af8b57149f1b5bd2908f0c3fe8e9ae4a21"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/statechart-engine.test.ts" = "sha256:eed7c53e6e9238bbb43224d0994ae905843eb04c4af35476b864ce16a54081ef" }
+mapping_behavior_refs = ["VS_CODE_RETAINED_COMPONENT_MODELS_001#behavior:2"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_D29DC78389C9E7C836E9"
+subject_kind = "generated_test"
+discovery_id = "DISC_D29DC78389C9E7C836E9"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/visual-runtime-panel-bridge.test.ts"
+name = "derives runtime status payload from shared runtime ui state"
+command = "bash target/gate-artifacts/verification/p18-vscode-authority/run_exact_vscode_authority.sh"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_RETAINED_COMPONENT_MODELS_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"]
+expected_result = "The retired visual runtime controller and panel bridge preserve only their reviewed message schema, mode/status projection, and action routing."
+expected_failure_mode = "The selected behavior violates the reviewed contract while the focused test reports success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_D29DC78389C9E7C836E9.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_D29DC78389C9E7C836E9_22C902701736"
+mapping_proposal_digest = "sha256:22c9027017369fc6c44a4e114e743d83a31aa07a92946dca840d51c3d0ca3c40"
+mapping_decision_id = "MAP_DEC_FDE310B275CAC1D121AD7F9B"
+mapping_reviewed_source_digest = "sha256:bdf0fb750ff11640ac2325b68fc4382d4b30e2a1673bac4d70cf200209939330"
+mapping_assertion_review_digest = "sha256:c6248c25c59c4fb597773ed9ea54379071249c8bb4b8dd359a0c2b8661c57c8d"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/visual-runtime-panel-bridge.test.ts" = "sha256:bdf0fb750ff11640ac2325b68fc4382d4b30e2a1673bac4d70cf200209939330" }
+mapping_behavior_refs = ["VS_CODE_RETAINED_COMPONENT_MODELS_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_DA2C3C0458915D0A3A15"
+subject_kind = "generated_test"
+discovery_id = "DISC_DA2C3C0458915D0A3A15"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/diagnostics.test.ts"
+name = "augments diagnostics with IEC reference and spec link"
+command = "bash target/gate-artifacts/verification/p18-vscode-authority/run_exact_vscode_authority.sh"
+owner = "language-tooling"
+status = "mapped"
+invariants = ["LSP_CORE_FEATURES_001"]
+oracle_ref = "SPEC_LSP_CONTRACT_001"
+oracle_refs = ["SPEC_LSP_CONTRACT_001"]
+expected_result = "Syntax, semantic, and warning diagnostics preserve ownership, severity, cancellation, and dependent-file refresh without false empty success."
+expected_failure_mode = "The selected behavior violates the reviewed contract while the focused test reports success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_DA2C3C0458915D0A3A15.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_DA2C3C0458915D0A3A15_3A4896B89305"
+mapping_proposal_digest = "sha256:3a4896b89305710bcc209cf9af2cc797dd27dbf4bcba39591dcd002a5ece8d8a"
+mapping_decision_id = "MAP_DEC_FEC8F7D7C76214685E0EB031"
+mapping_reviewed_source_digest = "sha256:5d5dc12eaa33a7b231ae218ec2da81070df568722f57a7d05cf275758c900e47"
+mapping_assertion_review_digest = "sha256:f4ae15aaeb43166823abd503bb556e9bf2b13c85d74d9ec112003b4fd96a36db"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/diagnostics.test.ts" = "sha256:5d5dc12eaa33a7b231ae218ec2da81070df568722f57a7d05cf275758c900e47" }
+mapping_behavior_refs = ["LSP_CORE_FEATURES_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_EE7C152DD89753ED4963"
+subject_kind = "generated_test"
+discovery_id = "DISC_EE7C152DD89753ED4963"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/visual-runtime-panel-bridge.test.ts"
+name = "validates shared runtime panel message schema"
+command = "bash target/gate-artifacts/verification/p18-vscode-authority/run_exact_vscode_authority.sh"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_RETAINED_COMPONENT_MODELS_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"]
+expected_result = "The retired visual runtime controller and panel bridge preserve only their reviewed message schema, mode/status projection, and action routing."
+expected_failure_mode = "The selected behavior violates the reviewed contract while the focused test reports success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_EE7C152DD89753ED4963.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_EE7C152DD89753ED4963_2D37F8E5F00C"
+mapping_proposal_digest = "sha256:2d37f8e5f00c4f7e6c999ecedff98eaac9665524cd600a0d8cdabf89e37c5e8e"
+mapping_decision_id = "MAP_DEC_6B48F7B584DCA6E6FFFF91FD"
+mapping_reviewed_source_digest = "sha256:bdf0fb750ff11640ac2325b68fc4382d4b30e2a1673bac4d70cf200209939330"
+mapping_assertion_review_digest = "sha256:b3cf38ac5f87bddae60faee8b46f95f1b75c225be1a736720333356928d8117f"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/visual-runtime-panel-bridge.test.ts" = "sha256:bdf0fb750ff11640ac2325b68fc4382d4b30e2a1673bac4d70cf200209939330" }
+mapping_behavior_refs = ["VS_CODE_RETAINED_COMPONENT_MODELS_001#behavior:3"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_F01D0837A17A31A084A0"
+subject_kind = "generated_test"
+discovery_id = "DISC_F01D0837A17A31A084A0"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/ladder-engine.test.ts"
+name = "supports symbolic input force/write against declared variables"
+command = "bash target/gate-artifacts/verification/p18-vscode-authority/run_exact_vscode_authority.sh"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_RETAINED_COMPONENT_MODELS_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"]
+expected_result = "The retained Ladder component preserves reviewed scan, buffering, topology, node, symbol, and timer/counter projections without claiming runtime authority."
+expected_failure_mode = "The selected behavior violates the reviewed contract while the focused test reports success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_F01D0837A17A31A084A0.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_F01D0837A17A31A084A0_5EAC7C80A3A7"
+mapping_proposal_digest = "sha256:5eac7c80a3a702e2c19b6b0d8a82af286222e24db9249d5c719840a9e46c983a"
+mapping_decision_id = "MAP_DEC_B74ED3E041399764872DBF85"
+mapping_reviewed_source_digest = "sha256:d43d1ad43176fad2027b0db4c8c2fe007a4b8c473eca4b11195c084c2b536f58"
+mapping_assertion_review_digest = "sha256:0bde759754d722c0d74ae952515b7f7a12ecffc3b3409590a67bfe5efca20796"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/ladder-engine.test.ts" = "sha256:d43d1ad43176fad2027b0db4c8c2fe007a4b8c473eca4b11195c084c2b536f58" }
+mapping_behavior_refs = ["VS_CODE_RETAINED_COMPONENT_MODELS_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_FC396F7F2CBA56D40FFC"
+subject_kind = "generated_test"
+discovery_id = "DISC_FC396F7F2CBA56D40FFC"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "editors/vscode/src/test/suite/ladder-engine.test.ts"
+name = "supports parallel branch semantics via topology edges"
+command = "bash target/gate-artifacts/verification/p18-vscode-authority/run_exact_vscode_authority.sh"
+owner = "editors-vscode"
+status = "mapped"
+invariants = ["VS_CODE_RETAINED_COMPONENT_MODELS_001"]
+oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"
+oracle_refs = ["SPEC_VSCODE_PRODUCT_CONTRACT_001#1141-retained-component-model-locks"]
+expected_result = "The retained Ladder component preserves reviewed scan, buffering, topology, node, symbol, and timer/counter projections without claiming runtime authority."
+expected_failure_mode = "The selected behavior violates the reviewed contract while the focused test reports success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_FC396F7F2CBA56D40FFC.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_FC396F7F2CBA56D40FFC_F89F2FA0319B"
+mapping_proposal_digest = "sha256:f89f2fa0319bc33775b1520ce8d3dd5eb07e5c97a426d6d74673548fc480664a"
+mapping_decision_id = "MAP_DEC_FCBCC8C82B7227E326FB14C0"
+mapping_reviewed_source_digest = "sha256:d43d1ad43176fad2027b0db4c8c2fe007a4b8c473eca4b11195c084c2b536f58"
+mapping_assertion_review_digest = "sha256:79e25b17bb855ac14165ce5ce40615696a662823946b8019b491cf56403ff2d3"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/ladder-engine.test.ts" = "sha256:d43d1ad43176fad2027b0db4c8c2fe007a4b8c473eca4b11195c084c2b536f58" }
+mapping_behavior_refs = ["VS_CODE_RETAINED_COMPONENT_MODELS_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_FECBD2B6CEFEE9FE7DE1"
+subject_kind = "generated_test"
+discovery_id = "DISC_FECBD2B6CEFEE9FE7DE1"
+discovery_source_kind = "vscode_test"
+test_class = "behavior_lock"
+area = "verification"
+path = "editors/vscode/src/test/suite/mocha-selection.test.ts"
+name = "uses an opt-in grep while preserving the unfiltered default"
+command = "bash target/gate-artifacts/verification/p18-vscode-authority/run_exact_vscode_authority.sh"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_VSCODE_EXACT_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#exact-vs-code-execution-evidence"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#exact-vs-code-execution-evidence"]
+expected_result = "A nonblank selector becomes the exact Mocha grep while an absent or whitespace-only value leaves the ordinary suite unfiltered. An opt-in evidence path produces one atomic JSON artifact with source commit, selector, exact result identities, durations, and reconciled totals."
+expected_failure_mode = "The selected behavior violates the reviewed contract while the focused test reports success."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_FECBD2B6CEFEE9FE7DE1.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_FECBD2B6CEFEE9FE7DE1_9D56798DEE3E"
+mapping_proposal_digest = "sha256:9d56798dee3e39227c12759dca96dab78a2b952aea9713d161ffbb237dacd190"
+mapping_decision_id = "MAP_DEC_E178450D1DD271147B9DB8A3"
+mapping_reviewed_source_digest = "sha256:494e80f7cb01877550eb8b7a19c5937cb15250cda5dfc8ac76315ba2db24273c"
+mapping_assertion_review_digest = "sha256:26887eda25060f3ad47cf0414f4be0a8f698bd780a74af110849b1dc5c199510"
+mapping_assertion_source_digests = { "editors/vscode/src/test/suite/mocha-selection.test.ts" = "sha256:494e80f7cb01877550eb8b7a19c5937cb15250cda5dfc8ac76315ba2db24273c" }
+mapping_behavior_refs = ["VERIFICATION_VSCODE_EXACT_EXECUTION_001#behavior:0", "VERIFICATION_VSCODE_EXACT_EXECUTION_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
