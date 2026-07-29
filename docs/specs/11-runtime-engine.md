@@ -1989,9 +1989,18 @@ server overwrites any caller-supplied channel before `ads.route_add` policy is
 evaluated. Route-add responses and serialized failures never echo the supplied
 username, password, or internal control token.
 
-Static setup-page asset checks establish only that the reviewed onboarding
-labels and route names are shipped. They do not prove rendered interaction,
-authorization, control dispatch, ADS transport, or production readiness.
+The runtime-host ADS setup page ships the `Beckhoff ADS Setup`,
+`This runtime host`, `Open IDE Deploy`, `ADS Server`, and
+`Expected AMS Net ID` onboarding labels, links to `/ide`, and exposes the
+`/api/ads/status` and `/api/ads/server/status` routes from its local script.
+It does not expose a runtime selector, a runtime target field, or a sample
+`MAIN.Temperature` binding because the page configures the runtime host that
+serves it.
+
+Static setup-page asset checks establish only that this reviewed onboarding
+surface and its route names are shipped. They do not prove rendered
+interaction, authorization, control dispatch, ADS transport, or production
+readiness.
 
 ###### ADS AMS/TCP frame codec
 

@@ -1,0 +1,42 @@
+schema_version = 1
+id = "RT_ADS_SETUP_ASSET_SURFACE_001"
+title = "Runtime-host ADS setup assets preserve their local onboarding surface"
+area = "runtime_safety"
+risk = "false_status"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-29"
+claim = "The runtime-host ADS setup page and script ship the reviewed local-host onboarding labels, IDE link, status routes, and production-readiness qualification without exposing a runtime selector, runtime target, or sample process binding."
+proof_level = "S0"
+contract_kind = "protocol_trace"
+source_refs = [
+  "docs/specs/11-runtime-engine.md",
+  "crates/trust-runtime/tests/ads_web_api.rs",
+]
+tests = ["TEST_AUTO_DAFCF3BB68BD0F595DFE"]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["rendered_browser_smoke", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-ads-cli-authoring-and-server-control-contract"
+
+[[behavior]]
+partition = { equals = "LOCAL_HOST_SETUP_ASSET_SURFACE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#6-8-1b-ads-cli-authoring-and-server-control-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The setup HTML and script expose the reviewed runtime-host ADS onboarding labels, IDE link, and status routes while omitting runtime selection, target switching, and sample process bindings."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "The focused asset test proves the exact static HTML and script contract; rendered interaction and control or transport behavior remain separate proof obligations."

@@ -989,6 +989,42 @@ blocks preserve arithmetic and comparison results, boolean and branch
 behavior, dynamic and inherited reference semantics, function and
 function-block calls, runtime traps, and original instruction costs.
 
+##### 7.9.3 Optimized-backend operational observability
+
+Operational controls and telemetry remain separate from the semantic-
+equivalence oracle above, but their own runtime contract is deterministic:
+
+- absent, explicit true/false, and invalid Boolean environment tokens resolve
+  to their documented defaults; tier-1 is disabled by default, and valid
+  threshold and capacity tokens select the requested positive bounds;
+- lowering and specialized-block caches reuse prior results, cache lowering
+  failures, respect configured capacity, evict when bounded capacity is
+  exceeded, stay cold until the hot threshold, and clear all entries and
+  counters on reset;
+- pooled register files and execution buffers preserve requested capacity,
+  return cleared frames and registers, and never retain more than the
+  configured pool limit;
+- profile snapshots count the executed register, reference, call, fallback,
+  cache, and value-movement operations actually taken. Direct scalar and
+  borrowed-reference paths do not increment clone counters that those paths
+  avoid;
+- stack and register deadline polling check the first guarded operation and
+  the documented stride boundaries. Unsupported lowering or specialization
+  records a bounded reason and falls back before an observable mutation;
+- debug-map lookup returns the source location owned by the current bytecode
+  instruction, and diagnostic corpus probes report register execution,
+  lowering-cache use, and fallback reasons without changing program results;
+  and
+- native-call descriptor parsing and resolved native-function lookup may be
+  cached, but a cached parse failure preserves its original error and cached
+  success preserves the same ordered descriptor and resolved function
+  identity.
+
+These observations specify configuration, resource, and diagnostic behavior
+only. Cache hits, counters, buffer identity, polling frequency, and prose are
+not Structured Text program outputs and remain excluded from optimized-backend
+semantic equivalence.
+
 ### 8. Versioning
 
 - Major version changes are breaking and must be rejected by older runtimes.

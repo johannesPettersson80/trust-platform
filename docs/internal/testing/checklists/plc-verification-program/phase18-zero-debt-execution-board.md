@@ -3,12 +3,13 @@
 Status: zero-debt contract accepted by commit-bound independent R3 review.
 Findings `P18-C01` through `P18-C08` and `P18-R2-01` are resolved.
 
-Current row: `VERIF-P18-003`, continuing as one repository-wide
-authority/mapping campaign over the remaining 106 owned nonmapping tests, 203
-gap-open coverage cells, nine current exact-behavior-marker debts, and eleven
-empty historical placeholder invariants. The accepted P18-002 ledger owns and
-orders every current fact; it does not close any semantic, mapping, execution,
-or adequacy population.
+Current row: `VERIF-P18-003`, continuing as one repository-wide authority and
+coverage campaign over 203 gap-open coverage cells, nine current
+exact-behavior-marker debts, and eleven empty historical placeholder
+invariants. `VERIF-P18-005` is closed at 4,400 live tests =
+4,400 `catalog_mapped` + zero `reviewed_nonmapping`. The accepted P18-002
+ledger owns and orders every current fact; it does not close any remaining
+semantic, execution, reachability, mutation, or adequacy population.
 
 ## Objective
 
@@ -1470,7 +1471,36 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   broad workspace gate ran. Evidence:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-ignored-test-execution-closure-23.md`.
   <!-- generated:ignored-test-execution-closure-23:end -->
-- [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
+  <!-- generated:product-oracle-final-82-closure:start -->
+
+  Final product-oracle denominator closure (2026-07-29): the last 83
+  nonmapping scanner facts were reviewed as one frozen batch. One fact was a
+  stray `TEST_PROGRAM` inside the intentionally uncompilable
+  `single_axis_negative_stop_active` fixture; the declaration was removed
+  while its invalid `MC_Stop.Active` source and exact E105 diagnostic remain
+  executable through the strengthened existing negative parent. The remaining
+  82 facts received exact specification and invariant authority, complete
+  assertion review, focused execution, and two-reviewer accepted mappings.
+  Their 455 assertions classify as 297 oracle-bound and 158
+  setup/precondition assertions with zero unresolved helpers. All 76 selected
+  Rust facts and six selected Structured Text facts pass at their owning
+  boundaries; the refreshed negative parent also passes. Strengthening shared
+  sources required 23 already-accepted source closures to be rebound without
+  changing their reviewed semantics. The ADS setup asset test was corrected
+  from a broad cross-area route to its exact runtime-safety specification and
+  invariant. The atomic transaction moves 4,401 =
+  4,318 `catalog_mapped` + 83 `reviewed_nonmapping` to 4,400 =
+  4,400 `catalog_mapped` + zero `reviewed_nonmapping`, with an empty proposal
+  queue. The focused mapping suite passes 74/74. Repository-wide staleness and
+  metadata validation remain red on downstream Phase 18 debt; exact isolation
+  finds zero batch-blocking findings and retains one pre-existing unrelated
+  case-generator digest finding. `VERIF-P18-003`, `VERIF-P18-006`, native
+  ignored-test execution, bidirectional reachability, mutation sensitivity,
+  adequacy campaigns, and the final broad candidate gates remain open. No
+  broad workspace gate ran. Evidence:
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-product-oracle-final-82-closure.md`.
+  <!-- generated:product-oracle-final-82-closure:end -->
+- [x] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device
   campaigns to equivalent executed proof contracts, or remove it with

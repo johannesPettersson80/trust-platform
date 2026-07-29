@@ -204,3 +204,34 @@ their explicit measurement lane and retained output. Lab-required entries
 require the reviewed physical or external topology and machine-readable
 evidence. Until those conditions are satisfied, the fact remains
 ignored/unrun proof debt even when its registry identity is catalog-mapped.
+
+## Specification-synchronization proof contract
+
+Repository specification synchronization tests are governance oracles over
+their declared immutable source closure. A passing check may establish only
+the exact reviewed relationship:
+
+- every named LSP method remains listed in the LSP specification;
+- every named indexing and diagnostics configuration token remains listed in
+  that specification; and
+- every exported standard-library function and function-block name in the
+  reviewed denominator remains represented in the standard-function coverage
+  document.
+
+The test must bind every specification or coverage source digest it reads and
+must fail with the complete missing-name set. Presence proves synchronized
+documentation, not implementation reachability, protocol execution, IEC
+conformance, or adequate standard-library behavior.
+
+## Integration-harness resource-bound contract
+
+A live integration harness may catalog an assertion over its own resource
+budget when that assertion is explicitly separated from product behavior. The
+MQTT live-test broker lifetime must be at least four times the per-phase test
+timeout so setup, interaction, recovery, and teardown phases cannot outlive
+the broker solely because of the declared harness constants.
+
+This assertion proves only the static relationship between the two reviewed
+test-harness durations. It does not prove broker reachability, MQTT protocol
+behavior, scheduler timing, absence of contention, or successful execution of
+any live integration phase.

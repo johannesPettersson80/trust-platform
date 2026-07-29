@@ -1,0 +1,117 @@
+schema_version = 1
+id = "VM_OPERATIONAL_OBSERVABILITY_001"
+title = "Optimized VM backends preserve bounded operational controls and truthful telemetry"
+area = "bytecode_vm"
+risk = "false_status"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-29"
+claim = "Register-IR and tier-1 execution preserve deterministic configuration defaults, bounded caches and reusable buffers, truthful operation counters, pre-mutation deadline and fallback decisions, debug-location reporting, and native-symbol preparation caches without promoting those observations to Structured Text program semantics."
+proof_level = "S0"
+contract_kind = "state_machine"
+source_refs = [
+  "docs/specs/12-bytecode.md",
+  "crates/trust-runtime/src/runtime/vm/register_ir",
+  "crates/trust-runtime/src/runtime/vm/call",
+]
+tests = ["TEST_AUTO_02A9C126BCBCA60B89FC", "TEST_AUTO_0472C3A256BD5B1E49EA", "TEST_AUTO_19EFDD0282153F53CD71", "TEST_AUTO_26463DA494D8A83680CC", "TEST_AUTO_286A2DB4867D072EBD81", "TEST_AUTO_29F852A3670A263B4BBA", "TEST_AUTO_2A9A0F79204A6ED7D3B3", "TEST_AUTO_3FEA24E8B45831504EB9", "TEST_AUTO_44B8176DE36391A902EA", "TEST_AUTO_4929C23DF5020BC6D864", "TEST_AUTO_4A5C67E6A2C6696EAFE0", "TEST_AUTO_4D564DAB0E3D3BCE1516", "TEST_AUTO_55AB5B2B6B331C1E345C", "TEST_AUTO_56FC1BE4A7F0D7E98847", "TEST_AUTO_59E213549872293A9FBF", "TEST_AUTO_5BB73AD55EC9E14E7E44", "TEST_AUTO_5E8B591951B2F5A69CC0", "TEST_AUTO_65BCA9FA03DA39C710D6", "TEST_AUTO_6B5592847914F04017A7", "TEST_AUTO_6DBF2D449DC1A9C28F63", "TEST_AUTO_84B31731670E73C95CA6", "TEST_AUTO_8CFCAC0A0ACB9913F461", "TEST_AUTO_98548DA31025D64429F2", "TEST_AUTO_9E3B0A1B92760F8F0534", "TEST_AUTO_ABD235BEB6C3569D387B", "TEST_AUTO_AE02817D6CB569DFC8B4", "TEST_AUTO_B36860C46DD99C291E82", "TEST_AUTO_B45F29B68E0EF26A04A2", "TEST_AUTO_BA5F722E76D5C8AB5564", "TEST_AUTO_C0B16744A7C2D1EB8BCA", "TEST_AUTO_C44FB76BB87F2D4F4799", "TEST_AUTO_C66AD9C183B5B6475D87", "TEST_AUTO_D3B4B765BDE229C714C6", "TEST_AUTO_E21BF0CC3C3A6301FDBA", "TEST_AUTO_E29B24D47064A2C62712", "TEST_AUTO_E5636422E644F381730F", "TEST_AUTO_E6C75C05D60B64CA90BD", "TEST_AUTO_F0D6D66A63F032BFA86B"]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["focused_execution", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_BYTECODE_FORMAT_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_BYTECODE_FORMAT_001#optimized-backend-operational-observability"
+
+[[behavior]]
+partition = { equals = "CONFIGURATION_TOKENS_AND_DEFAULTS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#optimized-backend-operational-observability"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Boolean, threshold, and capacity environment tokens preserve explicit values and documented defaults, with tier-1 disabled by default."
+
+[[behavior]]
+partition = { equals = "BOUNDED_LOWERING_AND_TIER1_CACHES" }
+case_family = "resource_limit"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#optimized-backend-operational-observability"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Lowering and specialized-block caches reuse success and failure results, respect thresholds and capacity, evict when full, and clear entries and counters on reset."
+
+[[behavior]]
+partition = { equals = "CLEAN_BOUNDED_BUFFER_AND_REGISTER_REUSE" }
+case_family = "resource_limit"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#optimized-backend-operational-observability"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Reusable execution buffers and register files preserve requested capacity, clear prior frames and values, and obey the configured pool limit."
+
+[[behavior]]
+partition = { equals = "TRUTHFUL_PROFILE_AND_CLONE_AVOIDANCE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#optimized-backend-operational-observability"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Profile snapshots count the executed reference, call, fallback, cache, and value operations, and clone-avoiding paths do not increment clone counters."
+
+[[behavior]]
+partition = { equals = "DEADLINE_POLLING_AND_PREMUTATION_FALLBACK" }
+case_family = "concurrency_or_cancellation"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#optimized-backend-operational-observability"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Stack and register execution check the first operation and stride boundaries, while unsupported optimized execution records a bounded reason and declines before mutation."
+
+[[behavior]]
+partition = { equals = "DEBUG_LOCATION_AND_DIAGNOSTIC_CORPUS" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#optimized-backend-operational-observability"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Debug-map locations and diagnostic corpus summaries report register execution, lowering-cache use, and fallback reasons without changing product results."
+
+[[behavior]]
+partition = { equals = "NATIVE_SYMBOL_PREPARSE_AND_RESOLUTION_CACHE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#optimized-backend-operational-observability"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Cached native descriptors preserve ordered conversion data and parse errors, and cached resolution preserves the selected native function identity."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in VM_OPERATIONAL_OBSERVABILITY_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "resource_limit"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every resource_limit behavior in VM_OPERATIONAL_OBSERVABILITY_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in VM_OPERATIONAL_OBSERVABILITY_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "concurrency_or_cancellation"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every concurrency_or_cancellation behavior in VM_OPERATIONAL_OBSERVABILITY_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "extra_or_unknown"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every extra_or_unknown behavior in VM_OPERATIONAL_OBSERVABILITY_001; dynamic proof and broad remote validation remain explicit debt."

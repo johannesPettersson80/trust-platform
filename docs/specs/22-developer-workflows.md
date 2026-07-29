@@ -242,17 +242,48 @@ and fail-closed aggregation boundaries. They do not prove that an unexecuted
 GitHub workflow ran successfully, that uploaded artifacts are publicly
 available, or that the final release candidate is green.
 
-### CI performance reference-environment gap
+### CI performance reference-environment contract
 
-Elapsed-time thresholds for first feedback, one filtered test, and small-suite
-scaling are not portable product oracles until a reference environment names
-the CPU and memory, operating system, prebuilt-versus-clean state, cache state,
-test concurrency, sample count, warmup, and aggregation statistic. The current
-“clean setup” test invokes already built binaries against a copied fixture; it
-does not measure installation or compilation from a clean toolchain state.
+The three native CI timing probes are reference-environment contracts, not
+portable performance guarantees. Their reviewed reference environment is:
 
-Until that authority exists, those timing assertions remain runnable
-environment probes and must not be counted as performance coverage.
+- Ubuntu 26.04 on Linux x86-64;
+- an AMD EPYC-Genoa Processor with 8 logical CPUs;
+- 16,361,160,704 bytes of memory;
+- `rustc 1.97.0 (2d8144b78 2026-07-07)`,
+  `cargo 1.97.0 (c980f4866 2026-06-30)`, and
+  `cargo-nextest 0.9.140 (a9fef2964 2026-07-05)`;
+- the already-built `trust-runtime` test binary and copied repository
+  fixtures, with a warmed shared Cargo target; this is not an installation,
+  clean-toolchain, or clean-compilation measurement;
+- the test runner's default thread selection unless the retained command says
+  otherwise; and
+- one observed wall-clock sample per assertion, no in-test warmup, and direct
+  comparison with the asserted bound rather than a median or percentile.
+
+On that profile, the first passing copied-fixture path must complete within
+600 seconds; the filtered single-test path must complete within 2 seconds and
+report exactly one passing case with no errors; and the 10-test versus 40-test
+fixture pair must remain inside the asserted total-time, per-test, and scaling
+envelopes.
+
+Every accepted execution artifact binds the source revision, exact test,
+hostname and profile above, command, terminal result, and observed duration.
+A result from different hardware, memory, operating system, toolchain,
+prebuilt state, cache state, concurrency, sample count, or aggregation policy
+is informative only and cannot satisfy this contract. These probes do not
+claim portable latency, clean setup, compilation speed, or arbitrary-project
+scaling.
+
+### Registry initialization CLI contract
+
+`trust-runtime registry init` preserves the explicit root, visibility, and
+optional token selected by the operator. `--visibility private` remains
+private, and an explicitly supplied token reaches the private initialization
+action without being reclassified as a public registry or another registry
+subcommand. This parser contract does not establish storage authorization,
+network authentication, or secret-handling proof beyond exact argument
+binding.
 
 ## Developer CI exit classification
 

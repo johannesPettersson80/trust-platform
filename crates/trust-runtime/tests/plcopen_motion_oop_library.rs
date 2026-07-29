@@ -60,6 +60,7 @@ fn read_fixture_sources(project: &std::path::Path) -> String {
                 "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_negative_group_label",
                 "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_negative_power_enable_split",
                 "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_negative_public_surface",
+                "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_negative_stop_active",
                 "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_negative_transition_vel_next",
                 "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_negative_transition_vel_zero",
                 "crates/trust-runtime/tests/fixtures/plcopen_motion/synchronization_negative_deferred_public_surface",
@@ -173,6 +174,11 @@ fn plcopen_motion_deferred_public_surfaces_remain_absent() {
             "single_axis_negative_power_enable_split",
             &["EnablePositive", "EnableNegative"][..],
             &["EnablePositive", "EnableNegative"][..],
+        ),
+        (
+            "single_axis_negative_stop_active",
+            &["Stop.Active"][..],
+            &["no member 'Active' on type"][..],
         ),
     ] {
         assert_trust_dev_test_rejects_absent_surfaces(

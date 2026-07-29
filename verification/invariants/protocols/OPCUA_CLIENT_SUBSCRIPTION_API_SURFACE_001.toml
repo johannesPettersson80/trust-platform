@@ -1,0 +1,42 @@
+schema_version = 1
+id = "OPCUA_CLIENT_SUBSCRIPTION_API_SURFACE_001"
+title = "OPC UA client worker retains the reviewed subscription API surface"
+area = "protocols"
+risk = "false_status"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-29"
+claim = "The configured OPC UA client dependency exposes the reviewed session, subscription, monitored-item, callback, and status types required by the persistent worker without treating compile availability as runtime lifecycle proof."
+proof_level = "S0"
+contract_kind = "protocol_trace"
+source_refs = [
+  "crates/trust-runtime/tests/opcua_client_runtime.rs",
+  "docs/internal/testing/evidence/runtime-connectivity-conformance/2026-07-04-phase-03/opcua-client-subscription-spike.md",
+]
+tests = ["TEST_AUTO_C43441A87579223BDF23"]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["focused_execution", "runtime_subscription_lifecycle", "external_opcua_target", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001"]
+
+[oracle]
+kind = "reviewed_decision"
+ref = "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001#persistent-worker"
+
+[[behavior]]
+partition = { equals = "PERSISTENT_WORKER_SUBSCRIPTION_API_COMPILES" }
+case_family = "happy_path"
+oracle_ref = "SPEC_OPCUA_CLIENT_LIFECYCLE_DECISION_001#persistent-worker"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The exact configured OPC UA dependency exports the reviewed types and method signatures needed to construct and maintain subscriptions."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in OPCUA_CLIENT_SUBSCRIPTION_API_SURFACE_001; dynamic proof and broad remote validation remain explicit debt."

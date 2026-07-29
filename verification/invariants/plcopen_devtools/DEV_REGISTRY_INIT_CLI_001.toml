@@ -1,0 +1,42 @@
+schema_version = 1
+id = "DEV_REGISTRY_INIT_CLI_001"
+title = "Registry initialization preserves explicit root and private authority"
+area = "plcopen_devtools"
+risk = "security"
+status = "mapped"
+owner = "trust-dev"
+last_reviewed = "2026-07-29"
+claim = "The registry initialization parser preserves the selected root, explicit private visibility, and optional token without substituting public visibility or another registry action."
+proof_level = "S0"
+contract_kind = "security_policy"
+source_refs = [
+  "docs/specs/22-developer-workflows.md",
+  "crates/trust-runtime/src/bin/trust-runtime/cli",
+]
+tests = ["TEST_AUTO_1F4D63D96B56673D2897"]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["focused_execution", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_DEVELOPER_WORKFLOWS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_DEVELOPER_WORKFLOWS_001#registry-initialization-cli-contract"
+
+[[behavior]]
+partition = { equals = "EXPLICIT_PRIVATE_ROOT_AND_TOKEN" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#registry-initialization-cli-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The parser selects registry init with the exact root, private visibility, and explicit token."
+
+[[coverage.cells]]
+dimension = "auth_or_permission"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every auth_or_permission behavior in DEV_REGISTRY_INIT_CLI_001; dynamic proof and broad remote validation remain explicit debt."

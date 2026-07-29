@@ -688,6 +688,37 @@ program execution or an IEC 61131-3 deviation.
 - Workspace indexing runs in the background; adaptive throttling yields between files to keep interactive edits responsive (tooling behavior, non-IEC).
 - Stdlib selection currently filters standard function/FB docs and completions (IEC 61131-3 Ed.3, Tables 22–36, 43–46).
 
+##### 7.6.1 Workspace coordination and helper projections
+
+The first-index-pass signal is a one-way latch. A waiter that subscribes before
+completion remains blocked until the pass is marked complete or the bounded
+deadlock timeout expires. Marking completion is idempotent, and a waiter that
+subscribes after completion returns immediately.
+
+Background workspace requests acquire the configured background permit before
+their work begins, so the default single-permit lane serializes them. Closing
+the limiter disables admission blocking rather than preventing the already
+supported background operation from running.
+
+Library documentation is cached by workspace configuration. Repeated reads
+under an unchanged configuration reuse the same parsed map. Reapplying
+workspace configuration invalidates the entry and the next read observes the
+current documentation contents.
+
+The command wrapper and its `ServerContext` implementation project identical
+`projectInfo` results for the same workspace state. IDE source helpers preserve
+the following deterministic projections used by commands and refactors:
+
+- a variable declaration's declared type is the trimmed text after `:` and
+  before an initializer or terminator, including aggregate type text;
+- exact symbol ranges resolve to their owning variable declaration and carry
+  that declared type;
+- source text selected by a valid range is trimmed; and
+- extending a range to its line end preserves its start and includes the
+  trailing LF or CRLF when one is present.
+
+These are truST tooling contracts. They do not add IEC language semantics.
+
 ---
 
 ### 8. Runtime & Debugger
