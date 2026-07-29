@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "id": "P18_EXACT_BEHAVIOR_MARKER_9_CLOSURE_LOCK",
+  "reviewed_date": "2026-07-29",
+  "proof_scope": "nine_stale_exact_behavior_markers_and_eighteen_coverage_cells",
+  "baseline_commit": "0d31ff122d27a97f588008a2d304ae0b4a4c5f0b",
+  "accepted_commit": "e2c20f68a440bb656652216bee656fcb75e96a11",
+  "checkout": {
+    "canonical_source": "/home/johannes/projects/trust-platform",
+    "remote_destination": "trust-builder:/home/johannes/projects/trust-platform-p18-marker-0d31ff12",
+    "remote_baseline_destination": "trust-builder:/home/johannes/projects/trust-platform-p18-marker-baseline-0d31ff12",
+    "builder_host": "scena-rust-builder",
+    "agent_files_exact": true,
+    "private_hook_exact": true
+  },
+  "population": {
+    "invariants": 9,
+    "behaviors": 51,
+    "catalog_tests": 75,
+    "missing_behaviors": 0,
+    "extra_behavior_refs": 0,
+    "missing_catalog_tests": 0,
+    "exact_behavior_marker_debt_before": 20,
+    "exact_behavior_marker_debt_after": 11,
+    "remaining_debt_is_historical_placeholders": 11,
+    "gap_open_cells_before": 191,
+    "gap_open_cells_after": 173
+  },
+  "focused_execution": {
+    "hir_semantic_type_checking": {
+      "passed": 310,
+      "failed": 0
+    },
+    "syntax_library": {
+      "passed": 41,
+      "failed": 0
+    },
+    "syntax_integration": {
+      "passed": 29,
+      "failed": 0
+    },
+    "runtime_precedence_trace": {
+      "passed": 1,
+      "failed": 0
+    },
+    "broad_workspace_gate_ran": false
+  },
+  "frozen_gap_report": {
+    "sha256": "dfdd72600b25f792e3fba53d865447670dde8d0ef5374146772096bdcc3dca56",
+    "live_tests": 4400,
+    "catalog_mapped": 4400,
+    "reviewed_nonmapping": 0,
+    "confirmed_missing_tests": 0
+  },
+  "metadata_isolation": {
+    "baseline_exit": 1,
+    "accepted_exit": 1,
+    "baseline_and_accepted_sha256": "cdb6cbc9d85f22f8cf593d99ea8ed47cd7e69147f684064ba4953068bb6c1cbb",
+    "baseline_findings": 1610,
+    "accepted_findings": 1610,
+    "new_findings": 0,
+    "removed_findings": 0
+  },
+  "downstream_checks": {
+    "staleness_exit": 1,
+    "staleness_sha256": "9481d5ff5aaa1f7c3760584ad4a8b208e5f8b81d706477d4f9cc2bfbff3cba6f",
+    "complete_changed_path_planner_exit": 6,
+    "complete_changed_path_planner_sha256": "6f4264b4a7880aa847d76c965ee55813629854e798f0967da7d5bc42e95c2992"
+  },
+  "input_digests": {
+    "test_catalog_sha256": "f1f648073ed0cc60fc15e7cfa3e9e9de69d8b93451752a937d3fccbe4ce5035d",
+    "test_denominator_sha256": "4e244ede4b499adaa3db4c99604781a7cf9015af2781ff3551ac13ea6ef0832e",
+    "nine_invariant_closure_sha256": "255e0e4f7bcd8bead29322bbe53eaafe410ebeb399e25fd426ca3fa3577e32b4"
+  },
+  "protected_user_state": {
+    "local_diff_sha256": "01458d43c50cd7dfe5cc6eb4649ac1a5a7b8595e61e26d2ce3e76c0b52de4fb4",
+    "accepted_commit_touches_protected_paths": false
+  },
+  "known_downstream_debt": {
+    "historical_placeholder_invariants": 11,
+    "gap_open_coverage_cells": 173,
+    "p18_003_open": true,
+    "p18_006_open": true,
+    "p18_007_through_p18_015_open": true,
+    "p18_016_final_broad_gate_open": true
+  }
+}

@@ -4,9 +4,9 @@ Status: zero-debt contract accepted by commit-bound independent R3 review.
 Findings `P18-C01` through `P18-C08` and `P18-R2-01` are resolved.
 
 Current row: `VERIF-P18-003`, continuing as one repository-wide authority and
-coverage campaign over 203 gap-open coverage cells, nine current
-exact-behavior-marker debts, and eleven empty historical placeholder
-invariants. `VERIF-P18-005` is closed at 4,400 live tests =
+coverage campaign over 173 gap-open coverage cells and eleven historical
+placeholder invariants. All nine current exact-behavior-marker debts are
+closed. `VERIF-P18-005` is closed at 4,400 live tests =
 4,400 `catalog_mapped` + zero `reviewed_nonmapping`. The accepted P18-002
 ledger owns and orders every current fact; it does not close any remaining
 semantic, execution, reachability, mutation, or adequacy population.
@@ -1500,6 +1500,27 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   broad workspace gate ran. Evidence:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-product-oracle-final-82-closure.md`.
   <!-- generated:product-oracle-final-82-closure:end -->
+  <!-- generated:exact-behavior-marker-9-closure:start -->
+
+  Exact-behavior-marker closure progress (2026-07-29): all nine current stale
+  marker debts are closed as one compiler/lexer/precedence batch. The nine
+  invariants contain 51 behaviors bound exactly through 75 catalog identities,
+  with zero missing or extra behavior references and zero missing catalog
+  tests. On clean detached `trust-builder` accepted commit
+  `e2c20f68a440bb656652216bee656fcb75e96a11`, the complete owning HIR,
+  syntax, and precedence binaries pass 381/381. The frozen report retains
+  4,400 live = 4,400 `catalog_mapped`, zero nonmapping, and zero confirmed
+  missing tests; exact-behavior debt moves from 20 to the eleven historical
+  placeholders, and `gap_open` coverage cells move from the current measured
+  191 to 173. Private-hook-correct baseline and accepted metadata logs are
+  byte-identical with 1,610 retained downstream findings and zero batch-added
+  findings. The eleven placeholders cannot yet be removed because live
+  code-spec facts still terminate in their historical gaps.
+  `VERIF-P18-003`, `VERIF-P18-006`, reachability, mutation sensitivity,
+  adequacy campaigns, environment proof, and final broad gates remain open.
+  No broad workspace gate ran. Evidence:
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-exact-behavior-marker-9-closure.md`.
+  <!-- generated:exact-behavior-marker-9-closure:end -->
 - [x] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device
