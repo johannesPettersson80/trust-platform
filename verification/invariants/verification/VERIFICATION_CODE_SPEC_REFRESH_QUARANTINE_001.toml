@@ -1,25 +1,28 @@
 schema_version = 1
 id = "VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"
-title = "Code-to-spec refresh findings remain complete, deterministic, and quarantined"
+title = "Code-to-spec refresh findings remain quarantined and reviewed acceptance is atomic"
 area = "verification"
 risk = "silent_corruption"
 status = "mapped"
 owner = "verification"
-last_reviewed = "2026-07-24"
-claim = "An at-rest-canonical code-spec report must partition every finding exactly once into deterministic untrusted review-required proposals without inferring source liveness or semantic bindings, mutating accepted metadata, closing gaps, or creating proof."
+last_reviewed = "2026-07-29"
+claim = "An at-rest-canonical code-spec report must partition every finding exactly once into deterministic untrusted review-required proposals without inferring source liveness or semantic bindings, while a complete reviewed acceptance selection must live-reconstruct the exact report and proposal, project only the selected identity transition, rebuild before mutation, and apply the code map, risk ledger, gap ledger, and manifest through one recoverable compare-and-swap transaction without closing gaps or creating proof."
 proof_level = "T1"
 contract_kind = "protocol_trace"
 source_refs = [
   "docs/internal/testing/checklists/plc-verification-program/metadata-model.md#code-to-spec-refresh-proposal-quarantine",
   "scripts/verification/code_spec_refresh.py",
   "scripts/verification/code_spec_refresh_cli.py",
+  "scripts/verification/code_spec_refresh_projection.py",
+  "scripts/verification/code_spec_refresh_projection_support.py",
+  "scripts/verification/code_spec_refresh_selection.py",
   "verification/schemas/code-spec-refresh-proposals.schema.json",
 ]
 tests = ["TEST_VERIFICATION_METADATA_GATE_001"]
 gates = ["veryquick", "pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["reviewed_acceptance_transaction", "final_remote_gate"]
+missing = ["final_remote_gate"]
 
 [spec]
 status = "specified"
@@ -32,17 +35,17 @@ ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001"
 [[coverage.cells]]
 dimension = "happy_path"
 state = "covered"
-rationale = "Focused fixtures generate a schema-valid proposal plane whose exact partition and operation-set digest reconcile."
+rationale = "Focused fixtures generate a schema-valid proposal plane whose exact partition and operation-set digest reconcile, then project a complete reviewed missing/rebind/stale queue without mutating unselected semantic groups."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
 state = "covered"
-rationale = "The closed JSON schema rejects proof, automatic acceptance, and unrecognized fields."
+rationale = "The closed proposal and selection contracts reject proof, partial review queues, unrecognized fields, invalid successor transfers, and area choices outside the live candidate set."
 
 [[coverage.cells]]
 dimension = "supply_chain_or_artifact_fault"
 state = "covered"
-rationale = "Focused fixtures reject report count drift, duplicate identities, non-derived fact identities, source-input drift, generated-ID drift, operation-set digest drift, exact-row reconstruction drift, reviewer-role drift, and proposal/fact identity drift."
+rationale = "Focused fixtures reject report count drift, duplicate identities, non-derived fact identities, source-input drift, generated-ID drift, operation-set digest drift, exact-row reconstruction drift, reviewer-role drift, proposal/fact identity drift, and pre-apply live-reconstruction drift; the shared mapping transaction restores every replacement on post-apply failure."
 
 [[coverage.cells]]
 dimension = "extra_or_unknown"
@@ -52,4 +55,4 @@ rationale = "An unknown report finding fails closed instead of disappearing from
 [[coverage.cells]]
 dimension = "auth_or_permission"
 state = "covered"
-rationale = "Stale successors require the exact path, qualified-symbol, and item-kind tuple; missing mappings carry no inferred specification or disposition."
+rationale = "Stale successors require the exact path, qualified-symbol, and item-kind tuple; direct cross-area decisions require an explicit live-candidate area, owner, and existing gap; risk-bearing transitions receive exact current-body acknowledgements."
