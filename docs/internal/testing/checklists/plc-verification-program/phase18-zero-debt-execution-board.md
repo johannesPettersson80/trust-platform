@@ -1218,6 +1218,27 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   workspace or unfiltered VS Code gate ran. Evidence:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-vscode-authority-40.md`.
   <!-- generated:vscode-authority-40:end -->
+  <!-- generated:rust-assertion-helper-closure:start -->
+
+  Rust assertion-helper closure progress (2026-07-29): one test-first
+  verification-tooling repair now resolves the owning Cargo target, complete
+  `cfg(test)` unit-module graph, restricted visibility, repeated-super paths,
+  transitive named/glob re-exports, and function-local imports while excluding
+  ordinary production execution from delegated test proof. On the manually
+  bootstrapped clean builder checkout at
+  `84d6c31e8b930efc1b4c550e432dee74d4e612ae`, the combined assertion gate
+  and module-graph suite pass 56/56 focused checks. Regeneration of the
+  complete 336-test extractable product remainder raises bound assertions from
+  2,905 to 3,525, reduces assertion-empty inventories from 20 to 11, and
+  reduces 418 recovered unresolved helpers to 85 dynamic
+  `unresolved-oracle` reads with zero unresolved function helpers. The frozen
+  equations remain 4,411 live = 3,983 `catalog_mapped` + 428
+  `reviewed_nonmapping`; no mapping or adequacy row is promoted by this
+  structural repair. The next authority batch classifies the 85 reads as
+  immutable repository inputs, closed generated paths, or genuine host/runtime
+  observations. No broad workspace gate ran. Evidence:
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-rust-assertion-helper-closure.md`.
+  <!-- generated:rust-assertion-helper-closure:end -->
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device
