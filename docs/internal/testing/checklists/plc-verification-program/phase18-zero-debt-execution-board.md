@@ -1618,6 +1618,27 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   final broad gates remain open. No broad workspace gate ran. Evidence:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-authority-reuse.md`.
   <!-- generated:code-spec-authority-reuse:end -->
+  <!-- generated:residual-authority-trace-189:start -->
+
+  Residual-authority trace progress (2026-07-29): the retained 189-identity
+  Rust trace for all 22 withheld exact-path authority groups now completes on
+  clean detached `trust-builder` commit
+  `218d47ff4e581d2e49484e4b394ef6e3646da033`. The corrected resume reuses all
+  183 prior instrumented executions, emits six explicit
+  `no_nextest_identity` records, and attributes 19,350 test-to-code edges
+  across 1,798 unique code facts. Within the 283 withheld candidate facts,
+  proposed-authority tests reach 97 and do not reach 186: ambiguous groups are
+  32/71 reached, mixed-semantics groups 65/199, and claim-mismatch groups
+  0/13. Full dynamic reachability for the two PLCopen path groups does not
+  change their accepted withholding: one remains authority-ambiguous and the
+  other still contains behavior outside its singular claim. The clean
+  17,227-fact code-spec report has zero findings and retains 15,185
+  `spec_gap`; no mapping or proof state changes. `VERIF-P18-003`,
+  `VERIF-P18-006`, bidirectional chains, formal reachability, mutation,
+  adequacy, environment proof, and final gates remain open. No broad workspace
+  gate ran. Evidence:
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-residual-authority-trace-189.md`.
+  <!-- generated:residual-authority-trace-189:end -->
 - [x] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device
