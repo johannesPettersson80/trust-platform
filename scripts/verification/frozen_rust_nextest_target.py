@@ -770,6 +770,9 @@ DEBUG_REMAINING_UNIT_PREFIXES: Mapping[str, str] = {
         "adapter::variables::format::tests::"
     ),
     "crates/trust-debug/src/protocol.rs": "protocol::tests::",
+    "crates/trust-debug/src/protocol/wire_schema_tests.rs": (
+        "protocol::wire_schema_tests::"
+    ),
     "crates/trust-debug/src/session/tests.rs": "session::tests::",
 }
 

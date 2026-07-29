@@ -506,6 +506,10 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
             "debug-remaining",
             path="crates/trust-debug/src/adapter/tests_part_03.rs",
         )
+        debug_wire_schema = get_target_profile(
+            "debug-remaining",
+            path="crates/trust-debug/src/protocol/wire_schema_tests.rs",
+        )
         runtime_core = get_target_profile(
             "runtime-core-remaining",
             path="crates/trust-runtime-core/src/value/reference.rs",
@@ -515,6 +519,10 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
         self.assertEqual(
             "adapter::tests::tests_part_03::",
             debug.test_prefix,
+        )
+        self.assertEqual(
+            "protocol::wire_schema_tests::",
+            debug_wire_schema.test_prefix,
         )
         self.assertEqual("trust-runtime-core", runtime_core.package)
         self.assertEqual(
