@@ -169699,23 +169699,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_066C3FBEE54D31EC9CF9A2B07C7465632D818A72B6D85B5411105E76653A90FC"
-source_kind = "rust"
-path = "crates/trust-plcopen/src/plcopen/contracts.rs"
-qualified_symbol = "trust_plcopen::PlcopenExportTarget"
-item_kind = "rust_public_type"
-signature_digest = "sha256:5e34f45a25210008d12c88d4f63c20f3c0598f59f7058e7ec1fa3ed6169e4e27"
-reviewed_body_digest = "sha256:d4c9df23140dd1500e41a53e820a7cb4ebee7344e18d0933f800b98cd89dc16e"
-owner = "developer-tools"
-area = "plcopen_devtools"
-visibility = "public"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_0679995349692A197D300BC67BBD2123B8D89DC1FFB2AC549725C36FB3AB6199"
 source_kind = "rust"
 path = "crates/trust-plcopen/src/plcopen/pou_externals.rs"
@@ -170204,23 +170187,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_15386B0CB6A1E699C8522B72954ED6C5C3FF7FF5E6F3EC8FB683AB04C08B966B"
-source_kind = "rust"
-path = "crates/trust-plcopen/src/plcopen/contracts.rs"
-qualified_symbol = "trust_plcopen::PlcopenMigrationReport"
-item_kind = "rust_public_type"
-signature_digest = "sha256:50cd1f10607749b88e88a6dde781beb882e276f50d033ee0c2457b951d3d2017"
-reviewed_body_digest = "sha256:8a4afa3693d23e93416e43e3deb27b3bb47c089fe7bd97b3b4010e74b3d6571f"
-owner = "developer-tools"
-area = "plcopen_devtools"
-visibility = "public"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_154A67B26065E7C0F58B93B110A22B3152205251C358E97EC7A5D065E3B2BDE3"
 source_kind = "rust"
 path = "crates/trust-plcopen/src/plcopen/pou_interface.rs"
@@ -170341,23 +170307,6 @@ reviewed_body_digest = "sha256:54b9c70ca440ceeffc4f331335c4fae7db92470a51e8a74a0
 owner = "developer-tools"
 area = "plcopen_devtools"
 visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_19EBB592F1025340B13B4E86305B100BA0FB01A42F9A5BA23D36CCD50086EF1E"
-source_kind = "rust"
-path = "crates/trust-plcopen/src/plcopen/contracts.rs"
-qualified_symbol = "trust_plcopen::PlcopenImportOptions"
-item_kind = "rust_public_type"
-signature_digest = "sha256:22ed4d43546fbfc175a0267097f4d781894f4ad3a4f812047fce368dc9016905"
-reviewed_body_digest = "sha256:9c32e3c193492385aa59c0986d74b196e51a10afb63e982ec03e69eeeedfd69e"
-owner = "developer-tools"
-area = "plcopen_devtools"
-visibility = "public"
 risk_signals = []
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
@@ -170708,23 +170657,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_248714AEB69D781407E87538BB8C56BB0BC3DDE38356958F21B3A128C6FD409E"
-source_kind = "rust"
-path = "crates/trust-plcopen/src/plcopen/contracts.rs"
-qualified_symbol = "trust_plcopen::PlcopenExportTarget::id"
-item_kind = "rust_method"
-signature_digest = "sha256:3331c66c30cbdd06ffffd694efb0b2c27255d8c2399a89a128a764a235b7c0fe"
-reviewed_body_digest = "sha256:72e859a68c2c82e0aa462d7435a3d206b81f0c68bebd2f507de37a1f985d8bc9"
-owner = "developer-tools"
-area = "plcopen_devtools"
-visibility = "public"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_2493C36D401F673D05B0178DE1687315714EDA41B0B9CD4C132C2C882DAFA044"
 source_kind = "rust"
 path = "crates/trust-plcopen/src/plcopen/source_parse.rs"
@@ -170829,23 +170761,6 @@ visibility = "private"
 risk_signals = ["filesystem_or_environment"]
 owner_ack = "RISK_ACK_253AFFB78A92A6783131160E6FC15F387CE8242D8E372719E2AF52BB946AC7F2"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_254656F85AF04CB40A6DD449A41A3D214702313617BF065993BE184EAB0EAC5B"
-source_kind = "rust"
-path = "crates/trust-plcopen/src/plcopen/contracts.rs"
-qualified_symbol = "trust_plcopen::PlcopenMigrationEntry"
-item_kind = "rust_public_type"
-signature_digest = "sha256:82e2e03d3556807146b0005c36e5823f6f1cfdbcfa50c2fb93ea6e24b02d353c"
-reviewed_body_digest = "sha256:c1b477dff68cb0e311b16ec1509143e8029bc1580a294b5733ec6351eaaba4c9"
-owner = "developer-tools"
-area = "plcopen_devtools"
-visibility = "public"
-risk_signals = []
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
 last_reviewed = "2026-07-21"
@@ -171306,23 +171221,6 @@ visibility = "private"
 risk_signals = ["filesystem_or_environment", "state_mutation"]
 owner_ack = "RISK_ACK_35656BA9E0F6287A1BA5E6B0335E30570414F11EE7D6CFF4560B7FD2A040229E"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_3567E510E128360EDFB5F51910A02F9D174AB13F22C609A25227C7FE45BE08B1"
-source_kind = "rust"
-path = "crates/trust-plcopen/src/plcopen/contracts.rs"
-qualified_symbol = "trust_plcopen::PlcopenExportAdapterDiagnostic"
-item_kind = "rust_public_type"
-signature_digest = "sha256:a82e15652b79e7debf3e63d4f8f736c30e826f06f835e0d5f12ff0d30c437017"
-reviewed_body_digest = "sha256:fbf581e68e34f5433e9681a7ce42b95c2df23cdcecf124f1a0fd1a3f267d39ee"
-owner = "developer-tools"
-area = "plcopen_devtools"
-visibility = "public"
-risk_signals = []
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
 last_reviewed = "2026-07-21"
@@ -172008,23 +171906,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_48212DA62E203BC755D8AC75BA941938A34D8842180F265FDEC7F962087DDAAF"
-source_kind = "rust"
-path = "crates/trust-plcopen/src/plcopen/contracts.rs"
-qualified_symbol = "trust_plcopen::PlcopenProfile"
-item_kind = "rust_public_type"
-signature_digest = "sha256:30923dcbc96c06a9b872fbe2068e829e299020dd2dac0d8f76a13a8ef952ec8a"
-reviewed_body_digest = "sha256:f923d9c0d2da1d72700a3b3b52538ee8ceb6c45dcc0cb30c959f224f4553d672"
-owner = "developer-tools"
-area = "plcopen_devtools"
-visibility = "public"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_4846CC6EE266F50DB954489515F73B154341ACF895D6DACE4710F9C09A06BF01"
 source_kind = "rust"
 path = "crates/trust-runtime/src/bin/trust-runtime/plcopen.rs"
@@ -172402,40 +172283,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_55A9EDAD55D72341D7B9B27B4FE1CB5D288E2DB396B2D4AFE1B8595B6AFF4242"
-source_kind = "rust"
-path = "crates/trust-plcopen/src/plcopen/contracts.rs"
-qualified_symbol = "trust_plcopen::PlcopenExportAdapterReport"
-item_kind = "rust_public_type"
-signature_digest = "sha256:31e2ec88507c7a4871b0b19c4d7e7829563cae6fab89eac09595646cd60bf94c"
-reviewed_body_digest = "sha256:56525b8321c9d78c9003e979b3f533474637300d449a76b79f425fc46f228576"
-owner = "developer-tools"
-area = "plcopen_devtools"
-visibility = "public"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_55BDD85FF8EF942891466815976487F2603DB0FCA03DD68F8A30490E508BAD98"
-source_kind = "rust"
-path = "crates/trust-plcopen/src/plcopen/contracts.rs"
-qualified_symbol = "trust_plcopen::PlcopenImportGlobalVarMode"
-item_kind = "rust_public_type"
-signature_digest = "sha256:7e2de9071d7613d5c2c657557ad26c9ed05d58825104230e2aaa1c79d61f34c1"
-reviewed_body_digest = "sha256:5e820657d19fac13904db5c807ca7d710bdba268d469e0eb2183decf32d337c0"
-owner = "developer-tools"
-area = "plcopen_devtools"
-visibility = "public"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_562A244BA290BFDFB8BC06F827649D7339DE46632CF1B756FA1E91A89A83545D"
 source_kind = "rust"
 path = "crates/trust-runtime/src/bin/trust-runtime/cli/plcopen.rs"
@@ -172724,23 +172571,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_5CFE372F78866108163D9E29B2EAB95D18835CDFBC96E94DF8B912BE6613889E"
-source_kind = "rust"
-path = "crates/trust-plcopen/src/plcopen/contracts.rs"
-qualified_symbol = "trust_plcopen::PlcopenExportTarget::label"
-item_kind = "rust_method"
-signature_digest = "sha256:1d02908e4f03d32c2df6e097e3a7ec33e1e132146c3466d0f37762d0b9a37daf"
-reviewed_body_digest = "sha256:1ccbee47848280a8fbac85e8bdccaa2f6c51c62993de3693e6281d549e33bb72"
-owner = "developer-tools"
-area = "plcopen_devtools"
-visibility = "public"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_5FCE8A15C1B2CA63A15F78F28EAFEBA52B83C1F0C0292EBEC260699FA7D6EA9E"
 source_kind = "rust"
 path = "crates/trust-dev/src/agent.rs"
@@ -172859,23 +172689,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_651E40BE9BCA6D31EED062B923FC5C1C5311F582E53659AAD88CE7775936A4B2"
-source_kind = "rust"
-path = "crates/trust-plcopen/src/plcopen/contracts.rs"
-qualified_symbol = "trust_plcopen::PlcopenLibraryShimApplication"
-item_kind = "rust_public_type"
-signature_digest = "sha256:1f74a7bab8037480cad7f41b5114bd8a6bb5cc04b8e7a67f13098ce7054cb52a"
-reviewed_body_digest = "sha256:024fedc965e52adfb264c149938c8ebbcabc85e5cbb7045f71fd748855c67362"
-owner = "developer-tools"
-area = "plcopen_devtools"
-visibility = "public"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_65B5D94000E2E69B9CD328CA45BB0923240C51B0B3EA2EA184BE90E997BC9020"
 source_kind = "rust"
 path = "crates/trust-plcopen/src/plcopen/xml_common.rs"
@@ -172925,23 +172738,6 @@ visibility = "private"
 risk_signals = ["filesystem_or_environment"]
 owner_ack = "RISK_ACK_65FD61140FE26505EEEC20EFDCCB96FF40E325621F951910D61D064C2C2FCB2B"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_666A7808155D9E485D656A7D89B9A03ACE669D62B0FD0B984182E7B2C5943EE1"
-source_kind = "rust"
-path = "crates/trust-plcopen/src/plcopen/contracts.rs"
-qualified_symbol = "trust_plcopen::PlcopenExportTarget::file_suffix"
-item_kind = "rust_method"
-signature_digest = "sha256:64741a6f53dcf84f27c11c8808f39f2663f9f6b5da424a0f3a1d4fcf999cb47c"
-reviewed_body_digest = "sha256:eb1dbe205b80d336d2af7296993f1a8a2641f8da4e5662cdb853470e801393b9"
-owner = "developer-tools"
-area = "plcopen_devtools"
-visibility = "public"
-risk_signals = []
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
 last_reviewed = "2026-07-21"
@@ -173113,23 +172909,6 @@ last_reviewed = "2026-07-29"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_6D412B77164F3FE6AA8A92FDFD84A3255DA5234EB89D4D96D040E6CF00E3826D"
-source_kind = "rust"
-path = "crates/trust-plcopen/src/plcopen/contracts.rs"
-qualified_symbol = "trust_plcopen::PlcopenExportReport"
-item_kind = "rust_public_type"
-signature_digest = "sha256:aeed9ec80f7a7959542a722ccfdb1f71ccc9d6ae5875e73b3d0cc102ce29cfb0"
-reviewed_body_digest = "sha256:7d9988f876065c33b077c8fc2b1ca8a3b3513726b93da57b079de9c8f7a555d8"
-owner = "developer-tools"
-area = "plcopen_devtools"
-visibility = "public"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_6E0D31A0FFAEE471DE500F0EE7ECAA76DCF4BEB22616A181B063E652782EF316"
 source_kind = "rust"
 path = "crates/trust-plcopen/src/plcopen/pou_interface.rs"
@@ -173221,23 +173000,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_7700EAFDE4DAFC607327E761E5A1F811F3A2ED5BF09A734105344474228FA0F0"
-source_kind = "rust"
-path = "crates/trust-plcopen/src/plcopen/contracts.rs"
-qualified_symbol = "trust_plcopen::PlcopenImportReport"
-item_kind = "rust_public_type"
-signature_digest = "sha256:6f71cc5bcd6c1c391096d2dceaaec2e1b60dbd2830bcadbfda9eefb4c5e0cce0"
-reviewed_body_digest = "sha256:20a404b361df789742a2011d3b9372d425ef3bc4b24528a1a34b24815b3b0881"
-owner = "developer-tools"
-area = "plcopen_devtools"
-visibility = "public"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_77153D9761ED8E44F8EAE4A3B416F28271B413967BD5718D42E12D18A431CE2B"
 source_kind = "rust"
 path = "crates/trust-dev/src/workflow.rs"
@@ -173303,23 +173065,6 @@ reviewed_body_digest = "sha256:db15b3924dc8f318fd32f497841e0338c3c5aeafb295bbc38
 owner = "developer-tools"
 area = "plcopen_devtools"
 visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_7ACD9FD013ED15982B1063BD3136F8613E7F300D4601D8F571579C57C5DEA0C8"
-source_kind = "rust"
-path = "crates/trust-plcopen/src/plcopen/contracts.rs"
-qualified_symbol = "trust_plcopen::PlcopenUnsupportedDiagnostic"
-item_kind = "rust_public_type"
-signature_digest = "sha256:8dd8a92687e774b28d463186af37c3ba39213e50303a4ec38a1a7b829c3fedfd"
-reviewed_body_digest = "sha256:9c639a0d665e0fce3f39d04f736b5b0da5b095060a456616a007bf343fe475a9"
-owner = "developer-tools"
-area = "plcopen_devtools"
-visibility = "public"
 risk_signals = []
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
@@ -174493,23 +174238,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_A5CED06051577CE02D94518CB1F516DEC0BD8149AE4B5625293AED971752C0A5"
-source_kind = "rust"
-path = "crates/trust-plcopen/src/plcopen/contracts.rs"
-qualified_symbol = "trust_plcopen::PlcopenPouType::end_keyword"
-item_kind = "rust_method"
-signature_digest = "sha256:6286a5b469a73716ecfaa1a897bbe5b8e0c1cfd98866c7872c5065ebc5ca3e93"
-reviewed_body_digest = "sha256:bacea8f8728b54d20799bbfce426c6bb094b8b0bc3c249401a49384b04253e3b"
-owner = "developer-tools"
-area = "plcopen_devtools"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_A6A0D1464FBAE04C5471306E63659ED02C9148235E2035B55BFBE8EA3E83B2DA"
 source_kind = "rust"
 path = "crates/trust-dev/src/commit.rs"
@@ -174682,23 +174410,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_AD4B906B0EE1E5F175794AA0C56C252BF84D98CBADB90CEA7853E8B9CE22703E"
-source_kind = "rust"
-path = "crates/trust-plcopen/src/plcopen/contracts.rs"
-qualified_symbol = "trust_plcopen::PlcopenPouType::from_xml"
-item_kind = "rust_method"
-signature_digest = "sha256:c8719aba6cfbe5e13431c35d6aa30d1a4cf7ca34db6f5bebc6a06a3211012a29"
-reviewed_body_digest = "sha256:3a2475d8be1ff956d27a935f29476421e9c385fe823bb6a4870442ea0412d798"
-owner = "developer-tools"
-area = "plcopen_devtools"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_AE872E7177254B5321A671F59E04A006E60B11B5CAC95709B6776C528871AD4E"
 source_kind = "rust"
 path = "crates/trust-dev/src/test_cmd/output.rs"
@@ -174760,23 +174471,6 @@ reviewed_body_digest = "sha256:4a07b0f881240a5dac621a65b1f7821a99d9d5a559191ccf1
 owner = "developer-tools"
 area = "plcopen_devtools"
 visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_B16F929C17B68F27F12C8AE344A44FA4ECAB71A3D7FC63333EE1BF1BD6B1F5F2"
-source_kind = "rust"
-path = "crates/trust-plcopen/src/plcopen/contracts.rs"
-qualified_symbol = "trust_plcopen::PlcopenCompatibilityCoverage"
-item_kind = "rust_public_type"
-signature_digest = "sha256:467d836acedf0b6eeaca006b25b3d661f0e6a48be772a44822bc30a11d52216d"
-reviewed_body_digest = "sha256:e312ee09ee5d36bf70d98d7b69d892aa7956ebcbb6998d8bebf2518144270d39"
-owner = "developer-tools"
-area = "plcopen_devtools"
-visibility = "public"
 risk_signals = []
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
@@ -175127,23 +174821,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_BE8398C65B492A9AA572597103B60F6535A0D371DEE224B040A68BD75A2A386D"
-source_kind = "rust"
-path = "crates/trust-plcopen/src/plcopen/contracts.rs"
-qualified_symbol = "trust_plcopen::PlcopenPouType::declaration_keyword"
-item_kind = "rust_method"
-signature_digest = "sha256:f8795c2bf2f552042ad523cb164a67d3b2965a192e27f76322cb976bd6f2ff70"
-reviewed_body_digest = "sha256:6750e8d0f261abf6268da00d6cb0f1f9e7bb49a4678c572896d4287d96afc876"
-owner = "developer-tools"
-area = "plcopen_devtools"
-visibility = "private"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_BFCDDFD2C8E20CC88788AF60B3557A6D134EB0069836BBA311B91A6EB53A47B8"
 source_kind = "rust"
 path = "crates/trust-plcopen/src/plcopen/xml_common.rs"
@@ -175365,23 +175042,6 @@ visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_CD04F6098219330016983918B67908ACDCFC66F187F5434CA8B21D1F3A92641C"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_CD7AF37BA9DDE6452493B188036945DBD63EACBE6AEF3A2EA4DBCDC35823AB39"
-source_kind = "rust"
-path = "crates/trust-plcopen/src/plcopen/contracts.rs"
-qualified_symbol = "trust_plcopen::PlcopenCompatibilityMatrixEntry"
-item_kind = "rust_public_type"
-signature_digest = "sha256:6cd30c4a77f4353d68f736d31040639f248fbfd9ccf0892f00ba072c8076a2ef"
-reviewed_body_digest = "sha256:7f99d2bc74d448ae4e735e995b04f8dddeca68624d2756f4cf0ef8958ab3efe1"
-owner = "developer-tools"
-area = "plcopen_devtools"
-visibility = "public"
-risk_signals = []
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
 last_reviewed = "2026-07-21"
@@ -175930,23 +175590,6 @@ visibility = "private"
 risk_signals = ["broad_error_suppression"]
 owner_ack = "RISK_ACK_E7FBCADF9A2DC221EE0C5D74A0887AD6BA78DC50E5FBC7F36E8844D65D037987"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_E962B23AD29A163EA8730325FA8914A3197BA2E8C5B85FD17385D13E0634E996"
-source_kind = "rust"
-path = "crates/trust-plcopen/src/plcopen/contracts.rs"
-qualified_symbol = "trust_plcopen::PlcopenPouType::as_xml"
-item_kind = "rust_method"
-signature_digest = "sha256:5b42ce9bfaf7634c579f9952aeb2534be5274e5253837e0ffd684a4e500b6ecd"
-reviewed_body_digest = "sha256:48279895979276f5c6cf654463d2e0c6197328557262f123c7aa26e033d800ff"
-owner = "developer-tools"
-area = "plcopen_devtools"
-visibility = "private"
-risk_signals = []
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
 last_reviewed = "2026-07-21"
@@ -318031,4 +317674,361 @@ disposition = "specified"
 spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
 invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
 test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_0A71AD073A40DA34E4E64DF5B5643B60543537AE65238B32F8F5F11EFA865CE7"
+source_kind = "rust"
+path = "crates/trust-plcopen/src/plcopen/contracts_migration.rs"
+qualified_symbol = "trust_plcopen::PlcopenCompatibilityCoverage"
+item_kind = "rust_public_type"
+signature_digest = "sha256:467d836acedf0b6eeaca006b25b3d661f0e6a48be772a44822bc30a11d52216d"
+reviewed_body_digest = "sha256:e312ee09ee5d36bf70d98d7b69d892aa7956ebcbb6998d8bebf2518144270d39"
+owner = "developer-tools"
+area = "plcopen_devtools"
+visibility = "public"
+risk_signals = []
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_1ED2D2CB7461D16273E238BCE017DDEA709B5B0DDB00A8AEEAA6796A5AA5C5C2"
+source_kind = "rust"
+path = "crates/trust-plcopen/src/plcopen/contracts_export.rs"
+qualified_symbol = "trust_plcopen::PlcopenExportTarget::file_suffix"
+item_kind = "rust_method"
+signature_digest = "sha256:64741a6f53dcf84f27c11c8808f39f2663f9f6b5da424a0f3a1d4fcf999cb47c"
+reviewed_body_digest = "sha256:eb1dbe205b80d336d2af7296993f1a8a2641f8da4e5662cdb853470e801393b9"
+owner = "developer-tools"
+area = "plcopen_devtools"
+visibility = "public"
+risk_signals = []
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_3AE5F1CFFFC7497BDDC14751166D500A5376B3E4ED7BA4D86216D03A818F09BD"
+source_kind = "rust"
+path = "crates/trust-plcopen/src/plcopen/contracts_export.rs"
+qualified_symbol = "trust_plcopen::PlcopenExportTarget"
+item_kind = "rust_public_type"
+signature_digest = "sha256:5e34f45a25210008d12c88d4f63c20f3c0598f59f7058e7ec1fa3ed6169e4e27"
+reviewed_body_digest = "sha256:d4c9df23140dd1500e41a53e820a7cb4ebee7344e18d0933f800b98cd89dc16e"
+owner = "developer-tools"
+area = "plcopen_devtools"
+visibility = "public"
+risk_signals = []
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_4477F4C1496F63D5F8BFD2163E568F98799042AA6A84D3370F8F97EF382432CB"
+source_kind = "rust"
+path = "crates/trust-plcopen/src/plcopen/contracts_import.rs"
+qualified_symbol = "trust_plcopen::PlcopenImportGlobalVarMode"
+item_kind = "rust_public_type"
+signature_digest = "sha256:7e2de9071d7613d5c2c657557ad26c9ed05d58825104230e2aaa1c79d61f34c1"
+reviewed_body_digest = "sha256:5e820657d19fac13904db5c807ca7d710bdba268d469e0eb2183decf32d337c0"
+owner = "developer-tools"
+area = "plcopen_devtools"
+visibility = "public"
+risk_signals = []
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_5E535000FD0D32E2966BEEAF88489383DC3135D5DA3D54985353A50BDCED5A62"
+source_kind = "rust"
+path = "crates/trust-plcopen/src/plcopen/contracts_import.rs"
+qualified_symbol = "trust_plcopen::PlcopenImportReport"
+item_kind = "rust_public_type"
+signature_digest = "sha256:6f71cc5bcd6c1c391096d2dceaaec2e1b60dbd2830bcadbfda9eefb4c5e0cce0"
+reviewed_body_digest = "sha256:20a404b361df789742a2011d3b9372d425ef3bc4b24528a1a34b24815b3b0881"
+owner = "developer-tools"
+area = "plcopen_devtools"
+visibility = "public"
+risk_signals = []
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_6531BC5FF2EA6D1537ADBABE2BF591CABB90573D47528FEF4911251B1F67E515"
+source_kind = "rust"
+path = "crates/trust-plcopen/src/plcopen/contracts_profile.rs"
+qualified_symbol = "trust_plcopen::PlcopenProfile"
+item_kind = "rust_public_type"
+signature_digest = "sha256:30923dcbc96c06a9b872fbe2068e829e299020dd2dac0d8f76a13a8ef952ec8a"
+reviewed_body_digest = "sha256:f923d9c0d2da1d72700a3b3b52538ee8ceb6c45dcc0cb30c959f224f4553d672"
+owner = "developer-tools"
+area = "plcopen_devtools"
+visibility = "public"
+risk_signals = []
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_731C4CA103C66201CC75BA8F891B9B102BDD8CC6790D2CF2C00AED05FE18A393"
+source_kind = "rust"
+path = "crates/trust-plcopen/src/plcopen/contracts_import.rs"
+qualified_symbol = "trust_plcopen::PlcopenImportOptions"
+item_kind = "rust_public_type"
+signature_digest = "sha256:22ed4d43546fbfc175a0267097f4d781894f4ad3a4f812047fce368dc9016905"
+reviewed_body_digest = "sha256:9c32e3c193492385aa59c0986d74b196e51a10afb63e982ec03e69eeeedfd69e"
+owner = "developer-tools"
+area = "plcopen_devtools"
+visibility = "public"
+risk_signals = []
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_92737A2F5C9477EBB8DA9815BDBCEE7E7DAACC82AFFD74F580267D82AE6C8ECB"
+source_kind = "rust"
+path = "crates/trust-plcopen/src/plcopen/contracts_pou.rs"
+qualified_symbol = "trust_plcopen::PlcopenPouType::end_keyword"
+item_kind = "rust_method"
+signature_digest = "sha256:6286a5b469a73716ecfaa1a897bbe5b8e0c1cfd98866c7872c5065ebc5ca3e93"
+reviewed_body_digest = "sha256:bacea8f8728b54d20799bbfce426c6bb094b8b0bc3c249401a49384b04253e3b"
+owner = "developer-tools"
+area = "plcopen_devtools"
+visibility = "private"
+risk_signals = []
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_969490D667D9545038EE7E66F2C8E79243574D99569C2120DA1FAA72B835B0AE"
+source_kind = "rust"
+path = "crates/trust-plcopen/src/plcopen/contracts_pou.rs"
+qualified_symbol = "trust_plcopen::PlcopenPouType::declaration_keyword"
+item_kind = "rust_method"
+signature_digest = "sha256:f8795c2bf2f552042ad523cb164a67d3b2965a192e27f76322cb976bd6f2ff70"
+reviewed_body_digest = "sha256:6750e8d0f261abf6268da00d6cb0f1f9e7bb49a4678c572896d4287d96afc876"
+owner = "developer-tools"
+area = "plcopen_devtools"
+visibility = "private"
+risk_signals = []
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_9C64AF1C360750E88781462DB210FFB833416B2EF1E7D39FD64FA49427A2EF4C"
+source_kind = "rust"
+path = "crates/trust-plcopen/src/plcopen/contracts_export.rs"
+qualified_symbol = "trust_plcopen::PlcopenExportTarget::id"
+item_kind = "rust_method"
+signature_digest = "sha256:3331c66c30cbdd06ffffd694efb0b2c27255d8c2399a89a128a764a235b7c0fe"
+reviewed_body_digest = "sha256:72e859a68c2c82e0aa462d7435a3d206b81f0c68bebd2f507de37a1f985d8bc9"
+owner = "developer-tools"
+area = "plcopen_devtools"
+visibility = "public"
+risk_signals = []
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_A1C488B401586CE9D09801CC90CC9F9D7A4DB7A3699DE06E7C16706288A87400"
+source_kind = "rust"
+path = "crates/trust-plcopen/src/plcopen/contracts_pou.rs"
+qualified_symbol = "trust_plcopen::PlcopenPouType::from_xml"
+item_kind = "rust_method"
+signature_digest = "sha256:c8719aba6cfbe5e13431c35d6aa30d1a4cf7ca34db6f5bebc6a06a3211012a29"
+reviewed_body_digest = "sha256:3a2475d8be1ff956d27a935f29476421e9c385fe823bb6a4870442ea0412d798"
+owner = "developer-tools"
+area = "plcopen_devtools"
+visibility = "private"
+risk_signals = []
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_A99F8E92FFF721CCAC2A65BF26D91A7B516AEE04E72C20B8B3FA43D4BB570860"
+source_kind = "rust"
+path = "crates/trust-plcopen/src/plcopen/contracts_export.rs"
+qualified_symbol = "trust_plcopen::PlcopenExportTarget::label"
+item_kind = "rust_method"
+signature_digest = "sha256:1d02908e4f03d32c2df6e097e3a7ec33e1e132146c3466d0f37762d0b9a37daf"
+reviewed_body_digest = "sha256:1ccbee47848280a8fbac85e8bdccaa2f6c51c62993de3693e6281d549e33bb72"
+owner = "developer-tools"
+area = "plcopen_devtools"
+visibility = "public"
+risk_signals = []
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_AD92D5E5D5B86E99BB5D8F6786A7123ADE96CF5D1ACF7DADBF632CE319416C95"
+source_kind = "rust"
+path = "crates/trust-plcopen/src/plcopen/contracts_migration.rs"
+qualified_symbol = "trust_plcopen::PlcopenMigrationReport"
+item_kind = "rust_public_type"
+signature_digest = "sha256:50cd1f10607749b88e88a6dde781beb882e276f50d033ee0c2457b951d3d2017"
+reviewed_body_digest = "sha256:8a4afa3693d23e93416e43e3deb27b3bb47c089fe7bd97b3b4010e74b3d6571f"
+owner = "developer-tools"
+area = "plcopen_devtools"
+visibility = "public"
+risk_signals = []
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_B8C9426315D68D328BEE253F23EFE2B07912E64D62B3FD26D7656F619CFF7F97"
+source_kind = "rust"
+path = "crates/trust-plcopen/src/plcopen/contracts_migration.rs"
+qualified_symbol = "trust_plcopen::PlcopenUnsupportedDiagnostic"
+item_kind = "rust_public_type"
+signature_digest = "sha256:8dd8a92687e774b28d463186af37c3ba39213e50303a4ec38a1a7b829c3fedfd"
+reviewed_body_digest = "sha256:9c639a0d665e0fce3f39d04f736b5b0da5b095060a456616a007bf343fe475a9"
+owner = "developer-tools"
+area = "plcopen_devtools"
+visibility = "public"
+risk_signals = []
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_D1D5846AC162C1833A05290B19CFF7E4E9AFB228A7A3E9068DA7FAD4265758C6"
+source_kind = "rust"
+path = "crates/trust-plcopen/src/plcopen/contracts_export.rs"
+qualified_symbol = "trust_plcopen::PlcopenExportAdapterDiagnostic"
+item_kind = "rust_public_type"
+signature_digest = "sha256:a82e15652b79e7debf3e63d4f8f736c30e826f06f835e0d5f12ff0d30c437017"
+reviewed_body_digest = "sha256:fbf581e68e34f5433e9681a7ce42b95c2df23cdcecf124f1a0fd1a3f267d39ee"
+owner = "developer-tools"
+area = "plcopen_devtools"
+visibility = "public"
+risk_signals = []
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_E475EDB3B223A42A8A5C6FFC58D6211D798BAA1285CCCC80FBFBF399251BE6A0"
+source_kind = "rust"
+path = "crates/trust-plcopen/src/plcopen/contracts_migration.rs"
+qualified_symbol = "trust_plcopen::PlcopenMigrationEntry"
+item_kind = "rust_public_type"
+signature_digest = "sha256:82e2e03d3556807146b0005c36e5823f6f1cfdbcfa50c2fb93ea6e24b02d353c"
+reviewed_body_digest = "sha256:c1b477dff68cb0e311b16ec1509143e8029bc1580a294b5733ec6351eaaba4c9"
+owner = "developer-tools"
+area = "plcopen_devtools"
+visibility = "public"
+risk_signals = []
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_E4EC925D7DAC973A374D924190CDBCF611B8BD255E81420AD12608F19D04D956"
+source_kind = "rust"
+path = "crates/trust-plcopen/src/plcopen/contracts_pou.rs"
+qualified_symbol = "trust_plcopen::PlcopenPouType::as_xml"
+item_kind = "rust_method"
+signature_digest = "sha256:5b42ce9bfaf7634c579f9952aeb2534be5274e5253837e0ffd684a4e500b6ecd"
+reviewed_body_digest = "sha256:48279895979276f5c6cf654463d2e0c6197328557262f123c7aa26e033d800ff"
+owner = "developer-tools"
+area = "plcopen_devtools"
+visibility = "private"
+risk_signals = []
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_E71BD2EA51E39059ACB9599F3AA1DF55845D0B6DED7AF9B1A235F750F2150866"
+source_kind = "rust"
+path = "crates/trust-plcopen/src/plcopen/contracts_export.rs"
+qualified_symbol = "trust_plcopen::PlcopenExportReport"
+item_kind = "rust_public_type"
+signature_digest = "sha256:aeed9ec80f7a7959542a722ccfdb1f71ccc9d6ae5875e73b3d0cc102ce29cfb0"
+reviewed_body_digest = "sha256:7d9988f876065c33b077c8fc2b1ca8a3b3513726b93da57b079de9c8f7a555d8"
+owner = "developer-tools"
+area = "plcopen_devtools"
+visibility = "public"
+risk_signals = []
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_E944EFAE99059B9C345FEDD659B550299407B6E5E624FB0B6DF1D340306903B7"
+source_kind = "rust"
+path = "crates/trust-plcopen/src/plcopen/contracts_shims.rs"
+qualified_symbol = "trust_plcopen::PlcopenLibraryShimApplication"
+item_kind = "rust_public_type"
+signature_digest = "sha256:1f74a7bab8037480cad7f41b5114bd8a6bb5cc04b8e7a67f13098ce7054cb52a"
+reviewed_body_digest = "sha256:024fedc965e52adfb264c149938c8ebbcabc85e5cbb7045f71fd748855c67362"
+owner = "developer-tools"
+area = "plcopen_devtools"
+visibility = "public"
+risk_signals = []
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_F75A8EC90033AB88A24DC2BC2911F51A8B1C111793BF6C858DEA3C09A959839C"
+source_kind = "rust"
+path = "crates/trust-plcopen/src/plcopen/contracts_export.rs"
+qualified_symbol = "trust_plcopen::PlcopenExportAdapterReport"
+item_kind = "rust_public_type"
+signature_digest = "sha256:31e2ec88507c7a4871b0b19c4d7e7829563cae6fab89eac09595646cd60bf94c"
+reviewed_body_digest = "sha256:56525b8321c9d78c9003e979b3f533474637300d449a76b79f425fc46f228576"
+owner = "developer-tools"
+area = "plcopen_devtools"
+visibility = "public"
+risk_signals = []
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
+last_reviewed = "2026-07-29"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_FA777D79137CC74F3D08F1B26E70055B3505F58916275E6BA68C29A04EE6F449"
+source_kind = "rust"
+path = "crates/trust-plcopen/src/plcopen/contracts_profile.rs"
+qualified_symbol = "trust_plcopen::PlcopenCompatibilityMatrixEntry"
+item_kind = "rust_public_type"
+signature_digest = "sha256:6cd30c4a77f4353d68f736d31040639f248fbfd9ccf0892f00ba072c8076a2ef"
+reviewed_body_digest = "sha256:7f99d2bc74d448ae4e735e995b04f8dddeca68624d2756f4cf0ef8958ab3efe1"
+owner = "developer-tools"
+area = "plcopen_devtools"
+visibility = "public"
+risk_signals = []
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
 last_reviewed = "2026-07-29"
