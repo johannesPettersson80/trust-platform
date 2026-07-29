@@ -5,7 +5,7 @@ area = "compiler_iec"
 risk = "wrong_result"
 status = "implemented"
 owner = "trust-hir"
-last_reviewed = "2026-07-17"
+last_reviewed = "2026-07-29"
 claim = "Expression parsing and evaluation must preserve the documented operator precedence and associativity."
 proof_level = "G1"
 contract_kind = "decision_table"
@@ -18,7 +18,7 @@ evidence_refs = [
   "EVID_TEST_IEC_PRECEDENCE_TRACE_001_LOCK_BASELINE_CASE_V2",
   "EVID_TEST_IEC_PRECEDENCE_TRACE_001_LOCK_COMPARE_CASE_V2",
 ]
-missing = ["cataloged_behavior_tests", "broad_remote_gate"]
+missing = ["broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -102,5 +102,5 @@ rationale = "Boolean AND binds more tightly than XOR, and XOR binds more tightly
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
-state = "gap_open"
-rationale = "Existing CASE_V2 proof covers the prior precedence partitions; the newly specified multiplicative-before-comparison HIR assertion awaits catalog association."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in IEC_PREC_001; the existing G1 lock remains current and broad remote validation remains explicit debt."

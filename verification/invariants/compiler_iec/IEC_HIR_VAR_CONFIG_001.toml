@@ -5,7 +5,7 @@ area = "compiler_iec"
 risk = "wrong_result"
 status = "mapped"
 owner = "trust-hir"
-last_reviewed = "2026-07-25"
+last_reviewed = "2026-07-29"
 claim = "VAR_CONFIG resolves a unique supported global or program-instance path after project merge, requires a matching type and permitted target, and replaces an incomplete AT address with one concrete address."
 proof_level = "S0"
 contract_kind = "decision_table"
@@ -14,7 +14,7 @@ tests = ["TEST_AUTO_521C418BB5C7591125BB", "TEST_AUTO_5C205C60F0B7B960B40B", "TE
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_behavior_tests", "assertion_reachability", "full_iec_communication_topology", "broad_remote_gate"]
+missing = ["assertion_reachability", "full_iec_communication_topology", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -80,15 +80,15 @@ rationale = "Under DEV-003, a unique program instance inside one resource may be
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "Simple, nested, cross-file, and concrete-address mappings await catalog association."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in IEC_HIR_VAR_CONFIG_001; dynamic proof, the full communication topology, and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "gap_open"
-rationale = "Missing, mismatched, forbidden, and incomplete mappings await catalog association."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every wrong_type_or_shape behavior in IEC_HIR_VAR_CONFIG_001; dynamic proof, the full communication topology, and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "duplicate_or_collision"
-state = "gap_open"
-rationale = "Ambiguous program-instance resolution awaits catalog association."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every duplicate_or_collision behavior in IEC_HIR_VAR_CONFIG_001; dynamic proof, the full communication topology, and broad remote validation remain explicit debt."

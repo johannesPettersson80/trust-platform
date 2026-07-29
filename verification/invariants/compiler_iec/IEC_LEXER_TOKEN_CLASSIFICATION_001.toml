@@ -5,7 +5,7 @@ area = "compiler_iec"
 risk = "wrong_result"
 status = "mapped"
 owner = "trust-syntax"
-last_reviewed = "2026-07-24"
+last_reviewed = "2026-07-29"
 claim = "The lexer classifies IEC and documented truST lexical forms as their exact TokenKind, preserves emitted source boundaries and slices, recognizes keywords case-insensitively, and emits Error rather than a valid string token for an invalid escape."
 proof_level = "S0"
 contract_kind = "decision_table"
@@ -18,7 +18,6 @@ gates = ["veryquick", "pr"]
 evidence_refs = []
 spec_gap_refs = []
 missing = [
-  "cataloged_behavior_tests",
   "assertion_reachability",
   "mutation_sensitivity",
   "broad_remote_gate",
@@ -178,10 +177,10 @@ rationale = "lex_with_text returns source[token.range] exactly, without normaliz
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "Existing focused lexer assertions await generated catalog mapping and behavior-lock evidence."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in IEC_LEXER_TOKEN_CLASSIFICATION_001; dynamic proof, mutation sensitivity, and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "gap_open"
-rationale = "Existing invalid-escape assertions await generated catalog mapping and behavior-lock evidence."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every wrong_type_or_shape behavior in IEC_LEXER_TOKEN_CLASSIFICATION_001; dynamic proof, mutation sensitivity, and broad remote validation remain explicit debt."

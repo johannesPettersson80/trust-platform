@@ -5,7 +5,7 @@ area = "compiler_iec"
 risk = "wrong_result"
 status = "mapped"
 owner = "trust-syntax"
-last_reviewed = "2026-07-24"
+last_reviewed = "2026-07-29"
 claim = "A balanced brace-delimited pragma is emitted as one lossless Pragma token and classified as parser trivia so removing it preserves the exact tokenization of surrounding Structured Text."
 proof_level = "S0"
 contract_kind = "decision_table"
@@ -19,7 +19,6 @@ gates = ["veryquick", "pr"]
 evidence_refs = []
 spec_gap_refs = []
 missing = [
-  "cataloged_behavior_tests",
   "assertion_reachability",
   "mutation_sensitivity",
   "broad_remote_gate",
@@ -67,5 +66,5 @@ rationale = "Brace text inside a character string remains part of the string tok
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "Existing focused pragma assertions await generated catalog mapping and behavior-lock evidence."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in IEC_LEXER_PRAGMA_TRIVIA_001; dynamic proof, mutation sensitivity, and broad remote validation remain explicit debt."
