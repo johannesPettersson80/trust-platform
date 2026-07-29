@@ -1,0 +1,6 @@
+{"type":"suite","event":"started","test_count":2,"nextest":{"crate":"trust-dev","test_binary":"trust-dev","kind":"bin"}}
+{"type":"test","event":"started","name":"trust-dev::trust-dev$test::tests::execution_preserves_non_assertion_runtime_error_classification"}
+{"type":"test","event":"started","name":"trust-dev::trust-dev$ci::tests::classify_multiple_recognized_failures_uses_documented_precedence"}
+{"type":"test","event":"ok","name":"trust-dev::trust-dev$ci::tests::classify_multiple_recognized_failures_uses_documented_precedence","exec_time":0.015564888}
+{"type":"test","event":"ok","name":"trust-dev::trust-dev$test::tests::execution_preserves_non_assertion_runtime_error_classification","exec_time":0.047283085}
+{"type":"suite","event":"ok","passed":2,"failed":0,"ignored":0,"measured":0,"filtered_out":43,"exec_time":0.062847973,"nextest":{"crate":"trust-dev","test_binary":"trust-dev","kind":"bin"}}

@@ -3,18 +3,18 @@ id = "IEC_HIR_FOR_TYPES_001"
 title = "HIR validates FOR control and bound types"
 area = "compiler_iec"
 risk = "wrong_result"
-status = "specified"
+status = "mapped"
 owner = "trust-hir"
 last_reviewed = "2026-07-26"
 claim = "A FOR statement uses an integer control variable and integer-compatible initial, final, and optional step expressions."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-hir/src"]
-tests = ["TEST_AUTO_12FBBA867087892C33D8"]
+tests = ["TEST_AUTO_12FBBA867087892C33D8", "TEST_AUTO_CC04C238E4D66D65226F"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+missing = ["assertion_reachability", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -44,8 +44,8 @@ rationale = "The control variable and each bound or step expression must belong 
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "Accepted integer FOR typing awaits catalog association."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in IEC_HIR_FOR_TYPES_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"

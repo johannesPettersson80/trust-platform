@@ -1,0 +1,4 @@
+{"type":"suite","event":"started","test_count":1,"nextest":{"crate":"trust-runtime","test_binary":"bytecode_metadata","kind":"test"}}
+{"type":"test","event":"started","name":"trust-runtime::bytecode_metadata$version_gate"}
+{"type":"test","event":"ok","name":"trust-runtime::bytecode_metadata$version_gate","exec_time":0.042641386}
+{"type":"suite","event":"ok","passed":1,"failed":0,"ignored":0,"measured":0,"filtered_out":6,"exec_time":0.042641386,"nextest":{"crate":"trust-runtime","test_binary":"bytecode_metadata","kind":"test"}}

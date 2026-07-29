@@ -1,0 +1,436 @@
+{
+  "assigned_test_count": 26,
+  "assignment_link_count": 31,
+  "assignments": [
+    {
+      "behavior_refs": [
+        "IEC_STANDARD_TIME_FUNCTIONS_001#behavior:0"
+      ],
+      "catalog_test_id": "TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001",
+      "command_hint": "cargo test -p trust-runtime --test stdlib_numeric_full numeric_full",
+      "denominator_disposition": null,
+      "discovery_id": "DISC_46F60767D29EA212389C",
+      "invariant_ids": [
+        "IEC_STANDARD_TIME_FUNCTIONS_001"
+      ],
+      "name": "numeric_full",
+      "path": "crates/trust-runtime/tests/stdlib_numeric_full.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_integration_test"
+    },
+    {
+      "behavior_refs": [
+        "IEC_STANDARD_TIME_FUNCTIONS_001#behavior:1"
+      ],
+      "catalog_test_id": "TEST_RUNTIME_STDLIB_TIME_SPLIT_001",
+      "command_hint": "cargo test -p trust-runtime --test stdlib_numeric_full split_functions",
+      "denominator_disposition": null,
+      "discovery_id": "DISC_1EB42F045CD283D59583",
+      "invariant_ids": [
+        "IEC_STANDARD_TIME_FUNCTIONS_001"
+      ],
+      "name": "split_functions",
+      "path": "crates/trust-runtime/tests/stdlib_numeric_full.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_integration_test"
+    },
+    {
+      "behavior_refs": [
+        "LSP_CORE_FEATURES_001#behavior:9"
+      ],
+      "catalog_test_id": "TEST_AUTO_1D1F7883FDC052B6FFB0",
+      "command_hint": "cargo test -p trust-lsp lsp_push_sync_refreshes_dependent_open_document_diagnostics",
+      "denominator_disposition": null,
+      "discovery_id": "DISC_1D1F7883FDC052B6FFB0",
+      "invariant_ids": [
+        "LSP_CORE_FEATURES_001"
+      ],
+      "name": "lsp_push_sync_refreshes_dependent_open_document_diagnostics",
+      "path": "crates/trust-lsp/src/handlers/tests/core_part_05.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "LSP_CORE_FEATURES_001#behavior:9"
+      ],
+      "catalog_test_id": "TEST_LSP_DOCUMENT_CLOSE_DISK_RELOAD_001",
+      "command_hint": "cargo test -p trust-lsp lsp_did_close_unsaved_dependency_reverts_cross_file_semantics_to_disk",
+      "denominator_disposition": null,
+      "discovery_id": "DISC_9DC62C547895CF5C3B8E",
+      "invariant_ids": [
+        "LSP_CORE_FEATURES_001"
+      ],
+      "name": "lsp_did_close_unsaved_dependency_reverts_cross_file_semantics_to_disk",
+      "path": "crates/trust-lsp/src/handlers/tests/core_part_05.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "LSP_CORE_FEATURES_001#behavior:12"
+      ],
+      "catalog_test_id": "TEST_AUTO_AACA19C5027E37F0FBA5",
+      "command_hint": "cargo test -p trust-lsp lsp_supports_virtual_document_uris",
+      "denominator_disposition": null,
+      "discovery_id": "DISC_AACA19C5027E37F0FBA5",
+      "invariant_ids": [
+        "LSP_CORE_FEATURES_001"
+      ],
+      "name": "lsp_supports_virtual_document_uris",
+      "path": "crates/trust-lsp/src/handlers/tests/core_part_02.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "LSP_CORE_FEATURES_001#behavior:12"
+      ],
+      "catalog_test_id": null,
+      "command_hint": "cargo test -p trust-lsp path_uri_roundtrip_handles_spaces_and_fragments",
+      "denominator_disposition": null,
+      "discovery_id": "DISC_812ED0CC7B4EAB354F6E",
+      "invariant_ids": [
+        "LSP_CORE_FEATURES_001"
+      ],
+      "name": "path_uri_roundtrip_handles_spaces_and_fragments",
+      "path": "crates/trust-lsp/src/state/mod.rs",
+      "resolution": "new_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "DEBUG_AUTH_001#behavior:0",
+        "DEBUG_AUTH_001#behavior:1"
+      ],
+      "catalog_test_id": "TEST_DEBUG_AUTHORIZATION_MATRIX_001",
+      "command_hint": "cargo test -p trust-runtime debug_activation_and_mutation_follow_the_reviewed_role_boundary",
+      "denominator_disposition": null,
+      "discovery_id": "DISC_8664E7408C2C3D60D5C5",
+      "invariant_ids": [
+        "DEBUG_AUTH_001"
+      ],
+      "name": "debug_activation_and_mutation_follow_the_reviewed_role_boundary",
+      "path": "crates/trust-runtime/src/control/tests/authorization_matrix.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "DEBUG_CONTROL_EXECUTION_001#behavior:7"
+      ],
+      "catalog_test_id": "TEST_AUTO_409932463EB8BCB34BAF",
+      "command_hint": "cargo test -p trust-runtime --test debug_control runtime_event_sender_drop_buffers_event_in_debug_control",
+      "denominator_disposition": null,
+      "discovery_id": "DISC_409932463EB8BCB34BAF",
+      "invariant_ids": [
+        "DEBUG_CONTROL_EXECUTION_001"
+      ],
+      "name": "runtime_event_sender_drop_buffers_event_in_debug_control",
+      "path": "crates/trust-runtime/tests/debug_control.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_integration_test"
+    },
+    {
+      "behavior_refs": [
+        "DEBUG_CONTROL_EXECUTION_001#behavior:7"
+      ],
+      "catalog_test_id": "TEST_AUTO_8CC0C32A02C75700E3A8",
+      "command_hint": "cargo test -p trust-runtime --test debug_control logpoint_sender_drop_buffers_log_in_debug_control",
+      "denominator_disposition": null,
+      "discovery_id": "DISC_8CC0C32A02C75700E3A8",
+      "invariant_ids": [
+        "DEBUG_CONTROL_EXECUTION_001"
+      ],
+      "name": "logpoint_sender_drop_buffers_log_in_debug_control",
+      "path": "crates/trust-runtime/tests/debug_control.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_integration_test"
+    },
+    {
+      "behavior_refs": [
+        "DEBUG_CONTROL_EXECUTION_001#behavior:8"
+      ],
+      "catalog_test_id": "TEST_AUTO_2A07B5C831CBD45C2673",
+      "command_hint": "cargo test -p trust-runtime debug_hook_fires_once_per_statement",
+      "denominator_disposition": null,
+      "discovery_id": "DISC_2A07B5C831CBD45C2673",
+      "invariant_ids": [
+        "DEBUG_CONTROL_EXECUTION_001"
+      ],
+      "name": "debug_hook_fires_once_per_statement",
+      "path": "crates/trust-runtime/src/host/eval/tests/mod.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "DEV_CI_EXIT_CLASSIFICATION_001#behavior:1"
+      ],
+      "catalog_test_id": null,
+      "command_hint": "cargo test -p trust-dev classify_multiple_recognized_failures_uses_documented_precedence",
+      "denominator_disposition": null,
+      "discovery_id": "DISC_8503039E7C77492FF813",
+      "invariant_ids": [
+        "DEV_CI_EXIT_CLASSIFICATION_001"
+      ],
+      "name": "classify_multiple_recognized_failures_uses_documented_precedence",
+      "path": "crates/trust-dev/src/ci.rs",
+      "resolution": "new_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "DEV_TEST_EXECUTION_001#behavior:5"
+      ],
+      "catalog_test_id": null,
+      "command_hint": "cargo test -p trust-dev execution_preserves_non_assertion_runtime_error_classification",
+      "denominator_disposition": null,
+      "discovery_id": "DISC_2BBED746C5587521CCEA",
+      "invariant_ids": [
+        "DEV_TEST_EXECUTION_001"
+      ],
+      "name": "execution_preserves_non_assertion_runtime_error_classification",
+      "path": "crates/trust-dev/src/test_cmd/tests.rs",
+      "resolution": "new_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "IEC_HIR_ASSIGNMENT_TARGET_001#behavior:0"
+      ],
+      "catalog_test_id": null,
+      "command_hint": "cargo test -p trust-hir --test semantic_type_checking modifiable_storage_assignment_targets_are_accepted",
+      "denominator_disposition": null,
+      "discovery_id": "DISC_E8B6A04327B8CB8E1946",
+      "invariant_ids": [
+        "IEC_HIR_ASSIGNMENT_TARGET_001"
+      ],
+      "name": "modifiable_storage_assignment_targets_are_accepted",
+      "path": "crates/trust-hir/tests/semantic_type_checking/phase18_behavior_closure.rs",
+      "resolution": "new_catalog",
+      "source_kind": "rust_integration_test"
+    },
+    {
+      "behavior_refs": [
+        "IEC_HIR_CONFIG_TASK_001#behavior:0"
+      ],
+      "catalog_test_id": null,
+      "command_hint": "cargo test -p trust-hir --test semantic_type_checking valid_task_and_program_binding_is_accepted",
+      "denominator_disposition": null,
+      "discovery_id": "DISC_6E2CA32E89523262871E",
+      "invariant_ids": [
+        "IEC_HIR_CONFIG_TASK_001"
+      ],
+      "name": "valid_task_and_program_binding_is_accepted",
+      "path": "crates/trust-hir/tests/semantic_type_checking/phase18_behavior_closure.rs",
+      "resolution": "new_catalog",
+      "source_kind": "rust_integration_test"
+    },
+    {
+      "behavior_refs": [
+        "IEC_HIR_DIAGNOSTIC_CASCADE_001#behavior:1"
+      ],
+      "catalog_test_id": null,
+      "command_hint": "cargo test -p trust-hir --test semantic_type_checking ambiguous_target_suppresses_dependent_type_cascades",
+      "denominator_disposition": null,
+      "discovery_id": "DISC_74AB5586ABA787E397C2",
+      "invariant_ids": [
+        "IEC_HIR_DIAGNOSTIC_CASCADE_001"
+      ],
+      "name": "ambiguous_target_suppresses_dependent_type_cascades",
+      "path": "crates/trust-hir/tests/semantic_type_checking/phase18_behavior_closure.rs",
+      "resolution": "new_catalog",
+      "source_kind": "rust_integration_test"
+    },
+    {
+      "behavior_refs": [
+        "IEC_HIR_FOR_TYPES_001#behavior:0"
+      ],
+      "catalog_test_id": null,
+      "command_hint": "cargo test -p trust-hir --test semantic_type_checking integer_for_control_bounds_and_by_are_accepted",
+      "denominator_disposition": null,
+      "discovery_id": "DISC_CC04C238E4D66D65226F",
+      "invariant_ids": [
+        "IEC_HIR_FOR_TYPES_001"
+      ],
+      "name": "integer_for_control_bounds_and_by_are_accepted",
+      "path": "crates/trust-hir/tests/semantic_type_checking/phase18_behavior_closure.rs",
+      "resolution": "new_catalog",
+      "source_kind": "rust_integration_test"
+    },
+    {
+      "behavior_refs": [
+        "IEC_HIR_STANDARD_FB_SIGNATURE_001#behavior:4"
+      ],
+      "catalog_test_id": null,
+      "command_hint": "cargo test -p trust-hir --test semantic_type_checking explicit_time_timer_function_blocks_are_accepted",
+      "denominator_disposition": null,
+      "discovery_id": "DISC_797F35A80BC6938F8516",
+      "invariant_ids": [
+        "IEC_HIR_STANDARD_FB_SIGNATURE_001"
+      ],
+      "name": "explicit_time_timer_function_blocks_are_accepted",
+      "path": "crates/trust-hir/tests/semantic_type_checking/phase18_behavior_closure.rs",
+      "resolution": "new_catalog",
+      "source_kind": "rust_integration_test"
+    },
+    {
+      "behavior_refs": [
+        "IEC_HIR_STANDARD_FUNCTIONS_001#behavior:5"
+      ],
+      "catalog_test_id": "TEST_AUTO_9B2B2CFFDB0CAE77D5D9",
+      "command_hint": "cargo test -p trust-hir --test semantic_standard_functions test_new_delete_calls_ok",
+      "denominator_disposition": null,
+      "discovery_id": "DISC_9B2B2CFFDB0CAE77D5D9",
+      "invariant_ids": [
+        "IEC_HIR_STANDARD_FUNCTIONS_001"
+      ],
+      "name": "test_new_delete_calls_ok",
+      "path": "crates/trust-hir/tests/semantic_standard_functions.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_integration_test"
+    },
+    {
+      "behavior_refs": [
+        "PLCO_MOTION_COORDINATED_001#behavior:4",
+        "PLCO_MOTION_HOMING_001#behavior:3",
+        "PLCO_MOTION_SINGLE_AXIS_SURFACE_001#behavior:12",
+        "PLCO_MOTION_SYNCHRONIZATION_001#behavior:1"
+      ],
+      "catalog_test_id": null,
+      "command_hint": "cargo test -p trust-runtime --test plcopen_motion_oop_library plcopen_motion_deferred_public_surfaces_remain_absent",
+      "denominator_disposition": null,
+      "discovery_id": "DISC_CC70827DE7EF2C10480D",
+      "invariant_ids": [
+        "PLCO_MOTION_COORDINATED_001",
+        "PLCO_MOTION_HOMING_001",
+        "PLCO_MOTION_SINGLE_AXIS_SURFACE_001",
+        "PLCO_MOTION_SYNCHRONIZATION_001"
+      ],
+      "name": "plcopen_motion_deferred_public_surfaces_remain_absent",
+      "path": "crates/trust-runtime/tests/plcopen_motion_oop_library.rs",
+      "resolution": "new_catalog",
+      "source_kind": "rust_integration_test"
+    },
+    {
+      "behavior_refs": [
+        "RT_BYTECODE_METADATA_APPLY_001#behavior:4"
+      ],
+      "catalog_test_id": "TEST_AUTO_5660557A5593ABE109FB",
+      "command_hint": "cargo test -p trust-runtime --test bytecode_metadata version_gate",
+      "denominator_disposition": null,
+      "discovery_id": "DISC_5660557A5593ABE109FB",
+      "invariant_ids": [
+        "RT_BYTECODE_METADATA_APPLY_001"
+      ],
+      "name": "version_gate",
+      "path": "crates/trust-runtime/tests/bytecode_metadata.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_integration_test"
+    },
+    {
+      "behavior_refs": [
+        "VM_RUNTIME_VALUE_MATERIALIZATION_001#behavior:4"
+      ],
+      "catalog_test_id": "TEST_AUTO_116A738C606DD35D5B09",
+      "command_hint": "cargo test -p trust-runtime --test runtime_core_behavior_lock vm_fixture_execution_image_status_and_values_are_stable",
+      "denominator_disposition": null,
+      "discovery_id": "DISC_116A738C606DD35D5B09",
+      "invariant_ids": [
+        "VM_RUNTIME_VALUE_MATERIALIZATION_001"
+      ],
+      "name": "vm_fixture_execution_image_status_and_values_are_stable",
+      "path": "crates/trust-runtime/tests/runtime_core_behavior_lock.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_integration_test"
+    },
+    {
+      "behavior_refs": [
+        "VM_SEAM_VALID_001#behavior:0"
+      ],
+      "catalog_test_id": "TEST_BYTECODE_VALIDATOR_CASES_001",
+      "command_hint": "cargo test -p trust-runtime --test bytecode_verification_cases bytecode_validator_cases_reject_before_partial_apply",
+      "denominator_disposition": null,
+      "discovery_id": "DISC_A324C9FF622A5F835C5A",
+      "invariant_ids": [
+        "VM_SEAM_VALID_001"
+      ],
+      "name": "bytecode_validator_cases_reject_before_partial_apply",
+      "path": "crates/trust-runtime/tests/bytecode_verification_cases.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_integration_test"
+    },
+    {
+      "behavior_refs": [
+        "VM_SEAM_VALID_001#behavior:1"
+      ],
+      "catalog_test_id": "TEST_BYTECODE_CONTAINER_DUPLICATE_STANDARD_SECTION_001",
+      "command_hint": "cargo test -p trust-runtime --test bytecode_container duplicate_standard_section_ids_are_rejected",
+      "denominator_disposition": null,
+      "discovery_id": "DISC_1F2DC8CB9F07388EBECB",
+      "invariant_ids": [
+        "VM_SEAM_VALID_001"
+      ],
+      "name": "duplicate_standard_section_ids_are_rejected",
+      "path": "crates/trust-runtime/tests/bytecode_container.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_integration_test"
+    },
+    {
+      "behavior_refs": [
+        "VM_SEAM_VALID_001#behavior:3"
+      ],
+      "catalog_test_id": "TEST_BYTECODE_UNKNOWN_OPTIONAL_SECTION_001",
+      "command_hint": "cargo test -p trust-runtime --test bytecode_optional_sections unknown_optional_section_is_preserved_and_ignored_by_runtime_apply",
+      "denominator_disposition": null,
+      "discovery_id": "DISC_44E3BDF8E0CC841EDB60",
+      "invariant_ids": [
+        "VM_SEAM_VALID_001"
+      ],
+      "name": "unknown_optional_section_is_preserved_and_ignored_by_runtime_apply",
+      "path": "crates/trust-runtime/tests/bytecode_optional_sections.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_integration_test"
+    },
+    {
+      "behavior_refs": [
+        "VM_SEAM_STRING_ELEMENT_001#behavior:5",
+        "VM_SEAM_STRING_ELEMENT_001#behavior:6"
+      ],
+      "catalog_test_id": "TEST_AUTO_EF1816FF5BB0935AC957",
+      "command_hint": "cargo test -p trust-runtime-core narrow_string_index_rejects_out_of_range_chars",
+      "denominator_disposition": null,
+      "discovery_id": "DISC_EF1816FF5BB0935AC957",
+      "invariant_ids": [
+        "VM_SEAM_STRING_ELEMENT_001"
+      ],
+      "name": "narrow_string_index_rejects_out_of_range_chars",
+      "path": "crates/trust-runtime-core/src/value/string_semantics.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_unit_test"
+    },
+    {
+      "behavior_refs": [
+        "IEC_HIR_STANDARD_FB_SIGNATURE_001#behavior:4"
+      ],
+      "catalog_test_id": "TEST_IEC_TIMER_RUNTIME_VARIANTS_001",
+      "command_hint": "cargo test -p trust-runtime --test fb_timers_full timer_variants",
+      "denominator_disposition": null,
+      "discovery_id": "DISC_82037BF366E0CC07D92C",
+      "invariant_ids": [
+        "IEC_HIR_STANDARD_FB_SIGNATURE_001"
+      ],
+      "name": "timer_variants",
+      "path": "crates/trust-runtime/tests/fb_timers_full.rs",
+      "resolution": "existing_catalog",
+      "source_kind": "rust_integration_test"
+    }
+  ],
+  "basis": "p18_residual_exact_behavior_assignment_27",
+  "demand_count": 27,
+  "existing_catalog_test_count": 17,
+  "new_catalog_test_count": 9,
+  "schema_version": 1,
+  "unresolved": []
+}

@@ -1412,7 +1412,8 @@ requires_network = false
 duration_class = "fast"
 case_file = "verification/cases/bytecode_vm/VM_SEAM_VALID_001.toml"
 case_file_digest = "sha256:442c2bbb5d72ef43dd82fb20f23ee423bf9a44440801f6bd4829b81ecf4d9643"
-last_reviewed = "2026-07-15"
+mapping_behavior_refs = ["VM_SEAM_VALID_001#behavior:0"]
+last_reviewed = "2026-07-29"
 
 [[tests]]
 schema_version = 2
@@ -1986,7 +1987,8 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_BYTECODE_CONTAINER_DUPLICATE_STANDARD_SECTION_001.json"
-last_reviewed = "2026-07-14"
+mapping_behavior_refs = ["VM_SEAM_VALID_001#behavior:1"]
+last_reviewed = "2026-07-29"
 
 [[tests]]
 schema_version = 2
@@ -2883,7 +2885,8 @@ suite_tiers = ["pr"]
 requires_hardware = false
 requires_network = false
 duration_class = "fast"
-last_reviewed = "2026-07-17"
+mapping_behavior_refs = ["VM_SEAM_VALID_001#behavior:3"]
+last_reviewed = "2026-07-29"
 
 [[tests]]
 schema_version = 2
@@ -3087,7 +3090,7 @@ name = "lsp_did_close_unsaved_dependency_reverts_cross_file_semantics_to_disk"
 command = "cargo test -p trust-lsp handlers::tests::core::core_part_05::lsp_did_close_unsaved_dependency_reverts_cross_file_semantics_to_disk -- --exact"
 owner = "trust-lsp"
 status = "mapped"
-invariants = ["EDIT_DOC_CLOSE_001"]
+invariants = ["EDIT_DOC_CLOSE_001", "LSP_CORE_FEATURES_001"]
 oracle_ref = "SPEC_LSP_CONTRACT_001#document-close-and-durable-project-truth"
 expected_result = "Closing an unsaved dependency restores its readable disk content and removes the discarded signature from dependent diagnostics."
 expected_failure_mode = "Dependent diagnostics continue to use the closed unsaved signature instead of the durable file."
@@ -3096,7 +3099,8 @@ suite_tiers = ["pr"]
 requires_hardware = false
 requires_network = false
 duration_class = "fast"
-last_reviewed = "2026-07-16"
+mapping_behavior_refs = ["LSP_CORE_FEATURES_001#behavior:9"]
+last_reviewed = "2026-07-29"
 
 [[tests]]
 schema_version = 2
@@ -4365,7 +4369,7 @@ name = "timer_variants"
 command = "cargo test -p trust-runtime --test fb_timers_full timer_variants -- --exact"
 owner = "trust-runtime"
 status = "mapped"
-invariants = ["IEC_TIMER_001"]
+invariants = ["IEC_HIR_STANDARD_FB_SIGNATURE_001", "IEC_TIMER_001"]
 oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#timer-scan-step-contract"
 expected_result = "Real Structured Text executes TON, TOF, TP, TON_LTIME, TOF_LTIME, and TP_LTIME with type-correct ET values that stop at PT."
 expected_failure_mode = "A TIME or LTIME timer produces the wrong Q transition, wrong ET duration type, or an ET value outside its reviewed scan-step state."
@@ -4374,7 +4378,8 @@ suite_tiers = ["pr"]
 requires_hardware = false
 requires_network = false
 duration_class = "fast"
-last_reviewed = "2026-07-15"
+mapping_behavior_refs = ["IEC_HIR_STANDARD_FB_SIGNATURE_001#behavior:4"]
+last_reviewed = "2026-07-29"
 
 [[tests]]
 schema_version = 2
@@ -4920,7 +4925,8 @@ suite_tiers = ["pr"]
 requires_hardware = false
 requires_network = false
 duration_class = "fast"
-last_reviewed = "2026-07-14"
+mapping_behavior_refs = ["DEBUG_AUTH_001#behavior:0", "DEBUG_AUTH_001#behavior:1"]
+last_reviewed = "2026-07-29"
 
 [[tests]]
 schema_version = 2
@@ -7147,7 +7153,8 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001.json"
-last_reviewed = "2026-07-21"
+mapping_behavior_refs = ["IEC_STANDARD_TIME_FUNCTIONS_001#behavior:0"]
+last_reviewed = "2026-07-29"
 
 [[tests]]
 schema_version = 2
@@ -7171,7 +7178,8 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_RUNTIME_STDLIB_TIME_SPLIT_001.json"
-last_reviewed = "2026-07-21"
+mapping_behavior_refs = ["IEC_STANDARD_TIME_FUNCTIONS_001#behavior:1"]
+last_reviewed = "2026-07-29"
 
 [[tests]]
 schema_version = 2
@@ -29370,7 +29378,7 @@ test_class = "behavior_lock"
 area = "bytecode_vm"
 path = "crates/trust-runtime-core/src/value/string_semantics.rs"
 name = "narrow_string_index_rejects_out_of_range_chars"
-command = "cargo nextest run -p trust-runtime-core --lib -E '(binary_id(=trust-runtime-core) & test(=value::string_semantics::tests::narrow_string_index_rejects_out_of_range_chars))'"
+command = "cargo nextest run -p trust-runtime-core --lib --no-fail-fast --message-format libtest-json-plus --message-format-version 0.1 --user-config-file none -E '(binary_id(=trust-runtime-core) & test(=value::string_semantics::tests::narrow_string_index_rejects_out_of_range_chars))'"
 owner = "trust-runtime-core"
 status = "mapped"
 invariants = ["VM_SEAM_STRING_ELEMENT_001"]
@@ -29382,15 +29390,16 @@ requires_hardware = false
 requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_EF1816FF5BB0935AC957.json"
-last_reviewed = "2026-07-26"
-mapping_proposal_id = "MAP_CAND_EF1816FF5BB0935AC957_0AC9F3868EF6"
-mapping_proposal_digest = "sha256:0ac9f3868ef6a9bb0845662c2ba6c4febc21ce46fc473d607ecee5caebd34762"
-mapping_decision_id = "MAP_DEC_3BA5EBCA643E3796EA9B85A5"
-mapping_reviewed_source_digest = "sha256:6c574228d11c327262ab9a99065b72f44a5547fe62f07af6943ffdb135adf994"
-mapping_assertion_review_digest = "sha256:12830895b446c4de485b422bf6e7687b42576d2b73e54b75dbe43ba69442cef4"
-mapping_assertion_source_digests = { "crates/trust-runtime-core/src/value/string_semantics.rs" = "sha256:6c574228d11c327262ab9a99065b72f44a5547fe62f07af6943ffdb135adf994" }
-mapping_behavior_refs = ["VM_SEAM_STRING_ELEMENT_001#behavior:3", "VM_SEAM_STRING_ELEMENT_001#behavior:4"]
-mapping_reviewer_ids = ["codex-main-semantic-review", "codex-semantic-authority-adjudicator"]
+oracle_refs = ["SPEC_VM_VALUE_SEMANTICS_001#2-3-2-runtime-string-elements"]
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_EF1816FF5BB0935AC957_65968619656C"
+mapping_proposal_digest = "sha256:65968619656c5030889c84a257bf7102937ecc778cf4621e693151c13fbce562"
+mapping_decision_id = "MAP_DEC_981EB381C886F8FDFFABE53A"
+mapping_reviewed_source_digest = "sha256:b6cb0a7877a7a2791f3537a19815c35b00b8b0527117d009f7fc326552b6e0bc"
+mapping_assertion_review_digest = "sha256:5ac47c188f36bada3947bae89c789ff7b9587eb25d495caa591a13a72bc84347"
+mapping_assertion_source_digests = { "crates/trust-runtime-core/src/value/string_semantics.rs" = "sha256:b6cb0a7877a7a2791f3537a19815c35b00b8b0527117d009f7fc326552b6e0bc" }
+mapping_behavior_refs = ["VM_SEAM_STRING_ELEMENT_001#behavior:3", "VM_SEAM_STRING_ELEMENT_001#behavior:4", "VM_SEAM_STRING_ELEMENT_001#behavior:5", "VM_SEAM_STRING_ELEMENT_001#behavior:6"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
 [[tests]]
 schema_version = 2
@@ -48005,10 +48014,10 @@ test_class = "behavior_lock"
 area = "compiler_iec"
 path = "crates/trust-hir/tests/semantic_standard_functions.rs"
 name = "test_new_delete_calls_ok"
-command = "cargo nextest run -p trust-hir --test semantic_standard_functions --no-fail-fast --user-config-file none -E 'binary_id(=trust-hir::semantic_standard_functions) & test(=test_new_delete_calls_ok)'"
+command = "cargo nextest run -p trust-hir --test semantic_standard_functions --no-fail-fast --message-format libtest-json-plus --message-format-version 0.1 --user-config-file none -E '(binary_id(=trust-hir::semantic_standard_functions) & test(=test_new_delete_calls_ok))'"
 owner = "trust-hir"
 status = "mapped"
-invariants = ["IEC_HIR_MUTABILITY_REFERENCES_001"]
+invariants = ["IEC_HIR_MUTABILITY_REFERENCES_001", "IEC_HIR_STANDARD_FUNCTIONS_001"]
 oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001"
 expected_result = "NEW of a resolved allocatable type yields a compatible reference that the HIR accepts as the operand of __DELETE."
 expected_failure_mode = "The contract accepts missing, stale, contradictory, or falsely successful product wiring."
@@ -48017,15 +48026,16 @@ requires_hardware = false
 requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_9B2B2CFFDB0CAE77D5D9.json"
-last_reviewed = "2026-07-26"
-mapping_proposal_id = "MAP_CAND_9B2B2CFFDB0CAE77D5D9_2BCC6EAEA4AB"
-mapping_proposal_digest = "sha256:2bcc6eaea4ab5cde1e0b17b5cc99637112206bf485c5b0ac32e216aaf69932d2"
-mapping_decision_id = "MAP_DEC_344787906EF519E00B338066"
+oracle_refs = ["SPEC_IEC_DATA_TYPES_CANDIDATE_001", "SPEC_IEC_STANDARD_FUNCTIONS_001"]
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_9B2B2CFFDB0CAE77D5D9_DCC3DF68D54B"
+mapping_proposal_digest = "sha256:dcc3df68d54b83c0b649a6ab536c304ba62310ddd88bab012e69682d79db1d6c"
+mapping_decision_id = "MAP_DEC_79DE24A2666527A58A456DCC"
 mapping_reviewed_source_digest = "sha256:db37a20ae3fe37f2953419fac1ce214644fe2081fc0294047b0caeca4879d522"
-mapping_assertion_review_digest = "sha256:91132f1a4c8ddfaebf2259985f7d371b3ee4d1cc2f0f70951b489c809182d3c8"
+mapping_assertion_review_digest = "sha256:bf328c7341c47e990d76368bf5812e708b9d67402489ac2f8c7e6927ecc090e7"
 mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_standard_functions.rs" = "sha256:db37a20ae3fe37f2953419fac1ce214644fe2081fc0294047b0caeca4879d522" }
-mapping_behavior_refs = ["IEC_HIR_MUTABILITY_REFERENCES_001#behavior:8"]
-mapping_reviewer_ids = ["codex-main", "codex-specification-review"]
+mapping_behavior_refs = ["IEC_HIR_MUTABILITY_REFERENCES_001#behavior:8", "IEC_HIR_STANDARD_FUNCTIONS_001#behavior:5"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
 
 [[tests]]
@@ -66212,7 +66222,7 @@ test_class = "behavior_lock"
 area = "editor_safety"
 path = "crates/trust-runtime/tests/debug_control.rs"
 name = "runtime_event_sender_drop_buffers_event_in_debug_control"
-command = "cargo nextest run -p trust-runtime --test debug_control --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::debug_control) & test(~runtime_event_sender_drop_buffers_event_in_debug_control)'"
+command = "cargo nextest run -p trust-runtime --test debug_control --no-fail-fast --message-format libtest-json-plus --message-format-version 0.1 --user-config-file none -E '(binary_id(=trust-runtime::debug_control) & test(=runtime_event_sender_drop_buffers_event_in_debug_control))'"
 owner = "trust-debug"
 status = "mapped"
 invariants = ["DEBUG_CONTROL_EXECUTION_001"]
@@ -66225,14 +66235,14 @@ requires_hardware = false
 requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_409932463EB8BCB34BAF.json"
-last_reviewed = "2026-07-26"
-mapping_proposal_id = "MAP_CAND_409932463EB8BCB34BAF_498A9E9E5CD1"
-mapping_proposal_digest = "sha256:498a9e9e5cd1904d8ce3c7c8ce9cb0cde94268ae3efc714aa6529b0cded9f37c"
-mapping_decision_id = "MAP_DEC_016A03FAD0F6716D003AE11A"
-mapping_reviewed_source_digest = "sha256:16f1e36d294d16e15ea60c0532734705cc749b238b29448980f0dc3868717a85"
-mapping_assertion_review_digest = "sha256:e52ae7bd91ec7b71e75dfe50dd88c2e23a054431dd6e379106fc3f9114b58f32"
-mapping_assertion_source_digests = { "crates/trust-runtime/tests/debug_control.rs" = "sha256:16f1e36d294d16e15ea60c0532734705cc749b238b29448980f0dc3868717a85" }
-mapping_behavior_refs = ["DEBUG_CONTROL_EXECUTION_001#behavior:5"]
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_409932463EB8BCB34BAF_86CF1A5915B1"
+mapping_proposal_digest = "sha256:86cf1a5915b14e1ebc79c70d0d26c7c44b1b95d4c2bf51a4faed73a3d941a3e4"
+mapping_decision_id = "MAP_DEC_30955460DC97847BC5EBDE4D"
+mapping_reviewed_source_digest = "sha256:16af82f0a3530575ef77632fdab850d2aa517f4784674571f49510d1492cf72c"
+mapping_assertion_review_digest = "sha256:9b365587a01263cac50905d0a32af4be17a607949b7a27e185b561145ec1ee88"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/debug_control.rs" = "sha256:16af82f0a3530575ef77632fdab850d2aa517f4784674571f49510d1492cf72c" }
+mapping_behavior_refs = ["DEBUG_CONTROL_EXECUTION_001#behavior:5", "DEBUG_CONTROL_EXECUTION_001#behavior:7"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
 
@@ -66518,7 +66528,7 @@ test_class = "behavior_lock"
 area = "editor_safety"
 path = "crates/trust-runtime/tests/debug_control.rs"
 name = "logpoint_sender_drop_buffers_log_in_debug_control"
-command = "cargo nextest run -p trust-runtime --test debug_control --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::debug_control) & test(~logpoint_sender_drop_buffers_log_in_debug_control)'"
+command = "cargo nextest run -p trust-runtime --test debug_control --no-fail-fast --message-format libtest-json-plus --message-format-version 0.1 --user-config-file none -E '(binary_id(=trust-runtime::debug_control) & test(=logpoint_sender_drop_buffers_log_in_debug_control))'"
 owner = "trust-debug"
 status = "mapped"
 invariants = ["DEBUG_CONTROL_EXECUTION_001"]
@@ -66531,14 +66541,14 @@ requires_hardware = false
 requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_8CC0C32A02C75700E3A8.json"
-last_reviewed = "2026-07-26"
-mapping_proposal_id = "MAP_CAND_8CC0C32A02C75700E3A8_644092454F02"
-mapping_proposal_digest = "sha256:644092454f023b0921cfe711ae3a7beef8edc7ce16c9da47fce2e8a237a93835"
-mapping_decision_id = "MAP_DEC_9DD3D9DB20236AF6684BA4D4"
-mapping_reviewed_source_digest = "sha256:16f1e36d294d16e15ea60c0532734705cc749b238b29448980f0dc3868717a85"
-mapping_assertion_review_digest = "sha256:d8727c8c251b08bd2c13800af0cf5ec4086de3a005166410625cc6ee2bc4a0bb"
-mapping_assertion_source_digests = { "crates/trust-runtime/tests/debug_control.rs" = "sha256:16f1e36d294d16e15ea60c0532734705cc749b238b29448980f0dc3868717a85" }
-mapping_behavior_refs = ["DEBUG_CONTROL_EXECUTION_001#behavior:5"]
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_8CC0C32A02C75700E3A8_2051C0C5C7B6"
+mapping_proposal_digest = "sha256:2051c0c5c7b611cbc5e29f9c13268bb1e5027936420f7f1582bab4fc7162177e"
+mapping_decision_id = "MAP_DEC_1B7F121714E25569F6FE60EB"
+mapping_reviewed_source_digest = "sha256:16af82f0a3530575ef77632fdab850d2aa517f4784674571f49510d1492cf72c"
+mapping_assertion_review_digest = "sha256:60ef318bc565b347193696ba60bfbefb7f60d456942bce670716ad3399ab9a64"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/debug_control.rs" = "sha256:16af82f0a3530575ef77632fdab850d2aa517f4784674571f49510d1492cf72c" }
+mapping_behavior_refs = ["DEBUG_CONTROL_EXECUTION_001#behavior:5", "DEBUG_CONTROL_EXECUTION_001#behavior:7"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
 
@@ -87473,7 +87483,7 @@ test_class = "behavior_lock"
 area = "editor_safety"
 path = "crates/trust-lsp/src/handlers/tests/core_part_02.rs"
 name = "lsp_supports_virtual_document_uris"
-command = "cargo nextest run -p trust-lsp --no-fail-fast --user-config-file none -E 'binary_id(=trust-lsp::bin/trust-lsp) & test(~lsp_supports_virtual_document_uris)'"
+command = "cargo nextest run -p trust-lsp --bin trust-lsp --no-fail-fast --message-format libtest-json-plus --message-format-version 0.1 --user-config-file none -E '(binary_id(=trust-lsp::bin/trust-lsp) & test(=handlers::tests::core::core_part_02::lsp_supports_virtual_document_uris))'"
 owner = "language-tooling"
 status = "mapped"
 invariants = ["LSP_CORE_FEATURES_001"]
@@ -87486,14 +87496,14 @@ requires_hardware = false
 requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_AACA19C5027E37F0FBA5.json"
-last_reviewed = "2026-07-26"
-mapping_proposal_id = "MAP_CAND_AACA19C5027E37F0FBA5_353E160A62C9"
-mapping_proposal_digest = "sha256:353e160a62c9f1cfeddf57bdbdd5604093de1fce7c3b5d021f7836208cec5482"
-mapping_decision_id = "MAP_DEC_17D86BDD8ECC85D4C7B167DB"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_AACA19C5027E37F0FBA5_9716F725DBDC"
+mapping_proposal_digest = "sha256:9716f725dbdca8190f49b0cfb1969be0e85d800bb7a1e1f124dec4daffc9c5c9"
+mapping_decision_id = "MAP_DEC_50EEACAB3EA3281EE6C9F48B"
 mapping_reviewed_source_digest = "sha256:30cd93182227158f165f99755236856b1316bf048f5f703e81f132770b434598"
-mapping_assertion_review_digest = "sha256:20e4ae6ac286e15992340c4f236f0a01eb534e35e52ce1201509a4b9dd290f05"
+mapping_assertion_review_digest = "sha256:36a877657ae2befae4de6b0f7bf9175bca7dcc165613c2359908690970d15209"
 mapping_assertion_source_digests = { "crates/trust-lsp/src/handlers/tests/core_part_02.rs" = "sha256:30cd93182227158f165f99755236856b1316bf048f5f703e81f132770b434598" }
-mapping_behavior_refs = ["LSP_CORE_FEATURES_001#behavior:5"]
+mapping_behavior_refs = ["LSP_CORE_FEATURES_001#behavior:12", "LSP_CORE_FEATURES_001#behavior:5"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
 
@@ -87810,7 +87820,7 @@ test_class = "behavior_lock"
 area = "editor_safety"
 path = "crates/trust-lsp/src/handlers/tests/core_part_05.rs"
 name = "lsp_push_sync_refreshes_dependent_open_document_diagnostics"
-command = "cargo nextest run -p trust-lsp --no-fail-fast --user-config-file none -E 'binary_id(=trust-lsp::bin/trust-lsp) & test(~lsp_push_sync_refreshes_dependent_open_document_diagnostics)'"
+command = "cargo nextest run -p trust-lsp --bin trust-lsp --no-fail-fast --message-format libtest-json-plus --message-format-version 0.1 --user-config-file none -E '(binary_id(=trust-lsp::bin/trust-lsp) & test(=handlers::tests::core::core_part_05::lsp_push_sync_refreshes_dependent_open_document_diagnostics))'"
 owner = "language-tooling"
 status = "mapped"
 invariants = ["LSP_CORE_FEATURES_001"]
@@ -87823,14 +87833,14 @@ requires_hardware = false
 requires_network = false
 duration_class = "slow"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_1D1F7883FDC052B6FFB0.json"
-last_reviewed = "2026-07-26"
-mapping_proposal_id = "MAP_CAND_1D1F7883FDC052B6FFB0_BAECDD788294"
-mapping_proposal_digest = "sha256:baecdd78829400fed44128f52ea629ed98d38ec3d8b99b2ad14d82e730ce8158"
-mapping_decision_id = "MAP_DEC_DEDA97AD386FC946D8E90607"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_1D1F7883FDC052B6FFB0_C07CCBCD414E"
+mapping_proposal_digest = "sha256:c07ccbcd414e525951fba2cb41b064f0c376d23e5c8230b8951a30b5720ad9ca"
+mapping_decision_id = "MAP_DEC_E92ED88CCB7212EA3BAE8790"
 mapping_reviewed_source_digest = "sha256:b487785dc7dd9bec53297826a07ff7f5146b408f3f21806840bda96453abbc1b"
-mapping_assertion_review_digest = "sha256:06201eba20be5e644da83255b3114729b6d399e73a16a0b331af96e2dc392c1a"
+mapping_assertion_review_digest = "sha256:844ca2e06a7b14e4ee7fac535ad20ec0f8142304f664f4eec5942a5268c60f08"
 mapping_assertion_source_digests = { "crates/trust-lsp/src/handlers/tests/core_part_05.rs" = "sha256:b487785dc7dd9bec53297826a07ff7f5146b408f3f21806840bda96453abbc1b" }
-mapping_behavior_refs = ["LSP_CORE_FEATURES_001#behavior:1"]
+mapping_behavior_refs = ["LSP_CORE_FEATURES_001#behavior:1", "LSP_CORE_FEATURES_001#behavior:9"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
 
@@ -101699,7 +101709,7 @@ test_class = "behavior_lock"
 area = "bytecode_vm"
 path = "crates/trust-runtime/tests/bytecode_metadata.rs"
 name = "version_gate"
-command = "cargo nextest run -p trust-runtime --test bytecode_metadata --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::bytecode_metadata) & test(=version_gate)'"
+command = "cargo nextest run -p trust-runtime --test bytecode_metadata --no-fail-fast --message-format libtest-json-plus --message-format-version 0.1 --user-config-file none -E '(binary_id(=trust-runtime::bytecode_metadata) & test(=version_gate))'"
 owner = "trust-runtime"
 status = "mapped"
 invariants = ["RT_BYTECODE_METADATA_APPLY_001"]
@@ -101712,14 +101722,14 @@ requires_hardware = false
 requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_5660557A5593ABE109FB.json"
-last_reviewed = "2026-07-27"
-mapping_proposal_id = "MAP_CAND_5660557A5593ABE109FB_B3543CE766E5"
-mapping_proposal_digest = "sha256:b3543ce766e5946e46f05921a759bd4cf8405c985d1ba5f04d7247c4acf0d092"
-mapping_decision_id = "MAP_DEC_33A35F5F15566429AA4CBDFF"
-mapping_reviewed_source_digest = "sha256:d0d37f31f640ceaad19cf5f67600efdad407c9a6df551152351560ca0bab0cb4"
-mapping_assertion_review_digest = "sha256:92a99efbe9ef666785d066427e52b1d420080293f9a26d79eb7719ab35df647f"
-mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_helpers.rs" = "sha256:915e4dc8403b5baadb55f1a08d8dee42a0a5b04c8ed6fbad8d2a5e98bd37acfe", "crates/trust-runtime/tests/bytecode_metadata.rs" = "sha256:d0d37f31f640ceaad19cf5f67600efdad407c9a6df551152351560ca0bab0cb4" }
-mapping_behavior_refs = ["RT_BYTECODE_METADATA_APPLY_001#behavior:3"]
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_5660557A5593ABE109FB_978B9737FF2E"
+mapping_proposal_digest = "sha256:978b9737ff2e57cf9574360fedadc3c1ad0acb21b1fb7e63445d7f037432ef90"
+mapping_decision_id = "MAP_DEC_2C7D0600D4BA2B20068FD6E3"
+mapping_reviewed_source_digest = "sha256:705d89b4923aa59b07070350d43ff327546592348cbdf16191ad08cb82f2d22d"
+mapping_assertion_review_digest = "sha256:f904c3d80c0fe852c035b9a4635ffb79113bec249c391ee6155a969480300f79"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/bytecode_helpers.rs" = "sha256:915e4dc8403b5baadb55f1a08d8dee42a0a5b04c8ed6fbad8d2a5e98bd37acfe", "crates/trust-runtime/tests/bytecode_metadata.rs" = "sha256:705d89b4923aa59b07070350d43ff327546592348cbdf16191ad08cb82f2d22d" }
+mapping_behavior_refs = ["RT_BYTECODE_METADATA_APPLY_001#behavior:3", "RT_BYTECODE_METADATA_APPLY_001#behavior:4"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
 
@@ -109885,7 +109895,7 @@ test_class = "behavior_lock"
 area = "editor_safety"
 path = "crates/trust-runtime/src/host/eval/tests/mod.rs"
 name = "debug_hook_fires_once_per_statement"
-command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime) & test(=eval::tests::debug_hook_fires_once_per_statement)'"
+command = "cargo nextest run -p trust-runtime --lib --no-fail-fast --message-format libtest-json-plus --message-format-version 0.1 --user-config-file none -E '(binary_id(=trust-runtime) & test(=eval::tests::debug_hook_fires_once_per_statement))'"
 owner = "trust-debug"
 status = "mapped"
 invariants = ["DEBUG_CONTROL_EXECUTION_001"]
@@ -109898,14 +109908,14 @@ requires_hardware = false
 requires_network = false
 duration_class = "very_fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_2A07B5C831CBD45C2673.json"
-last_reviewed = "2026-07-27"
-mapping_proposal_id = "MAP_CAND_2A07B5C831CBD45C2673_E199CD40B828"
-mapping_proposal_digest = "sha256:e199cd40b8286cf56df78fe85812ab19841c6f1bab443e2c028a327edffd572e"
-mapping_decision_id = "MAP_DEC_A20395E4ECF4CE634278561A"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_2A07B5C831CBD45C2673_D86100AB5D8A"
+mapping_proposal_digest = "sha256:d86100ab5d8a4602897d74db5e57d983b6ab2c6a5f9bc88fd06a8665035794f9"
+mapping_decision_id = "MAP_DEC_29BAE6D55F71EDA470159D2B"
 mapping_reviewed_source_digest = "sha256:45409734c94a5ba20396191438509bea71f8e27083190ba0155bfe80d607e705"
-mapping_assertion_review_digest = "sha256:63a5977d79229b073f51c8a6ba1db5d20558b164f36e11da961d32f39fbb2584"
+mapping_assertion_review_digest = "sha256:5fefe6292d69bfcd41aaffc7f86fc6fc35b23e11a6c243fe03b5dc742165df13"
 mapping_assertion_source_digests = { "crates/trust-runtime/src/host/eval/tests/mod.rs" = "sha256:45409734c94a5ba20396191438509bea71f8e27083190ba0155bfe80d607e705" }
-mapping_behavior_refs = ["DEBUG_CONTROL_EXECUTION_001#behavior:6"]
+mapping_behavior_refs = ["DEBUG_CONTROL_EXECUTION_001#behavior:6", "DEBUG_CONTROL_EXECUTION_001#behavior:8"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
 [[tests]]
@@ -114962,7 +114972,7 @@ test_class = "behavior_lock"
 area = "bytecode_vm"
 path = "crates/trust-runtime/tests/runtime_core_behavior_lock.rs"
 name = "vm_fixture_execution_image_status_and_values_are_stable"
-command = "cargo nextest run -p trust-runtime --test runtime_core_behavior_lock --no-fail-fast --user-config-file none -E 'binary_id(=trust-runtime::runtime_core_behavior_lock) & test(=vm_fixture_execution_image_status_and_values_are_stable)'"
+command = "cargo nextest run -p trust-runtime --test runtime_core_behavior_lock --no-fail-fast --message-format libtest-json-plus --message-format-version 0.1 --user-config-file none -E '(binary_id(=trust-runtime::runtime_core_behavior_lock) & test(=vm_fixture_execution_image_status_and_values_are_stable))'"
 owner = "trust-runtime"
 status = "mapped"
 invariants = ["VM_RUNTIME_VALUE_MATERIALIZATION_001"]
@@ -114975,14 +114985,14 @@ requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_116A738C606DD35D5B09.json"
-last_reviewed = "2026-07-28"
-mapping_proposal_id = "MAP_CAND_116A738C606DD35D5B09_3CAC21BAF4F2"
-mapping_proposal_digest = "sha256:3cac21baf4f26318c5dd1c79750f307a5b6a7f907324ef4a2ad3ba0bab6c463e"
-mapping_decision_id = "MAP_DEC_1B9D3DE05EF29F818418E803"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_116A738C606DD35D5B09_BCD3EEE489A9"
+mapping_proposal_digest = "sha256:bcd3eee489a9b86582bc017a52ddee7ffac476c524124fc637fdfa932e4c0136"
+mapping_decision_id = "MAP_DEC_BE02F5C27CFF6BA65E255DCA"
 mapping_reviewed_source_digest = "sha256:38d0a77285d34f9841e92c65129c5589c61cff23fe59e02f8c317cb24b6a8359"
-mapping_assertion_review_digest = "sha256:a93c7fc48c6c5ec07112a561a161a0915aab712d76b606ce49a9b9720c6ae0b9"
+mapping_assertion_review_digest = "sha256:c0fb99a3019addfc39b0ee31e96012f3e105d8a0f5e77e279b388137fc45fda3"
 mapping_assertion_source_digests = { "crates/trust-runtime/tests/fixtures/runtime_core_behavior_lock/program.st" = "sha256:f20c9c4a84d04cfc2407815518f5d9e907c30a39e0c33827021c9bbca0955f69", "crates/trust-runtime/tests/runtime_core_behavior_lock.rs" = "sha256:38d0a77285d34f9841e92c65129c5589c61cff23fe59e02f8c317cb24b6a8359" }
-mapping_behavior_refs = ["VM_RUNTIME_VALUE_MATERIALIZATION_001#behavior:2", "VM_RUNTIME_VALUE_MATERIALIZATION_001#behavior:3"]
+mapping_behavior_refs = ["VM_RUNTIME_VALUE_MATERIALIZATION_001#behavior:2", "VM_RUNTIME_VALUE_MATERIALIZATION_001#behavior:3", "VM_RUNTIME_VALUE_MATERIALIZATION_001#behavior:4"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
 
 
@@ -122665,4 +122675,309 @@ mapping_reviewed_source_digest = "sha256:4b0bc2607e7d08bf49363283dbdb5622f6f2bae
 mapping_assertion_review_digest = "sha256:f2ee05ad4051a464d25ff59cc82cd63bac1b92a341095a88fa21facba6669b07"
 mapping_assertion_source_digests = { "crates/verification-cases/src/lib.rs" = "sha256:4b0bc2607e7d08bf49363283dbdb5622f6f2baead3f50aeaa47c415c684629a1" }
 mapping_behavior_refs = ["VERIFICATION_CASE_ARTIFACT_HELPER_001#behavior:5"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_2BBED746C5587521CCEA"
+subject_kind = "generated_test"
+discovery_id = "DISC_2BBED746C5587521CCEA"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-dev/src/test_cmd/tests.rs"
+name = "execution_preserves_non_assertion_runtime_error_classification"
+command = "cargo nextest run -p trust-dev --bin trust-dev --no-fail-fast --message-format libtest-json-plus --message-format-version 0.1 --user-config-file none -E '(binary_id(=trust-dev::bin/trust-dev) & test(=test::tests::execution_preserves_non_assertion_runtime_error_classification))'"
+owner = "trust-dev"
+status = "mapped"
+invariants = ["DEV_TEST_EXECUTION_001"]
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#test-case-execution"
+oracle_refs = ["SPEC_DEVELOPER_WORKFLOWS_001#test-case-execution"]
+expected_result = "The specification requires a non-assertion runtime failure to remain an error, but this batch has no direct execution test for that partition."
+expected_failure_mode = "The reviewed contract accepts missing, stale, contradictory, or falsely successful product behavior."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_2BBED746C5587521CCEA.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_2BBED746C5587521CCEA_46393FE4D48C"
+mapping_proposal_digest = "sha256:46393fe4d48c7814e7da803c50ff763f2c74a887e9ff5219644d3440b3d27c73"
+mapping_decision_id = "MAP_DEC_3680303C36E9ABAAA96594A9"
+mapping_reviewed_source_digest = "sha256:ebb2e6a99a0d4b6113ba22d491220e2f097b03625fca85694ae40863e9e422d1"
+mapping_assertion_review_digest = "sha256:b1707d16453eb7f611646673981f93805554b2c001df305a2907004c0d93a688"
+mapping_assertion_source_digests = { "crates/trust-dev/src/test_cmd/tests.rs" = "sha256:ebb2e6a99a0d4b6113ba22d491220e2f097b03625fca85694ae40863e9e422d1" }
+mapping_behavior_refs = ["DEV_TEST_EXECUTION_001#behavior:5"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_6E2CA32E89523262871E"
+subject_kind = "generated_test"
+discovery_id = "DISC_6E2CA32E89523262871E"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/phase18_behavior_closure.rs"
+name = "valid_task_and_program_binding_is_accepted"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --message-format libtest-json-plus --message-format-version 0.1 --user-config-file none -E '(binary_id(=trust-hir::semantic_type_checking) & test(=phase18_behavior_closure::valid_task_and_program_binding_is_accepted))'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_CONFIG_TASK_001"]
+oracle_ref = "SPEC_IEC_CONFIG_TASKS_001#3-validation-rules"
+oracle_refs = ["SPEC_IEC_CONFIG_TASKS_001#3-validation-rules"]
+expected_result = "Valid task parameters and a program binding to a declared task and PROGRAM type are accepted in the containing hierarchy."
+expected_failure_mode = "The reviewed contract accepts missing, stale, contradictory, or falsely successful product behavior."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_6E2CA32E89523262871E.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_6E2CA32E89523262871E_FE2CDECAE52C"
+mapping_proposal_digest = "sha256:fe2cdecae52c4a0c2d795e5c0fffbdc75f4345b68a8baab2ded7297e601ce5a9"
+mapping_decision_id = "MAP_DEC_890F994C508DED5AE342F7E8"
+mapping_reviewed_source_digest = "sha256:3fca21cfd3962b9c5775201f958c8360ddf1a9bea1bd7393ef5f074fca790ce6"
+mapping_assertion_review_digest = "sha256:66ede3cd6516580944a623f5067f50508fbc08daec062195c02e6c76b4fafca9"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:50b9c0fb7a3f17f12b3fbffae7b3e485bd78ce18794361b3c46a2af2b626577e", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:374ca9d462efa90245fa30d0bb294ec59291f3253f1d3a0461e5e4af50d13f5d", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/phase18_behavior_closure.rs" = "sha256:3fca21cfd3962b9c5775201f958c8360ddf1a9bea1bd7393ef5f074fca790ce6", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_CONFIG_TASK_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_74AB5586ABA787E397C2"
+subject_kind = "generated_test"
+discovery_id = "DISC_74AB5586ABA787E397C2"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/phase18_behavior_closure.rs"
+name = "ambiguous_target_suppresses_dependent_type_cascades"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --message-format libtest-json-plus --message-format-version 0.1 --user-config-file none -E '(binary_id(=trust-hir::semantic_type_checking) & test(=phase18_behavior_closure::ambiguous_target_suppresses_dependent_type_cascades))'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_DIAGNOSTIC_CASCADE_001"]
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001#12-1-primary-diagnostics-and-cascade-suppression"
+oracle_refs = ["SPEC_IEC_SEMANTIC_RULES_001#12-1-primary-diagnostics-and-cascade-suppression"]
+expected_result = "Ambiguity is reported without selecting one target and emitting downstream wrong-type or invalid-operation cascades."
+expected_failure_mode = "The reviewed contract accepts missing, stale, contradictory, or falsely successful product behavior."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_74AB5586ABA787E397C2.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_74AB5586ABA787E397C2_ABF5E68606C9"
+mapping_proposal_digest = "sha256:abf5e68606c90b6cb5c1ae7ebbe9315bfe5c123762b95d51dc11546be6082de1"
+mapping_decision_id = "MAP_DEC_DA75C8E5E9289C282F920D92"
+mapping_reviewed_source_digest = "sha256:3fca21cfd3962b9c5775201f958c8360ddf1a9bea1bd7393ef5f074fca790ce6"
+mapping_assertion_review_digest = "sha256:be9650f7d3fab347a7779a22ea0217caa3b352e94652eeb08ea3c9173e241c27"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:50b9c0fb7a3f17f12b3fbffae7b3e485bd78ce18794361b3c46a2af2b626577e", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:374ca9d462efa90245fa30d0bb294ec59291f3253f1d3a0461e5e4af50d13f5d", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/phase18_behavior_closure.rs" = "sha256:3fca21cfd3962b9c5775201f958c8360ddf1a9bea1bd7393ef5f074fca790ce6", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_DIAGNOSTIC_CASCADE_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_797F35A80BC6938F8516"
+subject_kind = "generated_test"
+discovery_id = "DISC_797F35A80BC6938F8516"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/phase18_behavior_closure.rs"
+name = "explicit_time_timer_function_blocks_are_accepted"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --message-format libtest-json-plus --message-format-version 0.1 --user-config-file none -E '(binary_id(=trust-hir::semantic_type_checking) & test(=phase18_behavior_closure::explicit_time_timer_function_blocks_are_accepted))'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_STANDARD_FB_SIGNATURE_001"]
+oracle_ref = "SPEC_IEC_STANDARD_FBS_CANDIDATE_001#5-timer-function-blocks-table-46-figure-15"
+oracle_refs = ["SPEC_IEC_STANDARD_FBS_CANDIDATE_001#5-timer-function-blocks-table-46-figure-15"]
+expected_result = "IEC Table 46 defines TP_TIME, TON_TIME, and TOF_TIME with TIME PT and ET; implementation and focused test evidence remain missing."
+expected_failure_mode = "The reviewed contract accepts missing, stale, contradictory, or falsely successful product behavior."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_797F35A80BC6938F8516.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_797F35A80BC6938F8516_D12A0012F2F1"
+mapping_proposal_digest = "sha256:d12a0012f2f1c9f1b3a465bdbd43836a34eea7cd62006931ad4cbfa5380cf689"
+mapping_decision_id = "MAP_DEC_18EAF1E223DE908C0EA5F497"
+mapping_reviewed_source_digest = "sha256:3fca21cfd3962b9c5775201f958c8360ddf1a9bea1bd7393ef5f074fca790ce6"
+mapping_assertion_review_digest = "sha256:d1043436a588d1675e5e2e37656cfaf47a8d770e947ee58de8c6b7b52ebe8ecd"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:50b9c0fb7a3f17f12b3fbffae7b3e485bd78ce18794361b3c46a2af2b626577e", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:374ca9d462efa90245fa30d0bb294ec59291f3253f1d3a0461e5e4af50d13f5d", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/phase18_behavior_closure.rs" = "sha256:3fca21cfd3962b9c5775201f958c8360ddf1a9bea1bd7393ef5f074fca790ce6", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_STANDARD_FB_SIGNATURE_001#behavior:4"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_812ED0CC7B4EAB354F6E"
+subject_kind = "generated_test"
+discovery_id = "DISC_812ED0CC7B4EAB354F6E"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "editor_safety"
+path = "crates/trust-lsp/src/state/mod.rs"
+name = "path_uri_roundtrip_handles_spaces_and_fragments"
+command = "cargo nextest run -p trust-lsp --bin trust-lsp --no-fail-fast --message-format libtest-json-plus --message-format-version 0.1 --user-config-file none -E '(binary_id(=trust-lsp::bin/trust-lsp) & test(=state::tests::path_uri_roundtrip_handles_spaces_and_fragments))'"
+owner = "language-tooling"
+status = "mapped"
+invariants = ["LSP_CORE_FEATURES_001"]
+oracle_ref = "SPEC_LSP_CONTRACT_001"
+oracle_refs = ["SPEC_LSP_CONTRACT_001"]
+expected_result = "File URI conversion preserves path identity on its supported platform and virtual documents remain client-owned text identities."
+expected_failure_mode = "The reviewed contract accepts missing, stale, contradictory, or falsely successful product behavior."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_812ED0CC7B4EAB354F6E.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_812ED0CC7B4EAB354F6E_CF1707E63C88"
+mapping_proposal_digest = "sha256:cf1707e63c88e2ca46f19b6c99cbc6b64056c152b48fa6f01dc2692343820e5c"
+mapping_decision_id = "MAP_DEC_92B8B1FDC90FE89390AEE5EE"
+mapping_reviewed_source_digest = "sha256:3e03569465810daaac8767a35afd3a78a577306ec7af8b422795d0995d1a6731"
+mapping_assertion_review_digest = "sha256:8ec6522e9d63873a779d3117f22dd05a913179425d0b35f7f9dbbfb071184625"
+mapping_assertion_source_digests = { "crates/trust-lsp/src/state/mod.rs" = "sha256:3e03569465810daaac8767a35afd3a78a577306ec7af8b422795d0995d1a6731" }
+mapping_behavior_refs = ["LSP_CORE_FEATURES_001#behavior:12"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_8503039E7C77492FF813"
+subject_kind = "generated_test"
+discovery_id = "DISC_8503039E7C77492FF813"
+discovery_source_kind = "rust_unit_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-dev/src/ci.rs"
+name = "classify_multiple_recognized_failures_uses_documented_precedence"
+command = "cargo nextest run -p trust-dev --bin trust-dev --no-fail-fast --message-format libtest-json-plus --message-format-version 0.1 --user-config-file none -E '(binary_id(=trust-dev::bin/trust-dev) & test(=ci::tests::classify_multiple_recognized_failures_uses_documented_precedence))'"
+owner = "trust-dev"
+status = "mapped"
+invariants = ["DEV_CI_EXIT_CLASSIFICATION_001"]
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#developer-ci-exit-classification"
+oracle_refs = ["SPEC_DEVELOPER_WORKFLOWS_001#developer-ci-exit-classification"]
+expected_result = "The specification orders timeout before test, build, and configuration recognition, but this trust-dev batch has no direct collision test."
+expected_failure_mode = "The reviewed contract accepts missing, stale, contradictory, or falsely successful product behavior."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_8503039E7C77492FF813.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_8503039E7C77492FF813_7399E3625CFF"
+mapping_proposal_digest = "sha256:7399e3625cff77f6854b286df17c1fc512e7151b1f1a035ce941a2a906c5a7e1"
+mapping_decision_id = "MAP_DEC_96297271607A76C24144FA0E"
+mapping_reviewed_source_digest = "sha256:dadc95cb3bf48ebf84a40a9ad74e6e1908e6dd6990d4f2ea3140696cf2f803ec"
+mapping_assertion_review_digest = "sha256:86a66d815f503ce06fb2b0b068bd9b966981d11d56f4b1930a3004e751deb681"
+mapping_assertion_source_digests = { "crates/trust-dev/src/ci.rs" = "sha256:dadc95cb3bf48ebf84a40a9ad74e6e1908e6dd6990d4f2ea3140696cf2f803ec" }
+mapping_behavior_refs = ["DEV_CI_EXIT_CLASSIFICATION_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_CC04C238E4D66D65226F"
+subject_kind = "generated_test"
+discovery_id = "DISC_CC04C238E4D66D65226F"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/phase18_behavior_closure.rs"
+name = "integer_for_control_bounds_and_by_are_accepted"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --message-format libtest-json-plus --message-format-version 0.1 --user-config-file none -E '(binary_id(=trust-hir::semantic_type_checking) & test(=phase18_behavior_closure::integer_for_control_bounds_and_by_are_accepted))'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_FOR_TYPES_001"]
+oracle_ref = "SPEC_IEC_STATEMENTS_001#7-for-statement-section-7-3-3-4-2"
+oracle_refs = ["SPEC_IEC_STATEMENTS_001#7-for-statement-section-7-3-3-4-2"]
+expected_result = "An integer control variable with integer-compatible initial, final, and optional BY expressions is accepted."
+expected_failure_mode = "The reviewed contract accepts missing, stale, contradictory, or falsely successful product behavior."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_CC04C238E4D66D65226F.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_CC04C238E4D66D65226F_7D8363FAE82D"
+mapping_proposal_digest = "sha256:7d8363fae82d60fdf8f0f29836ee590dad66e48e6ee41db0a0bc193350251e29"
+mapping_decision_id = "MAP_DEC_8772E1B96343B8B6705CEC5F"
+mapping_reviewed_source_digest = "sha256:3fca21cfd3962b9c5775201f958c8360ddf1a9bea1bd7393ef5f074fca790ce6"
+mapping_assertion_review_digest = "sha256:a5a9956dc96113bc72d498e21f61a67855c0aa74a006672e4448b06e27f0e96c"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:50b9c0fb7a3f17f12b3fbffae7b3e485bd78ce18794361b3c46a2af2b626577e", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:374ca9d462efa90245fa30d0bb294ec59291f3253f1d3a0461e5e4af50d13f5d", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/phase18_behavior_closure.rs" = "sha256:3fca21cfd3962b9c5775201f958c8360ddf1a9bea1bd7393ef5f074fca790ce6", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_FOR_TYPES_001#behavior:0"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_CC70827DE7EF2C10480D"
+subject_kind = "generated_test"
+discovery_id = "DISC_CC70827DE7EF2C10480D"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "plcopen_devtools"
+path = "crates/trust-runtime/tests/plcopen_motion_oop_library.rs"
+name = "plcopen_motion_deferred_public_surfaces_remain_absent"
+command = "cargo nextest run -p trust-runtime --test plcopen_motion_oop_library --no-fail-fast --message-format libtest-json-plus --message-format-version 0.1 --user-config-file none -E '(binary_id(=trust-runtime::plcopen_motion_oop_library) & test(=plcopen_motion_deferred_public_surfaces_remain_absent))'"
+owner = "trust-plcopen"
+status = "mapped"
+invariants = ["PLCO_MOTION_COORDINATED_001", "PLCO_MOTION_HOMING_001", "PLCO_MOTION_SINGLE_AXIS_SURFACE_001", "PLCO_MOTION_SYNCHRONIZATION_001"]
+oracle_ref = "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#19-public-fb-profiles"
+oracle_refs = ["SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#19-public-fb-profiles", "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#192-phase-b-synchronization", "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#193-phase-c-group-core", "SPEC_PLCOPEN_MOTION_LIBRARY_SPEC_FOR_TRUST_V0_1_001#195-phase-d-homing-extensions"]
+expected_result = "Deferred coordinated-motion FB names remain absent rather than compiling as unsupported runtime placeholders. Deferred passive/flying homing FB names remain absent rather than compiling as runtime placeholders. Deferred FBs, unselected enum literals, unselected signature fields, group-only labels, and public types outside Phase A remain absent. Deferred synchronization FB names remain absent rather than compiling as unsupported runtime placeholders."
+expected_failure_mode = "The reviewed contract accepts missing, stale, contradictory, or falsely successful product behavior."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "slow"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_CC70827DE7EF2C10480D.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_CC70827DE7EF2C10480D_20BC1A512C1D"
+mapping_proposal_digest = "sha256:20bc1a512c1d9257b539b9c2e41425b08526eac46e8a995df03b17ee98c3e7c1"
+mapping_decision_id = "MAP_DEC_A943A936350099381156F294"
+mapping_reviewed_source_digest = "sha256:1847b8f5ab1ef852189134fdef6c642dae9579cc3beb6130f902c73561ec3b2e"
+mapping_assertion_review_digest = "sha256:cfdfbb6fdd604c3faed6c5e44fa320ca01201a9bd7e17058c6149870e64d6276"
+mapping_assertion_source_digests = { "crates/trust-runtime/tests/plcopen_motion_oop_library.rs" = "sha256:1847b8f5ab1ef852189134fdef6c642dae9579cc3beb6130f902c73561ec3b2e" }
+mapping_behavior_refs = ["PLCO_MOTION_COORDINATED_001#behavior:4", "PLCO_MOTION_HOMING_001#behavior:3", "PLCO_MOTION_SINGLE_AXIS_SURFACE_001#behavior:12", "PLCO_MOTION_SYNCHRONIZATION_001#behavior:1"]
+mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_E8B6A04327B8CB8E1946"
+subject_kind = "generated_test"
+discovery_id = "DISC_E8B6A04327B8CB8E1946"
+discovery_source_kind = "rust_integration_test"
+test_class = "behavior_lock"
+area = "compiler_iec"
+path = "crates/trust-hir/tests/semantic_type_checking/phase18_behavior_closure.rs"
+name = "modifiable_storage_assignment_targets_are_accepted"
+command = "cargo nextest run -p trust-hir --test semantic_type_checking --no-fail-fast --message-format libtest-json-plus --message-format-version 0.1 --user-config-file none -E '(binary_id(=trust-hir::semantic_type_checking) & test(=phase18_behavior_closure::modifiable_storage_assignment_targets_are_accepted))'"
+owner = "trust-hir"
+status = "mapped"
+invariants = ["IEC_HIR_ASSIGNMENT_TARGET_001"]
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001#2-1-valid-assignment-targets"
+oracle_refs = ["SPEC_IEC_SEMANTIC_RULES_001#2-1-valid-assignment-targets"]
+expected_result = "A resolved modifiable variable, output, in-out parameter, temporary, or property with a setter is a valid assignment target."
+expected_failure_mode = "The reviewed contract accepts missing, stale, contradictory, or falsely successful product behavior."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "very_fast"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_E8B6A04327B8CB8E1946.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_E8B6A04327B8CB8E1946_8011E580B71C"
+mapping_proposal_digest = "sha256:8011e580b71c14627d7b217be0c438e6529d9c6414af4acf00c3ef42bd7b6d53"
+mapping_decision_id = "MAP_DEC_E2CA078AC46075403AF03B8C"
+mapping_reviewed_source_digest = "sha256:3fca21cfd3962b9c5775201f958c8360ddf1a9bea1bd7393ef5f074fca790ce6"
+mapping_assertion_review_digest = "sha256:9850fa8e207c425a30066d4c4dcff8affdda9fa36df955ed1a21b8e2fdba4614"
+mapping_assertion_source_digests = { "crates/trust-hir/tests/common.rs" = "sha256:a7b6b3581efafd80e8db5b27a14edbc5619a189989a9acbde8d4e3727a69c9db", "crates/trust-hir/tests/semantic_type_checking.rs" = "sha256:50b9c0fb7a3f17f12b3fbffae7b3e485bd78ce18794361b3c46a2af2b626577e", "crates/trust-hir/tests/semantic_type_checking/array_wildcard_compatibility.rs" = "sha256:b2e315c9e3592d81ab08255ea5a1ab10fce77ca7b6fb9b6d1032d81dfb1d8f7c", "crates/trust-hir/tests/semantic_type_checking/assignments_and_var_access.rs" = "sha256:eeb875d3020304f6b5e4c3887bab32277a7a86b10560fb9d9efe3982df531398", "crates/trust-hir/tests/semantic_type_checking/basics_and_warnings.rs" = "sha256:670bcf045a9534337de50780105363b3818a18aabd1ab3e8a4449578721ccb4a", "crates/trust-hir/tests/semantic_type_checking/bounded_value_semantics.rs" = "sha256:374ca9d462efa90245fa30d0bb294ec59291f3253f1d3a0461e5e4af50d13f5d", "crates/trust-hir/tests/semantic_type_checking/control_flow_and_calls.rs" = "sha256:5b6ebb6f70292267c7c14fad9371ef2b414968ff7a5f181e14ab0ad0d868e645", "crates/trust-hir/tests/semantic_type_checking/enum_unqualified_in_expressions.rs" = "sha256:2ae36a39e666158baad1b90cd80af4f9cad440092c98be8d5311ca8e5acdd960", "crates/trust-hir/tests/semantic_type_checking/hir_mutation_hardening.rs" = "sha256:d400b2b3758ec570ab11a05ac0af64fe5a823aa6bd315f3919cef919d1c22b20", "crates/trust-hir/tests/semantic_type_checking/parameter_constant_qualifier.rs" = "sha256:e55e5aa81150b7af8112b455aa8b9d1838ae509e16b1337cda87efd50b7a9b4e", "crates/trust-hir/tests/semantic_type_checking/phase18_behavior_closure.rs" = "sha256:3fca21cfd3962b9c5775201f958c8360ddf1a9bea1bd7393ef5f074fca790ce6", "crates/trust-hir/tests/semantic_type_checking/pointer_param_write_through.rs" = "sha256:e8612959b530c9b354a7cfb5843d7d010245ad60fe59a6d05d676b1be2d6e92c", "crates/trust-hir/tests/semantic_type_checking/sizeof_semantics.rs" = "sha256:b4eef80e6f0cdacd0acfb3a9845222ef738a9763fd7a8b0d5f9831750a81991e", "crates/trust-hir/tests/semantic_type_checking/struct_initializers.rs" = "sha256:da2a94071269caac57793ff4807fdad2a955e53d924118d5e79d87d1c7994b62", "crates/trust-hir/tests/semantic_type_checking/types_and_references.rs" = "sha256:cda03b6d76bca752286a90c5a19a2aa162b777664ef9a6eb27789d20aa980e59", "crates/trust-hir/tests/semantic_type_checking/wrong_kind_resolution.rs" = "sha256:b873a4d21fdc7ac68ad47b77b769c571046c47ddca217143fcb3202409fb2009" }
+mapping_behavior_refs = ["IEC_HIR_ASSIGNMENT_TARGET_001#behavior:0"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]

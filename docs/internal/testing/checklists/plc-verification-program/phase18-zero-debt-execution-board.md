@@ -3,10 +3,12 @@
 Status: zero-debt contract accepted by commit-bound independent R3 review.
 Findings `P18-C01` through `P18-C08` and `P18-R2-01` are resolved.
 
-Current row: `VERIF-P18-003`, starting with exact slice
-`P18-CODE-CODE_E78D5BAEDF1B5EE0A6C2DEA95C1E40ADF75CADF7F3FE427F6BDA5738D8453BC8`.
-The accepted P18-002 ledger owns and orders every current fact; it does not
-close any semantic, mapping, execution, or adequacy population.
+Current row: `VERIF-P18-003`, continuing as one repository-wide
+authority/mapping campaign over the remaining 467 owned nonmapping tests, 208
+gap-open coverage cells, nine current exact-behavior-marker debts, and eleven
+empty historical placeholder invariants. The accepted P18-002 ledger owns and
+orders every current fact; it does not close any semantic, mapping, execution,
+or adequacy population.
 
 ## Objective
 
@@ -1164,6 +1166,31 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   are recorded in
   `docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-verification-owned-exact-behavior-11.md`.
   <!-- generated:verification-owned-exact-behavior-11:end -->
+  <!-- generated:residual-exact-behavior-27:start -->
+
+  Residual exact-behavior coherent-campaign progress (2026-07-29): all 27
+  remaining formally confirmed behavior demands are bound through 31 exact
+  links to 26 tests across sixteen invariants. The accepted clean builder
+  campaign at `4c35370499ff2423a22de327a67be444f5c5fdf5` passes 26/26
+  tests in fifteen exact command groups. Its 26 fail-closed assertion
+  inventories contain 282 extracted assertions and zero unresolved helpers.
+  Nine live test facts are promoted and seventeen existing catalog mappings
+  are reused. Expected-red HIR and runtime assertions exposed absent IEC Table
+  46 `TP_TIME`, `TON_TIME`, and `TOF_TIME` support; the source repair at
+  `68629aacfaa89a34de946e9f952adfa9fb3f6459` registers the explicit aliases
+  with fixed `TIME` bindings, and the accepted HIR plus consolidated runtime
+  tests pass. The atomic mapping transaction makes the test equations
+  4,409 live = 3,942 `catalog_mapped` + 467 `reviewed_nonmapping`, with zero
+  missing authority, zero confirmed missing behavior demands, and zero missing
+  behavior candidates. The 467 owned nonmapping facts, 208 specified gap-open
+  cells, nine current exact-behavior-marker debts, eleven empty historical
+  placeholder invariants, repository metadata baseline, bidirectional chain,
+  reachability, mutation sensitivity, and final broad gates remain open. This
+  is large-batch `P18-003` through `P18-006` progress, not global row closure.
+  No broad workspace gate ran. Focused evidence and retained machine-readable
+  artifacts are recorded in
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-residual-exact-behavior-27.md`.
+  <!-- generated:residual-exact-behavior-27:end -->
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device

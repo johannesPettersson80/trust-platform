@@ -1,0 +1,9 @@
+info: experimental features enabled: wrapper-scripts
+   Compiling trust-runtime v0.24.60 (/home/johannes/projects/trust-platform-p18-residual-source/crates/trust-runtime)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.61s
+────────────
+ Nextest run ID 7c54a6a3-bfcf-4367-964d-1d71241c8d4e with nextest profile: default
+    Starting 1 test across 1 binary (6 tests skipped)
+        PASS [   0.148s] (1/1) trust-runtime::runtime_core_behavior_lock vm_fixture_execution_image_status_and_values_are_stable
+────────────
+     Summary [   0.149s] 1 test run: 1 passed, 6 skipped

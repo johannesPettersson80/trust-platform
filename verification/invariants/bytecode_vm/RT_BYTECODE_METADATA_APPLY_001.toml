@@ -14,7 +14,7 @@ tests = ["TEST_AUTO_268F47FD499F57BFF436", "TEST_AUTO_406C3141C3DBCD4AE62F", "TE
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["focused_execution_evidence", "final_remote_gate"]
+missing = ["final_remote_gate"]
 
 [spec]
 status = "specified"

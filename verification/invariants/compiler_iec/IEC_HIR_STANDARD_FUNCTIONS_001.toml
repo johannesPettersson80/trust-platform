@@ -3,18 +3,18 @@ id = "IEC_HIR_STANDARD_FUNCTIONS_001"
 title = "HIR validates standard functions and documented allocation extensions"
 area = "compiler_iec"
 risk = "wrong_result"
-status = "specified"
+status = "mapped"
 owner = "trust-hir"
 last_reviewed = "2026-07-26"
 claim = "Registered conversion, numeric, bitwise, validation, string, time, assertion, allocation, and deletion calls enforce their written arity and type domains."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-hir/src"]
-tests = ["TEST_AUTO_00FE726C106CD316AFAD", "TEST_AUTO_0E5F84AD4BA39757FCC5", "TEST_AUTO_1794E9163BCDE842A3E7", "TEST_AUTO_181BE6A42CEEAC4A3CA8", "TEST_AUTO_18C281121C8F2A2D7F07", "TEST_AUTO_2A64027AC33FA85FD1AD", "TEST_AUTO_43C5B1FEB74DB222685B", "TEST_AUTO_4692A562D9C8CBB0FB94", "TEST_AUTO_627DE6D71C0A08570A9A", "TEST_AUTO_69DB613F94392509F186", "TEST_AUTO_735D1722DAF91AF18050", "TEST_AUTO_7A9765F1F0939C67DD38", "TEST_AUTO_878AE6E89F760D397C78", "TEST_AUTO_891331AB23256646E56A", "TEST_AUTO_8E5985C4581B11E36E88", "TEST_AUTO_91E6375542C2C252AB6B", "TEST_AUTO_A52B459EE90798F4BFC0", "TEST_AUTO_C0593BCD93E5C722C8A0", "TEST_AUTO_CE23427A26330185FA03", "TEST_AUTO_DD4BF499E87F5702426C", "TEST_AUTO_DDD068CC588688F7B717"]
+tests = ["TEST_AUTO_00FE726C106CD316AFAD", "TEST_AUTO_0E5F84AD4BA39757FCC5", "TEST_AUTO_1794E9163BCDE842A3E7", "TEST_AUTO_181BE6A42CEEAC4A3CA8", "TEST_AUTO_18C281121C8F2A2D7F07", "TEST_AUTO_2A64027AC33FA85FD1AD", "TEST_AUTO_43C5B1FEB74DB222685B", "TEST_AUTO_4692A562D9C8CBB0FB94", "TEST_AUTO_627DE6D71C0A08570A9A", "TEST_AUTO_69DB613F94392509F186", "TEST_AUTO_735D1722DAF91AF18050", "TEST_AUTO_7A9765F1F0939C67DD38", "TEST_AUTO_878AE6E89F760D397C78", "TEST_AUTO_891331AB23256646E56A", "TEST_AUTO_8E5985C4581B11E36E88", "TEST_AUTO_91E6375542C2C252AB6B", "TEST_AUTO_9B2B2CFFDB0CAE77D5D9", "TEST_AUTO_A52B459EE90798F4BFC0", "TEST_AUTO_C0593BCD93E5C722C8A0", "TEST_AUTO_CE23427A26330185FA03", "TEST_AUTO_DD4BF499E87F5702426C", "TEST_AUTO_DDD068CC588688F7B717"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+missing = ["assertion_reachability", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -89,8 +89,8 @@ rationale = "NEW rejects value operands and unresolved allocation/deletion prere
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "Accepted standard and allocation calls await catalog mapping."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in IEC_HIR_STANDARD_FUNCTIONS_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "missing_required"

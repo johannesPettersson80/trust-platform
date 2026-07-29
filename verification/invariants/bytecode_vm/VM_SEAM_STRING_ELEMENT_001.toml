@@ -18,7 +18,7 @@ tests = ["TEST_AUTO_2A71C823139F87D5184A", "TEST_AUTO_430AF663A79A7D319743", "TE
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_behavior_tests", "assertion_reachability", "broad_remote_gate"]
+missing = ["assertion_reachability", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -109,13 +109,13 @@ rationale = "Accepted catalog mappings bind reviewed assertions to every encodin
 
 [[coverage.cells]]
 dimension = "boundary_low"
-state = "gap_open"
-rationale = "Indexed lower-bound rejection awaits catalog association."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every boundary_low behavior in VM_SEAM_STRING_ELEMENT_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "boundary_high"
-state = "gap_open"
-rationale = "Indexed upper-bound rejection awaits catalog association."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every boundary_high behavior in VM_SEAM_STRING_ELEMENT_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"

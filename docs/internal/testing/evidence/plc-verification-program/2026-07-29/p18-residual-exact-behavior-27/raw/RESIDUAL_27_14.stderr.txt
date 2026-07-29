@@ -1,0 +1,10 @@
+info: experimental features enabled: wrapper-scripts
+   Compiling trust-runtime v0.24.60 (/home/johannes/projects/trust-platform-p18-residual-source/crates/trust-runtime)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.58s
+────────────
+ Nextest run ID 6bff8e09-d463-4536-8d67-a10d3b210faa with nextest profile: default
+    Starting 2 tests across 1 binary
+        PASS [   0.009s] (1/2) trust-runtime::stdlib_numeric_full numeric_full
+        PASS [   0.078s] (2/2) trust-runtime::stdlib_numeric_full split_functions
+────────────
+     Summary [   0.079s] 2 tests run: 2 passed, 0 skipped

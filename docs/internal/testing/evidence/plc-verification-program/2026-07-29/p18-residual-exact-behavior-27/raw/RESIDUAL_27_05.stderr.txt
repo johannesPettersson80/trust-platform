@@ -1,0 +1,11 @@
+info: experimental features enabled: wrapper-scripts
+   Compiling trust-wasm-analysis v0.24.60 (/home/johannes/projects/trust-platform-p18-residual-source/crates/trust-wasm-analysis)
+   Compiling trust-runtime v0.24.60 (/home/johannes/projects/trust-platform-p18-residual-source/crates/trust-runtime)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 10.16s
+────────────
+ Nextest run ID fb66001b-ac68-4ea8-beed-063a388dbd44 with nextest profile: default
+    Starting 2 tests across 1 binary (1101 tests skipped)
+        PASS [   0.018s] (1/2) trust-runtime eval::tests::debug_hook_fires_once_per_statement
+        PASS [   0.043s] (2/2) trust-runtime control::tests::debug_activation_and_mutation_follow_the_reviewed_role_boundary
+────────────
+     Summary [   0.046s] 2 tests run: 2 passed, 1101 skipped

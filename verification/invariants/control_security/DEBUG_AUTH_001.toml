@@ -24,9 +24,7 @@ evidence_refs = [
   "EVID_CONTROL_AUTHORIZATION_MATRIX_GAP_CLOSEOUT_20260716",
 ]
 spec_gap_refs = []
-missing = [
-  "broad_remote_gate",
-]
+missing = ["broad_remote_gate"]
 
 [spec]
 status = "specified"

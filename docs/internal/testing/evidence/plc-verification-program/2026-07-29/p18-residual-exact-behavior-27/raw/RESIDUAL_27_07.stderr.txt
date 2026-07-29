@@ -1,0 +1,9 @@
+info: experimental features enabled: wrapper-scripts
+   Compiling trust-runtime v0.24.60 (/home/johannes/projects/trust-platform-p18-residual-source/crates/trust-runtime)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.56s
+────────────
+ Nextest run ID e7f2e018-75f5-4219-927f-c1ac0c70e126 with nextest profile: default
+    Starting 1 test across 1 binary (6 tests skipped)
+        PASS [   0.043s] (1/1) trust-runtime::bytecode_metadata version_gate
+────────────
+     Summary [   0.043s] 1 test run: 1 passed, 6 skipped

@@ -1913,8 +1913,9 @@ proof closed `VERIF-P17-012` plus the Phase 17 stop gates at `a74efe09`.
 The clean remote substrate proof closed `VERIF-P18-001` at exact producer
 commit `e23e113d`. The clean remote fact-level ledger proof closed
 `VERIF-P18-002` at exact artifact commit `103a6197`; current pointer:
-`VERIF-P18-003`, starting with exact slice
-`P18-CODE-CODE_F72E3E7BC892973CF9344497078A35D93380745CDC5DB4820F5CFB302AAEE14A`.
+`VERIF-P18-003`, continuing as the repository-wide authority/mapping campaign
+over the remaining owned nonmapping tests, gap-open coverage cells, exact
+behavior markers, and historical placeholders.
 
 Phase 17 is accepted only as the denominator and fail-closed enforcement
 baseline. Its broad milestone is deferred into the single final Phase 18

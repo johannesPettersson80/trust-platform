@@ -1,0 +1,4 @@
+{"type":"suite","event":"started","test_count":1,"nextest":{"crate":"trust-runtime-core","test_binary":"trust_runtime_core","kind":"lib"}}
+{"type":"test","event":"started","name":"trust-runtime-core::trust_runtime_core$value::string_semantics::tests::narrow_string_index_rejects_out_of_range_chars"}
+{"type":"test","event":"ok","name":"trust-runtime-core::trust_runtime_core$value::string_semantics::tests::narrow_string_index_rejects_out_of_range_chars","exec_time":0.011698774}
+{"type":"suite","event":"ok","passed":1,"failed":0,"ignored":0,"measured":0,"filtered_out":69,"exec_time":0.011698774,"nextest":{"crate":"trust-runtime-core","test_binary":"trust_runtime_core","kind":"lib"}}

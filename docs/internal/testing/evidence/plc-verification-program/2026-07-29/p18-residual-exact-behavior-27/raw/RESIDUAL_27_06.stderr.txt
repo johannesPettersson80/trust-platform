@@ -1,0 +1,9 @@
+info: experimental features enabled: wrapper-scripts
+   Compiling trust-runtime v0.24.60 (/home/johannes/projects/trust-platform-p18-residual-source/crates/trust-runtime)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 11.92s
+────────────
+ Nextest run ID e41d0bea-c7e0-4d1a-acda-0c1a5d31a0e8 with nextest profile: default
+    Starting 1 test across 1 binary (6 tests skipped)
+        PASS [   0.013s] (1/1) trust-runtime::bytecode_container duplicate_standard_section_ids_are_rejected
+────────────
+     Summary [   0.015s] 1 test run: 1 passed, 6 skipped

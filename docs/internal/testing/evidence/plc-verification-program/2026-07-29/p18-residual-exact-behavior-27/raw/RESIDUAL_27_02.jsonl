@@ -1,0 +1,4 @@
+{"type":"suite","event":"started","test_count":1,"nextest":{"crate":"trust-hir","test_binary":"semantic_standard_functions","kind":"test"}}
+{"type":"test","event":"started","name":"trust-hir::semantic_standard_functions$test_new_delete_calls_ok"}
+{"type":"test","event":"ok","name":"trust-hir::semantic_standard_functions$test_new_delete_calls_ok","exec_time":0.040367203}
+{"type":"suite","event":"ok","passed":1,"failed":0,"ignored":0,"measured":0,"filtered_out":31,"exec_time":0.040367203,"nextest":{"crate":"trust-hir","test_binary":"semantic_standard_functions","kind":"test"}}

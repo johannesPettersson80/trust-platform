@@ -13,11 +13,11 @@ source_refs = [
   "docs/specs/22-developer-workflows.md",
   "crates/trust-dev/src/ci.rs",
 ]
-tests = ["TEST_AUTO_0F53FF30DE58125172CA", "TEST_AUTO_4E668027AD73DFAD5522", "TEST_AUTO_AE3B2CE73EA47E47BBD6", "TEST_AUTO_BC0A3822943D6722F48D", "TEST_AUTO_F7ADB2E6CC8FFFDEC287", "TEST_AUTO_FB45A22AC9F9C736ED98"]
+tests = ["TEST_AUTO_0F53FF30DE58125172CA", "TEST_AUTO_4E668027AD73DFAD5522", "TEST_AUTO_8503039E7C77492FF813", "TEST_AUTO_AE3B2CE73EA47E47BBD6", "TEST_AUTO_BC0A3822943D6722F48D", "TEST_AUTO_F7ADB2E6CC8FFFDEC287", "TEST_AUTO_FB45A22AC9F9C736ED98"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_tests", "focused_execution_evidence", "multiple_recognized_precedence_test", "final_remote_gate"]
+missing = ["final_remote_gate"]
 
 [spec]
 status = "specified"

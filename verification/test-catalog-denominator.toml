@@ -7844,6 +7844,16 @@ catalog_test_id = "TEST_AUTO_2BB8A4884F60DC195108"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
+discovery_id = "DISC_2BBED746C5587521CCEA"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-dev/src/test_cmd/tests.rs"
+name = "execution_preserves_non_assertion_runtime_error_classification"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_AUTO_2BBED746C5587521CCEA"
+last_reviewed = "2026-07-29"
+
+[[reviews]]
 discovery_id = "DISC_2BCFFCA3640380A03E11"
 discovery_source_kind = "structured_text_test"
 path = "crates/trust-runtime/tests/fixtures/oscat/core/src/22_calculations/tests.st"
@@ -18924,6 +18934,16 @@ catalog_test_id = "TEST_AUTO_6E2A5FC578987C5B1630"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
+discovery_id = "DISC_6E2CA32E89523262871E"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-hir/tests/semantic_type_checking/phase18_behavior_closure.rs"
+name = "valid_task_and_program_binding_is_accepted"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_AUTO_6E2CA32E89523262871E"
+last_reviewed = "2026-07-29"
+
+[[reviews]]
 discovery_id = "DISC_6E5750801DC19C4E3BDA"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/realtime/realtime_tests_part_03.rs"
@@ -20154,6 +20174,16 @@ catalog_test_id = "TEST_AUTO_749CA6AED7A343292238"
 last_reviewed = "2026-07-26"
 
 [[reviews]]
+discovery_id = "DISC_74AB5586ABA787E397C2"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-hir/tests/semantic_type_checking/phase18_behavior_closure.rs"
+name = "ambiguous_target_suppresses_dependent_type_cascades"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_AUTO_74AB5586ABA787E397C2"
+last_reviewed = "2026-07-29"
+
+[[reviews]]
 discovery_id = "DISC_74B6CD51B9D679A9EC81"
 discovery_source_kind = "structured_text_test"
 path = "crates/trust-runtime/tests/fixtures/plcopen_motion/single_axis_core/src/tests.st"
@@ -20872,6 +20902,16 @@ ignore_state = "not_ignored"
 disposition = "catalog_mapped"
 catalog_test_id = "TEST_AUTO_797AB8669758B1BD45AA"
 last_reviewed = "2026-07-26"
+
+[[reviews]]
+discovery_id = "DISC_797F35A80BC6938F8516"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-hir/tests/semantic_type_checking/phase18_behavior_closure.rs"
+name = "explicit_time_timer_function_blocks_are_accepted"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_AUTO_797F35A80BC6938F8516"
+last_reviewed = "2026-07-29"
 
 [[reviews]]
 discovery_id = "DISC_799A11C490E310F77621"
@@ -22039,9 +22079,9 @@ discovery_source_kind = "rust_unit_test"
 path = "crates/trust-lsp/src/state/mod.rs"
 name = "path_uri_roundtrip_handles_spaces_and_fragments"
 ignore_state = "not_ignored"
-disposition = "reviewed_nonmapping"
-reason_code = "assertion_oracle_unresolved"
-last_reviewed = "2026-07-26"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_AUTO_812ED0CC7B4EAB354F6E"
+last_reviewed = "2026-07-29"
 
 [[reviews]]
 discovery_id = "DISC_81373063FE7D545520F8"
@@ -22612,6 +22652,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "assertion_oracle_unresolved"
 last_reviewed = "2026-07-27"
+
+[[reviews]]
+discovery_id = "DISC_8503039E7C77492FF813"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-dev/src/ci.rs"
+name = "classify_multiple_recognized_failures_uses_documented_precedence"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_AUTO_8503039E7C77492FF813"
+last_reviewed = "2026-07-29"
 
 [[reviews]]
 discovery_id = "DISC_8519EB98B0B7E580EBDB"
@@ -35024,6 +35074,16 @@ reason_code = "not_catalogable_product_oracle"
 last_reviewed = "2026-07-26"
 
 [[reviews]]
+discovery_id = "DISC_CC04C238E4D66D65226F"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-hir/tests/semantic_type_checking/phase18_behavior_closure.rs"
+name = "integer_for_control_bounds_and_by_are_accepted"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_AUTO_CC04C238E4D66D65226F"
+last_reviewed = "2026-07-29"
+
+[[reviews]]
 discovery_id = "DISC_CC1AD4BF41A52AFCB096"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/bin/trust-runtime/setup_web.rs"
@@ -35082,6 +35142,16 @@ ignore_state = "not_ignored"
 disposition = "catalog_mapped"
 catalog_test_id = "TEST_ADS_CLIENT_CONFIGURATION_PARSES_ADS_TOML_AND_APPLIES_SECURITY_AND_POINT_DEFAULTS_001"
 last_reviewed = "2026-07-23"
+
+[[reviews]]
+discovery_id = "DISC_CC70827DE7EF2C10480D"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/plcopen_motion_oop_library.rs"
+name = "plcopen_motion_deferred_public_surfaces_remain_absent"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_AUTO_CC70827DE7EF2C10480D"
+last_reviewed = "2026-07-29"
 
 [[reviews]]
 discovery_id = "DISC_CC8F224B4E548B15AD95"
@@ -39542,6 +39612,16 @@ ignore_state = "not_ignored"
 disposition = "catalog_mapped"
 catalog_test_id = "TEST_PLCOPEN_IMPORT_TRACE_001"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_E8B6A04327B8CB8E1946"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-hir/tests/semantic_type_checking/phase18_behavior_closure.rs"
+name = "modifiable_storage_assignment_targets_are_accepted"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_AUTO_E8B6A04327B8CB8E1946"
+last_reviewed = "2026-07-29"
 
 [[reviews]]
 discovery_id = "DISC_E8BDC2A27F6EC334ADB8"
