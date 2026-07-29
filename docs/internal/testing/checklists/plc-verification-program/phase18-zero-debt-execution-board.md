@@ -4,14 +4,15 @@ Status: zero-debt contract accepted by commit-bound independent R3 review.
 Findings `P18-C01` through `P18-C08` and `P18-R2-01` are resolved.
 
 Current row: `VERIF-P18-003`, continuing as one repository-wide authority and
-coverage campaign over 173 gap-open coverage cells, 15,492 explicitly mapped
-`spec_gap` code facts, 306 semantic findings in 33 review groups, and eleven
-historical placeholder invariants. All nine current exact-behavior-marker
-debts and the complete identity-maintenance queue are closed. The code map now
-represents all 17,178 live facts. `VERIF-P18-005` is closed at 4,400 live tests =
-4,400 `catalog_mapped` + zero `reviewed_nonmapping`. The accepted P18-002
-ledger owns and orders every current fact; it does not close any remaining
-semantic, execution, reachability, mutation, or adequacy population.
+coverage campaign over 173 gap-open coverage cells, 15,506 explicitly mapped
+`spec_gap` code facts, zero code-spec findings, and eleven historical
+placeholder invariants. All nine current exact-behavior-marker debts and the
+complete identity-maintenance and semantic-review queues are closed. The code
+map now represents all 17,192 live facts. `VERIF-P18-005` is closed at 4,400
+live tests = 4,400 `catalog_mapped` + zero `reviewed_nonmapping`. The accepted
+P18-002 ledger owns and orders every current fact; it does not close any
+remaining specification, execution, reachability, mutation, or adequacy
+population.
 
 ## Objective
 
@@ -1568,6 +1569,30 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   gates remain open. No broad workspace gate ran. Evidence:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md`.
   <!-- generated:code-spec-identity-maintenance:end -->
+  <!-- generated:code-spec-semantic-review:start -->
+
+  Code-spec semantic-review progress (2026-07-29): the initial 306 findings
+  were completely partitioned into 33 review groups. Twenty-two
+  invariant-to-test groups exposed a Cartesian-product validator defect; the
+  accepted metadata contract requires a bipartite proof set in which every
+  listed test links at least one listed invariant and every listed invariant
+  links at least one test. The corrected validator removed those false
+  groups. One recoverable, live-reconstructed semantic transaction accepted
+  ten cross-area groups only after their invariant claims and exact source
+  references covered all 255 affected facts, and removed
+  `TEST_RUNTIME_HARNESS_ERROR_CLASSIFICATION_001` from two unrelated
+  restart-lifecycle mappings while retaining its true harness transport and
+  boundary-I/O mappings. The complete focused suite passes 70/70. Clean
+  detached `trust-builder` commit
+  `587bd203aa81b0fd0a5ec5d79a625b97a902542a` reports 17,192 live =
+  17,192 mapped facts, zero identity findings, zero semantic findings, and
+  an empty refresh proposal. The accepted report retains 15,506 `spec_gap`
+  facts across 173 gap-open coverage cells and eleven historical
+  placeholders. `VERIF-P18-003`, specification authority, execution,
+  reachability, mutation sensitivity, adequacy, and final broad gates remain
+  open. No broad workspace gate ran. Evidence:
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-semantic-review.md`.
+  <!-- generated:code-spec-semantic-review:end -->
 - [x] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device
