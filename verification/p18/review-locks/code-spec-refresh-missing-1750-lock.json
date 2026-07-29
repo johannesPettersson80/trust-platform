@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "kind": "p18_code_spec_refresh_missing_mapping_review_lock",
+  "reviewed_on": "2026-07-29",
+  "reviewer_ids": [
+    "codex-main"
+  ],
+  "source": {
+    "commit": "667511e13be16603a04eac4ffa120ca373cdde6a",
+    "report_path": "target/gate-artifacts/p18-code-spec-current/code-spec-coverage.json",
+    "report_sha256": "sha256:5bd17a14a6ec0ab1f9f8807133ecfff3b6b7312a71a0e4ea0e85c7d46a8c8c97",
+    "proposal_path": "target/gate-artifacts/code-spec-refresh/p18-current-proposals.json",
+    "proposal_sha256": "sha256:a8e420cc3216406516991b239d8547f4381ad94c9bbb45a6fe9c83eef3fbedea",
+    "operation_set_digest": "sha256:2dc0bd4a726ccb7dc2b34ae3bf5f8ad82eee5090eb0852db867072acd7832eef"
+  },
+  "selection": {
+    "rule": "Select every missing_mapping proposal whose fact area is not unmapped and whose area_candidates exactly equals a one-element array containing that area.",
+    "selected_code_ids_digest": "sha256:8b00f466c3da295f0a0b62ca0b87e1022b6ae6ed5cb501ea6144bd8b71576861",
+    "selected_count": 1750,
+    "risk_acknowledgement_count": 915,
+    "by_area": {
+      "bytecode_vm": 2,
+      "compiler_iec": 3,
+      "control_security": 2,
+      "editor_safety": 2,
+      "plcopen_devtools": 1,
+      "protocols": 1,
+      "runtime_safety": 59,
+      "verification": 1680
+    },
+    "review_roles": [
+      "semantic_owner",
+      "risk_owner"
+    ],
+    "risk_acknowledgement_expires_on": "2026-10-29"
+  },
+  "withheld": {
+    "reason": "The live scanner reports multiple area candidates; no area or behavior authority may be inferred.",
+    "code_ids": [
+      "CODE_12529488FB28AD44368D757E3A823175B9793BED086360A75F80F4FAD1F4AD50",
+      "CODE_1E6C72B1F6F9957D36401CCA2F25CC9E8E61268AB971570E480ADB5D44807D00",
+      "CODE_34AAC26C55C189E9D09CFD2BBA753D60C13B989C9D90AA00B755E401F7034BA1",
+      "CODE_861021D61F6561C125BFAE8EBC5F9B46B069FE15476E8D25DB03EF3C2A1BB447",
+      "CODE_B9041EE3336C09EEAFFF72802D7446D6DD27BA5F8B33BBCD65FAEB4A686B814A"
+    ]
+  },
+  "transition": {
+    "map_commit": "e32763086daa31dabc3b11d12d46288334f4419f",
+    "accepted_metadata_commit": "86e7b67d1a50c9df9f96e25a8802d1c535895deb",
+    "code_map_before_sha256": "sha256:26eadf783bc6b51d7b65cba4d19efc782c503e7ac1c9631be71ecfaf45dabcf1",
+    "code_map_after_sha256": "sha256:7e1ab1517f39db67d2536e0ce0cf2ab28248ea55f86978161f3946c958923ea3",
+    "spec_gaps_before_sha256": "sha256:19d5c4ced425c7d6302736b503eb4529ecc9e3107be5bcf6c1bd579bce1ad4dd",
+    "spec_gaps_after_sha256": "sha256:c7abfb5766712304ae0e91f352169209336e61c3c68290a24768b361efbd7e23",
+    "risk_ledger_before_sha256": "sha256:0e8014caa11838d1424bd87dc16f50734fca197e1c5af8b205d0a08a8827630b",
+    "risk_ledger_after_sha256": "sha256:e953bae8fb2f3068b4ea75014083cbd4bf27ffca575a9e29cfd33b54279423d7"
+  },
+  "accepted_report": {
+    "commit": "86e7b67d1a50c9df9f96e25a8802d1c535895deb",
+    "path": "target/gate-artifacts/p18-code-spec-refresh-86e7/code-spec-coverage.json",
+    "sha256": "sha256:fd7ddd68c1e448abb9e5f6eff053f484b85d1f8771d9f63b2ae49e7fcf0b542b",
+    "facts": 17135,
+    "mapped_facts": 17130,
+    "missing_spec": 5,
+    "spec_gap": 15447,
+    "specified": 1648,
+    "findings": 709,
+    "post_refresh_proposal_sha256": "sha256:9a5a7078ba0a01fec467f65bf058c22de30c8e639b5cb1c71d2f37349cdbe449"
+  },
+  "boundaries": {
+    "creates_product_proof": false,
+    "closes_spec_gaps": false,
+    "promotes_invariants": false,
+    "infers_cross_area_ownership": false,
+    "accepts_digest_rebinds": false,
+    "accepts_stale_identity_transitions": false,
+    "runs_broad_workspace_gates": false
+  }
+}

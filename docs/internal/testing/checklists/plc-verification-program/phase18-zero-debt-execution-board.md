@@ -4,9 +4,11 @@ Status: zero-debt contract accepted by commit-bound independent R3 review.
 Findings `P18-C01` through `P18-C08` and `P18-R2-01` are resolved.
 
 Current row: `VERIF-P18-003`, continuing as one repository-wide authority and
-coverage campaign over 173 gap-open coverage cells and eleven historical
-placeholder invariants. All nine current exact-behavior-marker debts are
-closed. `VERIF-P18-005` is closed at 4,400 live tests =
+coverage campaign over 173 gap-open coverage cells, 15,447 explicitly mapped
+`spec_gap` code facts, five cross-area `missing_spec` facts, and eleven
+historical placeholder invariants. All nine current exact-behavior-marker
+debts are closed. The code map now represents 17,130 of 17,135 live facts.
+`VERIF-P18-005` is closed at 4,400 live tests =
 4,400 `catalog_mapped` + zero `reviewed_nonmapping`. The accepted P18-002
 ledger owns and orders every current fact; it does not close any remaining
 semantic, execution, reachability, mutation, or adequacy population.
@@ -1521,6 +1523,26 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   No broad workspace gate ran. Evidence:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-exact-behavior-marker-9-closure.md`.
   <!-- generated:exact-behavior-marker-9-closure:end -->
+  <!-- generated:code-spec-refresh-missing-1750:start -->
+
+  Singular-area code-spec refresh progress (2026-07-29): the frozen clean
+  17,135-fact code scan exposed 1,755 facts absent from the accepted map. One
+  authenticated review selected all 1,750 facts whose live area candidate was
+  singular and withheld all five multi-area facts. The selected facts remain
+  explicit `spec_gap`; each is linked to its historical gap record, and all
+  915 risk-bearing facts have exact body-, owner-, area-, signal-, and
+  expiry-bound acknowledgements. Clean detached `trust-builder` commit
+  `86e7b67d1a50c9df9f96e25a8802d1c535895deb` reports 17,130 mapped live
+  facts, exactly five `missing_spec`, 15,447 `spec_gap`, 1,648 `specified`,
+  and 709 retained findings. The post-refresh proposal has five missing
+  mappings, 165 body-digest rebinds, 40 stale identities, 36 semantic groups,
+  and zero unclassified findings. The metadata validator retains the exact
+  1,610-finding pre-batch log byte-for-byte. This refresh closes no
+  specification, test, reachability, mutation, or adequacy debt; it makes the
+  live code denominator current for the next `VERIF-P18-003` authority batch.
+  No broad workspace gate ran. Evidence:
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-refresh-missing-1750.md`.
+  <!-- generated:code-spec-refresh-missing-1750:end -->
 - [x] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device
