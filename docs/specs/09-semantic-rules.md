@@ -227,6 +227,7 @@ Standard function blocks (Tables 43–46) have fixed or overloaded signatures. T
 | Bistable/edge FBs (RS/SR, R_TRIG/F_TRIG) | Non-BOOL inputs/outputs |
 | Counter FBs (CTU/CTD/CTUD) | PV/CV not INT/DINT/LINT/UDINT/ULINT |
 | Overloaded timer FBs (TP/TON/TOF) | PT/ET not one consistent TIME or LTIME family |
+| Explicit TIME timer FBs (TP_TIME/TON_TIME/TOF_TIME) | PT/ET not TIME |
 | Explicit LTIME timer FBs (TP_LTIME/TON_LTIME/TOF_LTIME) | PT/ET not LTIME |
 | Output parameters | Non-assignable target or missing `=>` in formal call |
 

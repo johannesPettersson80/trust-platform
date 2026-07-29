@@ -107,6 +107,24 @@ mod tests {
     }
 
     #[test]
+    fn classify_multiple_recognized_failures_uses_documented_precedence() {
+        assert_eq!(
+            classify_error(
+                "operation timed out after an assertion failed during compile with invalid config"
+            ),
+            EXIT_TIMEOUT
+        );
+        assert_eq!(
+            classify_error("assertion failed after compile rejected invalid config"),
+            EXIT_TEST_FAILED
+        );
+        assert_eq!(
+            classify_error("compile rejected invalid config"),
+            EXIT_BUILD_FAILED
+        );
+    }
+
+    #[test]
     fn classify_with_command_falls_back_for_internal() {
         assert_eq!(
             classify_error_with_command("expected expression", Some("build")),

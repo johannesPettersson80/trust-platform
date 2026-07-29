@@ -48,10 +48,13 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   fail-closed import diagnostics, migration and CODESYS metadata, reviewed
   vendor shims, and Allen-Bradley/Siemens adapter artifact contracts.
 
-Target release: `v0.24.59`
+Target release: `v0.24.60`
 
 ### Fixed
 
+- HIR and runtime timer registration now support the IEC 61131-3 Table 46
+  `TP_TIME`, `TON_TIME`, and `TOF_TIME` names with fixed TIME `PT`/`ET`
+  signatures and the same scan-step behavior as their overloaded base forms.
 - Bytecode `FOR` loops now derive their internal zero sentinel from the
   evaluated step value, so valid unsigned control variables and steps no
   longer fail strict numeric comparison with an unrelated `LINT` sentinel.

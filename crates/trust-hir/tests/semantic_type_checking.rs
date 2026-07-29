@@ -16,6 +16,8 @@ mod enum_unqualified_in_expressions;
 mod hir_mutation_hardening;
 #[path = "semantic_type_checking/parameter_constant_qualifier.rs"]
 mod parameter_constant_qualifier;
+#[path = "semantic_type_checking/phase18_behavior_closure.rs"]
+mod phase18_behavior_closure;
 #[path = "semantic_type_checking/pointer_param_write_through.rs"]
 mod pointer_param_write_through;
 #[path = "semantic_type_checking/sizeof_semantics.rs"]

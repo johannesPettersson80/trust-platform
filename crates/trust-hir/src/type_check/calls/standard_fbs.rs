@@ -44,6 +44,10 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
                 self.check_timer_function_block_call(None, node);
                 true
             }
+            "TP_TIME" | "TON_TIME" | "TOF_TIME" => {
+                self.check_timer_function_block_call(Some(TypeId::TIME), node);
+                true
+            }
             "TP_LTIME" | "TON_LTIME" | "TOF_LTIME" => {
                 self.check_timer_function_block_call(Some(TypeId::LTIME), node);
                 true

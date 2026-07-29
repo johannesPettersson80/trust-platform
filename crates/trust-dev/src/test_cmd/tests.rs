@@ -300,6 +300,31 @@ END_TEST_PROGRAM
 }
 
 #[test]
+fn execution_preserves_non_assertion_runtime_error_classification() {
+    let sources = vec![LoadedSource {
+        path: PathBuf::from("runtime_error.st"),
+        text: r#"
+TEST_PROGRAM RuntimeErrorCase
+VAR
+    Result : DINT;
+END_VAR
+Result := DINT#1 / DINT#0;
+END_TEST_PROGRAM
+"#
+        .to_string(),
+    }];
+    let tests = discover_tests(&sources);
+    assert_eq!(tests.len(), 1);
+
+    let session = CompileSession::from_sources(vec![HarnessSourceFile::with_path(
+        "runtime_error.st",
+        sources[0].text.clone(),
+    )]);
+    let err = execute_test_case(&session, &tests[0], None).unwrap_err();
+    assert_eq!(err, RuntimeError::DivisionByZero);
+}
+
+#[test]
 fn execution_runs_test_function_block() {
     let sources = vec![LoadedSource {
         path: PathBuf::from("tests_fb.st"),

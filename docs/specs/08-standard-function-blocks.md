@@ -15,7 +15,7 @@ Standard function blocks are predefined FBs with internal state. They require in
 | `SR`, `RS` | Bistable | fixed BOOL inputs/outputs | Table 43 | signature only | full stateful behavior | none |
 | `R_TRIG`, `F_TRIG` | Edge detection | fixed BOOL inputs/outputs | Table 44 | signature only | full stateful behavior | none |
 | `CTU`, `CTD`, `CTUD` | Counters | fixed or overloaded counter types | Table 45 | signature only | full stateful behavior | CTUD LD profile in `docs/IEC_DEVIATIONS.md` |
-| `TP`, `TON`, `TOF` and `*_LTIME` variants | Timers | fixed TIME/LTIME signatures | Table 46, Figure 15 | signature only | scan-step state machines | scan/lifecycle choices in `docs/IEC_DECISIONS.md`; LD diagnostic `ET` key is a product implementation detail |
+| `TP`, `TON`, `TOF` and explicit `*_TIME`/`*_LTIME` variants | Timers | fixed TIME/LTIME signatures | Table 46, Figure 15 | signature only | scan-step state machines | scan/lifecycle choices in `docs/IEC_DECISIONS.md`; LD diagnostic `ET` key is a product implementation detail |
 
 ### Common Characteristics
 
@@ -322,12 +322,12 @@ IEC 61131-3 Ed.3 section 6.6.3.5.5 and Table 46 define `TP`, `TON`, and `TOF`
 as overloads whose `PT` and `ET` duration family is selected consistently as
 either TIME or LTIME. IEC also names explicit `*_TIME` and `*_LTIME` forms.
 
-truST currently accepts the overloaded base names with either duration family
-and the explicit `TP_LTIME`, `TON_LTIME`, and `TOF_LTIME` names. An explicit
-`*_LTIME` instance requires LTIME for both `PT` and `ET`; supplying TIME is a
-type error. The TIME and LTIME forms use the same state machine and differ only
-in duration type and range. The explicit IEC `*_TIME` names are not yet part of
-the supported built-in set.
+truST accepts the overloaded base names with either duration family, the
+explicit `TP_TIME`, `TON_TIME`, and `TOF_TIME` names, and the explicit
+`TP_LTIME`, `TON_LTIME`, and `TOF_LTIME` names. An explicit `*_TIME` instance
+requires TIME for both `PT` and `ET`; an explicit `*_LTIME` instance requires
+LTIME. The TIME and LTIME forms use the same state machine and differ only in
+duration type and range.
 
 | Input | Type | Description |
 |-------|------|-------------|
@@ -456,17 +456,20 @@ interface:
 - `TON`
 - `TOF`
 
-Explicit LTIME names are also supported:
+Explicit TIME names are also supported:
+
+- `TP_TIME`
+- `TON_TIME`
+- `TOF_TIME`
+
+Explicit LTIME names are supported:
 
 - `TP_LTIME`
 - `TON_LTIME`
 - `TOF_LTIME`
 
-Each LTIME variant follows the corresponding Figure 15 scan-step state machine
-above and requires `PT` and `ET` to be LTIME. IEC Table 46 also defines
-`TP_TIME`, `TON_TIME`, and `TOF_TIME`; those explicit TIME names remain a
-declared implementation gap rather than being implied by the overloaded base
-names.
+Each explicit variant follows the corresponding Figure 15 scan-step state
+machine above and requires `PT` and `ET` to use its named TIME or LTIME family.
 
 ## 6. Usage Examples
 

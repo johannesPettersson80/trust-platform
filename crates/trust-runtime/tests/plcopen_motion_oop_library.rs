@@ -40,7 +40,55 @@ fn assert_trust_dev_test_passes(project: PathBuf) {
     );
 }
 
+fn assert_trust_dev_test_rejects_undefined_types(project: PathBuf, type_names: &[&str]) {
+    let output = Command::new(trust_dev_bin())
+        .args(["test", "--project"])
+        .arg(&project)
+        .output()
+        .expect("run trust-dev test");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let diagnostics = format!("{stdout}\n{stderr}");
+
+    assert!(
+        !output.status.success(),
+        "expected deferred PLCopen surface to remain absent for {}",
+        project.display()
+    );
+    for type_name in type_names {
+        assert!(
+            diagnostics.contains(type_name),
+            "expected diagnostic for absent type {type_name} in {}\nstdout:\n{stdout}\nstderr:\n{stderr}",
+            project.display()
+        );
+    }
+}
+
 #[test]
 fn plcopen_motion_oop_single_axis_st_unit_tests_pass() {
     assert_trust_dev_test_passes(fixture_path("oop_single_axis"));
+}
+
+#[test]
+fn plcopen_motion_deferred_public_surfaces_remain_absent() {
+    for (fixture, absent_types) in [
+        (
+            "coordinated_motion_negative_deferred_public_surface",
+            &["MC_MoveCircularAbsolute", "MC_TrackRotaryTable"][..],
+        ),
+        (
+            "homing_negative_deferred_public_surface",
+            &["MC_StepReferenceFlyingSwitch", "MC_AbortPassiveHoming"][..],
+        ),
+        (
+            "synchronization_negative_deferred_public_surface",
+            &["MC_PhasingAbsolute", "MC_CombineAxes"][..],
+        ),
+        (
+            "single_axis_negative_deferred_public_surface",
+            &["MC_MoveSuperimposed", "MC_AbortTrigger"][..],
+        ),
+    ] {
+        assert_trust_dev_test_rejects_undefined_types(fixture_path(fixture), absent_types);
+    }
 }

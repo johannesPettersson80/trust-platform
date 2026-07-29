@@ -234,6 +234,34 @@ mod tests {
 
     #[test]
     fn narrow_string_index_rejects_out_of_range_chars() {
+        let below_range = RuntimeError::IndexOutOfBounds {
+            index: 0,
+            lower: 1,
+            upper: i64::MAX,
+        };
+        assert_eq!(
+            read_string_element("AB", 0, false),
+            Err(below_range.clone())
+        );
+        assert_eq!(
+            write_string_element("AB", 0, Value::DInt(1), false),
+            Err(below_range)
+        );
+
+        let above_range = RuntimeError::IndexOutOfBounds {
+            index: 3,
+            lower: 1,
+            upper: 2,
+        };
+        assert_eq!(
+            read_string_element("AB", 3, false),
+            Err(above_range.clone())
+        );
+        assert_eq!(
+            write_string_element("AB", 3, Value::DInt(1), false),
+            Err(above_range)
+        );
+
         assert_eq!(
             read_string_element("🙂", 1, false),
             Err(RuntimeError::Overflow)

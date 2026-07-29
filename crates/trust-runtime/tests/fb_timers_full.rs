@@ -2,6 +2,56 @@ use trust_runtime::harness::TestHarness;
 use trust_runtime::value::{Duration, Value};
 
 #[test]
+fn explicit_time_timer_variants_execute_with_time_values() {
+    let source = r#"
+PROGRAM Test
+VAR
+    ton : TON_TIME;
+    tof : TOF_TIME;
+    tp : TP_TIME;
+    timer_in : BOOL;
+    pt : TIME := T#10ms;
+    q_ton : BOOL;
+    q_tof : BOOL;
+    q_tp : BOOL;
+    et_ton : TIME;
+    et_tof : TIME;
+    et_tp : TIME;
+END_VAR
+ton(IN := timer_in, PT := pt, Q => q_ton, ET => et_ton);
+tof(IN := timer_in, PT := pt, Q => q_tof, ET => et_tof);
+tp(IN := timer_in, PT := pt, Q => q_tp, ET => et_tp);
+END_PROGRAM
+"#;
+
+    let mut harness = TestHarness::from_source(source).unwrap();
+    harness.set_input("timer_in", false);
+    harness.cycle();
+    harness.assert_eq("q_ton", Value::Bool(false));
+    harness.assert_eq("q_tof", Value::Bool(false));
+    harness.assert_eq("q_tp", Value::Bool(false));
+
+    harness.set_input("timer_in", true);
+    harness.advance_time(Duration::from_millis(5));
+    harness.cycle();
+    harness.assert_eq("q_ton", Value::Bool(false));
+    harness.assert_eq("et_ton", Value::Time(Duration::from_millis(5)));
+    harness.assert_eq("q_tof", Value::Bool(true));
+    harness.assert_eq("et_tof", Value::Time(Duration::ZERO));
+    harness.assert_eq("q_tp", Value::Bool(true));
+    harness.assert_eq("et_tp", Value::Time(Duration::from_millis(5)));
+
+    harness.advance_time(Duration::from_millis(5));
+    harness.cycle();
+    harness.assert_eq("q_ton", Value::Bool(true));
+    harness.assert_eq("et_ton", Value::Time(Duration::from_millis(10)));
+    harness.assert_eq("q_tof", Value::Bool(true));
+    harness.assert_eq("et_tof", Value::Time(Duration::ZERO));
+    harness.assert_eq("q_tp", Value::Bool(false));
+    harness.assert_eq("et_tp", Value::Time(Duration::from_millis(10)));
+}
+
+#[test]
 fn timer_variants() {
     let source = r#"
         PROGRAM Test
