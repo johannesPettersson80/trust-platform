@@ -91822,13 +91822,13 @@ id = "RISK_ACK_CAE72BA5D605AE19C6A27FF1B029DC7F1ED0759CC379AB73EB9CAD84694AF2D2"
 code_id = "CODE_CAE72BA5D605AE19C6A27FF1B029DC7F1ED0759CC379AB73EB9CAD84694AF2D2"
 owner = "verification"
 area = "verification"
-body_digest = "sha256:4247ab3eef4a67cb59820e04823e88708af7518e9b10fb591fdec71de6e0dc40"
+body_digest = "sha256:253126980baeb4b40436bd16d1b770b1b589e8c201e7f3a45f3f135030605a73"
 risk_signals = ["filesystem_or_environment"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-refresh-missing-1750.md#selection-and-risk-review"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-focused-rust-topology-rebind.md#selection-and-risk-review"
 reviewed_by = "verification"
 reviewed_on = "2026-07-29"
 expires_on = "2026-10-29"
-rationale = "Acknowledges the scanner-derived risk signals for this exact reviewed body while the singular-area fact remains bound to an explicit open historical code-spec gap; it neither specifies behavior nor suppresses any risk signal."
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
