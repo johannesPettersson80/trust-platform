@@ -20,7 +20,8 @@ class MappingLiveCodeFactsTests(unittest.TestCase):
     def test_covered_file_uses_live_topology_and_single_file_extractor(self) -> None:
         with TemporaryDirectory() as temporary:
             root = Path(temporary)
-            relative = "crates/example/src/lower/exact.rs"
+            relative = "crates/example/src/bin/trust-runtime/ads.rs"
+            root_relative = "crates/example/src/bin/trust-runtime.rs"
             source = b"pub fn exact() {}\n"
             source_path = root / relative
             source_path.parent.mkdir(parents=True)
@@ -28,10 +29,11 @@ class MappingLiveCodeFactsTests(unittest.TestCase):
             (root / "crates/example/Cargo.toml").write_text(
                 "[package]\nname = \"example\"\nversion = \"0.0.0\"\n"
             )
-            (root / "crates/example/src/lib.rs").write_text("mod lower;\n")
-            (root / "crates/example/src/lower.rs").write_text("mod exact;\n")
+            (root / root_relative).write_text(
+                '#[path = "trust-runtime/ads.rs"]\nmod ads;\n'
+            )
             signature = "pub fn exact()"
-            qualified_symbol = "example::lower::exact::exact"
+            qualified_symbol = "trust_runtime::ads::exact"
             code_id = stable_code_id(
                 source_kind="rust",
                 path=relative,
@@ -85,10 +87,9 @@ class MappingLiveCodeFactsTests(unittest.TestCase):
                         "bindings": [
                             {
                                 "path": relative,
-                                "module": "example::lower::exact",
+                                "module": "trust_runtime::ads",
                                 "topology_paths": [
-                                    "crates/example/src/lib.rs",
-                                    "crates/example/src/lower.rs",
+                                    root_relative,
                                     relative,
                                 ],
                             }
@@ -134,7 +135,7 @@ class MappingLiveCodeFactsTests(unittest.TestCase):
                     "--path",
                     relative,
                     "--module",
-                    "example::lower::exact",
+                    "trust_runtime::ads",
                 ],
                 command,
             )

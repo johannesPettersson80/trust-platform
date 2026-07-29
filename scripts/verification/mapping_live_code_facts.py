@@ -518,6 +518,10 @@ def _live_rust_target_roots(
             )
         else:
             register(
+                crate_root / "src/bin" / f"{target}.rs",
+                target.replace("-", "_"),
+            )
+            register(
                 crate_root / "src/bin" / target / "main.rs",
                 target.replace("-", "_"),
             )
