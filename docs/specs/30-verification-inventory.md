@@ -92,6 +92,15 @@ non-symbolic-link file and requires it to remain strictly below that root.
 Absolute, parent-escaping, dynamic, reassigned, report-derived, external-root,
 missing, or symbolic-link inputs remain unresolved or fail at runtime.
 
+Literal host-runtime reads whose path syntax is absolute on any supported host
+are excluded from repository-fixture closure even when extraction runs on a
+different host. This includes POSIX-rooted paths, Windows drive-rooted paths,
+and Windows rooted or UNC paths. The extractor must not reinterpret one
+platform's absolute host path as a relative repository fixture merely because
+the extraction host uses another path grammar. This exclusion records only
+that the input is host state rather than immutable repository authority; it
+does not make the host observation a product oracle.
+
 The Linux process-memory observation is a separate fixed host oracle. Its
 named boundary accepts no path argument and reads exactly
 `/proc/self/status`; a caller cannot use it to hide another filesystem input.

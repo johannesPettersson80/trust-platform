@@ -726,6 +726,48 @@ fn binds_static_runtime_fixture_reads_and_rejects_dynamic_paths() {
 }
 
 #[test]
+fn repository_extraction_ignores_cross_platform_absolute_host_reads() {
+    let root = assertion_fixture_root("cross-platform-host-reads");
+    let test_path = "crates/example/tests/contract.rs";
+    let source_path = root.join(test_path);
+    fs::create_dir_all(source_path.parent().unwrap()).unwrap();
+    fs::write(
+        &source_path,
+        r#"
+fn observe_host() {
+    let _ = std::fs::read_to_string("/proc/self/stat");
+    let _ = std::fs::read_to_string(r"C:\Windows\System32\drivers\etc\hosts");
+    let _ = std::fs::read_to_string(r"\\server\share\host-state.txt");
+}
+
+#[test]
+fn contract() {
+    assert!(true);
+}
+"#,
+    )
+    .unwrap();
+
+    let result =
+        extract_from_repository(&root, test_path, "contract", "rust_integration_test");
+    assert!(
+        result.is_ok(),
+        "cross-platform absolute host reads must not enter fixture closure: {result:?}"
+    );
+    let inventory = result.unwrap();
+    assert_eq!(1, inventory.assertions.len());
+    assert_eq!(
+        vec![test_path],
+        inventory
+            .source_digests
+            .keys()
+            .map(String::as_str)
+            .collect::<Vec<_>>()
+    );
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn external_runtime_observation_is_unresolved_only_when_reachable() {
     let source = concat!(
         "fn read_host_metric() {\n",

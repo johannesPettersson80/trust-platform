@@ -88,6 +88,17 @@ pub(super) fn runtime_fixture_reader(expression: &ExprCall) -> Option<String> {
     Some(segments.join("::"))
 }
 
+fn is_cross_platform_absolute_path(literal: &str) -> bool {
+    let bytes = literal.as_bytes();
+    Path::new(literal).is_absolute()
+        || literal.starts_with(['/', '\\'])
+        || matches!(
+            (bytes.first(), bytes.get(1), bytes.get(2)),
+            (Some(drive), Some(b':'), Some(b'/' | b'\\'))
+                if drive.is_ascii_alphabetic()
+        )
+}
+
 fn first_string_literal(tokens: &TokenStream) -> Option<String> {
     tokens.clone().into_iter().find_map(|token| match token {
         TokenTree::Literal(literal) => syn::parse_str::<syn::LitStr>(&literal.to_string())
@@ -148,7 +159,7 @@ pub(super) fn external_oracle_digests(
     }
     for runtime_read in visitor.runtime_reads {
         let literal_path = Path::new(&runtime_read);
-        if literal_path.is_absolute()
+        if is_cross_platform_absolute_path(&runtime_read)
             || literal_path
                 .components()
                 .any(|component| matches!(component, Component::ParentDir))
@@ -200,7 +211,7 @@ fn resolve_runtime_fixture_path(
     literal: &str,
 ) -> Result<String> {
     let literal_path = Path::new(literal);
-    if literal_path.is_absolute()
+    if is_cross_platform_absolute_path(literal)
         || literal_path
             .components()
             .any(|component| matches!(component, Component::ParentDir))
