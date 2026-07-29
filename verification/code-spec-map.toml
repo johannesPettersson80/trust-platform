@@ -318246,8 +318246,21 @@ owner = "developer-tools"
 area = "plcopen_devtools"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
+disposition = "specified"
+spec_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#st-complete-interchange-contract"
+invariant_ids = ["PLCO_ST_COMPLETE_INTERCHANGE_001"]
+test_ids = [
+  "TEST_AUTO_04B923076AA8CF91500E",
+  "TEST_AUTO_31ABDD3E296B44F4976F",
+  "TEST_AUTO_59C58D10EEA63CF2DA67",
+  "TEST_AUTO_59F1D40C7F63F81C2A2A",
+  "TEST_AUTO_8DEF54CCCE9994233D00",
+  "TEST_AUTO_BF9E9F0DB4780106B366",
+  "TEST_AUTO_C256D0AA8F2B315BE2DD",
+  "TEST_AUTO_D161A8256FACEA1961D8",
+  "TEST_AUTO_D9822A35CDB64036BFA5",
+  "TEST_AUTO_FB9F285A2AD8FA0A3FAB",
+]
 last_reviewed = "2026-07-30"
 
 [[mappings]]
@@ -318263,6 +318276,19 @@ owner = "developer-tools"
 area = "plcopen_devtools"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_PLCOPEN_DEVTOOLS_001"
+disposition = "specified"
+spec_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#st-complete-interchange-contract"
+invariant_ids = ["PLCO_ST_COMPLETE_INTERCHANGE_001"]
+test_ids = [
+  "TEST_AUTO_04B923076AA8CF91500E",
+  "TEST_AUTO_31ABDD3E296B44F4976F",
+  "TEST_AUTO_59C58D10EEA63CF2DA67",
+  "TEST_AUTO_59F1D40C7F63F81C2A2A",
+  "TEST_AUTO_8DEF54CCCE9994233D00",
+  "TEST_AUTO_BF9E9F0DB4780106B366",
+  "TEST_AUTO_C256D0AA8F2B315BE2DD",
+  "TEST_AUTO_D161A8256FACEA1961D8",
+  "TEST_AUTO_D9822A35CDB64036BFA5",
+  "TEST_AUTO_FB9F285A2AD8FA0A3FAB",
+]
 last_reviewed = "2026-07-30"

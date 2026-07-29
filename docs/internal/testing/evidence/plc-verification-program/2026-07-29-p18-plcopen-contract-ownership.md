@@ -128,10 +128,36 @@ The gap ledger moved from
 to
 `sha256:fcc647a68431b3527d88d549157d6b00cada25763f1baba96a797cc0de9ef1bd`.
 
-The two temporary method gaps do not claim completion. They must be rebound
-to `PLCO_ST_COMPLETE_INTERCHANGE_001` through a separate live
-authority-reuse transaction before the import-default trace can become a
-mapping candidate.
+The two temporary method gaps did not claim completion. The separate live
+authority-reuse transaction reconstructed 22 candidate groups from exact
+commit `c702cf106798def3d0a03bae92a4ea112a2f4654`, accepted only
+`CODEAUTH_GROUP_F1C1D2F1A30F8871EC26C8E390ADE4AA2B830B11C1547A7CE17B6B2F3240F723`
+for `PLCO_ST_COMPLETE_INTERCHANGE_001`, and withheld all 21 unrelated groups.
+That accepted group contains exactly the two explicit import-default method
+facts.
+
+The authority transaction was bound to:
+
+- source proposal:
+  `sha256:e0461bce86e6d271cf9d2b9ae1f73f1bd0ebaee07e72801edddd4521949af098`;
+- operation set:
+  `sha256:f48fedb3b9b9346571b7a7fe739753166603d5188a4b2eb0a9efffd828aa7fe4`;
+- selection:
+  `sha256:6788c48ab8c55b7296c614aba51343bdc2cf18213d410ce206baae1ab8e1b10b`;
+- application:
+  `sha256:729133348bb54d30da7d405535f7935991243d9065b7c8de83fbbb7012b6e1c9`.
+
+The code map moved from
+`sha256:dfa95de431ebff6ffcf2fc5663116af7e912c64729f15edd566abaa925682024`
+to
+`sha256:0e888821e956db0cc32e813bb57e54c05932a8bdb94b854cb3caeadb57ffd579`.
+The gap ledger moved from
+`sha256:fcc647a68431b3527d88d549157d6b00cada25763f1baba96a797cc0de9ef1bd`
+back to
+`sha256:da13286bce2567fb7d55cb2eaa1536d42b0572bb4a0f4286a5a3a9d28588dc71`.
+This closes the temporary authority gap but still does not accept the
+high-risk test mapping; the exact new-commit trace and independent review
+remain required.
 
 ## Boundary
 
