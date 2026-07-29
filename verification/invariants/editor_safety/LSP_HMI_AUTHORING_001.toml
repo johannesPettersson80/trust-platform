@@ -1,0 +1,99 @@
+schema_version = 1
+id = "LSP_HMI_AUTHORING_001"
+title = "LSP HMI authoring preserves command validation, deterministic scaffolds, and descriptor diagnostics"
+area = "editor_safety"
+risk = "wrong_result"
+status = "mapped"
+owner = "trust-lsp"
+last_reviewed = "2026-07-29"
+claim = "HMI authoring commands return deterministic scaffold and binding results for valid input, while descriptor type, widget, property, and binding errors are reported from the open buffer with bounded near-match guidance."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = [
+  "crates/trust-lsp/src/handlers/commands",
+  "crates/trust-lsp/src/handlers/diagnostics/publish_hmi_and_tests.rs",
+  "docs/specs/14-lsp.md",
+]
+tests = ["TEST_AUTO_30CC3FBF93DA6AEAE39C", "TEST_AUTO_3E699D2B7BF1E67D509E", "TEST_AUTO_68D34BB5C3484AD12D57", "TEST_AUTO_887F80B5FD3173D88B00", "TEST_AUTO_8C6BBEE8911DE894B25B"]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_LSP_CONTRACT_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_LSP_CONTRACT_001#662-hmi-command-and-descriptor-diagnostics"
+
+[[behavior]]
+partition = { equals = "VALID_HMI_DESCRIPTOR" }
+case_family = "happy_path"
+oracle_ref = "SPEC_LSP_CONTRACT_001#662-hmi-command-and-descriptor-diagnostics"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A valid HMI page remains diagnostic-free without requiring a successful runtime compile."
+
+[[behavior]]
+partition = { equals = "INVALID_HMI_DESCRIPTOR_SHAPE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_LSP_CONTRACT_001#662-hmi-command-and-descriptor-diagnostics"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Invalid descriptor type, widget, property, and binding shapes produce their named diagnostics from the open buffer."
+
+[[behavior]]
+partition = { equals = "UNKNOWN_BINDING_NEAR_MATCH" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_LSP_CONTRACT_001#662-hmi-command-and-descriptor-diagnostics"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "An unknown binding reports the closest valid external symbol and suppresses unrelated suggestions."
+
+[[behavior]]
+partition = { equals = "HMI_BINDING_CATALOG_COMMAND" }
+case_family = "missing_required"
+oracle_ref = "SPEC_LSP_CONTRACT_001#662-hmi-command-and-descriptor-diagnostics"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The binding command returns the deterministic external contract catalogue for the current project."
+
+[[behavior]]
+partition = { equals = "HMI_INIT_SCAFFOLD_COMMAND" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_LSP_CONTRACT_001#662-hmi-command-and-descriptor-diagnostics"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A valid initialization request writes and returns the deterministic scaffold in the reviewed command order."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in LSP_HMI_AUTHORING_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every wrong_type_or_shape behavior in LSP_HMI_AUTHORING_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "extra_or_unknown"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every extra_or_unknown behavior in LSP_HMI_AUTHORING_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "missing_required"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every missing_required behavior in LSP_HMI_AUTHORING_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in LSP_HMI_AUTHORING_001; dynamic proof and broad remote validation remain explicit debt."

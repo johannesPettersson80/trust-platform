@@ -1,0 +1,85 @@
+schema_version = 1
+id = "LSP_DOCUMENT_STATE_001"
+title = "LSP document state preserves synchronization, lifecycle, and bounded closed-document memory"
+area = "editor_safety"
+risk = "silent_corruption"
+status = "mapped"
+owner = "trust-lsp"
+last_reviewed = "2026-07-29"
+claim = "Full and incremental changes update exactly the addressed text, document open/update/close/rename/remove transitions preserve durable project truth, and closed documents are evicted to the configured memory budget."
+proof_level = "S0"
+contract_kind = "state_machine"
+source_refs = [
+  "crates/trust-lsp/src/handlers/sync.rs",
+  "crates/trust-lsp/src/state/mod.rs",
+  "docs/specs/14-lsp.md",
+]
+tests = ["TEST_AUTO_0CB85393CF5F1C93EC04", "TEST_AUTO_11CDA813DFA1A9669B98", "TEST_AUTO_48283CA64FC8CD44B7FF", "TEST_AUTO_DA60EF06AEC4FA918DF0", "TEST_AUTO_F70C8F0D8FAA5011305F"]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_LSP_CONTRACT_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_LSP_CONTRACT_001#72-document-synchronization"
+
+[[behavior]]
+partition = { equals = "FULL_DOCUMENT_REPLACEMENT" }
+case_family = "happy_path"
+oracle_ref = "SPEC_LSP_CONTRACT_001#72-document-synchronization"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A change without a range replaces the complete current buffer."
+
+[[behavior]]
+partition = { equals = "INCREMENTAL_RANGE_INSERT_OR_REPLACE" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_LSP_CONTRACT_001#72-document-synchronization"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A valid incremental UTF-16 range inserts or replaces only the addressed span."
+
+[[behavior]]
+partition = { equals = "DOCUMENT_OPEN_UPDATE_CLOSE_RENAME_REMOVE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_LSP_CONTRACT_001#721-document-close-and-durable-project-truth"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Document lifecycle transitions preserve URI identity, discard closed unsaved authority, and keep rename and removal state coherent."
+
+[[behavior]]
+partition = { equals = "CLOSED_DOCUMENT_MEMORY_EVICTION" }
+case_family = "resource_limit"
+oracle_ref = "SPEC_LSP_CONTRACT_001#76-project-configuration-workspace-indexing"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Closed-document LRU state is evicted to the configured budget while live or on-demand state remains recoverable."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in LSP_DOCUMENT_STATE_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "boundary_high"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every boundary_high behavior in LSP_DOCUMENT_STATE_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in LSP_DOCUMENT_STATE_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "resource_limit"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every resource_limit behavior in LSP_DOCUMENT_STATE_001; dynamic proof and broad remote validation remain explicit debt."

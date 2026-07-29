@@ -1,0 +1,113 @@
+schema_version = 1
+id = "IDE_SOURCE_REFACTOR_001"
+title = "IDE source refactors emit one coherent semantics-preserving workspace edit"
+area = "editor_safety"
+risk = "silent_corruption"
+status = "mapped"
+owner = "trust-ide"
+last_reviewed = "2026-07-29"
+claim = "Extract, stub generation, inline, function/function-block conversion, and namespace relocation refactors preserve the declared source contract and return one complete deterministic edit."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = [
+  "crates/trust-ide/src",
+  "crates/trust-ide/tests/refactor_regression.rs",
+  "docs/specs/14-lsp.md",
+]
+tests = ["TEST_AUTO_184CB81D352EAD1003D9", "TEST_AUTO_21F6B9D48C995213768C", "TEST_AUTO_2D509E898867085B2E22", "TEST_AUTO_7008EE70827923565DE7", "TEST_AUTO_DA37E2549ACE71F92167", "TEST_AUTO_F5E6BE8C4339D8336286"]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_LSP_CONTRACT_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_LSP_CONTRACT_001#64-refactoring"
+
+[[behavior]]
+partition = { equals = "EXTRACT_METHOD_PROPERTY_OR_FUNCTION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_LSP_CONTRACT_001#642-code-actions-quick-fixes"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Extraction emits the selected method, property, or function plus inferred parameters and a coherent replacement edit."
+
+[[behavior]]
+partition = { equals = "GENERATE_REQUIRED_INTERFACE_STUBS" }
+case_family = "missing_required"
+oracle_ref = "SPEC_LSP_CONTRACT_001#642-code-actions-quick-fixes"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Stub generation inserts every missing interface method or property with deterministic declarations and bodies."
+
+[[behavior]]
+partition = { equals = "INLINE_SAFE_SYMBOL" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_LSP_CONTRACT_001#642-code-actions-quick-fixes"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Inlining replaces only a safe variable or constant and removes its declaration without changing unrelated source."
+
+[[behavior]]
+partition = { equals = "FUNCTION_BLOCK_TO_FUNCTION_CONVERSION" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_LSP_CONTRACT_001#642-code-actions-quick-fixes"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Function-block conversion emits the function declaration and updates eligible call sites in one coherent edit."
+
+[[behavior]]
+partition = { equals = "FUNCTION_TO_FUNCTION_BLOCK_CONVERSION" }
+case_family = "duplicate_or_collision"
+oracle_ref = "SPEC_LSP_CONTRACT_001#642-code-actions-quick-fixes"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Function conversion emits the function-block declaration and collision-free instance and call-site edits."
+
+[[behavior]]
+partition = { equals = "NAMESPACE_RELOCATION_TRANSACTION" }
+case_family = "platform_or_filesystem_variation"
+oracle_ref = "SPEC_LSP_CONTRACT_001#6610-namespace-relocation-transaction-order"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Namespace relocation creates and edits the destination before deleting an emptied source and preserves qualified references."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in IDE_SOURCE_REFACTOR_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "missing_required"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every missing_required behavior in IDE_SOURCE_REFACTOR_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every wrong_type_or_shape behavior in IDE_SOURCE_REFACTOR_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in IDE_SOURCE_REFACTOR_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "duplicate_or_collision"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every duplicate_or_collision behavior in IDE_SOURCE_REFACTOR_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "platform_or_filesystem_variation"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every platform_or_filesystem_variation behavior in IDE_SOURCE_REFACTOR_001; dynamic proof and broad remote validation remain explicit debt."

@@ -1,0 +1,56 @@
+schema_version = 1
+id = "LSP_INDEX_CACHE_001"
+title = "LSP persistent index cache accepts only exact live file identity"
+area = "editor_safety"
+risk = "false_status"
+status = "mapped"
+owner = "trust-lsp"
+last_reviewed = "2026-07-29"
+claim = "Persistent index cache reuse round-trips valid entries, invalidates changed content, and rejects same-size same-second metadata collisions by checking the stored content identity."
+proof_level = "S0"
+contract_kind = "state_machine"
+source_refs = [
+  "crates/trust-lsp/src/index_cache.rs",
+  "docs/specs/14-lsp.md",
+]
+tests = ["TEST_AUTO_20DBBB2EE37474C8E99C", "TEST_AUTO_8E433C071D750B5DA8DF"]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_LSP_CONTRACT_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_LSP_CONTRACT_001#76-project-configuration-workspace-indexing"
+
+[[behavior]]
+partition = { equals = "CACHE_ROUND_TRIP_AND_CONTENT_INVALIDATION" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_LSP_CONTRACT_001#76-project-configuration-workspace-indexing"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A valid cache entry round-trips, while changed source content invalidates the cached index result."
+
+[[behavior]]
+partition = { equals = "SAME_SIZE_SAME_SECOND_COLLISION" }
+case_family = "duplicate_or_collision"
+oracle_ref = "SPEC_LSP_CONTRACT_001#76-project-configuration-workspace-indexing"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Equal size and coarse modification time cannot authorize reuse when the stored content hash differs."
+
+[[coverage.cells]]
+dimension = "persistence_or_recovery"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every persistence_or_recovery behavior in LSP_INDEX_CACHE_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "duplicate_or_collision"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every duplicate_or_collision behavior in LSP_INDEX_CACHE_001; dynamic proof and broad remote validation remain explicit debt."

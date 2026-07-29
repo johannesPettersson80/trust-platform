@@ -1,0 +1,97 @@
+{
+  "accepted_test_ids": [
+    "TEST_AUTO_0CB85393CF5F1C93EC04",
+    "TEST_AUTO_0D62852C5B576922BFFC",
+    "TEST_AUTO_11CDA813DFA1A9669B98",
+    "TEST_AUTO_16DA97C10A1BBB7A6052",
+    "TEST_AUTO_184CB81D352EAD1003D9",
+    "TEST_AUTO_1C61E9E32200E8773426",
+    "TEST_AUTO_20DBBB2EE37474C8E99C",
+    "TEST_AUTO_21F6B9D48C995213768C",
+    "TEST_AUTO_28EEC58CD63EE9D59EE7",
+    "TEST_AUTO_2D509E898867085B2E22",
+    "TEST_AUTO_30CC3FBF93DA6AEAE39C",
+    "TEST_AUTO_386829510508042A3F21",
+    "TEST_AUTO_3E699D2B7BF1E67D509E",
+    "TEST_AUTO_48283CA64FC8CD44B7FF",
+    "TEST_AUTO_52FF6B332DD098BB7477",
+    "TEST_AUTO_68D34BB5C3484AD12D57",
+    "TEST_AUTO_7008EE70827923565DE7",
+    "TEST_AUTO_7CA6B0C95F982C23D82F",
+    "TEST_AUTO_86FED92D1557884B4A55",
+    "TEST_AUTO_887F80B5FD3173D88B00",
+    "TEST_AUTO_8C6BBEE8911DE894B25B",
+    "TEST_AUTO_8E433C071D750B5DA8DF",
+    "TEST_AUTO_B3ADF8F361CC5702B3B0",
+    "TEST_AUTO_BFA576973B67FA552A59",
+    "TEST_AUTO_C0F04355293B2882A1F0",
+    "TEST_AUTO_CE20A3E088B544103B47",
+    "TEST_AUTO_CEC0161E2F77088C280B",
+    "TEST_AUTO_DA37E2549ACE71F92167",
+    "TEST_AUTO_DA60EF06AEC4FA918DF0",
+    "TEST_AUTO_E63AB1473BE8E8CB031D",
+    "TEST_AUTO_F3D37E3B7FBBF716E413",
+    "TEST_AUTO_F5E6BE8C4339D8336286",
+    "TEST_AUTO_F70C8F0D8FAA5011305F"
+  ],
+  "artifact_sha256": {
+    "target/gate-artifacts/verification/p18-lsp-ide-oracle-33-55b79fa5/assertions-33.json": "sha256:347411c90acb039f8682ad8ac6cf050d6c698ef5e3aba6c6d613cda92cc70e34",
+    "target/gate-artifacts/verification/p18-lsp-ide-oracle-33-55b79fa5/assignments-33.json": "sha256:8900af7c321016f6af6a769b77c56975e5dc65f6ac014d5a8a821cf9acbb00b1",
+    "target/gate-artifacts/verification/p18-lsp-ide-oracle-33-55b79fa5/execution/execution-summary.json": "sha256:5fbd78afe1ca014591cdae9dfdcc3542c445a5f79d2097dd3e659a07f0157235",
+    "target/gate-artifacts/verification/p18-lsp-ide-oracle-33-55b79fa5/execution/raw/01-trust-lsp.stderr.log": "sha256:c509ec17f405cdbb7ef2996af19221fe79e2be41cf9cfa83b238a17220464c21",
+    "target/gate-artifacts/verification/p18-lsp-ide-oracle-33-55b79fa5/execution/raw/01-trust-lsp.stdout.jsonl": "sha256:8693686522775c344446356b5c4519a8a373a55d232080ce05ca92f8e22151a2",
+    "target/gate-artifacts/verification/p18-lsp-ide-oracle-33-55b79fa5/execution/raw/02-trust-ide-refactor.stderr.log": "sha256:035abdb018022aec71f3dac58d8ca403b042960d135d565bb39e2b22b22793cb",
+    "target/gate-artifacts/verification/p18-lsp-ide-oracle-33-55b79fa5/execution/raw/02-trust-ide-refactor.stdout.jsonl": "sha256:22f5dbb820dff905ee26b3bd3f96d6aafc78cae7d8d06311a147155901e2e522",
+    "target/gate-artifacts/verification/p18-lsp-ide-oracle-33-55b79fa5/live-scan.json": "sha256:4cc677d9700fcc549563d2e44af156ff6a1de1ad441c94aa37bad79aa871c0ef"
+  },
+  "denominator": {
+    "after_reviewed_nonmapping": 253,
+    "before_reviewed_nonmapping": 286
+  },
+  "execution": {
+    "failed": 0,
+    "groups": 2,
+    "passed": 33,
+    "selected": 33
+  },
+  "execution_commit": "55b79fa53e671bd85b612d9b212252d642c3b768",
+  "id": "P18_LSP_IDE_ORACLE_33_CLOSURE",
+  "invariant_ids": [
+    "IDE_SOURCE_REFACTOR_001",
+    "LSP_DOCUMENT_STATE_001",
+    "LSP_HMI_AUTHORING_001",
+    "LSP_INDEX_CACHE_001",
+    "LSP_PRESENTATION_FEATURES_001",
+    "LSP_PROJECT_CONFIGURATION_001",
+    "LSP_TELEMETRY_001"
+  ],
+  "inventory_commit": "55b79fa53e671bd85b612d9b212252d642c3b768",
+  "metadata_sha256": {
+    "verification/invariants/editor_safety/IDE_SOURCE_REFACTOR_001.toml": "sha256:464b5399939614a8801911d47cbfd73e960f2b53529ce5b9668ec6679e1d1867",
+    "verification/invariants/editor_safety/LSP_DOCUMENT_STATE_001.toml": "sha256:ad6b6a4b4a73566770a13cd74ee42096712db225dfb063083412c7237f71e082",
+    "verification/invariants/editor_safety/LSP_HMI_AUTHORING_001.toml": "sha256:3bff9714b88bb0c68f16c63a66014ec923374454f5b84f7c20c9b975c442ecec",
+    "verification/invariants/editor_safety/LSP_INDEX_CACHE_001.toml": "sha256:896c1b64032ec4571e04e3267bb9b50cd95460468c7f71887cf747e73f90a2e0",
+    "verification/invariants/editor_safety/LSP_PRESENTATION_FEATURES_001.toml": "sha256:e5ea1297e731d67f47c567be183891b0d966a36232f1f6872ce9d07b4a69f4a3",
+    "verification/invariants/editor_safety/LSP_PROJECT_CONFIGURATION_001.toml": "sha256:699e5a4dfc631c0285b7a2710e9be8c197eb484c9f54fc48f5225f31971bb333",
+    "verification/invariants/editor_safety/LSP_TELEMETRY_001.toml": "sha256:1f6d1990a41fa39d18e9285bdc5420a1fb68ad8246c38d5389e2415980f80993",
+    "verification/test-catalog-denominator.toml": "sha256:315d0ed3992129c977b714700a72809e472946dbfbeb0a20efc20c127e8f7294",
+    "verification/test-catalog-mapping-decisions.toml": "sha256:f15c100c5178c73d49191a671fb6c80a24b3cde988a54a27392a14842b25964c",
+    "verification/test-catalog-proposals.toml": "sha256:96ac84042e601cb1943ed8e1adddc6b21f5d39a434c4993aa6f9e5f8b6cf2dd3",
+    "verification/test-catalog.toml": "sha256:f78f34b75e754d8389d707c564f2a2bda91c2b936c1475c5d7d6126555b82ddb"
+  },
+  "population": {
+    "assertion_behavior_bindings": 118,
+    "non_oracle_observation": 0,
+    "oracle_bound": 118,
+    "setup_or_precondition": 152,
+    "tests": 33,
+    "unique_assertions": 270
+  },
+  "reviewed_date": "2026-07-29",
+  "reviewer_ids": [
+    "codex-assertion-review",
+    "codex-main"
+  ],
+  "schema_version": 1,
+  "selection_commit": "55b79fa53e671bd85b612d9b212252d642c3b768"
+}

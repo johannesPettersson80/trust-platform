@@ -4,7 +4,7 @@ Status: zero-debt contract accepted by commit-bound independent R3 review.
 Findings `P18-C01` through `P18-C08` and `P18-R2-01` are resolved.
 
 Current row: `VERIF-P18-003`, continuing as one repository-wide
-authority/mapping campaign over the remaining 286 owned nonmapping tests, 203
+authority/mapping campaign over the remaining 253 owned nonmapping tests, 203
 gap-open coverage cells, nine current exact-behavior-marker debts, and eleven
 empty historical placeholder invariants. The accepted P18-002 ledger owns and
 orders every current fact; it does not close any semantic, mapping, execution,
@@ -1341,6 +1341,29 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   Evidence:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-hmi-web-control-io-oracle-closure-77.md`.
   <!-- generated:hmi-web-control-io-oracle-closure-77:end -->
+  <!-- generated:lsp-ide-oracle-closure-33:start -->
+
+  LSP and IDE assertion-oracle closure progress (2026-07-29): the exact
+  portable 33-test population at `55b79fa5` passes 33/33 focused tests and has
+  an exhaustive 270-assertion review: 118 direct product oracles, 152
+  setup/preconditions, zero non-oracle observations, and 118 exact behavior
+  bindings. Seven new editor-safety invariants bind project configuration,
+  document state, HMI authoring, cache identity, formatting/signature help,
+  telemetry, and source refactors to the active LSP product contract. All new
+  coverage cells reconcile to accepted mappings, so repository-wide
+  `gap_open` remains 203. The transaction adds 33 accepted mappings and moves
+  the exact denominator from 4,401 = 4,115 mapped + 286 nonmapping to 4,401 =
+  4,148 mapped + 253 nonmapping. A root-record audit proves all 6,828
+  pre-existing proposal/decision records byte-identical, the focused mapping
+  suite passes 72/72, all 19 lock-bound digests match, and the final
+  repository-wide staleness output contains zero findings across 106 exact
+  batch identifiers. Two Windows-only URI tests remain explicit platform-lane
+  debt because the Linux extractor resolves no assertion syntax for their
+  gated bodies. `VERIF-P18-003` and `VERIF-P18-005` remain globally open;
+  dynamic reachability, mutation sensitivity, platform proof, and broad gates
+  remain explicit downstream debt. No broad workspace gate ran. Evidence:
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-lsp-ide-oracle-closure-33.md`.
+  <!-- generated:lsp-ide-oracle-closure-33:end -->
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device
