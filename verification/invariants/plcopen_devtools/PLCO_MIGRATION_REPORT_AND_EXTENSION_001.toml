@@ -74,7 +74,7 @@ rationale = "Unknown project, types, and instances children produce owned PLCO10
 
 [[behavior]]
 partition = { equals = "EMBEDDED_SOURCE_MAP_VALID_MALFORMED_OR_ABSENT" }
-case_family = "malformed_input"
+case_family = "wrong_type_or_shape"
 oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#migration-report-and-vendor-extension-contract"
 outcome = "accept_value"
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }

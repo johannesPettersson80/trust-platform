@@ -8464,6 +8464,16 @@ catalog_test_id = "TEST_AUTO_2E9172DF9B9DA9975F9C"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
+discovery_id = "DISC_2E9929F8215E95697138"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-plcopen/src/plcopen/tests/shims_metrics.rs"
+name = "shims_metrics_vendor_library_catalog_rewrites_only_reviewed_positions"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-29"
+
+[[reviews]]
 discovery_id = "DISC_2EABAFF06472CDDE49C9"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-lsp/src/handlers/tests/lsp_trace_cases.rs"
@@ -17954,6 +17964,16 @@ catalog_test_id = "TEST_AUTO_688E963173245BF331E2"
 last_reviewed = "2026-07-29"
 
 [[reviews]]
+discovery_id = "DISC_68947467CECD6C882B3E"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-plcopen/src/plcopen/tests/shims_metrics.rs"
+name = "shims_metrics_embedded_source_map_accepts_exact_and_rejects_malformed_json"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-29"
+
+[[reviews]]
 discovery_id = "DISC_689E1C6B2201A7620D59"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/trust_harness_command.rs"
@@ -18722,6 +18742,16 @@ ignore_state = "not_ignored"
 disposition = "catalog_mapped"
 catalog_test_id = "TEST_RUNTIME_RETAIN_NONFINITE_LOAD_001"
 last_reviewed = "2026-07-18"
+
+[[reviews]]
+discovery_id = "DISC_6D4EBC4588D68AA6923B"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-plcopen/src/plcopen/tests/shims_metrics.rs"
+name = "shims_metrics_vendor_ecosystem_detection_uses_reviewed_precedence_and_fallback"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-29"
 
 [[reviews]]
 discovery_id = "DISC_6D63E21F9D9B39D9AF6D"
@@ -26934,6 +26964,16 @@ catalog_test_id = "TEST_AUTO_9DFCF021E78DDDE1500A"
 last_reviewed = "2026-07-26"
 
 [[reviews]]
+discovery_id = "DISC_9E100EF3B563888531BF"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-plcopen/src/plcopen/tests/shims_metrics.rs"
+name = "shims_metrics_unsupported_structure_inspection_emits_exact_owned_diagnostics"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-29"
+
+[[reviews]]
 discovery_id = "DISC_9E26CAE8415CE2A02092"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/openot_authoring/tests.rs"
@@ -31484,6 +31524,16 @@ catalog_test_id = "TEST_EDITOR_RENAME_CASE_ONLY_001"
 last_reviewed = "2026-07-18"
 
 [[reviews]]
+discovery_id = "DISC_B7E14A9A05AB6BEA6CE4"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-plcopen/src/plcopen/tests/shims_metrics.rs"
+name = "shims_metrics_vendor_extension_preservation_excludes_source_map_data"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-29"
+
+[[reviews]]
 discovery_id = "DISC_B7E1C10B92C087CE4A9D"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/initializer_architecture.rs"
@@ -35584,6 +35634,16 @@ catalog_test_id = "TEST_AUTO_D01FB47BC5C8523C52F9"
 last_reviewed = "2026-07-29"
 
 [[reviews]]
+discovery_id = "DISC_D020817EDF565B2E8F34"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-plcopen/src/plcopen/tests/shims_metrics.rs"
+name = "shims_metrics_migration_scoring_covers_zero_full_partial_and_low_partitions"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-29"
+
+[[reviews]]
 discovery_id = "DISC_D02962F6813125E31539"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-lsp/src/handlers/tests/code_actions_and_commands_part_02.rs"
@@ -36792,6 +36852,16 @@ ignore_state = "not_ignored"
 disposition = "catalog_mapped"
 catalog_test_id = "TEST_RUNTIME_SETUP_PROFILE_REMOTE_001"
 last_reviewed = "2026-07-22"
+
+[[reviews]]
+discovery_id = "DISC_D91B183FC248F1753939"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-plcopen/src/plcopen/tests/shims_metrics.rs"
+name = "shims_metrics_migration_report_writer_creates_pretty_newline_artifact"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-29"
 
 [[reviews]]
 discovery_id = "DISC_D927C08738A3AED695E3"
