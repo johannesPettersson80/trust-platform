@@ -302,3 +302,13 @@ Issue #51 init benchmark baseline evidence (2026-04-28):
   tests plus its already-catalogued companion (8/8); and
   `verification-code-spec-coverage.puml` records the closed profile and
   multi-invariant proof boundary.
+- [x] `ARCH-VERIF-P18-12` Keep dynamic assertion-oracle classification in
+  bounded owners separate from helper traversal. Repository inputs declare
+  literal trees and one extension and bind every matching regular non-symlink
+  file; generated outputs use canonical runtime containment below an explicit
+  test temp root; the Linux process-status observation is fixed and
+  argument-free. Evidence: fail-closed extractor fixtures and the complete
+  affected product-test selection pass on `trust-builder`, all 319 Rust
+  inventories in the frozen remaining population have zero unresolved
+  helpers, and `verification-code-spec-coverage.puml` records the classifier
+  boundary.

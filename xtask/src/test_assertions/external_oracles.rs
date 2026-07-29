@@ -12,6 +12,7 @@ use super::sha256_tag;
 
 #[derive(Default)]
 struct ExternalOracleVisitor {
+    host_runtime_observations: Vec<Macro>,
     includes: BTreeSet<String>,
     runtime_reads: BTreeSet<String>,
     snapshot_names: BTreeSet<String>,
@@ -33,6 +34,8 @@ impl<'ast> Visit<'ast> for ExternalOracleVisitor {
             if let Some(value) = first_string_literal(&expression.tokens) {
                 self.snapshot_names.insert(value);
             }
+        } else if name == "linux_proc_self_status_read_to_string" {
+            self.host_runtime_observations.push(expression.clone());
         }
         scan_nested_external_oracles(&expression.tokens, self);
         visit::visit_macro(self, expression);
@@ -48,6 +51,19 @@ impl<'ast> Visit<'ast> for ExternalOracleVisitor {
         }
         visit::visit_expr_call(self, expression);
     }
+}
+
+pub(super) fn validate_explicit_external_oracles(file: &syn::File) -> Result<()> {
+    let mut visitor = ExternalOracleVisitor::default();
+    visitor.visit_file(file);
+    for observation in visitor.host_runtime_observations {
+        if !observation.tokens.is_empty() {
+            bail!(
+                "linux_proc_self_status_read_to_string! is a fixed host observation and accepts no parameters"
+            )
+        }
+    }
+    Ok(())
 }
 
 pub(super) fn runtime_fixture_reader(expression: &ExprCall) -> Option<String> {

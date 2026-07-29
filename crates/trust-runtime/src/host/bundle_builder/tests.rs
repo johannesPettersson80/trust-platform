@@ -124,19 +124,23 @@ version = "2.0.0"
 
     let inspection = inspect_project_layout(&root, None).expect("inspection should pass");
     assert!(inspection.sources_root.ends_with("src"));
-    assert!(
-        inspection
-            .manifest_path
-            .as_ref()
-            .is_some_and(|path| path.ends_with("trust-lsp.toml"))
-    );
+    assert!(inspection
+        .manifest_path
+        .as_ref()
+        .is_some_and(|path| path.ends_with("trust-lsp.toml")));
     assert_eq!(
         inspection.resolved_dependencies,
         vec!["LibA".to_string(), "LibB".to_string()]
     );
     assert_eq!(inspection.dependency_roots.len(), 2);
-    assert!(inspection.sources.iter().any(|path| path.ends_with("main.st")));
-    assert!(inspection.sources.iter().any(|path| path.ends_with("lib.st")));
+    assert!(inspection
+        .sources
+        .iter()
+        .any(|path| path.ends_with("main.st")));
+    assert!(inspection
+        .sources
+        .iter()
+        .any(|path| path.ends_with("lib.st")));
 
     fs::remove_dir_all(root).ok();
 }
@@ -148,8 +152,14 @@ fn build_accepts_cross_file_root_global_struct_field_access() {
 
     let report = build_program_stbc(&root, None).expect("build should pass");
     assert!(report.program_path.exists());
-    assert!(report.sources.iter().any(|path| path.ends_with("01_types.st")));
-    assert!(report.sources.iter().any(|path| path.ends_with("02_globals.st")));
+    assert!(report
+        .sources
+        .iter()
+        .any(|path| path.ends_with("01_types.st")));
+    assert!(report
+        .sources
+        .iter()
+        .any(|path| path.ends_with("02_globals.st")));
     assert!(report.sources.iter().any(|path| path.ends_with("main.st")));
 
     fs::remove_dir_all(root).ok();
@@ -308,9 +318,11 @@ version = "1.0.0"
     );
 
     let first = build_program_stbc(&root, None).expect("first build");
-    let first_bytes = fs::read(&first.program_path).expect("read first program");
+    let first_bytes =
+        fs::read(generated_output_path!(&first.program_path, &root)).expect("read first program");
     let second = build_program_stbc(&root, None).expect("second build");
-    let second_bytes = fs::read(&second.program_path).expect("read second program");
+    let second_bytes =
+        fs::read(generated_output_path!(&second.program_path, &root)).expect("read second program");
 
     assert_eq!(first.resolved_dependencies, second.resolved_dependencies);
     assert_eq!(first.sources, second.sources);

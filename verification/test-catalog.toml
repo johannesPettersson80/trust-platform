@@ -42,15 +42,15 @@ owner = "verification"
 status = "mapped"
 invariants = ["VERIFICATION_ASSERTION_INVENTORY_CLOSURE_001"]
 oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#reachable-assertion-helper-closure"
-expected_result = "TypeScript and Rust assertion extraction include direct and reachable unambiguous test-helper assertions exactly once, bind the owning source closure, and exclude ordinary product calls from delegated proof."
-expected_failure_mode = "A reachable test helper is omitted or duplicated, the wrong Rust target or visibility scope is used, or an imported, ambiguous, or ordinary product call is inferred as delegated proof."
+expected_result = "TypeScript and Rust assertion extraction include direct and reachable unambiguous test-helper assertions exactly once, bind the owning source and immutable repository-oracle closure, classify generated outputs and the fixed Linux process-status observation through fail-closed boundaries, and exclude ordinary product calls from delegated proof."
+expected_failure_mode = "A reachable helper or repository oracle is omitted or duplicated, a dynamic or escaping path is trusted, the fixed host boundary accepts a caller path, the wrong Rust target or visibility scope is used, or an imported, ambiguous, or ordinary product call is inferred as delegated proof."
 suite_tiers = ["veryquick", "pr"]
 requires_hardware = false
 requires_network = false
 duration_class = "fast"
 evidence_destination = "target/gate-artifacts/cases/TEST_VERIFICATION_ASSERTION_INVENTORY_GATE_001.json"
 last_reviewed = "2026-07-29"
-mapping_behavior_refs = ["VERIFICATION_ASSERTION_INVENTORY_CLOSURE_001#behavior:0", "VERIFICATION_ASSERTION_INVENTORY_CLOSURE_001#behavior:1"]
+mapping_behavior_refs = ["VERIFICATION_ASSERTION_INVENTORY_CLOSURE_001#behavior:0", "VERIFICATION_ASSERTION_INVENTORY_CLOSURE_001#behavior:1", "VERIFICATION_ASSERTION_INVENTORY_CLOSURE_001#behavior:2", "VERIFICATION_ASSERTION_INVENTORY_CLOSURE_001#behavior:3"]
 
 [[tests]]
 schema_version = 2

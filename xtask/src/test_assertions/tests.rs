@@ -842,6 +842,49 @@ fn external_case() {
 }
 
 #[test]
+fn linux_proc_self_status_oracle_macro_rejects_parameters() {
+    let source = r#"
+#[test]
+fn host_observation() {
+    let status = linux_proc_self_status_read_to_string!("/tmp/not-proc").unwrap();
+    assert!(!status.is_empty());
+}
+"#;
+
+    let error = extract(
+        "crates/example/tests/host_observation.rs",
+        "host_observation",
+        source,
+    )
+    .expect_err("fixed Linux process-status oracle must reject parameters");
+    assert!(
+        error
+            .to_string()
+            .contains("linux_proc_self_status_read_to_string"),
+        "unexpected error: {error:#}"
+    );
+}
+
+#[test]
+fn linux_proc_self_status_oracle_macro_is_an_explicit_host_observation() {
+    let source = r#"
+#[test]
+fn host_observation() {
+    let status = linux_proc_self_status_read_to_string!().unwrap();
+    assert!(!status.is_empty());
+}
+"#;
+
+    let inventory = extract(
+        "crates/example/tests/host_observation.rs",
+        "host_observation",
+        source,
+    )
+    .expect("extract fixed Linux process-status oracle");
+    assert!(inventory.unresolved_assertion_helpers.is_empty());
+}
+
+#[test]
 fn repository_source_tree_macro_binds_every_allowed_source_file() {
     let root = assertion_fixture_root("repository-source-tree");
     let test_path = "crates/example/tests/inventory.rs";

@@ -27,6 +27,8 @@ use trust_runtime::settings::{
 use trust_runtime::watchdog::{FaultPolicy, RetainMode, WatchdogPolicy};
 use trust_runtime::web::start_web_server;
 
+include!("../../../tests/support/repository_source_oracle.rs");
+
 #[path = "hmi_readonly_integration/hmi_readonly_integration_support_01.rs"]
 mod hmi_readonly_integration_support_01;
 #[path = "hmi_readonly_integration/hmi_readonly_integration_support_02.rs"]

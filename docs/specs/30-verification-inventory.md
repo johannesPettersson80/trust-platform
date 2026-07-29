@@ -73,6 +73,31 @@ calls do not become delegated test assertions. Dynamic file reads reached in
 the test-only closure remain explicit `unresolved-oracle` facts until closed
 generated-path provenance or immutable repository input authority is proven.
 
+Repository-backed oracle reads are closed only through a literal declared tree
+and extension contract. Extraction rejects empty, absolute, parent-traversing,
+or dynamically named tree roots, rejects missing or symbolic-link roots, and
+binds the digest of every regular file with the declared extension below every
+declared root. The matching runtime helper rejects symbolic-link or non-file
+inputs, canonicalizes the repository root and selected path, and requires the
+path and extension to remain inside one declared tree. A repository input
+cannot be reclassified from a runtime value, an unchecked path helper, or a
+passing test alone.
+
+Generated-output reads are closed only when their path provenance reaches a
+test-created temporary root through a closed relative join or an explicit
+generated-root/generated-output boundary. The explicit root boundary
+canonicalizes a real non-symbolic-link directory below the system temporary
+directory. The explicit output boundary canonicalizes a real
+non-symbolic-link file and requires it to remain strictly below that root.
+Absolute, parent-escaping, dynamic, reassigned, report-derived, external-root,
+missing, or symbolic-link inputs remain unresolved or fail at runtime.
+
+The Linux process-memory observation is a separate fixed host oracle. Its
+named boundary accepts no path argument and reads exactly
+`/proc/self/status`; a caller cannot use it to hide another filesystem input.
+This classification records a host-dependent observation, not immutable
+repository authority or cross-platform memory proof.
+
 Imported product functions, ambiguous same-name declarations, and unresolved
 calls whose names claim to assert are never inferred as proof. They remain
 visible in `unresolved_assertion_helpers` when no exact target can be resolved.

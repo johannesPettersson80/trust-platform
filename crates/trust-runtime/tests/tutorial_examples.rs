@@ -5,6 +5,8 @@ use trust_runtime::harness::{
 };
 use trust_runtime::value::{Duration, Value};
 
+include!("../../../tests/support/repository_source_oracle.rs");
+
 const HELLO_COUNTER: &str = include_str!("../../../examples/tutorials/01_hello_counter.st");
 const BLINKER: &str = include_str!("../../../examples/tutorials/02_blinker.st");
 const TRAFFIC_LIGHT: &str = include_str!("../../../examples/tutorials/03_traffic_light.st");
@@ -28,10 +30,8 @@ const TUTORIALS: [(&str, &str); 9] = [
 ];
 
 fn load_example_sources(example: &str) -> (Vec<String>, Vec<String>) {
-    let src_root = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../examples")
-        .join(example)
-        .join("src");
+    let repository_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let src_root = repository_root.join("examples").join(example).join("src");
 
     let mut files = std::fs::read_dir(&src_root)
         .unwrap_or_else(|err| {
@@ -48,8 +48,12 @@ fn load_example_sources(example: &str) -> (Vec<String>, Vec<String>) {
     let mut sources = Vec::with_capacity(files.len());
     let mut paths = Vec::with_capacity(files.len());
     for file in files {
-        let source = std::fs::read_to_string(&file)
-            .unwrap_or_else(|err| panic!("failed to read {}: {err}", file.display()));
+        let source = repository_source_tree_read_to_string!(
+            (&file, &repository_root),
+            roots = ["examples"],
+            extension = "st",
+        )
+        .unwrap_or_else(|err| panic!("failed to read {}: {err}", file.display()));
         let file_name = file
             .file_name()
             .and_then(|name| name.to_str())
@@ -98,6 +102,7 @@ fn read_visual_companion_pair(
     visual_source_path: &Path,
     visual_suffix: &str,
 ) -> Option<(String, String, PathBuf, PathBuf)> {
+    let repository_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
     let file_name = visual_source_path
         .file_name()
         .and_then(|name| name.to_str())
@@ -127,10 +132,18 @@ fn read_visual_companion_pair(
         return None;
     }
 
-    let companion = std::fs::read_to_string(&companion_path)
-        .unwrap_or_else(|err| panic!("failed to read {}: {err}", companion_path.display()));
-    let runtime = std::fs::read_to_string(&runtime_path)
-        .unwrap_or_else(|err| panic!("failed to read {}: {err}", runtime_path.display()));
+    let companion = repository_source_tree_read_to_string!(
+        (&companion_path, &repository_root),
+        roots = ["examples"],
+        extension = "st",
+    )
+    .unwrap_or_else(|err| panic!("failed to read {}: {err}", companion_path.display()));
+    let runtime = repository_source_tree_read_to_string!(
+        (&runtime_path, &repository_root),
+        roots = ["examples"],
+        extension = "st",
+    )
+    .unwrap_or_else(|err| panic!("failed to read {}: {err}", runtime_path.display()));
     Some((companion, runtime, companion_path, runtime_path))
 }
 

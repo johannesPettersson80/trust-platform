@@ -6,7 +6,7 @@ risk = "silent_corruption"
 status = "mapped"
 owner = "verification"
 last_reviewed = "2026-07-29"
-claim = "TypeScript and Rust assertion extraction must include direct and reachable unambiguous test-helper assertions exactly once, bind the owning source closure, and never treat ordinary product calls as delegated proof."
+claim = "TypeScript and Rust assertion extraction must include direct and reachable unambiguous test-helper assertions exactly once, bind the owning source and immutable repository-oracle closure, classify generated and fixed host observations through fail-closed explicit boundaries, and never treat ordinary product calls as delegated proof."
 proof_level = "T1"
 contract_kind = "protocol_trace"
 source_refs = [
@@ -15,8 +15,14 @@ source_refs = [
   "scripts/verification/mapping_assertions_tests.py",
   "scripts/verification_assertion_inventory_gate.sh",
   "xtask/src/test_assertions.rs",
+  "xtask/src/test_assertions/external_oracles.rs",
+  "xtask/src/test_assertions/generated_inputs.rs",
   "xtask/src/test_assertions/import_resolution.rs",
+  "xtask/src/test_assertions/repository_source_tree.rs",
   "xtask/src/test_assertions/unit_context.rs",
+  "tests/support/generated_output_oracle.rs",
+  "tests/support/host_runtime_oracle.rs",
+  "tests/support/repository_source_oracle.rs",
 ]
 tests = ["TEST_VERIFICATION_ASSERTION_INVENTORY_GATE_001"]
 gates = ["veryquick", "pr"]
@@ -48,6 +54,22 @@ outcome = "accept_value"
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
 rationale = "Rust extraction selects the owning Cargo target, includes cfg(test) module sources, follows visibility-valid local, named, glob, and re-exported test helpers, and excludes ordinary production execution from delegated oracle closure."
 
+[[behavior]]
+partition = { equals = "RUST_REPOSITORY_ORACLE_DIGEST_CLOSURE" }
+case_family = "missing_required"
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#reachable-assertion-helper-closure"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A repository-backed oracle is accepted only through literal canonical trees and one extension, with every matching regular non-symlink file digest-bound and the runtime path contained by the same declaration."
+
+[[behavior]]
+partition = { equals = "RUST_GENERATED_AND_HOST_ORACLE_CLASSIFICATION" }
+case_family = "missing_required"
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#reachable-assertion-helper-closure"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Generated output is accepted only below a validated generated test root, while the Linux process-status observation is fixed to one argument-free named boundary and remains a host observation rather than repository authority."
+
 [[coverage.cells]]
 dimension = "missing_required"
 state = "covered"
@@ -57,3 +79,8 @@ rationale = "Focused HMI and Ladder fixtures prove helper reachability, assertio
 dimension = "missing_required"
 state = "covered"
 rationale = "Focused Rust fixtures prove owning-target selection, cfg(test) sibling closure, restricted visibility, repeated-super and transitive named/glob imports, function-local imports, and the production-call exclusion boundary."
+
+[[coverage.cells]]
+dimension = "missing_required"
+state = "covered"
+rationale = "Focused Rust fixtures prove literal repository-tree binding, canonical-root rejection, generated-root and output containment, escaping and report-derived fail-closed behavior, and the argument-free Linux process-status boundary."

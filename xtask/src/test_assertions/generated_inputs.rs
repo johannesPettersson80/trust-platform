@@ -3,8 +3,8 @@ use std::path::{Component, Path};
 
 use syn::visit::{self, Visit};
 use syn::{
-    Block, Expr, ExprAssign, ExprCall, ExprField, ExprMethodCall, ExprStruct, FnArg, Local, Member,
-    Pat, Signature,
+    Block, Expr, ExprAssign, ExprCall, ExprField, ExprMacro, ExprMethodCall, ExprStruct, FnArg,
+    Local, Member, Pat, Signature, Token,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -145,7 +145,8 @@ fn expression_paths(expression: &Expr, paths: &GeneratedPaths) -> BTreeSet<Vec<S
             .collect();
     }
     match expression {
-        Expr::Call(call) if is_temp_dir_call(call) => BTreeSet::from([Vec::new()]),
+        Expr::Call(call) if is_generated_factory_call(call) => BTreeSet::from([Vec::new()]),
+        Expr::Macro(value) => generated_output_macro_paths(value, paths),
         Expr::MethodCall(call) => method_call_paths(call, paths),
         Expr::Struct(value) => struct_paths(value, paths),
         _ => BTreeSet::new(),
@@ -154,15 +155,17 @@ fn expression_paths(expression: &Expr, paths: &GeneratedPaths) -> BTreeSet<Vec<S
 
 fn method_call_paths(expression: &ExprMethodCall, paths: &GeneratedPaths) -> BTreeSet<Vec<String>> {
     let receiver = expression_paths(expression.receiver.as_ref(), paths);
-    if expression.method == "join"
-        && expression.args.len() == 1
-        && receiver.contains(&Vec::new())
-        && expression
-            .args
-            .first()
-            .is_some_and(is_closed_relative_literal)
-    {
-        return BTreeSet::from([Vec::new()]);
+    if expression.method == "join" && expression.args.len() == 1 {
+        return if receiver.contains(&Vec::new())
+            && expression
+                .args
+                .first()
+                .is_some_and(is_closed_relative_literal)
+        {
+            BTreeSet::from([Vec::new()])
+        } else {
+            BTreeSet::new()
+        };
     }
     if matches!(
         expression.method.to_string().as_str(),
@@ -188,14 +191,58 @@ fn struct_paths(expression: &ExprStruct, paths: &GeneratedPaths) -> BTreeSet<Vec
     output
 }
 
-fn is_temp_dir_call(expression: &ExprCall) -> bool {
+fn generated_output_macro_paths(
+    expression: &ExprMacro,
+    paths: &GeneratedPaths,
+) -> BTreeSet<Vec<String>> {
+    let macro_name = expression
+        .mac
+        .path
+        .segments
+        .last()
+        .map(|segment| segment.ident.to_string())
+        .unwrap_or_default();
+    if !matches!(
+        macro_name.as_str(),
+        "generated_output_path" | "generated_test_root"
+    ) {
+        return BTreeSet::new();
+    }
+    let Ok(arguments) = expression
+        .mac
+        .parse_body_with(syn::punctuated::Punctuated::<Expr, Token![,]>::parse_terminated)
+    else {
+        return BTreeSet::new();
+    };
+    if macro_name == "generated_test_root" {
+        return (arguments.len() == 1)
+            .then(|| BTreeSet::from([Vec::new()]))
+            .unwrap_or_default();
+    }
+    if arguments.len() != 2 {
+        return BTreeSet::new();
+    }
+    let generated_root = arguments
+        .iter()
+        .nth(1)
+        .is_some_and(|root| expression_paths(root, paths).contains(&Vec::new()));
+    generated_root
+        .then(|| BTreeSet::from([Vec::new()]))
+        .unwrap_or_default()
+}
+
+fn is_generated_factory_call(expression: &ExprCall) -> bool {
     let Expr::Path(path) = expression.func.as_ref() else {
         return false;
     };
-    path.path
-        .segments
-        .last()
-        .is_some_and(|segment| segment.ident == "temp_dir")
+    path.path.segments.last().is_some_and(|segment| {
+        let name = segment.ident.to_string();
+        name == "temp_dir"
+            || name == "tempdir"
+            || name.starts_with("temp_")
+            || name.starts_with("unique_temp_")
+            || matches!(name.as_str(), "copy_fixture" | "make_project" | "test_path")
+    })
 }
 
 fn is_closed_relative_literal(expression: &Expr) -> bool {

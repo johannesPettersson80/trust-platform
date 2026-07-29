@@ -1,9 +1,20 @@
-use std::fs;
 use std::path::PathBuf;
 
+include!("../../../tests/support/repository_source_oracle.rs");
+
 fn read_source(path: &str) -> String {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    fs::read_to_string(root.join(path)).expect("read source")
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let repository_root = manifest_dir
+        .parent()
+        .and_then(std::path::Path::parent)
+        .expect("workspace root")
+        .to_path_buf();
+    repository_source_tree_read_to_string!(
+        (manifest_dir.join(path), &repository_root),
+        roots = ["crates/trust-runtime/src"],
+        extension = "rs",
+    )
+    .expect("read source")
 }
 
 fn marker_index(source_path: &str, source_text: &str, marker: &str) -> usize {

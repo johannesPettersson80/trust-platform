@@ -2,12 +2,17 @@ use std::collections::BTreeSet;
 use std::path::PathBuf;
 use trust_ide::stdlib_docs::{standard_fb_names, standard_function_entries};
 
+include!("../../../tests/support/repository_source_oracle.rs");
+
 fn coverage_tokens() -> BTreeSet<String> {
-    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let coverage_path =
-        manifest_dir.join("../../docs/specs/coverage/standard-functions-coverage.md");
-    let contents = std::fs::read_to_string(&coverage_path)
-        .unwrap_or_else(|err| panic!("failed to read coverage doc: {err}"));
+    let repository_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let coverage_path = repository_root.join("docs/specs/coverage/standard-functions-coverage.md");
+    let contents = repository_source_tree_read_to_string!(
+        (&coverage_path, &repository_root),
+        roots = ["docs/specs/coverage"],
+        extension = "md",
+    )
+    .unwrap_or_else(|err| panic!("failed to read coverage doc: {err}"));
 
     let mut tokens = BTreeSet::new();
     for line in contents.lines() {

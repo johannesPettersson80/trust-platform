@@ -35,7 +35,7 @@ pub(crate) fn measure_iterations<T>(iterations: usize, mut op: impl FnMut() -> T
 
 #[cfg(target_os = "linux")]
 pub(crate) fn process_memory_kib() -> Option<u64> {
-    let status = fs::read_to_string("/proc/self/status").ok()?;
+    let status = linux_proc_self_status_read_to_string!().ok()?;
     for line in status.lines() {
         if let Some(rest) = line.strip_prefix("VmRSS:") {
             let value = rest

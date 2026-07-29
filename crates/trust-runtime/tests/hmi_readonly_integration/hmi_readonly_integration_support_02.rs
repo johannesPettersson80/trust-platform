@@ -114,16 +114,29 @@ END_PROGRAM
 
 pub(super) fn build_hmi_script_bundle(js_path: &Path) -> PathBuf {
     let root = js_path.parent().expect("hmi.js parent");
+    let repository_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
     let mut bundled = String::new();
     for module_path in HMI_MODULE_PATHS {
         let relative = module_path.trim_start_matches('/');
         let module_file = root.join(relative.strip_prefix("hmi/").unwrap_or(relative));
-        let content = fs::read_to_string(&module_file)
-            .unwrap_or_else(|_| panic!("read {}", module_file.display()));
+        let content = repository_source_tree_read_to_string!(
+            (&module_file, &repository_root),
+            roots = ["crates/trust-runtime/src/web/ui"],
+            extension = "js",
+        )
+        .unwrap_or_else(|_| panic!("read {}", module_file.display()));
         bundled.push_str(content.as_str());
         bundled.push('\n');
     }
-    bundled.push_str(fs::read_to_string(js_path).expect("read hmi.js").as_str());
+    bundled.push_str(
+        repository_source_tree_read_to_string!(
+            (js_path, &repository_root),
+            roots = ["crates/trust-runtime/src/web/ui"],
+            extension = "js",
+        )
+        .expect("read hmi.js")
+        .as_str(),
+    );
 
     let unique = SystemTime::now()
         .duration_since(UNIX_EPOCH)

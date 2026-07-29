@@ -4,6 +4,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::Deserialize;
 use trust_runtime::plcopen::{export_project_to_xml, import_xml_to_project};
 
+include!("../../../tests/support/repository_source_oracle.rs");
+
 #[derive(Debug, Deserialize)]
 struct ExpectedCompatibilityCoverage {
     supported_items: usize,
@@ -59,7 +61,17 @@ fn fixture_path(name: &str) -> PathBuf {
 
 fn read_expected(name: &str) -> ExpectedMigrationArtifact {
     let path = fixture_path(name);
-    let text = std::fs::read_to_string(&path).expect("read expected migration artifact");
+    let repository_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(std::path::Path::parent)
+        .expect("workspace root")
+        .to_path_buf();
+    let text = repository_source_tree_read_to_string!(
+        (&path, &repository_root),
+        roots = ["crates/trust-runtime/tests/fixtures/plcopen/codesys_st_complete"],
+        extension = "json",
+    )
+    .expect("read expected migration artifact");
     serde_json::from_str(&text).expect("parse expected migration artifact")
 }
 

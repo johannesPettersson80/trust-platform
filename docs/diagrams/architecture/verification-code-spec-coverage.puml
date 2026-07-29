@@ -49,6 +49,7 @@ package "Execution-guided mapping accelerator" {
   database "review decisions" as Decisions
   [visibility-safe Rust local/import graph] as RustImportResolver
   [owning Cargo target + cfg(test) module graph] as RustUnitContext
+  [fail-closed oracle input classifiers] as OracleClassifiers
   [source-bound assertion inventory] as AssertionInventory
   [per-subsystem semantic assignment generators] as AssignmentGenerators
   [exact assertion-to-oracle review] as SemanticReview
@@ -114,6 +115,7 @@ Decisions --> CandidateJoin : suppress unchanged rejection
 FocusedResolver --> AssertionInventory : exact requested Rust tests
 RustUnitContext --> AssertionInventory : test-only source + digest closure
 RustImportResolver --> AssertionInventory : local/named/glob + restricted visibility
+OracleClassifiers --> AssertionInventory : repository digests + generated/host boundaries
 AssertionInventory --> AssignmentGenerators : assertions + oracle source digests
 AssignmentGenerators --> SemanticReview : reviewed behavior selectors only
 SemanticReview --> Decisions
@@ -170,6 +172,13 @@ note bottom of RustImportResolver
   Module imports are retained even for wrapper modules with no functions.
   Private sibling imports and private targets do not leak, cycles terminate,
   and multiple qualified helper targets remain ambiguous rather than proof.
+end note
+
+note bottom of OracleClassifiers
+  Repository inputs require literal roots and extensions and bind every
+  matching regular file digest. Generated files must remain under a validated
+  test temp root. The Linux process-status reader is fixed and argument-free.
+  Dynamic, escaping, symbolic-link, and arbitrary report paths fail closed.
 end note
 
 note bottom of FocusedResolver

@@ -359,6 +359,7 @@ fn build_context(
     for context in sources {
         let file = syn::parse_file(&context.source)
             .with_context(|| format!("parse Rust assertion source {}", context.path))?;
+        external_oracles::validate_explicit_external_oracles(&file)?;
         collect_functions(
             &file.items,
             &context.path,
@@ -880,6 +881,8 @@ fn sha256_hex(value: &[u8]) -> String {
     format!("{:x}", Sha256::digest(value))
 }
 
+#[cfg(test)]
+mod generated_inputs_tests;
 #[cfg(test)]
 mod import_resolution_tests;
 #[cfg(test)]

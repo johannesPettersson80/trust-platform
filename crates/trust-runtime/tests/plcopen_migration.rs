@@ -3,6 +3,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use trust_runtime::plcopen::import_xml_to_project;
 
+include!("../../../tests/support/generated_output_oracle.rs");
+
 fn unique_temp_dir(prefix: &str) -> PathBuf {
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -24,8 +26,9 @@ fn fixture_path(name: &str) -> PathBuf {
         .join(name)
 }
 
-fn read_json(path: &Path) -> serde_json::Value {
-    let bytes = std::fs::read(path).expect("read migration report");
+fn read_json(path: &Path, generated_root: &Path) -> serde_json::Value {
+    let bytes =
+        std::fs::read(generated_output_path!(path, generated_root)).expect("read migration report");
     serde_json::from_slice(&bytes).expect("parse migration report")
 }
 
@@ -52,7 +55,7 @@ fn migration_import_codesys_fixture_reports_coverage_and_loss() {
         .iter()
         .any(|diagnostic| diagnostic.code == "PLCO203"));
 
-    let migration = read_json(&report.migration_report_path);
+    let migration = read_json(&report.migration_report_path, &project);
     assert_eq!(migration["detected_ecosystem"], "codesys");
     assert_eq!(migration["discovered_pous"], 3);
     assert_eq!(migration["imported_pous"], 2);
@@ -96,7 +99,7 @@ fn migration_import_twincat_fixture_handles_vendor_variants() {
         .iter()
         .any(|diagnostic| diagnostic.code == "PLCO204"));
 
-    let migration = read_json(&report.migration_report_path);
+    let migration = read_json(&report.migration_report_path, &project);
     assert_eq!(migration["detected_ecosystem"], "beckhoff-twincat");
     assert!(migration["entries"]
         .as_array()
@@ -135,7 +138,7 @@ fn migration_import_siemens_fixture_reports_vendor_coverage() {
         .iter()
         .any(|diagnostic| diagnostic.code == "PLCO203"));
 
-    let migration = read_json(&report.migration_report_path);
+    let migration = read_json(&report.migration_report_path, &project);
     assert_eq!(migration["detected_ecosystem"], "siemens-tia");
     assert!(migration["unsupported_nodes"]
         .as_array()
@@ -162,7 +165,7 @@ fn migration_import_rockwell_fixture_reports_vendor_coverage() {
         .iter()
         .any(|diagnostic| diagnostic.code == "PLCO203"));
 
-    let migration = read_json(&report.migration_report_path);
+    let migration = read_json(&report.migration_report_path, &project);
     assert_eq!(migration["detected_ecosystem"], "rockwell-studio5000");
     assert_eq!(migration["compatibility_coverage"]["verdict"], "partial");
 
@@ -188,7 +191,7 @@ fn migration_import_schneider_fixture_detects_vendor_precedence() {
         .iter()
         .any(|diagnostic| diagnostic.code == "PLCO204"));
 
-    let migration = read_json(&report.migration_report_path);
+    let migration = read_json(&report.migration_report_path, &project);
     assert_eq!(migration["detected_ecosystem"], "schneider-ecostruxure");
 
     let _ = std::fs::remove_dir_all(project);
@@ -219,7 +222,7 @@ fn migration_import_openplc_fixture_reports_vendor_coverage() {
             && entry.source_symbol == "R_EDGE"
             && entry.replacement_symbol == "R_TRIG"));
 
-    let migration = read_json(&report.migration_report_path);
+    let migration = read_json(&report.migration_report_path, &project);
     assert_eq!(migration["detected_ecosystem"], "openplc");
     assert!(migration["unsupported_diagnostics"]
         .as_array()

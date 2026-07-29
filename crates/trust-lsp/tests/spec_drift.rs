@@ -1,13 +1,27 @@
-use std::fs;
 use std::path::PathBuf;
 
+include!("../../../tests/support/repository_source_oracle.rs");
+
+fn repository_root() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
+}
+
 fn technical_spec_path() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../docs/specs/14-lsp.md")
+    repository_root().join("docs/specs/14-lsp.md")
+}
+
+fn technical_spec() -> String {
+    repository_source_tree_read_to_string!(
+        (technical_spec_path(), repository_root()),
+        roots = ["docs/specs"],
+        extension = "md",
+    )
+    .expect("read docs/specs/14-lsp.md")
 }
 
 #[test]
 fn technical_spec_lists_lsp_capabilities() {
-    let spec = fs::read_to_string(technical_spec_path()).expect("read docs/specs/14-lsp.md");
+    let spec = technical_spec();
     let expected_methods = [
         "textDocument/didOpen",
         "textDocument/publishDiagnostics",
@@ -59,7 +73,7 @@ fn technical_spec_lists_lsp_capabilities() {
 
 #[test]
 fn technical_spec_mentions_index_cache_and_diagnostics_toggles() {
-    let spec = fs::read_to_string(technical_spec_path()).expect("read docs/specs/14-lsp.md");
+    let spec = technical_spec();
     let expected_fragments = [
         "[indexing]",
         "cache",

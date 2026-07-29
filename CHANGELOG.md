@@ -6,6 +6,12 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Verification assertion inventories now digest-bind declared repository input
+  trees, validate generated outputs below explicit temporary roots, and
+  classify the fixed Linux process-status observation without trusting dynamic,
+  escaping, symbolic-link, or arbitrary report paths. The parser example
+  corpus test also fails instead of silently skipping a missing tree and now
+  parses all checked-in examples.
 - Freeze the OpenOT ST conformance inputs inside the runtime test fixture
   closure and make the fenced capstone reconciliation assertions explicit, so
   exact verification remains commit-bound instead of depending on mutable
