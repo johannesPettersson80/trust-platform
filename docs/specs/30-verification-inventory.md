@@ -127,3 +127,53 @@ JSON document containing that source commit, the exact selector, every
 executed full title, pass/fail state, duration, and reconciled totals. This
 artifact proves only the selected extension-host execution; it is not the
 final unfiltered VS Code or repository-wide gate.
+
+## Gate and workflow surface proof contract
+
+Every live scanner fact whose source kind is `gate_script` or
+`github_workflow_job` must join exactly one live
+`verification/gate-inventory.toml` surface by discovery identity, source kind,
+path, and name. A catalog mapping for that fact proves only the registered gate
+surface: its exact entrypoint or job, declared command role, suite assignment
+or explicit exclusion, native environment, enforcement posture, and artifact
+contract. It does not transitively prove every product property examined by
+commands below that surface.
+
+An assigned gate becomes executed proof only when its exact registered command
+or workflow job runs against the bound source revision in its declared native
+environment and returns the registered result. A local replay does not replace
+a GitHub workflow-job result, and a successful workflow container or setup
+step does not replace the job's complete terminal result. Required nonzero
+results fail the gate. Conditional, supporting, report-only, advisory, and
+excluded surfaces retain those weaker postures and cannot be promoted to
+required product proof by catalog presence or a passing exit status.
+
+When the gate inventory declares artifacts, accepted execution evidence binds
+the source revision, command or workflow-job identity, terminal result,
+artifact paths, and retention posture. A missing, stale, cross-revision, or
+unbound artifact cannot close the gate. Surfaces without a declared artifact
+retain the exact command result and source binding; they do not invent an
+artifact requirement.
+
+## Fuzz-target proof contract
+
+Every live `fuzz_target` scanner fact in the root fuzz program must join exactly
+one live target in `verification/fuzz-program.toml` by path and name. The
+catalog mapping records its owning surface associations, exact campaign
+entrypoint, execution tier, enforcement status, corpus location, artifact
+location, and crash-regression handoff. Association and catalog presence alone
+are inventory, not executed fuzz proof.
+
+An executed fuzz-target proof is a bounded, source-revision-bound invocation of
+the registered target through its native fuzz runner. It records the target,
+command, budget, terminal result, and retained machine-readable campaign
+evidence. A clean bounded campaign proves only that the target reached its
+registered production boundary without an observed crash, sanitizer failure,
+or timeout during that campaign. It does not prove universal crash freedom,
+semantic correctness for all inputs, or adequate code coverage.
+
+Any discovered crash or sanitizer failure must remain a failing campaign until
+it is reduced and joined to the deterministic regression registry required by
+the fuzz program. Working corpora and raw crash directories remain
+machine-local discovery inputs under their declared storage policy; their size
+or existence is not durable product evidence.

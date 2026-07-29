@@ -62,6 +62,9 @@ ASSERTION_REVIEW_FIELDS = frozenset(
 ASSERTION_DISPOSITIONS = frozenset(
     {"oracle_bound", "setup_or_precondition", "non_oracle"}
 )
+STRUCTURAL_NONASSERTION_SOURCE_KINDS = frozenset(
+    {"fuzz_target", "gate_script", "github_workflow_job"}
+)
 
 
 def build_mapping_decision(
@@ -267,7 +270,13 @@ def _validate_acceptance(
         for review in assertion_reviews
         if review.get("disposition") == "oracle_bound"
     ]
-    if not bound:
+    if not bound and not _is_structural_metadata_acceptance(
+        decision=decision,
+        proposal=proposal,
+        invariants=invariants,
+        selected=selected,
+        assertion_reviews=assertion_reviews,
+    ):
         failures.append(f"{label} acceptance requires an oracle-bound assertion")
     for review in assertion_reviews:
         assertion_id = review.get("assertion_id")
@@ -328,6 +337,36 @@ def _validate_acceptance(
             failures.append(
                 f"{label} duration class does not match traced proposal"
             )
+
+
+def _is_structural_metadata_acceptance(
+    *,
+    decision: Mapping[str, Any],
+    proposal: Mapping[str, Any],
+    invariants: Mapping[str, Mapping[str, Any]],
+    selected: Sequence[str],
+    assertion_reviews: Sequence[Mapping[str, Any]],
+) -> bool:
+    confirmed = decision.get("confirmed_catalog")
+    assertions = proposal.get("assertions")
+    return (
+        proposal.get("discovery_source_kind")
+        in STRUCTURAL_NONASSERTION_SOURCE_KINDS
+        and isinstance(assertions, Sequence)
+        and not isinstance(assertions, (str, bytes))
+        and not assertions
+        and not assertion_reviews
+        and isinstance(confirmed, Mapping)
+        and confirmed.get("test_class") == "metadata_validation"
+        and confirmed.get("area") == "verification"
+        and confirmed.get("owner") == "verification"
+        and bool(selected)
+        and all(
+            isinstance(invariants.get(invariant_id), Mapping)
+            and invariants[invariant_id].get("area") == "verification"
+            for invariant_id in selected
+        )
+    )
 
 
 def _validate_rejection(

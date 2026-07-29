@@ -132689,3 +132689,2280 @@ mapping_assertion_review_digest = "sha256:2fe0b33cf4616c06a1564a99aa1ad831741053
 mapping_assertion_source_digests = { "crates/trust-lsp/src/config.rs" = "sha256:8a73af6244a2402188c2cf226919bb0e293c2e2aa917c2bd9b1587bb70227610", "crates/trust-lsp/src/config/deps.rs" = "sha256:4a18da2857c27e4b181a3c5e468fa6feaae2248bbc40320b8ae638317e78ae2b", "crates/trust-lsp/src/config/git.rs" = "sha256:46ccbf1ec84365bd4a7d8f80576a92654cf6fbf528b12718b92b16b1801c94d0", "crates/trust-lsp/src/config/load.rs" = "sha256:ba5d8154292e53e627e7b719d9b049aff0f05bfe6c29369bf1e136772971afe6", "crates/trust-lsp/src/config/lockfile.rs" = "sha256:c1be7598a0c9e97a799839a679bf35fbe40575db865210643764e557374c4a5c", "crates/trust-lsp/src/config/model.rs" = "sha256:d7b3aa1a71f6ab0b95c20f7b32ad1eb9d1fe6bac48d499cefc0898f9ab87e7e3", "crates/trust-lsp/src/config/tests.rs" = "sha256:2fdcb996746ce4b61904403215eb544c90fbae5cf7a501bcd7ddb4bd04fac319", "crates/trust-lsp/src/external_diagnostics.rs" = "sha256:cde68aafef0e49a3907f50d32a3d8351f0e3010ac4e483bbf3f0e2c6a28e96f3", "crates/trust-lsp/src/handlers/commands.rs" = "sha256:0115e723c39ab156362b474fcc7cd1b0d300a1bda017bdc914a55e1f27992386", "crates/trust-lsp/src/handlers/commands/hmi_namespace_and_edits.rs" = "sha256:d6d13a8913620b4e98f23a9cd7421eb79c471071668b489852908678ab1e4621", "crates/trust-lsp/src/handlers/commands/path_ranges_and_tests.rs" = "sha256:3b3359024134d026a1ff1946cef7ef9019599b7f0a09022ba9216f72282e0061", "crates/trust-lsp/src/handlers/config.rs" = "sha256:0999d5f4576489dd87b29eecb13456f7511af9a842f86035d73e7a5ab873781a", "crates/trust-lsp/src/handlers/context.rs" = "sha256:ea9ba51496c134cdf717414b4052006c289f2c438eff7690fb78c793d2db70b8", "crates/trust-lsp/src/handlers/diagnostics.rs" = "sha256:2dd39da2780ea1a74ffbbd1bf6d917c2ac762c03cfd41cee2defd0fdc81da36f", "crates/trust-lsp/src/handlers/diagnostics/collection_and_filters.rs" = "sha256:91ae73f7917b09ec9f694e2800d44f28674be91c773d7e7394360de0eda2812d", "crates/trust-lsp/src/handlers/diagnostics/mapping_and_explainers.rs" = "sha256:178c4981d59738725fddee48d2ca2d518dedef94ec582c1bc4f61579671c682f", "crates/trust-lsp/src/handlers/diagnostics/publish_hmi_and_tests.rs" = "sha256:a5cc8ddbc0c05e7aa1cf554032e4decb3f5b942345850ffa94f7d0ed338698e5", "crates/trust-lsp/src/handlers/features/actions.rs" = "sha256:ee5ac2e7478162a41b322db684a2937813fc5d0785a724185d4d01d4e000c7fd", "crates/trust-lsp/src/handlers/features/completion.rs" = "sha256:eaf15f9e183e27d64608113e6d816d3dbd82720d87ff56c85a68a7a1bad7f382", "crates/trust-lsp/src/handlers/features/core.rs" = "sha256:00e22c367602e0e6e54b04c226a0abe5b74a7337158231f075086c9d69a60abc", "crates/trust-lsp/src/handlers/features/core_impl.rs" = "sha256:39cea1755bd763541473d0ecb3811325835383a94a89976ad0c66400d731ab33", "crates/trust-lsp/src/handlers/features/core_impl/action_requests.rs" = "sha256:10ad11a99a160fb99bccb7f0aaa4ef0a5871b7323750f675c4dae7d6c0554dd2", "crates/trust-lsp/src/handlers/features/core_impl/completion_requests.rs" = "sha256:98f2a81c1d7d310ee57aa588a38462bae0b9b11ba671ae09b79287efd19fabdf", "crates/trust-lsp/src/handlers/features/core_impl/helpers/diagnostic_common.rs" = "sha256:b95c910779cf8f33372d4101102c876fa9d444df44bfa28b223e312cf98d6f36", "crates/trust-lsp/src/handlers/features/core_impl/helpers/diagnostic_fixes.rs" = "sha256:8709bcd71140cd26c4096d2061542bc6266d1e9e65171cefa71eb4e39a9cbe68", "crates/trust-lsp/src/handlers/features/core_impl/helpers/hierarchy.rs" = "sha256:1948cf613326eab10c9fd03a741ce02c6944a5a10a35fd6bb88bcbd2abe85cd7", "crates/trust-lsp/src/handlers/features/core_impl/helpers/mod.rs" = "sha256:b2a2b6684f2978beeda14dbaece4e19f13bb5309ed3cd7d749fdd9beea285594", "crates/trust-lsp/src/handlers/features/core_impl/helpers/refactor_actions.rs" = "sha256:9b1b98954d4c39257227ad12363df513d6342718aef27e6cb24bbece3542e413", "crates/trust-lsp/src/handlers/features/core_impl/helpers/syntax_utils.rs" = "sha256:ee929eae44e286ec0f4769c03cbe0dc4af1b4a1a6e3f0b2a5013a65e159204da", "crates/trust-lsp/src/handlers/features/core_impl/hierarchy_requests.rs" = "sha256:55767d42ef7eb80c29866737781898db1b0d3cf3c4600e71ff168e975c2523ba", "crates/trust-lsp/src/handlers/features/core_impl/navigation_requests.rs" = "sha256:1db0d56da64cda6bf19390dca8c87281e4c47619d1246cbf0d9a63fe68fab619", "crates/trust-lsp/src/handlers/features/core_impl/semantic_requests.rs" = "sha256:752650fd7504a5e4322948ba3fff05ead7e83dac5d2a6591fa536ad35c915f30", "crates/trust-lsp/src/handlers/features/core_impl/symbol_requests.rs" = "sha256:b55f189539c20439beb17a75c876d91fa9398c6b27bb4cf6bdb591191a7370b8", "crates/trust-lsp/src/handlers/features/hierarchy.rs" = "sha256:25a58db3b169baad9570dcbfc47a50970094107e4be97d693db2e4c31044fdec", "crates/trust-lsp/src/handlers/features/inline_values.rs" = "sha256:bef161c0d38b89717c5372cc2842c1a7b7807f5afe65f77947ea8761ce7db40f", "crates/trust-lsp/src/handlers/features/links.rs" = "sha256:bd084e722172291181e3fc8c590c8dc5abb9c69492c1cb26b27ddac827b74f3c", "crates/trust-lsp/src/handlers/features/mod.rs" = "sha256:83c5501fdef768502ec9b33d5631a0c82f1f990ecf5de925afa4309292c52597", "crates/trust-lsp/src/handlers/features/navigation.rs" = "sha256:41ea9e5f8184bb5075d435d3b4ff96a33a160f92395e678afa455cd3b2c01284", "crates/trust-lsp/src/handlers/features/symbols.rs" = "sha256:98e7553c5802fa44094749412edf99fc20858d0fd15e9ecbe8d6c0cee8f65933", "crates/trust-lsp/src/handlers/formatting.rs" = "sha256:44e87089d0b53233208ec474b92ede6413af95e8757e9e4c31d0423215500a7f", "crates/trust-lsp/src/handlers/formatting/alignment_wrap_and_tests.rs" = "sha256:12b03d6548aafca1a3e9e56932a6946b16f4ce8ef94d5ffba7ecc42bb9ce1ca7", "crates/trust-lsp/src/handlers/formatting/block_and_line_formatting.rs" = "sha256:5810db5347bf704a90dab244838991ff79ba059dd498ee48b42e65096e708103", "crates/trust-lsp/src/handlers/formatting/tests.rs" = "sha256:572094c048bc94cba739e4b2798e6115a22319a3099d146d4961f6c35c75f39a", "crates/trust-lsp/src/handlers/lsp_utils.rs" = "sha256:3be1a2f91c3683375ea578a72575b0503cf37aac1a035208df2b6f96d7483713", "crates/trust-lsp/src/handlers/mod.rs" = "sha256:21864418e2f0e6273d6dc4f3cbd69f2e9eedb9a0cab2b259b8bb4166b1b0af06", "crates/trust-lsp/src/handlers/progress.rs" = "sha256:e93f43b0d71f8db193d85e4a16cc2130dc2c5cbc3174f04485c56faf9a8fe4d2", "crates/trust-lsp/src/handlers/refresh.rs" = "sha256:d090dd9fa8c81add9ff8bb565d61acaff0e76c1397ad8cb731f62c057c2c81e6", "crates/trust-lsp/src/handlers/runtime_values.rs" = "sha256:8c6d87f981ff7157e5ba8419f0a3fe7f532013b33074f3db6407c65005b0b00f", "crates/trust-lsp/src/handlers/sync.rs" = "sha256:9c96995b7179d4702d1f50b9ac56047d74cabace6586d9b55ec26ae4e820a3b2", "crates/trust-lsp/src/handlers/tests/code_actions_and_commands.rs" = "sha256:c126faa684794a61270fed9f894f0df8ea4e3d46cea2832d716a6d68e92c1d31", "crates/trust-lsp/src/handlers/tests/code_actions_and_commands_part_01.rs" = "sha256:d72762704939fbd95d9e804ed66a595d26598c8ec4449421f7416abf481e85dd", "crates/trust-lsp/src/handlers/tests/code_actions_and_commands_part_02.rs" = "sha256:2b37d6cbbddf6a48c1ab3bed773dd1e331ebc4d6d63a8a5dfc49c3e16b197ec3", "crates/trust-lsp/src/handlers/tests/code_actions_and_commands_part_03.rs" = "sha256:7d7529e5b58345399cb931cbae0005866b6c13e2e4dc5c6e7fd52f13e508d9a0", "crates/trust-lsp/src/handlers/tests/code_actions_and_commands_part_04.rs" = "sha256:189f5e9009ab41174fc2b9f10a778bfffc261a12690a4e8cde8217b89c03dcbc", "crates/trust-lsp/src/handlers/tests/code_actions_and_commands_part_05.rs" = "sha256:eab6b2fc5da4c4d3cba92e3647497ded7a16f1868331e92f923bfb9d802e1abe", "crates/trust-lsp/src/handlers/tests/completion_hover.rs" = "sha256:14326e41898b14ae9b9440edc023248085cc6d70dd480b0e672d69168d2145c3", "crates/trust-lsp/src/handlers/tests/core.rs" = "sha256:2c7c92be514deff369ce04fc5822781a33f2745ed6a9d3183ecb89136149a10d", "crates/trust-lsp/src/handlers/tests/core_part_01.rs" = "sha256:9e9d172c5db3a9df4937f9340c2f708f8a3e6bacb931b96f98f320b2c89a2f7b", "crates/trust-lsp/src/handlers/tests/core_part_02.rs" = "sha256:30cd93182227158f165f99755236856b1316bf048f5f703e81f132770b434598", "crates/trust-lsp/src/handlers/tests/core_part_03.rs" = "sha256:0abc84e4e18fa4765fa6e42b4711f069853bf07be4e1b389207dce3d45ae8f64", "crates/trust-lsp/src/handlers/tests/core_part_04.rs" = "sha256:bb29bd8f79514db3b23cead36ea4a284649f25e723fc50120856da4cd8baf627", "crates/trust-lsp/src/handlers/tests/core_part_05.rs" = "sha256:b487785dc7dd9bec53297826a07ff7f5146b408f3f21806840bda96453abbc1b", "crates/trust-lsp/src/handlers/tests/core_part_06.rs" = "sha256:a24739e635d2cd2685f84cd1bd9bebfa6ab46c6750ea28498b4ae03f7edff738", "crates/trust-lsp/src/handlers/tests/core_part_07.rs" = "sha256:56186418e75fb0ea3d3ab0c351f5fb364853d80dca1b6a2c1473ba0300f9b62b", "crates/trust-lsp/src/handlers/tests/core_part_08.rs" = "sha256:30fcf4e8326df8e71df495296a9fb469ad961217b38f8528189a063b3616d3f1", "crates/trust-lsp/src/handlers/tests/core_part_09.rs" = "sha256:2bf29961f25e30c9225c3e21726e41b5b15000fe2d5bf038c54b66233bee5e75", "crates/trust-lsp/src/handlers/tests/core_part_10.rs" = "sha256:e5cc0171e77ad3ddda80c5131fef72429c5a9f648bce8f74e9b2dba38ffe3171", "crates/trust-lsp/src/handlers/tests/core_part_11.rs" = "sha256:2283de329bd85b75ca65c7969ca5dc883008beca5819c83f446252da099504b7", "crates/trust-lsp/src/handlers/tests/core_part_12.rs" = "sha256:2560518cc1769c1aeb8b28d825c89ec7024b9a5f5bdae53f661b04ea06408525", "crates/trust-lsp/src/handlers/tests/formatting_and_navigation.rs" = "sha256:84a738cd4dc68029fc1a6293c5255f05730e44b08fabf90d54f521abfd4097ab", "crates/trust-lsp/src/handlers/tests/lsp_trace_cases.rs" = "sha256:9a0f8192c758096dc3734cd4e1bafe04754ac3b8e57681266d178034a0c905ab", "crates/trust-lsp/src/handlers/tests/mod.rs" = "sha256:3aaffb1f2ec449e050bdebd5fd063b606081e1be1f04766c44130476d75196ce", "crates/trust-lsp/src/handlers/tests/mod_part_01.rs" = "sha256:e9f4dd84855056929cca1283d87c492764c646f455b05d5acb20a3f13d5426aa", "crates/trust-lsp/src/handlers/tests/mod_part_01_part_01.rs" = "sha256:5770a17ef5e3b98c9f9d6b6fea715d5b4d3d3f9a19e0d98fc1fb184ad2a3355c", "crates/trust-lsp/src/handlers/tests/mod_part_02.rs" = "sha256:037aa6c7709bb44f0af3810c812da4e2eb70a324b2d4df6bd259acf04601ce9d", "crates/trust-lsp/src/handlers/tests/rename_trace_cases.rs" = "sha256:17f25ddefbace9a4c9712bd22eb5bb0ad8862c9d017a61c7fd4cd9accfcc8efc", "crates/trust-lsp/src/handlers/tests/trace_support.rs" = "sha256:0edcf4cb47f40053b41c0d6fff234d30017fb31b405ee06b044e8058baa04d26", "crates/trust-lsp/src/handlers/workspace.rs" = "sha256:50957aab1bc27d8cc70deb146760163bfae5984ce908fc887e29619ee11598b0", "crates/trust-lsp/src/handlers/workspace/indexing_and_throttle.rs" = "sha256:04df0b460d7e7d8b3e090e8dca6c7772bee86084574dd7defcdd3371a2cb4f76", "crates/trust-lsp/src/handlers/workspace/namespace_and_rename.rs" = "sha256:c845a516c7d410ac4e57b2635407d4a8726e8ed423ad24611632b266f419d8c7", "crates/trust-lsp/src/index_cache.rs" = "sha256:21b2ddd476afb78b7e0fc96b0b0dbfac6e755cc1f5b54e12dfd74e694a5b3ec9", "crates/trust-lsp/src/library_docs.rs" = "sha256:4c9cec25474d0c90a43490862f51e59e5a08a9bac52ee4b09d39be1cf01cc457", "crates/trust-lsp/src/library_graph.rs" = "sha256:48d01bf598592b9890bf1ec3d0fb15612bef6a0f867ae543cd4fe3f070129f5e", "crates/trust-lsp/src/main.rs" = "sha256:16f3a54dbf62ffbaa4ddee8acb2ba0ba63ae3d12e27d28493711754fc17312fc", "crates/trust-lsp/src/perf.rs" = "sha256:4af5afcb4f690b9584e88991db645ad40c2ee012d42cc6d6e186e720dd473da4", "crates/trust-lsp/src/state/cache.rs" = "sha256:d67230594cbc641d4cce7f43282a7808538464a8654078b19b3ebb25de429656", "crates/trust-lsp/src/state/documents.rs" = "sha256:3726dc8907a1d5d30af044448742c778f047b22df605e96aec46aa0bdd2b8532", "crates/trust-lsp/src/state/mod.rs" = "sha256:3e03569465810daaac8767a35afd3a78a577306ec7af8b422795d0995d1a6731", "crates/trust-lsp/src/state/path.rs" = "sha256:57fdfb91bf16c73e868737915241d614bf6f48384f744c04f36f2f486e726215", "crates/trust-lsp/src/telemetry.rs" = "sha256:4966a5ea2709b58025cad21b2defd9c6e28744ad2a0ae187ae5b147961f3660a", "crates/trust-lsp/src/test_support.rs" = "sha256:0b0affab3bd9136f2380b75c5d7a32fa583a7d497a8c6b1f1960ca5bf6dfe6f3", "examples/mitsubishi_gxworks3_v1/src/Configuration.st" = "sha256:8a3e24ffd86cc4a5066278cd64c1c8c9c518441181af12d005cff03ec17355b4", "examples/mitsubishi_gxworks3_v1/src/Main.st" = "sha256:2ee4b9d8641e36ea063e2b7700e8d9227a77c70b6c70435c74dce22c4c0b1707", "examples/siemens_scl_v1/src/Configuration.st" = "sha256:21534361fa37180233b4902783ba5576010594a00451d2ed0a49f85c55eb50a7", "examples/siemens_scl_v1/src/Main.st" = "sha256:352994b6595b96472910019ac665ff1c0bb87a87d8980b09b02abbf8290b1b75", "examples/tutorials/01_hello_counter.st" = "sha256:2b0a10832e6ace1c5ad1b90c201536ff381da6f1b0cf2640e76384ecefcdaa9d", "examples/tutorials/02_blinker.st" = "sha256:1384571b18ec755f0b6cd9b9ab78cde68e330bd824a24a0f940e4f5369b74e36", "examples/tutorials/03_traffic_light.st" = "sha256:e88629b8fc0719e2a70fd8cc9ba23691e2fc480fdc55876ce93e218dd5d455e3", "examples/tutorials/04_tank_level.st" = "sha256:8c80be0b9f4f29dc77747ca36c7b7337f08354bc0faa64aa381f7ec4d8bc2fe6", "examples/tutorials/05_motor_starter.st" = "sha256:149c35a5c73a843a55c978bcdb98af406e8e5d344a487b622712f11b8bf7c185", "examples/tutorials/06_recipe_manager.st" = "sha256:8c2bea15464e820273c2c0dfc60fa9e3dac3a2670710e3a647973624c8ba3cc6", "examples/tutorials/07_pid_loop.st" = "sha256:68af651da3bde23608b9b69ff5c8b4c35fbd3bf2ed69bd1cbccb3967af3adaf7", "examples/tutorials/08_conveyor_system.st" = "sha256:b35eb1dc60f6eecfbb114bb21115c493b735114a41ec4105a4b218b03db9d7be", "examples/tutorials/09_simulation_coupling.st" = "sha256:e3a29522b9f58b567e37efb5be7f33335f8b708530ed25910c198324e7e08ea1" }
 mapping_behavior_refs = ["LSP_CORE_FEATURES_001#behavior:12"]
 mapping_reviewer_ids = ["codex-assertion-review", "codex-main"]
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_0C6190B196D300B91AD8"
+subject_kind = "generated_test"
+discovery_id = "DISC_0C6190B196D300B91AD8"
+discovery_source_kind = "github_workflow_job"
+test_class = "metadata_validation"
+area = "verification"
+path = ".github/workflows/demo-pages.yml"
+name = "Docs Pages / deploy"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_JOB_DOCS_PAGES_DEPLOY retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_JOB_DOCS_PAGES_DEPLOY is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_0C6190B196D300B91AD8.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_0C6190B196D300B91AD8_C41F391E16C8"
+mapping_proposal_digest = "sha256:c41f391e16c8d9629ec482534b149365fb628e4a054cfc20b75b59b403310d48"
+mapping_decision_id = "MAP_DEC_3C2433225BC0620E3CDE5322"
+mapping_reviewed_source_digest = "sha256:824599d449288f1f73bc20bd00a94a8a2f0909dc9235717cf27c6f0010469192"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { ".github/workflows/demo-pages.yml" = "sha256:824599d449288f1f73bc20bd00a94a8a2f0909dc9235717cf27c6f0010469192" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_0D20084A8D2E56D2E979"
+subject_kind = "generated_test"
+discovery_id = "DISC_0D20084A8D2E56D2E979"
+discovery_source_kind = "gate_script"
+test_class = "metadata_validation"
+area = "verification"
+path = "scripts/runtime_comms_conformance_gate.sh"
+name = "runtime_comms_conformance_gate"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_SCRIPT_RUNTIME_COMMS_CONFORMANCE retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_SCRIPT_RUNTIME_COMMS_CONFORMANCE is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_0D20084A8D2E56D2E979.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_0D20084A8D2E56D2E979_D555F42AC723"
+mapping_proposal_digest = "sha256:d555f42ac7234bf28cf65d2ac54cc868bc243f5e7e5e9da45a3a26004ea4d631"
+mapping_decision_id = "MAP_DEC_314EA4E09770262F820813C8"
+mapping_reviewed_source_digest = "sha256:acade1e5f2b0cbd4f003c36ed47caa14d308d78e3228226993063c69758c91ba"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { "scripts/runtime_comms_conformance_gate.sh" = "sha256:acade1e5f2b0cbd4f003c36ed47caa14d308d78e3228226993063c69758c91ba" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_0FD65C4E8B310F5540B2"
+subject_kind = "generated_test"
+discovery_id = "DISC_0FD65C4E8B310F5540B2"
+discovery_source_kind = "gate_script"
+test_class = "metadata_validation"
+area = "verification"
+path = "scripts/runtime_comms_bench_gate.sh"
+name = "runtime_comms_bench_gate"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_SCRIPT_RUNTIME_COMMS_BENCH retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_SCRIPT_RUNTIME_COMMS_BENCH is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_0FD65C4E8B310F5540B2.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_0FD65C4E8B310F5540B2_577C16671ED8"
+mapping_proposal_digest = "sha256:577c16671ed8aff5ef7f8f438e545012bcef51984e9a3c5ec18a3e00a2e134ed"
+mapping_decision_id = "MAP_DEC_A957DD37DBA63E57915759BD"
+mapping_reviewed_source_digest = "sha256:b76c3ce8cb949d9b94cac5a2024b7258d11665d2f83cb2abefb2374427d33477"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { "scripts/runtime_comms_bench_gate.sh" = "sha256:b76c3ce8cb949d9b94cac5a2024b7258d11665d2f83cb2abefb2374427d33477" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_0FF3FB3A6EBC887FAE60"
+subject_kind = "generated_test"
+discovery_id = "DISC_0FF3FB3A6EBC887FAE60"
+discovery_source_kind = "gate_script"
+test_class = "metadata_validation"
+area = "verification"
+path = "scripts/runtime_cloud_security_profile_gate.sh"
+name = "runtime_cloud_security_profile_gate"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_SCRIPT_RUNTIME_CLOUD_SECURITY_PROFILE retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_SCRIPT_RUNTIME_CLOUD_SECURITY_PROFILE is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_0FF3FB3A6EBC887FAE60.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_0FF3FB3A6EBC887FAE60_C980AD7B8915"
+mapping_proposal_digest = "sha256:c980ad7b8915f6b8727d1abf6767b0f932ff889bf17a59992b19749d5a79fb8d"
+mapping_decision_id = "MAP_DEC_A1FA9E683539AAF7A1FFD7C2"
+mapping_reviewed_source_digest = "sha256:064bbfa8c126f90a9ac37f2b4936b35b61cd1d0a82cbd839793d312d21ae50fb"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { "scripts/runtime_cloud_security_profile_gate.sh" = "sha256:064bbfa8c126f90a9ac37f2b4936b35b61cd1d0a82cbd839793d312d21ae50fb" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_12BA2A15CA94233F4A35"
+subject_kind = "generated_test"
+discovery_id = "DISC_12BA2A15CA94233F4A35"
+discovery_source_kind = "gate_script"
+test_class = "metadata_validation"
+area = "verification"
+path = "scripts/runtime_vm_bench_gate.sh"
+name = "runtime_vm_bench_gate"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_SCRIPT_RUNTIME_VM_BENCH retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_SCRIPT_RUNTIME_VM_BENCH is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_12BA2A15CA94233F4A35.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_12BA2A15CA94233F4A35_0ABDFD2520C7"
+mapping_proposal_digest = "sha256:0abdfd2520c735f9e35e002e7716576426125a21b5213a6d650388119ef12a4a"
+mapping_decision_id = "MAP_DEC_F5DEA43DE2A34354E1265F9C"
+mapping_reviewed_source_digest = "sha256:461ea1d050aabc2966c5382798d8957b1d8c41edcaf92aac845f38aede08b14d"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { "scripts/runtime_vm_bench_gate.sh" = "sha256:461ea1d050aabc2966c5382798d8957b1d8c41edcaf92aac845f38aede08b14d" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_184A90EEB01F34E82605"
+subject_kind = "generated_test"
+discovery_id = "DISC_184A90EEB01F34E82605"
+discovery_source_kind = "github_workflow_job"
+test_class = "metadata_validation"
+area = "verification"
+path = ".github/workflows/salsa-hardening.yml"
+name = "Salsa Hardening / miri-nightly"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_JOB_SALSA_MIRI_NIGHTLY retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_JOB_SALSA_MIRI_NIGHTLY is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_184A90EEB01F34E82605.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_184A90EEB01F34E82605_B9E2C6B1412B"
+mapping_proposal_digest = "sha256:b9e2c6b1412b514068b83098ceb78e7182d9d5d27b3a00a3a0a2eec5f65e2018"
+mapping_decision_id = "MAP_DEC_2B12B755C0E703565E3F59B0"
+mapping_reviewed_source_digest = "sha256:d5851fe83317008d0b41a02d547f25062196b8d4e274d95aef507a65dca7675f"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { ".github/workflows/salsa-hardening.yml" = "sha256:d5851fe83317008d0b41a02d547f25062196b8d4e274d95aef507a65dca7675f" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_1CA69660B5971425B0A9"
+subject_kind = "generated_test"
+discovery_id = "DISC_1CA69660B5971425B0A9"
+discovery_source_kind = "github_workflow_job"
+test_class = "metadata_validation"
+area = "verification"
+path = ".github/workflows/release.yml"
+name = "Release / build"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_JOB_RELEASE_BUILD retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_JOB_RELEASE_BUILD is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_1CA69660B5971425B0A9.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_1CA69660B5971425B0A9_3AE50470BF9D"
+mapping_proposal_digest = "sha256:3ae50470bf9dc3d90a7533b5ce8ad788ef893350af102057f56046bfca624c30"
+mapping_decision_id = "MAP_DEC_0D52EEF16A68441B1B1699C4"
+mapping_reviewed_source_digest = "sha256:30b769824f881ccddf8369b19acccfd9451929f9e774f29535d645dfbb020c63"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { ".github/workflows/release.yml" = "sha256:30b769824f881ccddf8369b19acccfd9451929f9e774f29535d645dfbb020c63" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_1E2141EDC4C3681BC295"
+subject_kind = "generated_test"
+discovery_id = "DISC_1E2141EDC4C3681BC295"
+discovery_source_kind = "github_workflow_job"
+test_class = "metadata_validation"
+area = "verification"
+path = ".github/workflows/release.yml"
+name = "Release / runtime-vm-validation"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_JOB_RELEASE_RUNTIME_VM_VALIDATION retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_JOB_RELEASE_RUNTIME_VM_VALIDATION is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_1E2141EDC4C3681BC295.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_1E2141EDC4C3681BC295_09C8607C3F2C"
+mapping_proposal_digest = "sha256:09c8607c3f2ce8380cd6f4aec8bc71f3b2166d5b77efc90bdc15e557b8649866"
+mapping_decision_id = "MAP_DEC_8239B18511CD8234D44E437E"
+mapping_reviewed_source_digest = "sha256:30b769824f881ccddf8369b19acccfd9451929f9e774f29535d645dfbb020c63"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { ".github/workflows/release.yml" = "sha256:30b769824f881ccddf8369b19acccfd9451929f9e774f29535d645dfbb020c63" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_1FC8220958D8574188A9"
+subject_kind = "generated_test"
+discovery_id = "DISC_1FC8220958D8574188A9"
+discovery_source_kind = "gate_script"
+test_class = "metadata_validation"
+area = "verification"
+path = "scripts/runtime_mesh_tls_stability_gate.sh"
+name = "runtime_mesh_tls_stability_gate"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_SCRIPT_RUNTIME_MESH_TLS_STABILITY retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_SCRIPT_RUNTIME_MESH_TLS_STABILITY is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_1FC8220958D8574188A9.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_1FC8220958D8574188A9_264625D54577"
+mapping_proposal_digest = "sha256:264625d545775ab330e462527d79f10eb580b0e63aa8a269d87a03c7a6116225"
+mapping_decision_id = "MAP_DEC_5C0B6F54F0D33723353F207F"
+mapping_reviewed_source_digest = "sha256:02471eed16504f3c153930233103e96c3a33f7383fe4100fb4df34dd2b89e787"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { "scripts/runtime_mesh_tls_stability_gate.sh" = "sha256:02471eed16504f3c153930233103e96c3a33f7383fe4100fb4df34dd2b89e787" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_27D47EADCB3629CA5E3A"
+subject_kind = "generated_test"
+discovery_id = "DISC_27D47EADCB3629CA5E3A"
+discovery_source_kind = "github_workflow_job"
+test_class = "metadata_validation"
+area = "verification"
+path = ".github/workflows/salsa-hardening.yml"
+name = "Salsa Hardening / fuzz-extended-nightly"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_JOB_SALSA_FUZZ_EXTENDED_NIGHTLY retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_JOB_SALSA_FUZZ_EXTENDED_NIGHTLY is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_27D47EADCB3629CA5E3A.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_27D47EADCB3629CA5E3A_21A164A175D1"
+mapping_proposal_digest = "sha256:21a164a175d11dbe91668f83561360990ff0ba4834a87d110be87e3e2aad9e0b"
+mapping_decision_id = "MAP_DEC_FF8C7EEA4534A1F5055C4FB3"
+mapping_reviewed_source_digest = "sha256:d5851fe83317008d0b41a02d547f25062196b8d4e274d95aef507a65dca7675f"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { ".github/workflows/salsa-hardening.yml" = "sha256:d5851fe83317008d0b41a02d547f25062196b8d4e274d95aef507a65dca7675f" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_2A3D1BF41A1424D3CF17"
+subject_kind = "generated_test"
+discovery_id = "DISC_2A3D1BF41A1424D3CF17"
+discovery_source_kind = "gate_script"
+test_class = "metadata_validation"
+area = "verification"
+path = "scripts/salsa_miri_gate.sh"
+name = "salsa_miri_gate"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_SCRIPT_SALSA_MIRI retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_SCRIPT_SALSA_MIRI is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_2A3D1BF41A1424D3CF17.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_2A3D1BF41A1424D3CF17_99327242892D"
+mapping_proposal_digest = "sha256:99327242892d705531ae205f2e9b903a01b003cfcdeede8edc8d9770cc0b59cf"
+mapping_decision_id = "MAP_DEC_62E6D24F91C7C57787770EFA"
+mapping_reviewed_source_digest = "sha256:561276d38f2024ba870a57413e808b835c7d1ab3156c46b2e7b09548e821ae7c"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { "scripts/salsa_miri_gate.sh" = "sha256:561276d38f2024ba870a57413e808b835c7d1ab3156c46b2e7b09548e821ae7c" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_2F1558433C4E38375499"
+subject_kind = "generated_test"
+discovery_id = "DISC_2F1558433C4E38375499"
+discovery_source_kind = "fuzz_target"
+test_class = "metadata_validation"
+area = "verification"
+path = "fuzz/fuzz_targets/hir_lowering.rs"
+name = "hir_lowering"
+command = "python3 -m unittest scripts.verification.fuzz_program_contract_tests scripts.verification.fuzz_program_source_contract_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_FUZZ_TARGET_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#fuzz-target-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#fuzz-target-proof-contract"]
+expected_result = "Fuzz target FUZZ_TARGET_HIR_LOWERING retains its exact live source, native campaign command, reviewed surface associations, execution tiers, corpus policy, and crash-regression handoff."
+expected_failure_mode = "Fuzz target FUZZ_TARGET_HIR_LOWERING is missing, duplicated, misbound to a source or surface, assigned an invented execution tier, or allowed to bypass deterministic crash-regression handoff."
+suite_tiers = ["nightly"]
+requires_hardware = false
+requires_network = false
+duration_class = "long"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_2F1558433C4E38375499.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_2F1558433C4E38375499_1DCDC4E55015"
+mapping_proposal_digest = "sha256:1dcdc4e55015a53b24c7b5b47a0afef3498c1c602a28f34b09e16196d56d25f6"
+mapping_decision_id = "MAP_DEC_336D727E4F4605CD860D2195"
+mapping_reviewed_source_digest = "sha256:3ddda668ba935cbcaf6c47d809c3ea72bee41f0a60cde0e22d6b71177ea0c247"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { "fuzz/fuzz_targets/hir_lowering.rs" = "sha256:3ddda668ba935cbcaf6c47d809c3ea72bee41f0a60cde0e22d6b71177ea0c247" }
+mapping_behavior_refs = ["VERIFICATION_FUZZ_TARGET_EXECUTION_001#behavior:0", "VERIFICATION_FUZZ_TARGET_EXECUTION_001#behavior:1", "VERIFICATION_FUZZ_TARGET_EXECUTION_001#behavior:2", "VERIFICATION_FUZZ_TARGET_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_313C8C5D5404DD0AEFB0"
+subject_kind = "generated_test"
+discovery_id = "DISC_313C8C5D5404DD0AEFB0"
+discovery_source_kind = "fuzz_target"
+test_class = "metadata_validation"
+area = "verification"
+path = "fuzz/fuzz_targets/hmi_payloads.rs"
+name = "hmi_payloads"
+command = "python3 -m unittest scripts.verification.fuzz_program_contract_tests scripts.verification.fuzz_program_source_contract_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_FUZZ_TARGET_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#fuzz-target-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#fuzz-target-proof-contract"]
+expected_result = "Fuzz target FUZZ_TARGET_HMI_PAYLOADS retains its exact live source, native campaign command, reviewed surface associations, execution tiers, corpus policy, and crash-regression handoff."
+expected_failure_mode = "Fuzz target FUZZ_TARGET_HMI_PAYLOADS is missing, duplicated, misbound to a source or surface, assigned an invented execution tier, or allowed to bypass deterministic crash-regression handoff."
+suite_tiers = ["nightly"]
+requires_hardware = false
+requires_network = false
+duration_class = "long"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_313C8C5D5404DD0AEFB0.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_313C8C5D5404DD0AEFB0_669A5DB1261E"
+mapping_proposal_digest = "sha256:669a5db1261e2666d4ebc4776b6689a72c2a54645382b20af7a9ca55df988fa0"
+mapping_decision_id = "MAP_DEC_D0C88A08411DBB11FD49C853"
+mapping_reviewed_source_digest = "sha256:4b278ebd6e3aa521b2de2498413282aac4ace98906a0320b7dfba56a7026a1a1"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { "fuzz/fuzz_targets/hmi_payloads.rs" = "sha256:4b278ebd6e3aa521b2de2498413282aac4ace98906a0320b7dfba56a7026a1a1" }
+mapping_behavior_refs = ["VERIFICATION_FUZZ_TARGET_EXECUTION_001#behavior:0", "VERIFICATION_FUZZ_TARGET_EXECUTION_001#behavior:1", "VERIFICATION_FUZZ_TARGET_EXECUTION_001#behavior:2", "VERIFICATION_FUZZ_TARGET_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_3A64FFFF46A027EDF29D"
+subject_kind = "generated_test"
+discovery_id = "DISC_3A64FFFF46A027EDF29D"
+discovery_source_kind = "gate_script"
+test_class = "metadata_validation"
+area = "verification"
+path = "scripts/code_spec_coverage_gate.py"
+name = "code_spec_coverage_gate"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_SCRIPT_CODE_SPEC_COVERAGE retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_SCRIPT_CODE_SPEC_COVERAGE is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_3A64FFFF46A027EDF29D.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_3A64FFFF46A027EDF29D_080BECEC1712"
+mapping_proposal_digest = "sha256:080becec171210b9ef898fd742a5ea1876d33fff543275f92f9041756f9a0d9c"
+mapping_decision_id = "MAP_DEC_AA5423BDDD76E63A8828618D"
+mapping_reviewed_source_digest = "sha256:ddf57a9af2fc49df50afac7d632b7ce5bcbf714e8562ed0086f49017b80f59d7"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { "scripts/code_spec_coverage_gate.py" = "sha256:ddf57a9af2fc49df50afac7d632b7ce5bcbf714e8562ed0086f49017b80f59d7" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_3B168302C56C6632C0AB"
+subject_kind = "generated_test"
+discovery_id = "DISC_3B168302C56C6632C0AB"
+discovery_source_kind = "gate_script"
+test_class = "metadata_validation"
+area = "verification"
+path = "scripts/runtime_comms_fuzz_gate.sh"
+name = "runtime_comms_fuzz_gate"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_SCRIPT_RUNTIME_COMMS_FUZZ retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_SCRIPT_RUNTIME_COMMS_FUZZ is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_3B168302C56C6632C0AB.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_3B168302C56C6632C0AB_5ED53F507E63"
+mapping_proposal_digest = "sha256:5ed53f507e63d6d32021e688fd398907051847679b7e24b3bce82d92f6707eb3"
+mapping_decision_id = "MAP_DEC_B1CF2D1B05BF11EC1DA733FC"
+mapping_reviewed_source_digest = "sha256:1647add928d5c339c8557a68cd93639278cc246a59f4a9050508f23d3064b40d"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { "scripts/runtime_comms_fuzz_gate.sh" = "sha256:1647add928d5c339c8557a68cd93639278cc246a59f4a9050508f23d3064b40d" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_3D272017765F5D73BCE4"
+subject_kind = "generated_test"
+discovery_id = "DISC_3D272017765F5D73BCE4"
+discovery_source_kind = "github_workflow_job"
+test_class = "metadata_validation"
+area = "verification"
+path = ".github/workflows/diagrams.yml"
+name = "Render Diagrams / render"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_JOB_RENDER_DIAGRAMS retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_JOB_RENDER_DIAGRAMS is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_3D272017765F5D73BCE4.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_3D272017765F5D73BCE4_8A8023547CC4"
+mapping_proposal_digest = "sha256:8a8023547cc410dc44c60771d119742acf48152820b5f244a7bdb17dd6ffe85a"
+mapping_decision_id = "MAP_DEC_6D789BFE32CFB2B669BEDA45"
+mapping_reviewed_source_digest = "sha256:76cab7ed2e3aa151b7327c237e39e89c8d51842f025bf36e89cc4bfa15d77f2b"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { ".github/workflows/diagrams.yml" = "sha256:76cab7ed2e3aa151b7327c237e39e89c8d51842f025bf36e89cc4bfa15d77f2b" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_3DBDD721AE2AEA758B75"
+subject_kind = "generated_test"
+discovery_id = "DISC_3DBDD721AE2AEA758B75"
+discovery_source_kind = "github_workflow_job"
+test_class = "metadata_validation"
+area = "verification"
+path = ".github/workflows/ci.yml"
+name = "CI / release-gate-report"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_JOB_CI_RELEASE_GATE_REPORT retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_JOB_CI_RELEASE_GATE_REPORT is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_3DBDD721AE2AEA758B75.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_3DBDD721AE2AEA758B75_566F5E8C1A86"
+mapping_proposal_digest = "sha256:566f5e8c1a86590e3bb37a012fdf4ebe7d56a3fa274fc4e49f27242c38fed44c"
+mapping_decision_id = "MAP_DEC_AFBA1F94599ABE763BED646E"
+mapping_reviewed_source_digest = "sha256:953fe03b02372cc5aad7c8c48b5f16dceca92f0c36269db8ee4ccd4f05f43dfb"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { ".github/workflows/ci.yml" = "sha256:953fe03b02372cc5aad7c8c48b5f16dceca92f0c36269db8ee4ccd4f05f43dfb" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_405FE9606792A984F799"
+subject_kind = "generated_test"
+discovery_id = "DISC_405FE9606792A984F799"
+discovery_source_kind = "fuzz_target"
+test_class = "metadata_validation"
+area = "verification"
+path = "fuzz/fuzz_targets/hir_semantic.rs"
+name = "hir_semantic"
+command = "python3 -m unittest scripts.verification.fuzz_program_contract_tests scripts.verification.fuzz_program_source_contract_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_FUZZ_TARGET_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#fuzz-target-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#fuzz-target-proof-contract"]
+expected_result = "Fuzz target FUZZ_TARGET_HIR_SEMANTIC retains its exact live source, native campaign command, reviewed surface associations, execution tiers, corpus policy, and crash-regression handoff."
+expected_failure_mode = "Fuzz target FUZZ_TARGET_HIR_SEMANTIC is missing, duplicated, misbound to a source or surface, assigned an invented execution tier, or allowed to bypass deterministic crash-regression handoff."
+suite_tiers = ["nightly"]
+requires_hardware = false
+requires_network = false
+duration_class = "long"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_405FE9606792A984F799.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_405FE9606792A984F799_F21FE76C34F9"
+mapping_proposal_digest = "sha256:f21fe76c34f9ff2e352996e47efbc6edb04ab0be01428b085db40c14c3e1c9b5"
+mapping_decision_id = "MAP_DEC_10ACD3540F3F34E3D35A6578"
+mapping_reviewed_source_digest = "sha256:978e416ce5d6b432bc13c3c423d63b8213a73d2ba8390fe8a931f7c5c4e6cf50"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { "fuzz/fuzz_targets/hir_semantic.rs" = "sha256:978e416ce5d6b432bc13c3c423d63b8213a73d2ba8390fe8a931f7c5c4e6cf50" }
+mapping_behavior_refs = ["VERIFICATION_FUZZ_TARGET_EXECUTION_001#behavior:0", "VERIFICATION_FUZZ_TARGET_EXECUTION_001#behavior:1", "VERIFICATION_FUZZ_TARGET_EXECUTION_001#behavior:2", "VERIFICATION_FUZZ_TARGET_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_45419D4DE05ECDFACE3D"
+subject_kind = "generated_test"
+discovery_id = "DISC_45419D4DE05ECDFACE3D"
+discovery_source_kind = "github_workflow_job"
+test_class = "metadata_validation"
+area = "verification"
+path = ".github/workflows/ci.yml"
+name = "CI / conformance"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_JOB_CI_CONFORMANCE retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_JOB_CI_CONFORMANCE is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_45419D4DE05ECDFACE3D.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_45419D4DE05ECDFACE3D_F8BF8999AA63"
+mapping_proposal_digest = "sha256:f8bf8999aa6377e9591ecc8de1e68724c62eb7a741788f4f2d7fc214126bd7c3"
+mapping_decision_id = "MAP_DEC_5C7252A08DA34349C86C36EC"
+mapping_reviewed_source_digest = "sha256:953fe03b02372cc5aad7c8c48b5f16dceca92f0c36269db8ee4ccd4f05f43dfb"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { ".github/workflows/ci.yml" = "sha256:953fe03b02372cc5aad7c8c48b5f16dceca92f0c36269db8ee4ccd4f05f43dfb" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_505636BB434FBF01DA6D"
+subject_kind = "generated_test"
+discovery_id = "DISC_505636BB434FBF01DA6D"
+discovery_source_kind = "gate_script"
+test_class = "metadata_validation"
+area = "verification"
+path = "scripts/check_gate_observability.py"
+name = "check_gate_observability"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_SCRIPT_CHECK_GATE_OBSERVABILITY retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_SCRIPT_CHECK_GATE_OBSERVABILITY is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_505636BB434FBF01DA6D.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_505636BB434FBF01DA6D_BA3D0BC6179B"
+mapping_proposal_digest = "sha256:ba3d0bc6179b6b963701e1eaa722277aaf9510c0ecd2831d0d034851e056585f"
+mapping_decision_id = "MAP_DEC_1018AA5DB78F6B9EED6F0364"
+mapping_reviewed_source_digest = "sha256:8a137cd09cccfe16f036cc6373dbb3c599d4966d22d50df4db83de24472727a4"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { "scripts/check_gate_observability.py" = "sha256:8a137cd09cccfe16f036cc6373dbb3c599d4966d22d50df4db83de24472727a4" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_59726B8C5AB103FE2332"
+subject_kind = "generated_test"
+discovery_id = "DISC_59726B8C5AB103FE2332"
+discovery_source_kind = "github_workflow_job"
+test_class = "metadata_validation"
+area = "verification"
+path = ".github/workflows/nightly-reliability.yml"
+name = "Nightly Reliability / reliability"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_JOB_NIGHTLY_RELIABILITY retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_JOB_NIGHTLY_RELIABILITY is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_59726B8C5AB103FE2332.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_59726B8C5AB103FE2332_08DD66BC11A1"
+mapping_proposal_digest = "sha256:08dd66bc11a150cc8fca716503f7653d1ae6a387847e4afa855c7c176c0d35fe"
+mapping_decision_id = "MAP_DEC_919FFB8CDFAC76A00BB52783"
+mapping_reviewed_source_digest = "sha256:aa7baf303f7d88b280157e2aa2bf547dd1c25c9ae1938948d08c834d82833216"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { ".github/workflows/nightly-reliability.yml" = "sha256:aa7baf303f7d88b280157e2aa2bf547dd1c25c9ae1938948d08c834d82833216" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_5BA1C91EA33A535ADB89"
+subject_kind = "generated_test"
+discovery_id = "DISC_5BA1C91EA33A535ADB89"
+discovery_source_kind = "github_workflow_job"
+test_class = "metadata_validation"
+area = "verification"
+path = ".github/workflows/verification-gate.yml"
+name = "Verification Gate / verification-report"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_JOB_VERIFICATION_REPORT retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_JOB_VERIFICATION_REPORT is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_5BA1C91EA33A535ADB89.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_5BA1C91EA33A535ADB89_D7520EA6B422"
+mapping_proposal_digest = "sha256:d7520ea6b422ec18d29aff483abb660a8e6c104d07c9b0513ae980a91f73d2aa"
+mapping_decision_id = "MAP_DEC_5F45F996641369DB6681B58B"
+mapping_reviewed_source_digest = "sha256:b67f7f1faec24681951d36dd5d574bb35b860ce99fba34c9de86c4a9022c9316"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { ".github/workflows/verification-gate.yml" = "sha256:b67f7f1faec24681951d36dd5d574bb35b860ce99fba34c9de86c4a9022c9316" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_605EEF72F5DD36D7166C"
+subject_kind = "generated_test"
+discovery_id = "DISC_605EEF72F5DD36D7166C"
+discovery_source_kind = "fuzz_target"
+test_class = "metadata_validation"
+area = "verification"
+path = "fuzz/fuzz_targets/syntax_parse.rs"
+name = "syntax_parse"
+command = "python3 -m unittest scripts.verification.fuzz_program_contract_tests scripts.verification.fuzz_program_source_contract_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_FUZZ_TARGET_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#fuzz-target-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#fuzz-target-proof-contract"]
+expected_result = "Fuzz target FUZZ_TARGET_SYNTAX_PARSE retains its exact live source, native campaign command, reviewed surface associations, execution tiers, corpus policy, and crash-regression handoff."
+expected_failure_mode = "Fuzz target FUZZ_TARGET_SYNTAX_PARSE is missing, duplicated, misbound to a source or surface, assigned an invented execution tier, or allowed to bypass deterministic crash-regression handoff."
+suite_tiers = ["nightly"]
+requires_hardware = false
+requires_network = false
+duration_class = "long"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_605EEF72F5DD36D7166C.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_605EEF72F5DD36D7166C_FA03C43CF37E"
+mapping_proposal_digest = "sha256:fa03c43cf37e08083f10040c8b2a85962205258a30ddb50d76803b84131a2f07"
+mapping_decision_id = "MAP_DEC_71DE08143268A7E07931DEBE"
+mapping_reviewed_source_digest = "sha256:5df5a5c4cfb710953804fce073ddc42482e3fcd958920ba485c5c981c50cc31b"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { "fuzz/fuzz_targets/syntax_parse.rs" = "sha256:5df5a5c4cfb710953804fce073ddc42482e3fcd958920ba485c5c981c50cc31b" }
+mapping_behavior_refs = ["VERIFICATION_FUZZ_TARGET_EXECUTION_001#behavior:0", "VERIFICATION_FUZZ_TARGET_EXECUTION_001#behavior:1", "VERIFICATION_FUZZ_TARGET_EXECUTION_001#behavior:2", "VERIFICATION_FUZZ_TARGET_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_6221D7F7D33814D363FB"
+subject_kind = "generated_test"
+discovery_id = "DISC_6221D7F7D33814D363FB"
+discovery_source_kind = "github_workflow_job"
+test_class = "metadata_validation"
+area = "verification"
+path = ".github/workflows/ci.yml"
+name = "CI / msrv"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_JOB_CI_MSRV retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_JOB_CI_MSRV is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_6221D7F7D33814D363FB.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_6221D7F7D33814D363FB_573C0CDFD33B"
+mapping_proposal_digest = "sha256:573c0cdfd33b45b86b2b181290daaeadc583ce8890fa277821389c6733426bf9"
+mapping_decision_id = "MAP_DEC_20031E6FD4C8BDC4737CCB25"
+mapping_reviewed_source_digest = "sha256:953fe03b02372cc5aad7c8c48b5f16dceca92f0c36269db8ee4ccd4f05f43dfb"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { ".github/workflows/ci.yml" = "sha256:953fe03b02372cc5aad7c8c48b5f16dceca92f0c36269db8ee4ccd4f05f43dfb" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_66347619F5120E79546D"
+subject_kind = "generated_test"
+discovery_id = "DISC_66347619F5120E79546D"
+discovery_source_kind = "gate_script"
+test_class = "metadata_validation"
+area = "verification"
+path = "scripts/runtime_boundary_fail_closed_ast_grep_gate.sh"
+name = "runtime_boundary_fail_closed_ast_grep_gate"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_SCRIPT_RUNTIME_BOUNDARY_FAIL_CLOSED_AST_GREP retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_SCRIPT_RUNTIME_BOUNDARY_FAIL_CLOSED_AST_GREP is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_66347619F5120E79546D.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_66347619F5120E79546D_0F8C09476563"
+mapping_proposal_digest = "sha256:0f8c094765631c0a81dc248c46aa8bf4100440894c82e11b4da9600806d36dcd"
+mapping_decision_id = "MAP_DEC_FD6A5DE5AD0BE3039A10E8C2"
+mapping_reviewed_source_digest = "sha256:892c37c938ce7a41a0090ef59a812fc41ad6683cab48d7af525b0eacbf011382"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { "scripts/runtime_boundary_fail_closed_ast_grep_gate.sh" = "sha256:892c37c938ce7a41a0090ef59a812fc41ad6683cab48d7af525b0eacbf011382" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_6963C4263D6C5C889504"
+subject_kind = "generated_test"
+discovery_id = "DISC_6963C4263D6C5C889504"
+discovery_source_kind = "gate_script"
+test_class = "metadata_validation"
+area = "verification"
+path = "scripts/salsa_memory_gate.sh"
+name = "salsa_memory_gate"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_SCRIPT_SALSA_MEMORY retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_SCRIPT_SALSA_MEMORY is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_6963C4263D6C5C889504.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_6963C4263D6C5C889504_620C071FD7C7"
+mapping_proposal_digest = "sha256:620c071fd7c7be5fd8fda2871a89ff02f9588d8391a40c62ad14feea70561629"
+mapping_decision_id = "MAP_DEC_1C159CD93E5B2F69165D3812"
+mapping_reviewed_source_digest = "sha256:8c47a5c5882f654564c283575c6b65fda2142baba644176a519bb7ca678e4e8d"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { "scripts/salsa_memory_gate.sh" = "sha256:8c47a5c5882f654564c283575c6b65fda2142baba644176a519bb7ca678e4e8d" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_6EB6C1819FC67E761608"
+subject_kind = "generated_test"
+discovery_id = "DISC_6EB6C1819FC67E761608"
+discovery_source_kind = "fuzz_target"
+test_class = "metadata_validation"
+area = "verification"
+path = "fuzz/fuzz_targets/lsp_incremental.rs"
+name = "lsp_incremental"
+command = "python3 -m unittest scripts.verification.fuzz_program_contract_tests scripts.verification.fuzz_program_source_contract_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_FUZZ_TARGET_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#fuzz-target-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#fuzz-target-proof-contract"]
+expected_result = "Fuzz target FUZZ_TARGET_LSP_INCREMENTAL retains its exact live source, native campaign command, reviewed surface associations, execution tiers, corpus policy, and crash-regression handoff."
+expected_failure_mode = "Fuzz target FUZZ_TARGET_LSP_INCREMENTAL is missing, duplicated, misbound to a source or surface, assigned an invented execution tier, or allowed to bypass deterministic crash-regression handoff."
+suite_tiers = ["nightly"]
+requires_hardware = false
+requires_network = false
+duration_class = "long"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_6EB6C1819FC67E761608.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_6EB6C1819FC67E761608_40356A292800"
+mapping_proposal_digest = "sha256:40356a2928005916af53b414fa29e27d5c5924c00884f7279e243310c493a075"
+mapping_decision_id = "MAP_DEC_B5F43E92A538E4815CFAEF40"
+mapping_reviewed_source_digest = "sha256:213df07a91abc5ba3ee9d77bf5314cbf545ca21e2ae020ee45c52853a7072871"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { "fuzz/fuzz_targets/lsp_incremental.rs" = "sha256:213df07a91abc5ba3ee9d77bf5314cbf545ca21e2ae020ee45c52853a7072871" }
+mapping_behavior_refs = ["VERIFICATION_FUZZ_TARGET_EXECUTION_001#behavior:0", "VERIFICATION_FUZZ_TARGET_EXECUTION_001#behavior:1", "VERIFICATION_FUZZ_TARGET_EXECUTION_001#behavior:2", "VERIFICATION_FUZZ_TARGET_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_7532206190B7F7EAE5F9"
+subject_kind = "generated_test"
+discovery_id = "DISC_7532206190B7F7EAE5F9"
+discovery_source_kind = "fuzz_target"
+test_class = "metadata_validation"
+area = "verification"
+path = "fuzz/fuzz_targets/plcopen_xml.rs"
+name = "plcopen_xml"
+command = "python3 -m unittest scripts.verification.fuzz_program_contract_tests scripts.verification.fuzz_program_source_contract_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_FUZZ_TARGET_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#fuzz-target-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#fuzz-target-proof-contract"]
+expected_result = "Fuzz target FUZZ_TARGET_PLCOPEN_XML retains its exact live source, native campaign command, reviewed surface associations, execution tiers, corpus policy, and crash-regression handoff."
+expected_failure_mode = "Fuzz target FUZZ_TARGET_PLCOPEN_XML is missing, duplicated, misbound to a source or surface, assigned an invented execution tier, or allowed to bypass deterministic crash-regression handoff."
+suite_tiers = ["nightly"]
+requires_hardware = false
+requires_network = false
+duration_class = "long"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_7532206190B7F7EAE5F9.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_7532206190B7F7EAE5F9_5789031A3B84"
+mapping_proposal_digest = "sha256:5789031a3b84ff88c49416757a20fd0e6c8d41bd8a390fc440c2108e4542a89d"
+mapping_decision_id = "MAP_DEC_73ACE25AE84D217C22E811D0"
+mapping_reviewed_source_digest = "sha256:222068a1103bb8b2a4025b8197fec0cfc4c1282a09f923a762a32be2bb42f6f4"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { "fuzz/fuzz_targets/plcopen_xml.rs" = "sha256:222068a1103bb8b2a4025b8197fec0cfc4c1282a09f923a762a32be2bb42f6f4" }
+mapping_behavior_refs = ["VERIFICATION_FUZZ_TARGET_EXECUTION_001#behavior:0", "VERIFICATION_FUZZ_TARGET_EXECUTION_001#behavior:1", "VERIFICATION_FUZZ_TARGET_EXECUTION_001#behavior:2", "VERIFICATION_FUZZ_TARGET_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_7ED37B60D2F64C092528"
+subject_kind = "generated_test"
+discovery_id = "DISC_7ED37B60D2F64C092528"
+discovery_source_kind = "github_workflow_job"
+test_class = "metadata_validation"
+area = "verification"
+path = ".github/workflows/release.yml"
+name = "Release / release-preflight"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_JOB_RELEASE_PREFLIGHT retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_JOB_RELEASE_PREFLIGHT is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_7ED37B60D2F64C092528.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_7ED37B60D2F64C092528_0ADDA9A941C6"
+mapping_proposal_digest = "sha256:0adda9a941c6a06fa0b048b536bbd7426541bdb84a86f623d7ba48e7ba48b64d"
+mapping_decision_id = "MAP_DEC_A6ED4DE17AC0F91B03236682"
+mapping_reviewed_source_digest = "sha256:30b769824f881ccddf8369b19acccfd9451929f9e774f29535d645dfbb020c63"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { ".github/workflows/release.yml" = "sha256:30b769824f881ccddf8369b19acccfd9451929f9e774f29535d645dfbb020c63" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_823641C6DB063FF9DFF1"
+subject_kind = "generated_test"
+discovery_id = "DISC_823641C6DB063FF9DFF1"
+discovery_source_kind = "gate_script"
+test_class = "metadata_validation"
+area = "verification"
+path = "scripts/unsafe_concurrency_sanitizer_gate.sh"
+name = "unsafe_concurrency_sanitizer_gate"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_SCRIPT_UNSAFE_CONCURRENCY_SANITIZER retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_SCRIPT_UNSAFE_CONCURRENCY_SANITIZER is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_823641C6DB063FF9DFF1.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_823641C6DB063FF9DFF1_1199F116F67F"
+mapping_proposal_digest = "sha256:1199f116f67f5453c65ce15dcdfd00a9a5b31e1ee8569d56b76056e9af98a403"
+mapping_decision_id = "MAP_DEC_38CA97F1AE431069104A4635"
+mapping_reviewed_source_digest = "sha256:36bafa37383a852c13ea80921cc825e0c6b5f7ace92f00110950a06e145922df"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { "scripts/unsafe_concurrency_sanitizer_gate.sh" = "sha256:36bafa37383a852c13ea80921cc825e0c6b5f7ace92f00110950a06e145922df" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_82FD54F3FCA28DB8AACE"
+subject_kind = "generated_test"
+discovery_id = "DISC_82FD54F3FCA28DB8AACE"
+discovery_source_kind = "github_workflow_job"
+test_class = "metadata_validation"
+area = "verification"
+path = ".github/workflows/salsa-hardening.yml"
+name = "Salsa Hardening / fuzz-smoke"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_JOB_SALSA_FUZZ_SMOKE retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_JOB_SALSA_FUZZ_SMOKE is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_82FD54F3FCA28DB8AACE.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_82FD54F3FCA28DB8AACE_B9417C85DEF1"
+mapping_proposal_digest = "sha256:b9417c85def1118fbb0ae0df1d8cfa129b399f789dc729dfcede27856721a856"
+mapping_decision_id = "MAP_DEC_160989A2794B3A6D1FD41183"
+mapping_reviewed_source_digest = "sha256:d5851fe83317008d0b41a02d547f25062196b8d4e274d95aef507a65dca7675f"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { ".github/workflows/salsa-hardening.yml" = "sha256:d5851fe83317008d0b41a02d547f25062196b8d4e274d95aef507a65dca7675f" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_8719AEF44DFFBA43F2A6"
+subject_kind = "generated_test"
+discovery_id = "DISC_8719AEF44DFFBA43F2A6"
+discovery_source_kind = "gate_script"
+test_class = "metadata_validation"
+area = "verification"
+path = "scripts/runtime_vm_determinism_reliability_gate.sh"
+name = "runtime_vm_determinism_reliability_gate"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_SCRIPT_RUNTIME_VM_DETERMINISM_RELIABILITY retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_SCRIPT_RUNTIME_VM_DETERMINISM_RELIABILITY is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_8719AEF44DFFBA43F2A6.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_8719AEF44DFFBA43F2A6_30C66C907D87"
+mapping_proposal_digest = "sha256:30c66c907d8752e91e4d2d1cec7f2b57f814b9353b3f097d2016f90d63822b5e"
+mapping_decision_id = "MAP_DEC_517899461EE2035B6D78664C"
+mapping_reviewed_source_digest = "sha256:e41ac449669e9bd7222a3cc698688d9d2083898a0885040228a6c162b3b0d516"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { "scripts/runtime_vm_determinism_reliability_gate.sh" = "sha256:e41ac449669e9bd7222a3cc698688d9d2083898a0885040228a6c162b3b0d516" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_8A5048EA5B2E3D3F24AF"
+subject_kind = "generated_test"
+discovery_id = "DISC_8A5048EA5B2E3D3F24AF"
+discovery_source_kind = "github_workflow_job"
+test_class = "metadata_validation"
+area = "verification"
+path = ".github/workflows/hmi-long-soak.yml"
+name = "HMI Long Soak / hmi-soak"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_JOB_HMI_LONG_SOAK retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_JOB_HMI_LONG_SOAK is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_8A5048EA5B2E3D3F24AF.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_8A5048EA5B2E3D3F24AF_C71A719C8E15"
+mapping_proposal_digest = "sha256:c71a719c8e155adb721132e1bc5be338ae880ce8d8a77183b3c12ba94c9d757c"
+mapping_decision_id = "MAP_DEC_8DFC851A5FB39BBEF7641A67"
+mapping_reviewed_source_digest = "sha256:c510dce7a44688838bceacd5a8daf133cf22c52c17b0a52ca92df6834c88b340"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { ".github/workflows/hmi-long-soak.yml" = "sha256:c510dce7a44688838bceacd5a8daf133cf22c52c17b0a52ca92df6834c88b340" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_949CD663563705798270"
+subject_kind = "generated_test"
+discovery_id = "DISC_949CD663563705798270"
+discovery_source_kind = "gate_script"
+test_class = "metadata_validation"
+area = "verification"
+path = "scripts/prepush_ci_gate.sh"
+name = "prepush_ci_gate"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_SCRIPT_PREPUSH_CI retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_SCRIPT_PREPUSH_CI is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_949CD663563705798270.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_949CD663563705798270_E33D1D6B9F7B"
+mapping_proposal_digest = "sha256:e33d1d6b9f7b0ed1a64b67edd0cf79325b09960984d20fcd0d2d1cc752725bad"
+mapping_decision_id = "MAP_DEC_ACF1AD7EFB561C09BE6F1C3A"
+mapping_reviewed_source_digest = "sha256:6837ac5f0b0aae043e699c8f769054f5340936b99d9ffcd5bec0f0cfe3f5313f"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { "scripts/prepush_ci_gate.sh" = "sha256:6837ac5f0b0aae043e699c8f769054f5340936b99d9ffcd5bec0f0cfe3f5313f" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_97EE7D808424A743C2A4"
+subject_kind = "generated_test"
+discovery_id = "DISC_97EE7D808424A743C2A4"
+discovery_source_kind = "gate_script"
+test_class = "metadata_validation"
+area = "verification"
+path = "scripts/architecture_external_safety_geiger_gate.sh"
+name = "architecture_external_safety_geiger_gate"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_SCRIPT_ARCHITECTURE_EXTERNAL_SAFETY_GEIGER retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_SCRIPT_ARCHITECTURE_EXTERNAL_SAFETY_GEIGER is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_97EE7D808424A743C2A4.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_97EE7D808424A743C2A4_8B27995965FE"
+mapping_proposal_digest = "sha256:8b27995965feca7c6f1427a7c9b393f41de2ceea4e2747f21b7d1fb454ca124d"
+mapping_decision_id = "MAP_DEC_FEE2E5FABDE748ACFB5CFA7C"
+mapping_reviewed_source_digest = "sha256:177b158396ae68c36e8392da5d715adfc7aec4959416fc6e3a6ef02278ae3841"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { "scripts/architecture_external_safety_geiger_gate.sh" = "sha256:177b158396ae68c36e8392da5d715adfc7aec4959416fc6e3a6ef02278ae3841" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_9A98BA16150EF4AF7EFD"
+subject_kind = "generated_test"
+discovery_id = "DISC_9A98BA16150EF4AF7EFD"
+discovery_source_kind = "github_workflow_job"
+test_class = "metadata_validation"
+area = "verification"
+path = ".github/workflows/ci.yml"
+name = "CI / fmt"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_JOB_CI_FMT retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_JOB_CI_FMT is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_9A98BA16150EF4AF7EFD.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_9A98BA16150EF4AF7EFD_B72E2F40498D"
+mapping_proposal_digest = "sha256:b72e2f40498debf7629ff6bcdcbaf27f19513a4d54b1e7344a2619d7428c1dd7"
+mapping_decision_id = "MAP_DEC_0595A13AFEADBC6256F29561"
+mapping_reviewed_source_digest = "sha256:953fe03b02372cc5aad7c8c48b5f16dceca92f0c36269db8ee4ccd4f05f43dfb"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { ".github/workflows/ci.yml" = "sha256:953fe03b02372cc5aad7c8c48b5f16dceca92f0c36269db8ee4ccd4f05f43dfb" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_9B0B303FB2CB432C77D6"
+subject_kind = "generated_test"
+discovery_id = "DISC_9B0B303FB2CB432C77D6"
+discovery_source_kind = "gate_script"
+test_class = "metadata_validation"
+area = "verification"
+path = "scripts/generate_release_gate_report.py"
+name = "generate_release_gate_report"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_SCRIPT_GENERATE_RELEASE_GATE_REPORT retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_SCRIPT_GENERATE_RELEASE_GATE_REPORT is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_9B0B303FB2CB432C77D6.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_9B0B303FB2CB432C77D6_41198ADD9CE3"
+mapping_proposal_digest = "sha256:41198add9ce30c53d477badd51af69ad0593e49955242c63e48366270d1316e3"
+mapping_decision_id = "MAP_DEC_91BFC813D72C8E5B569C79D3"
+mapping_reviewed_source_digest = "sha256:7683f2a91d41f1cb0ace19502f50a17bdf41b6b0d402d5ca6e52bda14dbbe1a6"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { "scripts/generate_release_gate_report.py" = "sha256:7683f2a91d41f1cb0ace19502f50a17bdf41b6b0d402d5ca6e52bda14dbbe1a6" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_A35CF62023CA62312980"
+subject_kind = "generated_test"
+discovery_id = "DISC_A35CF62023CA62312980"
+discovery_source_kind = "github_workflow_job"
+test_class = "metadata_validation"
+area = "verification"
+path = ".github/workflows/docs-captures.yml"
+name = "Docs Captures / refresh"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_JOB_DOCS_CAPTURES_REFRESH retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_JOB_DOCS_CAPTURES_REFRESH is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_A35CF62023CA62312980.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_A35CF62023CA62312980_D4B582178019"
+mapping_proposal_digest = "sha256:d4b582178019fb1c240598cd78366a34aeb79de8d4a488999a746d707df3330d"
+mapping_decision_id = "MAP_DEC_62A69B7A288DB2583A69F925"
+mapping_reviewed_source_digest = "sha256:c6a63bf9c337a3361a2f3e4469ba7883eb0acbcf6773290d9cb3f8be24d43b8e"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { ".github/workflows/docs-captures.yml" = "sha256:c6a63bf9c337a3361a2f3e4469ba7883eb0acbcf6773290d9cb3f8be24d43b8e" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_A4D3BFAE727696CF1764"
+subject_kind = "generated_test"
+discovery_id = "DISC_A4D3BFAE727696CF1764"
+discovery_source_kind = "gate_script"
+test_class = "metadata_validation"
+area = "verification"
+path = "scripts/salsa_spike_gate.sh"
+name = "salsa_spike_gate"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_SCRIPT_SALSA_SPIKE retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_SCRIPT_SALSA_SPIKE is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_A4D3BFAE727696CF1764.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_A4D3BFAE727696CF1764_2D1F198689F1"
+mapping_proposal_digest = "sha256:2d1f198689f13cf72d152c7f50d889a7f76e44b610af6be02e5b10fa75f31ebb"
+mapping_decision_id = "MAP_DEC_1835D1B863F1F0178B9C4662"
+mapping_reviewed_source_digest = "sha256:28cfc0e176fce9df34036b559ebaf7994dca103566837373a8cf0b49287e2e3f"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { "scripts/salsa_spike_gate.sh" = "sha256:28cfc0e176fce9df34036b559ebaf7994dca103566837373a8cf0b49287e2e3f" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_A4E4D1B4B91030B942BE"
+subject_kind = "generated_test"
+discovery_id = "DISC_A4E4D1B4B91030B942BE"
+discovery_source_kind = "github_workflow_job"
+test_class = "metadata_validation"
+area = "verification"
+path = ".github/workflows/ci.yml"
+name = "CI / mp001-parity"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_JOB_CI_MP001_PARITY retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_JOB_CI_MP001_PARITY is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_A4E4D1B4B91030B942BE.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_A4E4D1B4B91030B942BE_0CF130910C13"
+mapping_proposal_digest = "sha256:0cf130910c132325d8e3aca92ed8c711300df85c3d01f18b69ccfa68f95954e4"
+mapping_decision_id = "MAP_DEC_191D4CEADE6FA596E27A1BD4"
+mapping_reviewed_source_digest = "sha256:953fe03b02372cc5aad7c8c48b5f16dceca92f0c36269db8ee4ccd4f05f43dfb"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { ".github/workflows/ci.yml" = "sha256:953fe03b02372cc5aad7c8c48b5f16dceca92f0c36269db8ee4ccd4f05f43dfb" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_A6A56A75E4FFA72B3458"
+subject_kind = "generated_test"
+discovery_id = "DISC_A6A56A75E4FFA72B3458"
+discovery_source_kind = "gate_script"
+test_class = "metadata_validation"
+area = "verification"
+path = "scripts/salsa_fuzz_gate.sh"
+name = "salsa_fuzz_gate"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_SCRIPT_SALSA_FUZZ retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_SCRIPT_SALSA_FUZZ is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_A6A56A75E4FFA72B3458.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_A6A56A75E4FFA72B3458_163281674875"
+mapping_proposal_digest = "sha256:1632816748753caba1a6220ede63850c6d035a993b276574f53be1a2a5dbd2c2"
+mapping_decision_id = "MAP_DEC_B5074E144B7C463AF95D9483"
+mapping_reviewed_source_digest = "sha256:b9cabd8d43a8ae56182b6820c02126fbf6ac89f3d4270f014b8e2005dd321b29"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { "scripts/salsa_fuzz_gate.sh" = "sha256:b9cabd8d43a8ae56182b6820c02126fbf6ac89f3d4270f014b8e2005dd321b29" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_A97FFD37D84D3397E253"
+subject_kind = "generated_test"
+discovery_id = "DISC_A97FFD37D84D3397E253"
+discovery_source_kind = "gate_script"
+test_class = "metadata_validation"
+area = "verification"
+path = "scripts/runtime_motion_example_bench_gate.sh"
+name = "runtime_motion_example_bench_gate"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_SCRIPT_RUNTIME_MOTION_EXAMPLE_BENCH retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_SCRIPT_RUNTIME_MOTION_EXAMPLE_BENCH is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_A97FFD37D84D3397E253.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_A97FFD37D84D3397E253_D4A9C4BB10CA"
+mapping_proposal_digest = "sha256:d4a9c4bb10caa99cb1926233b0ee19a40c7a0b08bfbe419d214286758ec61ac5"
+mapping_decision_id = "MAP_DEC_03D0A65327A3BBAE5406DE7D"
+mapping_reviewed_source_digest = "sha256:924a1fc4b674e2f7006257439b457e6b41108ca567a10fc1775dfae1b2585be5"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { "scripts/runtime_motion_example_bench_gate.sh" = "sha256:924a1fc4b674e2f7006257439b457e6b41108ca567a10fc1775dfae1b2585be5" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_A9C7C10C7114876B30B2"
+subject_kind = "generated_test"
+discovery_id = "DISC_A9C7C10C7114876B30B2"
+discovery_source_kind = "gate_script"
+test_class = "metadata_validation"
+area = "verification"
+path = "scripts/unsafe_concurrency_geiger_gate.sh"
+name = "unsafe_concurrency_geiger_gate"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_SCRIPT_UNSAFE_CONCURRENCY_GEIGER retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_SCRIPT_UNSAFE_CONCURRENCY_GEIGER is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_A9C7C10C7114876B30B2.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_A9C7C10C7114876B30B2_D6DB3F20525F"
+mapping_proposal_digest = "sha256:d6db3f20525f1e079a7d2fb75acb23dd522279cff476767818dfc11e4fa6e3f6"
+mapping_decision_id = "MAP_DEC_FC80CFFA54A938DABA519EB9"
+mapping_reviewed_source_digest = "sha256:ab39762d99d3016b416c163391f71e7936b3ada306c0de91693b2df23d935306"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { "scripts/unsafe_concurrency_geiger_gate.sh" = "sha256:ab39762d99d3016b416c163391f71e7936b3ada306c0de91693b2df23d935306" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_AC66D9F7C57A787D2730"
+subject_kind = "generated_test"
+discovery_id = "DISC_AC66D9F7C57A787D2730"
+discovery_source_kind = "github_workflow_job"
+test_class = "metadata_validation"
+area = "verification"
+path = ".github/workflows/ci.yml"
+name = "CI / supply-chain"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_JOB_CI_SUPPLY_CHAIN retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_JOB_CI_SUPPLY_CHAIN is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_AC66D9F7C57A787D2730.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_AC66D9F7C57A787D2730_43C22A8D8F57"
+mapping_proposal_digest = "sha256:43c22a8d8f575582180843c244d295b0ffb6c44649f0f7e1972a37e43e3d1b33"
+mapping_decision_id = "MAP_DEC_0132A008ED4481480F30382E"
+mapping_reviewed_source_digest = "sha256:953fe03b02372cc5aad7c8c48b5f16dceca92f0c36269db8ee4ccd4f05f43dfb"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { ".github/workflows/ci.yml" = "sha256:953fe03b02372cc5aad7c8c48b5f16dceca92f0c36269db8ee4ccd4f05f43dfb" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_AF122FD96F5F78237430"
+subject_kind = "generated_test"
+discovery_id = "DISC_AF122FD96F5F78237430"
+discovery_source_kind = "github_workflow_job"
+test_class = "metadata_validation"
+area = "verification"
+path = ".github/workflows/ci.yml"
+name = "CI / vscode-extension"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_JOB_CI_VSCODE_EXTENSION retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_JOB_CI_VSCODE_EXTENSION is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_AF122FD96F5F78237430.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_AF122FD96F5F78237430_D3DD50F0F43E"
+mapping_proposal_digest = "sha256:d3dd50f0f43ed0a00b0d6ee4bf8d937a4e5e7484b75c5293fb238379d1247c77"
+mapping_decision_id = "MAP_DEC_1D64E5292950CFFCE1552FEF"
+mapping_reviewed_source_digest = "sha256:953fe03b02372cc5aad7c8c48b5f16dceca92f0c36269db8ee4ccd4f05f43dfb"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { ".github/workflows/ci.yml" = "sha256:953fe03b02372cc5aad7c8c48b5f16dceca92f0c36269db8ee4ccd4f05f43dfb" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_B250E91CEF7729F1DA08"
+subject_kind = "generated_test"
+discovery_id = "DISC_B250E91CEF7729F1DA08"
+discovery_source_kind = "github_workflow_job"
+test_class = "metadata_validation"
+area = "verification"
+path = ".github/workflows/ci.yml"
+name = "CI / clippy"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_JOB_CI_CLIPPY retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_JOB_CI_CLIPPY is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_B250E91CEF7729F1DA08.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_B250E91CEF7729F1DA08_2A4345EF859A"
+mapping_proposal_digest = "sha256:2a4345ef859a9687f4e7aeafbd379cfc24cca54dbd0d6666afe95ba2060014b9"
+mapping_decision_id = "MAP_DEC_D0FC277491BAD28C164995FD"
+mapping_reviewed_source_digest = "sha256:953fe03b02372cc5aad7c8c48b5f16dceca92f0c36269db8ee4ccd4f05f43dfb"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { ".github/workflows/ci.yml" = "sha256:953fe03b02372cc5aad7c8c48b5f16dceca92f0c36269db8ee4ccd4f05f43dfb" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_B9E4C3E00C764E9D923B"
+subject_kind = "generated_test"
+discovery_id = "DISC_B9E4C3E00C764E9D923B"
+discovery_source_kind = "fuzz_target"
+test_class = "metadata_validation"
+area = "verification"
+path = "fuzz/fuzz_targets/runtime_config.rs"
+name = "runtime_config"
+command = "python3 -m unittest scripts.verification.fuzz_program_contract_tests scripts.verification.fuzz_program_source_contract_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_FUZZ_TARGET_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#fuzz-target-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#fuzz-target-proof-contract"]
+expected_result = "Fuzz target FUZZ_TARGET_RUNTIME_CONFIG retains its exact live source, native campaign command, reviewed surface associations, execution tiers, corpus policy, and crash-regression handoff."
+expected_failure_mode = "Fuzz target FUZZ_TARGET_RUNTIME_CONFIG is missing, duplicated, misbound to a source or surface, assigned an invented execution tier, or allowed to bypass deterministic crash-regression handoff."
+suite_tiers = ["nightly"]
+requires_hardware = false
+requires_network = false
+duration_class = "long"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_B9E4C3E00C764E9D923B.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_B9E4C3E00C764E9D923B_FF352DC43009"
+mapping_proposal_digest = "sha256:ff352dc430099b4f2ae8e8f2e558d09b6403a24a497b89321f01733117e23c1f"
+mapping_decision_id = "MAP_DEC_80C217D9588CED91DFAF6E43"
+mapping_reviewed_source_digest = "sha256:f717f610947114b603153eb80fea725fae9bc17a5b6278a5dbced8ecb0c18789"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { "fuzz/fuzz_targets/runtime_config.rs" = "sha256:f717f610947114b603153eb80fea725fae9bc17a5b6278a5dbced8ecb0c18789" }
+mapping_behavior_refs = ["VERIFICATION_FUZZ_TARGET_EXECUTION_001#behavior:0", "VERIFICATION_FUZZ_TARGET_EXECUTION_001#behavior:1", "VERIFICATION_FUZZ_TARGET_EXECUTION_001#behavior:2", "VERIFICATION_FUZZ_TARGET_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_BD2C0185F2B39864BD9F"
+subject_kind = "generated_test"
+discovery_id = "DISC_BD2C0185F2B39864BD9F"
+discovery_source_kind = "gate_script"
+test_class = "metadata_validation"
+area = "verification"
+path = "scripts/unsafe_concurrency_miri_gate.sh"
+name = "unsafe_concurrency_miri_gate"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_SCRIPT_UNSAFE_CONCURRENCY_MIRI retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_SCRIPT_UNSAFE_CONCURRENCY_MIRI is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_BD2C0185F2B39864BD9F.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_BD2C0185F2B39864BD9F_2BE13494783D"
+mapping_proposal_digest = "sha256:2be13494783d5b4208a5951c18705dfbbe17c9744fe0b4a91585717e379c7b8e"
+mapping_decision_id = "MAP_DEC_106849E3BBEE82CB400CA385"
+mapping_reviewed_source_digest = "sha256:4bdc99e3aee779c2d337a2644a6c0ad979a9248ef2b0eb7227060dd1d09dff74"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { "scripts/unsafe_concurrency_miri_gate.sh" = "sha256:4bdc99e3aee779c2d337a2644a6c0ad979a9248ef2b0eb7227060dd1d09dff74" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_C0087F7709DEE75AC84A"
+subject_kind = "generated_test"
+discovery_id = "DISC_C0087F7709DEE75AC84A"
+discovery_source_kind = "gate_script"
+test_class = "metadata_validation"
+area = "verification"
+path = "scripts/runtime_device_in_loop_gate.sh"
+name = "runtime_device_in_loop_gate"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_SCRIPT_RUNTIME_DEVICE_IN_LOOP retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_SCRIPT_RUNTIME_DEVICE_IN_LOOP is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_C0087F7709DEE75AC84A.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_C0087F7709DEE75AC84A_146101708A69"
+mapping_proposal_digest = "sha256:146101708a69896e6f03d8c1106fa81c7794e2906a1fcb478f179ac3095cb89c"
+mapping_decision_id = "MAP_DEC_418BFC016BD2939840AEA34B"
+mapping_reviewed_source_digest = "sha256:04ab8f855b74842ac870fdbda17cf9b6bc42218d65f554271293ff8825627726"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { "scripts/runtime_device_in_loop_gate.sh" = "sha256:04ab8f855b74842ac870fdbda17cf9b6bc42218d65f554271293ff8825627726" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_C039EB4AC0BCC1D70240"
+subject_kind = "generated_test"
+discovery_id = "DISC_C039EB4AC0BCC1D70240"
+discovery_source_kind = "github_workflow_job"
+test_class = "metadata_validation"
+area = "verification"
+path = ".github/workflows/ci.yml"
+name = "CI / docs"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_JOB_CI_DOCS retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_JOB_CI_DOCS is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_C039EB4AC0BCC1D70240.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_C039EB4AC0BCC1D70240_FD1A974DA605"
+mapping_proposal_digest = "sha256:fd1a974da605f4b8130acfec418c5449c9b3b5f686580e8c636664434156d553"
+mapping_decision_id = "MAP_DEC_3945069C53B6C4527B63B8BC"
+mapping_reviewed_source_digest = "sha256:953fe03b02372cc5aad7c8c48b5f16dceca92f0c36269db8ee4ccd4f05f43dfb"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { ".github/workflows/ci.yml" = "sha256:953fe03b02372cc5aad7c8c48b5f16dceca92f0c36269db8ee4ccd4f05f43dfb" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_C04DF07CD4649EF5B41B"
+subject_kind = "generated_test"
+discovery_id = "DISC_C04DF07CD4649EF5B41B"
+discovery_source_kind = "gate_script"
+test_class = "metadata_validation"
+area = "verification"
+path = "scripts/verification_report_gate.py"
+name = "verification_report_gate"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_SCRIPT_VERIFICATION_REPORT retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_SCRIPT_VERIFICATION_REPORT is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_C04DF07CD4649EF5B41B.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_C04DF07CD4649EF5B41B_CD15EA31923D"
+mapping_proposal_digest = "sha256:cd15ea31923d5fbd37d35bd52cbacf341ee1b3b7e40df58023f9efdd60b7bfd6"
+mapping_decision_id = "MAP_DEC_462CE079564726F69BE7606C"
+mapping_reviewed_source_digest = "sha256:76f4af1a960713078b1275badd60cfb6684c7b6448d0c69103653a4d7ce83819"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { "scripts/verification_report_gate.py" = "sha256:76f4af1a960713078b1275badd60cfb6684c7b6448d0c69103653a4d7ce83819" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_C6F8EB526D95DA5111CE"
+subject_kind = "generated_test"
+discovery_id = "DISC_C6F8EB526D95DA5111CE"
+discovery_source_kind = "gate_script"
+test_class = "metadata_validation"
+area = "verification"
+path = "scripts/runtime_vm_malformed_bytecode_fuzz_gate.sh"
+name = "runtime_vm_malformed_bytecode_fuzz_gate"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_SCRIPT_RUNTIME_VM_MALFORMED_BYTECODE_FUZZ retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_SCRIPT_RUNTIME_VM_MALFORMED_BYTECODE_FUZZ is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_C6F8EB526D95DA5111CE.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_C6F8EB526D95DA5111CE_3F50DF946555"
+mapping_proposal_digest = "sha256:3f50df9465557d32f653e1284ec5a62f6e8c4df0ad0f70e3d4fc166c9f8aa110"
+mapping_decision_id = "MAP_DEC_15F9915751B20EF968AA9068"
+mapping_reviewed_source_digest = "sha256:6c226b829e70d3dc32c4b91a44d8a930b963a50e76bab0515c0284e60deadc4f"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { "scripts/runtime_vm_malformed_bytecode_fuzz_gate.sh" = "sha256:6c226b829e70d3dc32c4b91a44d8a930b963a50e76bab0515c0284e60deadc4f" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_CCEB4E82D928C12FB0E6"
+subject_kind = "generated_test"
+discovery_id = "DISC_CCEB4E82D928C12FB0E6"
+discovery_source_kind = "github_workflow_job"
+test_class = "metadata_validation"
+area = "verification"
+path = ".github/workflows/demo-pages.yml"
+name = "Docs Pages / build"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_JOB_DOCS_PAGES_BUILD retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_JOB_DOCS_PAGES_BUILD is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_CCEB4E82D928C12FB0E6.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_CCEB4E82D928C12FB0E6_578AC7F90912"
+mapping_proposal_digest = "sha256:578ac7f90912656d5f9ef22fe61cdaeb2fab53b849e67b11a2b479ad5295196b"
+mapping_decision_id = "MAP_DEC_B22AD1A62C8A351BB6E5131B"
+mapping_reviewed_source_digest = "sha256:824599d449288f1f73bc20bd00a94a8a2f0909dc9235717cf27c6f0010469192"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { ".github/workflows/demo-pages.yml" = "sha256:824599d449288f1f73bc20bd00a94a8a2f0909dc9235717cf27c6f0010469192" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_D273DA1B1F1C3F010944"
+subject_kind = "generated_test"
+discovery_id = "DISC_D273DA1B1F1C3F010944"
+discovery_source_kind = "github_workflow_job"
+test_class = "metadata_validation"
+area = "verification"
+path = ".github/workflows/salsa-hardening.yml"
+name = "Salsa Hardening / memory-regression"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_JOB_SALSA_MEMORY_REGRESSION retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_JOB_SALSA_MEMORY_REGRESSION is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_D273DA1B1F1C3F010944.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_D273DA1B1F1C3F010944_9816807D9304"
+mapping_proposal_digest = "sha256:9816807d9304257bbaea04afd98b2a13fbc563c7147011eca91a322a00bedc2e"
+mapping_decision_id = "MAP_DEC_031C770F7D4FA9E34D8A2A70"
+mapping_reviewed_source_digest = "sha256:d5851fe83317008d0b41a02d547f25062196b8d4e274d95aef507a65dca7675f"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { ".github/workflows/salsa-hardening.yml" = "sha256:d5851fe83317008d0b41a02d547f25062196b8d4e274d95aef507a65dca7675f" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_DAA028DE0B613F42BE10"
+subject_kind = "generated_test"
+discovery_id = "DISC_DAA028DE0B613F42BE10"
+discovery_source_kind = "github_workflow_job"
+test_class = "metadata_validation"
+area = "verification"
+path = ".github/workflows/release.yml"
+name = "Release / publish"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_JOB_RELEASE_PUBLISH retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_JOB_RELEASE_PUBLISH is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_DAA028DE0B613F42BE10.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_DAA028DE0B613F42BE10_146EA47C223B"
+mapping_proposal_digest = "sha256:146ea47c223ba3d7f15d9f28c125007f9ed247f3c90acd4c09a9176813e2fb95"
+mapping_decision_id = "MAP_DEC_605EC99A3CE4F702608C6A58"
+mapping_reviewed_source_digest = "sha256:30b769824f881ccddf8369b19acccfd9451929f9e774f29535d645dfbb020c63"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { ".github/workflows/release.yml" = "sha256:30b769824f881ccddf8369b19acccfd9451929f9e774f29535d645dfbb020c63" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_DC80DD9E764F13A86D6F"
+subject_kind = "generated_test"
+discovery_id = "DISC_DC80DD9E764F13A86D6F"
+discovery_source_kind = "github_workflow_job"
+test_class = "metadata_validation"
+area = "verification"
+path = ".github/workflows/ci.yml"
+name = "CI / test"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_JOB_CI_TEST retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_JOB_CI_TEST is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_DC80DD9E764F13A86D6F.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_DC80DD9E764F13A86D6F_8ED0A43E2158"
+mapping_proposal_digest = "sha256:8ed0a43e2158c1e2c23d8c829e06083bbdacecd3891ab08d87e2382fffb9f8dd"
+mapping_decision_id = "MAP_DEC_A1E37B23728D540B958B7903"
+mapping_reviewed_source_digest = "sha256:953fe03b02372cc5aad7c8c48b5f16dceca92f0c36269db8ee4ccd4f05f43dfb"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { ".github/workflows/ci.yml" = "sha256:953fe03b02372cc5aad7c8c48b5f16dceca92f0c36269db8ee4ccd4f05f43dfb" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_DED48E736E3A27E72CF8"
+subject_kind = "generated_test"
+discovery_id = "DISC_DED48E736E3A27E72CF8"
+discovery_source_kind = "fuzz_target"
+test_class = "metadata_validation"
+area = "verification"
+path = "fuzz/fuzz_targets/bytecode_container.rs"
+name = "bytecode_container"
+command = "python3 -m unittest scripts.verification.fuzz_program_contract_tests scripts.verification.fuzz_program_source_contract_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_FUZZ_TARGET_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#fuzz-target-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#fuzz-target-proof-contract"]
+expected_result = "Fuzz target FUZZ_TARGET_BYTECODE_CONTAINER retains its exact live source, native campaign command, reviewed surface associations, execution tiers, corpus policy, and crash-regression handoff."
+expected_failure_mode = "Fuzz target FUZZ_TARGET_BYTECODE_CONTAINER is missing, duplicated, misbound to a source or surface, assigned an invented execution tier, or allowed to bypass deterministic crash-regression handoff."
+suite_tiers = ["nightly"]
+requires_hardware = false
+requires_network = false
+duration_class = "long"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_DED48E736E3A27E72CF8.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_DED48E736E3A27E72CF8_22C711E93E91"
+mapping_proposal_digest = "sha256:22c711e93e91e1dc903daebf231893219b4cd0fb80733cdc8ab19ad6e28339cb"
+mapping_decision_id = "MAP_DEC_DBA213C67073BD684B18F350"
+mapping_reviewed_source_digest = "sha256:5e81c6603f405d76155b47ca133ac08ce7bfb9a9714b7bc1f30bd0b9ca149cd8"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { "fuzz/fuzz_targets/bytecode_container.rs" = "sha256:5e81c6603f405d76155b47ca133ac08ce7bfb9a9714b7bc1f30bd0b9ca149cd8" }
+mapping_behavior_refs = ["VERIFICATION_FUZZ_TARGET_EXECUTION_001#behavior:0", "VERIFICATION_FUZZ_TARGET_EXECUTION_001#behavior:1", "VERIFICATION_FUZZ_TARGET_EXECUTION_001#behavior:2", "VERIFICATION_FUZZ_TARGET_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_DFD1BC59DE81E1E3DDBD"
+subject_kind = "generated_test"
+discovery_id = "DISC_DFD1BC59DE81E1E3DDBD"
+discovery_source_kind = "gate_script"
+test_class = "metadata_validation"
+area = "verification"
+path = "scripts/runtime_safety_fail_closed_ast_grep_gate.sh"
+name = "runtime_safety_fail_closed_ast_grep_gate"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_SCRIPT_RUNTIME_SAFETY_FAIL_CLOSED_AST_GREP retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_SCRIPT_RUNTIME_SAFETY_FAIL_CLOSED_AST_GREP is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_DFD1BC59DE81E1E3DDBD.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_DFD1BC59DE81E1E3DDBD_2A0186265B2B"
+mapping_proposal_digest = "sha256:2a0186265b2b48790df001b5a59b55cf45d777d887bdd9274f5a0a20cd2ebad2"
+mapping_decision_id = "MAP_DEC_9FCAC754B66E634B90F54992"
+mapping_reviewed_source_digest = "sha256:48ebf2d0552aa84977eca20a96d0f1ce34fc2879b71b997a3d12812bff3e6bc7"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { "scripts/runtime_safety_fail_closed_ast_grep_gate.sh" = "sha256:48ebf2d0552aa84977eca20a96d0f1ce34fc2879b71b997a3d12812bff3e6bc7" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_E3CC7838268374AC3D36"
+subject_kind = "generated_test"
+discovery_id = "DISC_E3CC7838268374AC3D36"
+discovery_source_kind = "github_workflow_job"
+test_class = "metadata_validation"
+area = "verification"
+path = ".github/workflows/protocol-device-in-loop.yml"
+name = "Protocol Device-In-The-Loop / protocol-device-in-loop"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_JOB_PROTOCOL_DEVICE_IN_LOOP retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_JOB_PROTOCOL_DEVICE_IN_LOOP is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_E3CC7838268374AC3D36.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_E3CC7838268374AC3D36_A0FD5D05615B"
+mapping_proposal_digest = "sha256:a0fd5d05615b4659c5773999c8e70a8dd7144acaac38e4ddcfc78979f85901dc"
+mapping_decision_id = "MAP_DEC_64038E240DFCECA3F80C1A86"
+mapping_reviewed_source_digest = "sha256:181ea397d9879265ffe12c70ceab9ce52e43401aa3d13bff35f91e4028566c2a"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { ".github/workflows/protocol-device-in-loop.yml" = "sha256:181ea397d9879265ffe12c70ceab9ce52e43401aa3d13bff35f91e4028566c2a" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_EAD3A1087B30D8FBAE21"
+subject_kind = "generated_test"
+discovery_id = "DISC_EAD3A1087B30D8FBAE21"
+discovery_source_kind = "github_workflow_job"
+test_class = "metadata_validation"
+area = "verification"
+path = ".github/workflows/ci.yml"
+name = "CI / version-release-guard"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_JOB_CI_VERSION_RELEASE_GUARD retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_JOB_CI_VERSION_RELEASE_GUARD is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_EAD3A1087B30D8FBAE21.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_EAD3A1087B30D8FBAE21_E8FEE208443B"
+mapping_proposal_digest = "sha256:e8fee208443b2c6003d96c29adc73e08441c7e4ce42f4cd81c6a4d79cbe84b39"
+mapping_decision_id = "MAP_DEC_457362D928B9DAC21B6F27A7"
+mapping_reviewed_source_digest = "sha256:953fe03b02372cc5aad7c8c48b5f16dceca92f0c36269db8ee4ccd4f05f43dfb"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { ".github/workflows/ci.yml" = "sha256:953fe03b02372cc5aad7c8c48b5f16dceca92f0c36269db8ee4ccd4f05f43dfb" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_F0537B30EAC2EA70A015"
+subject_kind = "generated_test"
+discovery_id = "DISC_F0537B30EAC2EA70A015"
+discovery_source_kind = "github_workflow_job"
+test_class = "metadata_validation"
+area = "verification"
+path = ".github/workflows/ci.yml"
+name = "CI / architecture-safety"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_JOB_CI_ARCHITECTURE_SAFETY retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_JOB_CI_ARCHITECTURE_SAFETY is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_F0537B30EAC2EA70A015.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_F0537B30EAC2EA70A015_B61282EA4BED"
+mapping_proposal_digest = "sha256:b61282ea4bed9cec876a67c5797319a9feea0b5427d163252e8d47c13373aace"
+mapping_decision_id = "MAP_DEC_A5DB06F69233E5953EE3BA57"
+mapping_reviewed_source_digest = "sha256:953fe03b02372cc5aad7c8c48b5f16dceca92f0c36269db8ee4ccd4f05f43dfb"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { ".github/workflows/ci.yml" = "sha256:953fe03b02372cc5aad7c8c48b5f16dceca92f0c36269db8ee4ccd4f05f43dfb" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_F0E6B14CB78B33EBD959"
+subject_kind = "generated_test"
+discovery_id = "DISC_F0E6B14CB78B33EBD959"
+discovery_source_kind = "gate_script"
+test_class = "metadata_validation"
+area = "verification"
+path = "scripts/unsafe_concurrency_valgrind_gate.sh"
+name = "unsafe_concurrency_valgrind_gate"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_SCRIPT_UNSAFE_CONCURRENCY_VALGRIND retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_SCRIPT_UNSAFE_CONCURRENCY_VALGRIND is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_F0E6B14CB78B33EBD959.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_F0E6B14CB78B33EBD959_9C766A8A863D"
+mapping_proposal_digest = "sha256:9c766a8a863d99698ada02554e9aa1b0dffc72bd126ff43558db8e7a955b6299"
+mapping_decision_id = "MAP_DEC_FB322FAB5DD43DF5AB2874DF"
+mapping_reviewed_source_digest = "sha256:90c18a2526c21b350340bdd8e79af3dab69eee5419723fb146160401b2babb80"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { "scripts/unsafe_concurrency_valgrind_gate.sh" = "sha256:90c18a2526c21b350340bdd8e79af3dab69eee5419723fb146160401b2babb80" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_F1F4D6E2F5ABD3159120"
+subject_kind = "generated_test"
+discovery_id = "DISC_F1F4D6E2F5ABD3159120"
+discovery_source_kind = "github_workflow_job"
+test_class = "metadata_validation"
+area = "verification"
+path = ".github/workflows/ci.yml"
+name = "CI / editor-expansion"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_JOB_CI_EDITOR_EXPANSION retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_JOB_CI_EDITOR_EXPANSION is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_F1F4D6E2F5ABD3159120.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_F1F4D6E2F5ABD3159120_6261C97BB620"
+mapping_proposal_digest = "sha256:6261c97bb620083cdea0891d1ad6e69786514d40ad26d3a8a3d19e5e905b2832"
+mapping_decision_id = "MAP_DEC_B5586B834261A3999FCAE651"
+mapping_reviewed_source_digest = "sha256:953fe03b02372cc5aad7c8c48b5f16dceca92f0c36269db8ee4ccd4f05f43dfb"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { ".github/workflows/ci.yml" = "sha256:953fe03b02372cc5aad7c8c48b5f16dceca92f0c36269db8ee4ccd4f05f43dfb" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_F5BA99A56A8ACF405D9E"
+subject_kind = "generated_test"
+discovery_id = "DISC_F5BA99A56A8ACF405D9E"
+discovery_source_kind = "github_workflow_job"
+test_class = "metadata_validation"
+area = "verification"
+path = ".github/workflows/ci.yml"
+name = "CI / browser-analysis"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_JOB_CI_BROWSER_ANALYSIS retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_JOB_CI_BROWSER_ANALYSIS is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_F5BA99A56A8ACF405D9E.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_F5BA99A56A8ACF405D9E_3E837DB6C0AA"
+mapping_proposal_digest = "sha256:3e837db6c0aa6aec4f886cead454b92a828ed315d192b6b7e485f90eaa527ba6"
+mapping_decision_id = "MAP_DEC_58D1A50CFB75F899245F7F27"
+mapping_reviewed_source_digest = "sha256:953fe03b02372cc5aad7c8c48b5f16dceca92f0c36269db8ee4ccd4f05f43dfb"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { ".github/workflows/ci.yml" = "sha256:953fe03b02372cc5aad7c8c48b5f16dceca92f0c36269db8ee4ccd4f05f43dfb" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_F5C98BD577899E0D29C1"
+subject_kind = "generated_test"
+discovery_id = "DISC_F5C98BD577899E0D29C1"
+discovery_source_kind = "gate_script"
+test_class = "metadata_validation"
+area = "verification"
+path = "scripts/aggregate_st_test_flake_history.py"
+name = "aggregate_st_test_flake_history"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_SCRIPT_AGGREGATE_ST_TEST_FLAKE_HISTORY retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_SCRIPT_AGGREGATE_ST_TEST_FLAKE_HISTORY is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_F5C98BD577899E0D29C1.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_F5C98BD577899E0D29C1_D0617D22AC08"
+mapping_proposal_digest = "sha256:d0617d22ac089c6ce5caed5048b55bc3e7901ac65657f9ddc33e874a58815b2f"
+mapping_decision_id = "MAP_DEC_47F2593BC377B7D8A28867BB"
+mapping_reviewed_source_digest = "sha256:607ba1561c76fcaed29cb671a2e9aba5d9e8a0c46126133bd25ffd3f72b1b096"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { "scripts/aggregate_st_test_flake_history.py" = "sha256:607ba1561c76fcaed29cb671a2e9aba5d9e8a0c46126133bd25ffd3f72b1b096" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_F9FB29C84C865FBB50F1"
+subject_kind = "generated_test"
+discovery_id = "DISC_F9FB29C84C865FBB50F1"
+discovery_source_kind = "gate_script"
+test_class = "metadata_validation"
+area = "verification"
+path = "scripts/architecture_external_safety_ast_grep_gate.sh"
+name = "architecture_external_safety_ast_grep_gate"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_SCRIPT_ARCHITECTURE_EXTERNAL_SAFETY_AST_GREP retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_SCRIPT_ARCHITECTURE_EXTERNAL_SAFETY_AST_GREP is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_F9FB29C84C865FBB50F1.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_F9FB29C84C865FBB50F1_4234B5BD6DC2"
+mapping_proposal_digest = "sha256:4234b5bd6dc26a5d927f2eeca9b96ccefe93f3c3d4ec751968e637dda054ac80"
+mapping_decision_id = "MAP_DEC_36ED312344194FB1F0F02B1D"
+mapping_reviewed_source_digest = "sha256:cea14db0b3dcd7433e215a4faecedf24918010ac798a392070229056774e1c4a"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { "scripts/architecture_external_safety_ast_grep_gate.sh" = "sha256:cea14db0b3dcd7433e215a4faecedf24918010ac798a392070229056774e1c4a" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]
+
+
+[[tests]]
+schema_version = 2
+id = "TEST_AUTO_FC8C5E6C94A654730D6F"
+subject_kind = "generated_test"
+discovery_id = "DISC_FC8C5E6C94A654730D6F"
+discovery_source_kind = "gate_script"
+test_class = "metadata_validation"
+area = "verification"
+path = "scripts/salsa_hardening_perf_gate.sh"
+name = "salsa_hardening_perf_gate"
+command = "python3 -m unittest scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests"
+owner = "verification"
+status = "mapped"
+invariants = ["VERIFICATION_GATE_SURFACE_EXECUTION_001"]
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+oracle_refs = ["SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"]
+expected_result = "Gate inventory surface GATE_SCRIPT_SALSA_HARDENING_PERF retains its exact discovery identity, native command or workflow job, suite routing or explicit exclusion, enforcement posture, environment, and artifact contract."
+expected_failure_mode = "Gate inventory surface GATE_SCRIPT_SALSA_HARDENING_PERF is missing, duplicated, misbound, routed to an undeclared suite, escalated beyond its reviewed posture, or accepted with a stale artifact contract."
+suite_tiers = ["pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "medium"
+evidence_destination = "target/gate-artifacts/cases/TEST_AUTO_FC8C5E6C94A654730D6F.json"
+last_reviewed = "2026-07-29"
+mapping_proposal_id = "MAP_CAND_FC8C5E6C94A654730D6F_A118E5CEBB15"
+mapping_proposal_digest = "sha256:a118e5cebb152a1bb1053dcb8a09710b2ea6c6d996b57f63c907e27a1c9e5ad9"
+mapping_decision_id = "MAP_DEC_6C1851B176F45C62EB28B0EF"
+mapping_reviewed_source_digest = "sha256:0c42983ba12a23b84c04a5c125b996bd59e30e0389dea1c3123378e5f13839ea"
+mapping_assertion_review_digest = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+mapping_assertion_source_digests = { "scripts/salsa_hardening_perf_gate.sh" = "sha256:0c42983ba12a23b84c04a5c125b996bd59e30e0389dea1c3123378e5f13839ea" }
+mapping_behavior_refs = ["VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:0", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:1", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:2", "VERIFICATION_GATE_SURFACE_EXECUTION_001#behavior:3"]
+mapping_reviewer_ids = ["codex-inventory-review", "codex-main"]

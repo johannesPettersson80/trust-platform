@@ -83,6 +83,28 @@ def _accepted(reviewers: list[str] | None = None) -> dict[str, object]:
     return {"id": stable_decision_id(semantic), **semantic}
 
 
+def _structural_acceptance(
+    source_kind: str = "gate_script",
+) -> tuple[dict[str, object], dict[str, object]]:
+    proposal = _proposal()
+    proposal["discovery_source_kind"] = source_kind
+    proposal["assertions"] = []
+    proposal["command"] = (
+        "python3 -m unittest scripts.verification.gate_inventory_tests"
+    )
+    decision = _accepted()
+    decision["assertion_reviews"] = []
+    decision["command"] = proposal["command"]
+    decision["confirmed_catalog"] = {
+        **decision["confirmed_catalog"],
+        "test_class": "metadata_validation",
+        "area": "verification",
+        "owner": "verification",
+    }
+    decision["id"] = stable_decision_id(decision)
+    return proposal, decision
+
+
 class MappingReviewContractTests(unittest.TestCase):
     def validate(
         self,
@@ -130,6 +152,63 @@ class MappingReviewContractTests(unittest.TestCase):
 
         self.assertTrue(any("candidate generator cannot review" in item for item in failures))
         self.assertTrue(any("assertion" in item for item in failures))
+
+    def test_structural_inventory_acceptance_uses_metadata_oracle_without_assertions(
+        self,
+    ) -> None:
+        for source_kind in (
+            "gate_script",
+            "github_workflow_job",
+            "fuzz_target",
+        ):
+            with self.subTest(source_kind=source_kind):
+                proposal, decision = _structural_acceptance(source_kind)
+                failures = validate_mapping_decisions(
+                    decisions=[decision],
+                    proposals={PROPOSAL_ID: proposal},
+                    invariants={
+                        "INV_ONE": {
+                            "risk": "false_status",
+                            "area": "verification",
+                        }
+                    },
+                    candidate_generator_id="test-catalog-proposals",
+                )
+                self.assertEqual([], failures)
+
+        proposal, decision = _structural_acceptance("rust_unit_test")
+        failures = validate_mapping_decisions(
+            decisions=[decision],
+            proposals={PROPOSAL_ID: proposal},
+            invariants={
+                "INV_ONE": {
+                    "risk": "false_status",
+                    "area": "verification",
+                }
+            },
+            candidate_generator_id="test-catalog-proposals",
+        )
+        self.assertTrue(
+            any("oracle-bound assertion" in item for item in failures)
+        )
+
+        proposal, decision = _structural_acceptance()
+        decision["confirmed_catalog"]["test_class"] = "behavior_lock"
+        decision["id"] = stable_decision_id(decision)
+        failures = validate_mapping_decisions(
+            decisions=[decision],
+            proposals={PROPOSAL_ID: proposal},
+            invariants={
+                "INV_ONE": {
+                    "risk": "false_status",
+                    "area": "verification",
+                }
+            },
+            candidate_generator_id="test-catalog-proposals",
+        )
+        self.assertTrue(
+            any("oracle-bound assertion" in item for item in failures)
+        )
 
     def test_decision_id_is_generated_from_semantic_content(self) -> None:
         decision = _accepted()

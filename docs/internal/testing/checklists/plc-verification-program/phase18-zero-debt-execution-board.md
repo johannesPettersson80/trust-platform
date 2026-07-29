@@ -4,7 +4,7 @@ Status: zero-debt contract accepted by commit-bound independent R3 review.
 Findings `P18-C01` through `P18-C08` and `P18-R2-01` are resolved.
 
 Current row: `VERIF-P18-003`, continuing as one repository-wide
-authority/mapping campaign over the remaining 173 owned nonmapping tests, 203
+authority/mapping campaign over the remaining 106 owned nonmapping tests, 203
 gap-open coverage cells, nine current exact-behavior-marker debts, and eleven
 empty historical placeholder invariants. The accepted P18-002 ledger owns and
 orders every current fact; it does not close any semantic, mapping, execution,
@@ -1414,6 +1414,32 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   Evidence:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-windows-uri-oracle-closure-2.md`.
   <!-- generated:windows-uri-oracle-closure-2:end -->
+  <!-- generated:governed-gate-fuzz-closure-67:start -->
+
+  Governed gate and fuzz structural mapping progress (2026-07-29): all 59
+  `gate_inventory_owned` and eight `fuzz_program_owned` facts now have exact
+  generated catalog bindings to explicit verification-governance authority.
+  The mappings bind every discovery to its live inventory row, source digest,
+  structural validation command, suite/enforcement posture, environment,
+  artifact/corpus policy, production-surface association, and
+  crash-regression handoff. Focused structural validation passes 36/36 gate
+  and suite tests plus 36/36 fuzz program/source tests. A new mapping-review
+  rule has the required assertion red and paired green and permits empty
+  assertion sets only for gate scripts, GitHub workflow jobs, and fuzz targets
+  using verification-owned `metadata_validation` contracts; Rust/ST/VS Code
+  behavior mappings still require real oracle-bound assertions. The atomic
+  transaction moves the exact denominator from 4,401 = 4,228 mapped + 173
+  nonmapping to 4,401 = 4,295 mapped + 106 nonmapping. Only 83 product
+  non-oracle/harness facts and 23 ignored-test facts remain. A root-record
+  audit proves all 7,054 pre-existing proposal/decision records
+  byte-identical, the focused mapping suite passes 73/73, and staleness
+  isolation finds zero findings across all 134 new discovery/catalog
+  identities. These mappings prove structural inventory and routing only;
+  exact-SHA native GitHub job, gate, and fuzz campaign execution remains
+  explicit downstream debt. `VERIF-P18-003` and `VERIF-P18-005` remain
+  globally open; no broad workspace gate ran. Evidence:
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-governed-gate-fuzz-closure-67.md`.
+  <!-- generated:governed-gate-fuzz-closure-67:end -->
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device

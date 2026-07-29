@@ -1,0 +1,82 @@
+schema_version = 1
+id = "VERIFICATION_GATE_SURFACE_EXECUTION_001"
+title = "Registered gate and workflow surfaces retain exact native proof contracts"
+area = "verification"
+risk = "false_status"
+status = "mapped"
+owner = "verification"
+last_reviewed = "2026-07-29"
+claim = "Every live gate script and GitHub workflow-job fact must bind its exact gate-inventory identity, native command or job, suite and enforcement posture, environment, terminal result, and declared artifact contract without claiming transitive product proof."
+proof_level = "S0"
+contract_kind = "release_matrix"
+source_refs = [
+  "docs/specs/30-verification-inventory.md",
+  "verification/gate-inventory.toml",
+  "verification/suites",
+  ".github/workflows",
+  "scripts",
+]
+tests = ["TEST_AUTO_0C6190B196D300B91AD8", "TEST_AUTO_0D20084A8D2E56D2E979", "TEST_AUTO_0FD65C4E8B310F5540B2", "TEST_AUTO_0FF3FB3A6EBC887FAE60", "TEST_AUTO_12BA2A15CA94233F4A35", "TEST_AUTO_184A90EEB01F34E82605", "TEST_AUTO_1CA69660B5971425B0A9", "TEST_AUTO_1E2141EDC4C3681BC295", "TEST_AUTO_1FC8220958D8574188A9", "TEST_AUTO_27D47EADCB3629CA5E3A", "TEST_AUTO_2A3D1BF41A1424D3CF17", "TEST_AUTO_3A64FFFF46A027EDF29D", "TEST_AUTO_3B168302C56C6632C0AB", "TEST_AUTO_3D272017765F5D73BCE4", "TEST_AUTO_3DBDD721AE2AEA758B75", "TEST_AUTO_45419D4DE05ECDFACE3D", "TEST_AUTO_505636BB434FBF01DA6D", "TEST_AUTO_59726B8C5AB103FE2332", "TEST_AUTO_5BA1C91EA33A535ADB89", "TEST_AUTO_6221D7F7D33814D363FB", "TEST_AUTO_66347619F5120E79546D", "TEST_AUTO_6963C4263D6C5C889504", "TEST_AUTO_7ED37B60D2F64C092528", "TEST_AUTO_823641C6DB063FF9DFF1", "TEST_AUTO_82FD54F3FCA28DB8AACE", "TEST_AUTO_8719AEF44DFFBA43F2A6", "TEST_AUTO_8A5048EA5B2E3D3F24AF", "TEST_AUTO_949CD663563705798270", "TEST_AUTO_97EE7D808424A743C2A4", "TEST_AUTO_9A98BA16150EF4AF7EFD", "TEST_AUTO_9B0B303FB2CB432C77D6", "TEST_AUTO_A35CF62023CA62312980", "TEST_AUTO_A4D3BFAE727696CF1764", "TEST_AUTO_A4E4D1B4B91030B942BE", "TEST_AUTO_A6A56A75E4FFA72B3458", "TEST_AUTO_A97FFD37D84D3397E253", "TEST_AUTO_A9C7C10C7114876B30B2", "TEST_AUTO_AC66D9F7C57A787D2730", "TEST_AUTO_AF122FD96F5F78237430", "TEST_AUTO_B250E91CEF7729F1DA08", "TEST_AUTO_BD2C0185F2B39864BD9F", "TEST_AUTO_C0087F7709DEE75AC84A", "TEST_AUTO_C039EB4AC0BCC1D70240", "TEST_AUTO_C04DF07CD4649EF5B41B", "TEST_AUTO_C6F8EB526D95DA5111CE", "TEST_AUTO_CCEB4E82D928C12FB0E6", "TEST_AUTO_D273DA1B1F1C3F010944", "TEST_AUTO_DAA028DE0B613F42BE10", "TEST_AUTO_DC80DD9E764F13A86D6F", "TEST_AUTO_DFD1BC59DE81E1E3DDBD", "TEST_AUTO_E3CC7838268374AC3D36", "TEST_AUTO_EAD3A1087B30D8FBAE21", "TEST_AUTO_F0537B30EAC2EA70A015", "TEST_AUTO_F0E6B14CB78B33EBD959", "TEST_AUTO_F1F4D6E2F5ABD3159120", "TEST_AUTO_F5BA99A56A8ACF405D9E", "TEST_AUTO_F5C98BD577899E0D29C1", "TEST_AUTO_F9FB29C84C865FBB50F1", "TEST_AUTO_FC8C5E6C94A654730D6F"]
+gates = ["veryquick", "pr", "nightly", "release", "hardware_lab", "supporting_local"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["source_sha_bound_native_execution", "github_job_artifacts", "final_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_VERIFICATION_INVENTORY_001"]
+
+[oracle]
+kind = "release_contract"
+ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+
+[[behavior]]
+partition = { equals = "EXACT_GATE_INVENTORY_IDENTITY_AND_ROUTING" }
+case_family = "happy_path"
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "Every cataloged gate fact joins one exact live inventory surface and preserves its command role, suite routing, environment, enforcement, and artifact fields."
+
+[[behavior]]
+partition = { equals = "SOURCE_BOUND_NATIVE_TERMINAL_RESULT" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "An assigned surface becomes executed proof only from its complete native command or workflow-job result on the bound source revision."
+
+[[behavior]]
+partition = { equals = "WEAKER_POSTURE_CANNOT_ESCALATE_TO_REQUIRED_PROOF" }
+case_family = "supply_chain_or_artifact_fault"
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_safe_reported" }
+rationale = "Conditional, supporting, report-only, advisory, and excluded surfaces retain their declared posture even when cataloged or observed passing."
+
+[[behavior]]
+partition = { equals = "DECLARED_ARTIFACT_SOURCE_AND_RESULT_BINDING" }
+case_family = "supply_chain_or_artifact_fault"
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#gate-and-workflow-surface-proof-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_safe_reported" }
+rationale = "Declared evidence must bind the exact source, surface, terminal result, path, and retention posture; stale, missing, or cross-revision evidence cannot close the gate."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "Exact per-discovery catalog bindings cover the live gate-inventory identity and routing contract; native executions remain listed as downstream proof debt."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "covered"
+rationale = "The catalog contracts preserve the native terminal-result boundary for scripts and GitHub workflow jobs."
+
+[[coverage.cells]]
+dimension = "supply_chain_or_artifact_fault"
+state = "covered"
+rationale = "The invariant rejects posture escalation plus stale, absent, and cross-revision artifact claims."

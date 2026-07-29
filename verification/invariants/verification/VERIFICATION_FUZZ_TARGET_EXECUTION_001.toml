@@ -1,0 +1,86 @@
+schema_version = 1
+id = "VERIFICATION_FUZZ_TARGET_EXECUTION_001"
+title = "Registered fuzz targets require bounded source-bound campaign proof"
+area = "verification"
+risk = "false_status"
+status = "mapped"
+owner = "verification"
+last_reviewed = "2026-07-29"
+claim = "Every live root fuzz target must bind its exact fuzz-program identity, production-surface association, native campaign command, bounded source-revision execution, and deterministic crash-regression handoff without treating a clean bounded run as universal crash freedom."
+proof_level = "S0"
+contract_kind = "fault_scenario"
+source_refs = [
+  "docs/specs/30-verification-inventory.md",
+  "verification/fuzz-program.toml",
+  "verification/fuzz-crash-regressions.toml",
+  "fuzz/fuzz_targets",
+]
+tests = ["TEST_AUTO_2F1558433C4E38375499", "TEST_AUTO_313C8C5D5404DD0AEFB0", "TEST_AUTO_405FE9606792A984F799", "TEST_AUTO_605EEF72F5DD36D7166C", "TEST_AUTO_6EB6C1819FC67E761608", "TEST_AUTO_7532206190B7F7EAE5F9", "TEST_AUTO_B9E4C3E00C764E9D923B", "TEST_AUTO_DED48E736E3A27E72CF8"]
+gates = ["pr", "nightly"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["source_sha_bound_bounded_campaigns", "dynamic_target_reachability", "coverage_measurement", "final_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_VERIFICATION_INVENTORY_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_VERIFICATION_INVENTORY_001#fuzz-target-proof-contract"
+
+[[behavior]]
+partition = { equals = "EXACT_FUZZ_TARGET_AND_SURFACE_BINDING" }
+case_family = "happy_path"
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#fuzz-target-proof-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "Each cataloged fuzz fact joins one live program target and preserves its path, name, command, owner, tiers, surface associations, and storage policy."
+
+[[behavior]]
+partition = { equals = "BOUNDED_SOURCE_REVISION_CAMPAIGN" }
+case_family = "resource_limit"
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#fuzz-target-proof-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "Executed proof records the exact target, source revision, native runner command, finite budget, terminal result, and campaign artifact."
+
+[[behavior]]
+partition = { equals = "CRASH_OR_SANITIZER_FAILURE_HANDOFF" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#fuzz-target-proof-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "A crash or sanitizer finding remains red until reduced and joined to the deterministic crash-regression registry."
+
+[[behavior]]
+partition = { equals = "CLEAN_CAMPAIGN_SCOPE_AND_CORPUS_BOUNDARY" }
+case_family = "supply_chain_or_artifact_fault"
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#fuzz-target-proof-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_safe_reported" }
+rationale = "A clean bounded run is not universal correctness or crash-freedom proof, and machine-local corpus or raw artifact presence is not durable evidence."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "Exact per-discovery catalog bindings cover all eight live root fuzz targets and their reviewed surface associations."
+
+[[coverage.cells]]
+dimension = "resource_limit"
+state = "covered"
+rationale = "The invariant requires finite source-bound native campaigns and records their remaining execution debt explicitly."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "covered"
+rationale = "The fuzz program's deterministic crash-regression handoff is an explicit fail-closed campaign outcome."
+
+[[coverage.cells]]
+dimension = "supply_chain_or_artifact_fault"
+state = "covered"
+rationale = "The invariant forbids overstating clean campaigns or machine-local corpus and raw artifact state."
