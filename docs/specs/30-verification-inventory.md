@@ -177,3 +177,30 @@ it is reduced and joined to the deterministic regression registry required by
 the fuzz program. Working corpora and raw crash directories remain
 machine-local discovery inputs under their declared storage policy; their size
 or existence is not durable product evidence.
+
+## Ignored-test execution proof contract
+
+Every live scanner fact whose ignore state is `ignored` or `conditional` must
+join exactly one live `verification/ignored-tests.toml` row by discovery
+identity, source kind, path, name, ignore state, and ignore mechanism. The
+registry row owns its explicit class, reason, unblock condition, required
+environment, topology, and public-claim impact. A catalog mapping for that
+fact proves only this registry and execution-routing contract; it does not
+prove any product assertion present in the ignored test.
+
+The catalog's structural validation command is separate from the native
+execution command named by the registry class and unblock condition. Product
+assertions and unresolved helper observations remain outside the structural
+mapping. They become proof only when the complete ignored test or its named
+parent harness runs in the required native environment against the bound
+source revision and produces the required terminal result and retained
+artifact. A default-suite skip, filtered result, missing environment variable,
+unconfigured lab, absent topology, or successful registry validator cannot
+substitute for that execution.
+
+Manual child-process entries become executed only through their named parent
+harness or documented manual command. Performance and soak entries require
+their explicit measurement lane and retained output. Lab-required entries
+require the reviewed physical or external topology and machine-readable
+evidence. Until those conditions are satisfied, the fact remains
+ignored/unrun proof debt even when its registry identity is catalog-mapped.

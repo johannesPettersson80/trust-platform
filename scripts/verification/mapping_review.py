@@ -270,13 +270,14 @@ def _validate_acceptance(
         for review in assertion_reviews
         if review.get("disposition") == "oracle_bound"
     ]
-    if not bound and not _is_structural_metadata_acceptance(
+    structural_metadata_acceptance = _is_structural_metadata_acceptance(
         decision=decision,
         proposal=proposal,
         invariants=invariants,
         selected=selected,
         assertion_reviews=assertion_reviews,
-    ):
+    )
+    if not bound and not structural_metadata_acceptance:
         failures.append(f"{label} acceptance requires an oracle-bound assertion")
     for review in assertion_reviews:
         assertion_id = review.get("assertion_id")
@@ -292,7 +293,7 @@ def _validate_acceptance(
                 f"{label} non-oracle assertion {assertion_id} forbids behavior refs"
             )
     unresolved = _plain_strings(proposal.get("unresolved_assertion_helpers"))
-    if unresolved:
+    if unresolved and not structural_metadata_acceptance:
         failures.append(
             f"{label} acceptance is blocked by unresolved assertion helpers"
         )
@@ -349,13 +350,29 @@ def _is_structural_metadata_acceptance(
 ) -> bool:
     confirmed = decision.get("confirmed_catalog")
     assertions = proposal.get("assertions")
-    return (
+    is_nonassertion_surface = (
         proposal.get("discovery_source_kind")
         in STRUCTURAL_NONASSERTION_SOURCE_KINDS
         and isinstance(assertions, Sequence)
         and not isinstance(assertions, (str, bytes))
         and not assertions
         and not assertion_reviews
+    )
+    is_ignored_registry_surface = (
+        proposal.get("ignore_state") in {"ignored", "conditional"}
+        and isinstance(assertions, Sequence)
+        and not isinstance(assertions, (str, bytes))
+        and bool(assertions)
+        and bool(assertion_reviews)
+        and all(
+            review.get("disposition")
+            in {"non_oracle", "setup_or_precondition"}
+            and not _plain_strings(review.get("behavior_refs"))
+            for review in assertion_reviews
+        )
+    )
+    return (
+        (is_nonassertion_surface or is_ignored_registry_surface)
         and isinstance(confirmed, Mapping)
         and confirmed.get("test_class") == "metadata_validation"
         and confirmed.get("area") == "verification"

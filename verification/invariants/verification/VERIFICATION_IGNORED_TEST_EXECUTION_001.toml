@@ -1,0 +1,71 @@
+schema_version = 1
+id = "VERIFICATION_IGNORED_TEST_EXECUTION_001"
+title = "Ignored tests retain exact registry and native execution boundaries"
+area = "verification"
+risk = "false_status"
+status = "mapped"
+owner = "verification"
+last_reviewed = "2026-07-29"
+claim = "Every ignored or conditional test fact must bind its exact ignored-test registry identity, class, unblock condition, native environment or topology, terminal result, and retained artifact without treating structural catalog presence or a default-suite skip as product proof."
+proof_level = "S0"
+contract_kind = "release_matrix"
+source_refs = [
+  "docs/specs/30-verification-inventory.md",
+  "verification/ignored-tests.toml",
+  "verification/hardware-lab.toml",
+]
+tests = ["TEST_AUTO_076A01316BE505A43D6C", "TEST_AUTO_083918C0A1695BEDB92E", "TEST_AUTO_08CEAF52EF3509019BFF", "TEST_AUTO_0D7E1103BA7F27B6CD0E", "TEST_AUTO_26934332D29338103AFD", "TEST_AUTO_2EEB083ACDA59C7173DC", "TEST_AUTO_6F5F5107DDE61D3C1E43", "TEST_AUTO_75F421CF89F3935418D6", "TEST_AUTO_7F7F305082D2D125BF56", "TEST_AUTO_8A83ABE26CDE3A14E938", "TEST_AUTO_9DA8F1E2D659F4E0F5E7", "TEST_AUTO_A007AD886E7ABB17EF37", "TEST_AUTO_A5BFD4D2FEC4A5FE7C73", "TEST_AUTO_B0E363553D57310C9D63", "TEST_AUTO_B65B577CE97DDD0DC665", "TEST_AUTO_BDEAFF431FC2B9A44DFD", "TEST_AUTO_CE3D5672C7ABFFB9A685", "TEST_AUTO_D5AB69F6A0EBB17DA479", "TEST_AUTO_E0C98D6962CBF3D5E78F", "TEST_AUTO_EC41FC62FBEF09EFDFE8", "TEST_AUTO_F4D12F76BE0C9EC8F0EF", "TEST_AUTO_F7D08DE71C821B2157CF", "TEST_AUTO_FE262D7963202D5AFB9D"]
+gates = ["nightly", "hardware_lab", "supporting_local"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["source_sha_bound_native_execution", "performance_and_soak_artifacts", "physical_hardware_topology_evidence", "product_assertion_proof"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_VERIFICATION_INVENTORY_001"]
+
+[oracle]
+kind = "release_contract"
+ref = "SPEC_VERIFICATION_INVENTORY_001#ignored-test-execution-proof-contract"
+
+[[behavior]]
+partition = { equals = "EXACT_IGNORED_REGISTRY_IDENTITY_AND_ROUTING" }
+case_family = "happy_path"
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#ignored-test-execution-proof-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "Every cataloged ignored fact joins one exact live registry row and preserves its class, reason, unblock condition, environment, topology, and public-claim fields."
+
+[[behavior]]
+partition = { equals = "STRUCTURAL_MAPPING_IS_NOT_PRODUCT_EXECUTION" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#ignored-test-execution-proof-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_safe_reported" }
+rationale = "Registry validation, catalog presence, default-suite filtering, and missing-environment skips cannot be promoted to native product proof."
+
+[[behavior]]
+partition = { equals = "NATIVE_ENVIRONMENT_TERMINAL_RESULT_AND_ARTIFACT" }
+case_family = "hardware_or_network_fault"
+oracle_ref = "SPEC_VERIFICATION_INVENTORY_001#ignored-test-execution-proof-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "Manual children run through their parent, performance and soak tests run in their measurement lane, and lab tests run on the reviewed topology with source-bound terminal results and retained artifacts."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "Exact per-discovery catalog bindings cover registry identity and routing; native executions remain explicit downstream proof debt."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "covered"
+rationale = "The invariant preserves the boundary between structural mapping, default-suite skips, and executed product proof."
+
+[[coverage.cells]]
+dimension = "hardware_or_network_fault"
+state = "covered"
+rationale = "Every lab-required row retains its reviewed topology and artifact requirement without claiming an unrun hardware result."

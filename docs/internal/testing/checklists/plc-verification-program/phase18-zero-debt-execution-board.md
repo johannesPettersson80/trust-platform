@@ -1440,6 +1440,36 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   globally open; no broad workspace gate ran. Evidence:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-governed-gate-fuzz-closure-67.md`.
   <!-- generated:governed-gate-fuzz-closure-67:end -->
+  <!-- generated:ignored-test-execution-closure-23:start -->
+
+  Ignored-test execution-contract mapping progress (2026-07-29): all 23
+  `ignored_test_registry_owned` facts now have exact generated catalog
+  bindings to `VERIFICATION_IGNORED_TEST_EXECUTION_001`. The mappings preserve
+  each live registry identity, class, reason, unblock condition, native
+  environment or topology, and retained-artifact boundary. They deliberately
+  prove only structural registry identity and routing. The extraction review
+  records 161 product assertions and eight unresolved helper observations,
+  claims none of them as product proof, and retains all 23 native executions
+  as downstream debt: 15 performance/soak, five hardware-lab, and three
+  manual/parent-harness tests. Focused registry/source/schema validation passes
+  17/17. A mapping-review rule has the required assertion red and paired green
+  and permits ignored/conditional Rust tests to use this verification-owned
+  metadata contract only when every observed assertion is classified as
+  non-oracle/setup and the product assertions remain explicitly unproved;
+  ordinary Rust product mappings still require real oracle-bound assertions
+  and reject unresolved helpers. The atomic transaction moves the exact
+  denominator from 4,401 = 4,295 mapped + 106 nonmapping to 4,401 = 4,318
+  mapped + 83 nonmapping. All remaining facts are
+  `not_catalogable_product_oracle`. A root-record audit proves all 7,188
+  pre-existing proposal/decision records byte-identical, the focused mapping
+  suite passes 74/74, and staleness/metadata isolation finds zero findings
+  across all 46 new discovery/catalog identities and the new invariant.
+  `VERIF-P18-003` and `VERIF-P18-005` remain globally open; native ignored-test
+  execution, the remaining 83 product/harness authorities, dynamic
+  reachability, adequacy campaigns, and broad gates remain explicit debt. No
+  broad workspace gate ran. Evidence:
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-ignored-test-execution-closure-23.md`.
+  <!-- generated:ignored-test-execution-closure-23:end -->
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device

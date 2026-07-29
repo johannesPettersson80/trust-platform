@@ -105,6 +105,42 @@ def _structural_acceptance(
     return proposal, decision
 
 
+def _ignored_structural_acceptance() -> tuple[
+    dict[str, object], dict[str, object]
+]:
+    proposal = _proposal()
+    proposal["discovery_source_kind"] = "rust_integration_test"
+    proposal["ignore_state"] = "ignored"
+    proposal["unresolved_assertion_helpers"] = [
+        "hardware_params::fs::read_to_string:unresolved-oracle"
+    ]
+    proposal["command"] = (
+        "python3 -m unittest "
+        "scripts.verification.ignored_test_inventory_tests"
+    )
+    decision = _accepted()
+    decision["assertion_reviews"] = [
+        {
+            "assertion_id": ASSERTION_ID,
+            "disposition": "non_oracle",
+            "behavior_refs": [],
+            "rationale": (
+                "The product assertion is outside the structural registry "
+                "mapping and remains unproved until native execution."
+            ),
+        }
+    ]
+    decision["command"] = proposal["command"]
+    decision["confirmed_catalog"] = {
+        **decision["confirmed_catalog"],
+        "test_class": "metadata_validation",
+        "area": "verification",
+        "owner": "verification",
+    }
+    decision["id"] = stable_decision_id(decision)
+    return proposal, decision
+
+
 class MappingReviewContractTests(unittest.TestCase):
     def validate(
         self,
@@ -208,6 +244,43 @@ class MappingReviewContractTests(unittest.TestCase):
         )
         self.assertTrue(
             any("oracle-bound assertion" in item for item in failures)
+        )
+
+    def test_ignored_inventory_acceptance_keeps_product_assertions_unproved(
+        self,
+    ) -> None:
+        proposal, decision = _ignored_structural_acceptance()
+        failures = validate_mapping_decisions(
+            decisions=[decision],
+            proposals={PROPOSAL_ID: proposal},
+            invariants={
+                "INV_ONE": {
+                    "risk": "false_status",
+                    "area": "verification",
+                }
+            },
+            candidate_generator_id="test-catalog-proposals",
+        )
+
+        self.assertEqual([], failures)
+
+        proposal["ignore_state"] = "not_ignored"
+        failures = validate_mapping_decisions(
+            decisions=[decision],
+            proposals={PROPOSAL_ID: proposal},
+            invariants={
+                "INV_ONE": {
+                    "risk": "false_status",
+                    "area": "verification",
+                }
+            },
+            candidate_generator_id="test-catalog-proposals",
+        )
+        self.assertTrue(
+            any("oracle-bound assertion" in item for item in failures)
+        )
+        self.assertTrue(
+            any("unresolved assertion helpers" in item for item in failures)
         )
 
     def test_decision_id_is_generated_from_semantic_content(self) -> None:
