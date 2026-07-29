@@ -1,0 +1,109 @@
+{
+  "schema_version": 1,
+  "kind": "p18_code_spec_identity_maintenance_review_lock",
+  "reviewed_on": "2026-07-29",
+  "reviewer_ids": [
+    "codex-main"
+  ],
+  "source": {
+    "commit": "4faa9a082ce446a463f2cd1c2555597c4d5d1899",
+    "report_path": "target/gate-artifacts/p18-code-spec-refresh-4faa/code-spec-coverage.json",
+    "report_sha256": "sha256:d74c1f3ecbd31b5613b11400f454259b19896586635a33dba556678d1bce2005",
+    "report_input_digest": "sha256:8c74aacfdeedbf9ab80d6d2445f2a28430ad24886dcc123de56c5ecb6aaabffa",
+    "proposal_path": "target/gate-artifacts/code-spec-refresh/p18-4faa-proposals.json",
+    "proposal_sha256": "sha256:0b70d71733dc928d0c130f5fc99ff04e24393b1ca36d21f8aa52a1bfb6ec4ea8",
+    "operation_set_digest": "sha256:830425f1fd0868b16a03bfcbba237766677f6866297998a6bb771f7093a8d344",
+    "facts": 17178,
+    "findings": 795,
+    "missing_mapping_proposals": 48,
+    "digest_rebind_proposals": 165,
+    "stale_identity_proposals": 40,
+    "semantic_review_groups": 36,
+    "unclassified_findings": 0
+  },
+  "selection": {
+    "path": "target/gate-artifacts/code-spec-refresh/p18-4faa-selection.json",
+    "sha256": "sha256:d2f4ec9a762d7885824635f8ad177776341094bf9f2a3b6e6057d3cca3e72ada",
+    "missing_mapping_decisions": 48,
+    "direct_spec_gap_mappings": 47,
+    "stale_successor_mappings": 1,
+    "digest_rebinds": 165,
+    "stale_identity_transfers": 19,
+    "stale_identity_removals": 21,
+    "risk_acknowledgement_expires_on": "2026-10-29",
+    "review_ref": "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md#identity-and-risk-review"
+  },
+  "explicit_cross_area_decisions": [
+    {
+      "qualified_symbol": "trust_runtime::debug::control::DebugControl::begin_cycle",
+      "code_id": "CODE_1E6C72B1F6F9957D36401CCA2F25CC9E8E61268AB971570E480ADB5D44807D00",
+      "area": "control_security",
+      "owner": "trust-runtime",
+      "spec_gap_ref": "SPEC_GAP_P17_HISTORICAL_CODE_CONTROL_SECURITY_001"
+    },
+    {
+      "qualified_symbol": "trust_debug::adapter::handlers::threads::DebugAdapter::projected_threads",
+      "code_id": "CODE_34AAC26C55C189E9D09CFD2BBA753D60C13B989C9D90AA00B755E401F7034BA1",
+      "area": "editor_safety",
+      "owner": "editor",
+      "spec_gap_ref": "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
+    },
+    {
+      "qualified_symbol": "editors::vscode::src::networkCanvas::webview::layout::buildGraph::topologyIsProven",
+      "code_id": "CODE_861021D61F6561C125BFAE8EBC5F9B46B069FE15476E8D25DB03EF3C2A1BB447",
+      "area": "hmi_ui",
+      "owner": "hmi",
+      "spec_gap_ref": "SPEC_GAP_P17_HISTORICAL_CODE_HMI_UI_001"
+    },
+    {
+      "qualified_symbol": "trust_runtime::scheduler::ResourceRunner<C>::restart_with_retain_store",
+      "code_id": "CODE_B9041EE3336C09EEAFFF72802D7446D6DD27BA5F8B33BBCD65FAEB4A686B814A",
+      "area": "runtime_safety",
+      "owner": "trust-runtime",
+      "spec_gap_ref": "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
+    }
+  ],
+  "application": {
+    "path": "target/gate-artifacts/code-spec-refresh/p18-4faa-application.json",
+    "sha256": "sha256:a75210414b9a3a8d556d0c958c219d71a3c5157ec75753189c4b06bb2177c243",
+    "accepted_metadata_commit": "0b2495babdbc5604a74f2239859feb223352be25",
+    "code_map_before_sha256": "sha256:7e1ab1517f39db67d2536e0ce0cf2ab28248ea55f86978161f3946c958923ea3",
+    "code_map_after_sha256": "sha256:8db45eb3b9f92ff04c50b74298f3bdbbaf46eaa1486ebfb2547f3b1472c54097",
+    "risk_ledger_before_sha256": "sha256:e953bae8fb2f3068b4ea75014083cbd4bf27ffca575a9e29cfd33b54279423d7",
+    "risk_ledger_after_sha256": "sha256:58ff3e0373b7fe2cb6ad8fdb1e09513ef08369274510c5b11b00db32d0d9ad76",
+    "spec_gaps_before_sha256": "sha256:c7abfb5766712304ae0e91f352169209336e61c3c68290a24768b361efbd7e23",
+    "spec_gaps_after_sha256": "sha256:0bd4681bfcdcdfc02ca1fdfce3a2a8e76a9fcc8a5a4fc613da325f08d5c3e281"
+  },
+  "accepted_report": {
+    "commit": "0b2495babdbc5604a74f2239859feb223352be25",
+    "path": "target/gate-artifacts/p18-code-spec-identity-0b2495/code-spec-coverage.json",
+    "sha256": "sha256:a219f806db25eed0417060eb03c5cacac843711f4efd4229fc310c9afb4ea397",
+    "input_digest": "sha256:dce2380428f00d560ab1c43bc818a239d0b4e97c802bf2bdf34e3f9fde0ece12",
+    "facts": 17178,
+    "mapped_facts": 17178,
+    "missing_spec": 0,
+    "spec_gap": 15492,
+    "specified": 1651,
+    "inherits_spec": 30,
+    "generated": 2,
+    "non_behavioral": 2,
+    "vendored_external": 1,
+    "findings": 306,
+    "post_refresh_proposal_path": "target/gate-artifacts/code-spec-refresh/p18-0b2495-proposals.json",
+    "post_refresh_proposal_sha256": "sha256:a4561c26f9fda0c7e0a9dfefaa460d59928727cccc2fd63b2219c6c4fbcc8f02",
+    "post_refresh_operation_set_digest": "sha256:aede969659f527ec7a590a03f7290d2194d43cd650c1bf767f48a70c00c621a6",
+    "semantic_review_groups": 33,
+    "unclassified_findings": 0
+  },
+  "boundaries": {
+    "closes_identity_maintenance_queue": true,
+    "creates_product_proof": false,
+    "closes_spec_gaps": false,
+    "promotes_invariants": false,
+    "closes_semantic_review_groups": false,
+    "proves_test_execution": false,
+    "proves_reachability": false,
+    "proves_mutation_sensitivity": false,
+    "runs_broad_workspace_gates": false
+  }
+}

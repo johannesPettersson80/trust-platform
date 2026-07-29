@@ -4,11 +4,11 @@ Status: zero-debt contract accepted by commit-bound independent R3 review.
 Findings `P18-C01` through `P18-C08` and `P18-R2-01` are resolved.
 
 Current row: `VERIF-P18-003`, continuing as one repository-wide authority and
-coverage campaign over 173 gap-open coverage cells, 15,447 explicitly mapped
-`spec_gap` code facts, five cross-area `missing_spec` facts, and eleven
+coverage campaign over 173 gap-open coverage cells, 15,492 explicitly mapped
+`spec_gap` code facts, 306 semantic findings in 33 review groups, and eleven
 historical placeholder invariants. All nine current exact-behavior-marker
-debts are closed. The code map now represents 17,130 of 17,135 live facts.
-`VERIF-P18-005` is closed at 4,400 live tests =
+debts and the complete identity-maintenance queue are closed. The code map now
+represents all 17,178 live facts. `VERIF-P18-005` is closed at 4,400 live tests =
 4,400 `catalog_mapped` + zero `reviewed_nonmapping`. The accepted P18-002
 ledger owns and orders every current fact; it does not close any remaining
 semantic, execution, reachability, mutation, or adequacy population.
@@ -1543,6 +1543,31 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   No broad workspace gate ran. Evidence:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-refresh-missing-1750.md`.
   <!-- generated:code-spec-refresh-missing-1750:end -->
+  <!-- generated:code-spec-identity-maintenance:start -->
+
+  Code-spec identity-maintenance progress (2026-07-29): the clean 17,178-fact
+  source report exposed 48 missing mappings, 165 exact-identity body-digest
+  rebinds, 40 stale identities, 36 semantic groups, and zero unclassified
+  findings. One authenticated, live-reconstructed, compare-and-swap
+  transaction mapped 47 facts directly to explicit historical gaps, mapped
+  one `matches_breakpoint` successor through its exact predecessor, accepted
+  all 165 rebinds, transferred 19 stale identities, and removed 21 stale
+  identities. Four cross-area facts received explicit owner and area decisions
+  but remain `spec_gap`; no authority or proof was inferred. The first
+  projection was rejected before canonical application because
+  `git diff --check` found malformed EOF whitespace in all three generated
+  TOMLs. After a focused renderer fix and complete regeneration, clean detached
+  `trust-builder` commit
+  `0b2495babdbc5604a74f2239859feb223352be25` reports 17,178 live =
+  17,178 mapped, zero missing/rebind/stale/unclassified identity findings,
+  15,492 `spec_gap`, and 306 semantic findings fully partitioned into 33 review
+  groups. The complete focused acceptance suite passes 45/45. The metadata
+  validator remains byte-identical at its accepted 1,610-finding downstream
+  debt baseline. `VERIF-P18-003`, specification authority, product-test proof,
+  execution, reachability, mutation sensitivity, adequacy, and the final broad
+  gates remain open. No broad workspace gate ran. Evidence:
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-identity-maintenance.md`.
+  <!-- generated:code-spec-identity-maintenance:end -->
 - [x] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device
