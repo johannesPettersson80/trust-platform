@@ -1770,8 +1770,10 @@ downsampling preserves the requested time window and its first, last, minimum,
 and maximum bounds. Alarm state uses the configured alarm label and follows the
 ordered lifecycle raise, acknowledge, clear, and history retention. A configured
 deadband requires the value to re-enter the clear window before the alarm
-clears. HMI control failures use a structured error payload with a stable code;
-clients do not need to parse diagnostic prose.
+clears. When HMI persistence is configured, restart restores only the bounded
+trend window and alarm history owned by that configuration; it does not expand
+the configured per-series limit. HMI control failures use a structured error
+payload with a stable code; clients do not need to parse diagnostic prose.
 
 ###### Runtime control audit and debug projection
 
@@ -2815,6 +2817,44 @@ These are focused reference-environment budgets. They are regression gates for
 the shipped authoring path, not universal real-time guarantees for arbitrary
 hardware or projects.
 
+###### Unified Web IDE shell contract
+
+The standalone Web IDE uses one unified product shell. `/`, `/ui`, `/ide`, and
+supported tab deep links resolve to that shell, whose complete bundled module
+set includes the workspace, editor, online, hardware, settings, observability,
+logs, debug, and command surfaces. The shell preserves explicit tab panels,
+status-bar state, compact toolbar and overflow actions, hidden-panel CSS
+semantics, and ARIA-selected tab state.
+
+Online control defaults to the same runtime web origin and normalizes both
+wrapped and direct API payloads. I/O configuration reads and writes follow the
+active workspace. The hardware surface preserves the MQTT connectivity probe,
+Runtime Cloud topology, and realtime-link transport projection; settings
+preserve the documented realtime-link fields. Removed legacy fleet mutation
+routes remain not found rather than forwarding to a current Runtime Cloud
+operation.
+
+###### Standalone configuration UI workspace contract
+
+The standalone configuration UI projects the current product mode, planned
+workspace runtimes, topology, Runtime Cloud configuration and rollout state,
+and the active runtime's I/O configuration from one selected workspace.
+Planned but disconnected runtimes remain visibly offline/degraded and their
+links failed; they are not reported as live because they exist on disk.
+
+Runtime configuration writes use an expected source revision or digest. A stale
+precondition returns conflict without changing the file; a current write
+updates that runtime's `runtime.toml`. Structured Text writes remain inside the
+selected runtime and the validation endpoint reports valid or invalid source
+without treating invalid source as a successful validation.
+
+Runtime create and delete operate on one named workspace runtime and are
+reflected in subsequent project-state and lifecycle queries. Lifecycle status
+identifies the workspace runtime and whether it is managed. Live-target
+profiles may be listed, upserted, selected, connected, queried, and removed; an
+unreachable target remains disconnected with its last error and active target
+visible.
+
 ##### 6.8.2 Versioned deployment and rollback
 
 `trust-runtime deploy` validates the source bundle before installation and the
@@ -3355,6 +3395,34 @@ semantics; prompt navigation cannot mutate a read-only view. The rendered
 dashboard keeps its reviewed status, task, I/O, and event regions in a stable
 layout so an operator can compare snapshots without hidden field movement.
 
+##### Runtime Cloud state, dispatch, and rollout contract
+
+Runtime Cloud state projects the connected runtime context, discovery
+transport metadata, topology nodes and links, and their current lifecycle and
+health without inventing connectivity. A fresh mesh disconnect first becomes
+stale and only later partitioned according to the documented staleness
+threshold. Plant and WAN state access requires the secure profile transport
+preconditions. Removed device-list mutation routes return not found rather than
+changing topology through a legacy alias. Corrupt persisted configuration
+state becomes an explicit error with retained parse evidence and is never
+replaced by an in-sync default.
+
+Dispatch evaluates the selected target before any operation. An unreachable
+target or exhausted bounded query budget returns a visible denial and must not
+fall back to applying the request on the local runtime. A local target remains
+operational when an unrelated peer is partitioned. A successful remote status,
+configuration, or I/O proxy request returns the remote payload. Configuration
+dispatch preserves one request correlation through the target control audit,
+and both successful and failed target operations retain their matching audit
+identity and semantic result.
+
+A rollout advances through its ordered target states and completes only after
+the applied configuration is verified. An apply or reconciliation failure
+makes both the rollout and affected target fail with retained error evidence.
+Abort transitions an active rollout and its unfinished targets to aborted.
+Pause, resume, or abort against a terminal rollout returns conflict and cannot
+rewrite the terminal result.
+
 ##### Runtime Cloud action preflight and profile contract
 
 Runtime Cloud federation is a truST product contract, not an IEC decision or
@@ -3399,6 +3467,12 @@ Preflight and dispatch responses retain the caller's `request_id` and
 successful target results carry the target audit correlation supplied by the
 control operation. A denied or failed target must remain visibly denied or
 failed and must not be summarized as a successful aggregate action.
+
+A live update to `runtime.cloud.wan.allow_write` uses the ordinary validated
+configuration-write path. The accepted exact action and target pattern is
+visible in subsequent configuration reads, and the control audit retains the
+configuration request correlation. An invalid policy update is rejected before
+replacing the active allowlist.
 
 The Runtime Cloud control and I/O proxy planners are action-request builders,
 so they must either produce an action that already satisfies this common

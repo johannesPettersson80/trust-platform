@@ -1,0 +1,136 @@
+schema_version = 1
+id = "RT_HMI_BROWSER_PRODUCT_001"
+title = "Browser HMI preserves descriptor-owned rendering, transport, export, and bounded history"
+area = "hmi_ui"
+risk = "false_status"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-29"
+claim = "The runtime-hosted HMI preserves descriptor layout, complete bundled modules, process SVG bindings, widget quality, connector truth, bounded live transport, responsive modes, standalone export, and configured history across restart without inventing operator state."
+proof_level = "S0"
+contract_kind = "protocol_trace"
+source_refs = [
+  "crates/trust-runtime/src/hmi",
+  "crates/trust-runtime/src/web/ui",
+  "crates/trust-runtime/src/web/ui_routes.rs",
+  "crates/trust-runtime/tests/hmi_readonly_integration",
+]
+tests = ["TEST_AUTO_0623C8F5E23E0C5DB233", "TEST_AUTO_0CB6E85705D0168A2FE0", "TEST_AUTO_1A571724656D51DD106C", "TEST_AUTO_1F69D92EC8C260892A74", "TEST_AUTO_2C92CDF668AE8249D137", "TEST_AUTO_2E2E22285F0FD5F1666B", "TEST_AUTO_415F390FC293AA24F1ED", "TEST_AUTO_4204FDA9FA20ED44B4D7", "TEST_AUTO_4AE9A8D353C1E6E0C683", "TEST_AUTO_4B362FC80A7CC92583FD", "TEST_AUTO_50F0CBE7F09ADCF6125A", "TEST_AUTO_54F6B200F7B5A343EBED", "TEST_AUTO_764455DC84D00D7010ED", "TEST_AUTO_8195EB0C9952F58F0A13", "TEST_AUTO_8AC7EF9736D2433E07EF", "TEST_AUTO_8BE26ED74E9E29257128", "TEST_AUTO_9CD14C4E394B82FB3DC0", "TEST_AUTO_BEC262C381A423B431B6", "TEST_AUTO_DB4609D5670B83F6907D", "TEST_AUTO_DF679A6EE690D3521B7D", "TEST_AUTO_FB3425E0F781D985BEBE", "TEST_AUTO_FD6A0B0E51FD882E157B"]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate", "rendered_browser_acceptance"]
+
+[spec]
+status = "specified"
+source_refs = [
+  "SPEC_HMI_OPERATOR_FIRST_001",
+  "SPEC_RUNTIME_ENGINE_001",
+  "SPEC_CONNECTOR_STATUS_001",
+]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_HMI_OPERATOR_FIRST_001#operator-first-hmi-specification-v4"
+
+[[behavior]]
+partition = { equals = "DESCRIPTOR_LAYOUT_AND_COMPLETE_MODULE_PROJECTION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_HMI_OPERATOR_FIRST_001#visual-hierarchy-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Browser routes, complete source and embedded modules, section spans, widget spans, and the descriptor-owned dashboard hierarchy remain aligned."
+
+[[behavior]]
+partition = { equals = "STANDALONE_EXPORT_AND_OFFLINE_BOOTSTRAP" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_HMI_OPERATOR_FIRST_001#standalone-export"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The standalone export contains its entrypoint, routes, complete modules, assets, schema, and resolved descriptor and can bootstrap offline."
+
+[[behavior]]
+partition = { equals = "WEBSOCKET_PUSH_FALLBACK_RECONNECT_AND_ISOLATION" }
+case_family = "concurrency_or_cancellation"
+oracle_ref = "SPEC_HMI_OPERATOR_FIRST_001#transport-and-live-data-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Value, revision, and alarm push remain available across reconnect churn; forced failure falls back within one interval and a slow consumer cannot block control or another client."
+
+[[behavior]]
+partition = { equals = "LOCAL_TRANSPORT_AND_POLLING_BUDGET" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_HMI_OPERATOR_FIRST_001#transport-and-live-data-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Focused local WebSocket percentiles and HMI polling maximum and average stay within the normative reference-fixture budgets."
+
+[[behavior]]
+partition = { equals = "PROCESS_SVG_ASSET_AND_BINDING_PROJECTION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_HMI_OPERATOR_FIRST_001#custom-svg-runtime-rendering-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "Process schema, asset routes, stable selectors, binding transforms, relative references, and malformed-SVG fallback preserve the reviewed process-view contract."
+
+[[behavior]]
+partition = { equals = "WIDGET_QUALITY_CONNECTOR_AND_ASSET_PACK_RENDERING" }
+case_family = "hardware_or_network_fault"
+oracle_ref = "SPEC_HMI_OPERATOR_FIRST_001#transport-and-live-data-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }
+rationale = "Null, good, stale, and connector states remain visibly distinct, stale controls fail safe, and the shipped process asset pack retains stable binding IDs."
+
+[[behavior]]
+partition = { equals = "RESPONSIVE_MOBILE_TABLET_DESKTOP_AND_KIOSK" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_HMI_OPERATOR_FIRST_001#responsive-and-kiosk-modes"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Descriptor-owned breakpoints select exactly one mobile, tablet, or desktop viewport class and explicit kiosk mode remains visible."
+
+[[behavior]]
+partition = { equals = "BOUNDED_TREND_AND_ALARM_HISTORY_RESTART" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-hmi-descriptor-live-state-and-control-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Configured HMI persistence restores bounded per-series trend values and ordered alarm history without expanding its limit."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in RT_HMI_BROWSER_PRODUCT_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "persistence_or_recovery"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every persistence_or_recovery behavior in RT_HMI_BROWSER_PRODUCT_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "concurrency_or_cancellation"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every concurrency_or_cancellation behavior in RT_HMI_BROWSER_PRODUCT_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "boundary_high"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every boundary_high behavior in RT_HMI_BROWSER_PRODUCT_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every wrong_type_or_shape behavior in RT_HMI_BROWSER_PRODUCT_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "hardware_or_network_fault"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every hardware_or_network_fault behavior in RT_HMI_BROWSER_PRODUCT_001; dynamic proof and broad remote validation remain explicit debt."

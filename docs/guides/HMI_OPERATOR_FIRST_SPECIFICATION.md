@@ -1,6 +1,11 @@
 # Operator-First HMI Specification (V4)
 
-Status: Draft
+Status: Active
+Last reviewed: 2026-07-29
+
+This document is the normative truST product authority for the operator-first
+browser HMI. Passing implementation tests do not extend this contract, and
+browser-visible acceptance still requires separately retained rendered proof.
 
 Primary target:
 
@@ -122,6 +127,21 @@ Promotion path:
 
 - Dropping user SVG + bindings upgrades page from `auto-schematic` to `custom-svg` with preserved signal mappings where possible.
 
+### 5.2.2 Custom SVG Runtime Rendering Contract
+
+- Process-page schema preserves the selected SVG asset and each binding's
+  selector, source, attribute, map, and numeric scale.
+- Bindings may update `fill`, `opacity`, text content, `y`, and `height`.
+  Percent-to-tank-fill projection updates `y` and `height` together.
+- Relative SVG `href` and `xlink:href` asset references resolve relative to the
+  process SVG below `/hmi/assets/`. Fragment, absolute HMI, external HTTPS, and
+  data references retain their original authority.
+- Malformed SVG is reported as an unavailable process view without crashing or
+  hiding the surrounding HMI navigation.
+- The shipped process asset pack retains stable IDs shared by its full and
+  minimal templates, and its example selectors resolve to IDs present in both
+  templates.
+
 ### 5.2.1 Grid and Anchor Contract (mandatory for auto-schematic)
 
 Auto-schematic Process pages must be generated from a deterministic grid contract, not free-pixel placement.
@@ -213,6 +233,10 @@ Trends selection weights:
 ## 7. Visual Hierarchy Contract
 
 Auto-layout must use `widget_span` and structural rails, not flat equal cards.
+
+The runtime schema projection preserves section title/span membership and each
+widget's section title and widget span so the browser can reproduce the
+descriptor-owned hierarchy without a manually maintained second layout.
 
 Overview structure:
 
@@ -340,11 +364,22 @@ Live transport:
 - WebSocket primary
 - Polling fallback when WebSocket unavailable
 - Automatic reconnect with exponential backoff
+- A forced WebSocket failure reaches a successful polling read within one
+  configured polling interval.
+- Reconnect churn and a slow WebSocket consumer do not make the HMI control
+  plane unavailable or block a separately admitted WebSocket client.
 
 Performance targets:
 
 - value update latency p95: < 100ms (local)
+- value update latency p99: <= 250ms (local)
 - schema/live refresh after descriptor edit: < 500ms target
+- a focused `hmi.values.get` polling batch remains below a 100ms maximum and
+  30ms average on the local reference fixture
+
+The browser renders null values as unavailable, preserves good/stale quality on
+every widget, disables stale writable controls, and projects the shared
+connector status contract without inventing connector health.
 
 ## 14. Developer Feedback Loop
 
@@ -363,6 +398,8 @@ Error UX requirement:
 
 Minimum support:
 
+- descriptor-owned mobile and tablet maximum widths classify each viewport as
+  exactly one of mobile, tablet, or desktop
 - tablet-usable layout at ~768px width
 - kiosk mode for wall displays (reduced chrome, persistent critical context)
 
@@ -371,6 +408,11 @@ Minimum support:
 HMI must support standalone/exported bundle generation and validation:
 
 - export includes schema, assets, and bootstrap route metadata
+- export includes the complete shipped HMI module set and resolved descriptor
+  when a project descriptor exists
+- the embedded source fallbacks remain byte-equivalent to the complete source
+  modules used to build the exported bundle
+- the exported entrypoint can bootstrap offline from its embedded schema
 - useful for demos, review, and offline inspection
 
 ## 17. Theme and Visual Identity

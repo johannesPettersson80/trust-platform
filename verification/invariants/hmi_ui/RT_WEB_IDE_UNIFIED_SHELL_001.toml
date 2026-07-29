@@ -1,0 +1,113 @@
+schema_version = 1
+id = "RT_WEB_IDE_UNIFIED_SHELL_001"
+title = "Unified Web IDE shell preserves modules, tabs, active workspace, and runtime integration"
+area = "hmi_ui"
+risk = "false_status"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-29"
+claim = "The shipped Web IDE enters one complete accessible shell, keeps control and I/O actions bound to the current workspace and same origin, exposes reviewed hardware and realtime settings, normalizes API payloads, and leaves removed legacy routes unavailable."
+proof_level = "S0"
+contract_kind = "protocol_trace"
+source_refs = [
+  "crates/trust-runtime/src/web/ui/ide.html",
+  "crates/trust-runtime/src/web/ui/ide.js",
+  "crates/trust-runtime/src/web/ui/modules",
+  "crates/trust-runtime/tests/web_ide_integration",
+]
+tests = ["TEST_AUTO_0CBDE2A7B553C0654F26", "TEST_AUTO_105F7B3C79DD106058B2", "TEST_AUTO_10D32A58A8974C3437F9", "TEST_AUTO_22F3824C7A76391C9EB7", "TEST_AUTO_2E72F9869B8235838DD5", "TEST_AUTO_2F1B45B0EBC8AFE8C307", "TEST_AUTO_432185877835FBC0AC24", "TEST_AUTO_5ED9ED988073F5371660", "TEST_AUTO_762A97917AE0CAFB87B0", "TEST_AUTO_89BDE58ED2758547A89B", "TEST_AUTO_A09342D95623D8B56793", "TEST_AUTO_BCE4605CFAE7B1031C86", "TEST_AUTO_C9FFA0F5E342456F1897", "TEST_AUTO_D483FA51A0F5707E782B", "TEST_AUTO_E4AD64BB7850412329E9", "TEST_AUTO_E9FD35EEE9AE946AB5E8", "TEST_AUTO_FFBE62E4915C3AFE7559"]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate", "rendered_browser_ide_smoke"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_WEB_IDE_FULL_001", "SPEC_RUNTIME_ENGINE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_WEB_IDE_FULL_001#unified-product-shell-and-runtime-integration"
+
+[[behavior]]
+partition = { equals = "COMPLETE_MODULE_BOOTSTRAP_AND_ENTRY_ROUTING" }
+case_family = "happy_path"
+oracle_ref = "SPEC_WEB_IDE_FULL_001#unified-product-shell-and-runtime-integration"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Root, UI, IDE, and supported deep links serve one shell containing every required bundled module."
+
+[[behavior]]
+partition = { equals = "TAB_LAYOUT_HIDDEN_AND_ARIA_STATE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_WEB_IDE_FULL_001#accessibility-and-ux-quality"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Tab panels, status bar, compact toolbar, overflow actions, hidden semantics, and ARIA-selected state remain present and internally consistent."
+
+[[behavior]]
+partition = { equals = "SAME_ORIGIN_ONLINE_AND_CONTROL_PROXY" }
+case_family = "happy_path"
+oracle_ref = "SPEC_WEB_IDE_FULL_001#unified-product-shell-and-runtime-integration"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Online control defaults to the current origin, enters its explicit connect flow, and forwards status without embedding another authority."
+
+[[behavior]]
+partition = { equals = "ACTIVE_WORKSPACE_IO_CONFIGURATION" }
+case_family = "platform_or_filesystem_variation"
+oracle_ref = "SPEC_WEB_IDE_FULL_001#unified-product-shell-and-runtime-integration"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "expected_delta", diagnostics = "none", status = "unchanged" }
+rationale = "I/O configuration reads and writes follow the active project and update only that workspace's io.toml."
+
+[[behavior]]
+partition = { equals = "HARDWARE_PROBE_AND_RUNTIME_CLOUD_LINK_PROJECTION" }
+case_family = "hardware_or_network_fault"
+oracle_ref = "SPEC_WEB_IDE_FULL_001#unified-product-shell-and-runtime-integration"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }
+rationale = "The hardware module exposes the MQTT connectivity result and the selected Runtime Cloud and realtime-link topology without promoting reachability to protocol health."
+
+[[behavior]]
+partition = { equals = "REALTIME_SETTINGS_AND_API_PAYLOAD_COMPATIBILITY" }
+case_family = "happy_path"
+oracle_ref = "SPEC_WEB_IDE_FULL_001#unified-product-shell-and-runtime-integration"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Realtime-link settings preserve their documented fields and direct or wrapped API payloads normalize to the same shell result."
+
+[[behavior]]
+partition = { equals = "REMOVED_LEGACY_FLEET_ROUTES" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_WEB_IDE_FULL_001#unified-product-shell-and-runtime-integration"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Removed legacy fleet mutation routes stay unavailable instead of aliasing into a current operation."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in RT_WEB_IDE_UNIFIED_SHELL_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "platform_or_filesystem_variation"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every platform_or_filesystem_variation behavior in RT_WEB_IDE_UNIFIED_SHELL_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "hardware_or_network_fault"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every hardware_or_network_fault behavior in RT_WEB_IDE_UNIFIED_SHELL_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "extra_or_unknown"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every extra_or_unknown behavior in RT_WEB_IDE_UNIFIED_SHELL_001; dynamic proof and broad remote validation remain explicit debt."

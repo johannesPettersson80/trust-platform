@@ -1,0 +1,93 @@
+schema_version = 1
+id = "RT_CONFIG_UI_WORKSPACE_001"
+title = "Standalone configuration UI preserves workspace, revision, validation, lifecycle, and live-target authority"
+area = "hmi_ui"
+risk = "silent_corruption"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-29"
+claim = "The configuration UI projects one selected workspace, rejects stale runtime configuration writes, validates Structured Text honestly, creates and deletes only the named runtime, and retains disconnected live-target state and errors."
+proof_level = "S0"
+contract_kind = "state_machine"
+source_refs = [
+  "crates/trust-runtime/src/web/config_ui_routes",
+  "crates/trust-runtime/tests/web_io_config_integration/web_io_config_integration_part_21.rs",
+]
+tests = ["TEST_AUTO_04EC41D487CA069D2A59", "TEST_AUTO_16961D8EE3934288AF91", "TEST_AUTO_396939BD2756D55428A1", "TEST_AUTO_830B0FCD52472FC05488", "TEST_AUTO_FF0739B00985201E2FDB", "TEST_AUTO_FF99B05A385D3919D209"]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate", "rendered_configuration_ui_smoke"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001", "SPEC_WEB_IDE_FULL_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#standalone-configuration-ui-workspace-contract"
+
+[[behavior]]
+partition = { equals = "MODE_PROJECT_TOPOLOGY_CONFIG_ROLLOUT_AND_IO_PROJECTION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#standalone-configuration-ui-workspace-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }
+rationale = "Mode and project queries preserve planned runtimes, offline topology, Runtime Cloud state, rollout inventory, and selected runtime I/O configuration without reporting disk presence as live health."
+
+[[behavior]]
+partition = { equals = "OPTIMISTIC_RUNTIME_CONFIGURATION_WRITE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#standalone-configuration-ui-workspace-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "A stale source precondition conflicts without mutation and a current request updates only the selected runtime configuration."
+
+[[behavior]]
+partition = { equals = "STRUCTURED_TEXT_WRITE_AND_VALIDATE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#standalone-configuration-ui-workspace-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "A selected-runtime source write persists and validation distinguishes accepted source from invalid source with a negative response."
+
+[[behavior]]
+partition = { equals = "RUNTIME_CREATE_DELETE_AND_LIFECYCLE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#standalone-configuration-ui-workspace-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Create and delete affect exactly one named workspace runtime and project and lifecycle queries reflect the resulting state."
+
+[[behavior]]
+partition = { equals = "LIVE_TARGET_PROFILE_CONNECT_STATE_AND_REMOVAL" }
+case_family = "hardware_or_network_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#standalone-configuration-ui-workspace-contract"
+outcome = "not_safe_reported"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "status_degraded" }
+rationale = "Live-target profiles round-trip, an unreachable selection remains disconnected with last error and active target visible, and removal deletes only that profile."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in RT_CONFIG_UI_WORKSPACE_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in RT_CONFIG_UI_WORKSPACE_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every wrong_type_or_shape behavior in RT_CONFIG_UI_WORKSPACE_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "hardware_or_network_fault"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every hardware_or_network_fault behavior in RT_CONFIG_UI_WORKSPACE_001; dynamic proof and broad remote validation remain explicit debt."

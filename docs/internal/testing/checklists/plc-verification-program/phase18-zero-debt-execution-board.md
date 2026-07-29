@@ -4,7 +4,7 @@ Status: zero-debt contract accepted by commit-bound independent R3 review.
 Findings `P18-C01` through `P18-C08` and `P18-R2-01` are resolved.
 
 Current row: `VERIF-P18-003`, continuing as one repository-wide
-authority/mapping campaign over the remaining 363 owned nonmapping tests, 203
+authority/mapping campaign over the remaining 286 owned nonmapping tests, 203
 gap-open coverage cells, nine current exact-behavior-marker debts, and eleven
 empty historical placeholder invariants. The accepted P18-002 ledger owns and
 orders every current fact; it does not close any semantic, mapping, execution,
@@ -1314,6 +1314,33 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   downstream debt. No broad workspace gate ran. Evidence:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-vm-oracle-closure-49.md`.
   <!-- generated:vm-oracle-closure-49:end -->
+  <!-- generated:hmi-web-control-io-oracle-closure-77:start -->
+
+  HMI, Web IDE, Runtime Cloud, control, and I/O assertion-oracle closure
+  progress (2026-07-29): the exact 77-test population selected at `65652cfb`
+  passes 77/77 focused tests and has an exhaustive 1,493-assertion review: 524
+  direct product oracles, 969 setup/preconditions, zero non-oracle
+  observations, and 524 exact behavior bindings. The operator-first HMI
+  specification is now active normative authority; the unified Web IDE,
+  configuration UI, bounded HMI persistence, Runtime Cloud
+  state/dispatch/rollout, and audited WAN-allowlist update contracts are
+  explicit product requirements. Six new invariants and the existing
+  action-policy invariant add 27 coverage cells, all of which reconcile to
+  accepted mappings, so repository-wide `gap_open` remains 203. Full
+  identifier isolation rejected a cross-area connector-status draft; the
+  accepted clean rebuild binds those four golden tests to the existing
+  cross-surface `UI_STATUS_001` authority. The transaction adds 77 accepted
+  mappings and moves the exact denominator from 4,401 = 4,038 mapped + 363
+  nonmapping to 4,401 = 4,115 mapped + 286 nonmapping. A root-record audit
+  proves all 6,674 pre-existing proposal/decision records byte-identical, the
+  focused mapping suite passes 72/72, and the final repository-wide staleness
+  output contains zero findings across 244 exact batch identifiers.
+  `VERIF-P18-003` and `VERIF-P18-005` remain globally open; dynamic
+  reachability, mutation sensitivity, rendered browser acceptance, and broad
+  gates remain explicit downstream debt. No broad workspace gate ran.
+  Evidence:
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-hmi-web-control-io-oracle-closure-77.md`.
+  <!-- generated:hmi-web-control-io-oracle-closure-77:end -->
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device
