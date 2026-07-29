@@ -17,7 +17,7 @@ tests = ["TEST_AUTO_1DE736DC8363021976F3", "TEST_AUTO_2EDC4B78F56295D7D60E", "TE
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["cataloged_wire_schema_tests", "focused_execution_evidence", "assertion_reachability", "broad_remote_gate"]
+missing = ["broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -83,20 +83,20 @@ rationale = "Missing required fields, wrong JSON shapes, and unsupported message
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "Exact envelope, state, and standard-payload conformance tests are not yet cataloged and executed."
+state = "covered"
+rationale = "Cataloged focused wire-schema tests execute exact envelope, state, and standard-payload serialization and roundtrip assertions."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "gap_open"
-rationale = "Custom mutation field and discriminator tests are not yet cataloged and executed."
+state = "covered"
+rationale = "The cataloged custom-mutation test locks required fields, lower-case discriminators, and exact roundtrip behavior."
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
-state = "gap_open"
-rationale = "Breakpoint and reload projection tests are not yet cataloged and executed."
+state = "covered"
+rationale = "The cataloged breakpoint and reload test preserves source positions, verification state, and optional replacement inputs."
 
 [[coverage.cells]]
 dimension = "missing_required"
-state = "gap_open"
-rationale = "Fail-closed required-field and enum tests are not yet cataloged and executed."
+state = "covered"
+rationale = "The cataloged rejection matrix executes 21 missing-field, wrong-shape, and invalid-discriminator assertions."

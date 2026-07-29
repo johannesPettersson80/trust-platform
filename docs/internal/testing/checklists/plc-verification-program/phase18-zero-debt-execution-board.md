@@ -4,18 +4,16 @@ Status: zero-debt contract accepted by commit-bound independent R3 review.
 Findings `P18-C01` through `P18-C08` and `P18-R2-01` are resolved.
 
 Current row: `VERIF-P18-003`, continuing as one repository-wide authority and
-coverage campaign over 173 gap-open coverage cells, 15,185 explicitly mapped
-`spec_gap` code facts, zero code-spec findings, and eleven historical
-placeholder invariants. All nine current exact-behavior-marker debts and the
-complete identity-maintenance and semantic-review queues are closed. The code
-map now represents all 17,227 live facts. A reviewed exact-path authority-reuse
-batch rebound 356 facts to existing specification and invariant authority;
-all 283 ambiguous or semantically overbroad candidates remain explicit debt.
-`VERIF-P18-005` is closed at 4,400
-live tests = 4,400 `catalog_mapped` + zero `reviewed_nonmapping`. The accepted
-P18-002 ledger owns and orders every current fact; it does not close any
-remaining specification, execution, reachability, mutation, or adequacy
-population.
+coverage campaign over 15,104 explicitly mapped `spec_gap` code facts, zero
+code-spec findings, and eleven historical placeholder invariants. All nine
+current exact-behavior-marker debts and the complete identity-maintenance and
+semantic-review queues are closed. The code map now represents all 17,229 live
+facts, of which 2,090 are `specified`. The test denominator is 4,416 =
+4,406 `catalog_mapped` + ten newly added PLCopen `reviewed_nonmapping` facts;
+`VERIF-P18-005` is therefore reopened until those ten tests receive accepted
+bindings. The accepted P18-002 ledger owns and orders every current fact; it
+does not close any remaining specification, execution, reachability, mutation,
+or adequacy population.
 
 ## Objective
 
@@ -1639,7 +1637,25 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   gate ran. Evidence:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-residual-authority-trace-189.md`.
   <!-- generated:residual-authority-trace-189:end -->
-- [x] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
+  <!-- generated:dap-wire-schema-6:start -->
+
+  Debug-adapter wire-schema progress (2026-07-30): one normative JSON wire
+  contract now owns request/response/event envelopes, standard DAP payloads,
+  truST I/O and variable state/mutations, breakpoint/reload payloads, omission
+  and default rules, explicit zero handling, and fail-closed malformed input.
+  Six new conformance tests contribute 52 reviewed assertions and pass 6/6
+  through the controlled clean-builder runner; the complete protocol selection
+  passes 7/7. A closed-path runner gap was fixed with an assertion red and
+  paired green. Focused coverage observes all six tests. Sixty production DAP
+  protocol types are rebound from `spec_gap` to
+  `DEBUG_DAP_WIRE_SCHEMA_001`, reducing the exact 17,229-fact census to 15,104
+  remaining `spec_gap` facts with zero findings. No product defect was found.
+  This is slice progress only; large subsystem authority batches, ten PLCopen
+  test bindings, mutation/adequacy work, and final broad gates remain open.
+  Evidence:
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-30-p18-dap-wire-schema.md`.
+  <!-- generated:dap-wire-schema-6:end -->
+- [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device
   campaigns to equivalent executed proof contracts, or remove it with
