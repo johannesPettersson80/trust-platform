@@ -4,11 +4,14 @@ Status: zero-debt contract accepted by commit-bound independent R3 review.
 Findings `P18-C01` through `P18-C08` and `P18-R2-01` are resolved.
 
 Current row: `VERIF-P18-003`, continuing as one repository-wide authority and
-coverage campaign over 173 gap-open coverage cells, 15,506 explicitly mapped
+coverage campaign over 173 gap-open coverage cells, 15,185 explicitly mapped
 `spec_gap` code facts, zero code-spec findings, and eleven historical
 placeholder invariants. All nine current exact-behavior-marker debts and the
 complete identity-maintenance and semantic-review queues are closed. The code
-map now represents all 17,192 live facts. `VERIF-P18-005` is closed at 4,400
+map now represents all 17,227 live facts. A reviewed exact-path authority-reuse
+batch rebound 356 facts to existing specification and invariant authority;
+all 283 ambiguous or semantically overbroad candidates remain explicit debt.
+`VERIF-P18-005` is closed at 4,400
 live tests = 4,400 `catalog_mapped` + zero `reviewed_nonmapping`. The accepted
 P18-002 ledger owns and orders every current fact; it does not close any
 remaining specification, execution, reachability, mutation, or adequacy
@@ -1593,6 +1596,28 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   open. No broad workspace gate ran. Evidence:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-semantic-review.md`.
   <!-- generated:code-spec-semantic-review:end -->
+  <!-- generated:code-spec-authority-reuse:start -->
+
+  Code-spec authority-reuse progress (2026-07-29): a clean zero-finding
+  17,227-fact report proposed existing exact-path authority for 639 of 15,541
+  `spec_gap` facts. One complete semantic review accepted 35 groups containing
+  356 facts and withheld 22 groups containing 283 facts: eight ambiguous,
+  eleven with mixed semantics, and three with a direct claim mismatch.
+  Exact-path proximity never selected or expanded authority. The recoverable
+  transaction live-reconstructed the proposal twice and changed only the
+  selected code mappings and owning gap affected-code lists. Clean detached
+  `trust-builder` commit
+  `91710d3b27767df53d8a7c0358fa719837685fec` passes the focused
+  authority/semantic/refresh suite 62/62 and reports 17,227 live = 17,227
+  mapped facts, zero findings, 15,185 `spec_gap`, and 2,007 `specified`.
+  Its identity/semantic refresh proposal is empty. The next authority proposal
+  contains exactly the 22 withheld groups: 212 singular-candidate and 71
+  ambiguous-candidate facts; another 14,902 facts have no reusable exact-path
+  authority. `VERIF-P18-003`, missing-test review, execution, bidirectional
+  chains, reachability, mutation sensitivity, adequacy, environment proof, and
+  final broad gates remain open. No broad workspace gate ran. Evidence:
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-authority-reuse.md`.
+  <!-- generated:code-spec-authority-reuse:end -->
 - [x] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device
