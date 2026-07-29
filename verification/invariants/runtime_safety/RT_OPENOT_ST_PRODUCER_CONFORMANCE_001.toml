@@ -6,7 +6,7 @@ risk = "silent_corruption"
 status = "mapped"
 owner = "trust-runtime"
 last_reviewed = "2026-07-27"
-claim = "The Structured Text OpenOT producer preserves edge-triggered scan order, byte-exact typed encoding, source time, and fail-closed state transitions within its bounded record buffer."
+claim = "The Structured Text OpenOT producer preserves edge-triggered scan order, byte-exact typed encoding, source time, reviewed value-sampling policy, and fail-closed state transitions within its bounded record buffer."
 proof_level = "S0"
 contract_kind = "protocol_trace"
 source_refs = ["docs/specs/27-openot-authoring.md", "crates/trust-runtime/tests/openot_telemetry.rs"]
@@ -51,10 +51,19 @@ no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "expected_delta" }
 rationale = "Oversize, incomplete, inactive-lifecycle, and invalid-attestation operations publish nothing and do not advance their successful baseline."
 
+[[behavior]]
+partition = { equals = "VALUE_SAMPLING_POLICY" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_OPENOT_AUTHORING_001#11-4-runtime-value-sampling"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "expected_delta" }
+rationale = "On-change, deadband, periodic, and hysteresis policies emit or suppress against only their last successfully committed value and time baselines."
+
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
 state = "gap_open"
-rationale = "The scan contract is specified; external helper assertion oracles remain unresolved."
+rationale = "The scan and sampling contracts are specified; external helper assertion oracles remain unresolved."
 
 [[coverage.cells]]
 dimension = "encoding_or_unicode"

@@ -68,6 +68,12 @@ pub(crate) fn st_test_source(name: &str) -> &'static str {
         "test_conformant_regulated.st" => {
             include_str!("../fixtures/openot/iec61131/tests/test_conformant_regulated.st.txt")
         }
+        "test_authoring_api.st" => {
+            include_str!("../fixtures/openot/iec61131/tests/test_authoring_api.st.txt")
+        }
+        "test_value_sampling.st" => {
+            include_str!("../fixtures/openot/iec61131/tests/test_value_sampling.st.txt")
+        }
         _ => panic!("unregistered frozen OpenOT ST test fixture: {name}"),
     }
 }

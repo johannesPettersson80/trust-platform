@@ -58,6 +58,10 @@ Target release: `v0.24.60`
 
 ### Fixed
 
+- OpenOT runtime conformance tests now carry the complete pinned authoring and
+  value-sampling Structured Text fixture closure, so those tests execute
+  independently of a sibling `open-ot-ref` checkout instead of failing at the
+  frozen-fixture boundary.
 - `trust-dev test` now compiles projects that contain no test POU before
   reporting an empty run, so compile-negative fixtures cannot become false
   successes merely by using ordinary `PROGRAM` declarations.

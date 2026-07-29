@@ -383,6 +383,29 @@ MUST fail without publishing a partial record. The previous-value baseline,
 activation state, and attestation state MUST advance only when their
 corresponding record is successfully committed.
 
+### 11.4 Runtime value sampling
+
+The producer MUST apply the selected value policy against the last successfully
+emitted value for that value identity:
+
+- `on-change` MUST emit the first observed value and each later unequal value,
+  and MUST suppress an unchanged value;
+- `deadband` MUST emit the first observed `REAL` value and a later value only
+  when its absolute movement from the last emitted value is greater than the
+  configured deadband;
+- `periodic` MUST emit the first observed value, a changed value, or an
+  unchanged value whose source time has advanced by at least the configured
+  interval since the last emission, and MUST suppress an earlier unchanged
+  sample; and
+- `hysteresis` MUST emit the first observed `REAL` value, suppress values
+  inside the band centered on the last emitted value, and emit and recenter
+  only after the value crosses above `center + deadband` or below
+  `center - deadband`.
+
+A suppressed sample MUST NOT advance the published-record count, source
+sequence, periodic timestamp baseline, or hysteresis center. A successful
+sample emission MUST advance those applicable baselines exactly once.
+
 ## 12. Runtime telemetry publication
 
 ### 12.1 Heartbeat and ST-producer publication
