@@ -4,6 +4,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 python3 scripts/validate_verification_metadata.py
 python3 -m unittest \
+  scripts.verification.code_spec_authority_reuse_tests \
   scripts.verification.code_spec_semantic_contract_tests \
   scripts.verification.code_spec_semantic_selection_tests \
   scripts.verification.code_spec_refresh_tests \

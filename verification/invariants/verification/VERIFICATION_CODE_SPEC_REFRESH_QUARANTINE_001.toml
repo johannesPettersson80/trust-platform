@@ -1,12 +1,12 @@
 schema_version = 1
 id = "VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"
-title = "Code-to-spec refresh findings remain quarantined and reviewed acceptance is atomic"
+title = "Code-to-spec refresh and authority-reuse findings remain quarantined"
 area = "verification"
 risk = "silent_corruption"
 status = "mapped"
 owner = "verification"
 last_reviewed = "2026-07-29"
-claim = "An at-rest-canonical code-spec report must partition every finding exactly once into deterministic untrusted review-required proposals without inferring source liveness or semantic bindings. Complete reviewed identity and semantic selections must live-reconstruct the exact report and proposal, project only the selected transition, rebuild before mutation, and apply their canonical replacement set and manifest through one recoverable compare-and-swap transaction without closing gaps or creating proof."
+claim = "An at-rest-canonical code-spec report must partition every finding exactly once into deterministic untrusted review-required proposals without inferring source liveness or semantic bindings. Existing exact-path authority is also proposal-only until every singular or ambiguous group receives an explicit semantic decision. Complete reviewed identity, semantic, and authority-reuse selections must live-reconstruct the exact report and metadata, project only the selected transition, rebuild before mutation, and apply their canonical replacement set and manifest through one recoverable compare-and-swap transaction without inventing authority or creating proof."
 proof_level = "T1"
 contract_kind = "protocol_trace"
 source_refs = [
@@ -18,6 +18,9 @@ source_refs = [
   "scripts/verification/code_spec_refresh_selection.py",
   "scripts/verification/code_spec_semantic_projection.py",
   "scripts/verification/code_spec_semantic_selection.py",
+  "scripts/verification/code_spec_authority_reuse.py",
+  "scripts/verification/code_spec_authority_reuse_projection.py",
+  "scripts/verification/code_spec_authority_reuse_selection.py",
   "verification/schemas/code-spec-refresh-proposals.schema.json",
 ]
 tests = ["TEST_VERIFICATION_METADATA_GATE_001"]
@@ -32,7 +35,7 @@ source_refs = ["SPEC_VERIFICATION_PROGRAM_CONTRACT_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001"
+ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
 
 [[coverage.cells]]
 dimension = "happy_path"
@@ -58,3 +61,8 @@ rationale = "An unknown report finding fails closed instead of disappearing from
 dimension = "auth_or_permission"
 state = "covered"
 rationale = "Stale successors require the exact path, qualified-symbol, and item-kind tuple; direct missing mappings require an explicit live-candidate area, owner, and existing gap; cross-area semantic decisions bind an anchored review, unrelated mapped tests are removed without inventing proof links, and risk-bearing transitions receive exact current-body acknowledgements."
+
+[[coverage.cells]]
+dimension = "missing_required"
+state = "covered"
+rationale = "Focused authority-reuse fixtures partition singular, ambiguous, and no-candidate facts; require a complete explicit review; reject ambiguous acceptance; update only selected mapping and gap-ledger fields; and reject stale proposal or selection inputs before atomic application."

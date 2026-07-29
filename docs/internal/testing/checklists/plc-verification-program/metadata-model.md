@@ -1232,6 +1232,30 @@ affected code mappings; acceptance must not invent a catalog-to-invariant or
 invariant-to-test link. The command rebuilds the report and proposal before
 projection and again before one recoverable compare-and-swap replacement.
 
+Existing-authority reuse is a separate review-only plane. It starts from a
+clean, zero-finding code-spec report and exact current metadata bytes. A code
+fact becomes a candidate only when an active oracle-eligible invariant in the
+same area names the exact source path, carries an exact specification
+fragment, and has non-empty mapped tests with live invariant backlinks.
+Exact-path overlap is discovery, not semantic acceptance. Candidate groups
+include every affected code identity and qualified symbol plus the complete
+invariant claim, behavior summaries, source references, and test set.
+One exact candidate is `singular`; multiple exact candidates are `ambiguous`;
+neither class writes metadata automatically.
+
+The reviewed selection must explicitly accept or withhold every candidate
+group. An ambiguous group cannot be accepted by this transaction. A singular
+group can be accepted only with its sole candidate invariant, and the
+projection may change only `spec_gap` disposition fields, the review date, and
+the owning gap's affected-code set. Tests come from the already reviewed
+invariant backlink set; the transaction cannot create catalog or invariant
+links. The source report, code map, gap ledger, specification registry, test
+catalog, and every invariant file are digest-bound. The proposal is rebuilt
+from a clean tracked checkout before projection and again inside one
+recoverable compare-and-swap application. Acceptance closes the selected
+code-to-authority mapping debt only; execution, reachability, mutation
+sensitivity, adequacy, and broad-gate proof remain separate.
+
 All three Phase 2 reports are report-only. A complete, exhaustively reviewed
 denominator returns success; corrupt
 metadata, stale joins, unsafe or symlinked input paths, dirty source commits,
