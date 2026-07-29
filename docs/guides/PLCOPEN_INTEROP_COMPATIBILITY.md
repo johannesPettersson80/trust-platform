@@ -173,6 +173,43 @@ or proof of target-runtime equivalence.
   - `notes`
 - Per-POU migration entries (`entries`) with `status` and `reason`.
 
+The migration percentages are deterministic product metrics, not PLCopen
+standard scores:
+
+- `source_coverage_percent` is imported POUs divided by discovered POUs,
+  expressed as a percentage; zero discovered POUs produces `0.0`.
+- `semantic_loss_percent` is the sum of 70% skipped-POU weight, 20%
+  unsupported-node weight, and 10% capped warning weight. The unsupported
+  ratio is `unsupported / (unsupported + discovered)`, the warning ratio is
+  `min(warnings / (2 * discovered), 1)`, and zero discovered POUs produces
+  `100.0`.
+- compatibility counts imported POUs as supported, unsupported nodes and
+  applied shim occurrences as partial, and skipped POUs as unsupported.
+  `support_percent` is supported divided by the total. The verdict is `none`
+  for an empty total, `full` when no partial or unsupported item remains,
+  `partial` when at least one supported item remains, and `low` otherwise.
+- every percentage is rounded to two decimal places.
+
+The report writer creates the parent directory, emits pretty JSON followed by
+one newline, and returns the canonical report path.
+
+Ecosystem detection searches XML element attributes, `data` names, and the
+complete XML text case-insensitively. Its precedence is Beckhoff/TwinCAT,
+OpenPLC, Schneider, CODESYS, Siemens, Rockwell, Mitsubishi, then
+`generic-plcopen`. This is advisory migration metadata only.
+
+Unknown top-level project children produce `PLCO101`; unknown children under
+`types` other than `pous` and `dataTypes` produce `PLCO102`; and unknown
+children under `instances` other than configurations, configuration, or
+resource produce `PLCO103`. Each is retained as an owned warning and is not
+treated as executable semantics.
+
+An embedded source map is read only from `data` named `trust.sourceMap`; a
+missing or malformed JSON payload is ignored. Other `data` elements, including
+unnamed elements, are copied in source order into
+`plcopen.vendor-extensions.imported.xml` beneath one `vendorExtensions`
+wrapper. The embedded source map is excluded from that opaque extension file.
+
 Non-ST POU body diagnostics are fail-closed:
 
 - `PLCO215`: unsupported FBD graphical body.
@@ -212,6 +249,27 @@ The Siemens fixture maps `SFB3 -> TP` and `SFB4 -> TON` while preserving an
 unrelated variable named `SFB4`. The OpenPLC CLI fixtures detect `openplc`,
 map `R_EDGE -> R_TRIG`, and remain exportable with the source-map sidecar.
 These are symbol-level migration transforms, not semantic-equivalence claims.
+
+The exact reviewed alias catalogue is:
+
+| Ecosystem | Source | Replacement |
+|---|---|---|
+| Siemens TIA | `SFB3` | `TP` |
+| Siemens TIA | `SFB4` | `TON` |
+| Siemens TIA | `SFB5` | `TOF` |
+| Rockwell Studio 5000 | `TONR` | `TON` |
+| Schneider, CODESYS, OpenPLC | `R_EDGE` | `R_TRIG` |
+| Schneider, CODESYS, OpenPLC | `F_EDGE` | `F_TRIG` |
+| Mitsubishi GX Works 3 | `DIFU` | `R_TRIG` |
+| Mitsubishi GX Works 3 | `DIFD` | `F_TRIG` |
+
+Matching is case-insensitive and rewrites only a type position following
+`:`, `OF`, `EXTENDS`, or `REF_TO`, or a direct call position immediately
+followed by `(` after trivia. Member access following `.` and ordinary bare
+identifier use are unchanged. Repeated applications of the same
+ecosystem/source/replacement/notes tuple are aggregated into one record with
+the exact occurrence count. Unknown ecosystems and empty token streams are
+returned unchanged without a synthetic application record.
 
 ## CODESYS ST Fixture Pack and Parity Gate
 

@@ -112,6 +112,12 @@ This file tracks implementation decisions made where PLCopen profiles or source 
   - The reviewed Siemens, Rockwell, Schneider/CODESYS, Mitsubishi, and OpenPLC
     symbol shims are migration transforms whose applications are reported;
     they are not vendor-runtime equivalence claims.
+  - The public compatibility guide owns the exact shim catalogue, token
+    positions, ecosystem-detection precedence, deterministic migration-score
+    formulas, `PLCO101` through `PLCO103` structural diagnostics, embedded
+    source-map tolerance, opaque-extension wrapper, and migration-report JSON
+    serialization. These are truST migration-product choices, not normative
+    PLCopen scoring or vendor-runtime semantics.
   - Allen-Bradley, Siemens, and Schneider export adapters emit the documented
     XML, sidecar report, and optional Siemens SCL bundle. They do not emit
     native vendor project packages.

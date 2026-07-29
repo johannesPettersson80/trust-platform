@@ -6,7 +6,7 @@ risk = "silent_corruption"
 status = "mapped"
 owner = "trust-plcopen"
 last_reviewed = "2026-07-29"
-claim = "Import/export surfaces report reviewed compatibility facts and preserve opaque vendor extension payloads without treating them as executable semantics."
+claim = "Import/export surfaces apply the exact reviewed migration scoring, compatibility verdict, ecosystem-detection precedence, structural diagnostics, embedded-source-map tolerance, opaque-extension preservation, and report serialization while never treating vendor payloads as executable semantics."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["docs/guides/PLCOPEN_INTEROP_COMPATIBILITY.md", "docs/PLCOPEN_DECISIONS.md", "crates/trust-plcopen/src/plcopen/contracts.rs"]
@@ -47,6 +47,54 @@ oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#migration-report-and-vendor-exten
 outcome = "accept_value"
 delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "expected_delta" }
 rationale = "Generic export/import JSON reports expose the tested target/count/source-map and ecosystem/partial-verdict/PLCO203 fields."
+
+[[behavior]]
+partition = { equals = "MIGRATION_SCORING_ZERO_FULL_PARTIAL_AND_LOW" }
+case_family = "happy_path"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#migration-report-and-vendor-extension-contract"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "Source coverage, semantic loss, compatibility item counts, two-decimal rounding, and none/full/partial/low verdicts follow the documented formulas, including zero denominators."
+
+[[behavior]]
+partition = { equals = "ECOSYSTEM_DETECTION_PRECEDENCE_AND_FALLBACK" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#migration-report-and-vendor-extension-contract"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "Attribute, data-name, and XML-text hints select the first documented ecosystem in precedence order or the generic fallback."
+
+[[behavior]]
+partition = { equals = "UNSUPPORTED_STRUCTURAL_NODE_DIAGNOSTICS" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#migration-report-and-vendor-extension-contract"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Unknown project, types, and instances children produce owned PLCO101, PLCO102, and PLCO103 warning records without becoming executable semantics."
+
+[[behavior]]
+partition = { equals = "EMBEDDED_SOURCE_MAP_VALID_MALFORMED_OR_ABSENT" }
+case_family = "malformed_input"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#migration-report-and-vendor-extension-contract"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "An exact trust.sourceMap JSON payload is decoded, while malformed, absent, or differently named payloads yield no source map without inventing data."
+
+[[behavior]]
+partition = { equals = "OPAQUE_EXTENSION_WRAPPER_EXCLUDES_SOURCE_MAP" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#migration-report-and-vendor-extension-contract"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Named and unnamed opaque data elements retain source order beneath one vendorExtensions wrapper while trust.sourceMap is excluded."
+
+[[behavior]]
+partition = { equals = "PRETTY_NEWLINE_TERMINATED_REPORT_WRITE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#migration-report-and-vendor-extension-contract"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "The migration report writer creates its parent directory and writes parseable pretty JSON followed by one newline at the canonical path."
 
 [[coverage.cells]]
 dimension = "extra_or_unknown"

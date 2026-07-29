@@ -5,8 +5,8 @@ area = "plcopen_devtools"
 risk = "wrong_result"
 status = "mapped"
 owner = "trust-plcopen"
-last_reviewed = "2026-07-27"
-claim = "Recognized Siemens and OpenPLC aliases are replaced only in reviewed symbol positions and every applied transform remains visible as migration evidence."
+last_reviewed = "2026-07-29"
+claim = "The exact reviewed Siemens, Rockwell, Schneider/CODESYS/OpenPLC, and Mitsubishi alias catalogue is matched case-insensitively, rewrites only reviewed type and direct-call positions, preserves member and bare identifier uses, aggregates exact application counts, and leaves unknown ecosystems unchanged."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["docs/guides/PLCOPEN_INTEROP_COMPATIBILITY.md", "docs/guides/VENDOR_LIBRARY_COMPATIBILITY.md", "docs/guides/OPENPLC_INTEROP_V1.md", "docs/PLCOPEN_DECISIONS.md", "crates/trust-plcopen/src/plcopen/shims_metrics.rs"]
@@ -63,6 +63,38 @@ oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#vendor-library-shim-contract"
 outcome = "accept_value"
 delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "expected_delta" }
 rationale = "The shipped OpenPLC bundle imports with the reviewed shim and can be exported to XML with a source-map sidecar; semantic equivalence is not claimed."
+
+[[behavior]]
+partition = { equals = "EXACT_VENDOR_ALIAS_CATALOGUE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#vendor-library-shim-contract"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "Every documented Siemens, Rockwell, Schneider/CODESYS/OpenPLC, and Mitsubishi source alias maps to its exact reviewed replacement."
+
+[[behavior]]
+partition = { equals = "TYPE_DIRECT_CALL_MEMBER_AND_BARE_POSITIONS" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#vendor-library-shim-contract"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "Type and direct-call positions rewrite through trivia while member access and ordinary bare identifier uses remain unchanged."
+
+[[behavior]]
+partition = { equals = "AGGREGATED_APPLICATION_COUNT" }
+case_family = "happy_path"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#vendor-library-shim-contract"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "Repeated equal ecosystem/source/replacement/notes applications produce one deterministic record with the exact occurrence count."
+
+[[behavior]]
+partition = { equals = "UNKNOWN_ECOSYSTEM_OR_EMPTY_TOKEN_STREAM" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#vendor-library-shim-contract"
+outcome = "accept_value"
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "Unknown ecosystems and empty token streams return the source unchanged without an invented application record."
 
 [[coverage.cells]]
 dimension = "happy_path"
