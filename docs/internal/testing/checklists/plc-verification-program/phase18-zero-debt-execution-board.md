@@ -4,7 +4,7 @@ Status: zero-debt contract accepted by commit-bound independent R3 review.
 Findings `P18-C01` through `P18-C08` and `P18-R2-01` are resolved.
 
 Current row: `VERIF-P18-003`, continuing as one repository-wide
-authority/mapping campaign over the remaining 253 owned nonmapping tests, 203
+authority/mapping campaign over the remaining 175 owned nonmapping tests, 203
 gap-open coverage cells, nine current exact-behavior-marker debts, and eleven
 empty historical placeholder invariants. The accepted P18-002 ledger owns and
 orders every current fact; it does not close any semantic, mapping, execution,
@@ -1364,6 +1364,30 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   remain explicit downstream debt. No broad workspace gate ran. Evidence:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-lsp-ide-oracle-closure-33.md`.
   <!-- generated:lsp-ide-oracle-closure-33:end -->
+  <!-- generated:portable-assertion-oracle-closure-78:start -->
+
+  Portable assertion-oracle closure progress (2026-07-29): the complete
+  remaining portable 78-test population at `8a0a9fa2` passes 78/78 focused
+  tests across 20 exact owning target groups and has an exhaustive
+  865-assertion review: 402 direct product oracles, 463 setup/preconditions,
+  zero non-oracle observations, and 403 exact behavior bindings. Twenty-one
+  accepted invariants, including six new product authorities, bind runtime,
+  PLCopen, developer workflow, platform, example, and supply-chain behavior.
+  All new coverage cells reconcile to accepted mappings, so repository-wide
+  `gap_open` remains 203. The transaction adds 78 accepted mappings and moves
+  the exact denominator from 4,401 = 4,148 mapped + 253 nonmapping to 4,401 =
+  4,226 mapped + 175 nonmapping. A root-record audit proves all 6,894
+  pre-existing proposal/decision records byte-identical, the focused mapping
+  suite passes 72/72, all 69 lock-bound digests match, and the final
+  repository-wide staleness output contains zero findings across 156 exact
+  batch identifiers. Only the two Windows-only URI tests remain
+  `assertion_oracle_unresolved`; the other 173 denominator facts are governed
+  nonmapping inventories. `VERIF-P18-003` and `VERIF-P18-005` remain globally
+  open; dynamic reachability, mutation sensitivity, platform proof, and broad
+  gates remain explicit downstream debt. No broad workspace gate ran.
+  Evidence:
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-portable-oracle-closure-78.md`.
+  <!-- generated:portable-assertion-oracle-closure-78:end -->
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device

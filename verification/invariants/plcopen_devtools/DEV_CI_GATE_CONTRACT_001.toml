@@ -1,0 +1,99 @@
+schema_version = 1
+id = "DEV_CI_GATE_CONTRACT_001"
+title = "CI reliability and release-gate artifacts fail closed"
+area = "plcopen_devtools"
+risk = "false_status"
+status = "mapped"
+owner = "trust-dev"
+last_reviewed = "2026-07-29"
+claim = "The reviewed flake probe, nightly workflow, reliability budgets, native CI template, VS Code gate, and release aggregation preserve machine-readable truth and reject absent or failed required evidence."
+proof_level = "S0"
+contract_kind = "release_matrix"
+source_refs = ["docs/specs/22-developer-workflows.md", "crates/trust-runtime/tests/ci_cicd_contract.rs", ".github/workflows", "scripts"]
+tests = ["TEST_AUTO_121D3E8004F58F16B876", "TEST_AUTO_4E461DFE780B510B8F1D", "TEST_AUTO_6047076294C275FF229D", "TEST_AUTO_71086B098E124BEC1075", "TEST_AUTO_A602B8224521637DF221", "TEST_AUTO_C1D0E6F5C2D69B6C4E7D", "TEST_AUTO_DB05019779BB1704907F"]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate", "executed_github_workflow_artifacts", "public_release_candidate_evidence"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_DEVELOPER_WORKFLOWS_001"]
+
+[oracle]
+kind = "release_contract"
+ref = "SPEC_DEVELOPER_WORKFLOWS_001#ci-reliability-and-release-gate-artifact-contract"
+
+[[behavior]]
+partition = { equals = "FLAKE_PROBE_MACHINE_READABLE_SAMPLE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#ci-reliability-and-release-gate-artifact-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "The probe emits the reviewed schema, identity, counts, flake rate, and ordered sample outcomes."
+
+[[behavior]]
+partition = { equals = "NIGHTLY_RELIABILITY_WORKFLOW_ARTIFACTS" }
+case_family = "supply_chain_or_artifact_fault"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#ci-reliability-and-release-gate-artifact-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "The workflow retains dispatch, load, soak, flake, budget, and run-scoped machine-readable artifact wiring."
+
+[[behavior]]
+partition = { equals = "MISSING_OR_PRESENT_REQUIRED_GATE_ARTIFACT_MATRIX" }
+case_family = "supply_chain_or_artifact_fault"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#ci-reliability-and-release-gate-artifact-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_safe_reported" }
+rationale = "Aggregation reports FAIL with exact missing identities and reports PASS only when every reviewed artifact and gate result is present."
+
+[[behavior]]
+partition = { equals = "RELIABILITY_BUDGET_BREACH" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#ci-reliability-and-release-gate-artifact-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "A configured load, soak, or flake budget breach returns nonzero instead of a false green result."
+
+[[behavior]]
+partition = { equals = "NATIVE_CI_TEMPLATE_COMMAND_SEQUENCE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#ci-reliability-and-release-gate-artifact-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "The public native template builds both CLIs before runtime build, validate, JUnit test, and report upload in the reviewed order."
+
+[[behavior]]
+partition = { equals = "VSCODE_GATE_REQUIRED_FOR_RELEASE" }
+case_family = "supply_chain_or_artifact_fault"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#ci-reliability-and-release-gate-artifact-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "not_safe_reported" }
+rationale = "The extension job remains a required release input and its absent or failed result cannot aggregate as release-ready."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in DEV_CI_GATE_CONTRACT_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "supply_chain_or_artifact_fault"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every supply_chain_or_artifact_fault behavior in DEV_CI_GATE_CONTRACT_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "boundary_high"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every boundary_high behavior in DEV_CI_GATE_CONTRACT_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in DEV_CI_GATE_CONTRACT_001; dynamic proof and broad remote validation remain explicit debt."

@@ -57,6 +57,41 @@ crates/trust-runtime/
 
 > Historical note: older code snippets later in this document still show `EvalContext`-style conceptual APIs from the pre-VM migration era. Those snippets are background/reference material only and do not override the VM-only production contract above.
 
+#### 1.2.1 Initializer and reference architecture contract
+
+The source-level initializer path has one bounded ownership chain. HIR
+collection retains member initializers in the Salsa-tracked symbol table and
+exposes them through the initializer catalog. Runtime POU registration consumes
+the HIR declaration catalog and fails visibly when a catalog entry cannot be
+matched for body lowering; it does not rediscover programs, functions,
+function blocks, classes, or interfaces by scanning raw syntax descendants.
+Runtime initializer coercion is owned by the initializer service rather than
+duplicated across callers, and runtime declaration lowering uses named
+structural fields rather than positional tuples.
+
+The HIR layer must not depend on runtime `Value` types or raw CST nodes for
+lowered initializer metadata. Syntax classification helpers delegate to the
+central `trust-syntax` classifier. These are architectural dependency
+contracts: their source-bound checks do not substitute for executable
+initializer semantics.
+
+The VM and register-IR paths preserve bounded allocation behavior:
+
+- partial dynamic-reference indexing and field lookup borrow the existing
+  `ValueRef` path rather than cloning the complete reference;
+- function-block reference execution reads through the borrowed reference;
+- register-IR decode stores instruction operands inline rather than allocating
+  one `Vec` per decoded instruction; and
+- VM local initialization populates VM frame slots without creating temporary
+  runtime storage frames.
+
+The reviewed initializer service modules remain at most 400 lines and reviewed
+functions remain at most 60 lines. The checked-in initializer benchmark action,
+include, fixture, VM backend selection, and authentication fixture value remain
+present as the reproducible performance-test entrypoint. These caps and fixture
+checks are maintainability and benchmark-contract gates; they do not establish
+a general runtime performance result.
+
 #### 1.3 Dependencies
 
 ```toml
@@ -142,6 +177,16 @@ runtime reference model. `POINTER TO` supports `ADR(...)`, dereference (`^`),
 `Value::Null` remains the runtime sentinel for `NULL` literals and void-like
 results, while uninitialized `REF_TO` / `POINTER TO` storage defaults to
 `Value::Reference(None)` (IEC 61131-3 Ed.3 §6.4.4.10.2).
+
+#### 2.1.1 User-facing value presentation
+
+User-facing runtime value text is Structured Text-oriented and must not expose
+Rust enum debug constructors. Boolean values render as `TRUE` or `FALSE`,
+integers and bit strings as their decimal value, integral `REAL`/`LREAL`
+values retain a decimal component, strings use the Structured Text quoting and
+`$` escaping rules, durations use the shortest exact `T#` unit, and an
+instance reference renders as `Instance`. The reviewed formatter output must
+not contain implementation names such as `Int(`, `Real(`, or `Instance(`.
 
 #### 2.2 Compound Type Values
 

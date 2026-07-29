@@ -5,15 +5,15 @@ area = "runtime_safety"
 risk = "data_loss"
 status = "mapped"
 owner = "trust-runtime"
-last_reviewed = "2026-07-28"
-claim = "The file-backed retain store round-trips supported snapshots, reads supported legacy framing, distinguishes a missing file from real filesystem failure, publishes atomically, reports post-publish sync failure, and retains retry eligibility."
+last_reviewed = "2026-07-29"
+claim = "The file-backed retain store round-trips supported snapshots, reads supported legacy framing, rejects corrupted or trailing payloads, distinguishes a missing file from real filesystem failure, preserves the last good snapshot on pre-publish failure, publishes atomically, reports post-publish sync failure, and retains retry eligibility."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = [
   "docs/specs/11-runtime-engine.md",
   "crates/trust-runtime/src/retain",
 ]
-tests = ["TEST_AUTO_32E18E31451D4BF469C6", "TEST_AUTO_402CC51B509F2C268C12", "TEST_AUTO_414C6A35015C7813CC49", "TEST_AUTO_4FB5821EF62B7655873F", "TEST_AUTO_55C765213824F6A01A03", "TEST_AUTO_65D98FB688680CA72C3E", "TEST_AUTO_919CC2ACD5005149FFE0", "TEST_AUTO_9CFF33D681B6CEEA6ABA", "TEST_AUTO_B0616A747435CAE04D2A", "TEST_AUTO_EE4014B513F4E29CDCC3"]
+tests = ["TEST_AUTO_32E18E31451D4BF469C6", "TEST_AUTO_402CC51B509F2C268C12", "TEST_AUTO_414C6A35015C7813CC49", "TEST_AUTO_4FB5821EF62B7655873F", "TEST_AUTO_55C765213824F6A01A03", "TEST_AUTO_6536BD14A5FAEA351CCF", "TEST_AUTO_65D98FB688680CA72C3E", "TEST_AUTO_919CC2ACD5005149FFE0", "TEST_AUTO_9CFF33D681B6CEEA6ABA", "TEST_AUTO_A8FA0CAF53A7D6D0134E", "TEST_AUTO_B0616A747435CAE04D2A", "TEST_AUTO_D57F0AA703E76450F141", "TEST_AUTO_EE4014B513F4E29CDCC3"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
@@ -108,6 +108,24 @@ no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
 rationale = "A supported version-1 STRN value decodes to the same logical name and runtime value."
 
+[[behavior]]
+partition = { equals = "PRE_PUBLISH_FAILURE_PRESERVES_LAST_GOOD_SNAPSHOT" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#retain-codec-compatibility-and-migration"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Each reviewed pre-publish failure returns an error while leaving the previously published complete snapshot readable and unchanged."
+
+[[behavior]]
+partition = { equals = "CHECKSUM_MUTATION_OR_TRAILING_PAYLOAD" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#retain-codec-compatibility-and-migration"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "A payload whose checksum-protected bytes are changed or whose framed bytes have trailing garbage is rejected rather than partially decoded."
+
 [[coverage.cells]]
 dimension = "happy_path"
 state = "gap_open"
@@ -122,3 +140,8 @@ rationale = "Missing-file, legacy-read, and retry behavior await focused catalog
 dimension = "platform_or_filesystem_variation"
 state = "gap_open"
 rationale = "Filesystem and parent-sync failure visibility await focused catalog proof."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every wrong_type_or_shape behavior in RT_RETAIN_PERSISTENCE_CODEC_001; dynamic proof and broad remote validation remain explicit debt."

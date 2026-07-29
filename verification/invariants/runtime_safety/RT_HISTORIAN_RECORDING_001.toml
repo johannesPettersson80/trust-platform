@@ -5,8 +5,8 @@ area = "runtime_safety"
 risk = "data_loss"
 status = "mapped"
 owner = "trust-runtime"
-last_reviewed = "2026-07-28"
-claim = "The runtime historian preserves reviewed typed samples across interval filtering, allowlist selection, service reload, and runtime-plus-historian Prometheus projection."
+last_reviewed = "2026-07-29"
+claim = "The runtime historian preserves reviewed typed samples across interval filtering, allowlist selection, service reload, threshold-alert debounce and file-hook transitions, and runtime-plus-historian Prometheus projection."
 proof_level = "S0"
 contract_kind = "state_machine"
 source_refs = [
@@ -14,7 +14,7 @@ source_refs = [
   "docs/specs/11-runtime-engine.md",
   "docs/PRODUCT_DECISIONS.md",
 ]
-tests = ["TEST_AUTO_1777F6DE6144940DA855", "TEST_AUTO_1B9EF96839057E1619C0", "TEST_AUTO_A86EAC2CC2873C2FE31D", "TEST_AUTO_EFFABC152F3EA9FFB736"]
+tests = ["TEST_AUTO_1777F6DE6144940DA855", "TEST_AUTO_1B9EF96839057E1619C0", "TEST_AUTO_2E17F96D48D9A1F05349", "TEST_AUTO_A86EAC2CC2873C2FE31D", "TEST_AUTO_EFFABC152F3EA9FFB736"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
@@ -63,6 +63,15 @@ outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
 rationale = "The reviewed rendering contains runtime uptime and faults plus historian sample and alert totals with their supplied values."
+
+[[behavior]]
+partition = { equals = "THRESHOLD_ALERT_DEBOUNCE_AND_FILE_HOOK" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-historian-recording-and-export-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Two above-threshold samples emit one Triggered transition, the next below-threshold sample emits one Cleared transition, and the configured file hook receives exactly those two events."
 
 [[coverage.cells]]
 dimension = "happy_path"

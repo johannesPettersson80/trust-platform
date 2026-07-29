@@ -5,12 +5,12 @@ area = "plcopen_devtools"
 risk = "silent_corruption"
 status = "mapped"
 owner = "trust-plcopen"
-last_reviewed = "2026-07-27"
-claim = "The selected profile emits the reviewed CODESYS global, project-structure, POU, and method metadata and reconstructs the tested method source."
+last_reviewed = "2026-07-29"
+claim = "The selected profile emits and imports the reviewed CODESYS global, project-structure, POU, and method metadata, reconstructs the tested method source, and preserves reviewed application-folder and qualified-GVL placement."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["docs/guides/PLCOPEN_INTEROP_COMPATIBILITY.md", "crates/trust-plcopen/src/plcopen/codesys_export_meta.rs", "crates/trust-plcopen/src/plcopen/codesys_structure.rs"]
-tests = ["TEST_AUTO_4C1F7E6CFDEB8C495CC1", "TEST_AUTO_5F7C56DD80D372BE46BC", "TEST_AUTO_A108B907F544B3DEAAAD"]
+tests = ["TEST_AUTO_11AA6727B8481F0C7CFC", "TEST_AUTO_4C1F7E6CFDEB8C495CC1", "TEST_AUTO_5F7C56DD80D372BE46BC", "TEST_AUTO_84FCA7DE99160D25038D", "TEST_AUTO_A108B907F544B3DEAAAD"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
@@ -47,6 +47,22 @@ oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#codesys-metadata-contract"
 outcome = "accept_value"
 delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
 rationale = "Method metadata is exported on a standard FB POU and import reconstructs the tested FB, method signature, inputs, and assignment."
+
+[[behavior]]
+partition = { equals = "APPLICATION_FOLDER_AND_QUALIFIED_GVL_IMPORT" }
+case_family = "happy_path"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#codesys-metadata-contract"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "Import places the reviewed application objects deterministically and materializes qualified-only global lists as namespaced GVL source."
+
+[[behavior]]
+partition = { equals = "METHOD_OBJECT_IMPORT" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#codesys-metadata-contract"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "Import reconstructs reviewed CODESYS method objects inside the owning function-block source with their signature and body order intact."
 
 [[coverage.cells]]
 dimension = "happy_path"

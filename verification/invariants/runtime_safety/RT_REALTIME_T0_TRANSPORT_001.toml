@@ -5,8 +5,8 @@ area = "runtime_safety"
 risk = "safety_critical"
 status = "mapped"
 owner = "trust-runtime"
-last_reviewed = "2026-07-28"
-claim = "Realtime T0 accepts only its reviewed same-host fixed-layout shared-memory route, fails closed before use when setup or binding authority is invalid, and preserves the reviewed payload, counter, and error projections."
+last_reviewed = "2026-07-29"
+claim = "Realtime T0 accepts only its reviewed same-host fixed-layout shared-memory route, fails closed before use when setup, metadata, or binding authority is invalid, keeps mesh and key parsing out of the reviewed hot path, and preserves the reviewed payload, counter, and error projections."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = [
@@ -16,7 +16,7 @@ source_refs = [
   "crates/trust-runtime/src/host/realtime/shm.rs",
   "crates/trust-runtime/src/host/realtime/transport.rs",
 ]
-tests = ["TEST_AUTO_2E815DCD279686A7B9C8", "TEST_AUTO_34C0BCBE4BD82D8B80D0", "TEST_AUTO_55CAADD3CCB4DC311F46", "TEST_AUTO_5E088D53395CC4F852E5", "TEST_AUTO_6627DC479523620038C1", "TEST_AUTO_734111DCA27247D1378A", "TEST_AUTO_81373063FE7D545520F8", "TEST_AUTO_8C06F16AC40A8DA036BF", "TEST_AUTO_94AB7B525581745D39D1", "TEST_AUTO_9D4A488E4E903C1DC0B2", "TEST_AUTO_D0737A7878036279A9A4", "TEST_AUTO_E1D3B90728072A5E5DE4"]
+tests = ["TEST_AUTO_2E815DCD279686A7B9C8", "TEST_AUTO_34C0BCBE4BD82D8B80D0", "TEST_AUTO_55CAADD3CCB4DC311F46", "TEST_AUTO_5E088D53395CC4F852E5", "TEST_AUTO_6627DC479523620038C1", "TEST_AUTO_734111DCA27247D1378A", "TEST_AUTO_81373063FE7D545520F8", "TEST_AUTO_8630EBEA6FFFB7EEFE8A", "TEST_AUTO_8C06F16AC40A8DA036BF", "TEST_AUTO_94AB7B525581745D39D1", "TEST_AUTO_9D4A488E4E903C1DC0B2", "TEST_AUTO_D0737A7878036279A9A4", "TEST_AUTO_E1D3B90728072A5E5DE4", "TEST_AUTO_E97822CE4B2200DD8928"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
@@ -131,6 +131,24 @@ no_partial_apply = true
 delta = { target = "set_to_input", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
 rationale = "A parent publisher and child subscriber using the same configured shared-memory root exchange the exact reviewed payload and the child completes successfully."
 
+[[behavior]]
+partition = { equals = "SAME_LENGTH_SHARED_MEMORY_HEADER_CORRUPTION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#realtime-t0-transport-and-cycle-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "Each bounded same-length mutation of the reviewed shared-memory header is rejected on subsequent registration as a transport failure."
+
+[[behavior]]
+partition = { equals = "T0_HOT_PATH_EXCLUDES_MESH_AND_KEY_PARSING" }
+case_family = "supply_chain_or_artifact_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#realtime-t0-transport-and-cycle-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "The reviewed shared-memory hot-path modules contain no generic mesh calls or key parsing while the architecture retains the explicit non-HardRT mesh diagnostic."
+
 [[coverage.cells]]
 dimension = "platform_or_filesystem_variation"
 state = "covered"
@@ -170,3 +188,8 @@ rationale = "Accepted catalog mappings bind reviewed assertions to every missing
 dimension = "concurrency_or_cancellation"
 state = "covered"
 rationale = "Accepted catalog mappings bind reviewed assertions to every concurrency_or_cancellation behavior in RT_REALTIME_T0_TRANSPORT_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "supply_chain_or_artifact_fault"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every supply_chain_or_artifact_fault behavior in RT_REALTIME_T0_TRANSPORT_001; dynamic proof and broad remote validation remain explicit debt."

@@ -1,0 +1,75 @@
+schema_version = 1
+id = "DEV_SHIPPED_PROJECT_EXAMPLES_001"
+title = "The bounded shipped project corpus remains buildable and parseable"
+area = "plcopen_devtools"
+risk = "compatibility"
+status = "mapped"
+owner = "trust-dev"
+last_reviewed = "2026-07-29"
+claim = "The reviewed communication, plant, vendor, visual, and tracked Structured Text example corpus retains its required artifacts and succeeds at the named build, validation, parse, type-check, and bytecode boundaries."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["docs/specs/22-developer-workflows.md", "examples", "crates/trust-runtime/tests"]
+tests = ["TEST_AUTO_0A3883680CDCFD2D87E6", "TEST_AUTO_0F9C3956D0F60788ACBE", "TEST_AUTO_106B06B9E9AC0F00A1CD", "TEST_AUTO_2417C39109096931D2C6", "TEST_AUTO_422C0C3613F04F4BA6AA", "TEST_AUTO_766AB409A1732EE2D129", "TEST_AUTO_ABC89CA7DBB5226C25B0", "TEST_AUTO_D0D08CBB515A257F07A1"]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate", "arbitrary_vendor_project_coverage", "complete_language_conformance"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_DEVELOPER_WORKFLOWS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_DEVELOPER_WORKFLOWS_001#shipped-project-example-corpus"
+
+[[behavior]]
+partition = { equals = "COMMUNICATION_EXAMPLES_BUILD_AND_VALIDATE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#shipped-project-example-corpus"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "Each reviewed communication project retains its required files and succeeds through runtime build and validate."
+
+[[behavior]]
+partition = { equals = "PLANT_DEMO_BINDINGS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#shipped-project-example-corpus"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "expected_delta", diagnostics = "none", status = "unchanged" }
+rationale = "The plant demo retains its reviewed resource, task, program, and directly represented I/O bindings."
+
+[[behavior]]
+partition = { equals = "REVIEWED_VENDOR_PROJECT_EXAMPLES" }
+case_family = "happy_path"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#shipped-project-example-corpus"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "The named EtherCAT, Mitsubishi, PLCopen ST-complete, and Siemens projects parse, type-check, and lower to bytecode."
+
+[[behavior]]
+partition = { equals = "VISUAL_COMPANION_RUNTIME_PAIRS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#shipped-project-example-corpus"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "At least one tracked visual example pair exists and every reviewed companion and runtime entry compiles through both named paths."
+
+[[behavior]]
+partition = { equals = "TRACKED_STRUCTURED_TEXT_EXAMPLE_CORPUS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#shipped-project-example-corpus"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "Every tracked Structured Text file in the bounded example corpus parses without diagnostics."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in DEV_SHIPPED_PROJECT_EXAMPLES_001; dynamic proof and broad remote validation remain explicit debt."

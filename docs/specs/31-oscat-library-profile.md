@@ -151,6 +151,19 @@ Unsupported behavior SHALL remain absent or fail closed as documented; the OOP
 facade SHALL NOT manufacture success for a classic operation that is not
 available.
 
+### 3.4 Shipped OOP example projects
+
+The paired `examples/OSCAT/<example>/{non-oop,oop}` corpus SHALL retain the
+reviewed grouped layout and the documented design-pattern structures claimed
+by the OOP guide. The airport-baggage namespace aggregate fixture SHALL compile
+and execute its reviewed aggregate trigger successfully through the real
+runtime runner.
+
+The grouped-layout and pattern assertions prove only the tracked product
+artifact structure. The executable aggregate assertion proves only the named
+fixture result. Neither form establishes unreviewed OSCAT behavior, arbitrary
+project architecture, or semantic parity for examples that are not executed.
+
 ## 4. Verification partitions
 
 The authoritative conformance partitions are:
@@ -166,7 +179,9 @@ The authoritative conformance partitions are:
 6. classic Chapters 25-26 buffer and list behavior;
 7. OOP context/conversion/calendar parity;
 8. OOP stateful scan lifecycle, reset, and instance isolation;
-9. OOP component and interface parity.
+9. OOP component and interface parity; and
+10. shipped OOP example layout, pattern structure, and named executable
+    aggregate result.
 
 An executable Structured Text test can prove a partition only when its
 assertions observe the specified public result or transition. Compilation,

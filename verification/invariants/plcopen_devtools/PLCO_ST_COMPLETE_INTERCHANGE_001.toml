@@ -5,12 +5,12 @@ area = "plcopen_devtools"
 risk = "silent_corruption"
 status = "mapped"
 owner = "trust-plcopen"
-last_reviewed = "2026-07-27"
-claim = "The selected profile preserves tested normalized POU signatures across export/import/export and materializes the supported data-type-only subset in the canonical source tree."
+last_reviewed = "2026-07-29"
+claim = "The selected profile preserves tested normalized POU signatures across export/import/export, materializes the supported data-type-only subset in the canonical source tree, preserves ordered ST bodies and extended interface sections, and applies the reviewed body synthesis and global-projection choices."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["docs/guides/PLCOPEN_INTEROP_COMPATIBILITY.md", "docs/PLCOPEN_DECISIONS.md", "crates/trust-plcopen/src/plcopen/import.rs", "crates/trust-plcopen/src/plcopen/export.rs"]
-tests = ["TEST_AUTO_59C58D10EEA63CF2DA67", "TEST_AUTO_C256D0AA8F2B315BE2DD"]
+tests = ["TEST_AUTO_04B923076AA8CF91500E", "TEST_AUTO_31ABDD3E296B44F4976F", "TEST_AUTO_59C58D10EEA63CF2DA67", "TEST_AUTO_59F1D40C7F63F81C2A2A", "TEST_AUTO_8DEF54CCCE9994233D00", "TEST_AUTO_BF9E9F0DB4780106B366", "TEST_AUTO_C256D0AA8F2B315BE2DD", "TEST_AUTO_D161A8256FACEA1961D8", "TEST_AUTO_D9822A35CDB64036BFA5", "TEST_AUTO_FB9F285A2AD8FA0A3FAB"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
@@ -39,6 +39,30 @@ oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#st-complete-interchange-contract"
 outcome = "accept_value"
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
 rationale = "Two supported POUs retain equal normalized name, kind, and ST body signatures across export, import, and re-export; source-map and migration-report artifacts exist, with 100 percent source coverage and zero semantic loss for this fixture."
+
+[[behavior]]
+partition = { equals = "ORDERED_MULTIBODY_AND_EXTENDED_INTERFACE_IMPORT" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#st-complete-interchange-contract"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "Import preserves the reviewed extended interface declarations and concatenates supported ST worksheets in their source order."
+
+[[behavior]]
+partition = { equals = "BODY_SYNTHESIS_AND_FUNCTION_RESULT_ASSIGNMENT" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#st-complete-interchange-contract"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "The reviewed CODESYS body-only and empty-plaintext POUs synthesize supported ST and receive the deterministic fallback function-result assignment."
+
+[[behavior]]
+partition = { equals = "QUALIFIED_GLOBAL_PROJECTION_MODES" }
+case_family = "happy_path"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#st-complete-interchange-contract"
+outcome = "accept_value"
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "Vendor-parity import preserves qualified globals without mandatory VAR_EXTERNAL injection while the strict adapter mode injects the reviewed external declarations."
 
 [[coverage.cells]]
 dimension = "happy_path"

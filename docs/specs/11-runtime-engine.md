@@ -1322,6 +1322,25 @@ preserved, the scan counter restarts, and queued writes and forces are cleared
 under section 6.9.2. A request must never report `reloaded` unless this complete
 commit succeeds.
 
+##### 6.7.2 Runtime agent command conformance
+
+The runtime implementation of the Agent API preserves the canonical workspace
+identity and validates the requested method and workspace-relative path before
+performing an operation. Its project, workspace, diagnostic, formatting,
+build, validate, test, runtime, and harness methods return the typed payload
+defined by the Agent API contract. Unknown methods and invalid paths return
+the stable reviewed error class instead of a false successful payload.
+Bounded test and harness loops must terminate at their requested case,
+iteration, or deadline boundary.
+
+`runtime.compile_reload` completes diagnosis and compilation before requesting
+the live reload. `runtime.reload` rebuilds the selected project before
+replacing the live executable. A compilation, preparation, or reload failure
+is returned as failure and leaves the current live runtime available; neither
+method may report a successful reload until the complete replacement
+transaction has committed. These runtime obligations specialize the general
+Agent API method contract and do not widen its public method set.
+
 #### 6.8 Runtime Launcher & Deployment (Project Folder)
 
 Production runtimes are started via the CLI (`trust-runtime run`) using a **project folder**
@@ -1355,8 +1374,15 @@ The reviewed local dependency graph resolves direct and transitive
 `trust-lsp.toml` path dependencies, includes the root and dependency source
 files in compilation and inspection, reports the reviewed `LibA`, `LibB`
 dependency identities, and produces `program.stbc` after successful build.
-This graph-specific ordering does not establish the general deterministic-order
-contract whose separate behavior-lock test remains unresolved.
+For one unchanged reviewed local dependency graph, two consecutive builds
+resolve the same dependency and source order and emit byte-identical
+`program.stbc` content. This bounded repeatability contract does not establish
+determinism for arbitrary registries, symlink graphs, concurrent filesystem
+mutation, or cross-platform path representations.
+
+`check_program_stbc` performs the same source discovery, dependency resolution,
+compilation, and bytecode sizing as build, reports the reviewed root source and
+dependency identity, and does not create or replace `program.stbc`.
 
 Dependency resolution rejects a missing declared path, a cycle in the local
 dependency graph, and a requested package version that disagrees with the
@@ -1699,10 +1725,16 @@ history path. The Prometheus renderer includes the reviewed runtime uptime and
 fault totals together with historian sample and alert totals when the historian
 snapshot is supplied.
 
+For the reviewed single-variable `above` alert, two consecutive samples above
+the threshold satisfy `debounce_samples = 2` and emit one `Triggered` event.
+The next below-threshold sample emits one `Cleared` event. A configured file
+hook receives exactly one line for each emitted transition, for two lines in
+the reviewed trigger/clear sequence.
+
 These cases do not establish arbitrary value conversion, wildcard grammar
 beyond the reviewed exact and `retain.*` forms, concurrent writers, crash
-durability, retention limits, filesystem atomicity, alert semantics, or the
-complete Prometheus schema.
+durability, retention limits, arbitrary alert expressions or hook transports,
+or the complete Prometheus schema.
 
 ###### Runtime metrics window and profiling contract
 
@@ -3280,6 +3312,10 @@ separate from the generic network mesh described below.
   bounded-spin limits, and ownership to match the requested contract. A
   mismatch returns `T0ErrorCode::TransportFailure` with the stable fragment
   `schema_hash contract mismatch` before the runtime can use that mapping.
+- A same-length mutation of the reviewed shared-memory header is rejected on
+  the next registration as `T0ErrorCode::TransportFailure`. The bounded
+  deterministic corruption campaign does not authorize parsing arbitrary
+  damaged metadata or changing the mapping length.
 - Publisher and subscriber binding requires a previously registered channel,
   `T0HardRt`, `fixed_layout = true`, a positive payload size no greater than
   the registered slot, an exact schema-hash match, and initialized pinned
@@ -3289,7 +3325,10 @@ separate from the generic network mesh described below.
   `TransportFailure`.
 - The resulting publisher and subscriber handles retain the bound channel,
   route, payload size, and schema identity. Publish and read operations do not
-  perform route discovery or substitute an unbound transport.
+  perform route discovery, key parsing, generic mesh calls, or substitute an
+  unbound transport. The source-bound T0 hot-path gate keeps mesh/discovery and
+  key-parsing APIs out of the reviewed shared-memory modules while retaining
+  the explicit diagnostic that generic IP mesh is non-HardRT.
 
 **Latest payload, overrun, stale, and bounded-spin results**
 
@@ -3346,6 +3385,24 @@ separate from the generic network mesh described below.
   deadlines, scheduler jitter, PREEMPT_RT configuration, production memory
   locking, physical topology, or hard-real-time certification. Those claims
   require separately named platform and timing evidence.
+
+##### Linux realtime host profile contract
+
+The Linux realtime profile parser accepts `fifo`, `rr`, and `other` as the
+documented scheduler identities. An enabled profile rejects scheduler `other`
+and duplicate CPU-affinity entries before host activation. Kernel readiness
+classification distinguishes an explicit PREEMPT_RT signal from an explicit
+non-RT signal and retains an unknown result when neither signal is present.
+The reviewed `/proc` parsers preserve the user-space realtime scheduler and
+priority and read the requested memory-lock field without inventing a value.
+
+When observed FIFO policy and priority match the request, the reviewed
+observation contains no errors. A strict profile hook returns an error and
+retains the collected error detail when affinity or another reviewed readiness
+check fails; it cannot report a failed profile as active. These parser and
+failure-path checks do not prove that the validation host is PREEMPT_RT, that
+page locking succeeded in production, or that any deadline or jitter bound was
+met.
 
 ##### Mesh envelope, mapping, and numeric codec contract
 

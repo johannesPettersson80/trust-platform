@@ -5,7 +5,7 @@ area = "plcopen_devtools"
 risk = "wrong_result"
 status = "mapped"
 owner = "trust-dev"
-last_reviewed = "2026-07-27"
+last_reviewed = "2026-07-29"
 claim = "Tagged Structured Text comments produce reviewed declaration metadata and diagnostics, and representative Markdown and HTML fixtures render deterministically."
 proof_level = "S0"
 contract_kind = "decision_table"
@@ -13,7 +13,7 @@ source_refs = [
   "docs/specs/22-developer-workflows.md",
   "crates/trust-dev/src/docs",
 ]
-tests = ["TEST_AUTO_27A271222EA4416B6300", "TEST_AUTO_952225E5AAF2BB2865EB", "TEST_AUTO_A23C24FDCE070D769396", "TEST_AUTO_AAFDB90C094ED2DF65C1"]
+tests = ["TEST_AUTO_27A271222EA4416B6300", "TEST_AUTO_952225E5AAF2BB2865EB", "TEST_AUTO_A23C24FDCE070D769396", "TEST_AUTO_AAFDB90C094ED2DF65C1", "TEST_AUTO_C9CC8AC45A88639AE35D"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []

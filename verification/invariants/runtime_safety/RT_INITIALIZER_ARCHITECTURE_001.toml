@@ -1,0 +1,103 @@
+schema_version = 1
+id = "RT_INITIALIZER_ARCHITECTURE_001"
+title = "Initializer and reference ownership stays within reviewed architecture boundaries"
+area = "runtime_safety"
+risk = "maintenance"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-29"
+claim = "HIR and runtime initializer ownership, syntax classification, borrowed reference paths, inline register IR, VM local initialization, size caps, and benchmark fixtures retain the reviewed bounded architecture."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["docs/specs/10-runtime-semantics.md", "crates/trust-runtime/tests/initializer_architecture.rs"]
+tests = ["TEST_AUTO_2783C316D82A0848BAF3", "TEST_AUTO_3F08AAEDE73E13EFBEAC", "TEST_AUTO_4E33E17E561F4F8DCF87", "TEST_AUTO_70215A066C5072737EF7", "TEST_AUTO_87C24D157037ADE1FEDD", "TEST_AUTO_91A12E0E36E5061B6FB4", "TEST_AUTO_9691E5C8497202DB3D11", "TEST_AUTO_A845C42691950F68DF66", "TEST_AUTO_B09ED647DF73C9CDBAFD", "TEST_AUTO_B7E1C10B92C087CE4A9D", "TEST_AUTO_D86241E702A7EA6EDD5D", "TEST_AUTO_DA2DB8790F50358D600E", "TEST_AUTO_DE303F4803C88366FF3C"]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate", "dynamic_initializer_semantics", "runtime_performance_measurement"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_SEMANTICS_001"]
+
+[oracle]
+kind = "design_contract"
+ref = "SPEC_RUNTIME_SEMANTICS_001#121-initializer-and-reference-architecture-contract"
+
+[[behavior]]
+partition = { equals = "HIR_INITIALIZER_METADATA_BOUNDARY" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#121-initializer-and-reference-architecture-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "HIR collection retains member initializers while runtime values and raw CST nodes remain outside the lowered metadata boundary."
+
+[[behavior]]
+partition = { equals = "RUNTIME_INITIALIZER_AND_POU_REGISTRATION_FUNNEL" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#121-initializer-and-reference-architecture-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "stable_error", status = "unchanged" }
+rationale = "POU registration is driven by the HIR declaration catalog and source-level initializer coercion remains owned by the initializer service."
+
+[[behavior]]
+partition = { equals = "STRUCTURAL_DECLARATION_AND_CLASSIFIER_OWNERSHIP" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#121-initializer-and-reference-architecture-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "Runtime declaration parts use named fields and local classifier helpers delegate to the central syntax classifier."
+
+[[behavior]]
+partition = { equals = "BORROWED_DYNAMIC_REFERENCE_PATH" }
+case_family = "resource_limit"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#121-initializer-and-reference-architecture-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Partial indexing, field lookup, and function-block execution borrow the existing reference path without cloning the complete value."
+
+[[behavior]]
+partition = { equals = "INLINE_REGISTER_IR_AND_VM_LOCAL_FRAMES" }
+case_family = "resource_limit"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#121-initializer-and-reference-architecture-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Register-IR operands remain inline and VM local initialization avoids temporary runtime storage frames."
+
+[[behavior]]
+partition = { equals = "INITIALIZER_SERVICE_SIZE_CAPS" }
+case_family = "resource_limit"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#121-initializer-and-reference-architecture-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "Reviewed initializer modules and functions stay within the specified source-size caps."
+
+[[behavior]]
+partition = { equals = "REPRODUCIBLE_INITIALIZER_BENCHMARK_ENTRYPOINT" }
+case_family = "supply_chain_or_artifact_fault"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#121-initializer-and-reference-architecture-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "The checked-in benchmark action, include, fixture, backend selection, and authentication fixture value remain reproducible."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in RT_INITIALIZER_ARCHITECTURE_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "resource_limit"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every resource_limit behavior in RT_INITIALIZER_ARCHITECTURE_001; dynamic proof and broad remote validation remain explicit debt."
+
+[[coverage.cells]]
+dimension = "supply_chain_or_artifact_fault"
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every supply_chain_or_artifact_fault behavior in RT_INITIALIZER_ARCHITECTURE_001; dynamic proof and broad remote validation remain explicit debt."

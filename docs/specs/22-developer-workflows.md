@@ -92,6 +92,28 @@ fixtures, not general IEC timer, traffic-control, or motor-safety semantics.
 They are truST product contracts and are neither IEC decisions nor IEC
 deviations.
 
+## Shipped project example corpus
+
+The reviewed shipped project corpus is a product artifact rather than an
+arbitrary-language conformance claim:
+
+- every communication example directory contains its required project,
+  runtime, I/O, and source files and succeeds through `trust-runtime build`
+  followed by `trust-runtime validate`;
+- the plant demo configuration retains its reviewed resource, task, program,
+  and directly represented I/O bindings;
+- the reviewed EtherCAT, Mitsubishi GX Works3, PLCopen ST-complete, and Siemens
+  SCL project examples parse, type-check, and lower to bytecode;
+- every visual example companion/runtime pair compiles through both the
+  runtime and source-to-bytecode paths, and at least one such pair exists; and
+- every tracked Structured Text example in the repository example corpus
+  parses without diagnostics.
+
+Fixture discovery, copying, and filesystem setup are test preconditions. The
+product oracle is the bounded tracked corpus and the named build, validation,
+parse, type-check, and bytecode outcomes; it does not certify arbitrary vendor
+projects or every IEC language partition.
+
 ## Source Discovery
 
 `trust-dev test` recursively discovers regular files below the selected project
@@ -191,6 +213,34 @@ project-fixture contract:
 These are bounded compatibility fixtures. They do not certify arbitrary
 projects, every JSON field, XML schema conformance, or stable diagnostic prose
 beyond the named failure marker.
+
+### CI reliability and release-gate artifact contract
+
+The reviewed native CI support surfaces preserve the following executable
+contract:
+
+- the flake probe emits schema version 1, the selected project, exactly the
+  requested run count, pass and failure totals whose sum equals that count, a
+  numeric flake rate, and one ordered `pass` or `fail` sample per run;
+- the nightly reliability workflow remains manually dispatchable, runs the
+  load, soak, and ST flake probes, samples 20 ST runs with zero accepted
+  failures, enforces the reliability summary gates, and uploads run-scoped
+  machine-readable artifacts;
+- release-gate aggregation fails with verdict `FAIL` and the exact missing
+  required artifact identities when any required gate artifact is absent, and
+  returns verdict `PASS` with an empty missing set when all required artifacts
+  and successful gate results are present;
+- reliability-summary enforcement returns nonzero when a configured load,
+  soak, or flake budget is breached;
+- the public native CI template builds both CLIs, then performs runtime build,
+  validate, JUnit test, and report upload in the reviewed order; and
+- the VS Code extension job remains a required release-gate input, so a failed
+  or absent extension artifact cannot be aggregated as release-ready.
+
+These checks prove the named scripts, workflow wiring, machine-readable fields,
+and fail-closed aggregation boundaries. They do not prove that an unexecuted
+GitHub workflow ran successfully, that uploaded artifacts are publicly
+available, or that the final release candidate is green.
 
 ### CI performance reference-environment gap
 
