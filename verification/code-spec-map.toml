@@ -98708,9 +98708,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -100446,9 +100455,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -104360,9 +104378,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -105560,9 +105587,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -105736,9 +105772,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -106461,9 +106506,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -106478,9 +106532,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -106836,9 +106899,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -108637,9 +108709,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -108942,9 +109023,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -111268,9 +111358,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -112106,9 +112205,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -112623,9 +112731,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -114305,9 +114422,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -116344,9 +116470,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -116866,9 +117001,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -117178,9 +117322,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -117339,9 +117492,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -117973,9 +118135,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -119054,9 +119225,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -119540,9 +119720,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -120127,9 +120316,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -121066,9 +121264,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -121100,9 +121307,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -121596,9 +121812,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -121935,9 +122160,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -123900,9 +124134,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -124629,9 +124872,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -124837,9 +125089,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -126539,9 +126800,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -126980,9 +127250,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -127522,9 +127801,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -128135,9 +128423,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -128983,9 +129280,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -132483,9 +132789,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -133053,9 +133368,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -134230,9 +134554,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -134264,9 +134597,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -135047,9 +135389,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -137534,9 +137885,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -137678,9 +138038,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -138164,9 +138533,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -138864,9 +139242,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -140490,9 +140877,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -140823,9 +141219,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -141247,9 +141652,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -141457,9 +141871,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -142356,9 +142779,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -143365,9 +143797,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -144029,9 +144470,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -144586,9 +145036,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -145003,9 +145462,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -147500,9 +147968,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -147710,9 +148187,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -149729,9 +150215,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -149780,9 +150275,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -150624,9 +151128,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -151252,9 +151765,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -151888,9 +152410,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -153679,9 +154210,18 @@ owner = "editor"
 area = "editor_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_EDITOR_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+invariant_ids = ["DEBUG_DAP_WIRE_SCHEMA_001"]
+test_ids = [
+  "TEST_AUTO_1DE736DC8363021976F3",
+  "TEST_AUTO_2EDC4B78F56295D7D60E",
+  "TEST_AUTO_3888AD70C3CBE039E116",
+  "TEST_AUTO_72502B08E14242668C7F",
+  "TEST_AUTO_74C5FF80143642347190",
+  "TEST_AUTO_C5C3B1D03B182CB79A85",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
