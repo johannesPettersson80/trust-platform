@@ -319,6 +319,64 @@ To avoid breaking step-in/step-out and multi-file navigation, reloads must follo
 
 ### DAP Transport and Session Projection
 
+#### DAP JSON wire schema
+
+The adapter's serialized protocol types form a normative wire contract. They
+SHALL obey all of the following rules:
+
+- Every request, response, and event envelope carries `seq` plus a lowercase
+  `type` discriminator. Requests require `command`; responses require
+  `request_seq`, `success`, and `command`; events require `event`.
+  `arguments`, response `message`/`body`, and event `body` are omitted when
+  absent rather than emitted as JSON `null`.
+- The canonical response correlation field is `request_seq`. For compatibility
+  with previously emitted internal payloads, deserialization MAY also accept
+  `requestSeq`; serialization MUST NOT emit that alias.
+- DAP object fields use their protocol lower-camel-case spellings, including
+  `threadId`, `frameId`, `variablesReference`, `sourceReference`,
+  `allThreadsStopped`, `allThreadsContinued`, `sourceModified`, `endLine`, and
+  `endColumn`. The DAP field named `type` is emitted as `type`, never as the
+  Rust raw identifier spelling. Unsupported discriminator or enum spellings
+  are rejected.
+- Optional fields are omitted when absent. A numeric or Boolean zero value is
+  still an explicit value and MUST NOT be discarded. Required identifiers,
+  names, values, source objects, and collection fields fail deserialization
+  when missing or of the wrong JSON shape.
+- Initialize capabilities are flattened into the initialize response body.
+  Unknown launch and attach arguments are preserved as a flat string-keyed JSON
+  object so that the adapter can inspect product-specific arguments without
+  changing the DAP envelope.
+- The custom I/O snapshot body requires `inputs`, `outputs`, and `memory`.
+  `scan` is optional. Each entry requires `address` and textual `value`;
+  `forced` defaults to `false` when absent and is always serialized so clients
+  can distinguish an unforced sample from missing state.
+- The custom variable snapshot body requires `globals` and `retain`.
+  `locals` and `instances` default to empty and are omitted when empty;
+  `frameId` and `paused` are optional. Instance entries require a stable
+  numeric `id`, a display `name`, and their `vars`.
+- Custom I/O write/force requests require `address` and textual `value`;
+  release requires `address`. A custom variable mutation requires lowercase
+  `scope`, `name`, and optional lowercase `action`; `value`, `instanceId`, and
+  `frameId` remain optional so release and scoped instance operations have one
+  unambiguous shape.
+- Source, thread, stack, scope, variable, evaluate, and mutation payloads keep
+  the DAP-required fields explicit. Optional source locations, child counts,
+  evaluate names, type names, and frame selectors are omitted when absent.
+- A source-breakpoint request requires `line`; its condition, hit condition,
+  log message, and column are optional. A breakpoint result always carries
+  `verified`. The verified and unverified constructors preserve the requested
+  source position while differing only in verification state and optional
+  failure message.
+- `stReload` uses the optional lower-camel-case fields `program`,
+  `runtimeIncludeGlobs`, `runtimeExcludeGlobs`, `runtimeIgnorePragmas`, and
+  `runtimeRoot`. `setBreakpoints` requires `source`; `breakpointLocations`
+  requires `source` and `line`; their optional ranges and legacy line lists are
+  omitted when absent.
+
+These wire rules are independent of handler semantics. A handler test that
+constructs a Rust value without verifying its JSON projection does not prove
+this contract.
+
 The debug adapter SHALL preserve the following protocol and session contracts:
 
 - Standard input/output transport uses DAP `Content-Length` framing, preserves
