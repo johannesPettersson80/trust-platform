@@ -94,7 +94,7 @@ def replace_blocks(
         if result and not result.endswith(b"\n\n"):
             result += b"\n"
         result += replacement
-    return result
+    return result.rstrip(b"\n") + b"\n" if result else result
 
 
 def render_table(

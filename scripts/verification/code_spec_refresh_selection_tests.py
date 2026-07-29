@@ -67,6 +67,9 @@ class CodeSpecRefreshSelectionTests(unittest.TestCase):
 
     def test_complete_projection_transfers_rebinds_adds_and_removes(self) -> None:
         projection = self._project()
+        for path, content in projection.replacements.items():
+            self.assertTrue(content.endswith(b"\n"), path)
+            self.assertFalse(content.endswith(b"\n\n"), path)
         mappings = {
             row["code_id"]: row
             for row in tomllib.loads(
