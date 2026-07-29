@@ -784,7 +784,10 @@ def _semantic_kind(detail: str) -> str | None:
     if re.fullmatch(r"invariant [A-Z][A-Z0-9_]+ crosses area without decision", detail):
         return "cross_area_decision"
     if re.fullmatch(
-        r"invariant [A-Z][A-Z0-9_]+ does not link mapped test [A-Z][A-Z0-9_]+",
+        (
+            r"invariant [A-Z][A-Z0-9_]+ does not link "
+            r"(?:any mapped test|mapped test [A-Z][A-Z0-9_]+)"
+        ),
         detail,
     ):
         return "invariant_test_relation"

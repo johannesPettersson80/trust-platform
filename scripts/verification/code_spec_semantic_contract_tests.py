@@ -125,6 +125,49 @@ class SpecifiedMappingTests(unittest.TestCase):
             ),
         )
 
+    def test_multi_invariant_mapping_requires_bipartite_not_cartesian_links(self) -> None:
+        mapping = self.mapping()
+        mapping["invariant_ids"] = ["INV_COMMAND", "INV_OUTPUT"]
+        mapping["test_ids"] = ["TEST_COMMAND", "TEST_OUTPUT"]
+        invariants = {
+            "INV_COMMAND": {
+                "area": "runtime_safety",
+                "spec": {"source_refs": ["SPEC_RUNTIME"]},
+                "oracle": {"ref": "SPEC_RUNTIME"},
+                "tests": ["TEST_COMMAND"],
+            },
+            "INV_OUTPUT": {
+                "area": "runtime_safety",
+                "spec": {"source_refs": ["SPEC_RUNTIME"]},
+                "oracle": {"ref": "SPEC_RUNTIME"},
+                "tests": ["TEST_OUTPUT"],
+            },
+        }
+        tests = {
+            "TEST_COMMAND": {
+                "area": "runtime_safety",
+                "status": "mapped",
+                "invariants": ["INV_COMMAND"],
+                "suite_tiers": ["pr"],
+            },
+            "TEST_OUTPUT": {
+                "area": "runtime_safety",
+                "status": "mapped",
+                "invariants": ["INV_OUTPUT"],
+                "suite_tiers": ["pr"],
+            },
+        }
+        self.assertEqual(
+            [],
+            validate(
+                [self.code],
+                [mapping],
+                spec_sources=self.specs,
+                invariants=invariants,
+                tests=tests,
+            ),
+        )
+
     def test_inactive_or_public_claim_source_is_rejected(self) -> None:
         for source in (
             {"source_status": "stale", "oracle_eligible": True, "authority": "normative_product"},
@@ -189,7 +232,7 @@ class SpecifiedMappingTests(unittest.TestCase):
         )
         self.assertTrue(any("does not reference SPEC_RUNTIME" in item for item in failures), failures)
         self.assertTrue(any("does not link a mapped invariant" in item for item in failures), failures)
-        self.assertTrue(any("does not link mapped test TEST_RUNTIME" in item for item in failures), failures)
+        self.assertTrue(any("does not link any mapped test" in item for item in failures), failures)
 
 
 class GapAndInheritanceTests(unittest.TestCase):

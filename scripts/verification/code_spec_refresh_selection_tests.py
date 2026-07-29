@@ -64,6 +64,11 @@ class CodeSpecRefreshSelectionTests(unittest.TestCase):
             gate,
             "metadata gate does not execute refresh acceptance self-tests",
         )
+        self.assertIn(
+            "scripts.verification.code_spec_semantic_contract_tests",
+            gate,
+            "metadata gate does not execute code-spec semantic contract self-tests",
+        )
 
     def test_complete_projection_transfers_rebinds_adds_and_removes(self) -> None:
         projection = self._project()

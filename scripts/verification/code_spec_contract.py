@@ -265,12 +265,13 @@ def _validate_disposition(
             linked = set(test.get("invariants", []))
             if isinstance(invariant_ids, list) and not linked.intersection(invariant_ids):
                 failures.append(f"{code_id}: test {test_id} does not link a mapped invariant")
-            for invariant_id in invariant_ids if isinstance(invariant_ids, list) else []:
-                invariant = invariants.get(invariant_id)
-                if invariant and test_id not in invariant.get("tests", []):
-                    failures.append(
-                        f"{code_id}: invariant {invariant_id} does not link mapped test {test_id}"
-                    )
+        for invariant_id in invariant_ids if isinstance(invariant_ids, list) else []:
+            invariant = invariants.get(invariant_id)
+            linked_tests = set(invariant.get("tests", [])) if invariant else set()
+            if isinstance(test_ids, list) and not linked_tests.intersection(test_ids):
+                failures.append(
+                    f"{code_id}: invariant {invariant_id} does not link any mapped test"
+                )
     elif disposition == "spec_gap":
         gap_id = mapping.get("spec_gap_ref")
         gap = spec_gaps.get(gap_id) if isinstance(gap_id, str) else None

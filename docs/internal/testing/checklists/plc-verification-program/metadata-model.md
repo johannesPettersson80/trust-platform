@@ -1216,6 +1216,13 @@ compare-and-swap transaction. The same live reconstruction must run again
 inside the compare-and-swap precondition; this proposal contract alone does
 not authorize review or mutation.
 
+For a `specified` code mapping, `invariant_ids` and `test_ids` form a reviewed
+bipartite proof set, not a Cartesian product. Every listed test must link at
+least one listed invariant, and every listed invariant must link at least one
+listed test. A test is not evidence for an unrelated listed invariant merely
+because both apply to the same code fact. Missing coverage on either side
+remains a semantic-review finding and cannot be suppressed by another mapping.
+
 All three Phase 2 reports are report-only. A complete, exhaustively reviewed
 denominator returns success; corrupt
 metadata, stale joins, unsafe or symlinked input paths, dirty source commits,
