@@ -120,7 +120,12 @@ This file tracks implementation decisions made where PLCopen profiles or source 
     PLCopen scoring or vendor-runtime semantics.
   - Allen-Bradley, Siemens, and Schneider export adapters emit the documented
     XML, sidecar report, and optional Siemens SCL bundle. They do not emit
-    native vendor project packages.
+    native vendor project packages. The public target ID, suffix, label, and
+    serialized-enum table is a stable truST adapter contract.
+  - PLCopen POU-kind aliases and their XML/declaration/terminator projection,
+    plus native-vendor-parity as the default global-variable import mode, are
+    explicit truST interchange choices; strict IEC adapter reshaping requires
+    an explicit option.
 - Reason:
   - TC6 supplies the interchange container, but the supported subset, source
     layout, vendor aliases, reports, and adapter artifacts are product/profile

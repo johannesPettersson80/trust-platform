@@ -321,3 +321,10 @@ Issue #51 init benchmark baseline evidence (2026-04-28):
   Evidence: the focused runner, OSCAT, and PLCopen contracts pass on
   `trust-builder`; `system-architecture.puml` records the compile-before-empty
   execution boundary.
+- [x] `ARCH-VERIF-P18-14` Partition the flattened `trust-plcopen` public
+  contract declarations by profile, interchange, export-adapter, migration,
+  and vendor-shim authority without changing public Rust names or execution
+  flow. Evidence: the exact pre/post `trust-plcopen` behavior-lock suite passes
+  22/22 on `trust-builder`, the focused public-contract table tests pass 3/3,
+  `plcopen-interchange-contracts.puml` was rendered on the same builder, and
+  the diagram manifest has zero drift.

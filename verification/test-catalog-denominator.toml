@@ -6984,6 +6984,16 @@ catalog_test_id = "TEST_AUTO_2750FE1E8A1AEE6DF9CE"
 last_reviewed = "2026-07-29"
 
 [[reviews]]
+discovery_id = "DISC_27545D648D4697A2A32B"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-plcopen/src/plcopen/tests/contracts.rs"
+name = "contracts_export_target_identity_table_is_stable"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-29"
+
+[[reviews]]
 discovery_id = "DISC_2783C316D82A0848BAF3"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/initializer_architecture.rs"
@@ -23314,6 +23324,16 @@ catalog_test_id = "TEST_AUTO_88B391164A19B06E9C4D"
 last_reviewed = "2026-07-26"
 
 [[reviews]]
+discovery_id = "DISC_88B41384538763B57459"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-plcopen/src/plcopen/tests/contracts.rs"
+name = "contracts_import_option_defaults_and_explicit_modes_are_stable"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-29"
+
+[[reviews]]
 discovery_id = "DISC_88DB109C895639DD3D9D"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-debug/src/adapter/tests_part_06.rs"
@@ -36372,6 +36392,16 @@ ignore_state = "not_ignored"
 disposition = "catalog_mapped"
 catalog_test_id = "TEST_AUTO_D4CD4DB4F0ABE4F9AC85"
 last_reviewed = "2026-07-26"
+
+[[reviews]]
+discovery_id = "DISC_D4CE52D2E3862A818091"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-plcopen/src/plcopen/tests/contracts.rs"
+name = "contracts_pou_type_alias_and_keyword_table_is_stable"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-29"
 
 [[reviews]]
 discovery_id = "DISC_D50931A36E03795CD198"

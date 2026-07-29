@@ -1,4 +1,5 @@
 include!("tests/helpers.rs");
+include!("tests/contracts.rs");
 include!("tests/roundtrip_import.rs");
 include!("tests/shims.rs");
 include!("tests/shims_metrics.rs");

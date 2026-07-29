@@ -87,6 +87,19 @@ POUs, imports none, emits no ST source, and returns the reviewed
 | Graphical bodies (FBD/LD/SFC) | unsupported | ST-complete contract remains ST-only by product decision. Import rejects these bodies with named diagnostics instead of scraping XML text into ST. |
 | Vendor AOI/library internal semantics | unsupported | Advanced behavior remains manual migration work beyond symbol-level shims. |
 
+The POU-kind parser normalizes ASCII alphanumeric characters and applies this
+exact table:
+
+| Accepted input | XML kind | declaration | terminator |
+|---|---|---|---|
+| `program`, `prg` | `program` | `PROGRAM` | `END_PROGRAM` |
+| `function`, `fc`, `fun` | `function` | `FUNCTION` | `END_FUNCTION` |
+| `functionBlock`, `function_block`, `fb` | `functionBlock` | `FUNCTION_BLOCK` | `END_FUNCTION_BLOCK` |
+
+Any other normalized input is unsupported. Import options default to
+`PlcopenImportGlobalVarMode::NativeVendorParity`; callers must explicitly
+select `StrictIecAdapter` to request wrapper and `VAR_EXTERNAL` reshaping.
+
 ## Export Adapter Contract (Deliverable 7)
 
 When `plcopen export` runs with `--target ab|siemens|schneider`, the export report
@@ -114,6 +127,15 @@ The command also writes:
   - `<output-file>.scl/*.scl`
 - sidecar adapter report:
   - `<output-file>.adapter-report.json`
+
+The public export-target identity table is stable:
+
+| target | report/metadata id | file suffix | display label | serialized enum |
+|---|---|---|---|---|
+| Generic | `generic-plcopen` | `generic` | `Generic PLCopen XML` | `generic` |
+| Allen-Bradley | `allen-bradley` | `ab` | `Allen-Bradley / Studio 5000` | `allen-bradley` |
+| Siemens | `siemens-tia` | `siemens` | `Siemens TIA Portal` | `siemens` |
+| Schneider | `schneider-ecostruxure` | `schneider` | `Schneider EcoStruxure` | `schneider` |
 
 Adapter diagnostics are migration guidance only; they are not proof of semantic
 equivalence on target runtimes.
