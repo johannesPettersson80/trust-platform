@@ -5,16 +5,16 @@ area = "runtime_safety"
 risk = "silent_corruption"
 status = "mapped"
 owner = "trust-runtime"
-last_reviewed = "2026-07-27"
+last_reviewed = "2026-07-29"
 claim = "The Structured Text OpenOT producer preserves edge-triggered scan order, byte-exact typed encoding, source time, reviewed value-sampling policy, and fail-closed state transitions within its bounded record buffer."
 proof_level = "S0"
 contract_kind = "protocol_trace"
 source_refs = ["docs/specs/27-openot-authoring.md", "crates/trust-runtime/tests/openot_telemetry.rs"]
-tests = ["TEST_AUTO_0B1EEEC8B076A747628B", "TEST_AUTO_1D2324459B69165E352B", "TEST_AUTO_3C70AFA1EDEC1DB96BE1", "TEST_AUTO_5394BEFE6396BEBC259C", "TEST_AUTO_8B747AB8C02DFC05D399", "TEST_AUTO_A5CBEEAB7ADB82512958", "TEST_AUTO_D90515BA21C5932FF6BB", "TEST_AUTO_F2F601D4451641BE75CE", "TEST_AUTO_F9301797A6BE1A82FEDB"]
+tests = ["TEST_AUTO_0B1EEEC8B076A747628B", "TEST_AUTO_1D2324459B69165E352B", "TEST_AUTO_3C70AFA1EDEC1DB96BE1", "TEST_AUTO_5394BEFE6396BEBC259C", "TEST_AUTO_8B747AB8C02DFC05D399", "TEST_AUTO_8DF3012306C164700947", "TEST_AUTO_A5CBEEAB7ADB82512958", "TEST_AUTO_D90515BA21C5932FF6BB", "TEST_AUTO_F2F601D4451641BE75CE", "TEST_AUTO_F9301797A6BE1A82FEDB", "TEST_AUTO_FF6192193C07A9BA50D6"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["resolved_assertion_oracles", "focused_execution_evidence", "final_remote_gate"]
+missing = ["focused_execution_evidence", "final_remote_gate"]
 
 [spec]
 status = "specified"
@@ -62,15 +62,15 @@ rationale = "On-change, deadband, periodic, and hysteresis policies emit or supp
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
-state = "gap_open"
-rationale = "The scan and sampling contracts are specified; external helper assertion oracles remain unresolved."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in RT_OPENOT_ST_PRODUCER_CONFORMANCE_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "encoding_or_unicode"
-state = "gap_open"
-rationale = "The byte-exact contract is specified; external helper assertion oracles remain unresolved."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every encoding_or_unicode behavior in RT_OPENOT_ST_PRODUCER_CONFORMANCE_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "resource_limit"
-state = "gap_open"
-rationale = "The producer failure contract is specified; external helper assertion oracles remain unresolved."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every resource_limit behavior in RT_OPENOT_ST_PRODUCER_CONFORMANCE_001; dynamic proof and broad remote validation remain explicit debt."

@@ -4,7 +4,7 @@ Status: zero-debt contract accepted by commit-bound independent R3 review.
 Findings `P18-C01` through `P18-C08` and `P18-R2-01` are resolved.
 
 Current row: `VERIF-P18-003`, continuing as one repository-wide
-authority/mapping campaign over the remaining 428 owned nonmapping tests, 208
+authority/mapping campaign over the remaining 412 owned nonmapping tests, 208
 gap-open coverage cells, nine current exact-behavior-marker debts, and eleven
 empty historical placeholder invariants. The accepted P18-002 ledger owns and
 orders every current fact; it does not close any semantic, mapping, execution,
@@ -1271,6 +1271,27 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   workspace gate ran. Evidence:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-rust-oracle-closure-326.md`.
   <!-- generated:rust-assertion-oracle-closure-326:end -->
+  <!-- generated:openot-oracle-closure-38:start -->
+
+  OpenOT assertion-oracle closure progress (2026-07-29): the exact 38-test
+  OpenOT population now has an exhaustive 620-assertion review: 293 direct
+  product-oracle assertions, 327 setup/preconditions, zero non-oracle
+  observations, zero unresolved helpers, and zero assertion-empty identities.
+  Exact focused execution on source checkpoint
+  `02f5311d053ba5dc3a2686c161853218a492af0c` passes all 37 telemetry tests
+  plus the fenced cross-process capstone, for 38/38. The atomic transaction
+  refreshes 32 accepted mappings, adds six accepted mappings, closes all 14
+  catalog-coverage cells across the five owning OpenOT invariants, and moves
+  the exact denominator from 4,401 = 3,983 mapped + 418 nonmapping to 4,401 =
+  3,989 mapped + 412 nonmapping. A validator-discovered historical overmapping
+  was removed: the sampling-policy definition test now binds only authoring
+  translation, while the separate typed-audit test retains event-resolution
+  coverage. A root-record audit proves all 6,500 unrelated proposal/decision
+  records byte-identical. `VERIF-P18-003` and `VERIF-P18-005` remain globally
+  open; dynamic reachability, mutation sensitivity, and broad gates remain
+  explicit downstream debt. No broad workspace gate ran. Evidence:
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-openot-oracle-closure-38.md`.
+  <!-- generated:openot-oracle-closure-38:end -->
 - [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device

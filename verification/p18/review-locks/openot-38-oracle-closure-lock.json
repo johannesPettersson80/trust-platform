@@ -1,0 +1,110 @@
+{
+  "accepted_test_ids": [
+    "TEST_AUTO_6758712467FC11514039",
+    "TEST_AUTO_8B929DF0EEF9547A35D0",
+    "TEST_AUTO_8DF3012306C164700947",
+    "TEST_AUTO_A40C00543402993CAAD4",
+    "TEST_AUTO_AA0CB942585BF1365272",
+    "TEST_AUTO_FF6192193C07A9BA50D6"
+  ],
+  "artifact_sha256": {
+    "target/gate-artifacts/verification/p18-openot-38-02f5311d/assertions-38.json": "sha256:bc2603e763f9b6d6023ce6a1fdb1b2099d4214cee75fc6c2d41612dcec6c35e6",
+    "target/gate-artifacts/verification/p18-openot-38-02f5311d/assignments-38.json": "sha256:da3f41d80c176874119225e14b047b2fb76276fc9008967e31854172e972f612",
+    "target/gate-artifacts/verification/p18-openot-38-02f5311d/execution/openot-capstone-1.execution.json": "sha256:bd4a711bb9f46319f2a6e82a49964650d880ab4b424ba2c83b3e608547038cb2",
+    "target/gate-artifacts/verification/p18-openot-38-02f5311d/execution/openot-capstone-1.jsonl": "sha256:f8250069868eb619eca6b8d289de337fd92467e1e33d140d52a825bf768ecf27",
+    "target/gate-artifacts/verification/p18-openot-38-02f5311d/execution/openot-telemetry-37.execution.json": "sha256:4c1455c6ab140999c82cb740f3a92a19598f9251a5bd15f60622558575f2bd11",
+    "target/gate-artifacts/verification/p18-openot-38-02f5311d/execution/openot-telemetry-37.jsonl": "sha256:e584c775510fe90ed640ce7c0495ad280a3486d87d520bff83dc7846e8f5be38",
+    "target/gate-artifacts/verification/p18-openot-38-02f5311d/execution/openot-telemetry-37.results.json": "sha256:db68ee3498d6e85e67ed03cfc76703d229eb3e88df0965a15af03e8e4890c2da",
+    "target/gate-artifacts/verification/p18-openot-38-02f5311d/live-scan.json": "sha256:18c4c1e9eb37fc434e084ee074ffd2b8a0585dcf6071795eca733e59d7a3f317"
+  },
+  "coverage": {
+    "covered_cells": 14
+  },
+  "denominator": {
+    "after_reviewed_nonmapping": 412,
+    "before_reviewed_nonmapping": 418
+  },
+  "execution": {
+    "capstone_selected": 1,
+    "failed": 0,
+    "passed": 38,
+    "selected": 38,
+    "telemetry_selected": 37
+  },
+  "id": "P18_OPENOT_38_ORACLE_CLOSURE",
+  "metadata_sha256": {
+    "verification/invariants/bytecode_vm/RT_OPENOT_AUTHORING_TRANSLATION_001.toml": "sha256:e732ad8934fb05e893f8cf40e208826f7404754415fb8e5ebd642f46426dc7d7",
+    "verification/invariants/runtime_safety/RT_OPENOT_CONSUMER_RECONCILIATION_001.toml": "sha256:92ee3aba9591a9beccb1fa96a134f6d308133661c85689ec0c569c09cba0d76e",
+    "verification/invariants/runtime_safety/RT_OPENOT_EVENT_MATERIALIZATION_001.toml": "sha256:eb297376f500bed9c4d3f28adcf2d8fa64181a80df405fec694219c7cbaa28ac",
+    "verification/invariants/runtime_safety/RT_OPENOT_ST_PRODUCER_CONFORMANCE_001.toml": "sha256:7889eb226a5263371dd0d68839ebcca3ca3a9557dd6e1ee2aae81bae6198238e",
+    "verification/invariants/runtime_safety/RT_OPENOT_TELEMETRY_PUBLICATION_001.toml": "sha256:1ca67547bf8ef477d770f7bf59b33db18ff6a0af2ffb2be72019b7019dfc3eed",
+    "verification/test-catalog-denominator.toml": "sha256:0517e2c3667316380d6c3739515549ab3c0eff8bb31aae122fd612e7b616b9e0",
+    "verification/test-catalog-mapping-decisions.toml": "sha256:cf541c877575c93de0db13b86666758dd993987c6e8bc1e2c15392a26bee6d60",
+    "verification/test-catalog-proposals.toml": "sha256:adc7d80d3270f0a86aafe1dafc0bf0fff36dd681386e9ff513bd3f178d835c97",
+    "verification/test-catalog.toml": "sha256:eb6ead179722986b19af6b705d6a0cffa55fc7ff7593bfd27167ed306d264ec5"
+  },
+  "new_discovery_ids": [
+    "DISC_6758712467FC11514039",
+    "DISC_8B929DF0EEF9547A35D0",
+    "DISC_8DF3012306C164700947",
+    "DISC_A40C00543402993CAAD4",
+    "DISC_AA0CB942585BF1365272",
+    "DISC_FF6192193C07A9BA50D6"
+  ],
+  "population": {
+    "assertions": 620,
+    "catalog_refreshes": 32,
+    "new_mappings": 6,
+    "non_oracle_observation": 0,
+    "oracle_bound": 293,
+    "setup_or_precondition": 327,
+    "tests": 38
+  },
+  "refreshed_test_ids": [
+    "TEST_AUTO_0B1EEEC8B076A747628B",
+    "TEST_AUTO_0CEF2FE058BD7204A591",
+    "TEST_AUTO_14815B681BC20DBFF8B2",
+    "TEST_AUTO_1D2324459B69165E352B",
+    "TEST_AUTO_2538F1244D6A2B3BC786",
+    "TEST_AUTO_2D97E68146D7F62004CC",
+    "TEST_AUTO_373D303A11B90D676717",
+    "TEST_AUTO_3C70AFA1EDEC1DB96BE1",
+    "TEST_AUTO_40094F22ECF98AF9682E",
+    "TEST_AUTO_49D744C60E280A8991A9",
+    "TEST_AUTO_5394BEFE6396BEBC259C",
+    "TEST_AUTO_5B43AF2B1181A8401F05",
+    "TEST_AUTO_6758712467FC11514039",
+    "TEST_AUTO_7693198AD83E8FA17AB3",
+    "TEST_AUTO_85D8F431C6D7171A28E3",
+    "TEST_AUTO_8B747AB8C02DFC05D399",
+    "TEST_AUTO_8B929DF0EEF9547A35D0",
+    "TEST_AUTO_8DF3012306C164700947",
+    "TEST_AUTO_949D8A93709B5D0F05D4",
+    "TEST_AUTO_994CA7224D5CAB9B96B2",
+    "TEST_AUTO_9BBDE7C18FAF59882F0F",
+    "TEST_AUTO_A0E33262D0E1DFF6E869",
+    "TEST_AUTO_A40C00543402993CAAD4",
+    "TEST_AUTO_A40E325C95451F9B5D89",
+    "TEST_AUTO_A5CBEEAB7ADB82512958",
+    "TEST_AUTO_AA0CB942585BF1365272",
+    "TEST_AUTO_D2D46354A1D5DBD5EC2B",
+    "TEST_AUTO_D3D13B8BFEA158194925",
+    "TEST_AUTO_D8F0D576C2AC03F32D41",
+    "TEST_AUTO_D90515BA21C5932FF6BB",
+    "TEST_AUTO_DA405AB2E07EDD84ACE2",
+    "TEST_AUTO_DFEE0D11D0FD2F454862",
+    "TEST_AUTO_ECEF9A7E30A36C832CB6",
+    "TEST_AUTO_F2F601D4451641BE75CE",
+    "TEST_AUTO_F9301797A6BE1A82FEDB",
+    "TEST_AUTO_FABFE69E280524A5BCAC",
+    "TEST_AUTO_FDF33FA61E5B3AEAD3D8",
+    "TEST_AUTO_FF6192193C07A9BA50D6"
+  ],
+  "reviewed_date": "2026-07-29",
+  "reviewer_ids": [
+    "codex-assertion-review",
+    "codex-main"
+  ],
+  "schema_version": 1,
+  "source_commit": "02f5311d053ba5dc3a2686c161853218a492af0c"
+}

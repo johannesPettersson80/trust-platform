@@ -5,7 +5,7 @@ area = "bytecode_vm"
 risk = "wrong_result"
 status = "mapped"
 owner = "trust-runtime"
-last_reviewed = "2026-07-27"
+last_reviewed = "2026-07-29"
 claim = "Accepted OpenOT attributes deterministically allocate identities, produce the canonical definition projection, and instrument typed producer calls before bytecode generation; rejected input cannot fall back to uninstrumented bytecode."
 proof_level = "S0"
 contract_kind = "decision_table"
@@ -80,20 +80,20 @@ rationale = "Validation, identity, unsupported-type, and definition failures sto
 
 [[coverage.cells]]
 dimension = "happy_path"
-state = "gap_open"
-rationale = "The deterministic allocation and instrumentation contracts are specified; catalog mapping and focused execution are pending."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in RT_OPENOT_AUTHORING_TRANSLATION_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "duplicate_or_collision"
-state = "gap_open"
-rationale = "The identity contract is specified; catalog mapping and focused execution are pending."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every duplicate_or_collision behavior in RT_OPENOT_AUTHORING_TRANSLATION_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "encoding_or_unicode"
-state = "gap_open"
-rationale = "The definition contract is specified; catalog mapping and focused execution are pending."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every encoding_or_unicode behavior in RT_OPENOT_AUTHORING_TRANSLATION_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
-state = "gap_open"
-rationale = "The fail-closed compilation contract is specified; catalog mapping and focused execution are pending."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every wrong_type_or_shape behavior in RT_OPENOT_AUTHORING_TRANSLATION_001; dynamic proof and broad remote validation remain explicit debt."

@@ -5,7 +5,7 @@ area = "runtime_safety"
 risk = "silent_corruption"
 status = "mapped"
 owner = "trust-runtime"
-last_reviewed = "2026-07-27"
+last_reviewed = "2026-07-29"
 claim = "Fenced OpenOT consumers account for every expected record as delivered or lost per run/source and preserve epoch boundaries across processes."
 proof_level = "S0"
 contract_kind = "protocol_trace"
@@ -14,7 +14,7 @@ tests = ["TEST_AUTO_0CEF2FE058BD7204A591"]
 gates = ["nightly"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["resolved_assertion_oracles", "focused_cross_process_execution", "final_remote_gate"]
+missing = ["focused_cross_process_execution", "final_remote_gate"]
 
 [spec]
 status = "specified"
@@ -44,5 +44,5 @@ rationale = "Producer and consumer processes share committed ring truth and keep
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
-state = "gap_open"
-rationale = "The reconciliation contract is specified; the capstone helper oracle remains unresolved."
+state = "covered"
+rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in RT_OPENOT_CONSUMER_RECONCILIATION_001; dynamic proof and broad remote validation remain explicit debt."
