@@ -149,6 +149,32 @@ class CodeSpecRefreshSelectionTests(unittest.TestCase):
                 proposal, selection, code_map, acknowledgements, gaps
             )
 
+    def test_projection_transfers_successor_already_present_in_map(self) -> None:
+        proposal, selection, code_map, acknowledgements, gaps = self._inputs()
+        proposal["missing_mapping_proposals"] = [
+            proposal["missing_mapping_proposals"][1]
+        ]
+        proposal["summary"]["missing_mapping_proposals"] = 1
+        selection["missing_mapping_decisions"] = [
+            selection["missing_mapping_decisions"][1]
+        ]
+        projection = self._call(
+            proposal, selection, code_map, acknowledgements, gaps
+        )
+        mappings = {
+            row["code_id"]: row
+            for row in tomllib.loads(
+                projection.replacements[
+                    "verification/code-spec-map.toml"
+                ].decode()
+            )["mappings"]
+        }
+        self.assertEqual("specified", mappings[SUCCESSOR]["disposition"])
+        self.assertEqual(
+            "sha256:" + "b" * 64,
+            mappings[SUCCESSOR]["reviewed_body_digest"],
+        )
+
     def test_projection_rejects_unreviewed_area_choice(self) -> None:
         proposal, selection, code_map, acknowledgements, gaps = self._inputs()
         selection["missing_mapping_decisions"][1]["area"] = "editor_safety"
@@ -283,7 +309,7 @@ class CodeSpecRefreshSelectionTests(unittest.TestCase):
         )
         successor = _mapping(
             SUCCESSOR,
-            body="0",
+            body="b",
             risk=["state_mutation"],
             disposition="spec_gap",
             owner_ack=SUCCESSOR_ACK,
@@ -312,7 +338,7 @@ class CodeSpecRefreshSelectionTests(unittest.TestCase):
             "acknowledgements",
             [
                 _ack(OLD, OLD_ACK, "a", ["state_mutation"]),
-                _ack(SUCCESSOR, SUCCESSOR_ACK, "0", ["state_mutation"]),
+                _ack(SUCCESSOR, SUCCESSOR_ACK, "b", ["state_mutation"]),
                 _ack(REBIND, REBIND_ACK, "4", ["state_mutation"]),
             ],
         )

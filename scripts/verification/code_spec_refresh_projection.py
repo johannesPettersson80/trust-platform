@@ -171,6 +171,10 @@ def project_refresh_selection(
     rebinds = _proposal_index(
         proposal, "digest_rebind_proposals", "proposal_id"
     )
+    rebinds_by_code = {
+        _required_code_id(row, "code_id", proposal_id): row
+        for proposal_id, row in rebinds.items()
+    }
     stale = _proposal_index(
         proposal, "stale_identity_proposals", "proposal_id"
     )
@@ -249,8 +253,22 @@ def project_refresh_selection(
             stale_proposal_id=proposal_id,
             successor_code_id=successor,
         )
-        successor_proposal = missing[missing_decision["proposal_id"]]
-        fact = _fact(successor_proposal)
+        if missing_decision is not None:
+            successor_proposal = missing[missing_decision["proposal_id"]]
+            fact = _fact(successor_proposal)
+            successor_missing_ids.add(missing_decision["proposal_id"])
+        else:
+            successor_mapping = mappings.get(successor)
+            if successor_mapping is None:
+                raise ValueError(
+                    f"{proposal_id}: exact successor mapping is absent"
+                )
+            successor_rebind = rebinds_by_code.get(successor)
+            fact = (
+                _fact(successor_rebind)
+                if successor_rebind is not None
+                else _fact_from_current_mapping(successor_mapping)
+            )
         if old_mapping.get("area") not in fact["area_candidates"]:
             raise ValueError(
                 f"{proposal_id}: predecessor area is not a live candidate"
@@ -266,7 +284,6 @@ def project_refresh_selection(
             "mappings", transferred_row, MAPPING_FIELD_ORDER
         )
         gap_identity_replacements[stale_code_id] = successor
-        successor_missing_ids.add(missing_decision["proposal_id"])
         _remove_ack_for_code(
             stale_code_id, acknowledgements_by_code, ack_replacements
         )
@@ -621,7 +638,7 @@ def _successor_missing_decision(
     *,
     stale_proposal_id: str,
     successor_code_id: str,
-) -> Mapping[str, Any]:
+) -> Mapping[str, Any] | None:
     matches = [
         decision
         for proposal_id, decision in decisions.items()
@@ -629,11 +646,11 @@ def _successor_missing_decision(
         and decision.get("stale_proposal_id") == stale_proposal_id
         and proposals[proposal_id].get("code_id") == successor_code_id
     ]
-    if len(matches) != 1:
+    if len(matches) > 1:
         raise ValueError(
-            f"{stale_proposal_id}: exact successor missing decision is absent"
+            f"{stale_proposal_id}: exact successor missing decision is ambiguous"
         )
-    return matches[0]
+    return matches[0] if matches else None
 
 
 def _fact(proposal: Mapping[str, Any]) -> dict[str, Any]:
@@ -669,6 +686,37 @@ def _fact(proposal: Mapping[str, Any]) -> dict[str, Any]:
         **dict(fact),
         "area_candidates": area_candidates,
         "risk_signals": risks,
+    }
+
+
+def _fact_from_current_mapping(
+    mapping: Mapping[str, Any],
+) -> dict[str, Any]:
+    code_id = _required_code_id(mapping, "code_id", "successor mapping")
+    area = _required_string(mapping, "area", code_id)
+    return {
+        "code_id": code_id,
+        "source_kind": _required_string(mapping, "source_kind", code_id),
+        "path": _required_string(mapping, "path", code_id),
+        "qualified_symbol": _required_string(
+            mapping, "qualified_symbol", code_id
+        ),
+        "item_kind": _required_string(mapping, "item_kind", code_id),
+        "signature_digest": _required_digest(
+            mapping, "signature_digest", code_id
+        ),
+        "body_digest": _required_digest(
+            mapping, "reviewed_body_digest", code_id
+        ),
+        "owner": _required_string(mapping, "owner", code_id),
+        "area": area,
+        "area_candidates": [area],
+        "visibility": _required_string(mapping, "visibility", code_id),
+        "risk_signals": _string_array(
+            mapping.get("risk_signals"),
+            f"{code_id} risk signals",
+            allow_empty=True,
+        ),
     }
 
 
