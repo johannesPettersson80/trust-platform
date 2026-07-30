@@ -32,12 +32,12 @@ source_refs = ["SPEC_IEC_STANDARD_FUNCTIONS_001", "SPEC_RUNTIME_ENGINE_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#host-civil-clock-current_dt"
+ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#host-civil-clock-current-dt"
 
 [[behavior]]
 partition = { equals = "ZERO_ARGUMENT_DT_RESULT" }
 case_family = "happy_path"
-oracle_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#host-civil-clock-current_dt"
+oracle_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#host-civil-clock-current-dt"
 outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
@@ -46,7 +46,7 @@ rationale = "HIR and runtime dispatch accept the zero-argument call and preserve
 [[behavior]]
 partition = { equals = "NONZERO_ARGUMENT_REJECTED" }
 case_family = "wrong_type_or_shape"
-oracle_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#host-civil-clock-current_dt"
+oracle_ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#host-civil-clock-current-dt"
 outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
