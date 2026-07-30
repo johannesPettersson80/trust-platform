@@ -593,25 +593,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_20FBBA428D6449ED0B8878CA302C3BAB95401273D4592C7ADEF0DB23FDCED269"
-source_kind = "rust"
-path = "crates/trust-runtime/src/stdlib/time.rs"
-qualified_symbol = "trust_runtime::stdlib::time::current_dt"
-item_kind = "rust_function"
-signature_digest = "sha256:0ce31aef8e8278fbc13587609ac0e88be58054f12723d9ec567530e05a0713f6"
-reviewed_body_digest = "sha256:de4e9d1d430e08ef3c4c50914dbc223b570a324f21d010d50317c28efa6bc91b"
-owner = "language"
-area = "compiler_iec"
-visibility = "private"
-risk_signals = ["fault_mapping", "host_time"]
-owner_ack = "RISK_ACK_20FBBA428D6449ED0B8878CA302C3BAB95401273D4592C7ADEF0DB23FDCED269"
-owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_CURRENT_DT_CLOCK_BOUNDARY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_254EEA097F2E8C25B2407FD33B596B187D189E4168D83C02935AF5E2E74DFB8B"
 source_kind = "rust"
 path = "crates/trust-runtime/src/stdlib/time.rs"
@@ -1112,16 +1093,16 @@ path = "crates/trust-runtime/src/stdlib/time.rs"
 qualified_symbol = "trust_runtime::stdlib::time::runtime_clock_value"
 item_kind = "rust_function"
 signature_digest = "sha256:238c8b6ede43a84798714b40d39f30f61116e8a332cd3f4f16d53afb6aa3b129"
-reviewed_body_digest = "sha256:92aa8fda3efeb5cb4be407394f22925f15db7de9e1f2308810347fd64d97ef5d"
+reviewed_body_digest = "sha256:0808737847477f6c1589a3ba5402cc9981016d5bebab86d5ae4aebaca27554f6"
 owner = "language"
 area = "compiler_iec"
 visibility = "public"
 risk_signals = ["host_time"]
 owner_ack = "RISK_ACK_7017847AAB280080BF2EC34BF4803418D740D564C249005979415939449BB4D4"
-owner_ack_expires_on = "2026-10-21"
+owner_ack_expires_on = "2026-10-30"
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_CURRENT_DT_CLOCK_BOUNDARY_001"
-last_reviewed = "2026-07-21"
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -318831,4 +318812,42 @@ test_ids = [
   "TEST_AUTO_D9822A35CDB64036BFA5",
   "TEST_AUTO_FB9F285A2AD8FA0A3FAB",
 ]
+last_reviewed = "2026-07-30"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_885C8D21D5ECEA14D4E14848A1A024A1F7E427D398E07F7200CEAD83FF1E4124"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::current_dt"
+item_kind = "rust_function"
+signature_digest = "sha256:a98cfd939388628a57e8d26b53ee4f9e20b53859169a2624ff1b6ee58ec449b5"
+reviewed_body_digest = "sha256:2e0c5fb01793b50bc8d6429130b59809a4fedb8a0b3292b142c3e7615c596fd3"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = ["broad_error_suppression", "fault_mapping"]
+owner_ack = "RISK_ACK_885C8D21D5ECEA14D4E14848A1A024A1F7E427D398E07F7200CEAD83FF1E4124"
+owner_ack_expires_on = "2026-10-30"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_CURRENT_DT_CLOCK_BOUNDARY_001"
+last_reviewed = "2026-07-30"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_E1CB06D0958110034719B77CEA48DBB256E4E298F1CE678994E26AA57A71EBD2"
+source_kind = "rust"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+qualified_symbol = "trust_runtime::stdlib::time::runtime_clock_value_at"
+item_kind = "rust_function"
+signature_digest = "sha256:f17eac5b823002794021f71a1597220c0bbd0765bd2011968323a3adb1403e10"
+reviewed_body_digest = "sha256:8d52617afad7073303147716116586eab7b466aa61eeac52c4079856ea6ef18e"
+owner = "language"
+area = "compiler_iec"
+visibility = "private"
+risk_signals = ["host_time"]
+owner_ack = "RISK_ACK_E1CB06D0958110034719B77CEA48DBB256E4E298F1CE678994E26AA57A71EBD2"
+owner_ack_expires_on = "2026-10-30"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_CURRENT_DT_CLOCK_BOUNDARY_001"
 last_reviewed = "2026-07-30"
