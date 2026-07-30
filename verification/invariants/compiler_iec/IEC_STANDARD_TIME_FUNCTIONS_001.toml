@@ -6,15 +6,15 @@ risk = "wrong_result"
 status = "mapped"
 owner = "language"
 last_reviewed = "2026-07-21"
-claim = "Registered standard date/time arithmetic, concatenation, split, and DAY_OF_WEEK functions preserve their written input, result-type, and value contracts; CURRENT_DT remains outside this invariant until its host-clock boundary is decided."
+claim = "Registered standard date/time arithmetic, concatenation, split, and DAY_OF_WEEK functions preserve their written input, result-type, and value contracts."
 proof_level = "T1"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-runtime/src/stdlib/time.rs"]
 tests = ["TEST_AUTO_32089A1392ACCCEAB8FD", "TEST_RUNTIME_STDLIB_TIME_ARITHMETIC_001", "TEST_RUNTIME_STDLIB_TIME_SPLIT_001"]
 gates = ["pr"]
 evidence_refs = []
-spec_gap_refs = ["SPEC_GAP_CURRENT_DT_CLOCK_BOUNDARY_001"]
-missing = ["current_dt_host_clock_contract", "overflow_and_invalid_component_boundaries"]
+spec_gap_refs = []
+missing = ["overflow_and_invalid_component_boundaries"]
 
 [spec]
 status = "specified"
@@ -62,8 +62,3 @@ rationale = "The pilot does not claim exhaustive lower-bound calendar, duration,
 dimension = "boundary_high"
 state = "gap_open"
 rationale = "The pilot does not claim exhaustive upper-bound or overflow coverage."
-
-[[coverage.cells]]
-dimension = "time_or_clock_fault"
-state = "gap_open"
-rationale = "CURRENT_DT host-clock semantics are owned by SPEC_GAP_CURRENT_DT_CLOCK_BOUNDARY_001."

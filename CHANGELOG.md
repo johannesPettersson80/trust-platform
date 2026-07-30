@@ -54,10 +54,13 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   fail-closed import diagnostics, migration and CODESYS metadata, reviewed
   vendor shims, and Allen-Bradley/Siemens adapter artifact contracts.
 
-Target release: `v0.24.60`
+Target release: `v0.24.61`
 
 ### Fixed
 
+- `CURRENT_DT()` now has an explicit UTC host-clock contract and preserves the
+  full millisecond `DT` tick range instead of overflowing when the intermediate
+  Unix timestamp exceeds signed nanoseconds.
 - OpenOT runtime conformance tests now carry the complete pinned authoring and
   value-sampling Structured Text fixture closure, so those tests execute
   independently of a sibling `open-ot-ref` checkout instead of failing at the

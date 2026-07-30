@@ -423,6 +423,37 @@ Pos := FIND('ABCABC', 'BC');           // 2 (first occurrence)
 - Overloaded `ADD`/`SUB` apply only within the TIME/DT/DATE/TOD set or the LTIME/LDT/LDATE/LTOD set.
 - Result range overflow is an error; output ranges are Implementer specific.
 
+### Host Civil Clock (`CURRENT_DT`)
+
+`CURRENT_DT()` is a zero-argument truST product function. IEC 61131-3 Ed.3
+§6.4.2, Table 10, footnote b permits an implementer-defined `DT` range and
+precision; IEC does not define this host-clock function.
+
+The function has this complete product contract:
+
+- it samples `std::time::SystemTime` once per call and interprets that sample
+  as a UTC Unix timestamp;
+- it returns a timezone-naive `DT` whose epoch is
+  `DT#1970-01-01-00:00:00` and whose fixed resolution is one millisecond;
+- it truncates a positive sub-millisecond remainder toward the preceding
+  millisecond;
+- it accepts Unix timestamps from tick `0` through `i64::MAX` milliseconds,
+  inclusive;
+- a host value before the Unix epoch or above the representable millisecond
+  tick range returns `RuntimeError::Overflow` and produces no `DT` value;
+- local timezone, daylight-saving, and leap-second metadata are neither read
+  nor encoded;
+- the injected runtime/manual clock, scheduler scaling, simulation time, and
+  replay time do not replace or offset the host sample; and
+- samples are not clamped to be monotonic. A host-clock rollback may therefore
+  make a later call return an earlier `DT`.
+
+Deterministic runtime replay does not claim identical results for a program
+that calls `CURRENT_DT()` unless the surrounding environment controls the host
+clock. Programs that require replay-controlled elapsed time use `TIME()`
+instead. `CURRENT_DT` rejects every argument during HIR validation and at the
+runtime dispatch boundary.
+
 ### Date/Time Component Functions
 
 | Function | Description |

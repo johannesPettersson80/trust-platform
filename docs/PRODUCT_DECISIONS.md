@@ -105,9 +105,15 @@ IEC or PLCopen deviation log merely because truST owns the behavior.
   - Task readiness is derived from the injected clock. Holding a manual clock
     fixed does not make a periodic task ready; explicitly advancing it to the
     deadline does.
-  - `CURRENT_DT` remains a separate host-clock function. Its epoch, timezone,
-    precision, range, failure, simulation, and replay contract remains owned
-    by `SPEC_GAP_CURRENT_DT_CLOCK_BOUNDARY_001`.
+  - `CURRENT_DT` remains a separate host-clock function. It samples UTC
+    `SystemTime` independently on each call, returns timezone-naive `DT` ticks
+    from the Unix epoch at fixed one-millisecond resolution, truncates positive
+    sub-millisecond fractions, and accepts tick `0..=i64::MAX`.
+  - A pre-epoch or larger host value fails with `RuntimeError::Overflow`.
+    Runtime/manual clocks, scheduler scaling, simulation, and replay do not
+    control the result; host-clock rollback is visible rather than clamped.
+    Deterministic replay therefore excludes programs that call `CURRENT_DT`
+    unless the environment controls the host clock.
 - Authority:
   - `docs/specs/11-runtime-engine.md`
 - Reason:

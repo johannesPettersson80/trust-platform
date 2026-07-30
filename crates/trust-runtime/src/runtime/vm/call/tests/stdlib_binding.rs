@@ -7,9 +7,23 @@ fn dispatch_native_stdlib_runtime_clock_accepts_zero_args_only() {
         .expect("TIME with no args should read runtime clock");
     assert!(matches!(value, Value::Time(_)));
 
+    let before = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("test host clock is after the Unix epoch")
+        .as_millis();
     let value = dispatch_stdlib(&mut runtime, &mut frame, "CURRENT_DT", &[])
         .expect("CURRENT_DT with no args should read wall clock");
-    assert!(matches!(value, Value::Dt(_)));
+    let after = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("test host clock is after the Unix epoch")
+        .as_millis();
+    let ticks = match value {
+        Value::Dt(value) => {
+            u128::try_from(value.ticks()).expect("the current Unix host timestamp is nonnegative")
+        }
+        other => panic!("CURRENT_DT returned {other:?}"),
+    };
+    assert!((before..=after).contains(&ticks));
 
     let err = dispatch_stdlib(
         &mut runtime,
@@ -18,6 +32,15 @@ fn dispatch_native_stdlib_runtime_clock_accepts_zero_args_only() {
         &[expr_arg(None, Value::DInt(1))],
     )
     .expect_err("TIME rejects args");
+    assert_invalid_argument_count(err, 0, 1);
+
+    let err = dispatch_stdlib(
+        &mut runtime,
+        &mut frame,
+        "CURRENT_DT",
+        &[expr_arg(None, Value::DInt(1))],
+    )
+    .expect_err("CURRENT_DT rejects args");
     assert_invalid_argument_count(err, 0, 1);
 }
 

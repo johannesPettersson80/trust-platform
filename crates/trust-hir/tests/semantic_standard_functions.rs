@@ -239,6 +239,31 @@ END_PROGRAM
 }
 
 #[test]
+fn current_dt_returns_dt_and_rejects_arguments() {
+    check_no_errors(
+        r#"
+PROGRAM Test
+VAR
+    stamp: DT;
+END_VAR
+stamp := CURRENT_DT();
+END_PROGRAM
+"#,
+    );
+    check_has_error(
+        r#"
+PROGRAM Test
+VAR
+    stamp: DT;
+END_VAR
+stamp := CURRENT_DT(1);
+END_PROGRAM
+"#,
+        DiagnosticCode::WrongArgumentCount,
+    );
+}
+
+#[test]
 fn test_assert_equal_accepts_char_and_wchar() {
     check_no_errors(
         r#"

@@ -138,10 +138,19 @@ with a fixed manual clock does not make the task ready; advancing that clock to
 the task deadline makes one activation eligible under the readiness contract
 below.
 
-`CURRENT_DT` is separate: it reads the host civil-clock path, and its epoch,
-timezone, precision, range, failure, simulation, and replay behavior remains
-open under `SPEC_GAP_CURRENT_DT_CLOCK_BOUNDARY_001`. Specifying deterministic
-`TIME()` elapsed-time behavior does not close or weaken that gap.
+`CURRENT_DT()` is separate. It samples the host `SystemTime` once per call and
+returns the UTC Unix timestamp as timezone-naive `DT` ticks with epoch
+`1970-01-01T00:00:00Z` and fixed one-millisecond resolution. Positive
+sub-millisecond fractions are truncated. Tick `0` through `i64::MAX` are
+accepted; a pre-epoch or larger host value returns `RuntimeError::Overflow`.
+Local timezone and DST are not applied.
+
+The injected runtime/manual clock, scheduler scaling, simulation time, and
+replay time do not control `CURRENT_DT`, and its samples are not made
+monotonic. A host-clock rollback may therefore produce a lower later value.
+Deterministic replay excludes programs that read `CURRENT_DT` unless the
+environment controls the host clock. The complete callable contract is in
+`docs/specs/07-standard-functions.md#host-civil-clock-current_dt`.
 
 #### 5.3 Embedded Clock (Planned)
 
