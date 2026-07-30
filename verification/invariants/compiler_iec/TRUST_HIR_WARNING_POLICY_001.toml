@@ -3,13 +3,19 @@ id = "TRUST_HIR_WARNING_POLICY_001"
 title = "HIR warnings follow one deterministic engineering policy"
 area = "compiler_iec"
 risk = "false_status"
-status = "specified"
+status = "mapped"
 owner = "trust-hir"
-last_reviewed = "2026-07-26"
+last_reviewed = "2026-07-30"
 claim = "Unused, conversion, complexity, reachability, nondeterminism, shared-task, floating-equality, and literal-zero warnings appear only under their written prerequisites and remain nonblocking."
 proof_level = "S0"
 contract_kind = "decision_table"
-source_refs = ["crates/trust-hir/src"]
+source_refs = [
+  "crates/trust-hir/src/db/diagnostics/complexity.rs",
+  "crates/trust-hir/src/db/diagnostics/nondeterminism.rs",
+  "crates/trust-hir/src/db/diagnostics/shared_globals.rs",
+  "crates/trust-hir/src/db/diagnostics/unreachable.rs",
+  "crates/trust-hir/src/db/diagnostics/unused.rs",
+]
 tests = ["TEST_AUTO_01ECCC4C3A484770CBE4", "TEST_AUTO_0403B98FE1234DCCE01C", "TEST_AUTO_05823154BDE8023B60B5", "TEST_AUTO_1AAB9E70E67BABDE2A77", "TEST_AUTO_2C44A6BD090A298A986F", "TEST_AUTO_2DFEDFEC29F17FE1112D", "TEST_AUTO_30A0436BC3442442B59F", "TEST_AUTO_50C8A203171136A8E2F1", "TEST_AUTO_5B9E394D6F14D6EB075C", "TEST_AUTO_6C61B6311AF16C7AC595", "TEST_AUTO_7FA0B63348DB21C29575", "TEST_AUTO_81F50F11BC9CEA912E5A", "TEST_AUTO_84C79FF30C860C65E495", "TEST_AUTO_8C9C4E93BD3D4BC00356", "TEST_AUTO_A7E81F7AF274C9B3DB2A", "TEST_AUTO_D75E73531DFCD61CAE79", "TEST_AUTO_D8884F6D99A8815BD78E", "TEST_AUTO_E7026BA173A548514365", "TEST_AUTO_F870FD664CEADFFE9F1C"]
 gates = ["pr"]
 evidence_refs = []

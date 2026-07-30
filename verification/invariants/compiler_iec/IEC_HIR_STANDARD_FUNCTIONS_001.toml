@@ -5,11 +5,25 @@ area = "compiler_iec"
 risk = "wrong_result"
 status = "mapped"
 owner = "trust-hir"
-last_reviewed = "2026-07-26"
+last_reviewed = "2026-07-30"
 claim = "Registered conversion, numeric, bitwise, validation, string, time, assertion, allocation, and deletion calls enforce their written arity and type domains."
 proof_level = "S0"
 contract_kind = "decision_table"
-source_refs = ["crates/trust-hir/src"]
+source_refs = [
+  "crates/trust-hir/src/type_check/standard.rs",
+  "crates/trust-hir/src/type_check/standard/assertions.rs",
+  "crates/trust-hir/src/type_check/standard/bit.rs",
+  "crates/trust-hir/src/type_check/standard/comparison.rs",
+  "crates/trust-hir/src/type_check/standard/conversions_impl_part_01.rs",
+  "crates/trust-hir/src/type_check/standard/conversions_impl_part_02.rs",
+  "crates/trust-hir/src/type_check/standard/conversions_impl_part_03.rs",
+  "crates/trust-hir/src/type_check/standard/conversions_impl_part_04.rs",
+  "crates/trust-hir/src/type_check/standard/helpers.rs",
+  "crates/trust-hir/src/type_check/standard/numeric.rs",
+  "crates/trust-hir/src/type_check/standard/selection.rs",
+  "crates/trust-hir/src/type_check/standard/string.rs",
+  "crates/trust-hir/src/type_check/standard/validate.rs",
+]
 tests = ["TEST_AUTO_00FE726C106CD316AFAD", "TEST_AUTO_0E5F84AD4BA39757FCC5", "TEST_AUTO_1794E9163BCDE842A3E7", "TEST_AUTO_181BE6A42CEEAC4A3CA8", "TEST_AUTO_18C281121C8F2A2D7F07", "TEST_AUTO_2A64027AC33FA85FD1AD", "TEST_AUTO_43C5B1FEB74DB222685B", "TEST_AUTO_4692A562D9C8CBB0FB94", "TEST_AUTO_627DE6D71C0A08570A9A", "TEST_AUTO_69DB613F94392509F186", "TEST_AUTO_735D1722DAF91AF18050", "TEST_AUTO_7A9765F1F0939C67DD38", "TEST_AUTO_878AE6E89F760D397C78", "TEST_AUTO_891331AB23256646E56A", "TEST_AUTO_8E5985C4581B11E36E88", "TEST_AUTO_91E6375542C2C252AB6B", "TEST_AUTO_9B2B2CFFDB0CAE77D5D9", "TEST_AUTO_A52B459EE90798F4BFC0", "TEST_AUTO_C0593BCD93E5C722C8A0", "TEST_AUTO_CE23427A26330185FA03", "TEST_AUTO_DD4BF499E87F5702426C", "TEST_AUTO_DDD068CC588688F7B717"]
 gates = ["pr"]
 evidence_refs = []
