@@ -2120,9 +2120,11 @@ owner = "trust-runtime"
 area = "bytecode_vm"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-5-time-date-representation"
+invariant_ids = ["VM_CORE_DATETIME_VALUE_001"]
+test_ids = ["TEST_AUTO_20C7A00A677C7B66E53F", "TEST_AUTO_B16B2E4975EE4298C84D"]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -2548,9 +2550,11 @@ owner = "trust-runtime"
 area = "bytecode_vm"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-5-time-date-representation"
+invariant_ids = ["VM_CORE_DATETIME_VALUE_001"]
+test_ids = ["TEST_AUTO_B16B2E4975EE4298C84D"]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -4372,9 +4376,11 @@ owner = "trust-runtime"
 area = "bytecode_vm"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-5-time-date-representation"
+invariant_ids = ["VM_CORE_DATETIME_VALUE_001"]
+test_ids = ["TEST_AUTO_9C18A14B3C03C130F6A9"]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -5627,9 +5633,17 @@ owner = "trust-runtime"
 area = "bytecode_vm"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-5-time-date-representation"
+invariant_ids = ["VM_CORE_DATETIME_VALUE_001"]
+test_ids = [
+  "TEST_AUTO_06DC15AD820C31D8EF00",
+  "TEST_AUTO_20C7A00A677C7B66E53F",
+  "TEST_AUTO_27D594D0511BCB814771",
+  "TEST_AUTO_9C18A14B3C03C130F6A9",
+  "TEST_AUTO_B16B2E4975EE4298C84D",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -6415,9 +6429,11 @@ owner = "trust-runtime"
 area = "bytecode_vm"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-5-time-date-representation"
+invariant_ids = ["VM_CORE_DATETIME_VALUE_001"]
+test_ids = ["TEST_AUTO_B16B2E4975EE4298C84D"]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -7852,9 +7868,11 @@ visibility = "public"
 risk_signals = ["fault_mapping"]
 owner_ack = "RISK_ACK_4557C1BC3364F102E88EA860F45D050A4325F14A21B0193C3E435710E62B72E0"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-5-time-date-representation"
+invariant_ids = ["VM_CORE_DATETIME_VALUE_001"]
+test_ids = ["TEST_AUTO_06DC15AD820C31D8EF00"]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -8083,9 +8101,11 @@ owner = "trust-runtime"
 area = "bytecode_vm"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-5-time-date-representation"
+invariant_ids = ["VM_CORE_DATETIME_VALUE_001"]
+test_ids = ["TEST_AUTO_9C18A14B3C03C130F6A9"]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -8894,9 +8914,11 @@ owner = "trust-runtime"
 area = "bytecode_vm"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-5-time-date-representation"
+invariant_ids = ["VM_CORE_DATETIME_VALUE_001"]
+test_ids = ["TEST_AUTO_27D594D0511BCB814771"]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -9214,9 +9236,11 @@ owner = "trust-runtime"
 area = "bytecode_vm"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-5-time-date-representation"
+invariant_ids = ["VM_CORE_DATETIME_VALUE_001"]
+test_ids = ["TEST_AUTO_B16B2E4975EE4298C84D"]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -9659,9 +9683,11 @@ owner = "trust-runtime"
 area = "bytecode_vm"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-5-time-date-representation"
+invariant_ids = ["VM_CORE_DATETIME_VALUE_001"]
+test_ids = ["TEST_AUTO_B16B2E4975EE4298C84D"]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -9852,9 +9878,11 @@ visibility = "public"
 risk_signals = ["fault_mapping"]
 owner_ack = "RISK_ACK_5CA8EE235F8BA99D0403596DC20F1C71CC1E417B1C26982E6B97DA7A4237E737"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-5-time-date-representation"
+invariant_ids = ["VM_CORE_DATETIME_VALUE_001"]
+test_ids = ["TEST_AUTO_06DC15AD820C31D8EF00"]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -10407,9 +10435,17 @@ owner = "trust-runtime"
 area = "bytecode_vm"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-5-time-date-representation"
+invariant_ids = ["VM_CORE_DATETIME_VALUE_001"]
+test_ids = [
+  "TEST_AUTO_06DC15AD820C31D8EF00",
+  "TEST_AUTO_20C7A00A677C7B66E53F",
+  "TEST_AUTO_27D594D0511BCB814771",
+  "TEST_AUTO_9C18A14B3C03C130F6A9",
+  "TEST_AUTO_B16B2E4975EE4298C84D",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -10513,9 +10549,11 @@ owner = "trust-runtime"
 area = "bytecode_vm"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-5-time-date-representation"
+invariant_ids = ["VM_CORE_DATETIME_VALUE_001"]
+test_ids = ["TEST_AUTO_27D594D0511BCB814771"]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -12551,9 +12589,17 @@ owner = "trust-runtime"
 area = "bytecode_vm"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-5-time-date-representation"
+invariant_ids = ["VM_CORE_DATETIME_VALUE_001"]
+test_ids = [
+  "TEST_AUTO_06DC15AD820C31D8EF00",
+  "TEST_AUTO_20C7A00A677C7B66E53F",
+  "TEST_AUTO_27D594D0511BCB814771",
+  "TEST_AUTO_9C18A14B3C03C130F6A9",
+  "TEST_AUTO_B16B2E4975EE4298C84D",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -12693,9 +12739,11 @@ owner = "trust-runtime"
 area = "bytecode_vm"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-5-time-date-representation"
+invariant_ids = ["VM_CORE_DATETIME_VALUE_001"]
+test_ids = ["TEST_AUTO_27D594D0511BCB814771"]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -14536,9 +14584,11 @@ owner = "trust-runtime"
 area = "bytecode_vm"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-5-time-date-representation"
+invariant_ids = ["VM_CORE_DATETIME_VALUE_001"]
+test_ids = ["TEST_AUTO_20C7A00A677C7B66E53F"]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -15017,9 +15067,17 @@ owner = "trust-runtime"
 area = "bytecode_vm"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-5-time-date-representation"
+invariant_ids = ["VM_CORE_DATETIME_VALUE_001"]
+test_ids = [
+  "TEST_AUTO_06DC15AD820C31D8EF00",
+  "TEST_AUTO_20C7A00A677C7B66E53F",
+  "TEST_AUTO_27D594D0511BCB814771",
+  "TEST_AUTO_9C18A14B3C03C130F6A9",
+  "TEST_AUTO_B16B2E4975EE4298C84D",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -15690,9 +15748,11 @@ owner = "trust-runtime"
 area = "bytecode_vm"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-5-time-date-representation"
+invariant_ids = ["VM_CORE_DATETIME_VALUE_001"]
+test_ids = ["TEST_AUTO_B16B2E4975EE4298C84D"]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -16383,9 +16443,17 @@ owner = "trust-runtime"
 area = "bytecode_vm"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-5-time-date-representation"
+invariant_ids = ["VM_CORE_DATETIME_VALUE_001"]
+test_ids = [
+  "TEST_AUTO_06DC15AD820C31D8EF00",
+  "TEST_AUTO_20C7A00A677C7B66E53F",
+  "TEST_AUTO_27D594D0511BCB814771",
+  "TEST_AUTO_9C18A14B3C03C130F6A9",
+  "TEST_AUTO_B16B2E4975EE4298C84D",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -16824,9 +16892,11 @@ owner = "trust-runtime"
 area = "bytecode_vm"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-5-time-date-representation"
+invariant_ids = ["VM_CORE_DATETIME_VALUE_001"]
+test_ids = ["TEST_AUTO_20C7A00A677C7B66E53F"]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -16968,9 +17038,11 @@ visibility = "public"
 risk_signals = ["fault_mapping"]
 owner_ack = "RISK_ACK_A67B92638DC2FF61A5E4761226BC2CC607D8C21FE60F7EAC9D91DFEB96BB8B0C"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-5-time-date-representation"
+invariant_ids = ["VM_CORE_DATETIME_VALUE_001"]
+test_ids = ["TEST_AUTO_06DC15AD820C31D8EF00", "TEST_AUTO_20C7A00A677C7B66E53F"]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -18182,9 +18254,11 @@ owner = "trust-runtime"
 area = "bytecode_vm"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-5-time-date-representation"
+invariant_ids = ["VM_CORE_DATETIME_VALUE_001"]
+test_ids = ["TEST_AUTO_B16B2E4975EE4298C84D"]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -18582,9 +18656,11 @@ owner = "trust-runtime"
 area = "bytecode_vm"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-5-time-date-representation"
+invariant_ids = ["VM_CORE_DATETIME_VALUE_001"]
+test_ids = ["TEST_AUTO_B16B2E4975EE4298C84D"]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -18656,9 +18732,17 @@ owner = "trust-runtime"
 area = "bytecode_vm"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-5-time-date-representation"
+invariant_ids = ["VM_CORE_DATETIME_VALUE_001"]
+test_ids = [
+  "TEST_AUTO_06DC15AD820C31D8EF00",
+  "TEST_AUTO_20C7A00A677C7B66E53F",
+  "TEST_AUTO_27D594D0511BCB814771",
+  "TEST_AUTO_9C18A14B3C03C130F6A9",
+  "TEST_AUTO_B16B2E4975EE4298C84D",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -18868,9 +18952,11 @@ owner = "trust-runtime"
 area = "bytecode_vm"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-5-time-date-representation"
+invariant_ids = ["VM_CORE_DATETIME_VALUE_001"]
+test_ids = ["TEST_AUTO_27D594D0511BCB814771"]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -19114,9 +19200,11 @@ owner = "trust-runtime"
 area = "bytecode_vm"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-5-time-date-representation"
+invariant_ids = ["VM_CORE_DATETIME_VALUE_001"]
+test_ids = ["TEST_AUTO_20C7A00A677C7B66E53F", "TEST_AUTO_B16B2E4975EE4298C84D"]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -19968,9 +20056,17 @@ owner = "trust-runtime"
 area = "bytecode_vm"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-5-time-date-representation"
+invariant_ids = ["VM_CORE_DATETIME_VALUE_001"]
+test_ids = [
+  "TEST_AUTO_06DC15AD820C31D8EF00",
+  "TEST_AUTO_20C7A00A677C7B66E53F",
+  "TEST_AUTO_27D594D0511BCB814771",
+  "TEST_AUTO_9C18A14B3C03C130F6A9",
+  "TEST_AUTO_B16B2E4975EE4298C84D",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -20229,9 +20325,17 @@ owner = "trust-runtime"
 area = "bytecode_vm"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-5-time-date-representation"
+invariant_ids = ["VM_CORE_DATETIME_VALUE_001"]
+test_ids = [
+  "TEST_AUTO_06DC15AD820C31D8EF00",
+  "TEST_AUTO_20C7A00A677C7B66E53F",
+  "TEST_AUTO_27D594D0511BCB814771",
+  "TEST_AUTO_9C18A14B3C03C130F6A9",
+  "TEST_AUTO_B16B2E4975EE4298C84D",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -21835,9 +21939,17 @@ owner = "trust-runtime"
 area = "bytecode_vm"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-5-time-date-representation"
+invariant_ids = ["VM_CORE_DATETIME_VALUE_001"]
+test_ids = [
+  "TEST_AUTO_06DC15AD820C31D8EF00",
+  "TEST_AUTO_20C7A00A677C7B66E53F",
+  "TEST_AUTO_27D594D0511BCB814771",
+  "TEST_AUTO_9C18A14B3C03C130F6A9",
+  "TEST_AUTO_B16B2E4975EE4298C84D",
+]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -22560,9 +22672,11 @@ owner = "trust-runtime"
 area = "bytecode_vm"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-5-time-date-representation"
+invariant_ids = ["VM_CORE_DATETIME_VALUE_001"]
+test_ids = ["TEST_AUTO_06DC15AD820C31D8EF00", "TEST_AUTO_20C7A00A677C7B66E53F", "TEST_AUTO_B16B2E4975EE4298C84D"]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -23348,9 +23462,11 @@ owner = "trust-runtime"
 area = "bytecode_vm"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-5-time-date-representation"
+invariant_ids = ["VM_CORE_DATETIME_VALUE_001"]
+test_ids = ["TEST_AUTO_9C18A14B3C03C130F6A9"]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -23634,9 +23750,11 @@ owner = "trust-runtime"
 area = "bytecode_vm"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-5-time-date-representation"
+invariant_ids = ["VM_CORE_DATETIME_VALUE_001"]
+test_ids = ["TEST_AUTO_B16B2E4975EE4298C84D"]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -23859,9 +23977,11 @@ owner = "trust-runtime"
 area = "bytecode_vm"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-5-time-date-representation"
+invariant_ids = ["VM_CORE_DATETIME_VALUE_001"]
+test_ids = ["TEST_AUTO_9C18A14B3C03C130F6A9"]
+last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1

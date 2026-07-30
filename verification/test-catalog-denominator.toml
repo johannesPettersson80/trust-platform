@@ -7084,6 +7084,16 @@ catalog_test_id = "TEST_AUTO_27D47EADCB3629CA5E3A"
 last_reviewed = "2026-07-29"
 
 [[reviews]]
+discovery_id = "DISC_27D594D0511BCB814771"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime-core/src/value/datetime.rs"
+name = "default_datetime_profile_uses_unix_epoch_and_millisecond_resolution"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_AUTO_27D594D0511BCB814771"
+last_reviewed = "2026-07-30"
+
+[[reviews]]
 discovery_id = "DISC_27E1CA9DC90676DDAAF7"
 discovery_source_kind = "rust_integration_test"
 path = "crates/trust-runtime/tests/example_runtime_configs.rs"
