@@ -1,0 +1,66 @@
+schema_version = 1
+id = "VM_CORE_DATETIME_VALUE_001"
+title = "Portable date and time values preserve their declared tick model"
+area = "bytecode_vm"
+risk = "wrong_result"
+status = "specified"
+owner = "trust-runtime-core"
+last_reviewed = "2026-07-30"
+claim = "Portable duration, DATE, and DT values preserve their declared signed tick representation, while the default short date/time profile uses Unix epoch tick zero and one-millisecond resolution."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = [
+  "docs/specs/10-runtime-semantics.md",
+  "crates/trust-runtime-core/src/value/datetime.rs",
+]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = [
+  "catalog_mapping",
+  "focused_execution",
+  "assertion_reachability",
+  "mutation_sensitivity",
+  "broad_remote_gate",
+]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_VM_VALUE_SEMANTICS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_VM_VALUE_SEMANTICS_001#2-5-time-date-representation"
+
+[[behavior]]
+partition = { equals = "DURATION_UNIT_CONSTRUCTION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-5-time-date-representation"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Duration construction from milliseconds or seconds stores the corresponding nanosecond count, and the nanosecond accessor returns that stored value."
+
+[[behavior]]
+partition = { equals = "DATE_AND_DT_TICK_ROUND_TRIP" }
+case_family = "happy_path"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-5-time-date-representation"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "DATE and DT constructors and accessors preserve the exact signed tick count without applying timezone or calendar metadata."
+
+[[behavior]]
+partition = { equals = "DEFAULT_SHORT_DATETIME_PROFILE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-5-time-date-representation"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The default short date/time profile exposes epoch tick zero and a one-millisecond resolution."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Focused execution and catalog binding are pending."

@@ -32,7 +32,7 @@ source_refs = ["SPEC_IEC_STANDARD_FUNCTIONS_001", "SPEC_RUNTIME_ENGINE_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_RUNTIME_ENGINE_001#current-dt-host-clock-boundary"
+ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#host-civil-clock-current_dt"
 
 [[behavior]]
 partition = { equals = "ZERO_ARGUMENT_DT_RESULT" }

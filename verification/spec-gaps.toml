@@ -1053,7 +1053,10 @@ owner = "language"
 status = "spec_gap"
 gap_class = "missing_boundary"
 blocking_question = "Which host clock, epoch, timezone, precision, range, and failure behavior must CURRENT_DT expose, and how must simulation or replay control that value?"
-affected_invariants = ["IEC_STANDARD_TIME_FUNCTIONS_001"]
+affected_invariants = [
+  "IEC_STANDARD_TIME_FUNCTIONS_001",
+  "TRUST_CURRENT_DT_HOST_CLOCK_001",
+]
 affected_tests = []
 affected_code_ids = [
   "CODE_7017847AAB280080BF2EC34BF4803418D740D564C249005979415939449BB4D4",

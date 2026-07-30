@@ -1509,10 +1509,12 @@ visibility = "public"
 locator_kind = "tracked_file"
 path = "docs/specs/10-runtime-semantics.md"
 version = "current"
-last_reviewed = "2026-07-26"
+last_reviewed = "2026-07-30"
 covers = [
   "vm_value_tag_semantics",
   "runtime_value_tags",
+  "runtime_datetime_value_model",
+  "runtime_datetime_profile",
   "declared_type_materialization",
   "declared_type_conversion_semantics",
   "variable_initializer_materialization",
