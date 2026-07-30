@@ -6544,6 +6544,16 @@ catalog_test_id = "TEST_AUTO_24926AF7B506A67CE190"
 last_reviewed = "2026-07-26"
 
 [[reviews]]
+discovery_id = "DISC_24BE0B70F92996B0861C"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+name = "current_dt_rejects_pre_epoch_and_out_of_range_host_time"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-30"
+
+[[reviews]]
 discovery_id = "DISC_24C74D0EC2E25DC16465"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/io/mqtt/tests.rs"
@@ -23584,6 +23594,16 @@ catalog_test_id = "TEST_AUTO_89E7DE8C62E066814C73"
 last_reviewed = "2026-07-28"
 
 [[reviews]]
+discovery_id = "DISC_89EB14244F339DD685FA"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+name = "current_dt_preserves_the_full_nonnegative_dt_tick_range"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-30"
+
+[[reviews]]
 discovery_id = "DISC_8A1C3AD3283CE417195B"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/hmi/tests/scaffold_generation/core_tests.rs"
@@ -30004,6 +30024,16 @@ catalog_test_id = "TEST_AUTO_AE70D7BD1B3A3D4AF3C7"
 last_reviewed = "2026-07-27"
 
 [[reviews]]
+discovery_id = "DISC_AE85D008FFF41EAFED54"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+name = "current_dt_uses_utc_unix_epoch_and_truncates_to_milliseconds"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-30"
+
+[[reviews]]
 discovery_id = "DISC_AE93A961291079A49612"
 discovery_source_kind = "vscode_test"
 path = "editors/vscode/src/test/suite/ux-shell-contract.test.ts"
@@ -30602,6 +30632,16 @@ ignore_state = "not_ignored"
 disposition = "catalog_mapped"
 catalog_test_id = "TEST_AUTO_B1D362169562C6D4070C"
 last_reviewed = "2026-07-27"
+
+[[reviews]]
+discovery_id = "DISC_B1D5ECA592D1A7F49B75"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-hir/tests/semantic_standard_functions.rs"
+name = "current_dt_returns_dt_and_rejects_arguments"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-30"
 
 [[reviews]]
 discovery_id = "DISC_B1E08B599F8512C7B66D"
@@ -36862,6 +36902,16 @@ ignore_state = "not_ignored"
 disposition = "catalog_mapped"
 catalog_test_id = "TEST_AUTO_D8884F6D99A8815BD78E"
 last_reviewed = "2026-07-26"
+
+[[reviews]]
+discovery_id = "DISC_D891A923639E5713E568"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+name = "current_dt_reads_unix_host_time_at_millisecond_resolution"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-30"
 
 [[reviews]]
 discovery_id = "DISC_D8948B3221BCB14EF064"
@@ -43872,6 +43922,16 @@ ignore_state = "not_ignored"
 disposition = "catalog_mapped"
 catalog_test_id = "TEST_ADS_ONBOARDING_DOCTOR_DOCTOR_WITH_MANUAL_TARGET_IDENTITY_DOES_NOT_REQUIRE_UDP_IDENTIFY_001"
 last_reviewed = "2026-07-22"
+
+[[reviews]]
+discovery_id = "DISC_FE8A497DAC9EA3D5A0B4"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-runtime/src/stdlib/time.rs"
+name = "current_dt_ignores_logical_time_and_does_not_clamp_host_clock_rollback"
+ignore_state = "not_ignored"
+disposition = "reviewed_nonmapping"
+reason_code = "no_reviewed_spec_or_invariant_binding"
+last_reviewed = "2026-07-30"
 
 [[reviews]]
 discovery_id = "DISC_FE959E7B21A272DDC249"
