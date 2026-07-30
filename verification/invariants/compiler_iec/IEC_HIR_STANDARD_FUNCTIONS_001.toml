@@ -36,7 +36,7 @@ source_refs = ["SPEC_IEC_STANDARD_FUNCTIONS_001", "SPEC_IEC_SEMANTIC_RULES_001",
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_IEC_STANDARD_FUNCTIONS_001"
+ref = "SPEC_IEC_STANDARD_FUNCTIONS_001#standard-functions"
 
 [[behavior]]
 partition = { equals = "VALID_REGISTERED_STANDARD_FUNCTION" }

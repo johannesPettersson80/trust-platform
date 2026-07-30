@@ -22,7 +22,7 @@ source_refs = ["SPEC_IEC_LEXICAL_ELEMENTS_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_IEC_LEXICAL_ELEMENTS_001"
+ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#2-identifiers-table-2-section-6-1-2"
 
 [[behavior]]
 partition = { equals = "VALID_IDENTIFIER" }

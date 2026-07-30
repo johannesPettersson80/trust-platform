@@ -25,7 +25,7 @@ source_refs = ["SPEC_IEC_DATA_TYPES_CANDIDATE_001", "SPEC_IEC_VARIABLES_001", "S
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_IEC_SEMANTIC_RULES_001"
+ref = "SPEC_IEC_SEMANTIC_RULES_001#3-5-aggregate-initializer-errors"
 
 [[behavior]]
 partition = { equals = "VALID_SCALAR_ARRAY_STRUCT_UNION_OR_FB_DEFAULT" }

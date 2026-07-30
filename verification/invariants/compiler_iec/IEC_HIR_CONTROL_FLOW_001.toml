@@ -25,7 +25,7 @@ source_refs = ["SPEC_IEC_STATEMENTS_001", "SPEC_IEC_SEMANTIC_RULES_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_IEC_STATEMENTS_001"
+ref = "SPEC_IEC_STATEMENTS_001#statements"
 
 [[behavior]]
 partition = { equals = "VALID_LABEL_AND_JUMP" }

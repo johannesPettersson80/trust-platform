@@ -28,7 +28,7 @@ source_refs = ["SPEC_HIR_WARNING_POLICY_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_HIR_WARNING_POLICY_001"
+ref = "SPEC_HIR_WARNING_POLICY_001#hir-warning-policy"
 
 [[behavior]]
 partition = { equals = "UNUSED_ELIGIBLE_DECLARATION" }

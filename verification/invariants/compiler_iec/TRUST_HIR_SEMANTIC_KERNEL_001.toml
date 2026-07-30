@@ -31,7 +31,7 @@ source_refs = ["SPEC_HIR_SEMANTIC_KERNEL_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_HIR_SEMANTIC_KERNEL_001"
+ref = "SPEC_HIR_SEMANTIC_KERNEL_001#hir-semantic-kernel-contract"
 
 [[behavior]]
 partition = { equals = "UNCHANGED_OR_UNRELATED_SOURCE" }

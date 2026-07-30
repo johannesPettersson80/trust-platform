@@ -27,7 +27,7 @@ source_refs = ["SPEC_IEC_DATA_TYPES_CANDIDATE_001", "SPEC_IEC_VARIABLES_001", "S
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001"
+ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#data-types"
 
 [[behavior]]
 partition = { equals = "VALID_CONTEXTUAL_LITERAL_ALIAS_OR_GENERIC_TYPE" }

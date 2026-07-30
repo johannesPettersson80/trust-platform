@@ -27,7 +27,7 @@ source_refs = ["SPEC_IEC_VARIABLES_001", "SPEC_IEC_POU_DECLARATIONS_001", "SPEC_
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_IEC_SEMANTIC_RULES_001"
+ref = "SPEC_IEC_SEMANTIC_RULES_001#1-scope-rules-section-6-5-2-2"
 
 [[behavior]]
 partition = { equals = "LOCAL_POU_PARAMETER_AND_MEMBER_SCOPE" }
