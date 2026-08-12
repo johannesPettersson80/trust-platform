@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import urllib.error
 from pathlib import Path
 from unittest.mock import patch
 
@@ -415,6 +416,48 @@ class ReleaseTagPreflightContractTests(unittest.TestCase):
         self.assertIn(f"release-tag-preflight: OK ({TAG} -> {SHA})", stdout)
         self.assertIn("CI success found", stdout)
 
+
+class TagPreflightGitHubApiBoundaryTests(unittest.TestCase):
+    def test_http_error_with_non_json_body_preserves_status_and_message(self) -> None:
+        error = urllib.error.HTTPError(
+            url="https://api.github.example",
+            code=503,
+            msg="unavailable",
+            hdrs=None,
+            fp=io.BytesIO(b"not-json"),
+        )
+        try:
+            with patch.object(preflight.urllib.request, "urlopen", side_effect=error):
+                status, payload = preflight.github_api_get(
+                    "owner/repo", "/actions/workflows/ci.yml/runs", "secret"
+                )
+        finally:
+            error.close()
+        self.assertEqual(status, 503)
+        self.assertEqual(payload, {"message": "not-json"})
+
+    def test_empty_success_body_decodes_to_empty_object(self) -> None:
+        class Response:
+            status = 200
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            @staticmethod
+            def read() -> bytes:
+                return b""
+
+        with patch.object(
+            preflight.urllib.request, "urlopen", return_value=Response()
+        ):
+            status, payload = preflight.github_api_get(
+                "owner/repo", "/actions/workflows/ci.yml/runs", "secret"
+            )
+        self.assertEqual(status, 200)
+        self.assertEqual(payload, {})
 
 if __name__ == "__main__":
     unittest.main()

@@ -4,7 +4,7 @@ title = "Very Quick Verification"
 area = "suite"
 owner = "verification"
 status = "mapped"
-last_reviewed = "2026-07-10"
+last_reviewed = "2026-08-12"
 purpose = "Bounded trust-builder feedback for verification tooling, compiler semantics, runtime core, bytecode validation, and one deterministic conformance case."
 duration_class = "fast"
 environment = "trust_builder"
@@ -24,6 +24,7 @@ inventory_ids = [
   "GATE_SCRIPT_P18_BURN_DOWN_LEDGER",
   "GATE_SCRIPT_P18_ZERO_DEBT",
   "GATE_SCRIPT_PRIVATE_HOOK_CONTRACT",
+  "GATE_SCRIPT_RELEASE_EVIDENCE_CONTRACT",
   "GATE_SCRIPT_VERIFICATION_METADATA",
 ]
 evidence_destination = "target/gate-artifacts/veryquick/"

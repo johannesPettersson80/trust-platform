@@ -6664,6 +6664,33 @@ last_reviewed = "2026-07-17"
 
 [[tests]]
 schema_version = 2
+id = "TEST_RELEASE_EVIDENCE_CONTRACT_GUARD_001"
+subject_kind = "generated_test"
+discovery_id = "DISC_AD12BFBD95A4ACF053BE"
+discovery_source_kind = "gate_script"
+test_class = "behavior_lock"
+area = "release"
+path = "scripts/release_evidence_contract_gate.sh"
+name = "release_evidence_contract_gate"
+command = "scripts/release_evidence_contract_gate.sh"
+owner = "release"
+status = "mapped"
+invariants = ["REL_RELEASE_EVIDENCE_GUARD_001"]
+oracle_ref = "SPEC_RELEASE_EVIDENCE_001#artifact-and-version-provenance"
+expected_result = "Aligned manifests and exact annotated-tag, SHA, main push workflow, published release, Latest marker, and unique required assets are accepted."
+expected_failure_mode = "Malformed, missing, duplicated, or non-exact release evidence is rejected without certifying publication."
+evidence_destination = "target/gate-artifacts/cases/TEST_RELEASE_EVIDENCE_CONTRACT_GUARD_001.json"
+suite_tiers = ["veryquick", "pr"]
+requires_hardware = false
+requires_network = false
+duration_class = "fast"
+case_file = "verification/cases/release/REL_VERSION_GUARDS_001.toml"
+case_file_digest = "sha256:208c72e7782c182a04b0c000d8940d36591132b1fe3122abcd7e0aadfb4fab4b"
+mapping_behavior_refs = ["REL_RELEASE_EVIDENCE_GUARD_001#behavior:0", "REL_RELEASE_EVIDENCE_GUARD_001#behavior:1"]
+last_reviewed = "2026-08-12"
+
+[[tests]]
+schema_version = 2
 id = "TEST_RUNTIME_BEHAVIOR_LOCK_TRACE_001"
 subject_kind = "generated_test"
 discovery_id = "DISC_588B8448FA2B76D38A8A"

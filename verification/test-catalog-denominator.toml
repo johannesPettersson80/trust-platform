@@ -86952,3 +86952,13 @@ ignore_state = "not_ignored"
 disposition = "catalog_mapped"
 catalog_test_id = "TEST_RUNTIME_WINDOWS_STACK_LINK_001"
 last_reviewed = "2026-08-12"
+
+[[reviews]]
+discovery_id = "DISC_AD12BFBD95A4ACF053BE"
+discovery_source_kind = "gate_script"
+path = "scripts/release_evidence_contract_gate.sh"
+name = "release_evidence_contract_gate"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RELEASE_EVIDENCE_CONTRACT_GUARD_001"
+last_reviewed = "2026-08-12"

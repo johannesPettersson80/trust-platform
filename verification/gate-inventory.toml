@@ -264,6 +264,28 @@ rationale = "CI aggregates required job results and gate markers into the releas
 
 [[surfaces]]
 schema_version = 1
+id = "GATE_SCRIPT_RELEASE_EVIDENCE_CONTRACT"
+discovery_id = "DISC_AD12BFBD95A4ACF053BE"
+source_kind = "gate_script"
+path = "scripts/release_evidence_contract_gate.sh"
+name = "release_evidence_contract_gate"
+command = "scripts/release_evidence_contract_gate.sh"
+variant = "Exact release evidence behavior-lock contract"
+command_role = "helper"
+disposition = "assigned"
+suite_ids = ["pr", "veryquick"]
+owner = "release"
+duration_class = "fast"
+environment = "trust_builder"
+artifact_kind = "none"
+artifact_paths = []
+artifact_retention = "none"
+enforcement = "required"
+required_env = []
+rationale = "The focused release guard suite accepts one exact release identity and fails closed on malformed, duplicated, missing, or non-exact evidence."
+
+[[surfaces]]
+schema_version = 1
 id = "GATE_SCRIPT_PREPUSH_CI"
 discovery_id = "DISC_949CD663563705798270"
 source_kind = "gate_script"

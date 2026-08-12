@@ -352523,3 +352523,25 @@ spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#focused-trace-control-plane-c
 invariant_ids = ["VERIFICATION_FOCUSED_TRACE_CONTROL_PLANE_001"]
 test_ids = ["TEST_VERIFICATION_FOCUSED_TRACE_CONTROL_PLANE_001"]
 last_reviewed = "2026-08-12"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_1CC3C9DF81F796605884384F8EE420EEAE69C1290E6807760419C42074E58EE8"
+source_kind = "shell"
+path = "scripts/release_evidence_contract_gate.sh"
+qualified_symbol = "scripts::release_evidence_contract_gate::<entrypoint>"
+item_kind = "shell_entrypoint"
+signature_digest = "sha256:7ea33e535bdd1008b90798d757a412cd89dee8cbfb7cbe3c763e71f7a40bc177"
+reviewed_body_digest = "sha256:e3a14c4907f4bf3967bb8938079a806de03d0f3dfde272404f59ffd130f03d14"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = ["filesystem_or_environment", "state_mutation", "subprocess_or_thread"]
+owner_ack = "RISK_ACK_1CC3C9DF81F796605884384F8EE420EEAE69C1290E6807760419C42074E58EE8"
+owner_ack_expires_on = "2026-11-12"
+disposition = "specified"
+spec_ref = "SPEC_RELEASE_EVIDENCE_001#artifact-and-version-provenance"
+invariant_ids = ["REL_RELEASE_EVIDENCE_GUARD_001"]
+test_ids = ["TEST_RELEASE_EVIDENCE_CONTRACT_GUARD_001"]
+cross_area_decision_ref = "docs/internal/testing/evidence/plc-verification-program/2026-08-12-p18-release-evidence-guard-authority.md#cross-area-decision"
+last_reviewed = "2026-08-12"

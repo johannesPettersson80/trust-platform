@@ -1,0 +1,32 @@
+schema_version = 1
+id = "CASES_REL_RELEASE_EVIDENCE_GUARD_001"
+title = "Exact release evidence guard traces"
+area = "release"
+owner = "release"
+status = "planned"
+invariant = "REL_RELEASE_EVIDENCE_GUARD_001"
+case_provenance_kind = "hand_authored_state_machine_v1"
+trace_definition_digest = "sha256:9b873f5f020370c8ab4eff975b2807a1d63d667c1a0f95c7a509e5d81e3172ec"
+source_digest = "sha256:48a6a4debf0fa3ee20657f95d7223c6272762c1e5381219aaa85f63465935e4f"
+last_reviewed = "2026-08-12"
+
+[[case]]
+id = "REL_RELEASE_EVIDENCE_GUARD_001_EXACT"
+family = "happy_path"
+input = { scenario = "EXACT_RELEASE_EVIDENCE_GUARDS" }
+expect = { outcome = "accept_value", oracle_ref = "SPEC_RELEASE_EVIDENCE_001#artifact-and-version-provenance", no_partial_apply = true, delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" } }
+trace = [
+  { sequence = 0, stimulus = { manifests = "aligned", tag = "annotated_exact_sha" }, expected = { accepted = true, workflow_event = "push", workflow_branch = "main" }, oracle_ref = "SPEC_RELEASE_EVIDENCE_001#artifact-and-version-provenance" },
+  { sequence = 1, stimulus = { release = "published_exact_tag", latest = "exact_tag" }, expected = { accepted = true, asset_names = "unique_and_complete" }, oracle_ref = "SPEC_RELEASE_EVIDENCE_001#artifact-and-version-provenance" },
+]
+
+[[case]]
+id = "REL_RELEASE_EVIDENCE_GUARD_001_NONEXACT_REJECTED"
+family = "supply_chain_or_artifact_fault"
+input = { scenario = "MALFORMED_OR_NONEXACT_RELEASE_EVIDENCE" }
+expect = { outcome = "reject", oracle_ref = "SPEC_RELEASE_EVIDENCE_001#artifact-and-version-provenance", no_partial_apply = true, delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "stable_error", status = "not_safe_reported" } }
+trace = [
+  { sequence = 0, stimulus = { evidence = "malformed_or_missing" }, expected = { accepted = false, failure = "stable_and_fail_closed" }, oracle_ref = "SPEC_RELEASE_EVIDENCE_001#artifact-and-version-provenance" },
+  { sequence = 1, stimulus = { workflow = "wrong_event_branch_or_sha" }, expected = { accepted = false, failure = "exact_identity_required" }, oracle_ref = "SPEC_RELEASE_EVIDENCE_001#artifact-and-version-provenance" },
+  { sequence = 2, stimulus = { assets = "duplicate_or_incomplete" }, expected = { accepted = false, failure = "unique_required_assets" }, oracle_ref = "SPEC_RELEASE_EVIDENCE_001#artifact-and-version-provenance" },
+]

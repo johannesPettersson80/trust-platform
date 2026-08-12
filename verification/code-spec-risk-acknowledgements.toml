@@ -228,6 +228,20 @@ rationale = "Acknowledges the live scanner risk signals for the private-hook gat
 
 [[acknowledgements]]
 schema_version = 1
+id = "RISK_ACK_1CC3C9DF81F796605884384F8EE420EEAE69C1290E6807760419C42074E58EE8"
+code_id = "CODE_1CC3C9DF81F796605884384F8EE420EEAE69C1290E6807760419C42074E58EE8"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:e3a14c4907f4bf3967bb8938079a806de03d0f3dfde272404f59ffd130f03d14"
+risk_signals = ["filesystem_or_environment", "state_mutation", "subprocess_or_thread"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-08-12-p18-release-evidence-guard-authority.md#risk-review"
+reviewed_by = "verification"
+reviewed_on = "2026-08-12"
+expires_on = "2026-11-12"
+rationale = "Acknowledges the live scanner risk signals for the release-evidence gate entrypoint and exact reviewed body; the wrapper writes only the prover-requested artifact after its focused tests pass and does not certify a public release."
+
+[[acknowledgements]]
+schema_version = 1
 id = "RISK_ACK_710464254C0AC8C595F184C2425F28383EFF932D2AC1D6821CF786055FD6D6F1"
 code_id = "CODE_710464254C0AC8C595F184C2425F28383EFF932D2AC1D6821CF786055FD6D6F1"
 owner = "language"

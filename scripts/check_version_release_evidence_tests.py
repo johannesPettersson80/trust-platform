@@ -429,10 +429,13 @@ class GitHubApiBoundaryTests(unittest.TestCase):
             hdrs=None,
             fp=io.BytesIO(b"not-json"),
         )
-        with patch.object(guard.urllib.request, "urlopen", side_effect=error):
-            status, payload = guard.github_api_get(
-                "owner/repo", "/releases/latest", "secret"
-            )
+        try:
+            with patch.object(guard.urllib.request, "urlopen", side_effect=error):
+                status, payload = guard.github_api_get(
+                    "owner/repo", "/releases/latest", "secret"
+                )
+        finally:
+            error.close()
         self.assertEqual(status, 503)
         self.assertEqual(payload, {"message": "not-json"})
 

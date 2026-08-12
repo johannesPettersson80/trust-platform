@@ -2040,6 +2040,25 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   proof, broad gates, and `VERIF-P18-003` globally remain open. No broad/full
   workspace test, `just fmt`, `just clippy`, or `just test-all` ran. Evidence:
   `docs/internal/testing/evidence/plc-verification-program/2026-08-12-p18-supply-chain-platform-authority-closeout.md`.
+
+  release-evidence guard authority progress (2026-08-12): the release
+  manifest, annotated-tag, exact-SHA/main-push workflow, published release,
+  Latest marker, and unique required-asset guards now share
+  `REL_RELEASE_EVIDENCE_GUARD_001` and one catalog-visible two-partition
+  behavior lock. An expected assertion red exposed the wrapper's missing
+  prover artifact; the paired green passes 1/1, and the complete focused
+  release suite passes 50/50 locally and on the bootstrapped isolated
+  `trust-builder` checkout. Scanner, denominator, catalog, gate inventory,
+  suite routing, case provenance, and exact slice metadata bindings are green.
+  The new shell entrypoint is explicitly review-bound across the verification
+  and release areas with its current risk acknowledgement. The public
+  release-chain invariant remains unchanged, so mocked focused tests do not
+  claim an actual published release. Global metadata debt still blocks the
+  producer-authentic lock and complete planner; the new invariant remains S0
+  with that debt explicit. `VERIF-P18-003`, `VERIF-P18-005`, reachability,
+  mutation, and the final broad gates remain open. No P18-016 broad gate ran.
+  Evidence:
+  `docs/internal/testing/evidence/plc-verification-program/2026-08-12-p18-release-evidence-guard-authority.md`.
 - [ ] `VERIF-P18-005` Eliminate all 4,233 current `reviewed_nonmapping` test
   facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
