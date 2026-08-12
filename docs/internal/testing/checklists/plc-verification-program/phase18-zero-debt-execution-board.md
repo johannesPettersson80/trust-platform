@@ -2051,7 +2051,10 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   `trust-builder` checkout. Scanner, denominator, catalog, gate inventory,
   suite routing, case provenance, and exact slice metadata bindings are green.
   The new shell entrypoint is explicitly review-bound across the verification
-  and release areas with its current risk acknowledgement. The public
+  and release areas with its current risk acknowledgement. A clean 17,489-fact
+  full report then proposed exactly three singular release groups; the atomic
+  review accepted all 21 facts for the new invariant, withheld the other 31
+  proposal groups, and closed the now-empty historical release gap. The public
   release-chain invariant remains unchanged, so mocked focused tests do not
   claim an actual published release. Global metadata debt still blocks the
   producer-authentic lock and complete planner; the new invariant remains S0

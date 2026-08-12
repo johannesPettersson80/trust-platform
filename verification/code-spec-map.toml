@@ -224128,9 +224128,11 @@ visibility = "public"
 risk_signals = ["filesystem_or_environment"]
 owner_ack = "RISK_ACK_00BDEA5E5CCBD6FE769BBADE8CF964E9506882919CD149082F384B1E910AD42D"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RELEASE_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RELEASE_EVIDENCE_001#artifact-and-version-provenance"
+invariant_ids = ["REL_RELEASE_EVIDENCE_GUARD_001"]
+test_ids = ["TEST_RELEASE_EVIDENCE_CONTRACT_GUARD_001"]
+last_reviewed = "2026-08-12"
 
 [[mappings]]
 schema_version = 1
@@ -224147,8 +224149,10 @@ visibility = "public"
 risk_signals = ["filesystem_or_environment"]
 owner_ack = "RISK_ACK_0441DC4BCF4BBAC850AB35D6847CEEC71EAEF98498F51ED05869AFA63876449B"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RELEASE_001"
+disposition = "specified"
+spec_ref = "SPEC_RELEASE_EVIDENCE_001#artifact-and-version-provenance"
+invariant_ids = ["REL_RELEASE_EVIDENCE_GUARD_001"]
+test_ids = ["TEST_RELEASE_EVIDENCE_CONTRACT_GUARD_001"]
 last_reviewed = "2026-08-12"
 
 [[mappings]]
@@ -224166,9 +224170,11 @@ visibility = "public"
 risk_signals = ["subprocess_or_thread"]
 owner_ack = "RISK_ACK_189EE2C6848E628B86731E88E82D63C087CF6C75CCDD797AFE987A6255BE7B87"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RELEASE_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RELEASE_EVIDENCE_001#artifact-and-version-provenance"
+invariant_ids = ["REL_RELEASE_EVIDENCE_GUARD_001"]
+test_ids = ["TEST_RELEASE_EVIDENCE_CONTRACT_GUARD_001"]
+last_reviewed = "2026-08-12"
 
 [[mappings]]
 schema_version = 1
@@ -224183,9 +224189,11 @@ owner = "release-engineering"
 area = "release"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RELEASE_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RELEASE_EVIDENCE_001#artifact-and-version-provenance"
+invariant_ids = ["REL_RELEASE_EVIDENCE_GUARD_001"]
+test_ids = ["TEST_RELEASE_EVIDENCE_CONTRACT_GUARD_001"]
+last_reviewed = "2026-08-12"
 
 [[mappings]]
 schema_version = 1
@@ -224199,12 +224207,19 @@ reviewed_body_digest = "sha256:2457a87d18088b63fd844a2d5fbe5f0a594fbaeb278537330
 owner = "release-engineering"
 area = "release"
 visibility = "public"
-risk_signals = ["authorization", "filesystem_or_environment", "network_io", "protocol_response_or_status"]
+risk_signals = [
+  "authorization",
+  "filesystem_or_environment",
+  "network_io",
+  "protocol_response_or_status",
+]
 owner_ack = "RISK_ACK_254A0929B91EECA0B7437B4166402FC7E48A981AD6D8EE39E138C5942D0A2405"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RELEASE_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RELEASE_EVIDENCE_001#artifact-and-version-provenance"
+invariant_ids = ["REL_RELEASE_EVIDENCE_GUARD_001"]
+test_ids = ["TEST_RELEASE_EVIDENCE_CONTRACT_GUARD_001"]
+last_reviewed = "2026-08-12"
 
 [[mappings]]
 schema_version = 1
@@ -224221,9 +224236,11 @@ visibility = "public"
 risk_signals = ["filesystem_or_environment"]
 owner_ack = "RISK_ACK_3F9C5DC76FF80C0087DAC8990C33C60418572BE5B2AF38C0E50C953E4F62D752"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RELEASE_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RELEASE_EVIDENCE_001#artifact-and-version-provenance"
+invariant_ids = ["REL_RELEASE_EVIDENCE_GUARD_001"]
+test_ids = ["TEST_RELEASE_EVIDENCE_CONTRACT_GUARD_001"]
+last_reviewed = "2026-08-12"
 
 [[mappings]]
 schema_version = 1
@@ -224240,9 +224257,11 @@ visibility = "public"
 risk_signals = ["filesystem_or_environment"]
 owner_ack = "RISK_ACK_4020ED8BB1FA2FBC83104D9FE3A958D0CEBFCE29F7270A921C2E1CFD1271E318"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RELEASE_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RELEASE_EVIDENCE_001#artifact-and-version-provenance"
+invariant_ids = ["REL_RELEASE_EVIDENCE_GUARD_001"]
+test_ids = ["TEST_RELEASE_EVIDENCE_CONTRACT_GUARD_001"]
+last_reviewed = "2026-08-12"
 
 [[mappings]]
 schema_version = 1
@@ -224257,9 +224276,11 @@ owner = "release-engineering"
 area = "release"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RELEASE_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RELEASE_EVIDENCE_001#artifact-and-version-provenance"
+invariant_ids = ["REL_RELEASE_EVIDENCE_GUARD_001"]
+test_ids = ["TEST_RELEASE_EVIDENCE_CONTRACT_GUARD_001"]
+last_reviewed = "2026-08-12"
 
 [[mappings]]
 schema_version = 1
@@ -224274,9 +224295,11 @@ owner = "release-engineering"
 area = "release"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RELEASE_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RELEASE_EVIDENCE_001#artifact-and-version-provenance"
+invariant_ids = ["REL_RELEASE_EVIDENCE_GUARD_001"]
+test_ids = ["TEST_RELEASE_EVIDENCE_CONTRACT_GUARD_001"]
+last_reviewed = "2026-08-12"
 
 [[mappings]]
 schema_version = 1
@@ -224291,9 +224314,11 @@ owner = "release-engineering"
 area = "release"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RELEASE_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RELEASE_EVIDENCE_001#artifact-and-version-provenance"
+invariant_ids = ["REL_RELEASE_EVIDENCE_GUARD_001"]
+test_ids = ["TEST_RELEASE_EVIDENCE_CONTRACT_GUARD_001"]
+last_reviewed = "2026-08-12"
 
 [[mappings]]
 schema_version = 1
@@ -224308,9 +224333,11 @@ owner = "release-engineering"
 area = "release"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RELEASE_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RELEASE_EVIDENCE_001#artifact-and-version-provenance"
+invariant_ids = ["REL_RELEASE_EVIDENCE_GUARD_001"]
+test_ids = ["TEST_RELEASE_EVIDENCE_CONTRACT_GUARD_001"]
+last_reviewed = "2026-08-12"
 
 [[mappings]]
 schema_version = 1
@@ -224325,9 +224352,11 @@ owner = "release-engineering"
 area = "release"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RELEASE_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RELEASE_EVIDENCE_001#artifact-and-version-provenance"
+invariant_ids = ["REL_RELEASE_EVIDENCE_GUARD_001"]
+test_ids = ["TEST_RELEASE_EVIDENCE_CONTRACT_GUARD_001"]
+last_reviewed = "2026-08-12"
 
 [[mappings]]
 schema_version = 1
@@ -224341,12 +224370,19 @@ reviewed_body_digest = "sha256:69ea5367aa0e050baf233b5a9b895a5160b1b96b602983b37
 owner = "release-engineering"
 area = "release"
 visibility = "public"
-risk_signals = ["authorization", "filesystem_or_environment", "network_io", "protocol_response_or_status"]
+risk_signals = [
+  "authorization",
+  "filesystem_or_environment",
+  "network_io",
+  "protocol_response_or_status",
+]
 owner_ack = "RISK_ACK_AA4B6FB81EA02B5699C9511C8A3C82F86827D4416C9DAA205595D243787A74A4"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RELEASE_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RELEASE_EVIDENCE_001#artifact-and-version-provenance"
+invariant_ids = ["REL_RELEASE_EVIDENCE_GUARD_001"]
+test_ids = ["TEST_RELEASE_EVIDENCE_CONTRACT_GUARD_001"]
+last_reviewed = "2026-08-12"
 
 [[mappings]]
 schema_version = 1
@@ -224363,8 +224399,10 @@ visibility = "public"
 risk_signals = ["protocol_response_or_status"]
 owner_ack = "RISK_ACK_B2BC5C5159BA308425834C9564707BF6ECE508DAB988D747C42E2B9E0306B6DB"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RELEASE_001"
+disposition = "specified"
+spec_ref = "SPEC_RELEASE_EVIDENCE_001#artifact-and-version-provenance"
+invariant_ids = ["REL_RELEASE_EVIDENCE_GUARD_001"]
+test_ids = ["TEST_RELEASE_EVIDENCE_CONTRACT_GUARD_001"]
 last_reviewed = "2026-08-12"
 
 [[mappings]]
@@ -224382,9 +224420,11 @@ visibility = "public"
 risk_signals = ["subprocess_or_thread"]
 owner_ack = "RISK_ACK_BEE69B6780A768674860E70610F3B4E176A33B8073F5C1B32445B3AF2235532B"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RELEASE_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RELEASE_EVIDENCE_001#artifact-and-version-provenance"
+invariant_ids = ["REL_RELEASE_EVIDENCE_GUARD_001"]
+test_ids = ["TEST_RELEASE_EVIDENCE_CONTRACT_GUARD_001"]
+last_reviewed = "2026-08-12"
 
 [[mappings]]
 schema_version = 1
@@ -224401,9 +224441,11 @@ visibility = "public"
 risk_signals = ["fault_mapping", "state_mutation"]
 owner_ack = "RISK_ACK_CE9D61701D883B2A34321E19BD072BA277ED8BA99650C910B7CF9A1650417ACC"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RELEASE_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RELEASE_EVIDENCE_001#artifact-and-version-provenance"
+invariant_ids = ["REL_RELEASE_EVIDENCE_GUARD_001"]
+test_ids = ["TEST_RELEASE_EVIDENCE_CONTRACT_GUARD_001"]
+last_reviewed = "2026-08-12"
 
 [[mappings]]
 schema_version = 1
@@ -224418,9 +224460,11 @@ owner = "release-engineering"
 area = "release"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RELEASE_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RELEASE_EVIDENCE_001#artifact-and-version-provenance"
+invariant_ids = ["REL_RELEASE_EVIDENCE_GUARD_001"]
+test_ids = ["TEST_RELEASE_EVIDENCE_CONTRACT_GUARD_001"]
+last_reviewed = "2026-08-12"
 
 [[mappings]]
 schema_version = 1
@@ -224435,9 +224479,11 @@ owner = "release-engineering"
 area = "release"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RELEASE_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RELEASE_EVIDENCE_001#artifact-and-version-provenance"
+invariant_ids = ["REL_RELEASE_EVIDENCE_GUARD_001"]
+test_ids = ["TEST_RELEASE_EVIDENCE_CONTRACT_GUARD_001"]
+last_reviewed = "2026-08-12"
 
 [[mappings]]
 schema_version = 1
@@ -224459,8 +224505,10 @@ risk_signals = [
 ]
 owner_ack = "RISK_ACK_F43F245E4B12AEF0D9D904C2E93A696CB40FC40425AEC6DDF980EEE008CC012B"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RELEASE_001"
+disposition = "specified"
+spec_ref = "SPEC_RELEASE_EVIDENCE_001#artifact-and-version-provenance"
+invariant_ids = ["REL_RELEASE_EVIDENCE_GUARD_001"]
+test_ids = ["TEST_RELEASE_EVIDENCE_CONTRACT_GUARD_001"]
 last_reviewed = "2026-08-12"
 
 [[mappings]]
@@ -224478,9 +224526,11 @@ visibility = "public"
 risk_signals = ["filesystem_or_environment"]
 owner_ack = "RISK_ACK_FBF074F366DB96D266E7E572B94373E09916614BD1CFA72FF968BDACEB8C0A48"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RELEASE_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RELEASE_EVIDENCE_001#artifact-and-version-provenance"
+invariant_ids = ["REL_RELEASE_EVIDENCE_GUARD_001"]
+test_ids = ["TEST_RELEASE_EVIDENCE_CONTRACT_GUARD_001"]
+last_reviewed = "2026-08-12"
 
 [[mappings]]
 schema_version = 1
@@ -224497,9 +224547,11 @@ visibility = "public"
 risk_signals = ["filesystem_or_environment"]
 owner_ack = "RISK_ACK_FCC097C9C4D716CF440565F0CB0A444FBD53F2A6AC4BCCB0CD4CC5948D2677D1"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RELEASE_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RELEASE_EVIDENCE_001#artifact-and-version-provenance"
+invariant_ids = ["REL_RELEASE_EVIDENCE_GUARD_001"]
+test_ids = ["TEST_RELEASE_EVIDENCE_CONTRACT_GUARD_001"]
+last_reviewed = "2026-08-12"
 
 [[mappings]]
 schema_version = 1

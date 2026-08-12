@@ -9657,3 +9657,25 @@ linked_invariants = ["RT_BUILD_COMMAND_001", "RT_WINDOWS_STACK_LINK_001"]
 linked_tests = ["TEST_AUTO_4CFAF7598FF6ED520833", "TEST_AUTO_4E78FA1FE054B4A0AD08", "TEST_AUTO_DC6A59A72613FBA3CFA8", "TEST_AUTO_E585CA0FF1F35FD3CC14", "TEST_AUTO_E726DF21E9F7F87134B0", "TEST_AUTO_FF69B42F579111AE16BF", "TEST_RUNTIME_BUILD_FAILURE_PRESERVES_ARTIFACT_001", "TEST_RUNTIME_WINDOWS_STACK_LINK_001"]
 linked_spec_gaps = ["SPEC_GAP_P17_HISTORICAL_CODE_SUPPLY_CHAIN_PLATFORM_001"]
 last_reviewed = "2026-08-12"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_P18_RELEASE_EVIDENCE_GUARD_AUTHORITY_CLOSEOUT_20260812"
+title = "Phase 18 release-evidence guard authority closeout"
+area = "release"
+owner = "release-engineering"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-08-12-p18-release-evidence-guard-authority.md"
+command = "ssh trust-builder 'cd /home/johannes/projects/trust-platform-p18-release-ec413525 && scripts/release_evidence_contract_gate.sh && python3 scripts/code_spec_coverage_gate.py --mode full --base HEAD --head HEAD --out-dir target/gate-artifacts/release-evidence-code-spec-full'"
+commit = "027f1a7405321c8e4114a248123bc1a15d454aa9"
+platform = "trust-builder-linux-x86_64 (scena-rust-builder)"
+date = "2026-08-12"
+suite_id = "veryquick"
+producer = "codex Phase 18 release authority transaction"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = ["REL_RELEASE_EVIDENCE_GUARD_001"]
+linked_tests = ["TEST_RELEASE_EVIDENCE_CONTRACT_GUARD_001"]
+linked_spec_gaps = ["SPEC_GAP_P17_HISTORICAL_CODE_RELEASE_001"]
+last_reviewed = "2026-08-12"

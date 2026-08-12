@@ -70,3 +70,24 @@ was minted or bypassed. The new invariant therefore remains honestly `S0` and
 broad remote proof listed as missing. `VERIF-P18-003` and `VERIF-P18-005`
 remain globally open, and no `just fmt`, `just clippy`, `just test-all`, or
 other P18-016 broad candidate gate ran.
+
+## Authority reuse closeout
+
+From clean remote validation SHA
+`b39d748be0cd27316a2b712cb57d5542c900f683`, the full code-spec report
+accounted 17,489 live facts with zero findings and zero blocking findings. Its
+review-only authority proposal contained exactly three singular groups for the
+release-owned scripts: six manifest-alignment facts, seven tag-preflight facts,
+and eight publication-evidence facts. All 21 were accepted for
+`REL_RELEASE_EVIDENCE_GUARD_001`; the other 31 proposal groups were explicitly
+withheld. The live-reconstructed compare-and-swap application updated only the
+code map and gap ledger, with application digest
+`sha256:7c433f203060fd43e00394c4fc4a9dd93250d13a205875e941c7bd4574bc7aff`.
+
+All 21 release facts are now `specified`, the historical release gap has zero
+remaining affected code identities, and
+`SPEC_GAP_P17_HISTORICAL_CODE_RELEASE_001` is closed against
+`SPEC_RELEASE_EVIDENCE_001`. The historical placeholder invariant was removed;
+the reviewed release-guard invariant and catalog test now own the exact slice.
+This closes authority debt only. Targeted producer-authentic lock proof and the
+later Phase 18 proof rows remain open as described above.
