@@ -185,6 +185,12 @@ def main() -> int:
             )
         time.sleep(poll_interval)
 
+    tag_type_proc = run_git(
+        ["cat-file", "-t", f"refs/tags/{expected_tag}"], check=False
+    )
+    if tag_type_proc.returncode != 0 or tag_type_proc.stdout.strip() != "tag":
+        return fail(f"Release tag {expected_tag} must be an annotated tag object.")
+
     ancestor_check = subprocess.run(
         ["git", "merge-base", "--is-ancestor", tag_commit, args.after],
         check=False,
@@ -193,6 +199,11 @@ def main() -> int:
         return fail(
             f"Tag {expected_tag} exists but points to {tag_commit}, which is not reachable from "
             f"{args.after}. Tag must match the released main history for version {current_version}."
+        )
+    if tag_commit != args.after:
+        return fail(
+            f"Tag {expected_tag} points to {tag_commit}, which does not match the exact "
+            f"main push SHA {args.after}."
         )
 
     token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN") or ""
@@ -214,11 +225,18 @@ def main() -> int:
                 f"(status {runs_status}): {runs_payload.get('message', 'unknown error')}"
             )
 
+        workflow_runs = runs_payload.get("workflow_runs", [])
+        if not isinstance(workflow_runs, list) or any(
+            not isinstance(run, dict) for run in workflow_runs
+        ):
+            return fail("GitHub returned a malformed Release workflow run collection.")
         run_for_tag = next(
             (
                 run
-                for run in runs_payload.get("workflow_runs", [])
-                if run.get("head_branch") == expected_tag
+                for run in workflow_runs
+                if run.get("event") == "push"
+                and run.get("head_branch") == expected_tag
+                and run.get("head_sha") == tag_commit
             ),
             None,
         )

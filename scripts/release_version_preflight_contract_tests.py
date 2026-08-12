@@ -339,7 +339,7 @@ class ReleaseTagPreflightContractTests(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn("URL", message)
 
-    def test_ci_malformed_run_collection_fails_closed() -> None:
+    def test_ci_malformed_run_collection_fails_closed(self) -> None:
         with patch.object(
             preflight,
             "github_api_get",
@@ -364,7 +364,7 @@ class ReleaseTagPreflightContractTests(unittest.TestCase):
         self.assertIn("tag cannot be resolved", stderr)
         self.assertEqual(harness.ci_calls, [])
 
-    def test_release_tag_must_be_annotated() -> None:
+    def test_release_tag_must_be_annotated(self) -> None:
         harness = TagPreflightMainHarness(tag_type="commit")
         code, _stdout, stderr = harness.run()
         self.assertEqual(code, 1)
@@ -374,7 +374,7 @@ class ReleaseTagPreflightContractTests(unittest.TestCase):
             harness.git_calls,
         )
 
-    def test_tag_must_peel_to_the_checked_out_release_sha() -> None:
+    def test_tag_must_peel_to_the_checked_out_release_sha(self) -> None:
         harness = TagPreflightMainHarness(
             peeled_sha="b" * 40,
             checked_out_sha=SHA,

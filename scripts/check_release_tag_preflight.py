@@ -81,14 +81,24 @@ def ci_green_for_sha(repo: str, sha: str, token: str) -> tuple[bool, str]:
         return False, f"GitHub API status {status}: {payload.get('message', 'unknown error')}"
 
     runs = payload.get("workflow_runs", [])
+    if not isinstance(runs, list) or any(not isinstance(run, dict) for run in runs):
+        return False, "GitHub returned a malformed CI workflow run collection."
+
     successful = [
         run
         for run in runs
-        if run.get("status") == "completed" and run.get("conclusion") == "success"
+        if run.get("event") == "push"
+        and run.get("head_branch") in {"main", "master"}
+        and run.get("head_sha") == sha
+        and run.get("status") == "completed"
+        and run.get("conclusion") == "success"
     ]
+    for run in successful:
+        html_url = run.get("html_url")
+        if isinstance(html_url, str) and html_url.strip():
+            return True, f"CI success found for {sha}: {html_url}"
     if successful:
-        html_url = successful[0].get("html_url", "<missing url>")
-        return True, f"CI success found for {sha}: {html_url}"
+        return False, f"Successful CI workflow run for {sha} is missing its URL."
     return False, f"No successful CI workflow run found for tagged SHA {sha}."
 
 
@@ -109,9 +119,18 @@ def main() -> int:
         )
 
     try:
-        tagged_sha = run_git(["rev-parse", f"{args.tag}^{{}}"])
+        tag_type = run_git(["cat-file", "-t", f"refs/tags/{args.tag}"])
+        if tag_type != "tag":
+            return fail(f"Release tag {args.tag} must be an annotated tag object.")
+        tagged_sha = run_git(["rev-parse", f"refs/tags/{args.tag}^{{}}"])
+        checked_out_sha = run_git(["rev-parse", "HEAD"])
     except RuntimeError as error:
         return fail(str(error))
+    if tagged_sha != checked_out_sha:
+        return fail(
+            f"Release tag {args.tag} peels to {tagged_sha}, which does not match the "
+            f"checked-out release SHA {checked_out_sha}."
+        )
 
     token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN") or ""
     if not token:

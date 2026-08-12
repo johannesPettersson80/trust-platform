@@ -71,6 +71,10 @@ Target release: `v0.24.61`
 
 ### Fixed
 
+- Release tag and version-evidence guards now fail closed unless an annotated
+  tag resolves to the exact release commit, CI and Release runs match the exact
+  event, branch, and SHA with usable URLs, API collections are well formed,
+  and published asset names are unique.
 - Focused verification trace documents now validate the bound per-test
   no-default-feature mode instead of rejecting the producer-authentic field
   during final schema validation after successful execution.

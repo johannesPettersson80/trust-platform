@@ -224140,7 +224140,7 @@ path = "scripts/check_release_tag_preflight.py"
 qualified_symbol = "scripts::check_release_tag_preflight::main"
 item_kind = "python_function"
 signature_digest = "sha256:76bd7920ab4b7c4f631829875b7e9a1013aed35a8d9ffa9d7ea80055ee853240"
-reviewed_body_digest = "sha256:4adf5932368f9003373454525dabab5496b3be235d7609cc5b5d5f4f1fc50e26"
+reviewed_body_digest = "sha256:889bf5f357d87c7d33c6e55a72cf0a4b32a1b2ec294883952a8660cb0e9b062b"
 owner = "release-engineering"
 area = "release"
 visibility = "public"
@@ -224149,7 +224149,7 @@ owner_ack = "RISK_ACK_0441DC4BCF4BBAC850AB35D6847CEEC71EAEF98498F51ED05869AFA638
 owner_ack_expires_on = "2026-10-21"
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RELEASE_001"
-last_reviewed = "2026-07-21"
+last_reviewed = "2026-08-12"
 
 [[mappings]]
 schema_version = 1
@@ -224356,7 +224356,7 @@ path = "scripts/check_release_tag_preflight.py"
 qualified_symbol = "scripts::check_release_tag_preflight::ci_green_for_sha"
 item_kind = "python_function"
 signature_digest = "sha256:968addf86440b1645d0a8e40cd407a248896141442f12b5bdffb6082705af4f3"
-reviewed_body_digest = "sha256:d2cebbc626642b4d10b14023a9c1be1d2a6333bc8d03774a649fb81286d12033"
+reviewed_body_digest = "sha256:593c76eb586aa953362d221fb0874617a0dda3ca8746698d0732b0c380874c0e"
 owner = "release-engineering"
 area = "release"
 visibility = "public"
@@ -224365,7 +224365,7 @@ owner_ack = "RISK_ACK_B2BC5C5159BA308425834C9564707BF6ECE508DAB988D747C42E2B9E03
 owner_ack_expires_on = "2026-10-21"
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RELEASE_001"
-last_reviewed = "2026-07-21"
+last_reviewed = "2026-08-12"
 
 [[mappings]]
 schema_version = 1
@@ -224447,16 +224447,21 @@ path = "scripts/check_version_release_evidence.py"
 qualified_symbol = "scripts::check_version_release_evidence::main"
 item_kind = "python_function"
 signature_digest = "sha256:76bd7920ab4b7c4f631829875b7e9a1013aed35a8d9ffa9d7ea80055ee853240"
-reviewed_body_digest = "sha256:ff51bb562b85efd84e0bfbc7b51237069e9591fa9b061e36943afd8df15fcd4e"
+reviewed_body_digest = "sha256:d5f1fbde1a9f0b9053a16614c9144ee7e369bcf68e0b8587153522a0aadcadaa"
 owner = "release-engineering"
 area = "release"
 visibility = "public"
-risk_signals = ["fault_mapping", "filesystem_or_environment", "protocol_response_or_status", "subprocess_or_thread"]
+risk_signals = [
+  "fault_mapping",
+  "filesystem_or_environment",
+  "protocol_response_or_status",
+  "subprocess_or_thread",
+]
 owner_ack = "RISK_ACK_F43F245E4B12AEF0D9D904C2E93A696CB40FC40425AEC6DDF980EEE008CC012B"
 owner_ack_expires_on = "2026-10-21"
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RELEASE_001"
-last_reviewed = "2026-07-21"
+last_reviewed = "2026-08-12"
 
 [[mappings]]
 schema_version = 1
@@ -264082,14 +264087,16 @@ path = "scripts/release_evidence_contract.py"
 qualified_symbol = "scripts::release_evidence_contract::validate_release_publication"
 item_kind = "python_function"
 signature_digest = "sha256:bfebc82f2a4e1ea2425e6b66fb35dc113c3f685e3e32bd88241eb6971ce44ee5"
-reviewed_body_digest = "sha256:18844f298913b54c4977e6b0ae4d61851381b6583ae2791ea34aee6f6a223c12"
+reviewed_body_digest = "sha256:dffef45578aa6f595c4f0e11c75085b7a8662ec8678c34b49e3b71435cb229eb"
 owner = "verification"
 area = "verification"
 visibility = "public"
-risk_signals = []
+risk_signals = ["state_mutation"]
+owner_ack = "RISK_ACK_227ED0A08F4947B930BF5FAD00A57D9EB9F81F08BD8703451C67CE0A412AB29A"
+owner_ack_expires_on = "2026-10-21"
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-21"
+last_reviewed = "2026-08-12"
 
 [[mappings]]
 schema_version = 1

@@ -211,7 +211,7 @@ version = "0.24.99"
             self.assertEqual(harness.git_calls, [])
             self.assertEqual(harness.api_calls, [])
 
-    def test_unchanged_workspace_version_skips_release_evidence() -> None:
+    def test_unchanged_workspace_version_skips_release_evidence(self) -> None:
         harness = MainHarness(before_version=CURRENT_VERSION)
         code, stdout, stderr = harness.run()
         self.assertEqual(code, 0, stderr)
@@ -219,7 +219,7 @@ version = "0.24.99"
         self.assertEqual(harness.git_calls, [])
         self.assertEqual(harness.api_calls, [])
 
-    def test_null_before_revision_enforces_instead_of_skipping() -> None:
+    def test_null_before_revision_enforces_instead_of_skipping(self) -> None:
         harness = MainHarness(before=guard.NULL_SHA, before_version=None)
         code, stdout, stderr = harness.run()
         self.assertEqual(code, 0, stderr)
@@ -227,13 +227,13 @@ version = "0.24.99"
         self.assertTrue(harness.git_calls)
         self.assertTrue(harness.api_calls)
 
-    def test_tag_discovery_timeout_is_a_visible_failure() -> None:
+    def test_tag_discovery_timeout_is_a_visible_failure(self) -> None:
         harness = MainHarness(tag_sha=None)
         code, _stdout, stderr = harness.run()
         self.assertEqual(code, 1)
         self.assertIn(f"tag {EXPECTED_TAG} does not exist", stderr)
 
-    def test_release_tag_must_be_an_annotated_tag_object() -> None:
+    def test_release_tag_must_be_an_annotated_tag_object(self) -> None:
         harness = MainHarness(tag_type="commit")
         code, _stdout, stderr = harness.run()
         self.assertEqual(code, 1)
@@ -243,26 +243,26 @@ version = "0.24.99"
             harness.git_calls,
         )
 
-    def test_peeled_tag_must_equal_the_exact_main_push_sha() -> None:
+    def test_peeled_tag_must_equal_the_exact_main_push_sha(self) -> None:
         harness = MainHarness(tag_sha="c" * 40, merge_base_returncode=0)
         code, _stdout, stderr = harness.run()
         self.assertEqual(code, 1)
         self.assertRegex(stderr, r"(exact|does not match)")
 
-    def test_non_ancestor_tag_is_rejected() -> None:
+    def test_non_ancestor_tag_is_rejected(self) -> None:
         harness = MainHarness(tag_sha="c" * 40, merge_base_returncode=1)
         code, _stdout, stderr = harness.run()
         self.assertEqual(code, 1)
         self.assertIn("not reachable", stderr)
 
-    def test_missing_github_token_fails_before_api_access() -> None:
+    def test_missing_github_token_fails_before_api_access(self) -> None:
         harness = MainHarness(env={})
         code, _stdout, stderr = harness.run()
         self.assertEqual(code, 1)
         self.assertIn("GITHUB_TOKEN is required", stderr)
         self.assertEqual(harness.api_calls, [])
 
-    def test_github_token_precedes_gh_token_without_leaking_either() -> None:
+    def test_github_token_precedes_gh_token_without_leaking_either(self) -> None:
         harness = MainHarness(
             env={"GITHUB_TOKEN": "preferred-secret", "GH_TOKEN": "fallback-secret"}
         )
@@ -275,7 +275,7 @@ version = "0.24.99"
         self.assertNotIn("preferred-secret", stdout + stderr)
         self.assertNotIn("fallback-secret", stdout + stderr)
 
-    def test_release_run_query_failure_is_visible() -> None:
+    def test_release_run_query_failure_is_visible(self) -> None:
         def api(_repo, path, _token, _query=None):
             self.assertEqual(path, "/actions/workflows/release.yml/runs")
             return 503, {"message": "temporarily unavailable"}
@@ -286,7 +286,7 @@ version = "0.24.99"
         self.assertIn("status 503", stderr)
         self.assertIn("temporarily unavailable", stderr)
 
-    def test_release_run_discovery_timeout_is_visible() -> None:
+    def test_release_run_discovery_timeout_is_visible(self) -> None:
         def api(_repo, path, _token, _query=None):
             self.assertEqual(path, "/actions/workflows/release.yml/runs")
             return 200, {"workflow_runs": []}
@@ -296,7 +296,7 @@ version = "0.24.99"
         self.assertEqual(code, 1)
         self.assertIn("no Release workflow run", stderr)
 
-    def test_same_tag_workflow_run_for_another_sha_is_not_accepted() -> None:
+    def test_same_tag_workflow_run_for_another_sha_is_not_accepted(self) -> None:
         def api(_repo, path, _token, _query=None):
             if path == "/actions/workflows/release.yml/runs":
                 return 200, {
@@ -313,7 +313,7 @@ version = "0.24.99"
         self.assertEqual(code, 1)
         self.assertRegex(stderr, r"(head_sha|exact|no Release workflow run)")
 
-    def test_incomplete_run_without_id_cannot_be_polled() -> None:
+    def test_incomplete_run_without_id_cannot_be_polled(self) -> None:
         def api(_repo, path, _token, _query=None):
             self.assertEqual(path, "/actions/workflows/release.yml/runs")
             run = completed_release_run()
@@ -325,7 +325,7 @@ version = "0.24.99"
         self.assertEqual(code, 1)
         self.assertIn("no run id", stderr)
 
-    def test_run_completion_timeout_is_visible() -> None:
+    def test_run_completion_timeout_is_visible(self) -> None:
         def api(_repo, path, _token, _query=None):
             self.assertEqual(path, "/actions/workflows/release.yml/runs")
             run = completed_release_run()
@@ -351,7 +351,7 @@ version = "0.24.99"
                 self.assertEqual(code, 1)
                 self.assertIn("not successful", stderr)
 
-    def test_missing_or_unpublished_release_is_rejected() -> None:
+    def test_missing_or_unpublished_release_is_rejected(self) -> None:
         for status, release in [
             (404, {"message": "not found"}),
             (200, {**published_release(), "published_at": None}),
@@ -370,7 +370,7 @@ version = "0.24.99"
                 self.assertEqual(code, 1)
                 self.assertRegex(stderr, r"(not found|not published)")
 
-    def test_latest_release_api_failure_is_visible() -> None:
+    def test_latest_release_api_failure_is_visible(self) -> None:
         def api(_repo, path, _token, _query=None):
             if path == "/actions/workflows/release.yml/runs":
                 return 200, {"workflow_runs": [completed_release_run()]}
@@ -385,7 +385,7 @@ version = "0.24.99"
         self.assertEqual(code, 1)
         self.assertIn("status 502", stderr)
 
-    def test_publication_contract_failure_is_returned_by_guard() -> None:
+    def test_publication_contract_failure_is_returned_by_guard(self) -> None:
         def api(_repo, path, _token, _query=None):
             if path == "/actions/workflows/release.yml/runs":
                 return 200, {"workflow_runs": [completed_release_run()]}
@@ -400,7 +400,7 @@ version = "0.24.99"
         self.assertEqual(code, 1)
         self.assertIn("missing required assets", stderr)
 
-    def test_duplicate_release_asset_names_are_rejected() -> None:
+    def test_duplicate_release_asset_names_are_rejected(self) -> None:
         release = published_release()
         release["assets"].append({"name": "SHA256SUMS"})
         with self.assertRaisesRegex(ReleaseEvidenceError, "duplicated"):
@@ -411,7 +411,7 @@ version = "0.24.99"
                 required_assets=guard.REQUIRED_EVIDENCE_ASSETS,
             )
 
-    def test_complete_exact_release_chain_is_accepted() -> None:
+    def test_complete_exact_release_chain_is_accepted(self) -> None:
         harness = MainHarness()
         code, stdout, stderr = harness.run()
         self.assertEqual(code, 0, stderr)
