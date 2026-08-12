@@ -2517,9 +2517,17 @@ owner = "trust-runtime"
 area = "bytecode_vm"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-08-01"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#6-13-portable-date-and-time-operator-contract"
+invariant_ids = ["VM_CORE_PORTABLE_OPERATIONS_001"]
+test_ids = [
+  "TEST_AUTO_281A41CD73A6F672999D",
+  "TEST_AUTO_2A67E88F09F198B1E480",
+  "TEST_AUTO_588940114336A78A3FB8",
+  "TEST_AUTO_A564071BE41467742A6C",
+  "TEST_AUTO_F6FD49FB0D4D3A6B24D4",
+]
+last_reviewed = "2026-08-12"
 
 [[mappings]]
 schema_version = 1
@@ -4939,9 +4947,11 @@ owner = "trust-runtime"
 area = "bytecode_vm"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+invariant_ids = ["VM_CORE_INITIALIZER_CATALOG_001"]
+test_ids = ["TEST_AUTO_DE374B82B37B12EF6C91"]
+last_reviewed = "2026-08-12"
 
 [[mappings]]
 schema_version = 1
@@ -11270,9 +11280,11 @@ owner = "trust-runtime"
 area = "bytecode_vm"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+invariant_ids = ["VM_CORE_PORTABLE_SIZEOF_001"]
+test_ids = ["TEST_AUTO_23A7329BE9762BEA9FA0"]
+last_reviewed = "2026-08-12"
 
 [[mappings]]
 schema_version = 1
@@ -18498,9 +18510,11 @@ owner = "trust-runtime"
 area = "bytecode_vm"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+invariant_ids = ["VM_CORE_PORTABLE_DEFAULT_VALUES_001"]
+test_ids = ["TEST_AUTO_35701BDD9A1B14FF9870", "TEST_AUTO_FD9644F407E5DA7F2707"]
+last_reviewed = "2026-08-12"
 
 [[mappings]]
 schema_version = 1
@@ -25901,9 +25915,17 @@ owner = "trust-runtime"
 area = "bytecode_vm"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VM_VALUE_SEMANTICS_001#6-13-portable-date-and-time-operator-contract"
+invariant_ids = ["VM_CORE_PORTABLE_OPERATIONS_001"]
+test_ids = [
+  "TEST_AUTO_281A41CD73A6F672999D",
+  "TEST_AUTO_2A67E88F09F198B1E480",
+  "TEST_AUTO_588940114336A78A3FB8",
+  "TEST_AUTO_A564071BE41467742A6C",
+  "TEST_AUTO_F6FD49FB0D4D3A6B24D4",
+]
+last_reviewed = "2026-08-12"
 
 [[mappings]]
 schema_version = 1
@@ -234935,9 +234957,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_SEMANTICS_001#10-2-stable-machine-error-identifiers"
+invariant_ids = ["RT_CORE_STABLE_ERROR_IDENTITY_001"]
+test_ids = ["TEST_AUTO_43A286B3C4BA741428D9"]
+last_reviewed = "2026-08-12"
 
 [[mappings]]
 schema_version = 1
@@ -240276,9 +240300,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+invariant_ids = ["VM_CORE_DATETIME_CALCULATION_001"]
+test_ids = ["TEST_AUTO_0DD6F5FFD78B0AAF4BAC", "TEST_AUTO_BA82D0C35FD9C81BB003", "TEST_AUTO_D22C929A6648C0C54C86"]
+last_reviewed = "2026-08-12"
 
 [[mappings]]
 schema_version = 1
@@ -247780,9 +247806,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+invariant_ids = ["VM_CORE_DATETIME_CALCULATION_001"]
+test_ids = ["TEST_AUTO_0DD6F5FFD78B0AAF4BAC", "TEST_AUTO_BA82D0C35FD9C81BB003", "TEST_AUTO_D22C929A6648C0C54C86"]
+last_reviewed = "2026-08-12"
 
 [[mappings]]
 schema_version = 1
@@ -254427,9 +254455,11 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+invariant_ids = ["VM_CORE_DATETIME_CALCULATION_001"]
+test_ids = ["TEST_AUTO_0DD6F5FFD78B0AAF4BAC", "TEST_AUTO_BA82D0C35FD9C81BB003", "TEST_AUTO_D22C929A6648C0C54C86"]
+last_reviewed = "2026-08-12"
 
 [[mappings]]
 schema_version = 1

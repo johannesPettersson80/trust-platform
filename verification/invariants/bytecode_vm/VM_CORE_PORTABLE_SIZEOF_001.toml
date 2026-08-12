@@ -5,16 +5,16 @@ area = "bytecode_vm"
 risk = "wrong_result"
 status = "mapped"
 owner = "trust-runtime-core"
-last_reviewed = "2026-07-30"
+last_reviewed = "2026-08-12"
 claim = "Portable type and runtime-value size calculation preserves exact elementary, bounded string, aggregate, array, enumeration, and reference widths while rejecting unknown, unsupported, unbounded, invalid, or overflowing shapes."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["docs/specs/10-runtime-semantics.md", "crates/trust-runtime-core/src/value/size.rs"]
 tests = ["TEST_AUTO_23A7329BE9762BEA9FA0"]
 gates = ["pr"]
-evidence_refs = []
+evidence_refs = ["EVID_P18_PORTABLE_CORE_AUTHORITY_REUSE_20260812"]
 spec_gap_refs = []
-missing = ["cataloged_tests", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
 
 [spec]
 status = "specified"

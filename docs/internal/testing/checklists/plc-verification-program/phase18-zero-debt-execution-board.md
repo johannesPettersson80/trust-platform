@@ -2062,6 +2062,22 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   mutation, and the final broad gates remain open. No P18-016 broad gate ran.
   Evidence:
   `docs/internal/testing/evidence/plc-verification-program/2026-08-12-p18-release-evidence-guard-authority.md`.
+
+  portable-core authority-reuse progress (2026-08-12): the complete live
+  31-group existing-authority proposal was semantically reviewed rather than
+  accepting singular path matches mechanically. Six exact groups bind nine
+  initializer, operator, default-value, `SIZEOF`, date-time, and stable-error
+  facts to six existing portable-core invariants and thirteen cataloged
+  behavior locks. The other 25 groups and 192 candidate facts remain withheld
+  as ambiguous, mixed-semantics, or claim-mismatch debt. The atomic two-file
+  transaction passed live reconstruction; a clean detached `trust-builder`
+  report at `8cab239452b7fe83dbb52b4192d1341e0f50fbcf` accounts 17,489 facts with
+  zero findings, 13,837 `spec_gap`, and 3,392 `specified`. All 13 exact
+  cataloged nextest selections and 40 focused authority-tool tests are green.
+  The six invariants remain S0: producer-authentic lock proof, reachability,
+  mutation, global P18-003/P18-005 closure, and later proof rows remain open.
+  No P18-016 broad gate ran. Evidence:
+  `docs/internal/testing/evidence/plc-verification-program/2026-08-12-p18-portable-core-authority-reuse.md`.
 - [ ] `VERIF-P18-005` Eliminate all 4,233 current `reviewed_nonmapping` test
   facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that

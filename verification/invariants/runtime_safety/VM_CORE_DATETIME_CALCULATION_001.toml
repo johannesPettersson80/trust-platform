@@ -5,16 +5,16 @@ area = "runtime_safety"
 risk = "wrong_result"
 status = "mapped"
 owner = "trust-runtime"
-last_reviewed = "2026-07-30"
+last_reviewed = "2026-08-12"
 claim = "Civil-date and profile-tick helpers use checked proleptic-Gregorian arithmetic, accept only exactly representable positive day resolutions, preserve the configured epoch, and apply the requested signed division mode."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["docs/specs/10-runtime-semantics.md", "crates/trust-runtime-core/src/datetime.rs"]
 tests = ["TEST_AUTO_0DD6F5FFD78B0AAF4BAC", "TEST_AUTO_BA82D0C35FD9C81BB003", "TEST_AUTO_D22C929A6648C0C54C86"]
 gates = ["pr"]
-evidence_refs = []
+evidence_refs = ["EVID_P18_PORTABLE_CORE_AUTHORITY_REUSE_20260812"]
 spec_gap_refs = []
-missing = ["cataloged_tests", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
 
 [spec]
 status = "specified"

@@ -9679,3 +9679,25 @@ linked_invariants = ["REL_RELEASE_EVIDENCE_GUARD_001"]
 linked_tests = ["TEST_RELEASE_EVIDENCE_CONTRACT_GUARD_001"]
 linked_spec_gaps = ["SPEC_GAP_P17_HISTORICAL_CODE_RELEASE_001"]
 last_reviewed = "2026-08-12"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_P18_PORTABLE_CORE_AUTHORITY_REUSE_20260812"
+title = "Phase 18 portable-core authority reuse"
+area = "bytecode_vm"
+owner = "trust-runtime-core"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-08-12-p18-portable-core-authority-reuse.md"
+command = "ssh trust-builder 'cd /home/johannes/projects/trust-platform-p18-release-ec413525 && python3 -m unittest scripts.verification.code_spec_authority_reuse_tests scripts.verification.code_spec_authority_selection_tests scripts.verification.code_spec_contract_tests && run the 13 exact cataloged trust-runtime-core nextest selections'"
+commit = "8cab239452b7fe83dbb52b4192d1341e0f50fbcf"
+platform = "trust-builder-linux-x86_64 (scena-rust-builder)"
+date = "2026-08-12"
+suite_id = "pr"
+producer = "codex Phase 18 portable-core authority transaction"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = ["VM_CORE_INITIALIZER_CATALOG_001", "VM_CORE_PORTABLE_OPERATIONS_001", "VM_CORE_PORTABLE_DEFAULT_VALUES_001", "VM_CORE_PORTABLE_SIZEOF_001", "VM_CORE_DATETIME_CALCULATION_001", "RT_CORE_STABLE_ERROR_IDENTITY_001"]
+linked_tests = ["TEST_AUTO_DE374B82B37B12EF6C91", "TEST_AUTO_281A41CD73A6F672999D", "TEST_AUTO_2A67E88F09F198B1E480", "TEST_AUTO_588940114336A78A3FB8", "TEST_AUTO_A564071BE41467742A6C", "TEST_AUTO_F6FD49FB0D4D3A6B24D4", "TEST_AUTO_35701BDD9A1B14FF9870", "TEST_AUTO_FD9644F407E5DA7F2707", "TEST_AUTO_23A7329BE9762BEA9FA0", "TEST_AUTO_0DD6F5FFD78B0AAF4BAC", "TEST_AUTO_BA82D0C35FD9C81BB003", "TEST_AUTO_D22C929A6648C0C54C86", "TEST_AUTO_43A286B3C4BA741428D9"]
+linked_spec_gaps = ["SPEC_GAP_P17_HISTORICAL_CODE_BYTECODE_VM_001", "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"]
+last_reviewed = "2026-08-12"

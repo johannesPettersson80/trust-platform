@@ -4,17 +4,17 @@ title = "Portable stable errors preserve exhaustive machine text identity"
 area = "runtime_safety"
 risk = "wrong_result"
 status = "mapped"
-owner = "trust-runtime-core"
-last_reviewed = "2026-07-30"
+owner = "trust-runtime"
+last_reviewed = "2026-08-12"
 claim = "Every committed StableErrorCode exposes one unique exact lower-snake-case machine string and Display emits that identical string."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["docs/specs/10-runtime-semantics.md", "crates/trust-runtime-core/src/error_code.rs"]
 tests = ["TEST_AUTO_43A286B3C4BA741428D9"]
 gates = ["pr"]
-evidence_refs = []
+evidence_refs = ["EVID_P18_PORTABLE_CORE_AUTHORITY_REUSE_20260812"]
 spec_gap_refs = []
-missing = ["cataloged_tests", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
 
 [spec]
 status = "specified"

@@ -5,16 +5,16 @@ area = "bytecode_vm"
 risk = "wrong_result"
 status = "mapped"
 owner = "trust-runtime-core"
-last_reviewed = "2026-07-30"
+last_reviewed = "2026-08-12"
 claim = "The portable initializer catalog starts empty, allocates consecutive identities from zero, preserves every inserted expression, and applies type-default replacement without deleting initializer records."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["docs/specs/10-runtime-semantics.md", "crates/trust-runtime-core/src/program_model/initializers.rs"]
 tests = ["TEST_AUTO_DE374B82B37B12EF6C91"]
 gates = ["pr"]
-evidence_refs = []
+evidence_refs = ["EVID_P18_PORTABLE_CORE_AUTHORITY_REUSE_20260812"]
 spec_gap_refs = []
-missing = ["cataloged_tests", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -26,7 +26,7 @@ ref = "SPEC_VM_VALUE_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-
 
 [[behavior]]
 partition = { equals = "EMPTY_AND_MISSING_LOOKUP" }
-case_family = "missing"
+case_family = "missing_required"
 oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
 outcome = "accept_value"
 no_partial_apply = true
@@ -52,7 +52,7 @@ delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchange
 rationale = "Replacing one type's default selects the latest initializer while preserving both records and leaving other types unassociated."
 
 [[coverage.cells]]
-dimension = "missing"
+dimension = "missing_required"
 state = "gap_open"
 rationale = "Focused missing-lookup assertions await catalog binding and dynamic trace."
 

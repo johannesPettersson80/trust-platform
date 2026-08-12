@@ -5,16 +5,16 @@ area = "bytecode_vm"
 risk = "wrong_result"
 status = "mapped"
 owner = "trust-runtime-core"
-last_reviewed = "2026-07-30"
+last_reviewed = "2026-08-12"
 claim = "Portable default construction preserves every elementary runtime tag, recursively materializes the exact declared compound shape and order, and rejects invalid, empty, unknown, or unsupported type definitions without returning a partial value."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["docs/specs/10-runtime-semantics.md", "crates/trust-runtime-core/src/value/defaults.rs"]
 tests = ["TEST_AUTO_35701BDD9A1B14FF9870", "TEST_AUTO_FD9644F407E5DA7F2707"]
 gates = ["pr"]
-evidence_refs = []
+evidence_refs = ["EVID_P18_PORTABLE_CORE_AUTHORITY_REUSE_20260812"]
 spec_gap_refs = []
-missing = ["cataloged_tests", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
 
 [spec]
 status = "specified"
