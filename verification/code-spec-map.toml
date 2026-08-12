@@ -1108,6 +1108,48 @@ last_reviewed = "2026-08-12"
 
 [[mappings]]
 schema_version = 1
+code_id = "CODE_47002ABD8F2DF74205217EE7041E978029EF13D8449AB0F09CA0CBA2C06AFEFE"
+source_kind = "shell"
+path = "scripts/focused_trace_control_plane_gate.sh"
+qualified_symbol = "scripts::focused_trace_control_plane_gate::<entrypoint>"
+item_kind = "shell_entrypoint"
+signature_digest = "sha256:7ea33e535bdd1008b90798d757a412cd89dee8cbfb7cbe3c763e71f7a40bc177"
+reviewed_body_digest = "sha256:2bb31203d274d9feab8f0e0520efbc9a40a09ea1214538c6aed2b5e4fe30e850"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = ["filesystem_or_environment", "state_mutation", "subprocess_or_thread"]
+owner_ack = "RISK_ACK_47002ABD8F2DF74205217EE7041E978029EF13D8449AB0F09CA0CBA2C06AFEFE"
+owner_ack_expires_on = "2026-11-12"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#focused-trace-control-plane-contract"
+invariant_ids = ["VERIFICATION_FOCUSED_TRACE_CONTROL_PLANE_001"]
+test_ids = ["TEST_VERIFICATION_FOCUSED_TRACE_CONTROL_PLANE_001"]
+last_reviewed = "2026-08-12"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_AB3FB213E3C8097F3C4D3C21F67391DA348DA3409CBDCE59793647206C5825A2"
+source_kind = "shell"
+path = "scripts/private_hook_contract_gate.sh"
+qualified_symbol = "scripts::private_hook_contract_gate::<entrypoint>"
+item_kind = "shell_entrypoint"
+signature_digest = "sha256:7ea33e535bdd1008b90798d757a412cd89dee8cbfb7cbe3c763e71f7a40bc177"
+reviewed_body_digest = "sha256:e0f93371762e3246394ec1d0c9427ffe09832e12fb6b9c574fc42d163080f2c5"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = ["filesystem_or_environment", "state_mutation", "subprocess_or_thread"]
+owner_ack = "RISK_ACK_AB3FB213E3C8097F3C4D3C21F67391DA348DA3409CBDCE59793647206C5825A2"
+owner_ack_expires_on = "2026-11-12"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#private-pre-tool-use-enforcement-contract"
+invariant_ids = ["VERIFICATION_PRIVATE_HOOK_001"]
+test_ids = ["TEST_VERIFICATION_PRIVATE_HOOK_CONTRACT_001"]
+last_reviewed = "2026-08-12"
+
+[[mappings]]
+schema_version = 1
 code_id = "CODE_710464254C0AC8C595F184C2425F28383EFF932D2AC1D6821CF786055FD6D6F1"
 source_kind = "rust"
 path = "crates/trust-runtime/src/stdlib/time.rs"
@@ -2108,7 +2150,7 @@ area = "verification"
 visibility = "public"
 risk_signals = ["broad_error_suppression"]
 owner_ack = "RISK_ACK_815BF72402E70B96EFD874A22B803FC197651F664634D432DB3DC23A4BC7EE3E"
-owner_ack_expires_on = "2026-10-21"
+owner_ack_expires_on = "2026-11-12"
 disposition = "specified"
 spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#private-pre-tool-use-enforcement-contract"
 invariant_ids = ["VERIFICATION_PRIVATE_HOOK_001"]
@@ -322870,7 +322912,7 @@ path = "scripts/verification/mapping_candidates_cli.py"
 qualified_symbol = "scripts::verification::mapping_candidates_cli::main"
 item_kind = "python_function"
 signature_digest = "sha256:f0a6b65cef4057e8d33663ae46d4151b52064ae49e890a04beaa4d8fb29aa681"
-reviewed_body_digest = "sha256:90a2fc407bd5a8c7b40779ed6be761ee4e31b7ccec6315d556cac9058ad5d32d"
+reviewed_body_digest = "sha256:d3a786010b47e2da849b3e6fdef5a35afc543fe66c29931cb7af3daff0caf0b7"
 owner = "verification"
 area = "verification"
 visibility = "public"
@@ -326919,25 +326961,6 @@ last_reviewed = "2026-07-29"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_8900440F22A3915280181603330F14F524238633703E0834DBA113C6C8317DF0"
-source_kind = "python"
-path = "scripts/verification/coverage_trace_document.py"
-qualified_symbol = "scripts::verification::coverage_trace_document::build_rust_trace_document"
-item_kind = "python_function"
-signature_digest = "sha256:02100bc4fda14ae89d08e2201a806c3e62fa0978daa7c045f66c22df9e44f13e"
-reviewed_body_digest = "sha256:6f1408b83d6ef807437fc20ede58ecfbcdeb07c70df684017ff79ce58b9c85d9"
-owner = "verification"
-area = "verification"
-visibility = "public"
-risk_signals = ["protocol_response_or_status", "state_mutation"]
-owner_ack = "RISK_ACK_8900440F22A3915280181603330F14F524238633703E0834DBA113C6C8317DF0"
-owner_ack_expires_on = "2026-10-29"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_890A99D85B34F3E774170FD5ED732A53D16198CFB9B883E0CD1ACCF11AA17D79"
 source_kind = "python"
 path = "scripts/verification/coverage_trace_attribution.py"
@@ -329168,15 +329191,17 @@ path = "scripts/verification/mapping_candidates_cli.py"
 qualified_symbol = "scripts::verification::mapping_candidates_cli::build_parser"
 item_kind = "python_function"
 signature_digest = "sha256:e13422e1163587930544bc35d406f2a239e15787902ed0d7379ac3962a69bc0c"
-reviewed_body_digest = "sha256:520a99571ae7bc3cefa99664d48671e0fa44c439f4f779f649816cbdbe7ea327"
+reviewed_body_digest = "sha256:2ca9524403a2369ae299fb0c43f216c1b2c4abf848692db5ce9fa6e93a31b144"
 owner = "verification"
 area = "verification"
 visibility = "public"
 risk_signals = ["fault_mapping"]
 owner_ack = "RISK_ACK_9A020CE2D4EA0485F238FB87C44FF06A057BD0C9782BFEA5A6CF82C974CA0241"
 owner_ack_expires_on = "2026-11-12"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#focused-trace-control-plane-contract"
+invariant_ids = ["VERIFICATION_FOCUSED_TRACE_CONTROL_PLANE_001"]
+test_ids = ["TEST_VERIFICATION_FOCUSED_TRACE_CONTROL_PLANE_001"]
 last_reviewed = "2026-08-12"
 
 [[mappings]]
@@ -333037,16 +333062,18 @@ path = "scripts/verification/coverage_trace_evidence.py"
 qualified_symbol = "scripts::verification::coverage_trace_evidence::capture_raw_trace_evidence"
 item_kind = "python_function"
 signature_digest = "sha256:a49904ce923b4253b79c2f4202c1f68b34c99201737f1a838164625a934548ea"
-reviewed_body_digest = "sha256:0a3cf7ac3cc34df5f3799641a57b635858c48e47ef38b1d891a042d8988cd7ec"
+reviewed_body_digest = "sha256:dcddc92238b10d61c9881c472b9f2779b08ab593aa2c3583e689cdc789c7e464"
 owner = "verification"
 area = "verification"
 visibility = "public"
-risk_signals = ["filesystem_or_environment", "state_mutation"]
+risk_signals = ["fault_mapping", "filesystem_or_environment", "state_mutation"]
 owner_ack = "RISK_ACK_B8DC7D2DDD35D42EDB6B41E6C59A8AFF5A1308BA748BC8B670B344ECD9E768ED"
-owner_ack_expires_on = "2026-10-29"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+owner_ack_expires_on = "2026-11-12"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#focused-trace-control-plane-contract"
+invariant_ids = ["VERIFICATION_FOCUSED_TRACE_CONTROL_PLANE_001"]
+test_ids = ["TEST_VERIFICATION_FOCUSED_TRACE_CONTROL_PLANE_001"]
+last_reviewed = "2026-08-12"
 
 [[mappings]]
 schema_version = 1
@@ -344480,25 +344507,6 @@ last_reviewed = "2026-08-12"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_80ACA40B34D53864B49C415595FBCB309A390C4AE26A04676C7F326A7B714674"
-source_kind = "python"
-path = "scripts/verification/coverage_trace_cli.py"
-qualified_symbol = "scripts::verification::coverage_trace_cli::run_focused_rust_trace"
-item_kind = "python_function"
-signature_digest = "sha256:e58a0b05a268a00e21ca3984b90bd38580b8abdc092ae254c08960de04be019d"
-reviewed_body_digest = "sha256:ff1f89e69df0ef589bd3d77da3df95b5eb48910fceeb53e2e64dc37b0e4c01a0"
-owner = "verification"
-area = "verification"
-visibility = "public"
-risk_signals = ["filesystem_or_environment", "protocol_response_or_status", "state_mutation"]
-owner_ack = "RISK_ACK_80ACA40B34D53864B49C415595FBCB309A390C4AE26A04676C7F326A7B714674"
-owner_ack_expires_on = "2026-11-12"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-08-12"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_901ECB628E82F6E94E93E287BFC57760F93219F04922C3897D23DF8F727B0F12"
 source_kind = "python"
 path = "scripts/verification/coverage_trace_cli.py"
@@ -349138,25 +349146,6 @@ area = "verification"
 visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_2D23FCE604050B563D150F36EBDE35A5EA48CE5E9F8A3CE7D71D388CEFDD86C3"
-owner_ack_expires_on = "2026-11-12"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-08-12"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_38922B8F514EE834B17E1EE9C95BBE0A12EE8744B5A5EB9B037189889EC2039A"
-source_kind = "python"
-path = "scripts/verification/focused_mapping_candidates.py"
-qualified_symbol = "scripts::verification::focused_mapping_candidates::generate_focused_mapping_candidates"
-item_kind = "python_function"
-signature_digest = "sha256:90578008c332ff51e405fc606ccb5c78588b836adfcdbe366be1a0ca24fd704e"
-reviewed_body_digest = "sha256:33ccb291515c1f1b740cb96863fcc6e576545c068d2760341a48a705bb244a4b"
-owner = "verification"
-area = "verification"
-visibility = "public"
-risk_signals = ["filesystem_or_environment", "host_time", "state_mutation"]
-owner_ack = "RISK_ACK_38922B8F514EE834B17E1EE9C95BBE0A12EE8744B5A5EB9B037189889EC2039A"
 owner_ack_expires_on = "2026-11-12"
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"

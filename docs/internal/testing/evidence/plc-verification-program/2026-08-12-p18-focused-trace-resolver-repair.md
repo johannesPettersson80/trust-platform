@@ -154,3 +154,23 @@ source projection without authority-metadata mutation. The repository-wide
 metadata validator still reports the pre-existing Phase 18 global debt outside
 this batch; batch-local findings are evaluated separately and do not convert
 that global failure into a pass.
+
+## Code-spec report zero-finding repair
+
+The first clean report after the focused-trace and private-hook authority
+transaction found nine metadata-maintenance identities: three stale scanner
+identities with already mapped live replacements, two newly scanned shell gate
+entrypoints, three changed focused-trace functions, and one risk-acknowledgement
+expiry mismatch. The stale identities were removed from the map, risk register,
+and historical-gap population; the live gate entrypoints and changed functions
+were bound to their accepted focused-trace or private-hook contracts with exact
+body digests and risk signals. This transaction does not claim execution,
+reachability, mutation adequacy, or Phase 18 closure.
+
+A stricter bidirectional registry check then exposed 1,650 additional stale
+members in `verification/spec-gaps.toml`: 1,557 identities whose live map
+disposition is now `specified` and 93 identities absent from the live map. The
+focused red observed 15,899 unique registry members against 14,249 live
+`spec_gap` facts. Removing exactly those stale members produced an exact
+14,249-to-14,249 equality with an empty symmetric difference. This is registry
+consistency maintenance only; it does not promote, specify, or prove any fact.

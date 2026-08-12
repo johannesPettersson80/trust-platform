@@ -200,6 +200,34 @@ rationale = "Acknowledges the live scanner risk signals for this exact body dige
 
 [[acknowledgements]]
 schema_version = 1
+id = "RISK_ACK_47002ABD8F2DF74205217EE7041E978029EF13D8449AB0F09CA0CBA2C06AFEFE"
+code_id = "CODE_47002ABD8F2DF74205217EE7041E978029EF13D8449AB0F09CA0CBA2C06AFEFE"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:2bb31203d274d9feab8f0e0520efbc9a40a09ea1214538c6aed2b5e4fe30e850"
+risk_signals = ["filesystem_or_environment", "state_mutation", "subprocess_or_thread"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-08-12-p18-focused-trace-resolver-repair.md#code-spec-report-zero-finding-repair"
+reviewed_by = "verification"
+reviewed_on = "2026-08-12"
+expires_on = "2026-11-12"
+rationale = "Acknowledges the live scanner risk signals for the focused-trace gate entrypoint and exact reviewed body; it does not suppress risk or create product proof."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_AB3FB213E3C8097F3C4D3C21F67391DA348DA3409CBDCE59793647206C5825A2"
+code_id = "CODE_AB3FB213E3C8097F3C4D3C21F67391DA348DA3409CBDCE59793647206C5825A2"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:e0f93371762e3246394ec1d0c9427ffe09832e12fb6b9c574fc42d163080f2c5"
+risk_signals = ["filesystem_or_environment", "state_mutation", "subprocess_or_thread"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-08-12-p18-focused-trace-resolver-repair.md#code-spec-report-zero-finding-repair"
+reviewed_by = "verification"
+reviewed_on = "2026-08-12"
+expires_on = "2026-11-12"
+rationale = "Acknowledges the live scanner risk signals for the private-hook gate entrypoint and exact reviewed body; it does not suppress risk or create product proof."
+
+[[acknowledgements]]
+schema_version = 1
 id = "RISK_ACK_710464254C0AC8C595F184C2425F28383EFF932D2AC1D6821CF786055FD6D6F1"
 code_id = "CODE_710464254C0AC8C595F184C2425F28383EFF932D2AC1D6821CF786055FD6D6F1"
 owner = "language"
@@ -88249,20 +88277,6 @@ rationale = "Acknowledges the scanner-derived risk signals for this exact review
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_8900440F22A3915280181603330F14F524238633703E0834DBA113C6C8317DF0"
-code_id = "CODE_8900440F22A3915280181603330F14F524238633703E0834DBA113C6C8317DF0"
-owner = "verification"
-area = "verification"
-body_digest = "sha256:6f1408b83d6ef807437fc20ede58ecfbcdeb07c70df684017ff79ce58b9c85d9"
-risk_signals = ["protocol_response_or_status", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-refresh-missing-1750.md#selection-and-risk-review"
-reviewed_by = "verification"
-reviewed_on = "2026-07-29"
-expires_on = "2026-10-29"
-rationale = "Acknowledges the scanner-derived risk signals for this exact reviewed body while the singular-area fact remains bound to an explicit open historical code-spec gap; it neither specifies behavior nor suppresses any risk signal."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_89142D1BF60834D2E01DBDE97B353035B318E676AB19E232A2FF8FEA5C0EFCC6"
 code_id = "CODE_89142D1BF60834D2E01DBDE97B353035B318E676AB19E232A2FF8FEA5C0EFCC6"
 owner = "verification"
@@ -89079,9 +89093,9 @@ id = "RISK_ACK_9A020CE2D4EA0485F238FB87C44FF06A057BD0C9782BFEA5A6CF82C974CA0241"
 code_id = "CODE_9A020CE2D4EA0485F238FB87C44FF06A057BD0C9782BFEA5A6CF82C974CA0241"
 owner = "verification"
 area = "verification"
-body_digest = "sha256:520a99571ae7bc3cefa99664d48671e0fa44c439f4f779f649816cbdbe7ea327"
+body_digest = "sha256:2ca9524403a2369ae299fb0c43f216c1b2c4abf848692db5ce9fa6e93a31b144"
 risk_signals = ["fault_mapping"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-08-12-p18-recovered-static-authority-refresh.md#identity-and-risk-review"
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-08-12-p18-focused-trace-resolver-repair.md#code-spec-report-zero-finding-repair"
 reviewed_by = "verification"
 reviewed_on = "2026-08-12"
 expires_on = "2026-11-12"
@@ -90689,13 +90703,13 @@ id = "RISK_ACK_B8DC7D2DDD35D42EDB6B41E6C59A8AFF5A1308BA748BC8B670B344ECD9E768ED"
 code_id = "CODE_B8DC7D2DDD35D42EDB6B41E6C59A8AFF5A1308BA748BC8B670B344ECD9E768ED"
 owner = "verification"
 area = "verification"
-body_digest = "sha256:0a3cf7ac3cc34df5f3799641a57b635858c48e47ef38b1d891a042d8988cd7ec"
-risk_signals = ["filesystem_or_environment", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-refresh-missing-1750.md#selection-and-risk-review"
+body_digest = "sha256:dcddc92238b10d61c9881c472b9f2779b08ab593aa2c3583e689cdc789c7e464"
+risk_signals = ["fault_mapping", "filesystem_or_environment", "state_mutation"]
+review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-08-12-p18-focused-trace-resolver-repair.md#code-spec-report-zero-finding-repair"
 reviewed_by = "verification"
-reviewed_on = "2026-07-29"
-expires_on = "2026-10-29"
-rationale = "Acknowledges the scanner-derived risk signals for this exact reviewed body while the singular-area fact remains bound to an explicit open historical code-spec gap; it neither specifies behavior nor suppresses any risk signal."
+reviewed_on = "2026-08-12"
+expires_on = "2026-11-12"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed focused-trace authority transaction; it does not suppress risk or create product proof."
 
 [[acknowledgements]]
 schema_version = 1
@@ -94918,20 +94932,6 @@ rationale = "Acknowledges the live scanner risk signals for this exact body dige
 
 [[acknowledgements]]
 schema_version = 1
-id = "RISK_ACK_80ACA40B34D53864B49C415595FBCB309A390C4AE26A04676C7F326A7B714674"
-code_id = "CODE_80ACA40B34D53864B49C415595FBCB309A390C4AE26A04676C7F326A7B714674"
-owner = "verification"
-area = "verification"
-body_digest = "sha256:ff1f89e69df0ef589bd3d77da3df95b5eb48910fceeb53e2e64dc37b0e4c01a0"
-risk_signals = ["filesystem_or_environment", "protocol_response_or_status", "state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-08-12-p18-focused-trace-resolver-repair.md#resolver-repair-red-green-and-static-rebinds"
-reviewed_by = "verification"
-reviewed_on = "2026-08-12"
-expires_on = "2026-11-12"
-rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
-
-[[acknowledgements]]
-schema_version = 1
 id = "RISK_ACK_901ECB628E82F6E94E93E287BFC57760F93219F04922C3897D23DF8F727B0F12"
 code_id = "CODE_901ECB628E82F6E94E93E287BFC57760F93219F04922C3897D23DF8F727B0F12"
 owner = "verification"
@@ -96847,20 +96847,6 @@ owner = "verification"
 area = "verification"
 body_digest = "sha256:91ff1ab17b9414efe85db8aa2ab65dedc5ac5fa9aba200c8919bfae9a8e26e47"
 risk_signals = ["state_mutation"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-08-12-p18-recovered-static-authority-refresh.md#identity-and-risk-review"
-reviewed_by = "verification"
-reviewed_on = "2026-08-12"
-expires_on = "2026-11-12"
-rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
-
-[[acknowledgements]]
-schema_version = 1
-id = "RISK_ACK_38922B8F514EE834B17E1EE9C95BBE0A12EE8744B5A5EB9B037189889EC2039A"
-code_id = "CODE_38922B8F514EE834B17E1EE9C95BBE0A12EE8744B5A5EB9B037189889EC2039A"
-owner = "verification"
-area = "verification"
-body_digest = "sha256:33ccb291515c1f1b740cb96863fcc6e576545c068d2760341a48a705bb244a4b"
-risk_signals = ["filesystem_or_environment", "host_time", "state_mutation"]
 review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-08-12-p18-recovered-static-authority-refresh.md#identity-and-risk-review"
 reviewed_by = "verification"
 reviewed_on = "2026-08-12"

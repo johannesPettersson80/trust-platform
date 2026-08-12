@@ -9,7 +9,11 @@ last_reviewed = "2026-08-12"
 claim = "The private pre-tool-use hook preserves the canonical agent contract: malformed input and untrusted heavy commands fail closed, light commands and exact trust-builder payloads retain their reviewed decisions, and the decision stream remains explicit."
 proof_level = "S0"
 contract_kind = "protocol_trace"
-source_refs = [".claude/hooks/pre_tool_use_gate.py", "scripts/verification/private_hook_contract_tests.py"]
+source_refs = [
+  ".claude/hooks/pre_tool_use_gate.py",
+  "scripts/private_hook_contract_gate.sh",
+  "scripts/verification/private_hook_contract_tests.py",
+]
 tests = ["TEST_VERIFICATION_PRIVATE_HOOK_CONTRACT_001"]
 gates = ["pr"]
 evidence_refs = ["EVID_VERIFICATION_PRIVATE_HOOK_GAP_CLOSEOUT_20260812"]
