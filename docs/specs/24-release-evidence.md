@@ -42,6 +42,22 @@ chain check. The Rust workspace runs the owned-exception policy with
 `cargo-deny` and `cargo-audit`; the VS Code lockfile must pass `npm audit` at
 the configured release threshold without an unowned exception.
 
+## Vendored Dependency Provenance
+
+Every source fact owned by an externally maintained vendored dependency is
+classified as a vendored boundary rather than as unspecified truST behavior.
+Its provenance record must name the upstream project and exact version or
+revision, identify the applicable license files, state whether the captured
+upstream tree was clean, and list every repository-local patch commit that
+changes the vendored bytes. A missing upstream identity, license boundary, or
+local-patch status leaves the vendored fact open; a broad dependency or package
+name alone is not sufficient provenance.
+
+The boundary classification does not prove the upstream implementation's
+behavior, safety, platform support, or adequacy. truST remains responsible for
+tests and safety evidence at every product-facing call boundary, and local
+patches remain first-party code changes for review and release purposes.
+
 ## Artifact And Version Provenance
 
 A release provenance record binds schema version, tag, full Git commit,

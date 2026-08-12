@@ -1930,6 +1930,7 @@ covers = [
   "source_build",
   "public_source_build_proof",
   "dependency_exceptions",
+  "vendored_dependency_provenance",
   "artifact_provenance",
   "release_version_chain",
   "hardware_claim_levels",
