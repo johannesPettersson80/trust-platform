@@ -155,6 +155,7 @@ fn function_local_interface_defaults_to_null() {
             retain: RetainPolicy::Unspecified,
             static_storage: false,
             external: false,
+            in_out: false,
             constant: false,
             address: None,
         }],

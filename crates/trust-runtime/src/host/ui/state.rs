@@ -428,6 +428,9 @@ pub(super) fn update_cycle_history(state: &mut UiState) {
         Some(status) => status,
         None => return,
     };
+    if !status.cycle_last.is_finite() || status.cycle_last < 0.0 {
+        return;
+    }
     let value = (status.cycle_last * 10.0).max(0.0).round() as u64;
     if state.cycle_history.len() >= 120 {
         state.cycle_history.pop_front();
@@ -466,10 +469,21 @@ pub(super) fn update_watch_values(client: &mut ControlClient, state: &mut UiStat
 pub(super) fn update_event_alerts(state: &mut UiState) {
     let events = state.data.events.clone();
     for event in events {
-        if state.seen_events.contains(&event.label) {
+        let identity = format!(
+            "{}\u{1f}{}\u{1f}{}\u{1f}{}",
+            event.label,
+            match event.kind {
+                EventKind::Fault => "fault",
+                EventKind::Warn => "warn",
+                EventKind::Info => "info",
+            },
+            event.timestamp.as_deref().unwrap_or_default(),
+            event.message
+        );
+        if state.seen_events.contains(&identity) {
             continue;
         }
-        state.seen_events.insert(event.label.clone());
+        state.seen_events.insert(identity);
         match event.kind {
             EventKind::Fault => push_alert(
                 state,

@@ -2,7 +2,7 @@ schema_version = 1
 
 [[inputs]]
 path = ".claude/hooks/pre_tool_use_gate.py"
-digest = "sha256:be49797cabae8807d39c41e3c0d75b1dd527ada4e2c8889120aab6d7f7ec911d"
+digest = "sha256:5b7f0e12aaa618d41529f639c44006509f5c5e88f5a15329c590b3d5d41e027b"
 owner = "verification"
 reason = "Private canonical agent hook required by the accepted verification-tooling denominator and copied into every validation checkout."
-last_reviewed = "2026-07-21"
+last_reviewed = "2026-08-12"

@@ -3,7 +3,8 @@ use std::collections::{HashMap, HashSet};
 use smol_str::SmolStr;
 
 use crate::bytecode::{
-    DebugEntry, InterfaceMethod, MethodEntry, ParamEntry, PouClassMeta, PouEntry, PouIndex, PouKind,
+    DebugEntry, InterfaceImpl, InterfaceMethod, MethodEntry, ParamEntry, PouClassMeta, PouEntry,
+    PouIndex, PouKind,
 };
 use crate::program_model::{ClassDef, FunctionBlockDef, FunctionDef, MethodDef, Param};
 use crate::value::Value;

@@ -1,0 +1,161 @@
+schema_version = 1
+id = "RT_HARNESS_SOURCE_ASSEMBLY_002"
+title = "Harness source assembly is project-wide and transactional"
+area = "runtime_safety"
+risk = "wrong_result"
+status = "specified"
+owner = "trust-runtime"
+last_reviewed = "2026-08-01"
+claim = "CompileSession preserves ordered sources and labels while project-wide type, POU, variable, constant, initializer, object, and call assembly either publishes one complete runtime model or fails without a partial model."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["docs/specs/10-runtime-semantics.md", "crates/trust-runtime/src/host/harness/compiler", "crates/trust-runtime/src/host/harness/api_contract_tests.rs"]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["catalog_mapping", "focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_SEMANTICS_001"]
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_SEMANTICS_001#710-project-wide-source-assembly-and-declaration-resolution"
+
+[[behavior]]
+partition = { equals = "ORDERED_SOURCE_SESSION_AND_LABELS" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#111-test-harness"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Single and multiple source sessions retain caller order, exact path labels, and the documented automatic or explicit diagnostic-label policy."
+[[behavior]]
+partition = { equals = "COMPLETE_BUILD_TARGET_EQUIVALENCE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#111-test-harness"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Runtime, bytecode-module, and encoded-byte builds instrument and compile the same complete ordered source set."
+[[behavior]]
+partition = { equals = "SOURCE_PATH_ARITY_OR_COMPILE_FAILURE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#111-test-harness"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Mismatched source/path lists and parse, semantic, lowering, instrumentation, or encoding failures return CompileError before publishing a partial result."
+[[behavior]]
+partition = { equals = "PROJECT_WIDE_FORWARD_RESOLUTION" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#710-project-wide-source-assembly-and-declaration-resolution"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Types, POUs, constants, configurations, namespaces, and USING references resolve across the complete source graph independently of provider order."
+[[behavior]]
+partition = { equals = "PROJECT_COLLISION_AMBIGUITY_OR_CYCLE" }
+case_family = "duplicate_or_collision"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#710-project-wide-source-assembly-and-declaration-resolution"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Case-insensitive duplicates, cross-kind collisions, ambiguous imports, and invalid dependency cycles reject the project before registration."
+[[behavior]]
+partition = { equals = "DERIVED_TYPE_COMPLETE_PAYLOAD" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#78-source-to-runtime-type-assembly"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Aliases, subranges, arrays, structs, unions, enums, references, pointers, bounded strings, namespaces, addresses, and defaults retain complete declared payloads."
+[[behavior]]
+partition = { equals = "INVALID_DERIVED_TYPE_CONSTANT_OR_SHAPE" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#78-source-to-runtime-type-assembly"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Undefined, mutable, ambiguous, cyclic, overflowing, reversed, or out-of-domain type operands fail before a partial registry entry is exposed."
+[[behavior]]
+partition = { equals = "POU_PREDECLARATION_AND_OBJECT_MODEL" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#77-source-to-runtime-pou-assembly"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Functions, function blocks, classes, interfaces, inheritance, methods, properties, and namespaces are predeclared before bodies and retain their owner identity."
+[[behavior]]
+partition = { equals = "POU_STORAGE_LIFETIME_AND_ISOLATION" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#79-source-to-runtime-variable-assembly"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Automatic, temporary, static, instance, program, parameter, external, and in-out storage obey the documented per-call, per-cycle, per-instance, and persistent lifetimes."
+[[behavior]]
+partition = { equals = "VARIABLE_SECTION_AND_QUALIFIER_PROJECTION" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#79-source-to-runtime-variable-assembly"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected_delta", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Each owner accepts only its documented variable sections, preserves legal constant/retention policy, and rejects illegal or conflicting qualifiers rather than ignoring them."
+[[behavior]]
+partition = { equals = "COMPLETE_CONSTANT_AND_DEFAULT_GRAPH" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#79-source-to-runtime-variable-assembly"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Constant and initializer dependencies are evaluated from the complete accepted scope graph with stable namespace identity and precedence."
+[[behavior]]
+partition = { equals = "GENERIC_RUNTIME_STORAGE_BOUNDARY" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#78-source-to-runtime-type-assembly"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Generic signature categories cannot become runtime storage, aggregate members, POU state, parameters, results, pointer targets, or reference targets."
+[[behavior]]
+partition = { equals = "TEXTUAL_ACTION_RUNTIME_BOUNDARY" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#122-textual-action-fail-closed-boundary"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Any textual ACTION in any source rejects runtime, module, and encoded-byte publication instead of being omitted or executed as owner statements."
+[[behavior]]
+partition = { equals = "POU_CALL_COPY_AND_ERROR_ATOMICITY" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#76-host-stage-pou-evaluation-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Actuals evaluate in order, EN gates execution, outputs and in-outs copy after normal return, and an execution error does not publish rejected copy-back."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Focused successful build tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "Focused source-order, dependency, lifetime, and call tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Focused compile/type/generic rejection tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "duplicate_or_collision"
+state = "gap_open"
+rationale = "Focused duplicate, ambiguity, and cycle tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "boundary_high"
+state = "gap_open"
+rationale = "Focused derived-type numeric boundaries exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "auth_or_permission"
+state = "gap_open"
+rationale = "Focused section, qualifier, and textual ACTION boundary tests exist, but catalog binding and dynamic proof are pending."

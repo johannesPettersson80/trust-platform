@@ -17,11 +17,87 @@ impl<'a> BytecodeEncoder<'a> {
             })
             .transpose()?;
         let methods = self.method_table_for(&owner)?;
+        let interfaces = self.interface_impls_for(&owner, def.interfaces(), &methods)?;
         Ok(PouClassMeta {
             parent_pou_id,
-            interfaces: Vec::new(),
+            interfaces,
             methods,
         })
+    }
+
+    fn interface_impls_for(
+        &mut self,
+        owner: &SmolStr,
+        declared: &[SmolStr],
+        owner_methods: &[MethodEntry],
+    ) -> Result<Vec<InterfaceImpl>, BytecodeError> {
+        let mut names = Vec::new();
+        let mut seen = HashSet::new();
+        for name in declared {
+            self.collect_interface_and_bases(name, &mut seen, &mut names)?;
+        }
+
+        let mut mappings = Vec::with_capacity(names.len());
+        for name in names {
+            let type_id = self.runtime.registry().lookup(name.as_str()).ok_or_else(|| {
+                BytecodeError::InvalidSection(
+                    format!("unknown implemented interface '{name}' for '{owner}'").into(),
+                )
+            })?;
+            let interface_type_id = self.type_index(type_id)?;
+            let interface_methods = self.interface_methods_for(&name)?;
+            let mut vtable_slots = Vec::with_capacity(interface_methods.len());
+            for interface_method in interface_methods {
+                let method_name = self
+                    .strings
+                    .entries
+                    .get(interface_method.name_idx as usize)
+                    .ok_or_else(|| BytecodeError::InvalidSection("interface method name missing".into()))?;
+                let slot = owner_methods
+                    .iter()
+                    .find(|method| {
+                        self.strings
+                            .entries
+                            .get(method.name_idx as usize)
+                            .is_some_and(|candidate| candidate.eq_ignore_ascii_case(method_name))
+                    })
+                    .map(|method| method.vtable_slot)
+                    .ok_or_else(|| {
+                        BytecodeError::InvalidSection(
+                            format!(
+                                "implemented interface method '{method_name}' is missing from '{owner}'"
+                            )
+                            .into(),
+                        )
+                    })?;
+                vtable_slots.push(slot);
+            }
+            mappings.push(InterfaceImpl {
+                interface_type_id,
+                vtable_slots,
+            });
+        }
+        Ok(mappings)
+    }
+
+    fn collect_interface_and_bases(
+        &self,
+        name: &SmolStr,
+        seen: &mut HashSet<SmolStr>,
+        output: &mut Vec<SmolStr>,
+    ) -> Result<(), BytecodeError> {
+        let key = normalize_name(name);
+        if !seen.insert(key.clone()) {
+            return Ok(());
+        }
+        let interface = self.runtime.interfaces().get(&key).ok_or_else(|| {
+            BytecodeError::InvalidSection(format!("unknown interface '{name}'").into())
+        })?;
+        output.push(interface.name.clone());
+        if let Some(base) = &interface.base {
+            self.collect_interface_and_bases(base, seen, output)?;
+        }
+        Ok(())
     }
 
     fn method_table_for(&mut self, owner: &SmolStr) -> Result<Vec<MethodEntry>, BytecodeError> {

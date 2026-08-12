@@ -73,6 +73,7 @@ Issue #51 init benchmark baseline evidence (2026-04-28):
 - [x] `ARCH-VM-31` Fast-path global VM refs before generic runtime access-target routing: measured follow-up `refs_sizeof` profile still showed `store_ref`/`peek_ref` and direct storage-slot access as the top ref cost, so global refs now bypass the frame-dependent runtime-access helper and use global slot access directly; evidence improved p50 `4.519us -> 4.333us`, p95 `4.741us -> 4.481us`, and p99 `6.018us -> 5.519us` with zero register-program fallbacks.
 - [x] `ARCH-VM-32` Enforce fixed STBC resource limits before executable materialization and replace loop-edge-only accounting with one shared original-bytecode instruction budget across stack, register, tier-1, and nested-call execution; the VM execution diagram records the validation and budget ownership boundaries, and focused parity tests pin the same fault boundary across all three paths.
 - [x] `ARCH-VM-33` Add one closed stable machine-error vocabulary in `trust-runtime-core`, preserve bytecode and VM identifiers through `RuntimeError` conversion without parsing diagnostic text, and return typed HMI admission codes before write queueing; the runtime VM execution diagram records the shared ownership and boundary flow.
+- [ ] `ARCH-VM-34` Preserve IEC assignment-attempt semantics through source lowering, `POU_INDEX` class/interface metadata, and VM opcode `REFERENCE_ATTEMPT`: focused `reference_runtime_` evidence is green (25/25); diagram output regeneration and drift verification remain pending for the final frozen milestone.
 - [x] `ARCH-RTCORE-01` Add a dedicated runtime-core/native-host split checklist that freezes the core/host ownership decisions, behavior-lock gates, sync capability traits, Linux/PREEMPT_RT host expectations, and the STM32H7/Opta rollout plan.
 - [x] `ARCH-RTCORE-02` Add the deferred runtime-core/native-host split to the full-software architecture refactor plan as a narrowed SOLID/KISS cleanup: revive portable `trust-runtime-core` plus Linux host boundaries, dependency fences, capability traits, behavior-lock gates, and doctor rules, while keeping STM32H7, Opta, ESP32, embedded T0, embedded EtherCAT, no_std product promises, and MCU protocol commitments parked until a separate roadmap decision.
 - [x] `ARCH-RTCORE-03` Add `runtime-core-host-split-execution-checklist.md` as the concrete execution board for the narrowed split, with stop rules, behavior-lock tests, doctor rules, staged extraction slices, validation gates, release/merge readiness checks, and explicit embedded non-goals.
@@ -237,7 +238,27 @@ Issue #51 init benchmark baseline evidence (2026-04-28):
   zero-equation state before exact assertion-to-oracle confirmation. Update
   `verification-code-spec-coverage.puml`, prove zero false accepted mappings on
   a hidden-ground-truth shard, and retain final whole-repository execution for
-  the frozen Phase 18 candidate.
+  the frozen Phase 18 candidate. The bounded authority-route owner may turn an
+  exact source/trace/demand-bound C4 test into a quarantined C2 proposal, but
+  the same C4 code/spec demand remains open and the route has no code-map write
+  edge. Closure still requires the hidden-ground-truth and frozen-candidate
+  evidence above.
+  Focused resolver progress (2026-08-12): exact Cargo target and feature-shard
+  construction now lives in `coverage_trace_shards.py`; the trace CLI remains
+  a thin orchestration facade. Focused red/green tests cover same-package
+  mixed-profile prefixes and source-derived no-default-feature selection, and
+  the resolver-only preflight resolves all 4,233 requested identities with
+  zero unsupported rows. The hidden-ground-truth shard, semantic mapping
+  acceptance, fresh trace, and frozen-candidate evidence remain open, so this
+  architecture row does not close.
+  Trace-reuse progress (2026-08-12): focused trace assembly consumes each
+  per-test LLVM export once and emits a source-commit-bound authentication
+  receipt over the canonical trace, exact request set, raw profiles,
+  executables, LLVM tools, and covered source closure. Candidate generation may
+  revalidate that receipt without replaying LLVM exports; the live
+  reconstruction route remains available when no receipt is supplied. The
+  4,233-entry mapping transaction and final frozen-candidate evidence remain
+  open, so this architecture row does not close.
 - [x] `ARCH-DEBUG-01` Keep cyclic breakpoint-stop suppression owned by
   `DebugControl`: `Runtime::execute_cycle` opens the scan boundary,
   `DebugState` retains exact breakpoint identities already stopped in that

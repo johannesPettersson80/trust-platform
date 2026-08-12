@@ -30,7 +30,7 @@ impl Parser<'_, '_> {
 
         // Parse var blocks
         while self.current().is_var_keyword() {
-            self.parse_var_block();
+            self.parse_pou_var_block();
         }
 
         // Parse statements and actions in a statement list
@@ -85,7 +85,7 @@ impl Parser<'_, '_> {
 
         // Parse var blocks
         while self.current().is_var_keyword() {
-            self.parse_var_block();
+            self.parse_pou_var_block();
         }
 
         // Parse statements
@@ -145,7 +145,7 @@ impl Parser<'_, '_> {
 
         // Parse var blocks
         while self.current().is_var_keyword() {
-            self.parse_var_block();
+            self.parse_pou_var_block();
         }
 
         // Parse methods, properties, actions, and statements

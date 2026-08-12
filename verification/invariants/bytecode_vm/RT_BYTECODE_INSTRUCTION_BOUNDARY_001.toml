@@ -5,7 +5,7 @@ area = "bytecode_vm"
 risk = "wrong_result"
 status = "mapped"
 owner = "trust-runtime"
-last_reviewed = "2026-07-27"
+last_reviewed = "2026-07-30"
 claim = "Bytecode instruction charging accepts the configured module instruction limit and rejects the first instruction above it without advancing the accepted count."
 proof_level = "S0"
 contract_kind = "decision_table"
@@ -22,12 +22,12 @@ source_refs = ["SPEC_BYTECODE_FORMAT_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_BYTECODE_FORMAT_001#fixed-resource-limits"
+ref = "SPEC_BYTECODE_FORMAT_001#4-6-fixed-resource-limits"
 
 [[behavior]]
 partition = { equals = "INSTRUCTION_COUNT_AT_FIXED_LIMIT" }
 case_family = "happy_path"
-oracle_ref = "SPEC_BYTECODE_FORMAT_001#fixed-resource-limits"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#4-6-fixed-resource-limits"
 outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
@@ -36,7 +36,7 @@ rationale = "Charging the 1,000,000th decoded instruction succeeds and advances 
 [[behavior]]
 partition = { equals = "INSTRUCTION_COUNT_ABOVE_FIXED_LIMIT" }
 case_family = "resource_limit"
-oracle_ref = "SPEC_BYTECODE_FORMAT_001#fixed-resource-limits"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#4-6-fixed-resource-limits"
 outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }

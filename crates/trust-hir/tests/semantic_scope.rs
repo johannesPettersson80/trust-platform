@@ -258,7 +258,7 @@ FUNCTION_BLOCK FB_Test
         x : INT;
     END_VAR
 
-    ACTION DoIt
+    ACTION DoIt:
         x := 'oops';
     END_ACTION
 END_FUNCTION_BLOCK

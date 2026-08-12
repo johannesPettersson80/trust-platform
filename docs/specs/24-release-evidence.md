@@ -56,6 +56,64 @@ release workflow, published GitHub release, required assets, and GitHub
 `releases/latest` pointer must agree. A feature branch may validate this
 contract but does not create the tag.
 
+### Main-push version release guard
+
+The `version-release-guard` is a fail-closed state machine over one GitHub
+event. It skips only when the event is not a push to `main` or `master`, or
+when the previous reachable revision has the same workspace version as the
+current checkout. A null, absent, unreadable, or malformed previous revision
+does not prove that the version is unchanged; the guard enforces release
+evidence for the current version.
+
+For an enforced version `X.Y.Z`, the guard requires `vX.Y.Z` to be an annotated
+Git tag. Peeling that tag must produce the exact pushed main SHA under review,
+not merely an ancestor of it. A lightweight tag, a tag on another commit, an
+unresolvable tag, and a tag that appears only outside the configured discovery
+window all fail. Fetch, revision, and tag-type inspection failures are visible
+guard failures rather than evidence of absence or success.
+
+The selected Release workflow run must have `event = push`, `head_branch =
+vX.Y.Z`, and `head_sha` equal to the peeled tag/main SHA. A same-name run for
+another SHA is ignored. Discovery and completion use independent nonnegative
+timeouts and a polling interval of at least one second. Missing run identity,
+API failure, timeout, cancellation, and every completed conclusion other than
+`success` fail. Polling never converts an unknown or incomplete response into a
+successful run.
+
+GitHub API verification requires a nonempty token, preferring `GITHUB_TOKEN`
+over `GH_TOKEN`. Credentials are sent only in the authorization header and are
+never included in diagnostic output. HTTP error bodies are decoded when
+possible; malformed or empty bodies still produce a stable status-bearing
+failure.
+
+The release at the exact tag must exist, be published, non-draft, and
+non-prerelease. GitHub `releases/latest` must name the same tag. Release asset
+names are nonempty and unique, and must include `SHA256SUMS`,
+`release-provenance.json`, `conformance-status.json`, and
+`conformance-status.md`; duplicate names do not satisfy a set requirement.
+Only after every state is accepted may the guard report success and emit its
+release and workflow URLs.
+
+### Tag-triggered preflight and manifest alignment
+
+Before a tag-triggered release builds artifacts, the workspace package version,
+VS Code `package.json` version, and both the top-level and root-package versions
+in `package-lock.json` must be nonempty strings and exactly equal. Every
+mismatch is reported in one invocation so a partial alignment cannot pass.
+Unreadable, malformed, or wrongly shaped manifests are failures, never an
+implicit version.
+
+The supplied release tag must exactly equal `v<workspace-version>`, must be an
+annotated tag object, and must peel to the checked-out release SHA. The
+preflight accepts CI evidence only from the `ci.yml` workflow for that exact
+SHA where `event` is `push`, `head_branch` is `main` or `master`, status is
+`completed`, and conclusion is `success`. A successful pull-request,
+workflow-dispatch, branch, tag, or other-SHA run is not final-main CI evidence.
+An API failure, malformed run collection, absent URL, missing credential, or
+absence of an exact qualifying run fails before artifact construction.
+`GITHUB_TOKEN` takes precedence over `GH_TOKEN` and neither may appear in
+output.
+
 ## Hardware And Conformance Claims
 
 Evidence vocabulary is `mock`, `loopback`, `simulation`, `interoperability`,

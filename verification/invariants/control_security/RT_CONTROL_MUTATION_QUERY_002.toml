@@ -1,0 +1,125 @@
+schema_version = 1
+id = "RT_CONTROL_MUTATION_QUERY_002"
+title = "Control I/O and variable mutation uses strict atomic boundaries"
+area = "control_security"
+risk = "silent_corruption"
+status = "specified"
+owner = "trust-runtime"
+last_reviewed = "2026-08-01"
+claim = "Control I/O and variable reads, writes, forces, releases, and bounded evaluation admit only exact parameters, addresses, targets, and scalar values and preserve ordered queue/force state without mutation on rejection."
+proof_level = "S0"
+contract_kind = "state_machine"
+source_refs = ["docs/specs/11-runtime-engine.md", "crates/trust-runtime/src/control/io_handlers/contract_tests.rs", "crates/trust-runtime/src/control/variable_handlers/contract_tests.rs"]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["catalog_mapping", "focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-io-and-variable-mutation-contract"
+
+[[behavior]]
+partition = { equals = "STRICT_OPERATION_PARAMETER_OBJECT" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-io-and-variable-mutation-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Missing, null, non-object, missing-field, wrong-type, and unknown-field params queue no mutation and change no force."
+[[behavior]]
+partition = { equals = "CONCRETE_CANONICAL_IO_ADDRESS" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-io-and-variable-mutation-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Trimmed concrete %I/%Q/%M addresses preserve hierarchy and must fit the complete width inside the bounded area."
+[[behavior]]
+partition = { equals = "COHERENT_SNAPSHOT_READ" }
+case_family = "concurrency_or_cancellation"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-io-and-variable-mutation-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "List/read distinguish pre-scan state from unavailable lock and return one coherent cached scan with captured force marks."
+[[behavior]]
+partition = { equals = "BOUNDED_SCALAR_TEXT_GRAMMAR" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-io-and-variable-mutation-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Only case-insensitive Boolean or signed base-ten i64 text becomes a queued scalar value."
+[[behavior]]
+partition = { equals = "ORDERED_ONE_SHOT_IO_WRITES" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-io-and-variable-mutation-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Accepted I/O writes append in arrival order and repeated addresses remain distinct one-shot requests."
+[[behavior]]
+partition = { equals = "IO_FORCE_REPLACE_AND_EXACT_RELEASE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-io-and-variable-mutation-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Re-forcing an exact address replaces in place without duplication and release removes only that address idempotently."
+[[behavior]]
+partition = { equals = "BOUNDED_NAME_EVAL" }
+case_family = "missing_required"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-io-and-variable-mutation-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Eval trims a nonempty exact name, searches global then retain snapshots, and distinguishes absent snapshot from unknown identity."
+[[behavior]]
+partition = { equals = "CANONICAL_VARIABLE_TARGET" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-io-and-variable-mutation-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Set, force, and release accept only exact lowercase global/retain prefixes and bounded numeric instance identities with nonempty trimmed names."
+[[behavior]]
+partition = { equals = "VARIABLE_WRITE_REPLACE_AND_ORDER" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-io-and-variable-mutation-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A later pending write to the same exact variable target replaces in place while different targets retain arrival order."
+[[behavior]]
+partition = { equals = "VARIABLE_FORCE_PROJECTION_AND_RELEASE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-io-and-variable-mutation-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Variable forces preserve stable insertion order and canonical target/value display; replacement and exact idempotent release do not duplicate entries."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Focused parameter, value, and target tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "boundary_high"
+state = "gap_open"
+rationale = "Focused address bounds exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "concurrency_or_cancellation"
+state = "gap_open"
+rationale = "Focused unavailable-snapshot-lock tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "Focused queue, replacement, force, and release tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "missing_required"
+state = "gap_open"
+rationale = "Focused empty and missing-name tests exist, but catalog binding and dynamic proof are pending."

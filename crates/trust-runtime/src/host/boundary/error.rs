@@ -154,3 +154,7 @@ impl fmt::Display for BoundaryError {
 }
 
 impl std::error::Error for BoundaryError {}
+
+#[cfg(test)]
+#[path = "error_contract_tests.rs"]
+mod contract_tests;

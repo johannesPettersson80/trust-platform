@@ -20,8 +20,10 @@ command_bindings = [
 ]
 inventory_ids = [
   "GATE_JUST_VERIFICATION_VERYQUICK",
+  "GATE_SCRIPT_FOCUSED_TRACE_CONTROL_PLANE",
   "GATE_SCRIPT_P18_BURN_DOWN_LEDGER",
   "GATE_SCRIPT_P18_ZERO_DEBT",
+  "GATE_SCRIPT_PRIVATE_HOOK_CONTRACT",
   "GATE_SCRIPT_VERIFICATION_METADATA",
 ]
 evidence_destination = "target/gate-artifacts/veryquick/"

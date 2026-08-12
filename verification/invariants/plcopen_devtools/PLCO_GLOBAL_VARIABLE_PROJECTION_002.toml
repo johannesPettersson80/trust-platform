@@ -1,0 +1,145 @@
+schema_version = 1
+id = "PLCO_GLOBAL_VARIABLE_PROJECTION_002"
+title = "PLCopen global-variable lists project atomically and deterministically"
+area = "plcopen_devtools"
+risk = "silent_corruption"
+status = "specified"
+owner = "trust-plcopen"
+last_reviewed = "2026-08-01"
+claim = "Each reviewed CODESYS global-variable list preserves its authoritative representation, identity, declaration order, projection mode, and report accounting, while malformed lists and unsafe or synthetic references cannot publish partial or misplaced ST."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = [
+  "docs/guides/PLCOPEN_INTEROP_COMPATIBILITY.md",
+  "crates/trust-plcopen/src/plcopen/import_data_globals.rs",
+  "crates/trust-plcopen/src/plcopen/pou_externals.rs",
+  "crates/trust-plcopen/src/plcopen/tests/global_var_contract.rs",
+]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["catalog_mapping", "focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_PLCOPEN_IMPORT_DECISION_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#global-variable-import-and-projection-contract"
+
+[[behavior]]
+partition = { equals = "AUTHORITATIVE_INPUT_AND_DECLARATION_ORDER" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#global-variable-import-and-projection-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Valid interface-as-plain-text takes precedence over structured children; otherwise structured names, types, initializers, attributes, comma-expanded names, and their source order are preserved."
+
+[[behavior]]
+partition = { equals = "MISSING_OR_UNPARSEABLE_AUTHORITATIVE_DECLARATIONS" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#global-variable-import-and-projection-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A list without declarations reports PLCO601; an unparseable preferred plain-text payload reports PLCO602 and cannot silently fall back to structured children."
+
+[[behavior]]
+partition = { equals = "ATOMIC_LIST_VALIDATION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#global-variable-import-and-projection-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "One invalid or duplicate variable identity, missing type, or malformed structured or plain-text declaration rejects the whole list without publishing its valid subset."
+
+[[behavior]]
+partition = { equals = "LIST_IDENTITY_NORMALIZATION_AND_COLLISION" }
+case_family = "boundary_low"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#global-variable-import-and-projection-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Attribute, child-name, and stable fallback identities normalize deterministically, emit warnings when changed, and receive case-insensitive ordinal suffixes on collision."
+
+[[behavior]]
+partition = { equals = "NATIVE_VENDOR_PARITY_PROJECTION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#global-variable-import-and-projection-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Native vendor parity renders ordinary lists as VAR_GLOBAL and true qualified_only lists as namespaces while preserving leading attributes and header modifiers; false qualified_only remains ordinary."
+
+[[behavior]]
+partition = { equals = "STRICT_IEC_PROJECTION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#global-variable-import-and-projection-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Strict mode wraps an ordinary list in one configuration and renders a qualified list as one structure type plus one configuration instance."
+
+[[behavior]]
+partition = { equals = "QUALIFIED_REFERENCE_LEXICAL_MATCH" }
+case_family = "boundary_low"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#global-variable-import-and-projection-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Strict-mode reference matching is case-insensitive and identifier-boundary aware while comments, strings, member-like substrings, and longer identifiers do not create references."
+
+[[behavior]]
+partition = { equals = "VAR_EXTERNAL_INJECTION_AND_DEDUPLICATION" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#global-variable-import-and-projection-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A referenced qualified list receives one PLCO603-owned VAR_EXTERNAL after existing variable sections and before statements, unless a real case-insensitive declaration already exists in VAR_EXTERNAL."
+
+[[behavior]]
+partition = { equals = "UNREFERENCED_LIST_NO_EXTERNAL_MUTATION" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#global-variable-import-and-projection-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "An unreferenced qualified list causes no VAR_EXTERNAL insertion and no PLCO603 diagnostic."
+
+[[behavior]]
+partition = { equals = "COMPLETE_REPORT_ACCOUNTING" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#global-variable-import-and-projection-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Discovered, imported, written-source, diagnostic, and semantic-loss fields account for complete and skipped lists without allowing valid siblings to hide debt."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Focused global-variable contract tests exist, but accepted catalog binding and dynamic proof are pending."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Focused atomic-rejection tests exist, but accepted catalog binding and dynamic proof are pending."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "Focused ordering and accounting tests exist, but accepted catalog binding and dynamic proof are pending."
+
+[[coverage.cells]]
+dimension = "boundary_low"
+state = "gap_open"
+rationale = "Focused identity and lexical-boundary tests exist, but accepted catalog binding and dynamic proof are pending."
+
+[[coverage.cells]]
+dimension = "extra_or_unknown"
+state = "gap_open"
+rationale = "Focused no-mutation tests exist, but accepted catalog binding and dynamic proof are pending."

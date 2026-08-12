@@ -112,7 +112,7 @@ impl LValue {
 
 #[cfg(test)]
 mod tests {
-    use super::LValue;
+    use super::{Expr, LValue};
     use smol_str::SmolStr;
 
     #[test]
@@ -128,5 +128,38 @@ mod tests {
         assert_eq!(lvalue.root_name().map(SmolStr::as_str), Some("fb"));
         assert_eq!(lvalue.qualified_name().as_deref(), Some("fb.nested.field"));
         assert!(!lvalue.contains_index());
+    }
+
+    #[test]
+    fn lvalue_path_queries_cover_index_field_and_deref_boundaries() {
+        let name = LValue::Name(SmolStr::new("root"));
+        assert_eq!(name.root_name().map(SmolStr::as_str), Some("root"));
+        assert_eq!(name.qualified_name().as_deref(), Some("root"));
+        assert!(!name.contains_index());
+
+        let field_after_index = LValue::Field {
+            target: Box::new(LValue::Index {
+                target: Box::new(LValue::Field {
+                    target: Box::new(LValue::Name(SmolStr::new("root"))),
+                    field: SmolStr::new("items"),
+                }),
+                indices: vec![Expr::Name(SmolStr::new("i"))],
+            }),
+            field: SmolStr::new("value"),
+        };
+        assert_eq!(
+            field_after_index.root_name().map(SmolStr::as_str),
+            Some("root")
+        );
+        assert_eq!(field_after_index.qualified_name(), None);
+        assert!(field_after_index.contains_index());
+
+        let field_after_deref = LValue::Field {
+            target: Box::new(LValue::Deref(Box::new(Expr::Name(SmolStr::new("pointer"))))),
+            field: SmolStr::new("value"),
+        };
+        assert_eq!(field_after_deref.root_name(), None);
+        assert_eq!(field_after_deref.qualified_name(), None);
+        assert!(!field_after_deref.contains_index());
     }
 }

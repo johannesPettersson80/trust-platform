@@ -98,6 +98,8 @@ class MappingContractTests(unittest.TestCase):
                     "unmapped_code_ids": [],
                     "concentration_ppm": {"INV_ONE": 1000000},
                     "mutation_kill_ids": [],
+                    "authority_route_digest": "sha256:" + "a" * 64,
+                    "exact_behavior_refs": ["INV_ONE#behavior:0"],
                 }
             ],
             "demands": [],
@@ -113,6 +115,43 @@ class MappingContractTests(unittest.TestCase):
         forged["candidates"][0]["candidate_tier"] = "T1"
         forged["candidates"][0]["coverage_state"] = "covered"
         self.assertTrue(validate_json_schema_instance(forged, schema))
+
+        unpaired = copy.deepcopy(record)
+        unpaired["candidates"][0].pop("exact_behavior_refs")
+        self.assertTrue(validate_json_schema_instance(unpaired, schema))
+
+        malformed = copy.deepcopy(record)
+        malformed["candidates"][0]["exact_behavior_refs"] = []
+        self.assertTrue(validate_json_schema_instance(malformed, schema))
+
+        malformed = copy.deepcopy(record)
+        malformed["candidates"][0]["authority_route_digest"] = "not-a-digest"
+        self.assertTrue(validate_json_schema_instance(malformed, schema))
+
+        malformed = copy.deepcopy(record)
+        malformed["candidates"][0]["exact_behavior_refs"] = ["not-a-ref"]
+        self.assertTrue(validate_json_schema_instance(malformed, schema))
+
+        duplicate = copy.deepcopy(record)
+        duplicate["candidates"][0]["exact_behavior_refs"] = [
+            "INV_ONE#behavior:0",
+            "INV_ONE#behavior:0",
+        ]
+        self.assertTrue(validate_json_schema_instance(duplicate, schema))
+
+        demand_with_route = copy.deepcopy(record)
+        demand_with_route["candidates"] = []
+        demand_with_route["demands"] = [
+            {
+                "discovery_id": "DISC_00000000000000000001",
+                "candidate_tier": "C4",
+                "covered_code_ids": ["CODE_" + "A" * 64],
+                "spec_gap_refs": ["SPEC_GAP_EXAMPLE_001"],
+                "unmapped_code_ids": [],
+                "authority_route_digest": "sha256:" + "a" * 64,
+            }
+        ]
+        self.assertTrue(validate_json_schema_instance(demand_with_route, schema))
 
     def test_proposal_schema_keeps_suggestions_non_authoritative(self) -> None:
         record = {
@@ -164,6 +203,7 @@ class MappingContractTests(unittest.TestCase):
                     "unresolved_assertion_helpers": [],
                     "trace_record_digest": "sha256:" + "4" * 64,
                     "candidate_signal_digest": "sha256:" + "5" * 64,
+                    "authority_route_digest": "sha256:" + "a" * 64,
                     "oracle_refs": ["SPEC_ONE"],
                     "behavior_refs": ["INV_ONE#behavior:0"],
                     "suggestions": {
@@ -179,9 +219,17 @@ class MappingContractTests(unittest.TestCase):
         schema = _schema("test-catalog-proposals.schema.json")
         self.assertEqual([], validate_json_schema_instance(record, schema))
 
+        legacy = copy.deepcopy(record)
+        legacy["proposals"][0].pop("authority_route_digest")
+        self.assertEqual([], validate_json_schema_instance(legacy, schema))
+
         forged = copy.deepcopy(record)
         forged["proposals"][0]["suggestions"]["authoritative"] = True
         self.assertTrue(validate_json_schema_instance(forged, schema))
+
+        malformed = copy.deepcopy(record)
+        malformed["proposals"][0]["authority_route_digest"] = "not-a-digest"
+        self.assertTrue(validate_json_schema_instance(malformed, schema))
 
     def test_decision_schema_separates_review_from_generated_metadata(self) -> None:
         decision = {

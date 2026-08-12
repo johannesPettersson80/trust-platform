@@ -153,7 +153,7 @@ pub fn eval_expr(ctx: &mut EvalContext<'_>, expr: &Expr) -> Result<Value, Runtim
             apply_unary(*op, value)
         }
         Expr::Binary { op, left, right } => {
-            if *op == BinaryOp::And {
+            if matches!(op, BinaryOp::And | BinaryOp::AndThen) {
                 let left_value = eval_expr(ctx, left)?;
                 if matches!(left_value, Value::Bool(false)) {
                     return Ok(Value::Bool(false));
@@ -161,7 +161,7 @@ pub fn eval_expr(ctx: &mut EvalContext<'_>, expr: &Expr) -> Result<Value, Runtim
                 let right_value = eval_expr(ctx, right)?;
                 return apply_binary(*op, left_value, right_value, &ctx.profile);
             }
-            if *op == BinaryOp::Or {
+            if matches!(op, BinaryOp::Or | BinaryOp::OrElse) {
                 let left_value = eval_expr(ctx, left)?;
                 if matches!(left_value, Value::Bool(true)) {
                     return Ok(Value::Bool(true));

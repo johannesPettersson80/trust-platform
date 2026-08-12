@@ -116,6 +116,22 @@ pub(in crate::db) fn explicit_visibility_from_node(node: &SyntaxNode) -> Option<
     None
 }
 
+pub(in crate::db) fn explicit_visibility_tokens(node: &SyntaxNode) -> Vec<(Visibility, TextRange)> {
+    node.children_with_tokens()
+        .filter_map(|element| element.into_token())
+        .filter_map(|token| {
+            let visibility = match token.kind() {
+                SyntaxKind::KwPublic => Visibility::Public,
+                SyntaxKind::KwPrivate => Visibility::Private,
+                SyntaxKind::KwProtected => Visibility::Protected,
+                SyntaxKind::KwInternal => Visibility::Internal,
+                _ => return None,
+            };
+            Some((visibility, token.text_range()))
+        })
+        .collect()
+}
+
 pub(in crate::db) fn visibility_from_node(node: &SyntaxNode) -> Visibility {
     explicit_visibility_from_node(node).unwrap_or(Visibility::Public)
 }
@@ -312,6 +328,22 @@ pub(in crate::db) fn var_block_is_constant(node: &SyntaxNode) -> bool {
     node.descendants_with_tokens()
         .filter_map(|e| e.into_token())
         .any(|token| token.kind() == SyntaxKind::KwConstant)
+}
+
+pub(in crate::db) fn var_decl_edge_qualifiers(
+    node: &SyntaxNode,
+) -> Vec<(EdgeQualifier, TextRange)> {
+    node.descendants_with_tokens()
+        .filter_map(|element| element.into_token())
+        .filter_map(|token| {
+            let qualifier = match token.kind() {
+                SyntaxKind::KwREdge => EdgeQualifier::Rising,
+                SyntaxKind::KwFEdge => EdgeQualifier::Falling,
+                _ => return None,
+            };
+            Some((qualifier, token.text_range()))
+        })
+        .collect()
 }
 
 #[derive(Default, Clone, Copy)]

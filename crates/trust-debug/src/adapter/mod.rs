@@ -224,6 +224,7 @@ pub struct DebugAdapter {
     control_server: Option<DebugControlServer>,
     last_io_state: Arc<Mutex<Option<IoStateEventBody>>>,
     forced_io_addresses: Arc<Mutex<HashSet<String>>>,
+    initialized: bool,
     launch_state: LaunchState,
     pause_expected: Arc<AtomicBool>,
     stop_gate: StopGate,

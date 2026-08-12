@@ -236,7 +236,8 @@ fn normalize_duration(value: Duration) -> Duration {
 }
 
 fn accumulate_elapsed(elapsed: Duration, delta: Duration, pt: Duration) -> Duration {
-    let next = elapsed.as_nanos().saturating_add(delta.as_nanos());
+    let delta_nanos = delta.as_nanos().max(0);
+    let next = elapsed.as_nanos().saturating_add(delta_nanos);
     Duration::from_nanos(next.min(pt.as_nanos()))
 }
 

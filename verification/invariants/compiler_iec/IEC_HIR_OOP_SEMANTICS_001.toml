@@ -5,11 +5,14 @@ area = "compiler_iec"
 risk = "wrong_result"
 status = "mapped"
 owner = "trust-hir"
-last_reviewed = "2026-07-30"
+last_reviewed = "2026-08-01"
 claim = "OOP declarations preserve inheritance, interface, override, visibility, property, and member contracts across files and namespaces."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = [
+  "docs/specs/03-variables.md",
+  "docs/specs/04-pou-declarations.md",
+  "docs/specs/09-semantic-rules.md",
   "crates/trust-hir/src/db/diagnostics/oop/interfaces.rs",
   "crates/trust-hir/src/db/diagnostics/oop/mod.rs",
   "crates/trust-hir/src/db/diagnostics/oop/modifiers.rs",
@@ -20,7 +23,7 @@ tests = ["TEST_AUTO_06F0D6A24B4385C7480B", "TEST_AUTO_08261C6721F17E842D4A", "TE
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["assertion_reachability", "broad_remote_gate"]
+missing = ["catalog_mapping", "focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -92,6 +95,33 @@ outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
 rationale = "Reading a setter-only property and conflicting with inherited variables or methods are rejected, while assignment through a valid setter is accepted."
+
+[[behavior]]
+partition = { equals = "ACCESS_SPECIFIER_PLACEMENT_SINGLETON_AND_DEFAULT" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_VARIABLES_001#4-member-access-specifiers-sections-66510-6677-and-69"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "One legal access specifier may appear in either reviewed order on a class or function-block member; duplicates, conflicts, and specifiers on local, global, program, or method-local sections reject, while omitted specifiers use the documented default."
+
+[[behavior]]
+partition = { equals = "FUNCTION_BLOCK_DIRECTIONAL_MEMBER_VISIBILITY" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_IEC_VARIABLES_001#42-function-block-directional-members"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Function-block inputs and outputs have their fixed external read and call-binding roles, while in-out, temporary, and external storage remain restricted to the documented body or call boundary and reject incompatible explicit visibility."
+
+[[behavior]]
+partition = { equals = "VALID_VISIBILITY_BOUNDARY_ACCESS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_VARIABLES_001#41-defaults-and-inheritance"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Private members are usable by their defining class, protected members by derived classes across namespaces, internal members by declarations in the same namespace, and public members by external programs."
 
 [[coverage.cells]]
 dimension = "happy_path"

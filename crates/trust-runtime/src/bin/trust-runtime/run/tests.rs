@@ -105,6 +105,19 @@ fn simulation_warning_omitted_in_production_mode() {
 }
 
 #[test]
+fn runtime_logger_threshold_uses_canonical_severity_order() {
+    let logger = super::RuntimeLogger::new(super::LogLevel::Warn);
+
+    assert!(logger.enabled(super::LogLevel::Error));
+    assert!(logger.enabled(super::LogLevel::Warn));
+    assert!(!logger.enabled(super::LogLevel::Info));
+    assert!(!logger.enabled(super::LogLevel::Debug));
+    assert!(!logger.enabled(super::LogLevel::Trace));
+    assert_eq!(super::LogLevel::parse(" WARNING "), super::LogLevel::Warn);
+    assert_eq!(super::LogLevel::Warn.as_str(), "warn");
+}
+
+#[test]
 fn execution_backend_selection_defaults_to_vm() {
     let (backend, source) =
         super::resolve_execution_backend_selection(None, None).expect("resolve backend");
@@ -372,6 +385,66 @@ fn bundle_version_is_rejected_before_runtime_policy_mutation() {
         .expect_err("unsupported bundle version must fail");
     assert!(error.to_string().contains("unsupported bundle version 2"));
     assert_eq!(runtime.watchdog_policy(), original_watchdog);
+}
+
+#[test]
+fn accepted_bundle_overrides_apply_runtime_policies_and_valid_bytecode() {
+    let session = CompileSession::from_sources(vec![SourceFile::with_path(
+        "src/main.st",
+        r#"
+VAR_GLOBAL
+    marker : INT := 7;
+END_VAR
+
+PROGRAM Main
+marker := marker + 1;
+END_PROGRAM
+"#,
+    )]);
+    let mut runtime = session.build_runtime().expect("build runtime");
+    let mut bundle =
+        bundle_with_backend(trust_runtime::execution_backend::ExecutionBackend::BytecodeVm);
+    bundle.bytecode = session.build_bytecode_bytes().expect("build bytecode");
+    bundle.runtime.watchdog = trust_runtime::watchdog::WatchdogPolicy {
+        enabled: true,
+        timeout: Duration::from_millis(250),
+        action: trust_runtime::watchdog::WatchdogAction::SafeHalt,
+    };
+    bundle.runtime.fault_policy = trust_runtime::watchdog::FaultPolicy::Restart;
+
+    super::apply_bundle_runtime_overrides(&mut runtime, &bundle)
+        .expect("accepted bundle must apply");
+
+    assert_eq!(runtime.watchdog_policy(), bundle.runtime.watchdog);
+    assert_eq!(runtime.fault_policy(), bundle.runtime.fault_policy);
+    runtime.execute_cycle().expect("execute applied bytecode");
+    assert_eq!(runtime.storage().get_global("marker"), Some(&Value::Int(8)));
+}
+
+#[test]
+fn ads_runtime_start_is_disabled_noop_and_missing_config_is_fail_closed() {
+    let mut runtime = trust_runtime::Runtime::new();
+    let mut bundle =
+        bundle_with_backend(trust_runtime::execution_backend::ExecutionBackend::BytecodeVm);
+    let mut factory_calls = 0;
+
+    super::start_ads_runtime_with_factory(&mut runtime, &bundle, |_connection| {
+        factory_calls += 1;
+        Ok(trust_runtime::ads::MockAdsTransport::new(Vec::new()))
+    })
+    .expect("disabled ADS startup must be a no-op");
+    assert_eq!(factory_calls, 0);
+
+    bundle.runtime.ads.enabled = true;
+    let error = super::start_ads_runtime_with_factory(&mut runtime, &bundle, |_connection| {
+        factory_calls += 1;
+        Ok(trust_runtime::ads::MockAdsTransport::new(Vec::new()))
+    })
+    .expect_err("enabled ADS without configuration must reject");
+    assert!(error
+        .to_string()
+        .contains("runtime.ads.enabled=true but no ADS client config was loaded"));
+    assert_eq!(factory_calls, 0);
 }
 
 #[test]
@@ -646,6 +719,34 @@ access = "read"
         .expect("shutdown OPC UA client worker");
 }
 
+#[cfg(feature = "opcua-wire")]
+#[test]
+fn opcua_runtime_start_is_disabled_noop_and_missing_config_is_fail_closed() {
+    let mut runtime = trust_runtime::Runtime::new();
+    let mut bundle =
+        bundle_with_backend(trust_runtime::execution_backend::ExecutionBackend::BytecodeVm);
+    let mut factory_calls = 0;
+
+    super::start_opcua_client_runtime_with_factory(&mut runtime, &bundle, |_connection| {
+        factory_calls += 1;
+        Ok(NoopOpcUaTransport)
+    })
+    .expect("disabled OPC UA client startup must be a no-op");
+    assert_eq!(factory_calls, 0);
+
+    bundle.runtime.opcua_client.enabled = true;
+    let error =
+        super::start_opcua_client_runtime_with_factory(&mut runtime, &bundle, |_connection| {
+            factory_calls += 1;
+            Ok(NoopOpcUaTransport)
+        })
+        .expect_err("enabled OPC UA client without configuration must reject");
+    assert!(error
+        .to_string()
+        .contains("runtime.opcua_client.enabled=true but no OPC UA client config was loaded"));
+    assert_eq!(factory_calls, 0);
+}
+
 #[test]
 fn project_runtime_load_includes_local_dependencies() {
     let root = unique_temp_dir("run-project-deps");
@@ -753,6 +854,40 @@ policy = "halt"
         "dependency source must be included in project run source registry"
     );
     let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn runtime_load_modes_compile_legacy_sources_and_ide_bootstrap() {
+    let legacy_root = unique_temp_dir("run-legacy-mode");
+    std::fs::create_dir_all(&legacy_root).expect("create legacy runtime root");
+    std::fs::write(legacy_root.join("main.st"), "PROGRAM Main\nEND_PROGRAM\n")
+        .expect("write legacy source");
+
+    let legacy = super::load_runtime(
+        None,
+        Some(legacy_root.join("legacy-runtime.toml")),
+        Some(legacy_root.clone()),
+    )
+    .expect("legacy runtime mode must compile discovered sources");
+    assert!(!legacy.ide_shell_mode);
+    assert!(legacy.bundle.is_none());
+    assert_eq!(legacy.sources.files().len(), 1);
+    assert!(legacy.sources.files()[0].path.ends_with("main.st"));
+
+    let ide_root = unique_temp_dir("run-ide-bootstrap");
+    std::fs::create_dir_all(&ide_root).expect("create IDE runtime root");
+    let ide = super::load_runtime(None, None, Some(ide_root.clone()))
+        .expect("IDE shell mode must compile its bootstrap program");
+    assert!(ide.ide_shell_mode);
+    assert!(ide.bundle.is_none());
+    assert_eq!(ide.sources.files().len(), 1);
+    assert!(ide.sources.files()[0]
+        .path
+        .ends_with("__ide_bootstrap__.st"));
+    assert_eq!(ide.sources.files()[0].text, "PROGRAM Main\nEND_PROGRAM\n");
+
+    let _ = std::fs::remove_dir_all(legacy_root);
+    let _ = std::fs::remove_dir_all(ide_root);
 }
 
 #[test]

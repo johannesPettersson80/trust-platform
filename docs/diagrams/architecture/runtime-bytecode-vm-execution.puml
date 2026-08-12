@@ -81,6 +81,7 @@ end note
 package "Hot Runtime Bridges" as bridgePkg #Lavender {
     component "call.rs\nCALL_NATIVE dispatch +\nargument binding + output copy-back" as callBridge
     component "dispatch_refs.rs\nref / deref / dynamic field-index bridge" as refBridge
+    component "reference_attempt.rs\n?= live type/interface compatibility" as attemptBridge
     component "frames.rs + stack.rs\nframe stack + operand stacks\n(pooled execution buffers)" as vmStacks
     component "VariableStorage\n(memory.rs)" as storage
 
@@ -88,10 +89,13 @@ package "Hot Runtime Bridges" as bridgePkg #Lavender {
     stackExec --> callBridge : CALL_NATIVE
     regExec --> refBridge : LoadRef / StoreRef / RefField / RefIndex / LoadDynamic
     stackExec --> refBridge : ref opcodes
+    stackExec --> attemptBridge : REFERENCE_ATTEMPT 0x64
     vmEntry --> vmStacks
     callBridge --> vmStacks : recursive VM calls
     callBridge --> storage : direct field bind / instance reads-writes
     refBridge --> storage : ValueRef-based reads-writes
+    attemptBridge --> refBridge : live ValueRef type
+    attemptBridge --> storage : live instance type
 }
 
 note bottom of callBridge

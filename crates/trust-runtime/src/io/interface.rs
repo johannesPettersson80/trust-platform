@@ -188,6 +188,7 @@ impl IoInterface {
     }
 
     pub fn read_inputs(&self, storage: &mut VariableStorage) -> Result<(), RuntimeError> {
+        let mut staged = storage.clone();
         for binding in &self.bindings {
             if !matches!(binding.address.area, IoArea::Input | IoArea::Memory) {
                 continue;
@@ -199,14 +200,15 @@ impl IoInterface {
                 value
             };
             match &binding.target {
-                IoTarget::Name(name) => storage.set_global(name.clone(), value),
+                IoTarget::Name(name) => staged.set_global(name.clone(), value),
                 IoTarget::Reference(reference) => {
-                    if !storage.write_by_ref(reference.clone(), value) {
+                    if !staged.write_by_ref(reference.clone(), value) {
                         return Err(RuntimeError::NullReference);
                     }
                 }
             }
         }
+        *storage = staged;
         Ok(())
     }
 
@@ -250,11 +252,7 @@ impl IoInterface {
     }
 
     pub fn read(&self, address: &IoAddress) -> Result<Value, RuntimeError> {
-        if address.wildcard {
-            return Err(RuntimeError::InvalidIoAddress(
-                format!("%?* for {:?}", address.area).into(),
-            ));
-        }
+        validate_process_image_address(address)?;
         if address.path.len() > 1 {
             let key = IoAddressKey::from(address);
             return self.hierarchical.get(&key).cloned().ok_or_else(|| {
@@ -312,11 +310,7 @@ impl IoInterface {
     }
 
     pub fn write(&mut self, address: &IoAddress, value: Value) -> Result<(), RuntimeError> {
-        if address.wildcard {
-            return Err(RuntimeError::InvalidIoAddress(
-                format!("%?* for {:?}", address.area).into(),
-            ));
-        }
+        validate_process_image_address(address)?;
         if address.path.len() > 1 {
             let key = IoAddressKey::from(address);
             self.hierarchical.insert(key, value);
@@ -444,7 +438,12 @@ fn ensure_len(buffer: &mut Vec<u8>, index: usize) -> Result<(), RuntimeError> {
 }
 
 pub fn validate_process_image_address(address: &IoAddress) -> Result<(), RuntimeError> {
-    if address.wildcard || address.path.len() > 1 {
+    if address.wildcard {
+        return Err(RuntimeError::InvalidIoAddress(
+            "wildcard process image address is not concrete".into(),
+        ));
+    }
+    if address.path.len() > 1 {
         return Ok(());
     }
     let byte = address.byte as usize;
@@ -453,7 +452,14 @@ pub fn validate_process_image_address(address: &IoAddress) -> Result<(), Runtime
         IoSize::Word => 1,
         IoSize::DWord => 3,
         IoSize::LWord => 7,
-        IoSize::Bytes(len) => len.saturating_sub(1) as usize,
+        IoSize::Bytes(0) => {
+            return Err(RuntimeError::InvalidIoAddress(
+                "zero-length process image byte window".into(),
+            ));
+        }
+        IoSize::Bytes(len) => usize::try_from(len - 1).map_err(|_| {
+            RuntimeError::InvalidIoAddress("process image byte window is too large".into())
+        })?,
     };
     let last_byte = byte.checked_add(extra).ok_or_else(|| {
         RuntimeError::InvalidIoAddress("process image address overflow".into())
@@ -480,6 +486,10 @@ fn process_image_area_limit_error(area: &str) -> Result<(), RuntimeError> {
         .into(),
     ))
 }
+
+#[cfg(test)]
+#[path = "interface_contract_tests.rs"]
+mod interface_contract_tests;
 
 #[cfg(test)]
 mod tests {

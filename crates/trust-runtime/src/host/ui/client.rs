@@ -108,7 +108,7 @@ pub(super) fn load_console_config(root: &Path) -> ConsoleConfig {
         Ok(text) => text,
         Err(_) => return ConsoleConfig::default(),
     };
-    let value: toml::Value = match text.parse() {
+    let value: toml::Value = match toml::from_str(&text) {
         Ok(value) => value,
         Err(_) => return ConsoleConfig::default(),
     };
@@ -124,11 +124,13 @@ pub(super) fn load_console_config(root: &Path) -> ConsoleConfig {
                 .filter_map(|entry| entry.as_str())
                 .filter_map(PanelKind::parse)
                 .collect::<Vec<_>>()
-        });
+        })
+        .filter(|layout| !layout.is_empty());
     let refresh_ms = console
         .get("refresh_ms")
         .and_then(|value| value.as_integer())
-        .and_then(|value| u64::try_from(value).ok());
+        .and_then(|value| u64::try_from(value).ok())
+        .filter(|value| *value > 0);
     ConsoleConfig { layout, refresh_ms }
 }
 

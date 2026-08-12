@@ -29,9 +29,12 @@ pub fn io_source_label_for_driver_address(
     driver: &crate::config::IoDriverConfig,
     address: &IoAddress,
 ) -> Option<SmolStr> {
+    if matches!(address.area, IoArea::Memory) {
+        return Some(SmolStr::new("Internal memory"));
+    }
     let name = driver.name.trim().to_ascii_lowercase();
     match name.as_str() {
-        "simulated" => Some(SmolStr::new("Simulated I/O")),
+        "simulated" | "sim" | "noop" => Some(SmolStr::new("Simulated I/O")),
         "loopback" => Some(SmolStr::new("Loopback I/O")),
         "modbus-tcp" | "modbus_tcp" => {
             let endpoint = driver_param_str(&driver.params, "address").unwrap_or("configured endpoint");
@@ -51,7 +54,7 @@ pub fn io_source_label_for_driver_address(
                 "Modbus {endpoint} · {direction} {register}"
             )))
         }
-        "mqtt" => {
+        "mqtt" | "mqtt-tcp" => {
             let topic = match address.area {
                 IoArea::Input => driver_param_str(&driver.params, "topic_in").unwrap_or("trust/io/in"),
                 IoArea::Output => {
@@ -61,7 +64,7 @@ pub fn io_source_label_for_driver_address(
             };
             Some(SmolStr::new(format!("MQTT topic {topic}")))
         }
-        "ethercat" => Some(SmolStr::new("EtherCAT process image")),
+        "ethercat" | "ether-cat" | "ecat" => Some(SmolStr::new("EtherCAT process image")),
         "gpio" => Some(SmolStr::new(format!(
             "GPIO line {}",
             address.byte.saturating_mul(8) + u32::from(address.bit)

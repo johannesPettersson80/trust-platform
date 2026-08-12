@@ -4,6 +4,8 @@ fn lower_function_var_blocks(
     node: &SyntaxNode,
     ctx: &mut LoweringContext<'_>,
 ) -> Result<FunctionVarBlocks, CompileError> {
+    validate_special_var_sections(node, "FUNCTION or METHOD", false)?;
+    resolve_pou_local_constants(node, ctx)?;
     let mut params = Vec::new();
     let mut locals = Vec::new();
     let mut statics = Vec::new();
@@ -12,12 +14,14 @@ fn lower_function_var_blocks(
         .filter(|child| child.kind() == SyntaxKind::VarBlock)
     {
         let kind = var_block_kind(&var_block)?;
-        let qualifiers = var_block_qualifiers(&var_block);
+        let qualifiers = var_block_qualifiers(&var_block)?;
+        validate_retention_policy("function or method", kind, qualifiers, &[VarBlockKind::Stat])?;
         for var_decl in var_block
             .children()
             .filter(|child| child.kind() == SyntaxKind::VarDecl)
         {
             let parts = parse_var_decl(&var_decl)?;
+            reject_borrowed_storage_initializer(kind, &parts)?;
             let type_id = lower_type_ref(&parts.type_ref, ctx)?;
             let init_expr = parts
                 .initializer
@@ -73,7 +77,7 @@ fn lower_function_var_blocks(
                             type_id,
                             direction: ParamDirection::Out,
                             address: address_info.clone(),
-                            default: None,
+                            default: init_expr.clone(),
                         });
                     }
                 }
@@ -97,6 +101,7 @@ fn lower_function_var_blocks(
                             retain: qualifiers.retain,
                             static_storage: false,
                             external: false,
+                            in_out: false,
                             constant: qualifiers.constant,
                             address: address_info.clone(),
                         });
@@ -111,6 +116,7 @@ fn lower_function_var_blocks(
                             retain: qualifiers.retain,
                             static_storage: true,
                             external: false,
+                            in_out: false,
                             constant: qualifiers.constant,
                             address: address_info.clone(),
                         });

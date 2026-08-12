@@ -1,0 +1,149 @@
+schema_version = 1
+id = "RT_HOST_SECURITY_PAIRING_TLS_002"
+title = "Host role, pairing, credential persistence, and TLS loading fail closed"
+area = "control_security"
+risk = "security"
+status = "specified"
+owner = "trust-runtime"
+last_reviewed = "2026-08-01"
+claim = "Access roles, pairing codes and tokens, persisted credential state, secret comparison, TLS path loading, and TLS configuration preserve their closed authority and durability contracts without exposing or reviving invalid credentials."
+proof_level = "S0"
+contract_kind = "security_policy"
+source_refs = ["docs/specs/11-runtime-engine.md", "crates/trust-runtime/src/host/security"]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["catalog_mapping", "focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#696-control-credentials-pairing-and-tls-materials"
+
+[[behavior]]
+partition = { equals = "CLOSED_ROLE_PARSE_DISPLAY_AND_ORDER" }
+case_family = "encoding_or_unicode"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#696-control-credentials-pairing-and-tls-materials"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Trimmed case-insensitive role input maps only to viewer/operator/engineer/admin, whose lowercase wire display and inclusion order are stable."
+[[behavior]]
+partition = { equals = "FULL_LENGTH_SECRET_COMPARISON" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#696-control-credentials-pairing-and-tls-materials"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Secret equality requires equal length and bytes and examines the complete expected length."
+[[behavior]]
+partition = { equals = "SIX_DIGIT_PENDING_CODE_LIFECYCLE" }
+case_family = "time_or_clock_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#696-control-credentials-pairing-and-tls-materials"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "One six-digit pending code is replaced on restart, valid through exact expiry, retained after wrong input, and consumed after expiry or success."
+[[behavior]]
+partition = { equals = "PAIRING_ROLE_CAP_AND_RANDOM_TOKEN" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#696-control-credentials-pairing-and-tls-materials"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Default role is Operator, Admin requests reduce to Engineer, and success returns one unique URL-safe unpadded 32-byte random token."
+[[behavior]]
+partition = { equals = "ENABLED_TOKEN_LIMIT_AND_EXPIRY" }
+case_family = "resource_limit"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#696-control-credentials-pairing-and-tls-materials"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "At most 256 enabled tokens exist, expired/disabled tokens never validate, and exact expiry boundaries are stable."
+[[behavior]]
+partition = { equals = "SECRET_FREE_LIST_AND_EXACT_REVOCATION" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#696-control-credentials-pairing-and-tls-materials"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Listing preserves storage order with only a bounded suffix marker; exact and revoke-all operations disable only intended tokens idempotently."
+[[behavior]]
+partition = { equals = "CREDENTIAL_FILE_LOAD_PRUNE_AND_DURABILITY" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#696-control-credentials-pairing-and-tls-materials"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Absent files load empty, malformed files grant no authority, legacy expiry is derived safely, expired rows prune, and success follows durable 0600 replacement."
+[[behavior]]
+partition = { equals = "TLS_DISABLED_INERT" }
+case_family = "missing_required"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#696-control-credentials-pairing-and-tls-materials"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Disabled TLS reads no paths or files and needs no project root."
+[[behavior]]
+partition = { equals = "TLS_ENABLED_PATH_AND_FILE_OWNERSHIP" }
+case_family = "platform_or_filesystem_variation"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#696-control-credentials-pairing-and-tls-materials"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Enabled TLS requires certificate/key paths, resolves relative paths from project root, preserves absolute paths, and identifies the owned failing material."
+[[behavior]]
+partition = { equals = "TLS_SERVER_CLIENT_MATERIAL_VALIDATION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#696-control-credentials-pairing-and-tls-materials"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Server/client construction rejects malformed, empty, mismatched, or absent certificate, key, or CA material without insecure fallback."
+[[behavior]]
+partition = { equals = "RUSTLS_PROVIDER_INSTALLATION_REPEATABLE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#696-control-credentials-pairing-and-tls-materials"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Process-wide rustls provider installation is repeatable, and an installation failure remains a visible control error rather than enabling insecure fallback."
+
+[[coverage.cells]]
+dimension = "encoding_or_unicode"
+state = "gap_open"
+rationale = "Focused role vocabulary tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "auth_or_permission"
+state = "gap_open"
+rationale = "Focused secret and pairing-role tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "time_or_clock_fault"
+state = "gap_open"
+rationale = "Focused code/token expiry tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "resource_limit"
+state = "gap_open"
+rationale = "Focused enabled-token cap tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "Focused list/revoke tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "persistence_or_recovery"
+state = "gap_open"
+rationale = "Focused credential-file tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "missing_required"
+state = "gap_open"
+rationale = "Focused disabled-TLS tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "platform_or_filesystem_variation"
+state = "gap_open"
+rationale = "Focused TLS path tests exist, but cross-platform proof is pending."
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Focused TLS material tests exist, but catalog binding and dynamic proof are pending."

@@ -146,6 +146,7 @@ pub(super) struct HmiScaffoldResetParams {
 }
 
 #[derive(Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub(super) struct HistorianQueryParams {
     pub(super) variable: Option<String>,
     pub(super) since_ms: Option<u128>,
@@ -153,17 +154,20 @@ pub(super) struct HistorianQueryParams {
 }
 
 #[derive(Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub(super) struct HistorianAlertsParams {
     pub(super) limit: Option<usize>,
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub(super) struct IoWriteParams {
     pub(super) address: String,
     pub(super) value: String,
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub(super) struct IoAddressParams {
     pub(super) address: String,
 }
@@ -179,11 +183,13 @@ pub(super) struct BytecodeReloadParams {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub(super) struct EvalParams {
     pub(super) expr: String,
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub(super) struct SetParams {
     pub(super) target: String,
     pub(super) value: String,
@@ -196,12 +202,14 @@ pub(super) enum VarTarget {
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 pub(super) struct VarForceParams {
     pub(super) target: String,
     pub(super) value: String,
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 pub(super) struct VarTargetParams {
     pub(super) target: String,
 }

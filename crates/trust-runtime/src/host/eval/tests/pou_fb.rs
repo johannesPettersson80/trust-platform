@@ -20,6 +20,7 @@ fn fb_stateful() {
     let fb = FunctionBlockDef {
         name: "Counter".into(),
         base: None,
+        interfaces: Vec::new(),
         params: vec![],
         vars: vec![VarDef {
             name: "count".into(),
@@ -28,6 +29,7 @@ fn fb_stateful() {
             retain: trust_runtime::RetainPolicy::Unspecified,
             external: false,
             static_storage: false,
+            in_out: false,
             constant: false,
             address: None,
         }],
@@ -78,6 +80,7 @@ fn fb_omitted_var_input_reuses_stored_value_after_explicit_update() {
     let fb = FunctionBlockDef {
         name: "Adjust".into(),
         base: None,
+        interfaces: Vec::new(),
         params: vec![
             Param {
                 name: "base".into(),
@@ -101,6 +104,7 @@ fn fb_omitted_var_input_reuses_stored_value_after_explicit_update() {
             retain: trust_runtime::RetainPolicy::Unspecified,
             external: false,
             static_storage: false,
+            in_out: false,
             constant: false,
             address: None,
         }],
@@ -208,6 +212,7 @@ fn var_input_pointer_deref_write_mutates_callers_storage() {
     let fb = FunctionBlockDef {
         name: "WriteThrough".into(),
         base: None,
+        interfaces: Vec::new(),
         params: vec![Param {
             name: "PT".into(),
             type_id: pointer_type,
@@ -266,12 +271,7 @@ fn var_input_pointer_deref_write_mutates_callers_storage() {
     };
     assert_eq!(
         local.elements(),
-        &[
-            Value::Int(0),
-            Value::Int(123),
-            Value::Int(0),
-            Value::Int(0)
-        ]
+        &[Value::Int(0), Value::Int(123), Value::Int(0), Value::Int(0)]
     );
 }
 
@@ -319,6 +319,7 @@ fn wildcard_array_var_in_out_writes_through_correctly() {
     let fb = FunctionBlockDef {
         name: "WriteWild".into(),
         base: None,
+        interfaces: Vec::new(),
         params: vec![Param {
             name: "arr".into(),
             type_id: wildcard_array,
@@ -438,6 +439,7 @@ fn pointer_to_wildcard_array_writes_through_correctly() {
     let fb = FunctionBlockDef {
         name: "WritePointerWild".into(),
         base: None,
+        interfaces: Vec::new(),
         params: vec![Param {
             name: "PT".into(),
             type_id: pointer_type,

@@ -35,6 +35,9 @@ fn type_expr_array_to_xml(type_expr: &str) -> Option<String> {
     let mut xml = String::from("<array>\n");
     for dimension in dims_text.split(',') {
         let (lower, upper) = dimension.split_once("..")?;
+        if lower.trim().is_empty() || upper.trim().is_empty() {
+            return None;
+        }
         xml.push_str(&format!(
             "  <dimension lower=\"{}\" upper=\"{}\"/>\n",
             escape_xml_attr(lower.trim()),
@@ -56,7 +59,12 @@ fn type_expr_struct_to_xml(type_expr: &str) -> Option<String> {
     let upper = type_expr.to_ascii_uppercase();
     let end_index = upper.rfind("END_STRUCT")?;
     let body = type_expr.get("STRUCT".len()..end_index)?.trim();
+    if body.is_empty() {
+        return None;
+    }
     let mut xml = String::from("<struct>\n");
+    let mut seen_names = HashSet::new();
+    let mut field_count = 0usize;
 
     for raw_line in body.lines() {
         let line = raw_line.trim();
@@ -66,14 +74,17 @@ fn type_expr_struct_to_xml(type_expr: &str) -> Option<String> {
         let line = line.trim_end_matches(';').trim();
         let (name, rhs) = line.split_once(':')?;
         let field_name = name.trim();
-        if field_name.is_empty() {
-            continue;
+        if !is_valid_st_identifier(field_name)
+            || !seen_names.insert(field_name.to_ascii_lowercase())
+        {
+            return None;
         }
         let (field_type, field_init) = match rhs.split_once(":=") {
             Some((type_part, init_part)) => (type_part.trim(), Some(init_part.trim())),
             None => (rhs.trim(), None),
         };
         let field_xml = type_expression_to_plcopen_base_type_xml(field_type)?;
+        field_count += 1;
 
         xml.push_str(&format!(
             "  <variable name=\"{}\">\n",
@@ -97,6 +108,10 @@ fn type_expr_struct_to_xml(type_expr: &str) -> Option<String> {
         xml.push_str("  </variable>\n");
     }
 
+    if field_count == 0 {
+        return None;
+    }
+
     xml.push_str("</struct>");
     Some(xml)
 }
@@ -112,23 +127,42 @@ fn type_expr_enum_to_xml(type_expr: &str) -> Option<String> {
     }
 
     let mut xml = String::from("<enum>\n  <values>\n");
+    let mut seen_names = HashSet::new();
+    let mut value_count = 0usize;
     for item in inner.split(',') {
         let value = item.trim();
         if value.is_empty() {
-            continue;
+            return None;
         }
         if let Some((name, raw)) = value.split_once(":=") {
+            let name = name.trim();
+            let raw = raw.trim();
+            if !is_valid_st_identifier(name)
+                || raw.is_empty()
+                || !seen_names.insert(name.to_ascii_lowercase())
+            {
+                return None;
+            }
             xml.push_str(&format!(
                 "    <value name=\"{}\" value=\"{}\"/>\n",
-                escape_xml_attr(name.trim()),
-                escape_xml_attr(raw.trim())
+                escape_xml_attr(name),
+                escape_xml_attr(raw)
             ));
         } else {
+            if !is_valid_st_identifier(value)
+                || !seen_names.insert(value.to_ascii_lowercase())
+            {
+                return None;
+            }
             xml.push_str(&format!(
                 "    <value name=\"{}\"/>\n",
                 escape_xml_attr(value)
             ));
         }
+        value_count += 1;
+    }
+    if value_count == 0 {
+        return None;
     }
     xml.push_str("  </values>\n</enum>");
     Some(xml)
@@ -143,6 +177,9 @@ fn type_expr_subrange_to_xml(type_expr: &str) -> Option<String> {
     let base_expr = type_expr[..open].trim();
     let range = type_expr[open + 1..close].trim();
     let (lower, upper) = range.split_once("..")?;
+    if lower.trim().is_empty() || upper.trim().is_empty() {
+        return None;
+    }
     let base_xml = type_expression_to_plcopen_base_type_xml(base_expr)?;
 
     let mut xml = String::from(&format!(
@@ -166,10 +203,16 @@ fn type_expr_simple_to_xml(type_expr: &str) -> Option<String> {
     let upper = trimmed.to_ascii_uppercase();
     if upper.starts_with("STRING[") && upper.ends_with(']') {
         let length = trimmed[7..trimmed.len() - 1].trim();
+        if !is_valid_string_length(length) {
+            return None;
+        }
         return Some(format!("<string length=\"{}\"/>", escape_xml_attr(length)));
     }
     if upper.starts_with("WSTRING[") && upper.ends_with(']') {
         let length = trimmed[8..trimmed.len() - 1].trim();
+        if !is_valid_string_length(length) {
+            return None;
+        }
         return Some(format!("<wstring length=\"{}\"/>", escape_xml_attr(length)));
     }
     if upper == "STRING" {
@@ -183,12 +226,8 @@ fn type_expr_simple_to_xml(type_expr: &str) -> Option<String> {
         return Some(format!("<{} />", upper.to_ascii_lowercase()));
     }
 
-    if trimmed
-        .chars()
-        .all(|ch| ch.is_ascii_alphanumeric() || ch == '_' || ch == '.')
-    {
+    if is_valid_qualified_identifier(trimmed) {
         return Some(format!("<derived name=\"{}\"/>", escape_xml_attr(trimmed)));
     }
     None
 }
-

@@ -85,7 +85,7 @@ AT
 
 #### Type Declarations
 ```
-TYPE, END_TYPE, STRUCT, END_STRUCT, ARRAY, OF
+TYPE, END_TYPE, STRUCT, END_STRUCT, OVERLAP, ARRAY, OF
 ```
 
 #### Program Organization Units
@@ -202,6 +202,11 @@ White space characters (space, tab, newline, etc.) may be inserted anywhere exce
 - Within directly represented variables
 - Within delimiter combinations (e.g., `:=`, `(*`)
 
+For the lossless truST token stream, each maximal run of space, horizontal tab,
+carriage return, line feed, or form feed is emitted as `Whitespace`. These five
+characters are parser trivia but remain part of the exact source partition and
+therefore retain their original byte ranges.
+
 ## 5. Comments (Table 3, Section 6.1.5)
 
 | No. | Type | Syntax | Example |
@@ -220,6 +225,14 @@ White space characters (space, tab, newline, etc.) may be inserted anywhere exce
 4. Comments are permitted anywhere spaces are allowed, except within string literals
 5. Comments have no syntactic or semantic significance - treated as white space
 6. Nested comments must use matching pairs
+
+The truST lexer closes `//` immediately before the first carriage return, line
+feed, or form feed; the terminator is emitted separately as `Whitespace`.
+Pascal-style `(* ... *)` comments nest only on another `(*` and close only on
+the matching `*)`. C-style `/* ... */` comments likewise nest only on `/*` and
+close only on `*/`. Delimiters from the other block-comment family are ordinary
+comment text and cannot change nesting depth. Comment markers inside a narrow
+or wide string remain string content and never begin a comment.
 
 ## 6. Pragmas (Table 4, Section 6.2)
 
@@ -294,6 +307,71 @@ and `42`.
 IEC 61131-3 defines the external source forms but does not define truST's
 internal byte-range or borrowed-source-slice API. These source-boundary rules
 are therefore truST product contracts, not IEC decisions or deviations.
+
+### Lexical rejection and value-validation boundary
+
+The lexer fails closed for a contiguous candidate that uses the spelling of an
+identifier or literal but violates the corresponding rules below:
+
+- an identifier containing multiple leading or embedded underscores, or a
+  trailing underscore, emits an `Error` spanning the complete candidate rather
+  than a valid `Ident` prefix plus residual tokens;
+- a numeric candidate with a leading, trailing, or repeated separator, a digit
+  outside its declared base, an exponent without digits, or a sign embedded in
+  a based number emits an `Error` and no valid numeric token for a fragment of
+  that candidate;
+- a duration candidate containing an exponent, or a fractional unit followed
+  by another less-significant unit, emits an `Error` rather than a valid
+  duration prefix;
+- a date, time-of-day, or date-and-time candidate whose external field widths
+  do not match section 11 emits an `Error`; a shape-valid candidate with an
+  invalid calendar or clock value retains its temporal token for later value
+  validation;
+- a narrow string accepts only the narrow quote escape and exactly two
+  hexadecimal digits, while a wide string accepts only the wide quote escape
+  and exactly four hexadecimal digits; a wrong-family, short, unknown, or
+  unterminated escape emits `Error` and no string token; and
+- an unterminated block comment or pragma emits `Error` through the available
+  candidate text.
+
+This fail-closed token boundary is a truST diagnostic and tooling contract.
+IEC 61131-3 Ed.3 sections 6.1.2 and 6.3.2 define the invalid spellings but do
+not prescribe recovery-token boundaries.
+
+Lexing recognizes the complete external *shape* of duration, date,
+time-of-day, and date-and-time literals. Compilation then validates their
+value:
+
+- a date uses the proleptic Gregorian calendar, including century leap-year
+  rules;
+- time of day is within `00:00:00` through the last representable fraction
+  before `24:00:00`;
+- each date-and-time component satisfies both rules; and
+- duration composition is accumulated in source order, allows overflow of the
+  most significant written unit, permits a fraction only on the least
+  significant written unit, and must fit the destination TIME/LTIME
+  representation.
+
+A shape-valid but value-invalid date/time token therefore remains a date/time
+token and produces a compile-time value diagnostic; it is not retokenized as
+identifiers and punctuation. A typed-literal prefix is likewise lexed
+separately from its payload, while parsing and semantic analysis require a
+supported elementary type and a compatible, in-range payload. These staged
+validation rules preserve one source identity across lexer, parser, semantic
+analysis, and runtime lowering.
+
+### Parser handoff boundary
+
+The parser consumes valid lexical tokens without reconstructing their source
+spelling. Comments, pragmas, and whitespace remain lossless trivia and may
+appear wherever the grammar permits whitespace. An `Error` token produced by
+the fail-closed candidate rules above cannot be reinterpreted as a valid
+identifier, literal, comment, pragma, or collection of valid token prefixes;
+it causes a visible parse failure at the bounded containing construct. A
+shape-valid temporal token remains syntactically accepted even when later
+value validation rejects its calendar or clock fields. This handoff keeps
+lexical shape, parser structure, and semantic value validation as distinct
+proof boundaries.
 
 ## 7. Numeric Literals (Table 5, Section 6.3.2)
 

@@ -412,10 +412,11 @@ fn current_dt(now: SystemTime) -> Result<DateTimeValue, RuntimeError> {
     let profile = DateTimeProfile::default();
     let resolution =
         u128::try_from(profile.resolution.as_nanos()).map_err(|_| RuntimeError::Overflow)?;
-    let ticks = elapsed
-        .as_nanos()
-        .checked_div(resolution)
-        .and_then(|ticks| i64::try_from(ticks).ok())
+    if resolution == 0 {
+        return Err(RuntimeError::Overflow);
+    }
+    let ticks = i64::try_from(elapsed.as_nanos() / resolution)
+        .ok()
         .and_then(|ticks| ticks.checked_add(profile.epoch.ticks()))
         .ok_or(RuntimeError::Overflow)?;
     Ok(DateTimeValue::new(ticks))
@@ -519,8 +520,8 @@ fn civil_from_days(days: i64) -> (i64, i64, i64) {
 #[cfg(test)]
 mod tests {
     use super::{
-        current_dt, runtime_clock_value, runtime_clock_value_at, DateTimeValue, Duration,
-        RuntimeError, SystemTime, Value, UNIX_EPOCH,
+        current_dt, is_runtime_clock_name, runtime_clock_value, runtime_clock_value_at,
+        DateTimeValue, Duration, RuntimeError, SystemTime, Value, UNIX_EPOCH,
     };
     use std::time::Duration as StdDuration;
 
@@ -597,5 +598,28 @@ mod tests {
             runtime_clock_value_at("TIME", Duration::from_millis(42), later_host_time,),
             Ok(Value::Time(Duration::from_millis(42)))
         );
+    }
+
+    #[test]
+    fn runtime_clock_value_preserves_time_and_rejects_unknown_name() {
+        let elapsed = Duration::from_nanos(-123);
+
+        assert_eq!(
+            runtime_clock_value("TIME", elapsed),
+            Ok(Value::Time(elapsed))
+        );
+        assert_eq!(
+            runtime_clock_value("NOT_A_CLOCK", elapsed),
+            Err(RuntimeError::UndefinedFunction("NOT_A_CLOCK".into()))
+        );
+    }
+
+    #[test]
+    fn is_runtime_clock_name_recognizes_only_canonical_names() {
+        assert!(is_runtime_clock_name("TIME"));
+        assert!(is_runtime_clock_name("CURRENT_DT"));
+        assert!(!is_runtime_clock_name("time"));
+        assert!(!is_runtime_clock_name("current_dt"));
+        assert!(!is_runtime_clock_name("NOT_A_CLOCK"));
     }
 }

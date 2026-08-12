@@ -134,7 +134,6 @@ impl<'a> BytecodeEncoder<'a> {
             debug_entries.truncate(debug_start);
             return Ok(false);
         }
-        self.emit_store_access(&control_access, code)?;
         if !self.emit_expr(ctx, end, code)? {
             code.truncate(code_start);
             debug_entries.truncate(debug_start);
@@ -154,6 +153,7 @@ impl<'a> BytecodeEncoder<'a> {
         code.push(0x01);
         let after_fault = code.len();
         self.patch_jump(code, jump_step_ok, after_fault)?;
+        self.emit_store_access(&control_access, code)?;
 
         let loop_start = code.len();
         self.emit_for_step_with_derived_zero(&step_ref, code)?;

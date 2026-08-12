@@ -118,7 +118,7 @@ pub(super) fn signed_int_from_i128(value: i128, dst: TypeId) -> Result<Value, Ru
             .map(Value::LInt)
             .map_err(|_| RuntimeError::Overflow),
         TypeId::USINT | TypeId::UINT | TypeId::UDINT | TypeId::ULINT => {
-            if value < 0 {
+            if value < 0 || value > i128::from(u64::MAX) {
                 return Err(RuntimeError::Overflow);
             }
             unsigned_int_from_u64(value as u64, dst)

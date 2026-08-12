@@ -77,6 +77,7 @@ mod tests {
         assert_eq!(super::opcode_operand_len(0x09), Some(12));
         assert_eq!(super::opcode_operand_len(0x62), Some(4));
         assert_eq!(super::opcode_operand_len(0x63), Some(4));
+        assert_eq!(super::opcode_operand_len(0x64), Some(4));
         assert_eq!(super::opcode_operand_len(0x16), Some(1));
         assert_eq!(super::opcode_operand_len(0xFF), None);
 

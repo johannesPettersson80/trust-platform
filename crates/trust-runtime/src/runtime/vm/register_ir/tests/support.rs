@@ -79,6 +79,8 @@ fn manual_vm_module(code: Vec<u8>, consts: Vec<Value>, ref_count: usize) -> (VmM
             function_ids: HashMap::new(),
             function_block_ids: HashMap::new(),
             class_ids: HashMap::new(),
+            parent_pou_ids: HashMap::new(),
+            interface_type_ids_by_pou: HashMap::new(),
             native_symbol_specs: Vec::new(),
             pou_params: HashMap::new(),
             pou_has_return_slot: HashSet::new(),

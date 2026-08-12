@@ -810,6 +810,11 @@ class ReviewFixture:
             (self.invariants_root / f"{invariant_id}.toml").write_text(
                 f'schema_version = 1\nid = "{invariant_id}"\n'
                 'area = "verification"\ntests = []\n'
+                'missing = ["cataloged_behavior_tests"]\n'
+                '[[behavior]]\ncase_family = "happy_path"\n'
+                '[[coverage.cells]]\ndimension = "happy_path"\n'
+                'state = "gap_open"\n'
+                'rationale = "Awaiting catalog acceptance."\n'
             )
         self.selection = self.artifacts / "selection.json"
         self.selection.write_text(

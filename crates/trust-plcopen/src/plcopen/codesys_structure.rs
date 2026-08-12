@@ -130,6 +130,7 @@ struct PouInterfaceMetadata {
     function_return_type: Option<String>,
     header_hint: Option<String>,
     sections: Vec<InterfaceVarSection>,
+    invalid: bool,
 }
 
 impl PouInterfaceMetadata {

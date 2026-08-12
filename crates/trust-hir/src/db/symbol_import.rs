@@ -471,7 +471,12 @@ impl<'a> SymbolImporter<'a> {
             }
             Type::Enum { name, base, values } => {
                 let base = self.import_type(source_file, base);
-                self.target.register_enum_type(name.clone(), base, values)
+                if source.is_named_value_type(type_id) {
+                    self.target
+                        .register_named_value_type(name.clone(), base, values)
+                } else {
+                    self.target.register_enum_type(name.clone(), base, values)
+                }
             }
             Type::Pointer { target } => {
                 let target = self.import_type(source_file, target);
@@ -524,6 +529,9 @@ impl<'a> SymbolImporter<'a> {
                 self.target
                     .set_type_default_initializer(mapped, target_initializer);
             }
+        }
+        if source.is_overlapping_struct_type(type_id) {
+            self.target.register_overlapping_struct_type(mapped);
         }
 
         self.type_map.insert((source_file, type_id), mapped);

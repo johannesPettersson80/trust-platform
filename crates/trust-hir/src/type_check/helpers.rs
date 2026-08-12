@@ -28,7 +28,7 @@ impl<'a> TypeChecker<'a> {
         if !is_untyped_int_literal_expr(expr) {
             return false;
         }
-        let expected = self.resolve_alias_type(expected);
+        let expected = self.resolve_subrange_base(expected);
         let Some(ty) = self.symbols.type_by_id(expected) else {
             return false;
         };
@@ -72,6 +72,20 @@ impl<'a> TypeChecker<'a> {
             Type::LReal => integer_is_exact_in_binary_float(value, 53),
             _ => false,
         }
+    }
+
+    pub(super) fn is_contextual_char_literal(&self, expected: TypeId, expr: &SyntaxNode) -> bool {
+        let Some(literal) = string_literal_info(expr) else {
+            return false;
+        };
+        if literal.len != 1 {
+            return false;
+        }
+        let expected = self.resolve_alias_type(expected);
+        matches!(
+            (self.symbols.type_by_id(expected), literal.is_wide),
+            (Some(Type::Char), false) | (Some(Type::WChar), true)
+        )
     }
 
     pub(super) fn warn_implicit_conversion(

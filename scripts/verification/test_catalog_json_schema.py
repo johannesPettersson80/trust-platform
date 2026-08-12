@@ -58,6 +58,16 @@ def validate_node(
             for key in required:
                 if key not in instance:
                     failures.append(f"{path}: missing required property {key}")
+        dependent_required = schema.get("dependentRequired", {})
+        if isinstance(dependent_required, dict):
+            for key, dependencies in dependent_required.items():
+                if key not in instance or not isinstance(dependencies, list):
+                    continue
+                for dependency in dependencies:
+                    if dependency not in instance:
+                        failures.append(
+                            f"{path}: property {key} requires property {dependency}"
+                        )
         properties = schema.get("properties", {})
         if not isinstance(properties, dict):
             properties = {}

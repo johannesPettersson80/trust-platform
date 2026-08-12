@@ -30,15 +30,20 @@ from .coverage_trace_inputs import (
 )
 from .coverage_trace_resolver import (
     mechanical_resolved_rust_command,
-    mechanical_rust_target,
     resolve_rust_tests,
 )
 from .coverage_trace_resume import reusable_completed_attempt_ids
+from .coverage_trace_shards import (
+    MAX_TARGETS_PER_NEXTEST_LIST_COMMAND,
+    build_targeted_nextest_list_shards,
+    cargo_target_args as _cargo_target_args,
+)
 from .coverage_trace_tools import export_attempt_coverage
 from .focused_test_facts import (
     focused_rust_input_digest,
     resolve_focused_rust_facts,
 )
+from .focused_trace_receipt import write_authenticated_trace_receipt
 from .mapping_live_code_facts import (
     focused_rust_path_inventory,
     focused_rust_observed_source_projection,
@@ -49,7 +54,6 @@ from .test_catalog_scanner import scan_repository
 
 
 MAX_TESTS_PER_COVERAGE_COMMAND = 64
-MAX_TARGETS_PER_NEXTEST_LIST_COMMAND = 16
 LIBRARY_TARGET_KINDS = {
     "lib",
     "rlib",
@@ -109,82 +113,22 @@ def rust_package_target_inventory(
 
 def targeted_nextest_list_shards(
     facts: Sequence[Mapping[str, Any]],
+    cargo_features: Sequence[str] = (),
+    *,
+    root: Path | None = None,
 ) -> list[dict[str, Any]]:
-    groups: dict[
-        str,
-        dict[tuple[str, str | None], list[Mapping[str, Any]]],
-    ] = defaultdict(lambda: defaultdict(list))
-    for fact in facts:
-        package = _required_string(fact, "package", "Rust scanner fact")
-        target = mechanical_rust_target(fact)
-        kind = _required_string(target, "kind", "Rust cargo target")
-        name = target.get("name")
-        if name is not None and (not isinstance(name, str) or not name):
-            raise ValueError("Rust cargo target name must be null or non-empty")
-        groups[package][(kind, name)].append(fact)
-    shards: list[dict[str, Any]] = []
-    for package, package_groups in sorted(groups.items()):
-        targets: list[dict[str, Any]] = []
-        for (kind, name), group_facts in sorted(
-            package_groups.items(),
-            key=lambda item: (item[0][0], item[0][1] or ""),
-        ):
-            exact_facts: list[dict[str, Any]] = []
-            for fact in sorted(
-                group_facts,
-                key=lambda row: str(row.get("discovery_id", "")),
-            ):
-                exact_fact = dict(fact)
-                exact_fact["cargo_target_kind"] = kind
-                exact_fact["cargo_target_name"] = name
-                exact_facts.append(exact_fact)
-            targets.append(
-                {
-                    "cargo_target_kind": kind,
-                    "cargo_target_name": name,
-                    "facts": exact_facts,
-                }
-            )
-        for offset in range(
-            0,
-            len(targets),
-            MAX_TARGETS_PER_NEXTEST_LIST_COMMAND,
-        ):
-            chunk = targets[
-                offset : offset + MAX_TARGETS_PER_NEXTEST_LIST_COMMAND
-            ]
-            command = [
-                "cargo",
-                "nextest",
-                "list",
-                "--run-ignored",
-                "all",
-                "--message-format",
-                "json",
-                "-p",
-                package,
-            ]
-            for target in chunk:
-                command.extend(
-                    _cargo_target_args(
-                        kind=str(target["cargo_target_kind"]),
-                        name=target["cargo_target_name"],
-                    )
-                )
-            shards.append(
-                {
-                    "package": package,
-                    "targets": chunk,
-                    "command": command,
-                }
-            )
-    return shards
+    return build_targeted_nextest_list_shards(
+        facts,
+        cargo_features,
+        root=root,
+    )
 
 
 def resolve_nextest_list_shard(
     *,
     shard: Mapping[str, Any],
     nextest_document: Mapping[str, Any],
+    cargo_features: Sequence[str] = (),
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Resolve one batched list document exactly once."""
 
@@ -209,7 +153,10 @@ def resolve_nextest_list_shard(
         nextest_document=nextest_document,
     )
     for record in resolved:
-        record["command"] = mechanical_resolved_rust_command(record)
+        record["command"] = mechanical_resolved_rust_command(
+            record,
+            cargo_features,
+        )
     return resolved, unsupported
 
 
@@ -217,10 +164,11 @@ def coverage_run_commands(
     *,
     resolved: Sequence[Mapping[str, Any]],
     tool_config: str,
+    cargo_features: Sequence[str] = (),
 ) -> list[list[str]]:
     if not tool_config:
         raise ValueError("coverage run commands require tool config")
-    groups: dict[tuple[str, str, str | None], list[Mapping[str, Any]]] = (
+    groups: dict[tuple[str, str, str | None, bool], list[Mapping[str, Any]]] = (
         defaultdict(list)
     )
     for record in resolved:
@@ -230,14 +178,20 @@ def coverage_run_commands(
         if name is not None and (not isinstance(name, str) or not name):
             raise ValueError("resolved test cargo target name must be null or non-empty")
         _cargo_target_args(kind=kind, name=name)
-        groups[(package, kind, name)].append(record)
+        no_default_features = record.get("no_default_features", False)
+        if not isinstance(no_default_features, bool):
+            raise ValueError(
+                "resolved test no_default_features must be a boolean"
+            )
+        groups[(package, kind, name, no_default_features)].append(record)
     commands: list[list[str]] = []
-    for (package, kind, name), records in sorted(
+    for (package, kind, name, no_default_features), records in sorted(
         groups.items(),
         key=lambda item: (
             item[0][0],
             item[0][1],
             item[0][2] or "",
+            item[0][3],
         ),
     ):
         target_args = _cargo_target_args(kind=kind, name=name)
@@ -250,6 +204,11 @@ def coverage_run_commands(
         )
         for offset in range(0, len(ordered), MAX_TESTS_PER_COVERAGE_COMMAND):
             chunk = ordered[offset : offset + MAX_TESTS_PER_COVERAGE_COMMAND]
+            feature_args = (
+                ["--features", ",".join(cargo_features)]
+                if cargo_features
+                else []
+            )
             commands.append(
                 [
                     "cargo",
@@ -259,6 +218,8 @@ def coverage_run_commands(
                     "-p",
                     package,
                     *target_args,
+                    *(["--no-default-features"] if no_default_features else []),
+                    *feature_args,
                     "--tool-config-file",
                     f"trust-catalog:{tool_config}",
                     "-P",
@@ -511,8 +472,11 @@ def run_focused_rust_trace(
     resume: bool = False,
     source_facts: Sequence[Any] | None = None,
     source_input_digest: str | None = None,
+    cargo_features: Sequence[str] = (),
+    authentication_receipt_path: Path | None = None,
 ) -> dict[str, Any]:
     root = root.resolve()
+    cargo_features = _normalized_cargo_features(cargo_features)
     trace_root = trace_root.resolve()
     output_path = output_path.resolve()
     if trace_root.exists() and any(trace_root.iterdir()) and not resume:
@@ -602,7 +566,11 @@ def run_focused_rust_trace(
                     f"cargo metadata lacks scanner package {package}"
                 )
             fact.update(target_inventory)
-        for shard in targeted_nextest_list_shards(rust_facts):
+        for shard in targeted_nextest_list_shards(
+            rust_facts,
+            cargo_features,
+            root=root,
+        ):
             listed = _run(
                 list(shard["command"]),
                 root=root,
@@ -617,6 +585,7 @@ def run_focused_rust_trace(
             shard_resolved, shard_unsupported = resolve_nextest_list_shard(
                 shard=shard,
                 nextest_document=nextest_document,
+                cargo_features=cargo_features,
             )
             resolved.extend(shard_resolved)
             unsupported.extend(shard_unsupported)
@@ -674,6 +643,7 @@ def run_focused_rust_trace(
             coverage_run_commands(
                 resolved=pending,
                 tool_config=str(tool_config),
+                cargo_features=cargo_features,
             )
             if pending
             else []
@@ -682,24 +652,19 @@ def run_focused_rust_trace(
             _run(run_command, root=root, environment=environment)
 
         metadata = load_code_spec_metadata(root)
-        exports = export_attempt_coverage(
-            root=root,
-            trace_root=trace_root,
-            llvm_tools_dir=llvm_tools_dir.resolve(),
-        )
-        observed_paths = sorted(
+        mapped_rust_paths = sorted(
             {
-                path
-                for discovery_id in exports
-                for path in executed_repository_paths(
-                    exports[discovery_id], root=root
-                )
+                str(mapping["path"])
+                for mapping in metadata.mappings.values()
+                if mapping.get("source_kind") == "rust"
+                and isinstance(mapping.get("path"), str)
+                and (root / str(mapping["path"])).is_file()
             }
         )
-        sources, source_projection_digest = (
+        sources, _unfiltered_projection_digest = (
             focused_rust_observed_source_projection(
                 root,
-                observed_paths,
+                mapped_rust_paths,
                 metadata.mappings,
             )
         )
@@ -708,6 +673,19 @@ def run_focused_rust_trace(
             sorted(sources),
             metadata.mappings,
         )
+        exports = export_attempt_coverage(
+            root=root,
+            trace_root=trace_root,
+            llvm_tools_dir=llvm_tools_dir.resolve(),
+            source_paths=sorted(sources),
+        )
+        observed_paths: set[str] = set()
+
+        def observe_export(document: Mapping[str, Any]) -> None:
+            observed_paths.update(
+                executed_repository_paths(document, root=root)
+            )
+
         raw_evidence = capture_raw_trace_evidence(
             root=root,
             trace_root=trace_root,
@@ -733,11 +711,27 @@ def run_focused_rust_trace(
             platform=f"{platform.system().lower()}-{platform.machine().lower()}",
             input_digest=input_provenance["input_digest"],
             code_inventory_digests={
-                "rust_observed_paths": source_projection_digest,
+                "rust_observed_paths": "sha256:" + "0" * 64,
             },
             mode="focused_shard",
             input_provenance=input_provenance,
+            coverage_export_observer=observe_export,
         )
+        observed_sources, source_projection_digest = (
+            focused_rust_observed_source_projection(
+                root,
+                sorted(observed_paths),
+                metadata.mappings,
+            )
+        )
+        if any(
+            sources[path] != content
+            for path, content in observed_sources.items()
+        ):
+            raise ValueError("covered Rust source changed during trace assembly")
+        document["code_inventory_digests"] = {
+            "rust_observed_paths": source_projection_digest,
+        }
     else:
         document = {
             "schema_version": 1,
@@ -787,6 +781,19 @@ def run_focused_rust_trace(
     if failures:
         raise ValueError("; ".join(sorted(set(failures))))
     _write_json(output_path, document)
+    if authentication_receipt_path is not None:
+        if not rust_facts:
+            raise ValueError(
+                "authentication receipts require focused Rust trace evidence"
+            )
+        write_authenticated_trace_receipt(
+            root=root,
+            receipt_path=authentication_receipt_path.resolve(),
+            trace=document,
+            requested=requested_ids,
+            evidence=raw_evidence,
+            source_originals=observed_sources,
+        )
     return document
 
 
@@ -812,6 +819,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--cargo-target-dir", type=Path, required=True)
     parser.add_argument("--llvm-tools-dir", type=Path, required=True)
     parser.add_argument("--resume", action="store_true")
+    parser.add_argument(
+        "--cargo-feature",
+        action="append",
+        default=[],
+        help=(
+            "enable one Cargo feature while listing and tracing the selected "
+            "Rust tests; repeat for multiple features"
+        ),
+    )
     parser.add_argument(
         "--temporary-dir",
         type=Path,
@@ -866,6 +882,7 @@ def main(argv: list[str] | None = None) -> int:
             resume=args.resume,
             source_facts=source_facts,
             source_input_digest=source_input_digest,
+            cargo_features=args.cargo_feature,
         )
     except (OSError, ValueError, subprocess.SubprocessError) as error:
         print(f"focused coverage trace failed: {error}", file=sys.stderr)
@@ -931,17 +948,17 @@ def _required_string(
     return value
 
 
-def _cargo_target_args(
-    *,
-    kind: str,
-    name: Any,
-) -> list[str]:
-    if kind == "lib":
-        if name is not None:
-            raise ValueError("library target must not carry a target name")
-        return ["--lib"]
-    if kind not in {"test", "bin", "example", "bench"}:
-        raise ValueError(f"unsupported exact cargo target kind {kind!r}")
-    if not isinstance(name, str) or not name:
-        raise ValueError(f"{kind} target requires a target name")
-    return [f"--{kind}", name]
+def _normalized_cargo_features(features: Sequence[str]) -> tuple[str, ...]:
+    normalized = []
+    for feature in features:
+        if (
+            not isinstance(feature, str)
+            or not feature
+            or any(character.isspace() or character == "," for character in feature)
+        ):
+            raise ValueError(
+                "focused trace Cargo features must be non-empty names "
+                "without whitespace or commas"
+            )
+        normalized.append(feature)
+    return tuple(sorted(set(normalized)))

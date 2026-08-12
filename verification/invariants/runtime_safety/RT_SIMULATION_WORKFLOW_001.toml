@@ -5,8 +5,8 @@ area = "runtime_safety"
 risk = "silent_corruption"
 status = "mapped"
 owner = "trust-runtime"
-last_reviewed = "2026-07-27"
-claim = "Accepted simulation models activate predictably, apply coupling and physics effects only at scan boundaries, reject conflicting feedback targets, replay deterministically, expose due faults, and do not manufacture watchdog failures from clock scaling."
+last_reviewed = "2026-08-01"
+claim = "Accepted simulation files and programmatic models validate exact paths, activation, clocks, physics, coupling, disturbance, address, value, ordering, and conflict domains; effects apply only at scan boundaries, replay deterministically, expose due faults, and do not manufacture watchdog failures from clock scaling."
 proof_level = "S0"
 contract_kind = "state_machine"
 source_refs = [
@@ -101,6 +101,42 @@ oracle_ref = "SPEC_RUNTIME_ENGINE_001#simulation-model-execution"
 outcome = "accept_value"
 delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "expected_delta" }
 rationale = "An accelerated scheduler clock does not manufacture a watchdog failure from scaled model time: an explicitly stopped nonoverrunning resource reaches Stopped with no terminal error."
+
+[[behavior]]
+partition = { equals = "SIMULATION_FILE_ACTIVATION_PATH_AND_CLOCK_VALIDATION" }
+case_family = "platform_or_filesystem_variation"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#simulation-model-execution"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Required/optional file loads identify their path, malformed TOML rejects, explicit disable overrides inferred activation, seed and positive time scale round-trip, defaults are stable, and durations fit signed runtime bounds."
+
+[[behavior]]
+partition = { equals = "PHYSICS_MODEL_FIELD_AND_ADDRESS_VALIDATION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#simulation-model-execution"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Physics backend/joint kind, positive step, finite ordered joint numbers, unique IDs, exact input/output areas and widths, finite positive encoder scales, explicit defaults, and disabled/empty controller absence are enforced before execution."
+
+[[behavior]]
+partition = { equals = "COUPLING_VALUE_ADDRESS_THRESHOLD_AND_DELAY_VALIDATION" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#simulation-model-execution"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Couplings require output sources and input targets, use width-checked numeric/text coercion and exact I/O literals, require finite thresholds with owned branch values and signed delays, preserve equal-due order, suppress unchanged writes, and surface read/delayed-write faults."
+
+[[behavior]]
+partition = { equals = "DISTURBANCE_VALUE_ORDER_AND_FAULT_PROPAGATION" }
+case_family = "time_or_clock_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#simulation-model-execution"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "expected_delta", diagnostics = "stable_error", status = "fault_visible" }
+rationale = "Disturbance kind/set fields and width-checked values are closed, defaults are explicit, stable time ordering preserves file order for ties, and a failed due write becomes a visible runtime fault."
 
 [[coverage.cells]]
 dimension = "happy_path"

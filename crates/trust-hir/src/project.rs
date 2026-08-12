@@ -287,3 +287,7 @@ mod tests {
         assert_eq!(normalized.to_string_lossy(), expected.to_string_lossy());
     }
 }
+
+#[cfg(test)]
+#[path = "project/contract_tests.rs"]
+mod contract_tests;

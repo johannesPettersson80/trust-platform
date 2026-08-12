@@ -10,6 +10,12 @@ fn import_project_model_to_sources(
     let mut stats = ImportProjectModelStats::default();
     let mut configurations = Vec::new();
 
+    collect_incomplete_project_model_diagnostics(
+        root,
+        unsupported_diagnostics,
+        loss_warnings,
+    );
+
     for instances in root
         .children()
         .filter(|child| is_element_named_ci(*child, "instances"))
@@ -47,6 +53,7 @@ fn import_project_model_to_sources(
                     tasks: Vec::new(),
                     programs: Vec::new(),
                     resources: Vec::new(),
+                    invalid: false,
                 };
                 for resource in direct_resources {
                     synthetic.resources.push(parse_resource_model(resource));
@@ -94,6 +101,10 @@ fn import_project_model_to_sources(
             loss_warnings,
         );
 
+        if configuration.invalid {
+            continue;
+        }
+
         let source_text = render_configuration_source(&configuration);
         let path = unique_source_path(
             sources_root,
@@ -130,6 +141,46 @@ fn import_project_model_to_sources(
     Ok(stats)
 }
 
+fn collect_incomplete_project_model_diagnostics(
+    root: roxmltree::Node<'_, '_>,
+    unsupported_diagnostics: &mut Vec<PlcopenUnsupportedDiagnostic>,
+    loss_warnings: &mut usize,
+) {
+    for node in root
+        .descendants()
+        .filter(|node| is_element_named_ci(*node, "task"))
+    {
+        if parse_task_model(node).is_none() {
+            unsupported_diagnostics.push(unsupported_diagnostic(
+                "PLCO509",
+                "warning",
+                "instances/task",
+                "Task entry skipped because its required name is missing",
+                None,
+                "Provide a non-empty task name",
+            ));
+            *loss_warnings += 1;
+        }
+    }
+    for node in root.descendants().filter(|node| {
+        ["program", "pouInstance", "programInstance", "instance"]
+            .iter()
+            .any(|name| is_element_named_ci(*node, name))
+    }) {
+        if parse_program_instance_model(node, None).is_none() {
+            unsupported_diagnostics.push(unsupported_diagnostic(
+                "PLCO510",
+                "warning",
+                "instances/program",
+                "Program instance skipped because its required name or type is missing",
+                None,
+                "Provide non-empty program instance and type identities",
+            ));
+            *loss_warnings += 1;
+        }
+    }
+}
+
 fn parse_configuration_model(node: roxmltree::Node<'_, '_>) -> ConfigurationDecl {
     let mut tasks = Vec::new();
     let mut programs = Vec::new();
@@ -161,6 +212,7 @@ fn parse_configuration_model(node: roxmltree::Node<'_, '_>) -> ConfigurationDecl
         tasks,
         programs,
         resources,
+        invalid: false,
     }
 }
 
@@ -292,6 +344,27 @@ fn normalize_configuration_model(
 
     configuration.name = sanitize_st_identifier(&configuration.name, "ImportedConfiguration");
     for task in &mut configuration.tasks {
+        if task
+            .interval
+            .as_ref()
+            .is_some_and(|value| value.trim().is_empty())
+            || task
+                .priority
+                .as_ref()
+                .is_some_and(|value| value.trim().parse::<u32>().is_err())
+            || (task.interval.is_some() && task.single.is_some())
+        {
+            configuration.invalid = true;
+            unsupported_diagnostics.push(unsupported_diagnostic(
+                "PLCO503",
+                "error",
+                format!("instances/configuration/{}/task", configuration.name),
+                format!("task '{}' contains an invalid or ambiguous scheduling value", task.name),
+                None,
+                "Provide either a valid INTERVAL or SINGLE trigger and a non-negative integer PRIORITY",
+            ));
+            *loss_warnings += 1;
+        }
         let original = task.name.clone();
         let mut normalized = sanitize_st_identifier(&task.name, "Task");
         normalized = unique_identifier(normalized, &mut used_task_names);
@@ -319,8 +392,20 @@ fn normalize_configuration_model(
             let normalized_task = sanitize_st_identifier(task_name, "Task");
             if used_task_names.contains(&normalized_task.to_ascii_lowercase()) {
                 program.task_name = Some(normalized_task);
-            } else if let Some(first) = configuration.tasks.first() {
-                program.task_name = Some(first.name.clone());
+            } else {
+                configuration.invalid = true;
+                unsupported_diagnostics.push(unsupported_diagnostic(
+                    "PLCO504",
+                    "error",
+                    format!("instances/configuration/{}/program", configuration.name),
+                    format!(
+                        "program '{}' references unknown task '{}'",
+                        program.instance_name, task_name
+                    ),
+                    None,
+                    "Bind the PROGRAM instance to a declared task or omit the task binding",
+                ));
+                *loss_warnings += 1;
             }
         }
     }
@@ -341,6 +426,27 @@ fn normalize_configuration_model(
         let mut local_task_names = HashSet::new();
         let mut local_program_names = HashSet::new();
         for task in &mut resource.tasks {
+            if task
+                .interval
+                .as_ref()
+                .is_some_and(|value| value.trim().is_empty())
+                || task
+                    .priority
+                    .as_ref()
+                    .is_some_and(|value| value.trim().parse::<u32>().is_err())
+                || (task.interval.is_some() && task.single.is_some())
+            {
+                configuration.invalid = true;
+                unsupported_diagnostics.push(unsupported_diagnostic(
+                    "PLCO503",
+                    "error",
+                    format!("instances/configuration/{}/resource/task", configuration.name),
+                    format!("task '{}' contains an invalid or ambiguous scheduling value", task.name),
+                    None,
+                    "Provide either a valid INTERVAL or SINGLE trigger and a non-negative integer PRIORITY",
+                ));
+                *loss_warnings += 1;
+            }
             let original = task.name.clone();
             let mut task_name = sanitize_st_identifier(&task.name, "Task");
             task_name = unique_identifier(task_name, &mut local_task_names);
@@ -473,4 +579,3 @@ fn render_configuration_source(configuration: &ConfigurationDecl) -> String {
     out.push_str("END_CONFIGURATION\n");
     out
 }
-

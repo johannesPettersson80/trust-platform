@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::hash::Hasher;
-use std::path::Path;
+use std::path::{Component, Path, PathBuf};
 use std::time::UNIX_EPOCH;
 
 const CACHE_VERSION: u32 = 1;
@@ -116,7 +116,27 @@ impl CacheEntry {
 }
 
 fn cache_key(path: &Path) -> String {
-    path.to_string_lossy().to_string()
+    let mut normalized = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                let can_pop = normalized
+                    .components()
+                    .next_back()
+                    .is_some_and(|last| matches!(last, Component::Normal(_)));
+                if can_pop {
+                    normalized.pop();
+                } else if !normalized.is_absolute() {
+                    normalized.push("..");
+                }
+            }
+            Component::Normal(value) => normalized.push(value),
+            Component::Prefix(value) => normalized.push(value.as_os_str()),
+            Component::RootDir => normalized.push(std::path::MAIN_SEPARATOR.to_string()),
+        }
+    }
+    normalized.to_string_lossy().to_string()
 }
 
 fn metadata_signature(path: &Path) -> Option<(u64, Option<u64>)> {
@@ -237,3 +257,7 @@ mod tests {
         file.set_times(times).expect("set modified time");
     }
 }
+
+#[cfg(test)]
+#[path = "index_cache/contract_tests.rs"]
+mod contract_tests;

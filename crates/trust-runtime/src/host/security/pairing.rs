@@ -140,16 +140,19 @@ impl PairingStore {
         }
         let role = sanitize_requested_role(requested_role);
         let token = generate_token();
-        let id = format!("pair-{}", now);
-        guard.tokens.push(PairingToken {
+        let id = format!("pair-{}-{}", now, &token[..8]);
+        let pairing_token = PairingToken {
             id,
             token: token.clone(),
             created_at: now,
             enabled: true,
             role,
-            expires_at: now + PAIRING_TOKEN_TTL_SECS,
-        });
-        let _ = save_tokens(&self.path, &guard.tokens);
+            expires_at: now.saturating_add(PAIRING_TOKEN_TTL_SECS),
+        };
+        let mut persisted_tokens = guard.tokens.clone();
+        persisted_tokens.push(pairing_token);
+        save_tokens(&self.path, &persisted_tokens).ok()?;
+        guard.tokens = persisted_tokens;
         Some(token)
     }
 
@@ -312,11 +315,10 @@ fn sanitize_requested_role(role: Option<AccessRole>) -> AccessRole {
     }
 }
 
-fn normalize_loaded_tokens(tokens: &mut [PairingToken], now: u64) {
+fn normalize_loaded_tokens(tokens: &mut [PairingToken], _now: u64) {
     for token in tokens {
         if token.expires_at == 0 {
-            let candidate = token.created_at.saturating_add(PAIRING_TOKEN_TTL_SECS);
-            token.expires_at = if candidate <= now { now + 1 } else { candidate };
+            token.expires_at = token.created_at.saturating_add(PAIRING_TOKEN_TTL_SECS);
         }
     }
 }
@@ -399,3 +401,7 @@ mod tests {
         let _ = fs::remove_file(path);
     }
 }
+
+#[cfg(test)]
+#[path = "pairing/contract_tests.rs"]
+mod contract_tests;

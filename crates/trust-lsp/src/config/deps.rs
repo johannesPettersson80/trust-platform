@@ -20,6 +20,7 @@ pub(super) fn parse_project_dependencies(
             }),
         }
     }
+    dependencies.sort_by_key(|dependency| dependency.name.to_ascii_lowercase());
     (dependencies, issues)
 }
 
@@ -32,17 +33,19 @@ pub(super) fn resolve_manifest_dependencies(
     Vec<super::LibrarySpec>,
     Vec<super::DependencyResolutionIssue>,
 ) {
-    let mut issues = Vec::new();
+    let issues = Vec::new();
     let lock_path = super::dependency_lock_path(root, build);
     let lock = match super::load_dependency_lock(&lock_path) {
         Ok(lock) => lock,
         Err(message) => {
-            issues.push(super::DependencyResolutionIssue {
-                code: "L006",
-                dependency: "lockfile".to_string(),
-                message,
-            });
-            super::DependencyLockFile::default()
+            return (
+                Vec::new(),
+                vec![super::DependencyResolutionIssue {
+                    code: "L006",
+                    dependency: "lockfile".to_string(),
+                    message,
+                }],
+            );
         }
     };
 
@@ -72,6 +75,7 @@ struct DependencyResolver<'a> {
     libraries: BTreeMap<String, super::LibrarySpec>,
     issues: Vec<super::DependencyResolutionIssue>,
     resolved_lock: BTreeMap<String, super::DependencyLockEntry>,
+    stack: Vec<String>,
 }
 
 impl<'a> DependencyResolver<'a> {
@@ -91,6 +95,7 @@ impl<'a> DependencyResolver<'a> {
             libraries: BTreeMap::new(),
             issues,
             resolved_lock: BTreeMap::new(),
+            stack: Vec::new(),
         }
     }
 
@@ -111,6 +116,7 @@ impl<'a> DependencyResolver<'a> {
     }
 
     fn resolve_dependency_recursive(&mut self, dependency: &super::ProjectDependency) {
+        let key = canonical_dependency_name(&dependency.name);
         let path = match resolve_dependency_source(
             self.root,
             self.build,
@@ -138,7 +144,41 @@ impl<'a> DependencyResolver<'a> {
             return;
         }
 
-        if let Some(existing) = self.libraries.get(&dependency.name) {
+        if self
+            .states
+            .get(&key)
+            .copied()
+            .is_some_and(|state| state == DependencyVisitState::Visiting)
+        {
+            let cycle_start = self
+                .stack
+                .iter()
+                .position(|name| canonical_dependency_name(name) == key)
+                .unwrap_or(0);
+            let mut cycle = self.stack[cycle_start..].to_vec();
+            cycle.push(dependency.name.clone());
+            self.issues.push(super::DependencyResolutionIssue {
+                code: "L004",
+                dependency: dependency.name.clone(),
+                message: format!("Dependency cycle detected: {}", cycle.join(" -> ")),
+            });
+            return;
+        }
+
+        if let Some(existing) = self.libraries.get(&key) {
+            if existing.path != path {
+                self.issues.push(super::DependencyResolutionIssue {
+                    code: "L003",
+                    dependency: dependency.name.clone(),
+                    message: format!(
+                        "Dependency '{}' resolves to conflicting sources: {} and {}",
+                        dependency.name,
+                        existing.path.display(),
+                        path.display()
+                    ),
+                });
+                return;
+            }
             if let Some(required) = dependency.version.as_deref() {
                 if existing.version.as_deref() != Some(required) {
                     let available = existing.version.as_deref().unwrap_or("unspecified");
@@ -155,17 +195,9 @@ impl<'a> DependencyResolver<'a> {
             return;
         }
 
-        if self
-            .states
-            .get(dependency.name.as_str())
-            .copied()
-            .is_some_and(|state| state == DependencyVisitState::Visiting)
-        {
-            return;
-        }
-
         self.states
-            .insert(dependency.name.clone(), DependencyVisitState::Visiting);
+            .insert(key.clone(), DependencyVisitState::Visiting);
+        self.stack.push(dependency.name.clone());
 
         let (package, nested_dependencies) = match load_dependency_manifest(&path) {
             Ok(manifest) => {
@@ -180,7 +212,9 @@ impl<'a> DependencyResolver<'a> {
                     dependency: dependency.name.clone(),
                     message,
                 });
-                (super::PackageSection::default(), Vec::new())
+                self.stack.pop();
+                self.states.remove(&key);
+                return;
             }
         };
 
@@ -208,7 +242,7 @@ impl<'a> DependencyResolver<'a> {
         }
 
         self.libraries.insert(
-            dependency.name.clone(),
+            key.clone(),
             super::LibrarySpec {
                 name: dependency.name.clone(),
                 path,
@@ -217,9 +251,13 @@ impl<'a> DependencyResolver<'a> {
                 docs: Vec::new(),
             },
         );
-        self.states
-            .insert(dependency.name.clone(), DependencyVisitState::Done);
+        self.stack.pop();
+        self.states.insert(key, DependencyVisitState::Done);
     }
+}
+
+fn canonical_dependency_name(name: &str) -> String {
+    name.trim().to_ascii_lowercase()
 }
 
 fn parse_project_dependency(
@@ -227,14 +265,32 @@ fn parse_project_dependency(
     name: &str,
     entry: &super::ManifestDependencyEntry,
 ) -> Result<super::ProjectDependency, String> {
+    let name = name.trim();
+    if name.is_empty() {
+        return Err("Dependency name must not be blank".to_string());
+    }
     match entry {
-        super::ManifestDependencyEntry::Path(path) => Ok(super::ProjectDependency {
-            name: name.to_string(),
-            path: Some(super::resolve_path(root, path)),
-            git: None,
-            version: None,
-        }),
+        super::ManifestDependencyEntry::Path(path) => {
+            let path = super::resolve_optional_path(root, path)
+                .ok_or_else(|| format!("Dependency '{name}' path must not be blank"))?;
+            Ok(super::ProjectDependency {
+                name: name.to_string(),
+                path: Some(path),
+                git: None,
+                version: None,
+            })
+        }
         super::ManifestDependencyEntry::Detailed(section) => {
+            for (field, value) in [
+                ("version", &section.version),
+                ("rev", &section.rev),
+                ("tag", &section.tag),
+                ("branch", &section.branch),
+            ] {
+                if value.as_ref().is_some_and(|value| value.trim().is_empty()) {
+                    return Err(format!("Dependency '{name}' `{field}` must not be blank"));
+                }
+            }
             let has_path = section
                 .path
                 .as_ref()
@@ -250,9 +306,13 @@ fn parse_project_dependency(
                 ));
             }
 
-            let selector_count = usize::from(section.rev.is_some())
-                + usize::from(section.tag.is_some())
-                + usize::from(section.branch.is_some());
+            let rev = super::normalize_optional_string(section.rev.clone());
+            let tag = super::normalize_optional_string(section.tag.clone());
+            let branch = super::normalize_optional_string(section.branch.clone());
+            let version = super::normalize_optional_string(section.version.clone());
+            let selector_count = usize::from(rev.is_some())
+                + usize::from(tag.is_some())
+                + usize::from(branch.is_some());
             if selector_count > 1 {
                 return Err(format!(
                     "Dependency '{name}' may set only one of `rev`, `tag`, or `branch`"
@@ -260,17 +320,19 @@ fn parse_project_dependency(
             }
 
             if has_path {
-                if section.rev.is_some() || section.tag.is_some() || section.branch.is_some() {
+                if rev.is_some() || tag.is_some() || branch.is_some() {
                     return Err(format!(
                         "Dependency '{name}' path entries do not support `rev`, `tag`, or `branch`"
                     ));
                 }
                 let path = section.path.as_deref().unwrap_or_default();
+                let path = super::resolve_optional_path(root, path)
+                    .ok_or_else(|| format!("Dependency '{name}' path must not be blank"))?;
                 return Ok(super::ProjectDependency {
                     name: name.to_string(),
-                    path: Some(super::resolve_path(root, path)),
+                    path: Some(path),
                     git: None,
-                    version: section.version.clone(),
+                    version,
                 });
             }
 
@@ -278,12 +340,12 @@ fn parse_project_dependency(
                 name: name.to_string(),
                 path: None,
                 git: Some(super::GitDependency {
-                    url: section.git.clone().unwrap_or_default(),
-                    rev: section.rev.clone(),
-                    tag: section.tag.clone(),
-                    branch: section.branch.clone(),
+                    url: section.git.clone().unwrap_or_default().trim().to_string(),
+                    rev,
+                    tag,
+                    branch,
                 }),
-                version: section.version.clone(),
+                version,
             })
         }
     }
@@ -299,6 +361,42 @@ fn resolve_dependency_source(
 ) -> Result<PathBuf, super::DependencyResolutionIssue> {
     if let Some(path) = dependency.path.as_ref() {
         let resolved = canonicalize_or_self(path);
+        if build.dependencies_locked {
+            match find_lock_entry(lock, &dependency.name) {
+                Some(super::DependencyLockEntry::Path { path })
+                    if Path::new(path) == resolved.as_path() => {}
+                Some(super::DependencyLockEntry::Path { .. }) => {
+                    return Err(super::DependencyResolutionIssue {
+                        code: "L006",
+                        dependency: dependency.name.clone(),
+                        message: format!(
+                            "Dependency '{}' lock entry path does not match canonical source",
+                            dependency.name
+                        ),
+                    });
+                }
+                Some(super::DependencyLockEntry::Git { .. }) => {
+                    return Err(super::DependencyResolutionIssue {
+                        code: "L006",
+                        dependency: dependency.name.clone(),
+                        message: format!(
+                            "Dependency '{}' lock entry source kind does not match local path",
+                            dependency.name
+                        ),
+                    });
+                }
+                None => {
+                    return Err(super::DependencyResolutionIssue {
+                        code: "L006",
+                        dependency: dependency.name.clone(),
+                        message: format!(
+                            "Dependency '{}' has no lock entry in locked mode",
+                            dependency.name
+                        ),
+                    });
+                }
+            }
+        }
         resolved_lock.insert(
             dependency.name.clone(),
             super::DependencyLockEntry::Path {
@@ -327,6 +425,16 @@ fn resolve_dependency_source(
     Ok(resolved.path)
 }
 
+fn find_lock_entry<'a>(
+    lock: &'a super::DependencyLockFile,
+    name: &str,
+) -> Option<&'a super::DependencyLockEntry> {
+    lock.dependencies
+        .iter()
+        .find(|(entry_name, _)| entry_name.eq_ignore_ascii_case(name))
+        .map(|(_, entry)| entry)
+}
+
 fn resolve_git_dependency(
     root: &Path,
     build: &super::BuildConfig,
@@ -343,7 +451,7 @@ fn resolve_git_dependency(
         });
     }
 
-    let lock_entry = lock.dependencies.get(dependency_name);
+    let lock_entry = find_lock_entry(lock, dependency_name);
     let selector = match (git.rev.as_ref(), git.tag.as_ref(), git.branch.as_ref()) {
         (Some(rev), None, None) => super::RevisionSelector::Rev(rev.clone()),
         (None, Some(tag), None) => super::RevisionSelector::Tag(tag.clone()),
@@ -351,7 +459,9 @@ fn resolve_git_dependency(
         (None, None, None) => {
             if build.dependencies_locked {
                 match lock_entry {
-                    Some(super::DependencyLockEntry::Git { url, rev }) if *url == git.url => {
+                    Some(super::DependencyLockEntry::Git { url, rev })
+                        if url.trim() == git.url.trim() =>
+                    {
                         super::RevisionSelector::Rev(rev.clone())
                     }
                     Some(super::DependencyLockEntry::Git { .. }) => {
@@ -374,7 +484,7 @@ fn resolve_git_dependency(
                     }
                 }
             } else if let Some(super::DependencyLockEntry::Git { url, rev }) = lock_entry {
-                if *url == git.url {
+                if url.trim() == git.url.trim() {
                     super::RevisionSelector::Rev(rev.clone())
                 } else {
                     super::RevisionSelector::DefaultHead

@@ -521,9 +521,18 @@ impl SymbolCollector<'_> {
 
         // Check for duplicate in current scope
         if let Some(existing) = self.table.resolve_current(&name) {
+            let distinct_enum_values = matches!(symbol.kind, SymbolKind::EnumValue { .. })
+                && self
+                    .table
+                    .get(existing)
+                    .is_some_and(|existing_symbol| {
+                        matches!(existing_symbol.kind, SymbolKind::EnumValue { .. })
+                            && existing_symbol.parent != symbol.parent
+                    });
             // Only report duplicate if it's in the same scope (not from parent)
             let current_scope = self.table.current_scope();
-            if let Some(scope) = self.table.get_scope(current_scope) {
+            if !distinct_enum_values {
+                if let Some(scope) = self.table.get_scope(current_scope) {
                 if scope.lookup_local(&name).is_some() {
                     let mut diag = Diagnostic::error(
                         DiagnosticCode::DuplicateDeclaration,
@@ -535,6 +544,7 @@ impl SymbolCollector<'_> {
                     }
                     self.diagnostics.add(diag);
                 }
+            }
             }
         }
 

@@ -41,11 +41,19 @@ fn copy_dir_recursive(source: &Path, dest: &Path) -> anyhow::Result<()> {
     {
         let entry = entry?;
         let path = entry.path();
+        let metadata = fs::symlink_metadata(&path)
+            .with_context(|| format!("failed to inspect {}", path.display()))?;
+        if metadata.file_type().is_symlink() {
+            anyhow::bail!(
+                "registry package trees must not contain symlinks: {}",
+                path.display()
+            );
+        }
         let file_name = entry.file_name();
         let target = dest.join(file_name);
-        if path.is_dir() {
+        if metadata.is_dir() {
             copy_dir_recursive(&path, &target)?;
-        } else if path.is_file() {
+        } else if metadata.is_file() {
             fs::copy(&path, &target).with_context(|| {
                 format!(
                     "failed to copy '{}' -> '{}'",
@@ -54,6 +62,24 @@ fn copy_dir_recursive(source: &Path, dest: &Path) -> anyhow::Result<()> {
                 )
             })?;
         }
+    }
+    Ok(())
+}
+
+fn validate_tree_has_no_symlinks(root: &Path) -> anyhow::Result<()> {
+    let metadata = fs::symlink_metadata(root)
+        .with_context(|| format!("failed to inspect {}", root.display()))?;
+    if metadata.file_type().is_symlink() {
+        anyhow::bail!(
+            "registry package trees must not contain symlinks: {}",
+            root.display()
+        );
+    }
+    if !metadata.is_dir() {
+        return Ok(());
+    }
+    for entry in fs::read_dir(root).with_context(|| format!("failed to read {}", root.display()))? {
+        validate_tree_has_no_symlinks(&entry?.path())?;
     }
     Ok(())
 }

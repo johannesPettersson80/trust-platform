@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import tomllib
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -123,10 +124,18 @@ def build_review_batch(
 
     for invariant_id in sorted(touched_invariant_ids):
         path, source = invariant_after[invariant_id]
-        source = append_invariant_tests(
-            source,
-            invariant_test_additions[invariant_id],
-        )
+        current_tests = tomllib.loads(source).get("tests")
+        if not isinstance(current_tests, list) or any(
+            not isinstance(item, str) for item in current_tests
+        ):
+            raise ValueError("invariant must contain a string tests array")
+        additions = [
+            test_id
+            for test_id in invariant_test_additions[invariant_id]
+            if test_id not in current_tests
+        ]
+        if additions:
+            source = append_invariant_tests(source, additions)
         invariant_after[invariant_id] = (
             path,
             reconcile_invariant_catalog_state(

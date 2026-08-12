@@ -75,15 +75,13 @@ impl Runtime {
     /// Determine whether any programs run outside configured tasks.
     #[must_use]
     pub fn has_background_programs(&self) -> bool {
-        let mut scheduled = IndexMap::new();
-        for task in &self.tasks {
-            for program in &task.programs {
-                scheduled.insert(program.clone(), ());
-            }
-        }
-        self.programs
-            .keys()
-            .any(|name| !scheduled.contains_key(name))
+        self.programs.keys().any(|name| {
+            !self.tasks.iter().any(|task| {
+                task.programs
+                    .iter()
+                    .any(|program| program.eq_ignore_ascii_case(name.as_str()))
+            })
+        })
     }
 
     /// Advance the runtime clock by the given duration.

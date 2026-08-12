@@ -349,6 +349,15 @@ impl<'a> BytecodeEncoder<'a> {
             }
             Type::Enum { base, values, .. } => {
                 let base_type_id = self.type_index(*base)?;
+                if self.runtime.registry().is_named_value_type(type_id) {
+                    return Ok(TypeEntry {
+                        kind: TypeKind::Alias,
+                        name_idx,
+                        data: TypeData::Alias {
+                            target_type_id: base_type_id,
+                        },
+                    });
+                }
                 let mut variants = Vec::with_capacity(values.len());
                 for (name, value) in values {
                     let name_idx = self.strings.intern(name.clone());

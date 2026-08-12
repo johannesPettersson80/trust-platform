@@ -6,6 +6,199 @@ Authoritative location:
 
 This file tracks implementation decisions made where IEC 61131-3 leaves room for interpretation.
 
+## 2026-07-30 - POU call evaluation, execution control, and output transfer
+
+- Area: Function, function-block, and method calls
+- IEC context:
+  - IEC 61131-3 Ed.3 sections 6.6.1.4.1-6.6.1.4.2 require a
+    `VAR_IN_OUT` actual to be properly mapped, define complete and incomplete
+    formal lists, and make formal binding order insignificant.
+  - Section 6.6.1.5 defines `EN`/`ENO`, but makes it
+    implementer-specific whether other actuals are evaluated or bound when
+    `EN` is false and what happens to outputs when `ENO` is false.
+  - Section 7.3.2 requires the left operand of an expression to be evaluated
+    first, but does not completely order a list of call actuals or define
+    overlapping output targets.
+- Decision:
+  - Actuals are evaluated exactly once from left to right in source order.
+    Formal names affect binding only; reordering formal assignments does not
+    reorder their evaluation. A writable target is resolved once at its source
+    position.
+  - `EN`, when supplied, is evaluated first even if it is not the first written
+    formal actual. If it is false, no other actual expression or writable
+    target is evaluated or resolved, the POU body is not entered, and `ENO`
+    alone is copied as false when connected.
+  - When `EN` is true or omitted, `ENO` is initialized to true before body
+    execution. The body may set it false. A runtime execution error aborts the
+    call, reports the error, and performs no result, output, in-out, or instance
+    state commit visible through the call boundary.
+  - A normally returning call first captures every connected `VAR_OUTPUT`,
+    `VAR_IN_OUT`, and `ENO` value, validates every destination, and then commits
+    the complete transfer. If `ENO` is false on normal return, the function
+    result is still returned and ordinary connected outputs/in-outs are still
+    transferred; `ENO` reports application status rather than rolling back a
+    successful call.
+  - Mapping the same caller storage, including overlapping aggregate
+    projections, to more than one writable formal in one call is rejected as
+    ambiguous. This applies to any pair of `VAR_OUTPUT`, `VAR_IN_OUT`, or
+    `ENO` connections. A read-only input may read storage that is also mapped
+    once as writable.
+  - Function and value-returning method results use the declared type default
+    when `EN` is false. A skipped function-block or void-method call preserves
+    its instance state and connected caller targets except for connected
+    `ENO := FALSE`.
+- Reason:
+  - A source-order, evaluate-once rule makes side effects auditable. Early
+    execution-control gating prevents disabled calls from faulting through
+    unused arguments. Rejecting multiple writers and committing a validated
+    transfer as one unit removes declaration-order-dependent caller state.
+
+## 2026-07-30 - Boolean short-circuit extent
+
+- Area: Structured Text Boolean expression evaluation
+- IEC context:
+  - IEC 61131-3 Ed.3 section 7.3.2 requires the left operand of a binary
+    operator to be evaluated first and makes the extent of Boolean-expression
+    evaluation implementer-specific, including possible side effects.
+- Decision:
+  - For `BOOL` operands, `AND` and `&` do not evaluate the right operand after
+    a false left operand. `OR` does not evaluate the right operand after a true
+    left operand.
+  - `BOOL XOR` evaluates both operands.
+  - `AND`, `&`, `OR`, and `XOR` on bit strings evaluate both operands and then
+    apply the eager width-preserving bitwise operation.
+  - Every evaluated binary operand is evaluated left first. An operand skipped
+    by the Boolean rule produces no call, fault, read, write, or other side
+    effect.
+- Reason:
+  - A closed source-level rule makes function-call side effects and fault
+    suppression deterministic while retaining eager value semantics for bit
+    strings.
+
+## 2026-07-30 - CASE label ordering, ranges, and unmatched values
+
+- Area: Structured Text `CASE` selection
+- IEC context:
+  - IEC 61131-3 Ed.3 section 7.3.3.3.3 requires a selector of elementary type,
+    labels of a comparable type, and at most one selected statement group, but
+    it does not prescribe a diagnostic policy for duplicate labels,
+    overlapping subranges, or a subrange written with its upper bound first.
+  - The same section states that a selector matching no label executes the
+    `ELSE` group when present and otherwise executes no statement.
+- Decision:
+  - truST rejects duplicate scalar labels, a scalar contained in a range,
+    overlapping ranges, and a range whose lower bound is greater than its
+    upper bound. It never normalizes or reorders a reversed range.
+  - Labels are compared in source order after constant evaluation. Accepted
+    source therefore has at most one matching branch; runtime still selects the
+    first matching branch as a fail-safe rule for an independently constructed
+    program model.
+  - A selector matching no label and no `ELSE` branch completes as a no-op.
+- Reason:
+  - Rejecting ambiguous or visually reversed partitions makes the reviewed
+    selection domain explicit and prevents source order from hiding
+    overlapping safety logic.
+
+## 2026-07-30 - FOR evaluation, step, and post-loop state
+
+- Area: Structured Text `FOR` iteration
+- IEC context:
+  - IEC 61131-3 Ed.3 section 7.3.3.4.2 requires the control variable, initial
+    value, and final value to have the same integer type, defines the
+    start-of-iteration test, and makes the control variable's value after
+    termination implementer-specific.
+  - The section permits a `BY` expression but does not fully prescribe operand
+    evaluation timing, a zero increment result, overflow behavior, or the
+    post-loop value for normal completion, zero iterations, and `EXIT`.
+- Decision:
+  - The control variable, initial expression, final expression, and explicit
+    `BY` expression have one exact integer type. An omitted `BY` is the value
+    one in that type.
+  - Initial, final, and step expressions are each evaluated exactly once, in
+    that source order, before the first termination test. Their values are
+    captured; later body assignments to variables used by those expressions
+    do not change the iteration bounds or step.
+  - A zero step reports `RuntimeError::ForStepZero` before the control variable
+    or loop body is mutated. Advancing beyond the integer type's representable
+    range reports `RuntimeError::Overflow` before storing a wrapped value.
+  - Positive and negative loops include a final value that is reached exactly.
+    A direction that cannot approach the bound executes zero iterations.
+  - On normal completion the control variable contains the first value beyond
+    the bound. A zero-iteration loop leaves it at the evaluated initial value.
+    `EXIT` leaves it at the value for the iteration that executed `EXIT`.
+    `CONTINUE` performs the normal increment before the next termination test.
+  - IEC's prohibition on modifying the control variable and variables used for
+    initial and final values is enforced statically. A variable used only by
+    the step expression may be modified in the body because the step has
+    already been captured.
+- Reason:
+  - One-time ordered evaluation and checked mutation provide deterministic
+    scan-cycle behavior. The explicit post-loop contract removes a known
+    implementer-specific portability hazard without permitting wraparound or
+    partial mutation on a rejected loop.
+
+## 2026-07-30 - Variable-section qualifier placement and retention ownership
+
+- Area: Structured Text variable-section qualifiers
+- IEC context:
+  - IEC 61131-3 Ed.3 Figure 7 summarizes `CONSTANT` as a qualifier that may
+    follow the variable-section keywords, while Tables 19, 40, 47, and 48
+    explicitly illustrate only ordinary constant declarations and
+    `VAR_EXTERNAL CONSTANT`.
+  - Sections 6.5.6.1-6.5.6.2 permit `RETAIN` and `NON_RETAIN` for stored
+    variables of function blocks and programs and name static `VAR`,
+    `VAR_INPUT`, `VAR_OUTPUT`, and `VAR_GLOBAL` as eligible locations; they
+    exclude `VAR_IN_OUT`.
+- Decision:
+  - truST accepts `CONSTANT` on every legal storage-declaration section:
+    `VAR`, `VAR_STAT`, `VAR_INPUT`, `VAR_OUTPUT`, `VAR_IN_OUT`, `VAR_TEMP`,
+    `VAR_GLOBAL`, and `VAR_EXTERNAL`. The declaration remains read-only even
+    when the section normally denotes writable or aliased storage.
+    `VAR_ACCESS` and `VAR_CONFIG` do not accept `CONSTANT`.
+  - `RETAIN` and `NON_RETAIN` are accepted only where the declaration owns
+    state across calls or cycles: ordinary `VAR` in function blocks, programs,
+    and classes; truST `VAR_STAT`; function-block/program inputs and outputs;
+    and `VAR_GLOBAL`. Function and method ordinary variables, inputs, and
+    outputs are call-local and therefore do not accept a retention policy.
+  - `VAR_IN_OUT`, `VAR_TEMP`, `VAR_EXTERNAL`, `VAR_ACCESS`, and `VAR_CONFIG`
+    never own a retention policy.
+  - truST `PERSISTENT` follows exactly the same placement rules as `RETAIN`.
+    A variable section accepts at most one occurrence of one of `CONSTANT`,
+    `RETAIN`, `NON_RETAIN`, or `PERSISTENT`; duplicates and combinations are
+    errors.
+- Reason:
+  - A qualifier must not be accepted and then discarded by lowering.
+    Separating immutable access from restart ownership preserves the broad
+    Figure 7 constant interpretation while limiting retention metadata to
+    storage that can actually survive an invocation boundary.
+
+## 2026-07-30 - Function-block ordinary-member default access
+
+- Area: Object-oriented function-block member visibility
+- IEC context:
+  - IEC 61131-3 Ed.3 Table 40 describes the non-object-oriented
+    function-block declaration and gives ordinary static `VAR` declarations a
+    `PRIVATE` default.
+  - Table 53 and sections 6.6.7.6-6.6.7.7 add the object-oriented
+    function-block profile, define method and ordinary-variable access by
+    reference to the class rules in sections 6.6.5.9-6.6.5.10, and make
+    `PROTECTED` the default for those members.
+- Decision:
+  - truST implements the Edition 3 object-oriented function-block profile
+    uniformly. An ordinary `VAR` member, method, or truST `PROPERTY` without
+    an explicit access specifier is therefore `PROTECTED`, whether or not that
+    particular function block declares `EXTENDS`, `IMPLEMENTS`, or a method.
+  - `VAR_INPUT` and `VAR_OUTPUT` keep their separate IEC-mandated implicit
+    `PUBLIC` access, `VAR_EXTERNAL` keeps its implicit `PROTECTED` access, and
+    `VAR_IN_OUT` remains limited to the function-block body and call
+    statement. The ordinary-member default does not override those
+    direction-specific rules.
+- Reason:
+  - Selecting the object-oriented profile is necessary for a language that
+    supports function-block inheritance, methods, interfaces, `THIS`, and
+    `SUPER`. One uniform default also prevents the visibility of an existing
+    member from changing merely because a method or base clause is later added.
+
 ## 2026-07-22 - Non-finite REAL result and explicit-conversion policy
 
 - Area: `REAL` arithmetic, numerical functions, and explicit conversions

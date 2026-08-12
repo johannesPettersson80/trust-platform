@@ -1,15 +1,17 @@
 schema_version = 1
 id = "IEC_HIR_CONTROL_FLOW_001"
-title = "HIR validates loop exits, FOR control, labels, jumps, and CASE duplicates"
+title = "HIR validates selection, iteration, transfer, labels, jumps, and returns"
 area = "compiler_iec"
 risk = "wrong_result"
 status = "mapped"
 owner = "trust-hir"
-last_reviewed = "2026-07-30"
-claim = "Control-flow statements resolve within their owning POU and obey loop placement, FOR typing and immutability, label uniqueness, jump resolution, and CASE-label uniqueness."
+last_reviewed = "2026-08-01"
+claim = "Control-flow statements preserve their owning POU, require Boolean conditions where specified, enforce FOR capture and immutability, validate CASE selector and label domains, resolve loop and jump transfers locally, and enforce the declared return contract."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = [
+  "docs/specs/06-statements.md",
+  "docs/specs/09-semantic-rules.md",
   "crates/trust-hir/src/type_check/stmt_impl_part_02.rs",
   "crates/trust-hir/src/type_check/stmt_impl_part_05.rs",
 ]
@@ -17,7 +19,7 @@ tests = ["TEST_AUTO_3230112186D6D25A3FEB", "TEST_AUTO_357364B5F017E40114CD", "TE
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["assertion_reachability", "broad_remote_gate"]
+missing = ["catalog_mapping", "focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -80,6 +82,96 @@ outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
 rationale = "Duplicate statement labels and CASE labels with the same evaluated constant value are rejected."
+
+[[behavior]]
+partition = { equals = "BOOLEAN_SELECTION_AND_ITERATION_CONDITION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#5-if-statement-section-73332"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "IF, ELSIF, WHILE, and REPEAT accept BOOL conditions at every nested selection or iteration position."
+
+[[behavior]]
+partition = { equals = "NONBOOLEAN_SELECTION_OR_ITERATION_CONDITION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001#32-statement-type-errors"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "IF, ELSIF, WHILE, and REPEAT reject every non-BOOL condition without inventing a truth conversion."
+
+[[behavior]]
+partition = { equals = "CASE_ELEMENTARY_SELECTOR_AND_COMPATIBLE_LABEL" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#6-case-statement-section-73333"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A CASE selector is elementary and each scalar, enumerated, string-family, or integer-range label resolves compatibly with that selector."
+
+[[behavior]]
+partition = { equals = "INVALID_CASE_SELECTOR_LABEL_OR_NONCONSTANT_RANGE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#6-case-statement-section-73333"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Aggregate selectors, incompatible label families, string subranges, and nonconstant range operands are rejected at the CASE boundary."
+
+[[behavior]]
+partition = { equals = "CASE_RANGE_ORDER_AND_DISJOINTNESS" }
+case_family = "duplicate_or_collision"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#6-case-statement-section-73333"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Reversed ranges, overlapping ranges, and scalar/range collisions reject after constant evaluation instead of being normalized or selected by source order."
+
+[[behavior]]
+partition = { equals = "INNERMOST_LOOP_TRANSFER" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#10-exit-statement-section-73346"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "EXIT and CONTINUE are accepted inside FOR, WHILE, and REPEAT and bind only to the innermost enclosing iteration."
+
+[[behavior]]
+partition = { equals = "FOR_CAPTURED_SOURCE_IMMUTABILITY" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#7-for-statement-section-73342"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "The FOR control variable and variables used by captured initial or final expressions cannot be modified in the body; a variable used only by the captured step may be modified."
+
+[[behavior]]
+partition = { equals = "VALID_RETURN_CONTEXT_AND_RESULT_FLOW" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#4-return-statement-section-73324-trust-dev-022"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Programs and function blocks accept bare early return; functions and value-returning methods accept a compatible value return or a bare return after result assignment on that path."
+
+[[behavior]]
+partition = { equals = "INVALID_RETURN_CONTEXT_TYPE_OR_MISSING_RESULT" }
+case_family = "missing_required"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#4-return-statement-section-73324-trust-dev-022"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A function path cannot return before assigning its result, omit every result, or return an incompatible value; programs and function blocks cannot return a value."
+
+[[behavior]]
+partition = { equals = "VALID_FOR_INTEGER_CONTROL_BOUND_STEP_AND_CAPTURE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#7-for-statement-section-73342"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "FOR accepts one compatible integer family for control, initial, final, and optional positive or negative step, captures its operands once, and permits later mutation of a variable used only by the captured step."
 
 [[coverage.cells]]
 dimension = "happy_path"

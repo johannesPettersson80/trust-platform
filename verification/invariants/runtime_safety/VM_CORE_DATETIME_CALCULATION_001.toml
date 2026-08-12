@@ -1,0 +1,81 @@
+schema_version = 1
+id = "VM_CORE_DATETIME_CALCULATION_001"
+title = "Portable date-time calculations preserve calendar and profile boundaries"
+area = "runtime_safety"
+risk = "wrong_result"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-30"
+claim = "Civil-date and profile-tick helpers use checked proleptic-Gregorian arithmetic, accept only exactly representable positive day resolutions, preserve the configured epoch, and apply the requested signed division mode."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["docs/specs/10-runtime-semantics.md", "crates/trust-runtime-core/src/datetime.rs"]
+tests = ["TEST_AUTO_0DD6F5FFD78B0AAF4BAC", "TEST_AUTO_BA82D0C35FD9C81BB003", "TEST_AUTO_D22C929A6648C0C54C86"]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_tests", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_SEMANTICS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+
+[[behavior]]
+partition = { equals = "CIVIL_DATE_EPOCH_AND_GREGORIAN_RULES" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The proleptic Gregorian calendar maps the Unix epoch to day zero and applies the divisible-by-4, century, and divisible-by-400 leap rules."
+
+[[behavior]]
+partition = { equals = "CIVIL_DATE_INVALID_OR_I64_OVERFLOW" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Invalid calendar fields return InvalidDate and every unrepresentable intermediate or result returns Overflow without panic or wrap."
+
+[[behavior]]
+partition = { equals = "PROFILE_DAY_RESOLUTION_EXACT_QUOTIENT" }
+case_family = "resource_limit"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "A profile resolution must be positive, no larger than a day, and divide the day exactly; valid profiles return the exact ticks-per-day quotient."
+
+[[behavior]]
+partition = { equals = "SIGNED_DAY_AND_NANOSECOND_TICK_CONVERSION" }
+case_family = "boundary_low"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Day conversion uses checked multiply-plus-epoch arithmetic, while signed nanoseconds use truncation toward zero or Euclidean division exactly as requested."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Epoch and Gregorian leap-rule assertions await red-green completion, catalog binding, and dynamic trace."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Invalid calendar and extreme-year overflow assertions await red-green completion, catalog binding, and dynamic trace."
+
+[[coverage.cells]]
+dimension = "resource_limit"
+state = "gap_open"
+rationale = "Invalid and non-integral profile resolution assertions await red-green completion, catalog binding, and dynamic trace."
+
+[[coverage.cells]]
+dimension = "boundary_low"
+state = "gap_open"
+rationale = "Negative truncating and Euclidean tick-conversion assertions await red-green completion, catalog binding, and dynamic trace."

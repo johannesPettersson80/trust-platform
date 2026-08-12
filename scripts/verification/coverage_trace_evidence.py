@@ -52,7 +52,7 @@ def capture_raw_trace_evidence(
         requested.relative_to(root).as_posix(): requested.read_bytes(),
         config.relative_to(root).as_posix(): config.read_bytes(),
     }
-    executable_paths: set[Path] = set()
+    executable_originals: dict[Path, bytes] = {}
     tool_paths = _trusted_llvm_tools(llvm_tools_dir)
     attempts = []
     for manifest_path in manifests:
@@ -88,9 +88,13 @@ def capture_raw_trace_evidence(
         executable = Path(executable_raw)
         if not executable.is_absolute() or not executable.is_file():
             raise ValueError("focused trace test executable is unavailable")
-        executable_paths.add(executable.resolve())
+        executable = executable.resolve()
+        executable_content = executable_originals.get(executable)
+        if executable_content is None:
+            executable_content = executable.read_bytes()
+            executable_originals[executable] = executable_content
         recorded = manifest.get("test_executable_digest")
-        actual = _file_digest(executable)
+        actual = _digest(executable_content)
         if recorded != actual:
             raise ValueError("focused trace test executable digest drifted")
         current_profile_digest = _profile_digest(profile_bytes)
@@ -106,12 +110,14 @@ def capture_raw_trace_evidence(
             }
         )
     repository_originals = dict(sorted(repository_originals.items()))
-    executable_originals = {
-        path: path.read_bytes()
-        for path in sorted(executable_paths | set(tool_paths.values()))
-    }
+    for path in sorted(tool_paths.values()):
+        executable_originals.setdefault(path, path.read_bytes())
+    executable_originals = dict(
+        sorted(executable_originals.items(), key=lambda item: item[0].as_posix())
+    )
     tool_digests = {
-        name: _digest(path.read_bytes()) for name, path in tool_paths.items()
+        name: _digest(executable_originals[path])
+        for name, path in tool_paths.items()
     }
     serialized_tool_paths = {
         name: path.as_posix() for name, path in tool_paths.items()

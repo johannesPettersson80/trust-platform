@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import tomllib
 import unittest
 
@@ -184,6 +185,7 @@ class MappingTomlTests(unittest.TestCase):
                     "unresolved_assertion_helpers": [],
                     "trace_record_digest": "sha256:" + "5" * 64,
                     "candidate_signal_digest": "sha256:" + "6" * 64,
+                    "authority_route_digest": "sha256:" + "a" * 64,
                     "oracle_refs": ["SPEC_ONE#behavior"],
                     "behavior_refs": ["INV_ONE#behavior:0"],
                     "suggestions": {
@@ -201,6 +203,11 @@ class MappingTomlTests(unittest.TestCase):
 
         self.assertEqual(document, tomllib.loads(rendered))
         self.assertEqual(rendered, render_proposals_toml(document))
+
+        unknown = copy.deepcopy(document)
+        unknown["proposals"][0]["unknown_route_field"] = "forbidden"
+        with self.assertRaisesRegex(ValueError, "proposal fields drift"):
+            render_proposals_toml(unknown)
 
 
 if __name__ == "__main__":

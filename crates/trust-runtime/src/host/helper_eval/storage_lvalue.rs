@@ -67,6 +67,16 @@ pub(crate) fn write_storage_lvalue(
             )
         }
         LValue::Field { target, field } => {
+            if let Some(qualified) = target
+                .qualified_name()
+                .map(|prefix| SmolStr::new(format!("{prefix}.{field}")))
+            {
+                match write_name(storage, current_instance, &qualified, value.clone()) {
+                    Ok(()) => return Ok(()),
+                    Err(RuntimeError::UndefinedVariable(_)) => {}
+                    Err(error) => return Err(error),
+                }
+            }
             let base_value =
                 read_storage_lvalue(storage, registry, profile, current_instance, target)?;
             match base_value {
@@ -285,11 +295,11 @@ fn index_to_i64(value: Value) -> Result<i64, RuntimeError> {
         Value::USInt(v) => Ok(v as i64),
         Value::UInt(v) => Ok(v as i64),
         Value::UDInt(v) => Ok(v as i64),
-        Value::ULInt(v) => Ok(v as i64),
+        Value::ULInt(v) => i64::try_from(v).map_err(|_| RuntimeError::Overflow),
         Value::Byte(v) => Ok(v as i64),
         Value::Word(v) => Ok(v as i64),
         Value::DWord(v) => Ok(v as i64),
-        Value::LWord(v) => Ok(v as i64),
+        Value::LWord(v) => i64::try_from(v).map_err(|_| RuntimeError::Overflow),
         _ => Err(RuntimeError::TypeMismatch),
     }
 }
@@ -320,6 +330,10 @@ fn partial_access_error_to_runtime(err: PartialAccessError) -> RuntimeError {
         PartialAccessError::TypeMismatch => RuntimeError::TypeMismatch,
     }
 }
+
+#[cfg(test)]
+#[path = "storage_lvalue/contract_tests.rs"]
+mod contract_tests;
 
 #[cfg(test)]
 mod tests {

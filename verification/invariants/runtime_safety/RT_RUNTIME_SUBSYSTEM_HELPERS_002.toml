@@ -1,0 +1,113 @@
+schema_version = 1
+id = "RT_RUNTIME_SUBSYSTEM_HELPERS_002"
+title = "Runtime subsystem helpers preserve scheduling, health, mesh, metrics, and retain authority"
+area = "runtime_safety"
+risk = "false_status"
+status = "specified"
+owner = "trust-runtime"
+last_reviewed = "2026-08-01"
+claim = "Runtime resource, cycle, I/O, mesh, metadata, metrics, and retain helpers preserve canonical identity, deadline and time semantics, ordered health, safe-state attempts, optional sinks, and restart policy."
+proof_level = "S0"
+contract_kind = "state_machine"
+source_refs = ["docs/specs/10-runtime-semantics.md", "docs/specs/11-runtime-engine.md", "crates/trust-runtime/src/runtime"]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["catalog_mapping", "focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_SEMANTICS_001", "SPEC_RUNTIME_ENGINE_001"]
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#scan-cycle-architecture"
+
+[[behavior]]
+partition = { equals = "RESOURCE_METADATA_COMPATIBILITY_AND_TASK_SPELLING" }
+case_family = "encoding_or_unicode"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#scan-cycle-architecture"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "The legacy RESOURCE placeholder applies only to one resource named RESOURCE; ordinary metadata matches program references case-insensitively while preserving task spelling."
+[[behavior]]
+partition = { equals = "CASE_INSENSITIVE_CYCLE_SCHEDULING_AND_PROGRAM_EXECUTION" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#scan-cycle-architecture"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Cycle scheduling and program execution resolve runtime names case-insensitively without changing configured order."
+[[behavior]]
+partition = { equals = "CYCLE_DEADLINE_AND_NONNEGATIVE_MILLISECOND_PROJECTION" }
+case_family = "time_or_clock_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#scan-cycle-architecture"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Output deadlines distinguish missing, future, and expired, while cycle-time projection clamps negative values and preserves nonnegative milliseconds."
+[[behavior]]
+partition = { equals = "ORDERED_IO_HEALTH_AND_ALL_DRIVER_SAFE_STATE" }
+case_family = "hardware_or_network_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#safe-state-handoff-confirmation"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "expected_delta", diagnostics = "stable_error", status = "status_degraded" }
+rationale = "Health snapshots replace stale rows in driver order; empty safe-state refreshes health only; safe-state attempts every driver and returns the first failure."
+[[behavior]]
+partition = { equals = "CASE_INSENSITIVE_MESH_EXISTING_GLOBAL_UPDATE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#io-drivers"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Mesh snapshots resolve case-insensitively in canonical order and updates change only existing globals without creating unknown names."
+[[behavior]]
+partition = { equals = "CASE_INSENSITIVE_BACKGROUND_AND_USING_METADATA" }
+case_family = "encoding_or_unicode"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#runtime-execution-engine"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Background classification and function/program using resolution are case-insensitive."
+[[behavior]]
+partition = { equals = "OPTIONAL_COMPLETE_METRICS_ROUTING" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#metrics-and-monitoring"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The metrics subsystem may be absent; when present it receives every documented runtime measurement."
+[[behavior]]
+partition = { equals = "QUALIFIED_RETAIN_KEY_TYPE_AND_WARM_POLICY" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#retain-restart"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected_delta", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Qualified program retain keys round-trip, reference or instance presence at any aggregate depth is nonretainable, and warm restart restores only RETAIN and PERSISTENT policies."
+
+[[coverage.cells]]
+dimension = "encoding_or_unicode"
+state = "gap_open"
+rationale = "Focused resource and metadata identity tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "Focused cycle and mesh order tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "time_or_clock_fault"
+state = "gap_open"
+rationale = "Focused deadline and cycle-time tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "hardware_or_network_fault"
+state = "gap_open"
+rationale = "Focused safe-state and health tests exist, but catalog binding, hardware proof, and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Focused optional metrics tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "persistence_or_recovery"
+state = "gap_open"
+rationale = "Focused retain key, type, and restart-policy tests exist, but catalog binding and dynamic proof are pending."

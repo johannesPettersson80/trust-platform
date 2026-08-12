@@ -26,6 +26,10 @@ Runtime-result authority is tracked separately from HIR signature coverage:
   prove assignment-capacity enforcement.
 - Checked implementation boxes below do not imply that the corresponding
   runtime-result invariant is dynamically proved.
+- truST product clock sources `TIME()` and `CURRENT_DT()` are outside the IEC
+  standard-function tables. `TRUST_RUNTIME_CLOCK_DISPATCH_001` now has direct
+  catalog mappings for canonical-name recognition, logical-TIME passthrough,
+  and unknown-name rejection; focused execution and reachability remain open.
 
 ## Table 22 - Data Type Conversion Function Forms
 - [x] `SRC_TO_DST` typed conversion

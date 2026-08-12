@@ -83,6 +83,7 @@ macro_rules! for_each_token_kind {
             KwEndType,
             KwStruct,
             KwEndStruct,
+            KwOverlap,
             KwUnion,
             KwEndUnion,
             KwArray,

@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .authority_route_mapping import build_authority_route_mapping_inputs
 from .code_spec_live import CodeSpecMetadata
 from .code_spec_risk import index_risk_acknowledgements
 from .focused_mapping_context import (
@@ -28,6 +29,7 @@ from .coverage_trace_evidence import (
     validate_external_evidence,
 )
 from .focused_trace_authentication import authenticate_focused_trace
+from .focused_trace_receipt import load_authenticated_trace_receipt
 from .mapping_assertions import invoke_assertion_inventories
 from .mapping_candidates import analyze_mapping_candidates
 from .focused_mapping_queue import merge_focused_queue
@@ -62,6 +64,8 @@ def generate_focused_mapping_candidates(
     llvm_tools_dir: Path,
     temporary_dir: Path,
     timestamp: str | None,
+    authority_routes_path: Path | None = None,
+    authenticated_trace_receipt_path: Path | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Generate quarantine planes from selected facts and a frozen census."""
 
@@ -96,9 +100,47 @@ def generate_focused_mapping_candidates(
         "verification/test-catalog-mapping-decisions.toml",
         "mapping decision ledger",
     )
-    if len({trace_path, candidates_path, proposals_path, decisions_path}) != 4:
+    authority_routes_path = (
+        canonical_input_file(
+            root,
+            authority_routes_path,
+            "reviewed test-invariant authority routes",
+            required_parent="target/gate-artifacts",
+        )
+        if authority_routes_path is not None
+        else None
+    )
+    authenticated_trace_receipt_path = (
+        canonical_input_file(
+            root,
+            authenticated_trace_receipt_path,
+            "focused trace authentication receipt",
+            required_parent="target/gate-artifacts",
+        )
+        if authenticated_trace_receipt_path is not None
+        else None
+    )
+    distinct_paths = {trace_path, candidates_path, proposals_path, decisions_path}
+    if authority_routes_path is not None:
+        distinct_paths.add(authority_routes_path)
+    if authenticated_trace_receipt_path is not None:
+        distinct_paths.add(authenticated_trace_receipt_path)
+    expected_distinct = 4 + int(authority_routes_path is not None) + int(
+        authenticated_trace_receipt_path is not None
+    )
+    if len(distinct_paths) != expected_distinct:
         raise ValueError("focused mapping input and output targets must be distinct")
     trace_bytes = trace_path.read_bytes()
+    authority_routes_bytes = (
+        authority_routes_path.read_bytes()
+        if authority_routes_path is not None
+        else None
+    )
+    authenticated_trace_receipt_bytes = (
+        authenticated_trace_receipt_path.read_bytes()
+        if authenticated_trace_receipt_path is not None
+        else None
+    )
     candidate_original = _existing_bytes(candidates_path)
     proposal_original = proposals_path.read_bytes()
     decision_original = decisions_path.read_bytes()
@@ -119,6 +161,14 @@ def generate_focused_mapping_candidates(
         label="raw trace evidence",
     )
     trace = _json_document(trace_bytes, "focused Rust trace")
+    authority_routes = (
+        _json_document(
+            authority_routes_bytes,
+            "reviewed test-invariant authority routes",
+        )
+        if authority_routes_bytes is not None
+        else None
+    )
     selected_preconditions = _selected_input_preconditions(
         root=root,
         requested=requested,
@@ -133,6 +183,16 @@ def generate_focused_mapping_candidates(
         outputs=candidate_outputs,
         authenticated_inputs={
             trace_path.relative_to(root).as_posix(),
+            *(
+                {authority_routes_path.relative_to(root).as_posix()}
+                if authority_routes_path is not None
+                else set()
+            ),
+            *(
+                {authenticated_trace_receipt_path.relative_to(root).as_posix()}
+                if authenticated_trace_receipt_path is not None
+                else set()
+            ),
             *metadata_preconditions,
         },
         label="focused inputs",
@@ -200,16 +260,28 @@ def generate_focused_mapping_candidates(
         context=context,
         metadata=metadata,
     )
-    authenticated_trace = authenticate_focused_trace(
-        root=root,
-        trace=trace,
-        context=context,
-        metadata=metadata,
-        trace_root=trace_root,
-        cargo_target_dir=cargo_target_dir,
-        llvm_tools_dir=llvm_tools_dir,
-        temporary_dir=temporary_dir,
-        evidence=raw_evidence,
+    authenticated_trace = (
+        load_authenticated_trace_receipt(
+            root=root,
+            receipt_path=authenticated_trace_receipt_path,
+            trace=trace,
+            requested=requested,
+            trace_root=trace_root,
+            llvm_tools_dir=llvm_tools_dir,
+            evidence=raw_evidence,
+        )
+        if authenticated_trace_receipt_path is not None
+        else authenticate_focused_trace(
+            root=root,
+            trace=trace,
+            context=context,
+            metadata=metadata,
+            trace_root=trace_root,
+            cargo_target_dir=cargo_target_dir,
+            llvm_tools_dir=llvm_tools_dir,
+            temporary_dir=temporary_dir,
+            evidence=raw_evidence,
+        )
     )
     _merge_preconditions(
         metadata_preconditions,
@@ -249,6 +321,52 @@ def generate_focused_mapping_candidates(
             workspace_root=root,
         ),
     )
+    if authority_routes is not None:
+        route_rows = authority_routes.get("routes")
+        if not isinstance(route_rows, list) or any(
+            not isinstance(route, Mapping) for route in route_rows
+        ):
+            raise ValueError(
+                "reviewed test-invariant authority routes must contain object rows"
+            )
+        routed = build_authority_route_mapping_inputs(
+            routes=route_rows,
+            facts=[
+                {
+                    "stable_id": discovery_id,
+                    "source_kind": fact["discovery_source_kind"],
+                    "path": fact["path"],
+                    "name": fact["name"],
+                }
+                for discovery_id, fact in sorted(context.selected_facts.items())
+            ],
+            denominator_reviews=list(context.reviews_by_id.values()),
+            invariants=metadata.invariants,
+            execution_documents=[],
+            mapping_demands=list(analysis.get("demands", [])),
+            authenticated_inputs={
+                "authority_document": authority_routes,
+                "authority_route_digest": _canonical_digest(authority_routes),
+                "focused_trace": trace,
+                "focused_trace_digest": trace_digest,
+            },
+        )
+        existing_candidates = list(analysis.get("candidates", []))
+        routed_candidates = list(routed["candidates"])
+        candidate_ids = [
+            str(candidate.get("discovery_id"))
+            for candidate in [*existing_candidates, *routed_candidates]
+        ]
+        if len(candidate_ids) != len(set(candidate_ids)):
+            raise ValueError("reviewed authority routes duplicate mapping candidates")
+        analysis = {
+            **analysis,
+            "candidates": sorted(
+                [*existing_candidates, *routed_candidates],
+                key=lambda candidate: str(candidate["discovery_id"]),
+            ),
+            "demands": list(analysis.get("demands", [])),
+        }
     candidate_document = _build_candidate_document(
         source_commit=str(trace["source_commit"]),
         trace_digest=trace_digest,
@@ -328,6 +446,11 @@ def generate_focused_mapping_candidates(
         focused_proposals=proposals,
         selected_discovery_ids=requested,
         code_mappings=metadata.mappings,
+        authenticated_authority_route_digests=(
+            {_canonical_digest(authority_routes)}
+            if authority_routes is not None
+            else set()
+        ),
     )
     merged_candidate_failures = validate_json_schema_instance(
         candidate_document, candidate_schema
@@ -372,6 +495,25 @@ def generate_focused_mapping_candidates(
         expected_originals,
         {trace_path.relative_to(root).as_posix(): trace_bytes},
     )
+    if authority_routes_path is not None and authority_routes_bytes is not None:
+        _merge_preconditions(
+            expected_originals,
+            {
+                authority_routes_path.relative_to(root).as_posix():
+                    authority_routes_bytes
+            },
+        )
+    if (
+        authenticated_trace_receipt_path is not None
+        and authenticated_trace_receipt_bytes is not None
+    ):
+        _merge_preconditions(
+            expected_originals,
+            {
+                authenticated_trace_receipt_path.relative_to(root).as_posix():
+                    authenticated_trace_receipt_bytes
+            },
+        )
     _merge_preconditions(
         expected_originals,
         {

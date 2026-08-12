@@ -46,7 +46,7 @@ fn resolve_web_role(
         }
         return None;
     }
-    let expected = token.lock().ok().and_then(|guard| guard.as_ref().cloned());
+    let expected = token.lock().ok()?.as_ref().cloned();
     let header = request
         .headers()
         .iter()
@@ -74,6 +74,7 @@ pub(super) fn auth_error_response(error: &str) -> Response<std::io::Cursor<Vec<u
     };
     Response::from_string(json!({ "ok": false, "error": error }).to_string())
         .with_status_code(status)
+        .with_header(Header::from_bytes("Content-Type", "application/json").unwrap())
 }
 
 pub(super) fn dispatch_control_request(
@@ -121,3 +122,7 @@ pub(super) fn ide_error_response(error: IdeError) -> Response<std::io::Cursor<Ve
         .with_status_code(StatusCode(error.status_code()))
         .with_header(Header::from_bytes("Content-Type", "application/json").unwrap())
 }
+
+#[cfg(test)]
+#[path = "auth_helpers/contract_tests.rs"]
+mod contract_tests;

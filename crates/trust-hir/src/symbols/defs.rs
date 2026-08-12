@@ -192,6 +192,15 @@ pub struct SymbolModifiers {
     pub is_override: bool,
 }
 
+/// Edge transformation applied to an accepted `VAR_INPUT BOOL` declaration.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EdgeQualifier {
+    /// Rising-edge pulse (`R_EDGE`).
+    Rising,
+    /// Falling-edge pulse (`F_EDGE`).
+    Falling,
+}
+
 /// A symbol in the symbol table.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Symbol {
@@ -205,8 +214,13 @@ pub struct Symbol {
     pub type_id: TypeId,
     /// Whether the declared storage is read-only within the entity.
     pub is_constant: bool,
+    /// Variable-section qualifier used to distinguish constant references
+    /// such as `VAR_EXTERNAL CONSTANT` from owned constants.
+    pub declared_qualifier: Option<VarQualifier>,
     /// Direct address binding (`AT %...`) if present.
     pub direct_address: Option<SmolStr>,
+    /// Per-input edge transformation, when declared with `R_EDGE` or `F_EDGE`.
+    pub edge_qualifier: Option<EdgeQualifier>,
     /// The symbol's visibility.
     pub visibility: Visibility,
     /// Modifiers (FINAL/ABSTRACT/OVERRIDE) associated with the symbol.
@@ -236,7 +250,9 @@ impl Symbol {
             kind,
             type_id,
             is_constant: false,
+            declared_qualifier: None,
             direct_address: None,
+            edge_qualifier: None,
             visibility: Visibility::default(),
             modifiers: SymbolModifiers::default(),
             range,

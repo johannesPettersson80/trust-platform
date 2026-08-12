@@ -8,7 +8,7 @@ use crate::io::{IoDriver, IoDriverStatus, IoInterface, IoSafeState};
 use crate::memory::{AccessMap, FrameId, InstanceId, VariableStorage};
 use crate::metrics::RuntimeMetrics;
 use crate::program_model::{
-    ClassDef, FunctionBlockDef, FunctionDef, InitializerCatalog, InterfaceDef,
+    ClassDef, EdgeInput, FunctionBlockDef, FunctionDef, InitializerCatalog, InterfaceDef,
 };
 use crate::program_model::{Expr, LValue};
 use crate::retain::{RetainManager, RetainStore};
@@ -57,6 +57,7 @@ pub struct Runtime {
     pub(super) classes: IndexMap<SmolStr, ClassDef>,
     pub(super) interfaces: IndexMap<SmolStr, InterfaceDef>,
     pub(super) programs: IndexMap<SmolStr, ProgramDef>,
+    pub(super) edge_inputs: IndexMap<SmolStr, Vec<EdgeInput>>,
     pub(super) globals: IndexMap<SmolStr, GlobalVarMeta>,
     pub(super) tasks: Vec<TaskConfig>,
     pub(super) ready_tasks_scratch: Vec<super::types::ReadyTask>,
@@ -135,6 +136,13 @@ include!("core/diagnostics.rs");
 include!("core/accessors.rs");
 include!("core/evaluation.rs");
 include!("core/scheduling.rs");
+
+#[cfg(test)]
+mod tests;
+
+#[cfg(test)]
+#[path = "core/accessor_contract_tests.rs"]
+mod accessor_contract_tests;
 
 impl Default for Runtime {
     fn default() -> Self {

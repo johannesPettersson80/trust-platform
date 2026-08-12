@@ -1,0 +1,179 @@
+schema_version = 1
+id = "IEC_PARSE_LEXICAL_BOUNDARIES_002"
+title = "Parser preserves valid lexical forms and rejects lexer errors"
+area = "compiler_iec"
+risk = "wrong_result"
+status = "specified"
+owner = "trust-syntax"
+last_reviewed = "2026-08-01"
+claim = "The parser consumes valid lexical forms and trivia without reconstruction, retains shape-valid temporal tokens for later value validation, and never reinterprets an Error candidate as valid Structured Text."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = [
+  "crates/trust-syntax/src/lexer",
+  "crates/trust-syntax/src/parser",
+  "docs/specs/01-lexical-elements.md",
+]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["catalog_mapping", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_IEC_LEXICAL_ELEMENTS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#parser-handoff-boundary"
+
+[[behavior]]
+partition = { equals = "TRIVIA_HANDOFF" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#parser-handoff-boundary"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Comments and pragmas remain lossless trivia and do not change the surrounding grammar."
+
+[[behavior]]
+partition = { equals = "VALID_TEMPORAL_LITERAL_HANDOFF" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#parser-handoff-boundary"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Date, time, and duration prefix aliases and legal fractional separators remain their corresponding literal syntax nodes."
+
+[[behavior]]
+partition = { equals = "VALID_NUMERIC_LITERAL_HANDOFF" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#parser-handoff-boundary"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Complete decimal, based, signed, fractional, and exponent numeric tokens retain their literal syntax."
+
+[[behavior]]
+partition = { equals = "VALID_IDENTIFIER_AND_KEYWORD_HANDOFF" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#parser-handoff-boundary"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Supported identifier forms and case-insensitive keywords retain their distinct parser roles."
+
+[[behavior]]
+partition = { equals = "VALID_STRING_ESCAPE_HANDOFF" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#parser-handoff-boundary"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Narrow and wide strings with their complete legal escape families retain their string literal syntax."
+
+[[behavior]]
+partition = { equals = "VALID_TYPED_LITERAL_HANDOFF" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#parser-handoff-boundary"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Typed numeric and Boolean prefixes remain attached to their separately tokenized payload in the literal syntax node."
+
+[[behavior]]
+partition = { equals = "SHAPE_VALID_TEMPORAL_VALUE_BOUNDARY" }
+case_family = "boundary_low"
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#parser-handoff-boundary"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A shape-valid calendar token remains syntactically accepted so semantic value validation owns an impossible date."
+
+[[behavior]]
+partition = { equals = "INVALID_TEMPORAL_SHAPE_HANDOFF" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#parser-handoff-boundary"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "An Error candidate produced by an invalid temporal field width cannot become a temporal syntax node."
+
+[[behavior]]
+partition = { equals = "INVALID_BASED_DIGIT_HANDOFF" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#parser-handoff-boundary"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "An out-of-base digit remains an Error candidate and cannot be split into a valid based literal prefix."
+
+[[behavior]]
+partition = { equals = "INVALID_DURATION_SHAPE_HANDOFF" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#parser-handoff-boundary"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A fractional duration unit followed by another unit remains Error and cannot become a partial duration node."
+
+[[behavior]]
+partition = { equals = "INVALID_NUMERIC_SEPARATOR_HANDOFF" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#parser-handoff-boundary"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A malformed numeric separator remains one Error candidate and cannot become valid numeric fragments."
+
+[[behavior]]
+partition = { equals = "INVALID_IDENTIFIER_HANDOFF" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#parser-handoff-boundary"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Repeated leading or embedded underscores and a trailing underscore remain Error and cannot be parsed as valid identifier fragments."
+
+[[behavior]]
+partition = { equals = "INVALID_REAL_EXPONENT_HANDOFF" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#parser-handoff-boundary"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A real exponent without digits remains Error and cannot become a valid real literal plus identifier."
+
+[[behavior]]
+partition = { equals = "INVALID_STRING_ESCAPE_HANDOFF" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#parser-handoff-boundary"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "An unknown string escape remains Error and cannot become a valid string literal node."
+
+[[behavior]]
+partition = { equals = "UNTERMINATED_TRIVIA_HANDOFF" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#parser-handoff-boundary"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "An unterminated block comment or pragma remains Error and cannot be silently discarded as trivia."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "The focused lexical-parser contract tests exist, but accepted catalog binding and dynamic proof are pending."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "The focused lexical-parser contract tests exist, but accepted catalog binding and dynamic proof are pending."
+
+[[coverage.cells]]
+dimension = "boundary_low"
+state = "gap_open"
+rationale = "The focused lexical-parser contract tests exist, but accepted catalog binding and dynamic proof are pending."

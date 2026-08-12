@@ -1,0 +1,181 @@
+schema_version = 1
+id = "TRUST_HIR_SYMBOL_TYPE_REGISTRY_002"
+title = "HIR symbol, scope, and type registries fail closed"
+area = "compiler_iec"
+risk = "wrong_result"
+status = "specified"
+owner = "trust-hir"
+last_reviewed = "2026-08-01"
+claim = "Symbol, scope, initializer, and type registries preserve stable identities and complete payloads, resolve deterministically, and reject missing, ambiguous, cyclic, or incompatible model facts without fallback."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["docs/specs/26-hir-semantic-kernel.md", "crates/trust-hir/src/symbols", "crates/trust-hir/src/types"]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["catalog_mapping", "focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+[spec]
+status = "specified"
+source_refs = ["SPEC_HIR_SEMANTIC_KERNEL_001"]
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_HIR_SEMANTIC_KERNEL_001#8-symbol-table-scope-and-type-registry-contract"
+
+[[behavior]]
+partition = { equals = "GLOBAL_SCOPE_AND_BUILTIN_CONSTRUCTION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_HIR_SEMANTIC_KERNEL_001#8-symbol-table-scope-and-type-registry-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Construction creates one global scope and registers every builtin type and function block under stable case-insensitive identities."
+[[behavior]]
+partition = { equals = "CHILD_SCOPE_OWNER_LIFECYCLE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_HIR_SEMANTIC_KERNEL_001#8-symbol-table-scope-and-type-registry-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Child scope push/pop and owner association preserve parents, owners, idempotency, and the global-scope floor."
+[[behavior]]
+partition = { equals = "LEXICAL_AND_USING_RESOLUTION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_HIR_SEMANTIC_KERNEL_001#8-symbol-table-scope-and-type-registry-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Local declarations shadow USING matches, repeated paths deduplicate, and parent traversal is case-insensitive and deterministic."
+[[behavior]]
+partition = { equals = "AMBIGUOUS_OR_MISSING_SCOPE_RESOLUTION" }
+case_family = "missing_required"
+oracle_ref = "SPEC_HIR_SEMANTIC_KERNEL_001#8-symbol-table-scope-and-type-registry-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Ambiguous USING candidates, missing owners, and non-namespace qualified intermediates remain classified and never manufacture a scope or arbitrary target."
+[[behavior]]
+partition = { equals = "DUPLICATE_SYMBOL_IDENTITY_AND_LOOKUP" }
+case_family = "duplicate_or_collision"
+oracle_ref = "SPEC_HIR_SEMANTIC_KERNEL_001#8-symbol-table-scope-and-type-registry-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Duplicate identities remain available for diagnostics while owner-local and top-level lookup apply their documented replacement and first-writer policies."
+[[behavior]]
+partition = { equals = "SOURCE_RANGE_AND_IMPORT_INDEX" }
+case_family = "platform_or_filesystem_variation"
+oracle_ref = "SPEC_HIR_SEMANTIC_KERNEL_001#8-symbol-table-scope-and-type-registry-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Local source indexes use normalized names and exact ranges, exclude imported identities, and retain ordered import collisions."
+[[behavior]]
+partition = { equals = "BUILTIN_AND_USER_TYPE_IDENTITY" }
+case_family = "happy_path"
+oracle_ref = "SPEC_HIR_SEMANTIC_KERNEL_001#8-symbol-table-scope-and-type-registry-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Builtin aliases and user types round-trip canonical names while user identities increase monotonically and placeholder replacement preserves identity."
+[[behavior]]
+partition = { equals = "CONSTRUCTED_TYPE_PAYLOAD" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_HIR_SEMANTIC_KERNEL_001#8-symbol-table-scope-and-type-registry-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Struct, union, enum, array, pointer, reference, subrange, bounded-string, and anonymous constructed types retain complete payloads and deterministic names."
+[[behavior]]
+partition = { equals = "INITIALIZER_CATALOG_IDENTITY" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_HIR_SEMANTIC_KERNEL_001#8-symbol-table-scope-and-type-registry-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Initializer records retain insertion order, explicit defaults, and fresh table-local identities on import."
+[[behavior]]
+partition = { equals = "TYPE_FAMILY_CLASSIFICATION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_HIR_SEMANTIC_KERNEL_001#8-symbol-table-scope-and-type-registry-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Elementary, derived, generic, numeric, bit, character, duration, civil-time, and compound families retain explicit non-overlapping classification rules."
+[[behavior]]
+partition = { equals = "FIXED_AND_UNSIZED_BIT_WIDTH" }
+case_family = "boundary_low"
+oracle_ref = "SPEC_HIR_SEMANTIC_KERNEL_001#8-symbol-table-scope-and-type-registry-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Fixed elementary and known subrange widths are reported exactly; unsized or unresolved types do not invent a width, and handles use the selected target width."
+[[behavior]]
+partition = { equals = "ARRAY_DIMENSION_AND_WILDCARD_SHAPE" }
+case_family = "boundary_low"
+oracle_ref = "SPEC_HIR_SEMANTIC_KERNEL_001#8-symbol-table-scope-and-type-registry-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Array dimensions retain signed ordered bounds, recognize only the defined wildcard sentinel, and display deterministic shapes."
+[[behavior]]
+partition = { equals = "DIRECTIONAL_ASSIGNMENT_COMPATIBILITY" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_HIR_SEMANTIC_KERNEL_001#8-symbol-table-scope-and-type-registry-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Compatibility permits only exact or documented widening, family, NULL, subrange, and structural-array routes and fails closed for missing identities."
+[[behavior]]
+partition = { equals = "ENUM_CONSTANT_AND_ALIAS_RESOLUTION" }
+case_family = "duplicate_or_collision"
+oracle_ref = "SPEC_HIR_SEMANTIC_KERNEL_001#8-symbol-table-scope-and-type-registry-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Enum lookup distinguishes none, one, and ambiguity; constants normalize scope/name; aliases resolve complete acyclic chains and expose cycles."
+[[behavior]]
+partition = { equals = "OOP_REFERENCE_AND_MEMBER_RESOLUTION" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_HIR_SEMANTIC_KERNEL_001#8-symbol-table-scope-and-type-registry-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "EXTENDS, IMPLEMENTS, and inherited member lookup preserve written ownership, prefer the derived owner, reject wrong kinds, and stop on cycles."
+[[behavior]]
+partition = { equals = "ALIAS_TYPE_MEMBER_OWNER_RESOLUTION" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_HIR_SEMANTIC_KERNEL_001#8-symbol-table-scope-and-type-registry-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A complete acyclic alias chain resolves to its function-block owner before member lookup, preserving the declared member identity without fallback to the alias name."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Focused construction and resolution tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "Focused scope, initializer, alias, and hierarchy tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "missing_required"
+state = "gap_open"
+rationale = "Focused missing and ambiguous owner tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "duplicate_or_collision"
+state = "gap_open"
+rationale = "Focused duplicate and ambiguity tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "platform_or_filesystem_variation"
+state = "gap_open"
+rationale = "Focused source identity tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Focused type payload and compatibility tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "boundary_low"
+state = "gap_open"
+rationale = "Focused width and dimension boundary tests exist, but catalog binding and dynamic proof are pending."

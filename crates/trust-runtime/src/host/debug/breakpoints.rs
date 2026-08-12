@@ -229,3 +229,7 @@ mod tests {
         assert_eq!(breakpoints[1].hits, 1);
     }
 }
+
+#[cfg(test)]
+#[path = "breakpoints/contract_tests.rs"]
+mod contract_tests;

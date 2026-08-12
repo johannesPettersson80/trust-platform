@@ -3,6 +3,10 @@ use std::sync::mpsc::{channel, Receiver};
 use std::thread;
 use std::time::Duration;
 
+mod lifecycle_contract;
+mod mutation_contract;
+mod state_stream_contract;
+
 fn recv_stop(stop_rx: &Receiver<DebugStop>, timeout: Duration, label: &str) -> DebugStop {
     stop_rx
         .recv_timeout(timeout)

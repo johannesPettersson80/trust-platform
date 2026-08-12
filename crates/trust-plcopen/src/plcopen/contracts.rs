@@ -174,6 +174,7 @@ struct ConfigurationDecl {
     tasks: Vec<TaskDecl>,
     programs: Vec<ProgramBindingDecl>,
     resources: Vec<ResourceDecl>,
+    invalid: bool,
 }
 
 #[derive(Debug, Clone, Default)]

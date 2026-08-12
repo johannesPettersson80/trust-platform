@@ -6,6 +6,7 @@ import copy
 import hashlib
 import json
 import tempfile
+import tomllib
 import unittest
 from pathlib import Path
 
@@ -562,10 +563,14 @@ class P18ZeroDebtSubstrateTests(unittest.TestCase):
         records = build_open_records(root)
         self.assertEqual(
             [
+                "ASSERTION_REACHABILITY_CURRENT_DT_CONVERSION_001",
+                "ASSERTION_REACHABILITY_CURRENT_DT_RUNTIME_CLOCK_VALUE_AT_001",
                 "ASSERTION_REACHABILITY_FAULT_POLICY_DECISION_001",
                 "ASSERTION_REACHABILITY_FAULT_STATE_CLEAR_001",
                 "ASSERTION_REACHABILITY_INTEGER_I64_NORMALIZATION_001",
                 "ASSERTION_REACHABILITY_RETAIN_SNAPSHOT_INSERT_001",
+                "ASSERTION_REACHABILITY_RUNTIME_CLOCK_NAME_001",
+                "ASSERTION_REACHABILITY_RUNTIME_CLOCK_VALUE_001",
                 "ASSERTION_REACHABILITY_SIGNED_INTEGER_MATERIALIZATION_001",
                 "ASSERTION_REACHABILITY_TASK_READINESS_CLOCK_BOUNDARY_001",
                 "ASSERTION_REACHABILITY_TASK_READINESS_EVENT_001",
@@ -574,9 +579,28 @@ class P18ZeroDebtSubstrateTests(unittest.TestCase):
             ],
             [shard["id"] for shard in plan["shards"]],
         )
-        self.assertEqual(282, len(records))
+        denominator = tomllib.loads(
+            (root / "verification/test-catalog-denominator.toml").read_text()
+        )
+        expected_records = sum(
+            review.get("disposition") == "catalog_mapped"
+            for review in denominator["reviews"]
+        )
+        self.assertEqual(expected_records, len(records))
         by_test = {record["test_id"]: record for record in records}
         expected_bindings = {
+            "TEST_AUTO_24BE0B70F92996B0861C": (
+                "CODE_885C8D21D5ECEA14D4E14848A1A024A1F7E427D398E07F7200CEAD83FF1E4124",
+                "TRUST_CURRENT_DT_HOST_CLOCK_001",
+            ),
+            "TEST_AUTO_89EB14244F339DD685FA": (
+                "CODE_885C8D21D5ECEA14D4E14848A1A024A1F7E427D398E07F7200CEAD83FF1E4124",
+                "TRUST_CURRENT_DT_HOST_CLOCK_001",
+            ),
+            "TEST_AUTO_AE85D008FFF41EAFED54": (
+                "CODE_885C8D21D5ECEA14D4E14848A1A024A1F7E427D398E07F7200CEAD83FF1E4124",
+                "TRUST_CURRENT_DT_HOST_CLOCK_001",
+            ),
             "TEST_RUNTIME_FAULT_POLICY_DECISION_CORE_001": (
                 "CODE_E78D5BAEDF1B5EE0A6C2DEA95C1E40ADF75CADF7F3FE427F6BDA5738D8453BC8",
                 "RT_FAULT_POLICY_DECISION_001",
@@ -612,6 +636,14 @@ class P18ZeroDebtSubstrateTests(unittest.TestCase):
             "TEST_RUNTIME_RETAIN_SNAPSHOT_INSERT_TRACE_001": (
                 "CODE_F4ABB9ACC5495574EA09AD38CFC84F2BDE1D0BACA961B3CEAF9D9E44992E3F53",
                 "RT_RETAIN_SNAPSHOT_INSERT_001",
+            ),
+            "TEST_AUTO_476BEA614D8DE1A430DE": (
+                "CODE_8E19F745C8435D21776EC32BF5050A33BE6E3BA39B0286F8B978652006B66356",
+                "TRUST_RUNTIME_CLOCK_DISPATCH_001",
+            ),
+            "TEST_AUTO_536ACBF598E9855E95F2": (
+                "CODE_7017847AAB280080BF2EC34BF4803418D740D564C249005979415939449BB4D4",
+                "TRUST_RUNTIME_CLOCK_DISPATCH_001",
             ),
             "TEST_RUNTIME_SIGNED_INTEGER_MATERIALIZATION_001": (
                 "CODE_F72E3E7BC892973CF9344497078A35D93380745CDC5DB4820F5CFB302AAEE14A",
@@ -658,6 +690,17 @@ class P18ZeroDebtSubstrateTests(unittest.TestCase):
             self.assertIn(test_id, by_test)
             self.assertEqual([code_id], by_test[test_id]["code_ids"])
             self.assertEqual([invariant_id], by_test[test_id]["invariant_ids"])
+        rollback = by_test["TEST_AUTO_FE8A497DAC9EA3D5A0B4"]
+        self.assertEqual(
+            [
+                "CODE_885C8D21D5ECEA14D4E14848A1A024A1F7E427D398E07F7200CEAD83FF1E4124",
+                "CODE_E1CB06D0958110034719B77CEA48DBB256E4E298F1CE678994E26AA57A71EBD2",
+            ],
+            rollback["code_ids"],
+        )
+        self.assertEqual(
+            ["TRUST_CURRENT_DT_HOST_CLOCK_001"], rollback["invariant_ids"]
+        )
 
     def test_removed_validator_and_open_debt_cannot_pass_strict_mode(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

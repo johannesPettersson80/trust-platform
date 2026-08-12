@@ -74,17 +74,23 @@ SIN(A) * COS(B)
 // 3. Multiply results
 ```
 
-### Rule 4: Short-Circuit Evaluation (Implementer-Specific)
+### Rule 4: Short-Circuit Evaluation (closed truST choice)
 
-Boolean expressions MAY be evaluated only to the extent necessary.
+IEC 61131-3 Ed.3 section 7.3.2 makes the extent of Boolean evaluation
+implementer-specific. truST uses this closed policy:
 
 ```
 (A > B) & (C < D)
-// If A <= B, the result is FALSE
-// Evaluation of (C < D) may be skipped (Implementer-specific)
+// If A <= B, the result is FALSE and (C < D) is not evaluated
 ```
 
-**Note**: The extent of short-circuit evaluation is Implementer-specific.
+- `BOOL AND` and `BOOL &` stop after a false left operand.
+- `BOOL OR` stops after a true left operand.
+- `BOOL XOR` evaluates both operands.
+- Bit-string `AND`, `&`, `OR`, and `XOR` evaluate both operands.
+- A skipped operand produces no call, fault, read, write, or other side effect.
+
+This implementer choice is recorded in `docs/IEC_DECISIONS.md`.
 
 ### Rule 5: Function/Method in Expressions
 
@@ -113,12 +119,19 @@ statement constructs are allowed, and evaluation must be side-effect free. (IEC 
 When operands require conversion, implicit conversion rules apply.
 
 ```
-// Implicit widening
-RealVar := IntVar + 5;        // IntVar promoted to REAL
+// Accuracy-preserving implicit widening
+RealVar := IntVar + 5;        // INT can widen exactly to REAL
 
 // Explicit required for narrowing
 IntVar := REAL_TO_INT(RealVar);
 ```
+
+Typed operands do not promote by a total “widest type” ordering. They must be
+identical or have one accuracy-preserving widening direction defined by the
+matrix in `docs/IEC_DECISIONS.md`. Signed/unsigned cross-family arithmetic and
+integer/real combinations that can lose accuracy require explicit conversion.
+Representable untyped numeric literals are contextualized to the other typed
+operand.
 
 ## 4. Operator Categories
 
@@ -126,10 +139,10 @@ IntVar := REAL_TO_INT(RealVar);
 
 | Operator | Symbol | Left Operand | Right Operand | Result | Notes |
 |----------|--------|--------------|---------------|--------|-------|
-| Add | `+` | ANY_NUM | ANY_NUM | ANY_NUM | Also TIME+TIME |
-| Subtract | `-` | ANY_NUM | ANY_NUM | ANY_NUM | Also TIME-TIME |
-| Multiply | `*` | ANY_NUM | ANY_NUM | ANY_NUM | Also TIME*ANY_NUM |
-| Divide | `/` | ANY_NUM | ANY_NUM | ANY_NUM | Also TIME/ANY_NUM |
+| Add | `+` | ANY_NUM | ANY_NUM | ANY_NUM | Also the temporal combinations in section 6.1 |
+| Subtract | `-` | ANY_NUM | ANY_NUM | ANY_NUM | Also the temporal combinations in section 6.1 |
+| Multiply | `*` | ANY_NUM or duration | ANY_NUM | Numeric result or the left duration type |
+| Divide | `/` | ANY_NUM or duration | ANY_NUM | Numeric result or the left duration type |
 | Modulo | `MOD` | ANY_INT | ANY_INT | ANY_INT | |
 | Exponent | `**` | ANY_REAL | ANY_NUM | ANY_REAL | See deviation note below |
 | Negate | `-` | - | ANY_NUM | ANY_NUM | Unary |
@@ -154,8 +167,12 @@ Other integer forms require separate specification behavior and proof.
 | Not equal | `<>` | ANY_ELEMENTARY | ANY_ELEMENTARY | BOOL |
 
 **Notes**:
-- Operands must be compatible types
-- String comparison is lexicographic
+- Operands must be identical or have one accuracy-preserving common type.
+- String and wide-string comparison is lexicographic within the same string
+  family.
+- Each comparison produces `BOOL`. Consequently, a numeric chain such as
+  `A < B < C` is rejected because its second comparison receives `BOOL` and a
+  numeric operand; authors must write `(A < B) AND (B < C)`.
 
 ### 4.3 Logical/Boolean Operators
 
@@ -170,6 +187,7 @@ Other integer forms require separate specification behavior and proof.
 
 - `AND`, `&`, `OR`, and `XOR` operate on bit strings and produce the wider operand type when widths differ.
 - `NOT` preserves the operand bit-string type.
+- BOOL short-circuit and eager bit-string evaluation follow section 3.
 
 ```
 // BYTE operations
@@ -298,19 +316,52 @@ invent a callable declaration.
 
 | Left Type | Operator | Right Type | Result Type |
 |-----------|----------|------------|-------------|
-| ANY_INT | +, -, *, / | ANY_INT | Widest INT type |
-| ANY_REAL | +, -, *, / | ANY_REAL | Widest REAL type |
-| ANY_INT | +, -, *, / | ANY_REAL | REAL (promoted) |
+| Same integer type | +, -, *, / | Same integer type | That integer type |
+| Widenable integer types | +, -, *, / | Widenable integer types | Accuracy-preserving common type |
+| Same real type | +, -, *, / | Same real type | That real type |
+| Widenable numeric types | +, -, *, / | Widenable numeric types | Accuracy-preserving common type |
 | TIME | +, - | TIME | TIME |
-| TIME | * | ANY_NUM | TIME |
-| ANY_INT | MOD | ANY_INT | Widest INT type |
-| ANY_REAL | ** | ANY_NUM | REAL/LREAL |
+| LTIME | +, - | LTIME | LTIME |
+| TOD | + | TIME | TOD |
+| LTOD | + | LTIME | LTOD |
+| DT | + | TIME | DT |
+| LDT | + | LTIME | LDT |
+| DATE | - | DATE | TIME |
+| LDATE | - | LDATE | LTIME |
+| TOD | - | TIME | TOD |
+| LTOD | - | LTIME | LTOD |
+| TOD | - | TOD | TIME |
+| LTOD | - | LTOD | LTIME |
+| DT | - | TIME | DT |
+| LDT | - | LTIME | LDT |
+| DT | - | DT | TIME |
+| LDT | - | LDT | LTIME |
+| TIME | *, / | ANY_NUM | TIME |
+| LTIME | *, / | ANY_NUM | LTIME |
+| Same/widenable integer type | MOD | Same/widenable integer type | Accuracy-preserving common type |
+| REAL/LREAL | ** | ANY_NUM | Base type after permitted conversion |
+
+The temporal rows are the Structured Text operator forms of IEC 61131-3 Ed.3
+section 6.6.2.5.12, Table 35. Operand order is part of the contract: duration
+addition to `TOD`, `LTOD`, `DT`, or `LDT` uses the civil/date-time value on the
+left, and multiplication or division uses `TIME` or `LTIME` on the left.
+Short-family and long-family operands are not mixed implicitly. Swapped,
+cross-family, date-addition, civil-time multiplication/division, and every
+other unlisted temporal combination are compile-time type errors. Result-range
+overflow remains the runtime error required by section 6.6.2.5.12.
+
+The complete conversion matrix is the 2026-07-15 decision in
+`docs/IEC_DECISIONS.md`. Integer division truncates toward zero as required by
+IEC 61131-3 Ed.3 section 6.6.2.5.7. `MOD` has the corresponding signed
+remainder, so `a = (a / b) * b + (a MOD b)` for nonzero `b`. Arithmetic and
+unary negation are checked in the result type; overflow is a runtime error and
+never wraps.
 
 ### 6.2 Comparison Operations
 
 | Left Type | Right Type | Valid |
 |-----------|------------|-------|
-| ANY_NUM | ANY_NUM | Yes (with promotion) |
+| ANY_NUM | ANY_NUM | Yes only with an accuracy-preserving common type |
 | STRING | STRING | Yes (lexicographic) |
 | TIME | TIME | Yes |
 | DATE | DATE | Yes |
@@ -331,8 +382,16 @@ invent a callable declaration.
 ### 7.1 Runtime Errors
 
 1. **Division by zero**: Attempt to divide by zero
-2. **Overflow**: Result exceeds type range
-3. **Null dereference**: Dereferencing NULL reference
+2. **Modulo by zero**: Attempt to apply `MOD` with a zero divisor
+3. **Overflow**: Result or unary negation exceeds the operation's result type
+4. **Invalid exponentiation domain**: Result cannot be represented by the
+   declared numeric result contract
+5. **Null dereference**: Dereferencing NULL reference
+
+Operands are evaluated left first. A runtime expression error aborts the
+containing assignment before its store, so the target retains its previous
+value. The only skipped right operands are those covered by the BOOL
+short-circuit policy in section 3.
 
 ### 7.2 Compile-time Errors
 
@@ -391,6 +450,10 @@ Match := (Name = 'ADMIN') OR (Name = 'ROOT');
 4. Support chained comparisons such as `A < B < C` with left-to-right evaluation.
 5. Treat function/method calls as primary expressions.
 
+Parser support for a chained comparison preserves the left-associative source
+shape; it is not semantic acceptance. Since the first comparison yields
+`BOOL`, numeric `A < B < C` is rejected by type checking.
+
 ### AST Node Types
 
 ```
@@ -410,6 +473,7 @@ Expression
 ### Type Checker Requirements
 
 1. Determine the type of each operand.
-2. Apply promotion rules before evaluating operator compatibility.
+2. Apply only the accuracy-preserving common-type matrix before evaluating
+   operator compatibility.
 3. Verify operator compatibility and determine the result type.
 4. Report the specific operator, operand types, and precise source location.

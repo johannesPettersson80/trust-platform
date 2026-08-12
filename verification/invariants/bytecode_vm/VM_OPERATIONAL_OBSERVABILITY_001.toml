@@ -5,7 +5,7 @@ area = "bytecode_vm"
 risk = "false_status"
 status = "mapped"
 owner = "trust-runtime"
-last_reviewed = "2026-07-29"
+last_reviewed = "2026-07-30"
 claim = "Register-IR and tier-1 execution preserve deterministic configuration defaults, bounded caches and reusable buffers, truthful operation counters, pre-mutation deadline and fallback decisions, debug-location reporting, and native-symbol preparation caches without promoting those observations to Structured Text program semantics."
 proof_level = "S0"
 contract_kind = "state_machine"
@@ -26,12 +26,12 @@ source_refs = ["SPEC_BYTECODE_FORMAT_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_BYTECODE_FORMAT_001#optimized-backend-operational-observability"
+ref = "SPEC_BYTECODE_FORMAT_001#7-9-3-optimized-backend-operational-observability"
 
 [[behavior]]
 partition = { equals = "CONFIGURATION_TOKENS_AND_DEFAULTS" }
 case_family = "happy_path"
-oracle_ref = "SPEC_BYTECODE_FORMAT_001#optimized-backend-operational-observability"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#7-9-3-optimized-backend-operational-observability"
 outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
@@ -40,7 +40,7 @@ rationale = "Boolean, threshold, and capacity environment tokens preserve explic
 [[behavior]]
 partition = { equals = "BOUNDED_LOWERING_AND_TIER1_CACHES" }
 case_family = "resource_limit"
-oracle_ref = "SPEC_BYTECODE_FORMAT_001#optimized-backend-operational-observability"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#7-9-3-optimized-backend-operational-observability"
 outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
@@ -49,7 +49,7 @@ rationale = "Lowering and specialized-block caches reuse success and failure res
 [[behavior]]
 partition = { equals = "CLEAN_BOUNDED_BUFFER_AND_REGISTER_REUSE" }
 case_family = "resource_limit"
-oracle_ref = "SPEC_BYTECODE_FORMAT_001#optimized-backend-operational-observability"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#7-9-3-optimized-backend-operational-observability"
 outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
@@ -58,7 +58,7 @@ rationale = "Reusable execution buffers and register files preserve requested ca
 [[behavior]]
 partition = { equals = "TRUTHFUL_PROFILE_AND_CLONE_AVOIDANCE" }
 case_family = "ordering_or_lifecycle"
-oracle_ref = "SPEC_BYTECODE_FORMAT_001#optimized-backend-operational-observability"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#7-9-3-optimized-backend-operational-observability"
 outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
@@ -67,7 +67,7 @@ rationale = "Profile snapshots count the executed reference, call, fallback, cac
 [[behavior]]
 partition = { equals = "DEADLINE_POLLING_AND_PREMUTATION_FALLBACK" }
 case_family = "concurrency_or_cancellation"
-oracle_ref = "SPEC_BYTECODE_FORMAT_001#optimized-backend-operational-observability"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#7-9-3-optimized-backend-operational-observability"
 outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
@@ -76,7 +76,7 @@ rationale = "Stack and register execution check the first operation and stride b
 [[behavior]]
 partition = { equals = "DEBUG_LOCATION_AND_DIAGNOSTIC_CORPUS" }
 case_family = "extra_or_unknown"
-oracle_ref = "SPEC_BYTECODE_FORMAT_001#optimized-backend-operational-observability"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#7-9-3-optimized-backend-operational-observability"
 outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
@@ -85,7 +85,7 @@ rationale = "Debug-map locations and diagnostic corpus summaries report register
 [[behavior]]
 partition = { equals = "NATIVE_SYMBOL_PREPARSE_AND_RESOLUTION_CACHE" }
 case_family = "ordering_or_lifecycle"
-oracle_ref = "SPEC_BYTECODE_FORMAT_001#optimized-backend-operational-observability"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#7-9-3-optimized-backend-operational-observability"
 outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }

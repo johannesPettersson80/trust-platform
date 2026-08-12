@@ -162,13 +162,14 @@ pub(super) fn driver_target_links(
     io_health: &[IoDriverStatus],
 ) -> Vec<FleetLink> {
     let mut links = Vec::new();
-    let mut enabled_index = 0usize;
+    let mut enabled_protocol_counts = std::collections::HashMap::<String, usize>::new();
     for (index, driver) in io_drivers.iter().enumerate() {
         let protocol = protocol_from_driver_name(driver.name.as_str());
         let from = endpoint_instance_id(runtime_id, protocol.as_str(), index);
         let status = if driver.enabled {
-            let status = driver_link_status(io_health, enabled_index, driver);
-            enabled_index += 1;
+            let protocol_index = enabled_protocol_counts.entry(protocol.clone()).or_default();
+            let status = driver_link_status(io_health, *protocol_index, driver);
+            *protocol_index += 1;
             status
         } else {
             "disabled".to_string()

@@ -333,7 +333,10 @@ fn connect_accepts_canonical_authority_and_reaches_connector() {
             .expect_err("the hermetic connector returns its sentinel error");
 
         assert_eq!(error.message(), "canonical authority sentinel", "{case}");
-        assert!(connector_invoked.get(), "{case} did not reach the connector");
+        assert!(
+            connector_invoked.get(),
+            "{case} did not reach the connector"
+        );
         match (observed_source.get(), expected_explicit_net_id) {
             (Some(ads::Source::Auto), None) => {}
             (Some(ads::Source::Addr(address)), Some(expected_net_id)) => {

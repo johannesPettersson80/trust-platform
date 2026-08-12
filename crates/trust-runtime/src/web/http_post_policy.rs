@@ -15,7 +15,8 @@ pub(super) fn read_json_body<T: DeserializeOwned>(
     request: &mut tiny_http::Request,
     max_bytes: usize,
 ) -> Result<T, JsonBodyError> {
-    let mut limited = request.as_reader().take((max_bytes + 1) as u64);
+    let read_limit = u64::try_from(max_bytes.saturating_add(1)).unwrap_or(u64::MAX);
+    let mut limited = request.as_reader().take(read_limit);
     let mut body = Vec::new();
     if limited.read_to_end(&mut body).is_err() {
         return Err(JsonBodyError::InvalidBody);
@@ -54,10 +55,9 @@ pub(super) fn api_post_policy_check(
     require_json_content_type: bool,
 ) -> Result<(), Response<std::io::Cursor<Vec<u8>>>> {
     if require_json_content_type {
-        let content_type = header_value(request, "Content-Type")
-            .unwrap_or_default()
-            .to_ascii_lowercase();
-        if !content_type.starts_with("application/json") {
+        let content_type = header_value(request, "Content-Type").unwrap_or_default();
+        let media_type = content_type.split(';').next().unwrap_or_default().trim();
+        if !media_type.eq_ignore_ascii_case("application/json") {
             return Err(Response::from_string(
                 json!({
                     "ok": false,
@@ -134,3 +134,7 @@ pub(super) fn api_post_policy_check(
     }
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "http_post_policy/contract_tests.rs"]
+mod contract_tests;

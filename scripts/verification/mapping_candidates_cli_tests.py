@@ -252,10 +252,28 @@ class MappingCandidatesCliTests(unittest.TestCase):
 
         self.assertEqual([discovery_id], args.focused_rust_discovery_id)
 
+    def test_focused_route_accepts_authenticated_trace_receipt(self) -> None:
+        args = build_parser().parse_args(
+            [
+                "--trace",
+                "trace.json",
+                "--focused-rust-discovery-id",
+                "DISC_" + "A" * 20,
+                "--authenticated-trace-receipt",
+                "target/gate-artifacts/trace-receipt.json",
+            ]
+        )
+
+        self.assertEqual(
+            Path("target/gate-artifacts/trace-receipt.json"),
+            args.authenticated_trace_receipt,
+        )
+
     def test_focused_route_exposes_trace_authentication_paths(self) -> None:
         help_text = build_parser().format_help()
 
         for option in (
+            "--authority-routes",
             "--trace-root",
             "--cargo-target-dir",
             "--llvm-tools-dir",
@@ -321,6 +339,8 @@ class MappingCandidatesCliTests(unittest.TestCase):
                     "trace.json",
                     "--focused-rust-discovery-id",
                     discovery_id,
+                    "--authority-routes",
+                    "target/gate-artifacts/authority-routes.json",
                     "--trace-root",
                     "target/gate-artifacts/focused-trace",
                     "--cargo-target-dir",
@@ -354,6 +374,34 @@ class MappingCandidatesCliTests(unittest.TestCase):
             Path("/repository/target/temporary"),
             focused.call_args.kwargs["temporary_dir"],
         )
+        self.assertEqual(
+            Path("/repository/target/gate-artifacts/authority-routes.json"),
+            focused.call_args.kwargs["authority_routes_path"],
+        )
+
+    def test_authority_routes_require_focused_generation(self) -> None:
+        empty_candidates = {"candidates": [], "demands": []}
+        empty_proposals = {"proposals": []}
+        with mock.patch(
+            "scripts.verification.mapping_candidates_cli."
+            "generate_focused_mapping_candidates",
+            return_value=(empty_candidates, empty_proposals),
+        ) as focused, mock.patch(
+            "scripts.verification.mapping_candidates_cli.generate_mapping_candidates",
+            return_value=(empty_candidates, empty_proposals),
+        ) as legacy:
+            exit_code = main(
+                [
+                    "--trace",
+                    "trace.json",
+                    "--authority-routes",
+                    "target/gate-artifacts/authority-routes.json",
+                ]
+            )
+
+        self.assertEqual(2, exit_code)
+        focused.assert_not_called()
+        legacy.assert_not_called()
 
     def test_legacy_repository_scan_requires_explicit_option(self) -> None:
         self.assertIn("--legacy-full-scan", build_parser().format_help())
@@ -699,6 +747,7 @@ class MappingCandidatesCliTests(unittest.TestCase):
                     decisions_path=decisions_path,
                     rust_discovery_ids=[discovery_id],
                     authority_plan_path=None,
+                    authority_routes_path=None,
                     trace_root=artifact_root / "raw-trace",
                     cargo_target_dir=root / "target/cargo",
                     llvm_tools_dir=root / "target/llvm-tools",

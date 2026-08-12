@@ -3,13 +3,16 @@ pub fn init_registry(
     visibility: RegistryVisibility,
     auth_token: Option<String>,
 ) -> anyhow::Result<RegistrySettings> {
-    ensure_registry_layout(registry_root)?;
     let section = RegistryTomlSection {
         version: REGISTRY_SCHEMA_VERSION,
         visibility,
         auth_token: normalize_token(auth_token),
     };
     enforce_private_contract(&section)?;
+    if registry_index_path(registry_root).exists() {
+        load_registry_index(registry_root)?;
+    }
+    ensure_registry_layout(registry_root)?;
     write_registry_config(registry_root, &section)?;
     if !registry_index_path(registry_root).is_file() {
         write_registry_index(registry_root, &RegistryIndex::default())?;
@@ -31,10 +34,12 @@ pub fn load_registry_settings(registry_root: &Path) -> anyhow::Result<RegistrySe
 pub fn publish_package(request: PublishRequest) -> anyhow::Result<PublishReport> {
     let section = load_registry_config(&request.registry_root)?;
     ensure_access(&section, request.token.as_deref())?;
+    let index = load_registry_index(&request.registry_root)?;
 
     let bundle_root = canonical_or_self(&request.bundle_root);
     let bundle = RuntimeBundle::load(&bundle_root)
         .map_err(|err| anyhow::anyhow!("invalid bundle '{}': {err}", bundle_root.display()))?;
+    validate_tree_has_no_symlinks(&bundle_root)?;
 
     let package_name = request
         .package_name
@@ -71,7 +76,7 @@ pub fn publish_package(request: PublishRequest) -> anyhow::Result<PublishReport>
     };
     let metadata_path = package_root.join(PACKAGE_METADATA_FILE);
     write_json_file(&metadata_path, &metadata)?;
-    update_registry_index(&request.registry_root, &metadata)?;
+    update_registry_index(&request.registry_root, &metadata, index)?;
 
     Ok(PublishReport {
         package_root,
@@ -84,8 +89,12 @@ pub fn download_package(request: DownloadRequest) -> anyhow::Result<DownloadRepo
     let section = load_registry_config(&request.registry_root)?;
     ensure_access(&section, request.token.as_deref())?;
 
+    validate_identifier("package name", request.name.as_str())?;
+    validate_identifier("package version", request.version.as_str())?;
     let package_root = package_root(&request.registry_root, &request.name, &request.version);
+    validate_stored_package_path(&request.registry_root, &package_root)?;
     let metadata = load_package_metadata(&package_root)?;
+    validate_package_metadata(&metadata, &request.name, &request.version)?;
     if request.verify_before_install {
         verify_bundle_tree_against_metadata(&package_root.join("bundle"), &metadata)?;
     }
@@ -105,8 +114,12 @@ pub fn download_package(request: DownloadRequest) -> anyhow::Result<DownloadRepo
 pub fn verify_package(request: VerifyRequest) -> anyhow::Result<VerifyReport> {
     let section = load_registry_config(&request.registry_root)?;
     ensure_access(&section, request.token.as_deref())?;
+    validate_identifier("package name", request.name.as_str())?;
+    validate_identifier("package version", request.version.as_str())?;
     let package_root = package_root(&request.registry_root, &request.name, &request.version);
+    validate_stored_package_path(&request.registry_root, &package_root)?;
     let metadata = load_package_metadata(&package_root)?;
+    validate_package_metadata(&metadata, &request.name, &request.version)?;
     verify_bundle_tree_against_metadata(&package_root.join("bundle"), &metadata)?;
     Ok(VerifyReport {
         verified_files: metadata.files.len(),
@@ -118,5 +131,12 @@ pub fn list_packages(request: ListRequest) -> anyhow::Result<Vec<PackageSummary>
     let section = load_registry_config(&request.registry_root)?;
     ensure_access(&section, request.token.as_deref())?;
     let index = load_registry_index(&request.registry_root)?;
+    for summary in &index.packages {
+        let package_root = package_root(&request.registry_root, &summary.name, &summary.version);
+        validate_stored_package_path(&request.registry_root, &package_root)?;
+        let metadata = load_package_metadata(&package_root)?;
+        validate_package_metadata(&metadata, &summary.name, &summary.version)?;
+        validate_summary_matches_metadata(summary, &metadata)?;
+    }
     Ok(index.packages)
 }

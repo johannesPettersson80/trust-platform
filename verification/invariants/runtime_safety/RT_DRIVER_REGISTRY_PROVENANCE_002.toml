@@ -1,0 +1,117 @@
+schema_version = 1
+id = "RT_DRIVER_REGISTRY_PROVENANCE_002"
+title = "I/O driver registry and provenance preserve canonical authority"
+area = "runtime_safety"
+risk = "false_status"
+status = "specified"
+owner = "trust-runtime"
+last_reviewed = "2026-08-01"
+claim = "Driver lookup, validation, construction, aliasing, enumeration, and operator provenance use one canonical registry without performing side effects during validation or claiming unobserved hardware health."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["docs/specs/11-runtime-engine.md", "crates/trust-runtime/src/io/registry_contract_tests.rs", "crates/trust-runtime/src/io/provenance_contract_tests.rs"]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["catalog_mapping", "focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#io-drivers"
+
+[[behavior]]
+partition = { equals = "TRIMMED_CASE_FOLDED_CANONICAL_LOOKUP" }
+case_family = "encoding_or_unicode"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#io-drivers"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Lookup trims and folds ASCII case, and every reviewed alias resolves to exactly its canonical built-in entry."
+[[behavior]]
+partition = { equals = "NONE_EMPTY_AND_UNKNOWN_SELECTION" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#io-drivers"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Reserved none selects no driver independent of parameters, while empty and unknown names reject validation and construction."
+[[behavior]]
+partition = { equals = "CANONICAL_ONLY_SORTED_ENUMERATION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#io-drivers"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Enumeration is stable and includes canonical entries only, excluding aliases, empty names, and none registrations."
+[[behavior]]
+partition = { equals = "VALIDATION_BEFORE_CONSTRUCTION" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#io-drivers"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Validation invokes only the parameter validator; build validates first, constructs once afterward, and returns the canonical name."
+[[behavior]]
+partition = { equals = "ALIAS_COLLISION_OR_MISSING_TARGET" }
+case_family = "duplicate_or_collision"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#io-drivers"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "An alias cannot shadow a canonical name and an alias to an absent target creates no entry."
+[[behavior]]
+partition = { equals = "MEMORY_ALWAYS_INTERNAL" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#io-drivers"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Every memory binding reports Internal memory regardless of zero, one, or multiple enabled external drivers."
+[[behavior]]
+partition = { equals = "ZERO_SINGLE_OR_MULTIPLE_EXTERNAL_SOURCE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#io-drivers"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Zero enabled drivers assert no external source, exactly one projects its canonical protocol label, disabled drivers do not count, and multiple enabled drivers remain conservative."
+[[behavior]]
+partition = { equals = "DIRECTIONAL_PROTOCOL_ADDRESS_PROJECTION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#io-drivers"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "GPIO uses the absolute bit, Modbus uses the directional base plus word offset, and MQTT uses the directional topic with documented defaults."
+[[behavior]]
+partition = { equals = "UNKNOWN_DRIVER_READABLE_NO_HEALTH_CLAIM" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#io-drivers"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }
+rationale = "An unknown configured driver remains a readable label but never becomes a connection or health claim."
+
+[[coverage.cells]]
+dimension = "encoding_or_unicode"
+state = "gap_open"
+rationale = "Focused lookup and alias tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "extra_or_unknown"
+state = "gap_open"
+rationale = "Focused unknown, empty, none, and readable-label tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Focused enumeration and provenance tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "Focused validate-before-build tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "duplicate_or_collision"
+state = "gap_open"
+rationale = "Focused alias collision tests exist, but catalog binding and dynamic proof are pending."

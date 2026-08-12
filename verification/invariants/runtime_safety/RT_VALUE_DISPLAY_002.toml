@@ -1,0 +1,105 @@
+schema_version = 1
+id = "RT_VALUE_DISPLAY_002"
+title = "Runtime value display preserves stable Structured Text user identity"
+area = "runtime_safety"
+risk = "false_status"
+status = "specified"
+owner = "trust-runtime"
+last_reviewed = "2026-08-01"
+claim = "Runtime user-value display preserves Structured Text Boolean, numeric, bit, character, string, duration, calendar, aggregate, enum, reference, instance, and null identity without leaking Rust representation names."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["docs/specs/10-runtime-semantics.md", "crates/trust-runtime/src/value/display/contract_tests.rs"]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["catalog_mapping", "focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_SEMANTICS_001"]
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_SEMANTICS_001#runtime-value-model"
+
+[[behavior]]
+partition = { equals = "BOOLEAN_INTEGER_BIT_AND_REAL_TEXT" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#runtime-value-model"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Booleans use Structured Text keywords, integer and bit tags use unprefixed decimal user text, and integral real values retain a fraction marker."
+[[behavior]]
+partition = { equals = "CHARACTER_AND_STRING_ESCAPING" }
+case_family = "encoding_or_unicode"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#runtime-value-model"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "CHAR/WCHAR render quoted scalars, invalid WCHAR is visible as question mark, and narrow/wide strings share ordered dollar/quote escaping with distinct prefixes."
+[[behavior]]
+partition = { equals = "SHORTEST_EXACT_SIGNED_TIME_UNIT" }
+case_family = "time_or_clock_fault"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#runtime-value-model"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "TIME and LTIME keep distinct prefixes while duration formatting chooses the shortest exact unit and preserves sign."
+[[behavior]]
+partition = { equals = "CALENDAR_STORED_TICK_OR_NANOSECOND_TEXT" }
+case_family = "time_or_clock_fault"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#runtime-value-model"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "DATE, TOD, DT, and long calendar families render their stored ticks or nanoseconds without an invented wall-clock conversion."
+[[behavior]]
+partition = { equals = "AGGREGATE_AND_ENUM_STABLE_SUMMARY" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#runtime-value-model"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Arrays, structures, and enums render stable ordered summary identity."
+[[behavior]]
+partition = { equals = "REFERENCE_INSTANCE_AND_NULL_NONADDRESS_TEXT" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#runtime-value-model"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Reference, instance, and null states use nonaddress diagnostic text and never expose storage addresses."
+[[behavior]]
+partition = { equals = "NO_RUST_CONSTRUCTOR_NAME_LEAK" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#runtime-value-model"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "User value text never leaks Rust enum constructor or debug representation names."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Focused scalar display tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "encoding_or_unicode"
+state = "gap_open"
+rationale = "Focused character and string escaping tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "time_or_clock_fault"
+state = "gap_open"
+rationale = "Focused duration and calendar display tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "Focused aggregate and enum display tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "auth_or_permission"
+state = "gap_open"
+rationale = "Focused nonaddress reference/instance/null tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "extra_or_unknown"
+state = "gap_open"
+rationale = "Focused implementation-name leak tests exist, but catalog binding and dynamic proof are pending."

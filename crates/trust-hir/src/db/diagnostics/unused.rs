@@ -175,3 +175,7 @@ fn is_interface_method_parameter(symbols: &SymbolTable, symbol: &Symbol) -> bool
         Some(SymbolKind::Interface)
     )
 }
+
+#[cfg(test)]
+#[path = "unused/contract_tests.rs"]
+mod contract_tests;

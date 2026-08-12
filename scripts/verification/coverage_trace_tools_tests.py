@@ -17,6 +17,16 @@ from scripts.verification.coverage_trace_resume import profile_digest
 
 
 class CoverageTraceToolsTests(unittest.TestCase):
+    def test_control_plane_gate_executes_the_tool_export_contract(self) -> None:
+        gate = (
+            Path(__file__).resolve().parents[2]
+            / "scripts/focused_trace_control_plane_gate.sh"
+        ).read_text()
+        self.assertIn(
+            "scripts.verification.coverage_trace_tools_tests",
+            gate,
+        )
+
     def test_each_attempt_is_merged_and_exported_without_shell_commands(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

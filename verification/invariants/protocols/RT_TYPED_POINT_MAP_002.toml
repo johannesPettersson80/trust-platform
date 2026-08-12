@@ -1,0 +1,141 @@
+schema_version = 1
+id = "RT_TYPED_POINT_MAP_002"
+title = "Modbus and MQTT typed point maps preserve bounded scalar identity"
+area = "protocols"
+risk = "silent_corruption"
+status = "specified"
+owner = "trust-runtime"
+last_reviewed = "2026-08-01"
+claim = "Modbus and MQTT point maps preserve exact scalar types, aliases, direction, byte order, scaling, rounding, protocol identity, process-image ranges, and all-or-nothing conversion."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["docs/specs/11-runtime-engine.md", "crates/trust-runtime/src/io/modbus/tests/point_map_contract.rs", "crates/trust-runtime/src/io/mqtt/tests/point_map_contract.rs"]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["catalog_mapping", "focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "external_protocol_interoperability", "broad_remote_gate"]
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#modbus-and-mqtt-typed-point-map-contract"
+
+[[behavior]]
+partition = { equals = "CASE_INSENSITIVE_COMMON_TYPE_ALIASES" }
+case_family = "encoding_or_unicode"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#modbus-and-mqtt-typed-point-map-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Boolean and exact-width integer/REAL names plus documented aliases select the same common scalar case-insensitively."
+[[behavior]]
+partition = { equals = "FINITE_NONZERO_LINEAR_SCALING" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#modbus-and-mqtt-typed-point-map-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Numeric scaling requires finite nonzero scale and finite offset; Boolean points reject scaling."
+[[behavior]]
+partition = { equals = "TIES_AWAY_INTEGER_ROUNDING_AND_RANGE" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#modbus-and-mqtt-typed-point-map-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Integer conversion rounds half-way values away from zero and then checks the declared range without narrowing, clamping, or wrapping."
+[[behavior]]
+partition = { equals = "ATOMIC_BOUNDED_PROCESS_IMAGE_ENCODING" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#modbus-and-mqtt-typed-point-map-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "expected_delta", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Numeric values occupy exact little-endian widths, Boolean writes preserve neighboring bits, and bounds or conversion failure leaves the complete destination unchanged."
+[[behavior]]
+partition = { equals = "UNIQUE_PROTOCOL_AND_IMAGE_RANGES" }
+case_family = "duplicate_or_collision"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#modbus-and-mqtt-typed-point-map-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Duplicate protocol identities and overlapping image storage reject, while distinct Boolean bits and separate input/output images remain distinct."
+[[behavior]]
+partition = { equals = "MODBUS_FUNCTION_TYPE_DEFAULT_FAMILY" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#modbus-and-mqtt-typed-point-map-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Bit and register functions admit only their Boolean or numeric family and omitted type defaults to Boolean or U16 according to that selected family."
+[[behavior]]
+partition = { equals = "MODBUS_EXACT_REGISTER_WIDTH_AND_ENDIAN_ORDER" }
+case_family = "encoding_or_unicode"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#modbus-and-mqtt-typed-point-map-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Byte and word order aliases are case-insensitive, the complete U32 cross-product round-trips, FC06 stays one-register, and decode requires exactly the declared register width."
+[[behavior]]
+partition = { equals = "MQTT_EXACT_TOPIC_AND_METRIC_NAME" }
+case_family = "encoding_or_unicode"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#modbus-and-mqtt-typed-point-map-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Topics are exact nonempty non-control names rather than filters, and output metric names trim while rejecting empty or control-bearing results."
+[[behavior]]
+partition = { equals = "MQTT_DISJOINT_BOOLEAN_AND_NUMERIC_SHAPES" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#modbus-and-mqtt-typed-point-map-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Boolean points require a selected bit and exact scalar Boolean payload forms; numeric points reject bit shape and require one finite numeric scalar."
+[[behavior]]
+partition = { equals = "MQTT_PAYLOAD_FORMAT_ALIAS_AND_BINARY_ENDIAN" }
+case_family = "encoding_or_unicode"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#modbus-and-mqtt-typed-point-map-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Payload-format aliases are case-insensitive; binary values require exact declared width and preserve selected wire endianness independently of little-endian process-image storage."
+[[behavior]]
+partition = { equals = "MQTT_TEXT_JSON_ONE_FINITE_SCALAR" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#modbus-and-mqtt-typed-point-map-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Text and JSON numeric payloads contain one complete finite scalar, and Boolean JSON accepts only the documented Boolean, numeric, or recognized string forms."
+[[behavior]]
+partition = { equals = "MQTT_ATOMIC_DECODE_AND_INVERSE_OUTPUT_SCALING" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#modbus-and-mqtt-typed-point-map-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "expected_delta", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Decode scaling commits only after complete validation, and output inverse scaling preserves the declared payload format and width."
+
+[[coverage.cells]]
+dimension = "encoding_or_unicode"
+state = "gap_open"
+rationale = "Focused alias, topic, byte-order, word-order, and payload-format tests exist, but catalog binding and external interoperability proof are pending."
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Focused scaling, family, and payload-shape tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "boundary_high"
+state = "gap_open"
+rationale = "Focused rounding, range, width, and image-bound tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "duplicate_or_collision"
+state = "gap_open"
+rationale = "Focused protocol and image overlap tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Focused atomic decode and inverse-scaling tests exist, but catalog binding and external protocol proof are pending."

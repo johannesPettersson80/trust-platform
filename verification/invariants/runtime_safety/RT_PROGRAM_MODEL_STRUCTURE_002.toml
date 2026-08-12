@@ -1,0 +1,93 @@
+schema_version = 1
+id = "RT_PROGRAM_MODEL_STRUCTURE_002"
+title = "Runtime program-model records preserve complete source structure and order"
+area = "runtime_safety"
+risk = "silent_corruption"
+status = "specified"
+owner = "trust-runtime"
+last_reviewed = "2026-08-01"
+claim = "Runtime statement and POU model records preserve distinct node kinds, source locations, labels, branches, control payloads, inheritance, imports, parameters, variables, qualifiers, and declaration order."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["docs/specs/10-runtime-semantics.md", "crates/trust-runtime/src/program_model/stmt/contract_tests.rs", "crates/trust-runtime/src/program_model/types/contract_tests.rs"]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["catalog_mapping", "focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_SEMANTICS_001"]
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_SEMANTICS_001#runtime-execution-engine"
+
+[[behavior]]
+partition = { equals = "DISTINCT_ASSIGNMENT_REFERENCE_AND_CONTROL_NODES" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#runtime-execution-engine"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Ordinary assignment and reference-assignment attempts remain distinct nodes, and cloned statement results preserve their exact control-flow payload variant."
+[[behavior]]
+partition = { equals = "EXACT_OPTIONAL_STATEMENT_SOURCE_LOCATION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#runtime-execution-engine"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Every statement variant returns its exact source location when present and preserves absence without fabricating one."
+[[behavior]]
+partition = { equals = "ORDERED_CASE_LABEL_AND_RANGE_ENDPOINTS" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#runtime-execution-engine"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "CASE preserves branch and label order, single values, and inclusive range endpoints without normalization."
+[[behavior]]
+partition = { equals = "ORDERED_FOR_IF_LABEL_AND_JUMP_STRUCTURE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#runtime-execution-engine"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "FOR retains control, bounds, step, and body order; IF retains ordered ELSIF and separate ELSE; labels and jumps retain distinct names and attachment."
+[[behavior]]
+partition = { equals = "ORDERED_FUNCTION_BLOCK_CLASS_AND_INTERFACE_GROUPS" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#runtime-execution-engine"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Function blocks, classes, and interfaces retain base identity, kind distinctions, variables where legal, imports, methods, and all ordered definition groups."
+[[behavior]]
+partition = { equals = "ORDERED_FUNCTION_AND_METHOD_GROUPS" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#runtime-execution-engine"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Functions retain parameter, local, import, and body groups; methods retain optional result and ordered local groups."
+[[behavior]]
+partition = { equals = "COMPLETE_PARAMETER_AND_VARIABLE_FIELDS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#runtime-execution-engine"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Parameters preserve name, type, direction, address, and default; variables preserve all independent storage and qualifier fields without inferring one flag from another."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Focused distinct-node and cloned-result tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Focused source-location, parameter, and variable tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "Focused statement and POU group-order tests exist, but catalog binding and dynamic proof are pending."

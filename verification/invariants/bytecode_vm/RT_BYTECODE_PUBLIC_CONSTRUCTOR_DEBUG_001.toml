@@ -1,0 +1,39 @@
+schema_version = 1
+id = "RT_BYTECODE_PUBLIC_CONSTRUCTOR_DEBUG_001"
+title = "Public bytecode constructors preserve source and path debug projection"
+area = "bytecode_vm"
+risk = "wrong_result"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-30"
+claim = "Public runtime constructors emit validating modules, omit debug sections without sources, and project deterministic fallback or supplied source paths when debug locations are available."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["docs/specs/12-bytecode.md", "crates/trust-runtime/src/bytecode/encoder/mod.rs"]
+tests = ["TEST_AUTO_8EDF49CFB3B5DCC44D81"]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["final_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_BYTECODE_FORMAT_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_BYTECODE_FORMAT_001#7-5-1-4-public-constructor-debug-projection"
+
+[[behavior]]
+partition = { equals = "PUBLIC_CONSTRUCTOR_DEBUG_PROJECTION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#7-5-1-4-public-constructor-debug-projection"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The source-free public constructor omits debug sections, while source-aware and path-aware constructors emit validating modules whose first debug entry resolves to file_0 or the supplied source path respectively."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "The strengthened cataloged constructor proof is green and dynamically observed in the exact bytecode trace; only the final remote gate remains."

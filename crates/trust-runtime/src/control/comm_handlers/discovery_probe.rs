@@ -151,6 +151,12 @@ fn send_modbus_request(
     pdu: &[u8],
     transaction_id: u16,
 ) -> Result<ModbusProbeResponse, std::io::Error> {
+    if pdu.is_empty() || pdu.len() > 253 {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "Modbus PDU length must be in 1..=253 bytes",
+        ));
+    }
     let mut header = [0u8; 6];
     header[0..2].copy_from_slice(&transaction_id.to_be_bytes());
     header[2..4].copy_from_slice(&0u16.to_be_bytes());
@@ -179,6 +185,12 @@ fn send_modbus_request(
     }
     let mut response = vec![0u8; response_len];
     stream.read_exact(&mut response)?;
+    if response.first().copied() != Some(unit_id) {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "Modbus response unit id does not match request",
+        ));
+    }
     let response_pdu = response.get(1..).ok_or_else(|| {
         std::io::Error::new(std::io::ErrorKind::UnexpectedEof, "missing Modbus PDU")
     })?;
@@ -192,9 +204,13 @@ fn send_modbus_request(
         return Ok(ModbusProbeResponse::Normal);
     }
     if function == (pdu[0] | 0x80) {
-        return Ok(ModbusProbeResponse::Exception(
-            response_pdu.get(1).copied().unwrap_or(0),
-        ));
+        let code = response_pdu.get(1).copied().ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::UnexpectedEof,
+                "missing Modbus exception code",
+            )
+        })?;
+        return Ok(ModbusProbeResponse::Exception(code));
     }
     Err(std::io::Error::new(
         std::io::ErrorKind::InvalidData,
@@ -270,6 +286,12 @@ fn connect(target: SocketAddr, timeout: Duration) -> Option<TcpStream> {
 }
 
 fn write_mqtt_connect(stream: &mut TcpStream, client_id: &[u8]) -> Result<(), std::io::Error> {
+    if client_id.len() > usize::from(u16::MAX) {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "MQTT client id exceeds the u16 wire length",
+        ));
+    }
     let mut body = Vec::new();
     body.extend_from_slice(&[0x00, 0x04, b'M', b'Q', b'T', b'T']);
     body.push(0x04);
@@ -280,6 +302,12 @@ fn write_mqtt_connect(stream: &mut TcpStream, client_id: &[u8]) -> Result<(), st
 
     let mut packet = vec![0x10];
     encode_remaining_length(body.len(), &mut packet);
+    if packet.len() == 1 {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "MQTT packet exceeds maximum remaining length",
+        ));
+    }
     packet.extend_from_slice(&body);
     stream.write_all(&packet)?;
     stream.flush()
@@ -295,18 +323,29 @@ fn read_mqtt_connack(stream: &mut TcpStream) -> Result<u8, std::io::Error> {
         ));
     }
     let remaining = read_remaining_length(stream)?;
-    if remaining < 2 {
+    if remaining != 2 {
         return Err(std::io::Error::new(
             std::io::ErrorKind::InvalidData,
-            "MQTT CONNACK too short",
+            "MQTT CONNACK remaining length must be exactly two",
         ));
     }
     let mut body = vec![0u8; remaining];
     stream.read_exact(&mut body)?;
-    Ok(body[1])
+    let flags = body[0];
+    let code = body[1];
+    if flags & !0x01 != 0 || code > 5 || (code != 0 && flags & 0x01 != 0) {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "invalid MQTT CONNACK flags or return code",
+        ));
+    }
+    Ok(code)
 }
 
 fn encode_remaining_length(mut len: usize, packet: &mut Vec<u8>) {
+    if len > 268_435_455 {
+        return;
+    }
     loop {
         let mut byte = (len % 128) as u8;
         len /= 128;
@@ -323,11 +362,17 @@ fn encode_remaining_length(mut len: usize, packet: &mut Vec<u8>) {
 fn read_remaining_length(stream: &mut TcpStream) -> Result<usize, std::io::Error> {
     let mut multiplier = 1usize;
     let mut value = 0usize;
-    for _ in 0..4 {
+    for byte_index in 0..4 {
         let mut encoded = [0u8; 1];
         stream.read_exact(&mut encoded)?;
         value += usize::from(encoded[0] & 127) * multiplier;
         if encoded[0] & 128 == 0 {
+            if byte_index > 0 && encoded[0] == 0 {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "non-minimal MQTT remaining length",
+                ));
+            }
             return Ok(value);
         }
         multiplier *= 128;
@@ -340,6 +385,10 @@ fn read_remaining_length(stream: &mut TcpStream) -> Result<usize, std::io::Error
 
 #[cfg(test)]
 mod trace_cases;
+
+#[cfg(test)]
+#[path = "discovery_probe/contract_tests.rs"]
+mod contract_tests;
 
 #[cfg(test)]
 mod tests {

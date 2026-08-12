@@ -48,6 +48,7 @@ pub fn standard_function_blocks() -> Vec<FunctionBlockDef> {
         FunctionBlockDef {
             name: name.into(),
             base: None,
+            interfaces: Vec::new(),
             params: params
                 .iter()
                 .map(|(param_name, type_id, direction)| Param {

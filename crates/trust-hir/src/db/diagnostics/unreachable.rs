@@ -41,7 +41,6 @@ fn check_constant_if_branches(root: &SyntaxNode, diagnostics: &mut DiagnosticBui
             mark_unreachable_statements(&then_stmts, diagnostics);
         }
 
-        let mut previous_all_false = matches!(condition, Some(false));
         let mut branch_always_taken = matches!(condition, Some(true));
 
         for branch in branches {
@@ -55,15 +54,10 @@ fn check_constant_if_branches(root: &SyntaxNode, diagnostics: &mut DiagnosticBui
                     Some(false) => {
                         mark_unreachable_statements(&branch.statements, diagnostics);
                     }
-                    Some(true) if previous_all_false => {
+                    Some(true) => {
                         branch_always_taken = true;
                     }
-                    Some(true) => {
-                        previous_all_false = false;
-                    }
-                    None => {
-                        previous_all_false = false;
-                    }
+                    None => {}
                 }
             } else if branch.kind == IfBranchKind::Else && branch_always_taken {
                 mark_unreachable_statements(&branch.statements, diagnostics);
@@ -233,3 +227,7 @@ fn mark_unreachable_statements(statements: &[SyntaxNode], diagnostics: &mut Diag
         );
     }
 }
+
+#[cfg(test)]
+#[path = "unreachable/contract_tests.rs"]
+mod contract_tests;

@@ -1,0 +1,166 @@
+schema_version = 1
+id = "LSP_DEPENDENCY_RESOLUTION_002"
+title = "LSP dependencies resolve through one trusted reproducible graph"
+area = "editor_safety"
+risk = "supply_chain"
+status = "specified"
+owner = "trust-lsp"
+last_reviewed = "2026-08-01"
+claim = "Dependency parsing, transitive local resolution, identity conflict detection, lock integrity, atomic lock publication, transport and host trust, and cache identity preserve the reviewed reproducible graph without exposing partial invalid authority."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["docs/specs/14-lsp.md", "crates/trust-lsp/src/config", "crates/trust-lsp/src/config/dependency_contract_tests.rs"]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["catalog_mapping", "focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "network_policy_execution", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_LSP_CONTRACT_001"]
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_LSP_CONTRACT_001#dependency-graph-trust-and-lock-integrity"
+
+[[behavior]]
+partition = { equals = "EXACTLY_ONE_DEPENDENCY_SOURCE" }
+case_family = "missing_required"
+oracle_ref = "SPEC_LSP_CONTRACT_001#dependency-graph-trust-and-lock-integrity"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Simple or detailed path and one git source with at most one selector are accepted; missing, multiple, blank, or cross-kind sources and selectors are L005."
+[[behavior]]
+partition = { equals = "DEPENDENCY_IDENTITY_TRIM_AND_ORDER" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_LSP_CONTRACT_001#dependency-graph-trust-and-lock-integrity"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Names, versions, and selector values trim, optional blanks reject, and parsed dependencies order deterministically by case-insensitive identity."
+[[behavior]]
+partition = { equals = "TRANSITIVE_LOCAL_AND_SOURCE_ONLY_GRAPH" }
+case_family = "happy_path"
+oracle_ref = "SPEC_LSP_CONTRACT_001#dependency-graph-trust-and-lock-integrity"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Transitive local graphs resolve relative to each owning manifest and a source-only package may omit its manifest with unspecified version."
+[[behavior]]
+partition = { equals = "LOCAL_SOURCE_MANIFEST_AND_VERSION_FAILURE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_LSP_CONTRACT_001#dependency-graph-trust-and-lock-integrity"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Missing or non-directory sources, malformed present manifests, and exact version mismatches report their stable class without a partial library."
+[[behavior]]
+partition = { equals = "CYCLE_PATH_AND_GRAPH_COMPONENT_ISOLATION" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_LSP_CONTRACT_001#dependency-graph-trust-and-lock-integrity"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Self and longer cycles report complete canonical paths while an independent valid graph component remains available with its own diagnostics."
+[[behavior]]
+partition = { equals = "CASE_INSENSITIVE_SOURCE_AND_VERSION_CONFLICT" }
+case_family = "duplicate_or_collision"
+oracle_ref = "SPEC_LSP_CONTRACT_001#dependency-graph-trust-and-lock-integrity"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Same identity and canonical source deduplicate; another source is L003 and incompatible diamond requirements are L002."
+[[behavior]]
+partition = { equals = "CANONICAL_LOCAL_SOURCE_IDENTITY" }
+case_family = "platform_or_filesystem_variation"
+oracle_ref = "SPEC_LSP_CONTRACT_001#dependency-graph-trust-and-lock-integrity"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Local symlink sources canonicalize before graph identity and lock comparison."
+[[behavior]]
+partition = { equals = "LOCK_SCHEMA_ROUNDTRIP_AND_ORDER" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_LSP_CONTRACT_001#dependency-graph-trust-and-lock-integrity"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Absent lock loads an empty versioned model and valid path/git entries round-trip in deterministic identity order."
+[[behavior]]
+partition = { equals = "LOCKED_LOCAL_IDENTITY_MATCH" }
+case_family = "supply_chain_or_artifact_fault"
+oracle_ref = "SPEC_LSP_CONTRACT_001#dependency-graph-trust-and-lock-integrity"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Malformed or unsupported lock content and missing or mismatched canonical local entries are L006 and block locked resolution."
+[[behavior]]
+partition = { equals = "UNLOCKED_LOCK_PUBLICATION_TRANSACTION" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_LSP_CONTRACT_001#dependency-graph-trust-and-lock-integrity"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Issue-free unlocked resolution records canonical paths at the project-relative lock path; any issue preserves the existing lock byte-for-byte and publishes no replacement."
+[[behavior]]
+partition = { equals = "GIT_TRANSPORT_POLICY" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_LSP_CONTRACT_001#dependency-graph-trust-and-lock-integrity"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Local and HTTPS sources are accepted by default; HTTP and SSH/SCP require independent flags, and blank or unknown schemes reject before side effects."
+[[behavior]]
+partition = { equals = "GIT_HOST_IDENTITY_AND_ALLOWLIST" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_LSP_CONTRACT_001#dependency-graph-trust-and-lock-integrity"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Exact hosts and subdomains match case-insensitively, suffix lookalikes reject, userinfo and ports do not change identity, and bracketed IPv6 remains one host."
+[[behavior]]
+partition = { equals = "PATH_SAFE_STABLE_GIT_CACHE_COMPONENT" }
+case_family = "platform_or_filesystem_variation"
+oracle_ref = "SPEC_LSP_CONTRACT_001#dependency-graph-trust-and-lock-integrity"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Cache components are process-stable, path-safe, and exclude separators and credentials."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Focused local-resolution tests exist, but accepted catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "missing_required"
+state = "gap_open"
+rationale = "Focused parser source-precondition tests exist, but accepted catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Focused malformed-source tests exist, but accepted catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "duplicate_or_collision"
+state = "gap_open"
+rationale = "Focused identity conflict tests exist, but accepted catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "Focused graph, cycle, and lock-order tests exist, but accepted catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "supply_chain_or_artifact_fault"
+state = "gap_open"
+rationale = "Focused lock-integrity tests exist, but accepted catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "persistence_or_recovery"
+state = "gap_open"
+rationale = "Focused lock-publication tests exist, but accepted catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "auth_or_permission"
+state = "gap_open"
+rationale = "Focused transport and host-policy tests exist, but accepted catalog binding and network proof are pending."
+[[coverage.cells]]
+dimension = "platform_or_filesystem_variation"
+state = "gap_open"
+rationale = "Focused canonical-path and cache tests exist, but accepted catalog binding and cross-platform proof are pending."

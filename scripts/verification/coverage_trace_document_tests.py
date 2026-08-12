@@ -39,6 +39,7 @@ class CoverageTraceDocumentTests(unittest.TestCase):
                 "nextest_test_name": "tests::exact_case",
                 "cargo_target_kind": "lib",
                 "cargo_target_name": None,
+                "no_default_features": True,
                 "command": "cargo nextest run",
                 "command_authority": "verified_synthesized",
             }
@@ -161,6 +162,7 @@ class CoverageTraceDocumentTests(unittest.TestCase):
                 CODE_ID, source_path, 0, len(source)
             )
             span_resolver = mock.Mock(return_value={CODE_ID: span})
+            export_observer = mock.Mock()
             document = build_rust_trace_document(
                 root=root,
                 trace_root=trace_root,
@@ -176,10 +178,12 @@ class CoverageTraceDocumentTests(unittest.TestCase):
                 },
                 mode="focused_shard",
                 span_resolver=span_resolver,
+                coverage_export_observer=export_observer,
             )
 
         record = document["tests"][0]
         span_resolver.assert_called_once_with([source_path])
+        export_observer.assert_called_once_with(export)
         self.assertEqual([CODE_ID], record["covered_code_ids"])
         self.assertEqual(12, record["duration_ms"])
         self.assertEqual("observed", record["trace_status"])

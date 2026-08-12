@@ -166,6 +166,9 @@ pub(super) fn configured_mesh_link_status(
     let Some(evidence) = evidence else {
         return "configured_policy".to_string();
     };
+    if !evidence.is_ready() {
+        return "configured_policy".to_string();
+    }
     let snapshot = evidence.liveliness_snapshot();
     if snapshot
         .peers
@@ -173,10 +176,8 @@ pub(super) fn configured_mesh_link_status(
         .any(|peer| peer == target || target.contains(peer.as_str()))
     {
         "connected".to_string()
-    } else if evidence.is_ready() {
-        "degraded".to_string()
     } else {
-        "configured_policy".to_string()
+        "degraded".to_string()
     }
 }
 
@@ -272,6 +273,13 @@ pub(super) fn ads_client_endpoint_health_and_detail(
             ),
         );
     }
+    if connection_statuses.len() != config.connections.len() {
+        return (
+            "degraded".to_string(),
+            "One or more configured ADS client connections have no matching live status."
+                .to_string(),
+        );
+    }
     if connection_statuses
         .iter()
         .any(|connection| connection.state == AdsConnectionStatusState::Faulted)
@@ -319,8 +327,12 @@ pub(super) fn ads_client_live(
             })
         })
         .collect::<Vec<_>>();
-    let connected = status
+    let matched = config
         .connections
+        .iter()
+        .filter_map(|connection| ads_status_for_connection(Some(status), connection))
+        .collect::<Vec<_>>();
+    let connected = matched
         .iter()
         .filter(|connection| connection.state == AdsConnectionStatusState::Connected)
         .count();
@@ -330,8 +342,7 @@ pub(super) fn ads_client_live(
             "total": config.connections.len(),
             "connections": connections,
         },
-        "last_seen_ms": status
-            .connections
+        "last_seen_ms": matched
             .iter()
             .filter_map(|connection| connection.last_good_value_ms)
             .max()
@@ -364,6 +375,13 @@ pub(super) fn opcua_client_endpoint_health_and_detail(
                 "{} OPC UA client connection(s) configured; live status has no matching connection yet.",
                 config.connections.len()
             ),
+        );
+    }
+    if connection_statuses.len() != config.connections.len() {
+        return (
+            "degraded".to_string(),
+            "One or more configured OPC UA client connections have no matching live status."
+                .to_string(),
         );
     }
     if connection_statuses
@@ -425,8 +443,12 @@ pub(super) fn opcua_client_live(
             })
         })
         .collect::<Vec<_>>();
-    let connected = status
+    let matched = config
         .connections
+        .iter()
+        .filter_map(|connection| opcua_client_status_for_connection(Some(status), connection))
+        .collect::<Vec<_>>();
+    let connected = matched
         .iter()
         .filter(|connection| connection.state == OpcUaClientConnectionState::Connected)
         .count();
@@ -436,8 +458,7 @@ pub(super) fn opcua_client_live(
             "total": config.connections.len(),
             "connections": connections,
         },
-        "last_seen_ms": status
-            .connections
+        "last_seen_ms": matched
             .iter()
             .filter_map(|connection| connection.last_seen_ms)
             .max()
@@ -466,12 +487,17 @@ pub(super) fn ads_status_for_connection<'a>(
 ) -> Option<&'a AdsConnectionStatus> {
     let status = status?;
     let route = &connection.route;
-    status.connections.iter().find(|item| {
-        item.name == route.name
-            || item.target.as_ref().is_some_and(|target| {
-                target.ams_net_id == route.target_net_id.0 && target.ams_port == route.ams_port
+    status
+        .connections
+        .iter()
+        .find(|item| item.name == route.name)
+        .or_else(|| {
+            status.connections.iter().find(|item| {
+                item.target.as_ref().is_some_and(|target| {
+                    target.ams_net_id == route.target_net_id.0 && target.ams_port == route.ams_port
+                })
             })
-    })
+        })
 }
 
 pub(super) fn opcua_client_status_for_connection<'a>(
@@ -482,7 +508,13 @@ pub(super) fn opcua_client_status_for_connection<'a>(
     status
         .connections
         .iter()
-        .find(|item| item.name == connection.name || item.endpoint_url == connection.endpoint_url)
+        .find(|item| item.name == connection.name)
+        .or_else(|| {
+            status
+                .connections
+                .iter()
+                .find(|item| item.endpoint_url == connection.endpoint_url)
+        })
 }
 
 pub(super) fn opcua_client_connection_health(

@@ -29,7 +29,10 @@ from .coverage_trace_evidence import (
 )
 from .coverage_trace_resume import reusable_completed_attempt_ids
 from .coverage_trace_tools import export_attempt_coverage
-from .focused_mapping_context import FocusedMappingContext
+from .focused_mapping_context import (
+    FocusedMappingContext,
+    resolved_command_features,
+)
 from .mapping_live_code_facts import (
     focused_rust_observed_source_projection,
     focused_rust_path_inventory,
@@ -74,6 +77,20 @@ def authenticate_focused_trace(
         raise ValueError("focused trace LLVM tool identity drifted")
     if provenance.get("llvm_tool_paths") != evidence.tool_paths:
         raise ValueError("focused trace LLVM tool path drifted")
+    provenance_resolved = provenance.get("resolved")
+    if not isinstance(provenance_resolved, list) or any(
+        not isinstance(record, Mapping) for record in provenance_resolved
+    ):
+        raise ValueError("focused trace resolved provenance is malformed")
+    feature_sets = {
+        resolved_command_features(record)
+        for record in provenance_resolved
+    }
+    if len(feature_sets) != 1:
+        raise ValueError(
+            "focused trace resolved commands use inconsistent Cargo features"
+        )
+    cargo_features = next(iter(feature_sets))
 
     environment = trace_environment(
         base_environment=os.environ,
@@ -122,7 +139,11 @@ def authenticate_focused_trace(
         fact.update(package_targets[package])
     resolved: list[dict[str, Any]] = []
     unsupported: list[dict[str, Any]] = []
-    for shard in targeted_nextest_list_shards(live_facts):
+    for shard in targeted_nextest_list_shards(
+        live_facts,
+        cargo_features=cargo_features,
+        root=root,
+    ):
         listed = _run(
             list(shard["command"]),
             root=root,
@@ -137,6 +158,7 @@ def authenticate_focused_trace(
         shard_resolved, shard_unsupported = resolve_nextest_list_shard(
             shard=shard,
             nextest_document=nextest_document,
+            cargo_features=cargo_features,
         )
         resolved.extend(shard_resolved)
         unsupported.extend(shard_unsupported)

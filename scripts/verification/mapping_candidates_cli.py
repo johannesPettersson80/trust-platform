@@ -479,9 +479,25 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--authority-routes",
+        type=Path,
+        help=(
+            "optional authenticated reviewed test-invariant routes for exact "
+            "focused C4 demands"
+        ),
+    )
+    parser.add_argument(
         "--trace-root",
         type=Path,
         help="focused raw coverage evidence root",
+    )
+    parser.add_argument(
+        "--authenticated-trace-receipt",
+        type=Path,
+        help=(
+            "validated focused trace receipt used to reauthenticate raw "
+            "evidence without replaying Cargo or LLVM reconstruction"
+        ),
     )
     parser.add_argument(
         "--cargo-target-dir",
@@ -520,6 +536,10 @@ def main(argv: list[str] | None = None) -> int:
         if args.authority_plan is not None and not args.focused_rust_discovery_id:
             raise ValueError(
                 "--authority-plan requires --focused-rust-discovery-id"
+            )
+        if args.authority_routes is not None and not args.focused_rust_discovery_id:
+            raise ValueError(
+                "--authority-routes requires --focused-rust-discovery-id"
             )
         if args.focused_rust_discovery_id:
             required_paths = {
@@ -569,6 +589,16 @@ def main(argv: list[str] | None = None) -> int:
                 authority_plan_path=(
                     _resolve(root, args.authority_plan)
                     if args.authority_plan is not None
+                    else None
+                ),
+                authority_routes_path=(
+                    _resolve(root, args.authority_routes)
+                    if args.authority_routes is not None
+                    else None
+                ),
+                authenticated_trace_receipt_path=(
+                    _resolve(root, args.authenticated_trace_receipt)
+                    if args.authenticated_trace_receipt is not None
                     else None
                 ),
                 trace_root=_resolve(root, args.trace_root),

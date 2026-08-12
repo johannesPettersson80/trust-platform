@@ -23,10 +23,7 @@ fn mixed_numeric_ops() {
         left: Box::new(Expr::Literal(Value::UInt(2))),
         right: Box::new(Expr::Literal(Value::Int(3))),
     };
-    assert_eq!(
-        eval_expr(&mut ctx, &expr),
-        Err(RuntimeError::TypeMismatch)
-    );
+    assert_eq!(eval_expr(&mut ctx, &expr), Err(RuntimeError::TypeMismatch));
 
     let expr = Expr::Binary {
         op: BinaryOp::Mul,

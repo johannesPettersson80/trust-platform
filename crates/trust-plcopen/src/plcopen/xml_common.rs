@@ -1,5 +1,6 @@
 fn sanitize_filename(name: &str) -> String {
-    name.chars()
+    let mut sanitized = name
+        .chars()
         .map(|ch| {
             if ch.is_ascii_alphanumeric() || ch == '_' || ch == '-' {
                 ch
@@ -7,7 +8,27 @@ fn sanitize_filename(name: &str) -> String {
                 '_'
             }
         })
-        .collect::<String>()
+        .collect::<String>();
+    while sanitized.ends_with('.') || sanitized.ends_with(' ') {
+        sanitized.pop();
+    }
+    if sanitized.is_empty() {
+        sanitized.push('_');
+    }
+    let device_name = sanitized
+        .split('.')
+        .next()
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    if matches!(
+        device_name.as_str(),
+        "con" | "prn" | "aux" | "nul" | "com1" | "com2" | "com3" | "com4"
+            | "com5" | "com6" | "com7" | "com8" | "com9" | "lpt1" | "lpt2"
+            | "lpt3" | "lpt4" | "lpt5" | "lpt6" | "lpt7" | "lpt8" | "lpt9"
+    ) {
+        sanitized.insert(0, '_');
+    }
+    sanitized
 }
 
 #[cfg(test)]

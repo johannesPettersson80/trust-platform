@@ -1,0 +1,67 @@
+schema_version = 1
+id = "VM_CORE_PORTABLE_DEFAULT_VALUES_001"
+title = "Portable default construction preserves declared runtime shape"
+area = "bytecode_vm"
+risk = "wrong_result"
+status = "mapped"
+owner = "trust-runtime-core"
+last_reviewed = "2026-07-30"
+claim = "Portable default construction preserves every elementary runtime tag, recursively materializes the exact declared compound shape and order, and rejects invalid, empty, unknown, or unsupported type definitions without returning a partial value."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["docs/specs/10-runtime-semantics.md", "crates/trust-runtime-core/src/value/defaults.rs"]
+tests = ["TEST_AUTO_35701BDD9A1B14FF9870", "TEST_AUTO_FD9644F407E5DA7F2707"]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_tests", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_VM_VALUE_SEMANTICS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_VM_VALUE_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+
+[[behavior]]
+partition = { equals = "EVERY_ELEMENTARY_DEFAULT_TAG" }
+case_family = "happy_path"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Each elementary type materializes the exact documented zero, empty, epoch, or null-equivalent value using its own runtime tag."
+
+[[behavior]]
+partition = { equals = "COMPOUND_DEFAULT_SHAPE_ORDER_AND_IDENTITY" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Fixed and wildcard arrays, structures, unions, enumerations, aliases, references, pointers, interfaces, NULL, and integer subranges retain their declared dimensions, order, names, tags, and recursively constructed values."
+
+[[behavior]]
+partition = { equals = "INVALID_OR_UNSUPPORTED_DEFAULT_REJECTION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Invalid array bounds, empty enumerations, non-integer subrange bases, unknown type IDs, and types without a portable runtime representation return the exact default-construction error without a partial value."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Focused elementary default assertions are green and dynamically observed; catalog binding is pending."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "Focused compound-shape and ordering assertions are green and dynamically observed; catalog binding is pending."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Focused invalid and unsupported type assertions are green and dynamically observed; catalog binding is pending."

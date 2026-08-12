@@ -1,15 +1,18 @@
 schema_version = 1
 id = "IEC_HIR_CALL_BINDING_001"
-title = "HIR binds formal, non-formal, and mixed-extension calls"
+title = "HIR binds callable context, parameter direction, type, and writable transfer"
 area = "compiler_iec"
 risk = "wrong_result"
 status = "mapped"
 owner = "trust-hir"
-last_reviewed = "2026-07-30"
-claim = "Call binding enforces parameter direction, name, uniqueness, completeness, and EN/ENO rules while limiting the truST mixed-call extension to a positional prefix followed by formal assignments."
+last_reviewed = "2026-08-01"
+claim = "Call binding enforces callable context, parameter direction, name, uniqueness, completeness, compatible input/output transfer, exact VAR_IN_OUT identity, nonoverlapping writable targets, and EN/ENO rules while limiting the truST mixed-call extension to a positional prefix followed by formal assignments."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = [
+  "docs/specs/04-pou-declarations.md",
+  "docs/specs/06-statements.md",
+  "docs/specs/09-semantic-rules.md",
   "crates/trust-hir/src/type_check/calls.rs",
   "crates/trust-hir/src/type_check/calls/args.rs",
   "crates/trust-hir/src/type_check/calls/resolve.rs",
@@ -18,7 +21,7 @@ tests = ["TEST_AUTO_11368D137023990F666F", "TEST_AUTO_1E6661FF05BEC9165CB9", "TE
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["assertion_reachability", "broad_remote_gate"]
+missing = ["catalog_mapping", "focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -162,6 +165,150 @@ outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
 rationale = "A resolved function-block instance accepts a direction-correct formal parameter list."
+
+[[behavior]]
+partition = { equals = "INPUT_ACCURACY_PRESERVING_CONVERSION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001#34-call-binding-errors"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A VAR_INPUT actual may use a documented accuracy-preserving implicit conversion to the formal type."
+
+[[behavior]]
+partition = { equals = "OUTPUT_ASSIGNMENT_COMPATIBLE_TRANSFER" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001#34-call-binding-errors"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A VAR_OUTPUT value may transfer to a writable target through the documented assignment-compatible widening route."
+
+[[behavior]]
+partition = { equals = "INOUT_EXACT_TYPE_AND_WRITABLE_TARGET" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#31-shared-call-syntax"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "VAR_IN_OUT binds only an exact-type writable caller variable, including valid selected aggregate storage."
+
+[[behavior]]
+partition = { equals = "INVALID_OUTPUT_OR_INOUT_TARGET" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001#34-call-binding-errors"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Constants, literals, computed expressions, and other nonwritable actuals cannot receive VAR_OUTPUT or VAR_IN_OUT transfer."
+
+[[behavior]]
+partition = { equals = "INOUT_IMPLICIT_CONVERSION_REJECTED" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#31-shared-call-syntax"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "VAR_IN_OUT rejects widening, narrowing, resizing, and reference-family conversion because it aliases caller storage directly."
+
+[[behavior]]
+partition = { equals = "DISTINCT_WRITABLE_TRANSFER_TARGETS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#31-shared-call-syntax"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Distinct scalar or aggregate projections may receive output and in-out transfers, and one input read may share the single writable target."
+
+[[behavior]]
+partition = { equals = "OVERLAPPING_WRITABLE_TRANSFER_TARGETS" }
+case_family = "duplicate_or_collision"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001#34-call-binding-errors"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Two VAR_OUTPUT, VAR_IN_OUT, or ENO connections cannot resolve to the same or overlapping caller storage in one call."
+
+[[behavior]]
+partition = { equals = "CALLABLE_STATEMENT_OR_VALUE_CONTEXT" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#3-call-statements-section-73324"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A function or value-returning method may appear in a value context or as a discarded-result statement, while a void method and function-block instance are valid statement calls."
+
+[[behavior]]
+partition = { equals = "INVALID_CALLABLE_VALUE_CONTEXT" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#3-call-statements-section-73324"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A function-block call or void method cannot supply an expression value."
+
+[[behavior]]
+partition = { equals = "NAMED_EN_ENO_DIRECTION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_POU_DECLARATIONS_001#eneno-mechanism-section-6616"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "EN and ENO bind only by name, with EN using input assignment and ENO using the output arrow."
+
+[[behavior]]
+partition = { equals = "INVALID_EN_ENO_DIRECTION_OR_REFERENCE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001#34-call-binding-errors"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "EN connected with the output arrow, ENO connected with input assignment, and REF of either execution-control parameter are rejected."
+
+[[behavior]]
+partition = { equals = "FORMAL_ARGUMENT_ORDER_INDEPENDENT" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#31-shared-call-syntax"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Formal names determine binding independent of declaration order while source order remains the evaluation order."
+
+[[behavior]]
+partition = { equals = "POSITIONAL_PREFIX_FORMAL_REBINDING" }
+case_family = "duplicate_or_collision"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001#34-call-binding-errors"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A formal suffix cannot bind a parameter slot already occupied by the accepted positional prefix."
+
+[[behavior]]
+partition = { equals = "COMPLETE_NONFORMAL_SIGNATURE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#31-shared-call-syntax"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A complete nonformal call binds every ordinary parameter in declaration order after excluding EN and ENO."
+
+[[behavior]]
+partition = { equals = "OUTPUT_INCOMPATIBLE_OR_NARROWING_TRANSFER" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001#34-call-binding-errors"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A VAR_OUTPUT connection rejects a caller target that cannot accept the formal output type without an unreviewed narrowing or incompatible conversion."
+
+[[behavior]]
+partition = { equals = "INOUT_DIRECTION_MARKER_REJECTED" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#31-shared-call-syntax"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "VAR_IN_OUT is an input/in-out formal and therefore rejects the VAR_OUTPUT arrow direction marker."
 
 [[coverage.cells]]
 dimension = "happy_path"

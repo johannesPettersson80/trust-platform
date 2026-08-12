@@ -118,7 +118,8 @@
         },
         "cargo_target_name": {
           "type": ["string", "null"]
-        }
+        },
+        "no_default_features": { "type": "boolean" }
       },
       "additionalProperties": false
     },

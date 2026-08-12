@@ -1,0 +1,144 @@
+schema_version = 1
+id = "IEC_HIR_EXPRESSION_OPERATOR_CONTRACT_002"
+title = "HIR operator typing follows the reviewed expression matrix"
+area = "compiler_iec"
+risk = "wrong_result"
+status = "specified"
+owner = "trust-hir"
+last_reviewed = "2026-08-01"
+claim = "Unary, arithmetic, comparison, logical, bitwise, temporal, string, and contextual-literal expressions accept only the documented operand families and produce the documented result type."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["docs/specs/05-expressions.md", "crates/trust-hir/tests/semantic_type_checking/expression_operator_contract_acceptance.rs", "crates/trust-hir/tests/semantic_type_checking/expression_operator_contract_rejection.rs"]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["catalog_mapping", "focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+[spec]
+status = "specified"
+source_refs = ["SPEC_IEC_EXPRESSIONS_001"]
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_IEC_EXPRESSIONS_001#6-type-checking-rules"
+
+[[behavior]]
+partition = { equals = "SAME_OR_WIDENABLE_NUMERIC_ARITHMETIC" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001#61-arithmetic-operations"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Numeric arithmetic uses exact identity or one accuracy-preserving common type and produces that reviewed result type."
+[[behavior]]
+partition = { equals = "INCOMPATIBLE_OR_LOSSY_NUMERIC_ARITHMETIC" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001#61-arithmetic-operations"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Cross-family or narrowing combinations without a reviewed common type are rejected instead of guessed."
+[[behavior]]
+partition = { equals = "INTEGER_MODULO_AND_DIVISION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001#61-arithmetic-operations"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "DIV and MOD require compatible integer families and preserve the reviewed result type."
+[[behavior]]
+partition = { equals = "TEMPORAL_ARITHMETIC_MATRIX" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001#61-arithmetic-operations"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "TIME-family addition, subtraction, multiplication, and division accept only the documented temporal/numeric ordering and reject swapped or unrelated forms."
+[[behavior]]
+partition = { equals = "BOOLEAN_AND_BITSTRING_OPERATORS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001#63-boolean-operations"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Boolean operators return BOOL while ANY_BIT binary operators widen and NOT preserves the operand bit width."
+[[behavior]]
+partition = { equals = "INVALID_LOGICAL_OPERAND_FAMILY" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001#63-boolean-operations"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Non-BOOL/non-ANY_BIT operands and incompatible bit families are rejected."
+[[behavior]]
+partition = { equals = "ELEMENTARY_COMPARISON_WITH_COMMON_TYPE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001#62-comparison-operations"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Compatible numeric, temporal, Boolean, STRING, and WSTRING comparisons produce BOOL."
+[[behavior]]
+partition = { equals = "INCOMPATIBLE_COMPARISON_OR_CHAIN" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001#62-comparison-operations"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Aggregate, cross-string-family, lossy, or chained comparison operands without a compatible common type are rejected."
+[[behavior]]
+partition = { equals = "CONTEXTUAL_UNTYPED_LITERAL" }
+case_family = "boundary_low"
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001#521-literal-typing-implementer-specific"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Representable untyped numeric literals contextualize to the compatible typed operand or expected destination."
+[[behavior]]
+partition = { equals = "UNARY_OPERATOR_DOMAIN" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001#61-arithmetic-operations"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Unary plus/minus require numeric operands and NOT requires BOOL or ANY_BIT, preserving the documented result type."
+
+[[behavior]]
+partition = { equals = "UNTYPED_LITERAL_OUT_OF_CONTEXT_RANGE" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001#521-literal-typing-implementer-specific"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "An untyped numeric literal outside the compatible typed operand or destination range is rejected instead of truncated or wrapped."
+
+[[behavior]]
+partition = { equals = "NONINTEGER_DIVISION_OR_MODULO" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001#61-arithmetic-operations"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "DIV and MOD reject REAL-family and every other noninteger operand combination."
+
+[[behavior]]
+partition = { equals = "INVALID_UNARY_OPERATOR_DOMAIN" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_EXPRESSIONS_001#6-type-checking-rules"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Unary plus or minus rejects nonnumeric operands, while NOT rejects every operand outside BOOL and ANY_BIT."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Focused accepted operator tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Focused rejected operator and mixed-domain tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "boundary_low"
+state = "gap_open"
+rationale = "Focused contextual-literal boundaries exist, but catalog binding and dynamic proof are pending."

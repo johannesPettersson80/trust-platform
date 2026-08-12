@@ -246,6 +246,16 @@ fn validate_instruction_stream(
                 let operand = reader.read_u32()?;
                 validate_partial_access_operand(operand)?;
             }
+            0x64 => {
+                let type_id = reader.read_u32()?;
+                ensure_type_index(tables.types, type_id)?;
+                let entry = &tables.types.entries[type_id as usize];
+                if !matches!(entry.kind, TypeKind::Reference | TypeKind::Interface) {
+                    return Err(BytecodeError::InvalidSection(
+                        "REFERENCE_ATTEMPT expects reference or interface target type".into(),
+                    ));
+                }
+            }
             0x70 => {
                 reader.read_u32()?;
             }

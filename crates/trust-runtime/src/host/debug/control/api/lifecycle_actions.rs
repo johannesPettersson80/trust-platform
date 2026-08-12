@@ -180,6 +180,7 @@ impl DebugControl {
             .breakpoints
             .extend(breakpoints.into_iter().map(|mut bp| {
                 bp.generation = generation;
+                bp.hits = 0;
                 bp
             }));
         trace_debug(&format!(

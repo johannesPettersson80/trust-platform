@@ -285,6 +285,377 @@ subcommand. This parser contract does not establish storage authorization,
 network authentication, or secret-handling proof beyond exact argument
 binding.
 
+### Package registry storage and integrity contract
+
+The local package registry is a fail-closed content store. Its configuration,
+index, package metadata, and package payload form one integrity boundary; a
+successful CLI message or the mere presence of a package directory is not
+publication proof.
+
+Registry roots use schema version `1`. Initialization creates
+`registry.toml`, `index.json`, and `packages/`. A private registry requires a
+non-empty normalized token before a usable configuration or index is written.
+Reinitializing an existing registry may update its access configuration, but
+it must first validate the existing index and must preserve every existing
+package and index entry. An unreadable, malformed, or unsupported existing
+configuration or index is an error and is never replaced with an empty
+default.
+
+Package names and versions are normalized by trimming surrounding whitespace.
+The remaining value must be one non-empty path segment containing only ASCII
+letters, digits, `-`, `_`, and `.`; the complete segments `.` and `..` are
+invalid. The same validation applies to publish, download, and verify
+requests. Separators, traversal components, absolute paths, and symbolic-link
+redirection must not escape the configured registry root. Registry payloads
+contain regular files and directories only. A symbolic link or another
+special filesystem entry in a source bundle or stored package is rejected
+rather than followed or silently omitted.
+
+A package identity is the normalized `(name, version)` pair. Published
+identities are immutable: a second publish of the same pair fails without
+changing its payload, metadata, or index. Publication validates access, the
+bundle, its identity, and the existing index before creating an addressable
+package. It stages the payload and metadata outside the final identity path,
+then commits a complete package and its index entry. If any publication step
+fails, the prior index remains byte-for-byte intact and no final package
+identity is left behind. Temporary staging material is not listable and is
+removed or safely recoverable before a later publication. JSON/config writes
+use same-directory replacement so readers observe the old complete document
+or the new complete document, never a truncated intermediate document.
+
+`metadata.json` binds all of the following:
+
+- the package name and version, which must equal the requested identity and
+  containing path;
+- the runtime resource name and bundle schema version;
+- a publication timestamp;
+- every regular payload file exactly once, using a `/`-separated relative path
+  in ascending lexical order;
+- each file's byte count and lowercase SHA-256 digest;
+- `total_bytes`, equal to the checked sum of all file byte counts; and
+- `package_sha256`, computed deterministically from the ordered path, digest,
+  and byte-count tuples.
+
+Verification rejects missing, extra, reordered, duplicated, renamed, resized,
+or modified payload facts, inconsistent totals, an identity mismatch, an
+invalid digest encoding, malformed JSON, and unsupported registry schema
+versions. It does not repair metadata or the index. Download with verification
+validates the stored package before mutating the destination and validates the
+completed copy before reporting success. A preflight or stored-package
+verification failure leaves an existing empty destination empty; a non-empty
+destination is rejected without changing its contents. Download without the
+verification option is an explicit unchecked copy and supplies no integrity
+claim.
+
+`index.json` contains schema version `1`, a generation timestamp, and exactly
+one summary for every committed package identity. Entries are ordered first by
+name and then by version. Each summary agrees with its package metadata for
+resource name, publication timestamp, total bytes, and package digest.
+Malformed JSON, a wrong schema version, duplicate or unsorted identities, or a
+summary that disagrees with stored metadata is an error. Listing does not
+silently normalize, delete, or replace such an index.
+
+Every private-registry operation, including list, publish, download, and
+verify, authenticates before reading or mutating package state. Missing,
+blank, or unequal tokens are unauthorized. Registry profiles and operation
+reports never return the configured token. These local filesystem contracts
+do not claim network transport authentication or multi-process transaction
+isolation.
+
+## PLCopen XML semantic import contract
+
+PLCopen XML import is a typed translation into the supported truST Structured
+Text subset, not text scraping. XML element and attribute names used by the
+supported profile are matched case-insensitively. POU identity and declaration
+identity remain case-insensitive even when the source XML uses different
+spelling. The import report counts every discovered POU exactly once as either
+imported or skipped.
+
+The supported POU kinds are `program`/`prg`, `function`/`fun`/`fc`, and
+`functionBlock`/`fb`, ignoring ASCII case and punctuation in the kind spelling.
+Unsupported or missing POU kinds, missing names, and graphical or otherwise
+non-ST bodies are skipped with the stable named migration diagnostic; they are
+never scraped into a source file. A supported POU containing both an ST body
+and a non-ST executable body is also skipped rather than choosing one silently.
+Benign body metadata such as documentation, comments, and `addData` may
+accompany exactly one effective ST body.
+
+An ST body that already contains the matching complete top-level declaration
+is preserved as the POU source. A body containing only executable statements is
+wrapped using the XML POU name, kind, and interface. A missing or empty body may
+produce a declaration shell only when the interface or supported vendor method
+metadata supplies meaningful declarations. Otherwise the POU is skipped.
+
+The interface translation recognizes `inputVars`, `outputVars`, `inOutVars`,
+`externalVars`, `localVars`, `tempVars`, `globalVars`, and `accessVars`, in
+that stable order. Ordinary variables require one nonblank name and one
+supported type, and may carry a simple initial value. Access variables require
+an alias, instance path, type, and a direction mapped to `READ_ONLY` or
+`READ_WRITE`. Section Boolean attributes map to `CONSTANT`, `RETAIN`,
+`NON_RETAIN`, `PERSISTENT`, and `NON_PERSISTENT`. Mutually contradictory
+modifiers, duplicate case-insensitive declaration names within a POU,
+unsupported type shapes, invalid ST identifiers, or malformed required
+metadata are loss-bearing errors: the POU is not published as apparently valid
+ST, and a stable diagnostic names the rejected XML node and remediation.
+Silently dropping a malformed declaration while importing the rest of its POU
+is forbidden.
+
+Supported type expressions include:
+
+- all IEC elementary scalar tags in the declared profile;
+- `STRING` and `WSTRING`, with an optional positive declared length;
+- nonblank `derived` type names;
+- arrays with one or more complete inclusive dimensions and a supported base
+  type;
+- structures with at least one valid, uniquely named field;
+- enumerations with at least one valid, uniquely named element and optional
+  explicit values; and
+- subranges with a supported base type and complete lower and upper bounds.
+
+Multi-dimensional array bounds preserve source order. Structure fields preserve
+source order and simple initial values. An empty structure or enumeration,
+incomplete array dimension, nonpositive string length, missing derived name,
+or incomplete subrange is unsupported metadata rather than a fabricated type.
+Generated type and POU source must parse as the intended declaration kind
+before any source artifact is published.
+
+Functions use `interface/returnType` when present, otherwise an importable
+vendor plaintext header. When neither supplies a return type, the compatibility
+profile deliberately defaults to `INT` and emits `PLCO211`. A synthesized
+function with no real result assignment receives the compatibility
+self-assignment and `PLCO212`; occurrences in comments or another identifier
+do not suppress that repair.
+
+Supported CODESYS method objects are imported only for function blocks.
+Plaintext method headers preserve their declared visibility and return type.
+When a method header is absent, import defaults it to `METHOD PUBLIC`, uses the
+structured return type when present, and emits `PLCO214`. Interface sections
+and the ST method body are preserved. A method already present
+case-insensitively in the ST function-block source is not duplicated; missing
+methods are inserted before `END_FUNCTION_BLOCK` in XML order. Method metadata
+on another POU kind is skipped with `PLCO213`.
+
+A PLCopen POU declared as `program` but referenced as a derived type is promoted
+to `FUNCTION_BLOCK` with `PLCO210`, because a program cannot serve as an
+instance type in ST. Import reports the resolved kind after promotion. All
+fallbacks, promotions, skips, and unsupported metadata remain visible in the
+migration report and semantic-loss accounting.
+
+### PLCopen configuration, resource, task, and program-instance translation
+
+The importer recognizes configurations below
+`instances/configurations/configuration` and directly below `instances`.
+Direct resources below `instances` are wrapped in one deterministic
+`ImportedConfiguration`. Element and supported attribute aliases are
+case-insensitive. Each discovered configuration is counted exactly once and
+produces at most one complete ST configuration source.
+
+Configuration, resource, task, program-instance, target, type, and task
+references must become valid ST identifiers. The compatibility translation
+replaces invalid identifier characters with `_`, prefixes a leading digit with
+`_`, and supplies the documented `ImportedConfiguration`, `ImportedResource`,
+`CPU`, `Task`, `Program`, or `MainProgram` fallback only when the corresponding
+optional source identity is absent. Every normalization is reported. Resulting
+identities are unique case-insensitively within their ST scope; collisions
+receive deterministic `_2`, `_3`, and later suffixes in XML order.
+
+A task requires a nonblank identity and exactly one scheduling mode:
+
+- cyclic tasks use `interval`, `cycle`, `cycleTime`, `period`, or a nested
+  interval value;
+- event tasks use `single`, `event`, or `trigger`.
+
+An omitted mode defaults to `INTERVAL := T#100ms`. An omitted priority defaults
+to `1`. Explicit intervals accept valid IEC `T#`, `TIME#`, or `LTIME#`
+durations, plus nonnegative ISO `PT...S` or `PT...MS` values translated without
+overflow to an equivalent `T#` literal. Explicit priority must be an integer in
+the runtime-supported task priority range. Empty, negative, nonfinite,
+overflowing, or otherwise malformed schedule values are loss-bearing; they do
+not enter generated ST. Supplying both cyclic and event modes is ambiguous and
+rejects the task rather than silently preferring one.
+
+A program binding requires a nonblank instance name and POU type. A nested
+program below a task inherits that task when it has no explicit task
+reference. An explicit reference must resolve case-insensitively to exactly one
+task in the same configuration or resource; it is never silently redirected
+to the first task. If a scope has program bindings but no task declarations,
+the importer creates one `AutoTask` with `T#100ms` and priority `1`, binds every
+otherwise unbound program to it, and emits `PLCO506` for a resource or
+`PLCO507` for configuration scope. Explicit unresolved references remain
+errors and do not use this fallback.
+
+Generated order is deterministic: configuration tasks, configuration program
+bindings, then resources in XML order; within a resource, tasks precede
+program bindings. Resource programs nested below a task retain their inherited
+binding. The output closes every resource and configuration and must parse as
+the intended ST project-model declarations before publication. An empty
+instances container emits `PLCO501`; an empty normalized configuration emits
+`PLCO508`. Neither condition is represented as scheduling proof.
+
+### PLCopen global-variable-list translation
+
+Each `globalVars` element is one discovered list. The list identity comes from
+its nonblank name or child name, otherwise the stable `GlobalVarsN` fallback.
+Its imported filename and generated ST identity use the same path-safe and
+ST-safe normalization rules, and case-insensitive list collisions receive
+deterministic suffixes rather than overwriting or publishing duplicate
+namespaces/configurations.
+
+Interface-as-plaintext metadata takes precedence when present; otherwise the
+importer synthesizes declarations from structured `variable` entries. A list
+must contain at least one complete, parseable declaration. Names are
+case-insensitively unique within the list; each declaration has a valid ST
+identifier, supported type, and optional simple initial value. Malformed,
+duplicate, or partially parsed declarations reject that list with a stable
+diagnostic instead of being silently omitted. Section modifiers and leading
+vendor attributes are preserved only when they produce valid ST.
+
+In native vendor-parity mode, an ordinary list produces `VAR_GLOBAL`; a
+`qualified_only` list produces one `NAMESPACE <list>` containing its
+`VAR_GLOBAL` block so `List.Member` remains the access spelling. The marker is
+recognized from plaintext attributes or structured CODESYS attribute metadata
+case-insensitively.
+
+In strict-IEC adapter mode, an ordinary list produces one deterministic
+configuration-owned `VAR_GLOBAL` block. A qualified-only list produces a
+`<List>_TYPE` structure plus a `<List>_Globals` configuration holding one
+global `<List>` instance. POUs that reference `List.Member` receive the
+corresponding `VAR_EXTERNAL List : <List>_TYPE;` declaration exactly once,
+unless they already declare it case-insensitively. Injection preserves the
+POU header and existing variable-section order and occurs before executable
+statements. `PLCO603` records every synthesized adapter.
+
+List order, declaration order, initial values, modifiers, and generated paths
+are deterministic. Counts and written-source paths in the import report match
+the complete artifact set; a skipped list contributes semantic-loss evidence
+and never appears in the imported count.
+
+### PLCopen semantic export contract
+
+PLCopen export first performs a read-only semantic preflight over the complete
+selected source set. Every source must be valid UTF-8 and must parse without ST
+syntax errors. A parser error, duplicate case-insensitive POU/type/GVL/
+configuration identity, malformed supported declaration, or incomplete
+project-model binding blocks publication before XML, source-map, adapter, or
+SCL output is changed. Unsupported but well-formed top-level kinds may be
+skipped only with a source-path and physical-line warning and only when at
+least one supported declaration remains.
+
+The supported POU projection is `PROGRAM`, `FUNCTION`, and
+`FUNCTION_BLOCK`. `TEST_PROGRAM` and `TEST_FUNCTION_BLOCK` use the corresponding
+standard PLCopen POU kind and retain a warning that the test marker is not
+representable. POU bodies preserve normalized LF text and one trailing newline
+inside CDATA. Names, kinds, source paths, and one-based physical declaration
+lines are reproduced in the embedded and sidecar source maps. Source-map
+entries follow the deterministic exported POU order.
+
+TYPE blocks export elementary, bounded and unbounded string, derived,
+multi-dimensional array, nonempty structure, nonempty enumeration, and
+subrange expressions through their matching PLCopen base-type representation.
+Field/element/dimension order and simple initial or explicit values are
+preserved. Invalid identifiers, empty structures/enumerations, incomplete
+bounds, invalid string lengths, duplicate field/element names, and
+unrepresentable expressions are not emitted as plausible XML. A valid but
+unsupported type may be skipped with an exact warning; malformed or duplicate
+authority blocks the export.
+
+Each complete top-level `VAR_GLOBAL ... END_VAR` block becomes one global list.
+The list identity derives deterministically from its project-relative source
+stem and block ordinal. Leading attribute pragmas, section modifiers,
+declaration order, comma-expanded identities, supported types, and simple
+initial values are preserved in plaintext and structured metadata. Unterminated
+or partially parsed blocks, invalid or duplicate declaration identities, and
+unsupported types block export instead of silently shrinking the list.
+
+Configuration extraction preserves complete `CONFIGURATION`, `RESOURCE`,
+`TASK`, and `PROGRAM` bindings under the scheduling rules above. The exporter
+normalizes supported interval literals but does not invent meaning for invalid
+durations, priorities, ambiguous scheduling modes, missing resource ends, or
+unresolved task references. Those are preflight failures. Deterministic XML
+order is case-insensitive configuration name, then tasks, programs, and
+resources; resource tasks and programs use the same ordering.
+
+Function-block methods are exported in their owning POU metadata. Method
+identity is case-insensitively unique within the owner. Header visibility,
+return type, supported variable sections and modifiers, body, source identity,
+and declaration line are preserved. A malformed method or a method on an
+unrepresentable owner blocks its metadata rather than producing a partial
+method object.
+
+The export report counters equal the XML nodes actually published. XML
+attribute text and CDATA are escaped without semantic change. Re-importing the
+generic output must recover the same supported declaration identities, POU
+kinds, type expressions, global declarations, configuration bindings, method
+order, and normalized ST bodies. Timestamp text is the only permitted
+nondeterministic semantic-export field.
+
+## PLCopen XML filesystem transaction and identity contract
+
+PLCopen XML import and export are project migration operations, not IEC
+61131-3 language semantics. An explicit library import or export call means the
+caller has already completed any required overwrite confirmation. The library
+still owns safe path resolution, complete artifact planning, and
+failure-atomic publication.
+
+Import reads and parses the complete XML document and validates the `project`
+root before creating a source directory or changing any project artifact. It
+then plans the complete import result before publication: generated sources,
+the optional preserved-vendor-extension file, and the migration report. Source
+file and folder components are portable filesystem names. Parent components,
+absolute paths, separators, empty components, trailing dots or spaces, and
+platform device names cannot escape or make the result platform-dependent.
+All generated paths remain below the selected project root, and generated
+source paths remain below its `src/` directory.
+
+Generated source identities are compared with ASCII case-insensitivity against
+both the complete planned batch and existing destination entries. A collision
+uses the deterministic `_2`, `_3`, and subsequent suffix sequence; it never
+silently replaces an existing source. Different input names that sanitize to
+the same portable component remain distinct through that sequence. A
+directory, symbolic link, or other special object at a planned source,
+vendor-extension, report, or staging path is rejected rather than followed or
+replaced.
+
+A successful import publishes its complete planned artifact set as one
+user-visible transaction. If staging or publication fails, every pre-existing
+artifact is restored byte-for-byte and no partial source, vendor-extension,
+report, empty directory, or temporary artifact remains. Malformed XML, an
+invalid root element, an unreadable input, and other preflight failures are
+side-effect free. A structurally valid document with no importable ST content
+is the one diagnostic-only outcome: it publishes one complete migration report
+describing the skipped or unsupported content, returns the no-importable-content
+result, and creates no source or vendor-extension artifact.
+
+Export recursively discovers regular `.st` and `.pou` files using ASCII
+case-insensitive extension matching and deterministic project-relative path
+order. Literal spaces, Unicode, and glob metacharacters in names do not change
+identity. A matching directory, symbolic link, or other special filesystem
+entry is rejected rather than read or followed. Case-insensitively duplicate
+POU identities are ambiguous and reject export before output mutation.
+
+The complete export artifact set is planned before publication. Generic export
+contains the XML document and source-map sidecar. A vendor target additionally
+contains its adapter report, and Siemens export additionally contains the
+complete SCL bundle. The XML embedded source map and sidecar represent the same
+profile, namespace, ordered POU identities, source paths, and one-based lines.
+An adapter report names the exact XML, source-map, and optional SCL artifacts
+committed by that export. Vendor-extension and JSON payloads are split safely
+across CDATA terminators so the resulting XML remains well formed and
+round-trips the original payload bytes.
+
+Export stages every file and directory beside its final destination and then
+publishes the complete set. If any output, source-map, adapter-report, or SCL
+bundle step fails, all pre-existing artifacts remain byte-for-byte unchanged,
+no partial new artifact or staging path remains, and a symbolic-link output is
+never followed. On success, readers observe one coherent artifact generation.
+For identical project bytes, target, and output identity, export content is
+deterministic apart from the documented generation timestamp.
+
+These guarantees are single-operation filesystem guarantees. They do not
+claim multi-process transaction isolation, crash-consistent durability beyond
+successful filesystem replacement, semantic equivalence for unsupported
+vendor constructs, or native vendor-project generation.
+
 ## Developer CI exit classification
 
 The `trust-dev` workbench uses the same stable CI failure classes as the runtime
@@ -301,23 +672,79 @@ arbitrary prose containing one of its tokens is semantically typed.
 
 ## API documentation generation
 
-`trust-dev docs` associates a directly preceding tagged comment block with its
-Structured Text declaration. The supported tags are `@brief`,
-`@param <name> <description>`, and `@return <description>`. Extraction reports
-the declaration kind, qualified name, source path and line, declared
-parameters, return presence, and collected tag text.
+`trust-dev docs` uses an explicit project path when supplied. Without one, it
+uses standard bundle detection and preserves a detection failure; it does not
+invent the current directory as a project. Source discovery recursively
+includes regular `.st` and `.pou` files under the resolved source root using
+ASCII case-insensitive extension matching, deterministic project-relative path
+order, and literal filesystem names. A matching directory, symbolic link, or
+other special object is rejected rather than read or followed. An unreadable
+or non-UTF-8 source and a source with parser diagnostics are generation errors.
+The complete source set is read and parsed before the output directory or any
+document artifact is changed.
 
-Missing tag descriptions, a parameter absent from the declaration, `@return`
-on a non-returning POU, duplicate recognized tags, and unknown tags produce
-visible documentation diagnostics. The reviewed Markdown and HTML renderers
-emit deterministic document headers, declaration identity, source location,
-parameter and return metadata, and tagged content. HTML rendering escapes
-user-controlled text before inserting it into markup.
+The supported API declarations are `PROGRAM`, `TEST_PROGRAM`, `FUNCTION`,
+`FUNCTION_BLOCK`, `TEST_FUNCTION_BLOCK`, `CLASS`, `INTERFACE`, `METHOD`, and
+`PROPERTY`. Each item reports its exact declaration kind, namespace/class/
+function-block/interface-qualified name, project-relative source path,
+one-based declaration line, declared `VAR_INPUT`, `VAR_OUTPUT`, and
+`VAR_IN_OUT` names in declaration order, and whether the declaration has a
+return value. Ordinary local, temporary, external, access, and global
+variables are not parameter metadata. Duplicate qualified names in different
+source locations remain distinct source-qualified items.
 
-The existing focused snapshots define the representative Markdown and HTML
-shape for their fixtures; they do not establish every escaping or malformed
-input partition. Command failure policy for a generated document containing
-diagnostics requires separate specification authority.
+A documentation block is the uninterrupted line- and/or block-comment sequence
+directly preceding a declaration. One line ending between the block and
+declaration is allowed. A blank line or any intervening non-comment token
+breaks association. Comment delimiters, conventional leading block-comment
+stars, and surrounding whitespace are removed while line order is preserved.
+An adjacent untagged line is an ordered detail line.
+
+Recognized tags are ASCII case-insensitive `@brief`,
+`@param <name> <description>`, and `@return <description>`. Non-tag lines after
+a recognized tag continue that tag with one separating space until another tag
+begins. Parameter-name matching is ASCII case-insensitive. A return tag is
+valid for functions and typed methods or properties; it is invalid on a
+non-returning declaration.
+
+Missing tag descriptions, malformed parameter tags, a parameter absent from
+the declaration, `@return` on a non-returning declaration, duplicate recognized
+tags, duplicate parameter entries, and unknown tags produce visible
+documentation diagnostics at the exact physical tag line. The first valid
+`@brief`, `@return`, or case-insensitive parameter entry remains authoritative;
+a duplicate is diagnosed and cannot replace or duplicate the first rendered
+entry. The absence of a tag for a declaration or declared parameter is allowed.
+
+Documentation-tag diagnostics are nonfatal quality findings. Generation
+succeeds only when every diagnostic is included in the selected documents and
+reported in the command summary. Source discovery, source decoding, parser,
+project resolution, output safety, and filesystem publication failures are
+fatal and must not publish documents.
+
+Items are ordered by source path, declaration line, and qualified name.
+Diagnostics retain source and physical-line order. Markdown and HTML contain
+the stable document header, declaration identity, source location, return and
+parameter metadata, tag content, and any diagnostic section. HTML escapes
+`&`, `<`, `>`, double quotes, and apostrophes in every user-controlled name,
+path, description, detail, and diagnostic. Markdown descriptions and details
+remain author-controlled Markdown, while generated structural metadata remains
+unambiguous.
+
+The selected format owns a fixed artifact set: Markdown writes `api.md`, HTML
+writes `api.html`, and `both` writes both. An unselected pre-existing artifact
+is unchanged. The complete selected set is rendered and staged beside its
+destination before publication. Output components and existing artifacts may
+not be symbolic links or special filesystem objects. A successful invocation
+atomically replaces the complete selected set and only then prints success. If
+any selected artifact cannot be staged or published, all pre-existing output
+bytes remain unchanged and no partial document, empty output directory, or
+temporary artifact remains. A valid project with sources but no supported API
+declarations produces a deterministic empty API index; a project with no
+supported source files is an error.
+
+These rules define documentation extraction and filesystem publication. They
+do not certify semantic correctness of authored prose, require documentation
+for every declaration, or provide multi-process output isolation.
 
 ## Interactive numeric prompts
 

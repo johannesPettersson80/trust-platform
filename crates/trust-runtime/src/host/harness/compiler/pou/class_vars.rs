@@ -2,18 +2,27 @@ fn lower_class_var_blocks(
     node: &SyntaxNode,
     ctx: &mut LoweringContext<'_>,
 ) -> Result<Vec<VarDef>, CompileError> {
+    validate_special_var_sections(node, "CLASS", false)?;
+    resolve_pou_local_constants(node, ctx)?;
     let mut vars = Vec::new();
     for var_block in node
         .children()
         .filter(|child| child.kind() == SyntaxKind::VarBlock)
     {
         let kind = var_block_kind(&var_block)?;
-        let qualifiers = var_block_qualifiers(&var_block);
+        let qualifiers = var_block_qualifiers(&var_block)?;
+        validate_retention_policy(
+            "class",
+            kind,
+            qualifiers,
+            &[VarBlockKind::Var, VarBlockKind::Stat],
+        )?;
         for var_decl in var_block
             .children()
             .filter(|child| child.kind() == SyntaxKind::VarDecl)
         {
             let parts = parse_var_decl(&var_decl)?;
+            reject_borrowed_storage_initializer(kind, &parts)?;
             let type_id = lower_type_ref(&parts.type_ref, ctx)?;
             let init_expr = parts
                 .initializer
@@ -49,11 +58,7 @@ fn lower_class_var_blocks(
                 ));
             }
             match kind {
-                VarBlockKind::Var
-                | VarBlockKind::Stat
-                | VarBlockKind::Input
-                | VarBlockKind::Output
-                | VarBlockKind::InOut => {
+                VarBlockKind::Var | VarBlockKind::Stat => {
                     for name in parts.names {
                         vars.push(VarDef {
                             name,
@@ -62,6 +67,7 @@ fn lower_class_var_blocks(
                             retain: qualifiers.retain,
                             static_storage: false,
                             external: false,
+                            in_out: false,
                             constant: qualifiers.constant,
                             address: address_info.clone(),
                         });

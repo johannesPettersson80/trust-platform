@@ -1,0 +1,205 @@
+schema_version = 1
+id = "DEV_DOCS_DISCOVERY_PUBLICATION_002"
+title = "Developer API docs discover, extract, render, and publish atomically"
+area = "plcopen_devtools"
+risk = "silent_corruption"
+status = "specified"
+owner = "trust-dev"
+last_reviewed = "2026-08-01"
+claim = "Developer API documentation discovers the complete supported literal source set, associates and diagnoses authoritative comments deterministically, escapes the complete HTML surface, and publishes exactly the selected artifact set or leaves prior output unchanged."
+proof_level = "S0"
+contract_kind = "state_machine"
+source_refs = [
+  "docs/specs/22-developer-workflows.md",
+  "crates/trust-dev/src/docs/source_collect.rs",
+  "crates/trust-dev/src/docs/syntax_helpers.rs",
+  "crates/trust-dev/src/docs/tag_parser.rs",
+  "crates/trust-dev/src/docs/render.rs",
+  "crates/trust-dev/src/docs/command.rs",
+  "crates/trust-dev/src/docs/tests/discovery_contract.rs",
+  "crates/trust-dev/src/docs/tests/publication_contract.rs",
+]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["catalog_mapping", "focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "cross_platform_execution", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_DEVELOPER_WORKFLOWS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_DEVELOPER_WORKFLOWS_001#api-documentation-generation"
+
+[[behavior]]
+partition = { equals = "LITERAL_RECURSIVE_SOURCE_DISCOVERY" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#api-documentation-generation"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Every ASCII-case spelling of .st and .pou is found recursively in deterministic relative-path order, while spaces, Unicode, and glob metacharacters remain literal identities."
+
+[[behavior]]
+partition = { equals = "UNSAFE_OR_UNREADABLE_SOURCE_REJECTION" }
+case_family = "platform_or_filesystem_variation"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#api-documentation-generation"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A source-like directory, source symlink, or non-UTF-8 supported source is rejected rather than followed, omitted, or decoded lossily."
+
+[[behavior]]
+partition = { equals = "SUPPORTED_DECLARATION_AND_QUALIFIED_IDENTITY_SET" }
+case_family = "happy_path"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#api-documentation-generation"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Every supported POU, OOP, method, and property kind is extracted with nested qualified identity, source location, exact return classification, and source-distinct duplicates."
+
+[[behavior]]
+partition = { equals = "PARAMETER_SECTION_PROJECTION" }
+case_family = "boundary_low"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#api-documentation-generation"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Only input, output, and in-out sections contribute parameter metadata, preserving declaration order and case-insensitive tag matching."
+
+[[behavior]]
+partition = { equals = "ADJACENT_COMMENT_ASSOCIATION_AND_NORMALIZATION" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#api-documentation-generation"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Only an uninterrupted adjacent comment sequence is associated; blank lines or tokens break it, and line/block content retains normalized physical order."
+
+[[behavior]]
+partition = { equals = "TAG_CONTINUATION_AND_UNTAGGED_DETAIL_ORDER" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#api-documentation-generation"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Recognized tags are case-insensitive, continuation lines join with one space, and untagged lines remain ordered detail text."
+
+[[behavior]]
+partition = { equals = "DUPLICATE_AND_INVALID_TAG_DIAGNOSTICS" }
+case_family = "duplicate_or_collision"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#api-documentation-generation"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "First brief, return, or case-insensitive parameter authority wins; duplicates and invalid return or parameter bindings report the exact physical tag line without replacing the first value."
+
+[[behavior]]
+partition = { equals = "ITEM_AND_DIAGNOSTIC_ORDER" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#api-documentation-generation"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Items sort by source path, declaration line, and qualified name while diagnostics retain source and physical-line order."
+
+[[behavior]]
+partition = { equals = "MARKDOWN_METADATA_AND_AUTHORED_MARKUP" }
+case_family = "happy_path"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#api-documentation-generation"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Markdown includes complete identity, location, return, parameter, tag, and diagnostic metadata while preserving authored description markup."
+
+[[behavior]]
+partition = { equals = "HTML_COMPLETE_USER_SURFACE_ESCAPING" }
+case_family = "encoding_or_unicode"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#api-documentation-generation"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Names, paths, descriptions, details, parameters, returns, and diagnostics escape ampersand, angle brackets, both quote forms, and apostrophes."
+
+[[behavior]]
+partition = { equals = "COMMAND_PREFLIGHT_NO_OUTPUT_MUTATION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#api-documentation-generation"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "No sources, parser errors, an explicit missing project, or an output root that is a file fail before output mutation; project detection cannot silently fall back."
+
+[[behavior]]
+partition = { equals = "NONFATAL_TAG_DIAGNOSTIC_PUBLICATION" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#api-documentation-generation"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Documentation-tag findings are embedded and summarized without suppressing otherwise valid selected documents."
+
+[[behavior]]
+partition = { equals = "SELECTED_ARTIFACT_SET_AND_ATOMIC_ROLLBACK" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#api-documentation-generation"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Markdown, HTML, or both writes exactly the selected complete set; second-artifact failure or output symlink rejection restores all prior bytes and does not follow the link."
+
+[[behavior]]
+partition = { equals = "DETERMINISTIC_EMPTY_AND_REPEAT_PUBLICATION" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#api-documentation-generation"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A source-bearing project with no supported declarations produces a deterministic empty index, repeated generation is byte-identical, and source identity remains project-relative."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Focused extraction and rendering tests exist, but accepted catalog binding and dynamic proof are pending."
+
+[[coverage.cells]]
+dimension = "boundary_low"
+state = "gap_open"
+rationale = "Focused parameter and return boundary tests exist, but accepted catalog binding and dynamic proof are pending."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Focused fatal-preflight tests exist, but accepted catalog binding and dynamic proof are pending."
+
+[[coverage.cells]]
+dimension = "extra_or_unknown"
+state = "gap_open"
+rationale = "Focused nonfatal-tag tests exist, but accepted catalog binding and dynamic proof are pending."
+
+[[coverage.cells]]
+dimension = "duplicate_or_collision"
+state = "gap_open"
+rationale = "Focused duplicate-tag tests exist, but accepted catalog binding and dynamic proof are pending."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "Focused discovery, association, ordering, and determinism tests exist, but accepted catalog binding and dynamic proof are pending."
+
+[[coverage.cells]]
+dimension = "encoding_or_unicode"
+state = "gap_open"
+rationale = "Focused HTML escaping tests exist, but accepted catalog binding and dynamic proof are pending."
+
+[[coverage.cells]]
+dimension = "persistence_or_recovery"
+state = "gap_open"
+rationale = "Focused selected-set rollback tests exist, but accepted catalog binding and dynamic proof are pending."
+
+[[coverage.cells]]
+dimension = "platform_or_filesystem_variation"
+state = "gap_open"
+rationale = "Focused literal-path and filesystem-shape tests exist, but accepted catalog binding and cross-platform proof are pending."

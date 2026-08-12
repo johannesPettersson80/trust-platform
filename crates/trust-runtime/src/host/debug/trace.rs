@@ -44,3 +44,7 @@ pub(crate) fn trace_debug(message: &str) {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "trace/contract_tests.rs"]
+mod contract_tests;

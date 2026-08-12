@@ -30,6 +30,9 @@ def build_rust_trace_document(
     code_inventory_digests: Mapping[str, str],
     mode: str,
     input_provenance: Mapping[str, Any] | None = None,
+    coverage_export_observer: (
+        Callable[[Mapping[str, Any]], None] | None
+    ) = None,
     span_resolver: (
         Callable[[Sequence[str]], Mapping[str, CodeSourceSpan]] | None
     ) = None,
@@ -109,8 +112,11 @@ def build_rust_trace_document(
             "profile_digest": current_profile_digest,
         }
         if exit_code == 0:
+            coverage_export = coverage_exports[discovery_id]
+            if coverage_export_observer is not None:
+                coverage_export_observer(coverage_export)
             regions = parse_llvm_export(
-                coverage_exports[discovery_id],
+                coverage_export,
                 root=root,
                 sources=sources,
             )

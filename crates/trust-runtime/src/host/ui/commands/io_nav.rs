@@ -1,4 +1,4 @@
-use super::control_config::{is_bool_value, set_simple_response};
+use super::control_config::{control_response_error, is_bool_value, set_simple_response};
 use super::menu_nav::open_menu;
 use super::*;
 fn io_action_label(action: IoActionKind) -> &'static str {
@@ -220,7 +220,9 @@ pub(super) fn handle_io_value_select(
                         "type": "io.force",
                         "params": { "address": address, "value": value }
                     }));
-                    state.forced_io.insert(address);
+                    if control_response_error(&response).is_none() {
+                        state.forced_io.insert(address);
+                    }
                     set_simple_response(state, response, "I/O forced.");
                 }
                 _ => {}
@@ -380,7 +382,9 @@ pub(super) fn handle_io_command(
                 "type": "io.force",
                 "params": { "address": args[1], "value": args[2] }
             }));
-            state.forced_io.insert(args[1].to_string());
+            if control_response_error(&response).is_none() {
+                state.forced_io.insert(args[1].to_string());
+            }
             set_simple_response(state, response, "I/O forced.");
         }
         "unforce" => {
@@ -389,25 +393,39 @@ pub(super) fn handle_io_command(
                 return Ok(());
             }
             if args[1] == "all" {
+                let mut errors = Vec::new();
                 for addr in state.forced_io.clone() {
-                    let _ = client.request(json!({
+                    let response = client.request(json!({
                         "id": 1,
                         "type": "io.unforce",
                         "params": { "address": addr }
                     }));
+                    if let Some(error) = control_response_error(&response) {
+                        errors.push(error);
+                    } else {
+                        state.forced_io.remove(&addr);
+                    }
                 }
-                state.forced_io.clear();
-                state.prompt.set_output(vec![PromptLine::plain(
-                    "All forced I/O released.",
-                    Style::default().fg(COLOR_INFO),
-                )]);
+                if errors.is_empty() {
+                    state.prompt.set_output(vec![PromptLine::plain(
+                        "All forced I/O released.",
+                        Style::default().fg(COLOR_INFO),
+                    )]);
+                } else {
+                    state.prompt.set_output(vec![PromptLine::plain(
+                        errors.join("; "),
+                        Style::default().fg(COLOR_RED),
+                    )]);
+                }
             } else {
                 let response = client.request(json!({
                     "id": 1,
                     "type": "io.unforce",
                     "params": { "address": args[1] }
                 }));
-                state.forced_io.remove(args[1]);
+                if control_response_error(&response).is_none() {
+                    state.forced_io.remove(args[1]);
+                }
                 set_simple_response(state, response, "I/O released.");
             }
         }

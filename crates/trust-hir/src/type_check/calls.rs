@@ -51,6 +51,27 @@ pub(super) struct ResolvedSymbol {
 }
 
 impl<'a, 'b> CallChecker<'a, 'b> {
+    fn checked_call_result_type(
+        &mut self,
+        node: &SyntaxNode,
+        call_target: &CallTargetInfo,
+    ) -> TypeId {
+        let used_as_statement = node
+            .parent()
+            .is_some_and(|parent| parent.kind() == SyntaxKind::ExprStmt);
+        if !used_as_statement
+            && (call_target.return_type == TypeId::VOID
+                || matches!(call_target.kind, SymbolKind::FunctionBlock))
+        {
+            return self.checker.legacy_diagnostic_type(
+                DiagnosticCode::TypeMismatch,
+                node.text_range(),
+                "a function block or void method call cannot be used as a value",
+            );
+        }
+        call_target.return_type
+    }
+
     pub(super) fn infer_call_expr(&mut self, node: &SyntaxNode) -> TypeId {
         let children: Vec<_> = node.children().collect();
         if children.is_empty() {
@@ -105,7 +126,7 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                         };
 
                         self.check_call_arguments(call_target.param_owner, &call_target.kind, node);
-                        return call_target.return_type;
+                        return self.checked_call_result_type(node, &call_target);
                     }
                     NameResolveOutcome::Ambiguous => {
                         return self.checker.legacy_suppressed_type(
@@ -141,7 +162,7 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                 if let Some(call_target) = self.checker.resolve_ref().resolve_call_target(symbol_id)
                 {
                     self.check_call_arguments(call_target.param_owner, &call_target.kind, node);
-                    return call_target.return_type;
+                    return self.checked_call_result_type(node, &call_target);
                 }
                 return self.checker.legacy_diagnostic_type(
                     DiagnosticCode::UndefinedFunction,
@@ -177,7 +198,7 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                         };
 
                         self.check_call_arguments(call_target.param_owner, &call_target.kind, node);
-                        return call_target.return_type;
+                        return self.checked_call_result_type(node, &call_target);
                     }
                 }
             }
@@ -190,7 +211,7 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                     .resolve_call_target_from_type(callee_type)
                 {
                     self.check_call_arguments(call_target.param_owner, &call_target.kind, node);
-                    return call_target.return_type;
+                    return self.checked_call_result_type(node, &call_target);
                 }
 
                 return self.checker.legacy_diagnostic_type(
@@ -252,5 +273,6 @@ impl<'a, 'b> CallChecker<'a, 'b> {
         let params = self.callable_parameters(symbol_id, kind);
         let bound = self.bind_call_arguments(&params, node);
         self.check_bound_call_argument_types(&params, &bound);
+        self.check_writable_argument_aliases(&params, &bound);
     }
 }

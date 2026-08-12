@@ -7,7 +7,7 @@ impl Parser<'_, '_> {
     pub(crate) fn parse_property_signature(&mut self) {
         self.start_node(SyntaxKind::Property);
 
-        if matches!(
+        while matches!(
             self.current(),
             TokenKind::KwPublic
                 | TokenKind::KwPrivate
@@ -74,6 +74,12 @@ impl Parser<'_, '_> {
             self.parse_name();
         } else {
             self.error("expected action name");
+        }
+
+        if self.at(TokenKind::Colon) {
+            self.bump();
+        } else {
+            self.error("expected ':' after action name");
         }
 
         // Parse statements

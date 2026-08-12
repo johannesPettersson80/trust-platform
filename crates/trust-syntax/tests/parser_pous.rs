@@ -200,7 +200,7 @@ END_FUNCTION_BLOCK"#
 // IEC 61131-3 Ed.3 Table 56 / Table 72 (ACTION declaration)
 fn test_action() {
     let source = r#"PROGRAM Test
-    ACTION Reset
+    ACTION Reset:
         x := 0;
         y := 0;
     END_ACTION

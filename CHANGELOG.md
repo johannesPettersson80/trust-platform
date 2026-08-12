@@ -6,6 +6,19 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Focused verification traces now consume each per-test LLVM export once and
+  bind the validated trace, raw profiles, executables, tools, requested test
+  identities, and covered sources into a reusable authentication receipt, so
+  mapping generation can revalidate the frozen evidence without repeating the
+  complete coverage reconstruction. Shared test executables are also hashed
+  and snapshotted once per unique binary instead of once per test identity.
+- Verification focused traces now preserve each test's closed Cargo target and
+  module prefix, separate default-feature and no-default-feature shards, and
+  resolve exact duplicate terminal test names without widening execution to a
+  package or workspace test set.
+- Specify runtime clock dispatch name/error identity and deterministic LSP
+  diagnostic-override collision precedence, including canonical-key priority
+  and alias-only lexical ordering.
 - Verification assertion inventories now digest-bind declared repository input
   trees, validate generated outputs below explicit temporary roots, and
   classify the fixed Linux process-status observation without trusting dynamic,
@@ -58,6 +71,19 @@ Target release: `v0.24.61`
 
 ### Fixed
 
+- Focused verification trace documents now validate the bound per-test
+  no-default-feature mode instead of rejecting the producer-authentic field
+  during final schema validation after successful execution.
+- Focused verification coverage tracing now resolves closed Rust target
+  profiles before generic package heuristics and preserves their module
+  prefixes, so binary-owned LSP tests and duplicate terminal test names map to
+  the exact nextest identities instead of being rejected as unresolved.
+- HIR temporal arithmetic now implements the complete documented IEC 61131-3
+  Table 35 operand/result matrix and rejects swapped, cross-family, and other
+  unlisted temporal combinations at the operator boundary.
+- Invalid user-defined type formations now remain internal diagnostic-recovery
+  records instead of becoming publicly discoverable types, while valid sibling
+  declarations continue to publish normally.
 - `CURRENT_DT()` now has an explicit UTC host-clock contract and preserves the
   full millisecond `DT` tick range instead of overflowing when the intermediate
   Unix timestamp exceeds signed nanoseconds.

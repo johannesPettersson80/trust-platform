@@ -120,9 +120,12 @@ fn lower_assign(node: &SyntaxNode, ctx: &mut LoweringContext<'_>) -> Result<Stmt
         });
     }
     if assignment_is_attempt(node) {
+        let target_type = target_type
+            .ok_or_else(|| CompileError::new("assignment-attempt target type is unresolved"))?;
         Ok(Stmt::AssignAttempt {
             target,
             value,
+            target_type,
             location,
         })
     } else {

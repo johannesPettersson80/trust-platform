@@ -1,0 +1,97 @@
+schema_version = 1
+id = "RT_CONFIG_MODEL_VALUES_002"
+title = "Runtime configuration value models preserve closed vocabularies and owned state"
+area = "runtime_safety"
+risk = "security"
+status = "specified"
+owner = "trust-runtime"
+last_reviewed = "2026-08-01"
+claim = "Runtime configuration model defaults, clones, equality, endpoint rules, enum vocabularies, TLS enablement, and secure Runtime Cloud requirements preserve exact owned values and fail closed on near matches."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["docs/specs/11-runtime-engine.md", "crates/trust-runtime/src/config/contracts/contract_tests.rs"]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["catalog_mapping", "focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#runtime-configuration-loading-and-validation-contract"
+
+[[behavior]]
+partition = { equals = "DEEP_CLONE_OWNS_NESTED_CONFIGURATION" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-configuration-loading-and-validation-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Discovery, mesh, OpenOT, task-override, and TLS clones own their nested strings, paths, lists, and maps."
+[[behavior]]
+partition = { equals = "IO_DRIVER_VALUE_EQUALITY" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-configuration-loading-and-validation-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Driver configuration equality includes canonical name, complete parameters, and enabled state."
+[[behavior]]
+partition = { equals = "EXACT_LINK_AND_WAN_RULE_VALUES" }
+case_family = "encoding_or_unicode"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-configuration-loading-and-validation-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Link preferences retain exact endpoints and transport, while WAN allow rules retain exact action and target."
+[[behavior]]
+partition = { equals = "INERT_CONNECTOR_DEFAULTS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-configuration-loading-and-validation-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "ADS and OPC UA client defaults are disabled with exact sidecar and interval, and OpenOT defaults to disabled inert fenced heartbeat state."
+[[behavior]]
+partition = { equals = "CLOSED_TRIMMED_CASE_INSENSITIVE_ENUMS" }
+case_family = "encoding_or_unicode"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-configuration-loading-and-validation-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Web auth, TLS mode, mesh role, Runtime Cloud profile and transport, OpenOT fence mode, and OpenOT source accept the complete documented vocabulary case-insensitively after trimming and reject every near match with its owning key."
+[[behavior]]
+partition = { equals = "TLS_ENABLEMENT_AND_COMPATIBILITY_SPELLING" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-configuration-loading-and-validation-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Only non-disabled TLS modes are enabled and self-managed accepts its documented compatibility spelling without admitting other near matches."
+[[behavior]]
+partition = { equals = "RUNTIME_CLOUD_SECURE_TRANSPORT_REQUIREMENT" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-configuration-loading-and-validation-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Dev, Plant, and WAN profiles retain their exact secure-transport requirement without weakening Plant or WAN."
+
+[[coverage.cells]]
+dimension = "persistence_or_recovery"
+state = "gap_open"
+rationale = "Focused deep-clone tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Focused equality and default tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "encoding_or_unicode"
+state = "gap_open"
+rationale = "Focused exact-value and closed-vocabulary tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "auth_or_permission"
+state = "gap_open"
+rationale = "Focused TLS and profile security tests exist, but catalog binding and dynamic proof are pending."

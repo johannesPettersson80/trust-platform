@@ -639,6 +639,7 @@ mod tests {
         let fb = FunctionBlockDef {
             name: "Adjust".into(),
             base: None,
+            interfaces: Vec::new(),
             params: vec![Param {
                 name: "inc".into(),
                 type_id: TypeId::INT,

@@ -317,6 +317,8 @@ fn register_executor_runs_program_with_complex_local_fields_without_fallback() {
         function_ids: HashMap::new(),
         function_block_ids: HashMap::new(),
         class_ids: HashMap::new(),
+        parent_pou_ids: HashMap::new(),
+        interface_type_ids_by_pou: HashMap::new(),
         native_symbol_specs: Vec::new(),
         pou_params: HashMap::new(),
         pou_has_return_slot: HashSet::new(),

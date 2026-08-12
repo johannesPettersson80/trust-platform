@@ -42,6 +42,9 @@ pub(in crate::harness) fn lower_lvalue(
                 first_expr_child(node).ok_or_else(|| CompileError::new("missing deref target"))?;
             Ok(LValue::Deref(Box::new(lower_expr(&expr, ctx)?)))
         }
+        SyntaxKind::ThisExpr | SyntaxKind::SuperExpr => {
+            Ok(LValue::Deref(Box::new(lower_expr(node, ctx)?)))
+        }
         _ => Err(CompileError::new("unsupported assignment target")),
     }
 }
@@ -58,6 +61,12 @@ pub(in crate::harness) fn lower_expr_with_context(
     ctx: &mut LoweringContext<'_>,
     expected_type: Option<TypeId>,
 ) -> Result<Expr, CompileError> {
+    if matches!(node.kind(), SyntaxKind::NameRef | SyntaxKind::FieldExpr) {
+        let name = node_text(node);
+        if let Some(value) = ctx.lookup_compile_time_const(&name) {
+            return Ok(Expr::Literal(value));
+        }
+    }
     match node.kind() {
         SyntaxKind::Literal => lower_literal_with_context(node, ctx, expected_type),
         SyntaxKind::NameRef => Ok(Expr::Name(node_text(node).into())),
@@ -73,7 +82,7 @@ pub(in crate::harness) fn lower_expr_with_context(
             })
         }
         SyntaxKind::BinaryExpr => {
-            let op = binary_op_from_node(node)?;
+            let mut op = binary_op_from_node(node)?;
             let exprs = direct_expr_children(node);
             if exprs.len() != 2 {
                 return Err(CompileError::new("invalid binary expression"));
@@ -81,6 +90,13 @@ pub(in crate::harness) fn lower_expr_with_context(
             let left_type = lower_expression_type(&exprs[0], ctx)?;
             let right_type = lower_expression_type(&exprs[1], ctx)?;
             let operand_context = binary_operand_context(op, expected_type, node, ctx)?;
+            if operand_context == Some(TypeId::BOOL) {
+                op = match op {
+                    BinaryOp::And => BinaryOp::AndThen,
+                    BinaryOp::Or => BinaryOp::OrElse,
+                    other => other,
+                };
+            }
             let mut left = lower_expr_with_context(&exprs[0], ctx, operand_context)?;
             let mut right = lower_expr_with_context(&exprs[1], ctx, operand_context)?;
             // Let a bare enum variant name on one side resolve against the
@@ -176,6 +192,8 @@ fn binary_operand_context(
         | BinaryOp::Pow
         | BinaryOp::And
         | BinaryOp::Or
+        | BinaryOp::AndThen
+        | BinaryOp::OrElse
         | BinaryOp::Xor => Ok(expected_type.or(lower_expression_type(node, ctx)?)),
         BinaryOp::Eq | BinaryOp::Ne | BinaryOp::Lt | BinaryOp::Le | BinaryOp::Gt | BinaryOp::Ge => {
             let operands = direct_expr_children(node);

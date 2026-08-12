@@ -20,6 +20,22 @@ mod validation;
 
 use validation::{field_from_error, validate_schema_fields};
 
+#[cfg(test)]
+pub(super) fn validate_schema_fields_for_contract(
+    protocol: &str,
+    params: &toml::Value,
+) -> Vec<CommFieldError> {
+    validation::validate_schema_fields(protocol, params)
+}
+
+#[cfg(test)]
+pub(super) fn validate_runtime_file_fields_for_contract(
+    protocol: &str,
+    params: &toml::map::Map<String, toml::Value>,
+) -> Vec<CommFieldError> {
+    validation::validate_runtime_file_fields(protocol, params)
+}
+
 #[derive(Debug, Deserialize)]
 pub(super) struct CommApplyRequest {
     protocol: String,

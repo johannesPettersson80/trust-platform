@@ -5,8 +5,8 @@ area = "runtime_safety"
 risk = "data_loss"
 status = "mapped"
 owner = "trust-runtime"
-last_reviewed = "2026-07-29"
-claim = "Communication apply validates and authorizes before mutation, never echoes secrets, preserves unrelated configuration and project safe-state policy, and makes deterministic add, edit, disable, remove, migration, and dry-run transitions."
+last_reviewed = "2026-08-01"
+claim = "Communication apply validates and authorizes before mutation, normalizes only documented parameter shapes, never echoes secrets, confines sidecar paths, preserves unrelated configuration and project safe-state policy, rolls back multi-file failures, and makes deterministic add, edit, disable, remove, migration, and dry-run transitions."
 proof_level = "S1"
 contract_kind = "state_machine"
 source_refs = [
@@ -92,6 +92,60 @@ oracle_ref = "SPEC_RUNTIME_ENGINE_001#communication-apply-mutation-and-security"
 outcome = "accept_value"
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
 rationale = "Final-driver removal retains io.toml, project comments outside rewritten driver/safe-state items, and exact safe-state values under an explicit no-driver sentinel, and a later Add replaces that sentinel without activating system-I/O fallback."
+
+[[behavior]]
+partition = { equals = "PARAMETER_OBJECT_NORMALIZATION_AND_REJECTION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#communication-apply-mutation-and-security"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Null normalizes to an empty parameter table, nested object values preserve JSON shape, optional empty values are removed, and scalar or array top-level parameters reject before mutation."
+
+[[behavior]]
+partition = { equals = "RUNTIME_PROTOCOL_REGISTRY_AND_OWNED_SECTION" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#communication-apply-mutation-and-security"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The runtime protocol-section registry is explicit and complete; generic upsert, disable, and remove touch only the selected owned section and preserve all unrelated document content."
+
+[[behavior]]
+partition = { equals = "PROTOCOL_DEFAULT_AND_SIDECAR_PROJECTION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#communication-apply-mutation-and-security"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "ADS, OPC UA, and runtime-cloud projections use documented defaults, preserve protocol-specific overrides and nested owned keys, emit parseable sidecars, and retain required sibling client configuration."
+
+[[behavior]]
+partition = { equals = "SIDECAR_PATH_CONTAINMENT" }
+case_family = "platform_or_filesystem_variation"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#communication-apply-mutation-and-security"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Absolute, parent-traversing, and symlink-escaping sidecar paths reject before any runtime or sidecar write."
+
+[[behavior]]
+partition = { equals = "RUNTIME_SIDECAR_TRANSACTION_ROLLBACK" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#communication-apply-mutation-and-security"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Sidecar write or removal failure preserves the original runtime document, so the two-file mutation never publishes a partial new configuration."
+
+[[behavior]]
+partition = { equals = "RUNTIME_DOCUMENT_PARSE_DEFAULT_AND_IDEMPOTENCE" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#communication-apply-mutation-and-security"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "A missing runtime document yields a valid in-memory default without writing, malformed input rejects without replacement, supported TOML shapes round-trip, and an identical apply is byte-idempotent."
 
 [[coverage.cells]]
 dimension = "happy_path"

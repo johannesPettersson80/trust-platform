@@ -168,6 +168,10 @@ execution model, not IEC deviations.
 - Pause, debug-state read, warm-restart request, and queued I/O write remain
   independently routed operations. A composite routing behavior lock does not
   replace their deeper state-machine, mutation-lifetime, or restart proof.
+- Attach-mode I/O and variable read/write/force/release parameter grammar,
+  address and scalar admission, fail-closed snapshot behavior, queue ordering,
+  target identity, and force projection follow
+  [Runtime control I/O and variable mutation contract](11-runtime-engine.md#runtime-control-io-and-variable-mutation-contract).
 
 ### Stepping Semantics
 
@@ -232,6 +236,159 @@ If a registered runtime-event receiver has been dropped, the event is retained
 in the in-memory runtime-event buffer. If a registered log receiver has been
 dropped, the formatted logpoint record is retained in the in-memory debug log
 buffer. Receiver failure must not discard the first fault or log record.
+
+#### Breakpoint evaluation, source resolution, and hook contract
+
+A runtime breakpoint matches only the same file ID and a strictly overlapping
+half-open source span; spans that merely touch at one endpoint do not match.
+Breakpoints are inspected in registration order and the first eligible stopping
+breakpoint owns the stop. The cycle-suppression identity is
+`(file_id,start,end,generation)` and suppresses only an ordinary stop from that
+exact identity. It does not suppress a distinct location, a later generation,
+or logpoint output.
+
+The hit counter increments with saturating arithmetic whenever location
+identity matches and the exact stop has not been cycle-suppressed. Hit
+conditions are applied to the incremented count before expression evaluation.
+A missing evaluation context, evaluation failure, false Boolean, or non-Boolean
+condition does not stop. It still retains the physical hit count. A true
+Boolean condition proceeds to the ordinary stop.
+
+A logpoint never returns a stop. It concatenates literal and expression
+fragments in order. Boolean values use `TRUE`/`FALSE`; STRING/WSTRING and
+CHAR/WCHAR use their unquoted text; arrays use `[<element-count>]`; structures
+use `<type> {...}`; enums use `<type>::<variant>`; present and absent references
+use `REF` and `NULL_REF`; instances and null use `Instance` and `NULL`.
+Other values use their stable debug representation. An expression error is
+rendered in place as `<error: ...>` without dropping surrounding literal text.
+A live log receiver gets one owned record and no duplicate buffer entry; an
+absent or closed receiver retains that same record in the local buffer.
+
+Runtime source coordinates are zero-based byte coordinates. Line-start
+construction always contains byte offset zero and adds the byte following every
+LF, including a final LF; CR remains part of the preceding line. Offset
+projection clamps an offset beyond the source to source end. Location
+projection uses the location start.
+
+Breakpoint resolution first rejects an unavailable line, clamps the requested
+column to that line's byte end, and ignores statements from other file IDs. On
+the requested line it selects the statement with the greatest start column not
+after the request; if none exists, it selects the smallest start column after
+the request. If no statement starts on that line, it selects the narrowest
+statement containing the clamped offset, using inclusive runtime location
+ends for compatibility. Otherwise it selects the globally earliest later
+statement. An empty candidate set returns no location.
+
+Every debug hook call records the supplied location and call depth before
+making a stop decision. Context-bearing calls additionally discard frame
+locations for frames no longer present and bind the current frame to the
+statement. A pause, step, or breakpoint stop snapshots the exact storage and
+runtime time at that boundary and recomputes watches before publishing the
+stop. Stop publication always updates `last_stop` and the ordered local stop
+buffer; a configured live receiver also gets one owned copy, while receiver
+closure cannot discard the buffered stop. A non-target runtime thread never
+consumes or blocks on another thread's pause or step.
+
+`NoopDebugHook` has no runtime side effect, and the trait's default
+context-bearing callback delegates exactly once to the context-free callback.
+Debug tracing is disabled unless `ST_DEBUG_TRACE` is present, including when
+its value is empty. When enabled, each record is prefixed
+`[trust-runtime][debug]`. `ST_DEBUG_TRACE_LOG` selects the append-only log file
+and takes precedence over the compatibility variable `ST_DEBUG_DAP_LOG`.
+Opening, locking, writing, or flushing the optional trace file may report a
+diagnostic but must never change debugger control flow.
+
+#### Runtime debug state, mutation, and projection invariants
+
+A newly created runtime debug control starts running with current thread `1`,
+no target thread, breakpoint, stop, snapshot, watch, buffered event, queued
+mutation, or active force. An explicit pause transitions a running control to
+paused, records one pending `pause` reason, clears step state and the captured
+snapshot, and optionally binds the requested thread. Pausing an already paused
+control is ignored and does not replace the original pending reason or target.
+Stop-on-entry follows the same one-pending-stop rule but records `entry` and is
+not thread-targeted.
+
+Continue always returns to running mode, removes every pending stop and step,
+clears the target thread and captured snapshot, and wakes a waiting target.
+Step In, Step Over, and Step Out replace any earlier step request, clear a
+pending stop and captured snapshot, resume execution, and target the explicit
+thread or otherwise the current thread. Step In stops at the next statement
+after it is armed. Step Over uses that thread's last observed depth and stops
+when execution returns to the same or a shallower depth. Step Out uses the
+saturating predecessor of that depth and therefore remains defined at depth
+zero. A non-target thread continues without consuming the target's pending
+stop or step.
+
+Replacing breakpoints for one file leaves other files unchanged, increments
+that file's generation with saturation, resets every replacement breakpoint's
+hit count/generation ownership to the new set, and preserves request order.
+An empty replacement removes that file's breakpoints while still advancing
+its generation. Clearing all breakpoints also clears the generation table and
+the per-cycle duplicate-stop guard.
+
+State-query snapshots are owned copies. Reading breakpoints, frame locations,
+the latest stop, the runtime snapshot, or the active forces cannot allow a
+caller to mutate debug-control state. Draining logs, stops, runtime events, or
+queued mutations returns the complete current sequence in arrival order and
+atomically leaves that sequence empty. Mutating a captured runtime snapshot is
+possible only when one exists; absence returns `None` and does not invoke the
+callback.
+
+Runtime-event streaming is single-subscriber. With a live sender, each event
+is delivered once and is not also buffered. When no sender is configured, the
+event is buffered. If delivery discovers a closed sender, that sender is
+removed and the same event is buffered before later events. Clearing the
+sender makes subsequent events buffer. I/O snapshots are best-effort
+telemetry: a configured live sender receives a coherent owned snapshot, while
+no sender or a closed receiver produces no synthetic snapshot or runtime
+fault. Registering a new sender replaces the previous sender.
+
+Watch expressions retain their most recently evaluated value. Refresh marks a
+sticky change flag when any watch moves between a value, a different value,
+or evaluation failure. Reading that flag returns the accumulated edge and
+clears it. Clearing watches removes both expressions and the pending edge.
+Refreshing directly from storage replaces the stored snapshot with an owned
+storage copy and exact supplied runtime time; later source-storage mutation
+cannot rewrite that captured state.
+
+Queued I/O writes preserve every request in arrival order. Pending global,
+retained, instance, and local variable writes use their complete target as
+identity: a later value for the same target replaces it in place, while
+different target kinds, instance/frame IDs, or names remain distinct. Pending
+lvalue writes preserve every request in arrival order. Variable and I/O forces
+also replace the same exact target in place; release is exact and idempotent.
+The runtime termination boundary clears all queued I/O, variable, and lvalue
+writes plus all variable and I/O forces atomically.
+
+DAP variable handles are positive session-local identifiers. Allocation
+preserves the complete handle kind, does not alias two live handles, and clear
+invalidates every old handle before restarting allocation at `1`. Scalar and
+null values have `variablesReference = 0`; structs, arrays, instances,
+non-null references, and scope roots allocate expandable handles. Primitive
+type names use canonical IEC spelling, while a struct or enum uses its
+declared public type name. A caller-supplied display or declared type overrides
+derived presentation without changing expandability.
+
+Entry and array projections preserve input/field/element order and stable
+evaluate names. Instance-list entries use `<type>#<normalized-id>` as their
+display name, the public type name as both value and type, and no evaluate
+name. An I/O entry uses its declared symbol name when present and otherwise a
+canonical uppercase direct address; its value is the runtime debug value,
+`error: <detail>`, or `unresolved`. I/O scope availability is true only when a
+captured snapshot contains at least one input, output, or memory entry.
+
+`DebugSnapshot` expression evaluation and lvalue read/write use only the
+captured storage. A supplied frame ID must exist and is active only for the
+duration of that operation; an unknown frame returns `InvalidFrame` without
+falling back to the current/global context. A snapshot write changes only the
+owned snapshot until an independently authorized runtime mutation is queued.
+
+`SourceLocation::new` preserves the exact file and byte offsets.
+`DebugBreakpoint::new` creates an unconditional, zero-hit, zero-generation
+breakpoint. Hit conditions use exact unsigned arithmetic: equality matches
+only the target, at-least includes the target, and greater-than excludes it,
+including at `0` and `u64::MAX`.
 
 ### Stack Trace and Navigation
 
@@ -316,6 +473,73 @@ To avoid breaking step-in/step-out and multi-file navigation, reloads must follo
    - If a `stepIn/stepOver/stepOut` stop just occurred, reload must **not** emit a pause stop
      that replaces the step stop or changes the top frame.
    - If reload happens while paused, it must preserve the existing top frame until the user resumes.
+
+### DAP Session Lifecycle and Request Ordering
+
+The adapter SHALL model one debugger connection as the following monotonic
+session lifecycle:
+
+`New -> Initialized -> StartPending -> Configured -> Active -> Terminated`.
+
+`StartPending` records exactly one `launch` or `attach` request, including its
+request sequence and arguments. `Active` is either a managed local launch or a
+remote attachment; the two modes are mutually exclusive for the lifetime of
+the connection.
+
+The lifecycle obeys these rules:
+
+- `initialize` is the first accepted session request. A successful call records
+  the client's line and column coordinate conventions, returns the declared
+  capabilities, and emits exactly one `initialized` event. A second
+  `initialize` fails, emits no additional `initialized` event, and does not
+  reset coordinates, pending start state, breakpoints, watches, runner state,
+  or attachment state.
+- `launch`, `attach`, and `configurationDone` before successful initialization
+  fail with a response correlated to the rejected request. A malformed
+  `initialize`, `launch`, or `attach` argument object fails closed; it is not
+  replaced with default arguments and does not advance the lifecycle.
+- Before configuration completes, the first valid `launch` or `attach` becomes
+  the sole pending start. It emits no start response until the start is either
+  executed or rejected. A second start request, whether it is the same or the
+  other start kind, fails immediately and cannot replace or mutate the first
+  pending request.
+- Configuration requests, including breakpoint setup, may occur while a start
+  is pending and cannot execute or discard that start. `configurationDone`
+  first returns its own successful response, then executes the exact pending
+  request and returns that request's response. Each response preserves the
+  corresponding request sequence. Repeating `configurationDone` after the
+  configured transition is idempotent and cannot repeat a launch, attach,
+  runner start, pause-on-entry action, or control-server bind.
+- For compatibility with clients that omit `configurationDone`, a pending
+  start MAY be executed after the documented timeout or immediately before the
+  first non-configuration request. This fallback executes the same recorded
+  request exactly once, reports that compatibility path through an internal
+  diagnostic event, and preserves the pending start response's request
+  sequence. It never applies to a configuration request.
+- A successful managed launch schedules `stopOnEntry` and runner startup only
+  after its launch response has been emitted. Each scheduled action is consumed
+  at most once. A failed reload or control-server bind emits a failed launch
+  response and schedules neither action.
+- A successful attach never reloads the local program, starts the managed
+  runner, or binds a local control server. Attach failure leaves the adapter
+  disconnected and does not create a partially active session.
+- Once a launch is active, attach is rejected; once an attachment is active,
+  launch and a second attach are rejected. Start-mode rejection has no effect
+  on the active session.
+- An unsupported request in a live session returns one failed response,
+  correlated to the request, and changes no lifecycle state. Non-request DAP
+  envelopes are ignored and cannot produce a response or event.
+- `disconnect` and `terminate` each return their response before one
+  `terminated` event, preserve the optional `restart` value in that event, and
+  end the adapter connection. Repeated teardown processing cannot emit another
+  termination event. Disconnect from an attached runtime detaches only; it
+  does not stop, restart, reload, resume, or otherwise mutate that runtime
+  unless `terminateDebuggee=true` is both explicitly requested and supported.
+
+Lifecycle tests SHALL observe request correlation, response/event ordering,
+state preservation, and side-effect counts. Inspecting only a final enum
+variant does not prove that a displaced pending request or duplicated action
+was avoided.
 
 ### DAP Transport and Session Projection
 

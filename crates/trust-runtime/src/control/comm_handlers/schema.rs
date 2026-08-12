@@ -8,6 +8,10 @@ use super::{ControlResponse, ControlState};
 
 mod fields;
 
+#[cfg(test)]
+#[path = "schema/contract_tests.rs"]
+mod contract_tests;
+
 use fields::{
     ads_fields, ads_server_fields, discovery_fields, ethercat_fields, gpio_fields, loopback_fields,
     mesh_fields, modbus_fields, mqtt_fields, opcua_client_fields, opcua_fields, openot_fields,
@@ -99,10 +103,13 @@ fn comm_schema_value(
     params: Option<&serde_json::Value>,
     project_root: Option<&Path>,
 ) -> Result<serde_json::Value, String> {
-    let filter = params
-        .and_then(|value| value.get("protocol"))
-        .and_then(serde_json::Value::as_str)
-        .map(normalize_protocol);
+    let filter =
+        match params.and_then(|value| value.get("protocol")) {
+            Some(value) => Some(value.as_str().map(normalize_protocol).ok_or_else(|| {
+                "Communication schema protocol filter must be a string.".to_string()
+            })?),
+            None => None,
+        };
     let instances = project_root.map_or_else(Vec::new, configured_instances_from_root);
     let mut protocols = communication_protocol_schemas(&instances);
     if let Some(filter) = filter {
@@ -167,11 +174,13 @@ fn configured_instances_from_root(root: &Path) -> Vec<CommConfiguredInstance> {
         .enumerate()
         .filter_map(|(index, driver)| {
             let protocol = driver_to_protocol(driver.name.as_str())?;
+            let mut params = serde_json::to_value(&driver.params).unwrap_or_else(|_| json!({}));
+            super::redact_readonly_secrets(&mut params);
             Some(CommConfiguredInstance {
                 id: format!("{protocol}:{index}"),
                 driver: driver.name.to_string(),
                 display_name: instance_display_name(protocol, index, &driver.params),
-                params: serde_json::to_value(&driver.params).unwrap_or_else(|_| json!({})),
+                params,
             })
         })
         .collect()
@@ -229,7 +238,7 @@ fn io_protocol_schemas(instances: &[CommConfiguredInstance]) -> Vec<CommProtocol
                 driver: "simulated",
                 title: "Simulated I/O",
                 purpose: "Try process I/O without hardware.",
-                supports_test: false,
+                supports_test: true,
                 fields: simulated_fields(),
             },
             instances,
@@ -240,7 +249,7 @@ fn io_protocol_schemas(instances: &[CommConfiguredInstance]) -> Vec<CommProtocol
                 driver: "loopback",
                 title: "Loopback I/O",
                 purpose: "Echo outputs back into inputs for fast local sanity checks.",
-                supports_test: false,
+                supports_test: true,
                 fields: loopback_fields(),
             },
             instances,
@@ -347,6 +356,9 @@ fn io_protocol_actions(protocol: &str) -> Vec<&'static str> {
     if protocol == "ethercat" {
         actions.push("browse_symbols");
     }
+    if matches!(protocol, "modbus_tcp" | "mqtt" | "simulated" | "loopback") {
+        actions.push("test");
+    }
     actions
 }
 
@@ -428,7 +440,7 @@ fn ads_protocol_schema() -> CommProtocolSchema {
         config_home: "ads.toml",
         apply_mode: "file",
         lifecycle_effect: "restart_required",
-        supports_test: true,
+        supports_test: false,
         supports_multi_instance: true,
         actions: vec![
             "add",
@@ -502,6 +514,12 @@ mod tests {
             }
             if protocol.id == "ethercat" {
                 expected_actions.push("browse_symbols");
+            }
+            if matches!(
+                protocol.id,
+                "modbus_tcp" | "mqtt" | "simulated" | "loopback"
+            ) {
+                expected_actions.push("test");
             }
             assert_eq!(protocol.actions, expected_actions);
         }

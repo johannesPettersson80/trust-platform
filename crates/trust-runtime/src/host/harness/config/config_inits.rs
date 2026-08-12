@@ -12,6 +12,14 @@ pub(super) fn apply_config_inits(
     let initializer_catalog = runtime.initializer_catalog().clone();
 
     for init in config_inits {
+        match access_target_policy(runtime, &init.path) {
+            AccessTargetPolicy::Writable => {}
+            AccessTargetPolicy::ReadOnly(reason) | AccessTargetPolicy::Forbidden(reason) => {
+                return Err(CompileError::new(format!(
+                    "VAR_CONFIG cannot initialize this variable section ({reason})"
+                )))
+            }
+        }
         let resolved = resolve_access_path(runtime, &init.path)?;
 
         if let Some(address) = &init.address {

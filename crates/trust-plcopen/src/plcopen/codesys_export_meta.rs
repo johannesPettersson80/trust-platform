@@ -541,8 +541,16 @@ fn append_codesys_export_add_data(
                     "          <data name=\"{}\" handleUnknown=\"implementation\">\n",
                     CODESYS_POU_DATA_NAME
                 ));
+                // The canonical PLCopen POU is already emitted under
+                // <types>/<pous>. Keep this CODESYS projection as metadata
+                // without introducing a second semantic <pou> node.
                 xml.push_str(&format!(
-                    "            <pou name=\"{}\" pouType=\"{}\">\n",
+                    "            <!-- <pou name=\"{}\" pouType=\"{}\"> -->\n",
+                    escape_xml_attr(&decl.name),
+                    decl.pou_type.as_xml()
+                ));
+                xml.push_str(&format!(
+                    "            <pouMetadata name=\"{}\" pouType=\"{}\">\n",
                     escape_xml_attr(&decl.name),
                     decl.pou_type.as_xml()
                 ));
@@ -586,7 +594,7 @@ fn append_codesys_export_add_data(
                 ));
                 xml.push_str("                </data>\n");
                 xml.push_str("              </addData>\n");
-                xml.push_str("            </pou>\n");
+                xml.push_str("            </pouMetadata>\n");
                 xml.push_str("          </data>\n");
             }
             xml.push_str("        </addData>\n");

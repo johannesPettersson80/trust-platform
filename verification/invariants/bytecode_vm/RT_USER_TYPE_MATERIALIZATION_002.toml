@@ -1,0 +1,113 @@
+schema_version = 1
+id = "RT_USER_TYPE_MATERIALIZATION_002"
+title = "Runtime user-type materialization preserves bounds, defaults, identity, and copy isolation"
+area = "bytecode_vm"
+risk = "silent_corruption"
+status = "specified"
+owner = "trust-runtime"
+last_reviewed = "2026-08-01"
+claim = "Runtime enums, named integers, subranges, arrays, structures, relative overlaps, and unions preserve declared identity, recursive defaults, inclusive bounds, row-major initializer order, atomic failure, and independent whole-value assignment."
+proof_level = "S0"
+contract_kind = "state_machine"
+source_refs = ["docs/specs/02-data-types.md", "docs/specs/10-runtime-semantics.md", "crates/trust-runtime/tests/user_type_runtime_contract.rs"]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["catalog_mapping", "focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+[spec]
+status = "specified"
+source_refs = ["SPEC_IEC_DATA_TYPES_CANDIDATE_001", "SPEC_RUNTIME_SEMANTICS_001"]
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_SEMANTICS_001#112-initializer-and-reference-architecture-contract"
+
+[[behavior]]
+partition = { equals = "ENUM_DEFAULT_AND_DECLARED_IDENTITY" }
+case_family = "duplicate_or_collision"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#112-initializer-and-reference-architecture-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Ordinary and array enum values default to the first literal unless an explicit type default applies, and assignment preserves the declared enum identity."
+[[behavior]]
+partition = { equals = "NAMED_INTEGER_BASE_RANGE" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#112-initializer-and-reference-architecture-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Named-value types retain the integer base and its complete range rather than becoming a closed enumeration."
+[[behavior]]
+partition = { equals = "SUBRANGE_DEFAULT_AND_ATOMIC_BOUND_CHECK" }
+case_family = "boundary_low"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#24-subrange-runtime-writes"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Subranges use an explicit type default or inclusive lower bound, arrays default every element accordingly, and below/above or parameter copy-in violations leave the destination unchanged before body execution."
+[[behavior]]
+partition = { equals = "ROW_MAJOR_ARRAY_INITIALIZER_EXPANSION" }
+case_family = "resource_limit"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#112-initializer-and-reference-architecture-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Nested repetition expands in source order, zero repetition contributes nothing, rightmost multidimensional index varies fastest, missing rightmost values default-fill, valid excess values are ignored, and invalid excess remains an error."
+[[behavior]]
+partition = { equals = "ATOMIC_COMPUTED_ARRAY_ACCESS_AND_COPY" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#112-initializer-and-reference-architecture-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Failed computed reads preserve the destination, failed writes preserve every element, and whole-array assignment creates an independent copy."
+[[behavior]]
+partition = { equals = "RECURSIVE_STRUCTURE_DEFAULT_AND_COPY" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#112-initializer-and-reference-architecture-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Structure initializer precedence applies recursively and whole-structure assignment creates an independent complete copy."
+[[behavior]]
+partition = { equals = "DECLARED_RELATIVE_OVERLAP_STORAGE" }
+case_family = "duplicate_or_collision"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#112-initializer-and-reference-architecture-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Fields in an accepted STRUCT OVERLAP share their declared backing storage exactly."
+[[behavior]]
+partition = { equals = "INDEPENDENT_UNION_VARIANT_DEFAULT_AND_COPY" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#112-initializer-and-reference-architecture-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Every union variant materializes its recursive default, partial initialization preserves omitted defaults, a variant write does not alias another variant, and whole-union assignment copies all variants independently."
+
+[[coverage.cells]]
+dimension = "duplicate_or_collision"
+state = "gap_open"
+rationale = "Focused enum identity and relative-overlap tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "boundary_high"
+state = "gap_open"
+rationale = "Focused named-value and computed-array bounds tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "boundary_low"
+state = "gap_open"
+rationale = "Focused subrange lower/default and rejected-write tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "resource_limit"
+state = "gap_open"
+rationale = "Focused array repetition/cardinality tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "Focused structure initialization and copy tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Focused union default and copy tests exist, but catalog binding and dynamic proof are pending."

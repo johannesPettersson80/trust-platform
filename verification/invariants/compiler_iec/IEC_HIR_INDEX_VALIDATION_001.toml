@@ -78,6 +78,33 @@ no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
 rationale = "A nonconstant ANY_INT index is accepted statically regardless of its declared domain; runtime bounds checking applies to its actual value."
 
+[[behavior]]
+partition = { equals = "STRING_CHARACTER_READ_WRITE_TYPE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#character-access"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Reading STRING or WSTRING character access produces CHAR or WCHAR respectively, and a writable projection accepts the exact corresponding character family."
+
+[[behavior]]
+partition = { equals = "INVALID_STRING_CHARACTER_WRITE_TYPE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#character-access"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "STRING character access rejects WCHAR and whole-string values, while WSTRING character access rejects CHAR and whole-string values."
+
+[[behavior]]
+partition = { equals = "READ_ONLY_STRING_BASE_WRITE" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001#21-valid-assignment-targets"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A character projection inherits the write boundary of its STRING or WSTRING base, so CONSTANT and VAR_INPUT storage remain read-only."
+
 [[coverage.cells]]
 dimension = "happy_path"
 state = "covered"

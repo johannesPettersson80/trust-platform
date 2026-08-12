@@ -5,8 +5,8 @@ area = "editor_safety"
 risk = "false_status"
 status = "mapped"
 owner = "trust-debug"
-last_reviewed = "2026-07-28"
-claim = "Runtime debug control resolves and stops at authoritative statement boundaries, preserves step, condition, hit-count, watch, frame, and task-order semantics, invokes the host statement hook exactly once when debug instrumentation is enabled, emits logpoints without pausing, and retains events when a local receiver disappears."
+last_reviewed = "2026-08-01"
+claim = "Runtime debug control resolves and stops at authoritative statement boundaries; preserves control lifecycle, breakpoint, step, condition, hit-count, watch, frame, task-order, owned-query, mutation, and captured-snapshot semantics; invokes the host statement hook exactly once when debug instrumentation is enabled; emits logpoints without pausing; and preserves exact event delivery and fallback."
 proof_level = "S0"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src/host/debug/control", "crates/trust-runtime/src/host/eval"]
@@ -40,7 +40,7 @@ oracle_ref = "SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"
 outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "status_degraded" }
-rationale = "Resolution selects the innermost containing or next statement start, and a matching current-generation breakpoint pauses before execution and emits one breakpoint stop."
+rationale = "Zero-based byte coordinates, line boundaries, clamping, file identity, half-open overlap, containment, and deterministic before/after selection resolve one authoritative statement; a matching current-generation breakpoint pauses before it and emits one stop."
 
 [[behavior]]
 partition = { equals = "CYCLIC_BREAKPOINT_REHIT" }
@@ -58,7 +58,7 @@ oracle_ref = "SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"
 outcome = "accept_value"
 no_partial_apply = false
 delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
-rationale = "A breakpoint installed after launch or during cyclic execution becomes eligible at the next matching statement boundary without retroactively stopping completed work."
+rationale = "Per-file replacement preserves other files and request order, advances generation with saturation even for an empty replacement, and clear removes generations and the cycle guard; live changes become eligible only at the next matching boundary."
 
 [[behavior]]
 partition = { equals = "WATCH_FRAME_AND_TASK_ORDER" }
@@ -85,7 +85,7 @@ oracle_ref = "SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"
 outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
-rationale = "A logpoint formats its text and expression fragments into one output record while execution continues without a debug stop."
+rationale = "A logpoint formats literal and expression fragments in registration order with stable Boolean, character, string, aggregate, reference, instance, null, fallback-debug, and in-place error forms, emits one output record, and never pauses."
 
 [[behavior]]
 partition = { equals = "EVENT_CHANNEL_FALLBACK" }
@@ -94,7 +94,7 @@ oracle_ref = "SPEC_DEBUG_ADAPTER_001#runtime-debug-control-execution"
 outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
-rationale = "A dropped runtime-event or log receiver causes the first record to be retained in the matching in-memory debug-control buffer."
+rationale = "Live stop, runtime-event, log, and I/O senders receive one owned record without duplicate buffering; absent or closed loss-sensitive senders fall back to the matching ordered buffer, while absent or closed best-effort I/O delivery invents no fault or snapshot."
 
 [[behavior]]
 partition = { equals = "STATEMENT_HOOK_ONCE_PER_STATEMENT" }
@@ -104,6 +104,60 @@ outcome = "accept_value"
 no_partial_apply = false
 delta = { target = "set_to_expected", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "not_applicable" }
 rationale = "In the default debug-enabled lane, the reviewed expression statement invokes the supplied hook exactly once; debug-disabled behavior is not claimed by this partition."
+
+[[behavior]]
+partition = { equals = "CONTROL_STATE_LIFECYCLE_STOP_REASON_AND_THREAD_TARGET" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#runtime-debug-state-mutation-and-projection-invariants"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "expected_delta" }
+rationale = "New/default, pause, entry, continue, and step transitions preserve one pending reason, idempotent pause behavior, exact thread targeting, snapshot invalidation, and defined depth-zero stepping."
+
+[[behavior]]
+partition = { equals = "OWNED_STATE_QUERY_AND_ATOMIC_DRAIN" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#runtime-debug-state-mutation-and-projection-invariants"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Breakpoint, location, stop, snapshot, and force queries return owned copies; drains preserve arrival order and atomically empty only their selected queue; absent snapshot mutation invokes no callback."
+
+[[behavior]]
+partition = { equals = "MUTATION_QUEUE_FORCE_RELEASE_AND_CLEAR" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#runtime-debug-state-mutation-and-projection-invariants"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "expected_delta", diagnostics = "none", status = "unchanged" }
+rationale = "I/O and lvalue writes preserve duplicates and arrival order; complete variable target identity controls in-place replacement; force and release are exact; termination clears all mutation and force state without changing unrelated debug state."
+
+[[behavior]]
+partition = { equals = "SNAPSHOT_FRAME_CONTEXT_AND_WRITE_ISOLATION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#runtime-debug-state-mutation-and-projection-invariants"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Captured expression and lvalue operations use only the selected frame for the operation; unknown frames reject without global fallback or mutation, stack order is restored, and writes change only the owned snapshot."
+
+[[behavior]]
+partition = { equals = "DEBUG_TYPE_CONSTRUCTOR_AND_PAYLOAD_IDENTITY" }
+case_family = "happy_path"
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#runtime-debug-state-mutation-and-projection-invariants"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Source locations, breakpoints, stop reasons, log fragments, runtime events, snapshot time/storage, and pending target keys preserve exact public coordinates, defaults, variants, and identity components."
+
+[[behavior]]
+partition = { equals = "NOOP_AND_DEFAULT_HOOK_DELEGATION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#breakpoint-evaluation-source-resolution-and-hook-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The no-op hook is copyable and side-effect free, while the trait default context callback delegates exactly once to the plain callback and preserves an absent location."
 
 [[coverage.cells]]
 dimension = "happy_path"

@@ -320,3 +320,274 @@ impl From<DateTimeCalcError> for RuntimeError {
         Self::Overflow
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{RuntimeError, StableErrorCode};
+    use crate::bytecode::BytecodeError;
+    use crate::datetime::DateTimeCalcError;
+    use crate::value::DateTimeError;
+
+    #[test]
+    fn runtime_error_stable_codes_cover_every_committed_variant() {
+        let cases = [
+            (
+                RuntimeError::UndefinedVariable("x".into()),
+                StableErrorCode::RuntimeUndefinedVariable,
+            ),
+            (
+                RuntimeError::UndefinedFunction("f".into()),
+                StableErrorCode::RuntimeUndefinedFunction,
+            ),
+            (
+                RuntimeError::UndefinedProgram("p".into()),
+                StableErrorCode::RuntimeUndefinedProgram,
+            ),
+            (
+                RuntimeError::UndefinedFunctionBlock("fb".into()),
+                StableErrorCode::RuntimeUndefinedFunctionBlock,
+            ),
+            (
+                RuntimeError::UndefinedTask("task".into()),
+                StableErrorCode::RuntimeUndefinedTask,
+            ),
+            (
+                RuntimeError::UndefinedLabel("label".into()),
+                StableErrorCode::RuntimeUndefinedLabel,
+            ),
+            (
+                RuntimeError::UndefinedField("field".into()),
+                StableErrorCode::RuntimeUndefinedField,
+            ),
+            (
+                RuntimeError::InvalidTaskSingle("single".into()),
+                StableErrorCode::RuntimeInvalidTaskSingle,
+            ),
+            (
+                RuntimeError::InvalidIoAddress("%IX0.0".into()),
+                StableErrorCode::RuntimeInvalidIoAddress,
+            ),
+            (
+                RuntimeError::TypeMismatch,
+                StableErrorCode::RuntimeTypeMismatch,
+            ),
+            (
+                RuntimeError::InvalidArgumentCount {
+                    expected: 1,
+                    got: 2,
+                },
+                StableErrorCode::RuntimeInvalidArgumentCount,
+            ),
+            (
+                RuntimeError::InvalidArgumentName("arg".into()),
+                StableErrorCode::RuntimeInvalidArgumentName,
+            ),
+            (
+                RuntimeError::AssertionFailed("assertion".into()),
+                StableErrorCode::RuntimeAssertionFailed,
+            ),
+            (
+                RuntimeError::DivisionByZero,
+                StableErrorCode::RuntimeDivisionByZero,
+            ),
+            (
+                RuntimeError::ModuloByZero,
+                StableErrorCode::RuntimeModuloByZero,
+            ),
+            (RuntimeError::Overflow, StableErrorCode::RuntimeOverflow),
+            (
+                RuntimeError::IndexOutOfBounds {
+                    index: 2,
+                    lower: 0,
+                    upper: 1,
+                },
+                StableErrorCode::RuntimeIndexOutOfBounds,
+            ),
+            (
+                RuntimeError::SubrangeViolation {
+                    value: 2,
+                    lower: 0,
+                    upper: 1,
+                },
+                StableErrorCode::RuntimeSubrangeViolation,
+            ),
+            (
+                RuntimeError::NullReference,
+                StableErrorCode::RuntimeNullReference,
+            ),
+            (
+                RuntimeError::InvalidControlFlow,
+                StableErrorCode::RuntimeInvalidControlFlow,
+            ),
+            (
+                RuntimeError::ForStepZero,
+                StableErrorCode::RuntimeForStepZero,
+            ),
+            (
+                RuntimeError::ConditionNotBool,
+                StableErrorCode::RuntimeConditionNotBool,
+            ),
+            (
+                RuntimeError::CaseSelectorType,
+                StableErrorCode::RuntimeCaseSelectorType,
+            ),
+            (
+                RuntimeError::DateTimeRange(DateTimeError::OutOfRange),
+                StableErrorCode::RuntimeDateTimeRange,
+            ),
+            (
+                RuntimeError::InvalidFrame(1),
+                StableErrorCode::RuntimeInvalidFrame,
+            ),
+            (
+                RuntimeError::ResourceFaulted,
+                StableErrorCode::RuntimeResourceFaulted,
+            ),
+            (
+                RuntimeError::ResourcePanic("panic".into()),
+                StableErrorCode::RuntimeResourcePanic,
+            ),
+            (
+                RuntimeError::IoDriver("driver".into()),
+                StableErrorCode::RuntimeIoDriver,
+            ),
+            (
+                RuntimeError::IoTransport("transport".into()),
+                StableErrorCode::RuntimeIoTransport,
+            ),
+            (
+                RuntimeError::IoAddress("address".into()),
+                StableErrorCode::RuntimeIoAddress,
+            ),
+            (
+                RuntimeError::IoFreshness("stale".into()),
+                StableErrorCode::RuntimeIoFreshness,
+            ),
+            (
+                RuntimeError::InitFailed {
+                    owner: "owner".into(),
+                    variable: "variable".into(),
+                    error: "error".into(),
+                },
+                StableErrorCode::RuntimeInitFailed,
+            ),
+            (
+                RuntimeError::UnsupportedBytecodeVersion { major: 2, minor: 0 },
+                StableErrorCode::RuntimeUnsupportedBytecodeVersion,
+            ),
+            (
+                RuntimeError::InvalidBytecodeMetadata("metadata".into()),
+                StableErrorCode::RuntimeInvalidBytecodeMetadata,
+            ),
+            (
+                RuntimeError::InvalidBytecode("container".into()),
+                StableErrorCode::RuntimeInvalidBytecode,
+            ),
+            (
+                RuntimeError::bytecode(
+                    StableErrorCode::BytecodeInvalidMagic,
+                    "invalid bytecode magic",
+                ),
+                StableErrorCode::BytecodeInvalidMagic,
+            ),
+            (
+                RuntimeError::ThreadSpawn("spawn".into()),
+                StableErrorCode::RuntimeThreadSpawn,
+            ),
+            (
+                RuntimeError::WatchdogTimeout,
+                StableErrorCode::RuntimeWatchdogTimeout,
+            ),
+            (
+                RuntimeError::RestartLimitExceeded {
+                    attempts: 3,
+                    reason: "fault".into(),
+                },
+                StableErrorCode::RuntimeRestartLimitExceeded,
+            ),
+            (
+                RuntimeError::SafeStateFailed {
+                    root: "fault".into(),
+                    error: "write".into(),
+                },
+                StableErrorCode::RuntimeSafeStateFailed,
+            ),
+            (
+                RuntimeError::ExecutionTimeout,
+                StableErrorCode::RuntimeExecutionTimeout,
+            ),
+            (
+                RuntimeError::SimulationFault("fault".into()),
+                StableErrorCode::RuntimeSimulationFault,
+            ),
+            (
+                RuntimeError::InvalidConfig("config".into()),
+                StableErrorCode::RuntimeInvalidConfig,
+            ),
+            (
+                RuntimeError::InvalidBundle("bundle".into()),
+                StableErrorCode::RuntimeInvalidBundle,
+            ),
+            (
+                RuntimeError::RetainStore("store".into()),
+                StableErrorCode::RuntimeRetainStore,
+            ),
+            (
+                RuntimeError::RetainCorruption("corrupt".into()),
+                StableErrorCode::RuntimeRetainCorruption,
+            ),
+            (
+                RuntimeError::RetainMigration("migration".into()),
+                StableErrorCode::RuntimeRetainMigration,
+            ),
+            (
+                RuntimeError::ControlError("control".into()),
+                StableErrorCode::RuntimeControlError,
+            ),
+        ];
+
+        for (error, expected) in cases {
+            assert_eq!(error.stable_code(), expected, "{error:?}");
+        }
+    }
+
+    #[test]
+    fn runtime_error_conversions_preserve_committed_boundaries() {
+        let source = BytecodeError::InvalidHeader("section count".into());
+        let source_detail = source.to_string();
+        let converted = RuntimeError::from(source);
+        assert_eq!(
+            converted,
+            RuntimeError::Bytecode {
+                code: StableErrorCode::BytecodeInvalidHeader,
+                detail: source_detail.into(),
+            }
+        );
+        assert_eq!(
+            converted.stable_code(),
+            StableErrorCode::BytecodeInvalidHeader
+        );
+
+        for source in [
+            DateTimeError::OutOfRange,
+            DateTimeError::TimezoneNotSupported,
+        ] {
+            let converted = RuntimeError::from(source);
+            assert_eq!(converted, RuntimeError::DateTimeRange(source));
+            assert_eq!(
+                converted.stable_code(),
+                StableErrorCode::RuntimeDateTimeRange
+            );
+        }
+
+        for source in [
+            DateTimeCalcError::InvalidDate,
+            DateTimeCalcError::InvalidResolution,
+            DateTimeCalcError::Overflow,
+        ] {
+            let converted = RuntimeError::from(source);
+            assert_eq!(converted, RuntimeError::Overflow);
+            assert_eq!(converted.stable_code(), StableErrorCode::RuntimeOverflow);
+        }
+    }
+}

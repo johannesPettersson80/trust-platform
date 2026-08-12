@@ -22,7 +22,7 @@ pub fn parse_debug_expression(
         return Err(CompileError::new("empty watch expression"));
     }
 
-    let wrapped = format!("PROGRAM __WATCH\n__watch := {expression};\nEND_PROGRAM");
+    let wrapped = format!("PROGRAM WatchExpression\nwatchValue := {expression};\nEND_PROGRAM");
     let parse = parser::parse(&wrapped);
     if !parse.ok() {
         let message = parse
@@ -77,7 +77,7 @@ pub fn parse_debug_lvalue(
         return Err(CompileError::new("empty assignment target"));
     }
 
-    let wrapped = format!("PROGRAM __WATCH\n{expression} := 0;\nEND_PROGRAM");
+    let wrapped = format!("PROGRAM WatchAssignment\n{expression} := 0;\nEND_PROGRAM");
     let parse = parser::parse(&wrapped);
     if !parse.ok() {
         let message = parse
@@ -184,3 +184,7 @@ fn is_pure_stdlib_name(name: &str) -> bool {
             | "LEN"
     )
 }
+
+#[cfg(test)]
+#[path = "parse_contract_tests.rs"]
+mod contract_tests;

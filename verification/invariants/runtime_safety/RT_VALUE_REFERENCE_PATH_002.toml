@@ -1,0 +1,89 @@
+schema_version = 1
+id = "RT_VALUE_REFERENCE_PATH_002"
+title = "Borrowed runtime value traversal preserves exact path identity"
+area = "runtime_safety"
+risk = "silent_corruption"
+status = "specified"
+owner = "trust-runtime"
+last_reviewed = "2026-08-01"
+claim = "Borrowed value traversal preserves original storage, exact field spelling, inclusive multidimensional bounds, row-major index order, and fail-closed intermediate resolution without synthesizing values or overflowing offsets."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["docs/specs/10-runtime-semantics.md", "crates/trust-runtime/src/value/reference/contract_tests.rs"]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["catalog_mapping", "focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_SEMANTICS_001"]
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_SEMANTICS_001#runtime-value-model"
+
+[[behavior]]
+partition = { equals = "EMPTY_PATH_BORROWS_ORIGINAL" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#runtime-value-model"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "An empty path borrows the original value, and an empty tail after a field returns the stored field by reference without cloning."
+[[behavior]]
+partition = { equals = "EXACT_STORED_FIELD_AND_AGGREGATE_KIND" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#runtime-value-model"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Field lookup uses exact stored spelling and rejects the wrong aggregate kind."
+[[behavior]]
+partition = { equals = "INCLUSIVE_ROW_MAJOR_ARRAY_PATH" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#runtime-value-model"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Array paths enforce exact arity and inclusive bounds, compute multidimensional row-major order, and select the first element at an extreme signed lower bound without overflow."
+[[behavior]]
+partition = { equals = "NESTED_FIELD_INDEX_FIELD_BORROW" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#runtime-value-model"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A nested field/index/field path returns the exact borrowed leaf."
+[[behavior]]
+partition = { equals = "STRING_PATH_EXACT_ONE_INDEX_NO_SYNTHESIS" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#runtime-value-model"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "The string-path helper accepts exactly one index, while generic borrowed traversal never synthesizes a string-character value."
+[[behavior]]
+partition = { equals = "MISSING_INTERMEDIATE_STOPS_TRAVERSAL" }
+case_family = "missing_required"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#runtime-value-model"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Traversal stops at the first absent intermediate segment without fabricating a later value."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Focused empty and nested path tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Focused field-kind and string-path tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "boundary_high"
+state = "gap_open"
+rationale = "Focused array arity, bound, order, and overflow tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "missing_required"
+state = "gap_open"
+rationale = "Focused missing-intermediate tests exist, but catalog binding and dynamic proof are pending."

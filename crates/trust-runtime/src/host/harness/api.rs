@@ -191,3 +191,7 @@ pub fn bytecode_bytes_from_sources_with_paths(
         .collect::<Vec<_>>();
     CompileSession::from_sources(source_files).build_bytecode_bytes()
 }
+
+#[cfg(test)]
+#[path = "api_contract_tests.rs"]
+mod contract_tests;

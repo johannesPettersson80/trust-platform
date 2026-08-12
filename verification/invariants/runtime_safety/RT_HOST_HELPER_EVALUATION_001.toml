@@ -1,12 +1,12 @@
 schema_version = 1
 id = "RT_HOST_HELPER_EVALUATION_001"
-title = "Host helpers evaluate only explicit constant and standard-library capabilities"
+title = "Host helpers evaluate only explicit constant, storage, lvalue, and standard-library capabilities"
 area = "runtime_safety"
 risk = "wrong_result"
 status = "mapped"
 owner = "trust-runtime"
-last_reviewed = "2026-07-27"
-claim = "Bounded host helpers recursively evaluate the reviewed constant expressions, resolver-backed name, IEC array repetition, and capability-supplied ABS expression while rejecting the reviewed unavailable-name and absent-library cases."
+last_reviewed = "2026-08-01"
+claim = "Bounded host helpers recursively evaluate reviewed constant, storage, aggregate, index, reference, lvalue, and capability-supplied standard-library expressions with exact lookup and argument precedence, while invalid reads or writes fail atomically without ambient fallback."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = [
@@ -82,6 +82,60 @@ outcome = "reject"
 no_partial_apply = false
 delta = { target = "not_applicable", siblings = "not_applicable", retain = "not_applicable", process_image = "not_applicable", diagnostics = "stable_error", status = "not_applicable" }
 rationale = "Without a StandardLibrary capability, the reviewed ABS(DINT#-1) expression returns RuntimeError::TypeMismatch; the assertion does not observe internal dispatch."
+
+[[behavior]]
+partition = { equals = "STORAGE_NAME_FIELD_AND_INSTANCE_PRECEDENCE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#611-host-helper-evaluation-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Qualified storage, local instance, inherited field, global, and retain lookup follows the documented precedence; missing fields, stale contexts, and unavailable namespaces do not fall through to an unrelated value."
+
+[[behavior]]
+partition = { equals = "ARRAY_STRING_AND_PARTIAL_INDEX_READ" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#611-host-helper-evaluation-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Array, string, and partial-field reads normalize supported integer tags, preserve inclusive lower bounds and dimensions, use one-based string elements, and retain exact arity/type/bounds failures."
+
+[[behavior]]
+partition = { equals = "REFERENCE_DEREFERENCE_THIS_AND_SUPER_CONTEXT" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#611-host-helper-evaluation-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Reference creation and dereference preserve selected storage identity; empty, nonreference, stale, and disallowed retain targets remain distinct; THIS and SUPER require exact live receiver context."
+
+[[behavior]]
+partition = { equals = "AGGREGATE_INITIALIZER_AND_REPEAT_EVALUATION" }
+case_family = "duplicate_or_collision"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#611-host-helper-evaluation-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Array repetition and structure initializers preserve source order and values, expand zero groups correctly, and reject invalid repeat counts, named repeat arguments, and case-insensitive duplicate fields."
+
+[[behavior]]
+partition = { equals = "STDLIB_ARGUMENT_BINDING_AND_BOOLEAN_EVALUATION" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#611-host-helper-evaluation-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Call targets use closed name/field chains and an explicit standard-library capability; fixed, named, conversion, and variadic arguments bind in signature order while Boolean short-circuit and eager bit-string operations retain their distinct evaluation rules."
+
+[[behavior]]
+partition = { equals = "LVALUE_WRITE_PATH_AND_FAILURE_ATOMICITY" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#611-host-helper-evaluation-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Simple, qualified, field, array, partial, and dereference writes update only the exact existing owner using copy-on-write where needed; unknown, missing, stale, wrong-kind, arity, type, and bounds failures create nothing and preserve all storage."
 
 [[coverage.cells]]
 dimension = "happy_path"

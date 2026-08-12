@@ -64,6 +64,7 @@ mod tests {
     use super::{RestartMode, RetainPolicy, RetainSnapshot};
     use crate::value::Value;
     use alloc::vec::Vec;
+    use smol_str::SmolStr;
 
     #[test]
     fn retain_policy_preserves_default_and_warm_restart_contract() {
@@ -107,5 +108,32 @@ mod tests {
         assert_eq!(entries[1].0.as_str(), "SIBLING");
         assert_eq!(entries[2].0.as_str(), "MOTOR");
         assert_eq!(entries[2].1, &Value::UDInt(7));
+    }
+
+    #[test]
+    fn retain_snapshot_map_round_trip_preserves_order_keys_and_value_tags() {
+        let values: indexmap::IndexMap<SmolStr, Value> = [
+            ("Motor".into(), Value::DInt(-7)),
+            ("motor".into(), Value::Bool(true)),
+            ("Nested".into(), Value::String("exact".into())),
+        ]
+        .into_iter()
+        .collect();
+
+        let snapshot = RetainSnapshot::from_values(values.clone());
+        assert_eq!(snapshot.values(), &values);
+        assert_eq!(
+            snapshot.values().keys().map(SmolStr::as_str).collect::<Vec<_>>(),
+            ["Motor", "motor", "Nested"]
+        );
+
+        let round_trip = snapshot.into_values();
+        assert_eq!(round_trip, values);
+        assert!(matches!(round_trip.get("Motor"), Some(Value::DInt(-7))));
+        assert!(matches!(round_trip.get("motor"), Some(Value::Bool(true))));
+        assert!(matches!(
+            round_trip.get("Nested"),
+            Some(Value::String(value)) if value.as_str() == "exact"
+        ));
     }
 }

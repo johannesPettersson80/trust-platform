@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import shlex
 import tomllib
 import tempfile
 from collections.abc import Mapping, Sequence
@@ -484,7 +485,10 @@ def _focused_trace_provenance_failures(
                 f"{discovery_id} nextest test identity does not match live fact"
             )
         try:
-            expected_command = mechanical_resolved_rust_command(resolved_row)
+            expected_command = mechanical_resolved_rust_command(
+                resolved_row,
+                resolved_command_features(resolved_row),
+            )
         except ValueError as error:
             failures.append(f"{discovery_id} resolved command is invalid: {error}")
         else:
@@ -515,6 +519,36 @@ def _focused_trace_provenance_failures(
     if trace.get("input_digest") != recomputed:
         failures.append("focused Rust trace input digest cannot be reproduced")
     return failures
+
+
+def resolved_command_features(record: Mapping[str, Any]) -> tuple[str, ...]:
+    command = record.get("command")
+    if not isinstance(command, str) or not command:
+        raise ValueError("resolved test requires a command")
+    try:
+        arguments = shlex.split(command)
+    except ValueError as error:
+        raise ValueError("resolved command has invalid shell quoting") from error
+    positions = [
+        index
+        for index, argument in enumerate(arguments)
+        if argument == "--features"
+    ]
+    if not positions:
+        return ()
+    if len(positions) != 1 or positions[0] + 1 >= len(arguments):
+        raise ValueError("resolved command Cargo features are malformed")
+    features = arguments[positions[0] + 1].split(",")
+    if (
+        any(
+            not feature
+            or any(character.isspace() or character == "," for character in feature)
+            for feature in features
+        )
+        or features != sorted(set(features))
+    ):
+        raise ValueError("resolved command Cargo features are not canonical")
+    return tuple(features)
 
 
 def canonical_input_file(

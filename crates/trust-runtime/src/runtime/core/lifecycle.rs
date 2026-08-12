@@ -1,4 +1,12 @@
 impl Runtime {
+    pub(crate) fn register_edge_inputs(
+        &mut self,
+        owner: impl Into<SmolStr>,
+        inputs: Vec<crate::program_model::EdgeInput>,
+    ) {
+        self.edge_inputs.insert(owner.into(), inputs);
+    }
+
     /// Create a new runtime with default profile and empty storage.
     #[must_use]
     pub fn new() -> Self {
@@ -24,6 +32,7 @@ impl Runtime {
             classes: IndexMap::new(),
             interfaces: IndexMap::new(),
             programs: IndexMap::new(),
+            edge_inputs: IndexMap::new(),
             globals: IndexMap::new(),
             tasks: Vec::new(),
             ready_tasks_scratch: Vec::new(),

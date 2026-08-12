@@ -114,6 +114,7 @@ fn import_global_var_lists_to_sources(
     global_var_mode: PlcopenImportGlobalVarMode,
 ) -> anyhow::Result<ImportGlobalVarStats> {
     let mut stats = ImportGlobalVarStats::default();
+    let mut used_list_identifiers = HashSet::new();
 
     for global_vars in root
         .descendants()
@@ -173,7 +174,28 @@ fn import_global_var_lists_to_sources(
             continue;
         }
 
-        let list_identifier = sanitize_st_identifier(&name, "GlobalVars");
+        if !global_var_source_is_well_formed(&global_source)
+            || !structured_global_var_entries_are_well_formed(global_vars)
+        {
+            warnings.push(format!(
+                "skipping globalVars '{}': declaration list is malformed or ambiguous",
+                name
+            ));
+            unsupported_nodes.push(format!("addData/globalVars/{name}"));
+            unsupported_diagnostics.push(unsupported_diagnostic(
+                "PLCO604",
+                "error",
+                format!("addData/globalVars/{name}"),
+                "globalVars declaration list contains malformed, duplicate, or invalid ST identities",
+                None,
+                "Provide a complete VAR_GLOBAL declaration list with unique IEC identifiers",
+            ));
+            *loss_warnings += 1;
+            continue;
+        }
+
+        let mut list_identifier = sanitize_st_identifier(&name, "GlobalVars");
+        list_identifier = unique_identifier(list_identifier, &mut used_list_identifiers);
         if !list_identifier.eq_ignore_ascii_case(&name) {
             warnings.push(format!(
                 "normalized globalVars identifier '{}' -> '{}'",
@@ -346,11 +368,14 @@ fn format_global_var_declaration(variable: &GlobalVarVariableDecl) -> String {
 }
 
 fn codesys_global_vars_is_qualified_only(node: roxmltree::Node<'_, '_>, source: &str) -> bool {
-    let lowered_source = source.to_ascii_lowercase();
-    if lowered_source.contains("attribute 'qualified_only'")
-        || lowered_source.contains("attribute \"qualified_only\"")
-    {
-        return true;
+    for line in source.lines() {
+        let lowered = line.trim().to_ascii_lowercase();
+        if lowered.starts_with("{attribute") && lowered.contains("qualified_only") {
+            if !lowered.contains("false") && !lowered.contains(":= 0") {
+                return true;
+            }
+            return false;
+        }
     }
 
     for attribute in node
@@ -438,4 +463,85 @@ fn synthesize_global_vars_source(
     }
     out.push_str("END_VAR\n");
     Some(out)
+}
+
+fn structured_global_var_entries_are_well_formed(node: roxmltree::Node<'_, '_>) -> bool {
+    let has_structured_entries = node
+        .children()
+        .any(|child| is_element_named_ci(child, "variable"));
+    if !has_structured_entries {
+        return true;
+    }
+    let mut names = HashSet::new();
+    for variable in node
+        .children()
+        .filter(|child| is_element_named_ci(*child, "variable"))
+    {
+        let Some(name) = attribute_ci(variable, "name")
+            .or_else(|| {
+                variable
+                    .children()
+                    .find(|child| is_element_named_ci(*child, "name"))
+                    .and_then(extract_text_content)
+            })
+            .map(|value| value.trim().to_string())
+            .filter(|value| is_valid_st_identifier(value))
+        else {
+            return false;
+        };
+        if !names.insert(name.to_ascii_lowercase()) {
+            return false;
+        }
+        let Some(type_node) = first_child_element_ci(variable, "type")
+            .or_else(|| first_child_element_ci(variable, "baseType"))
+        else {
+            return false;
+        };
+        if parse_type_expression_container(type_node).is_none() {
+            return false;
+        }
+    }
+    true
+}
+
+fn global_var_source_is_well_formed(source: &str) -> bool {
+    let mut in_block = false;
+    let mut names = HashSet::new();
+    let mut declaration_count = 0usize;
+    for line in source.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with("{") || trimmed.starts_with("//") {
+            continue;
+        }
+        if trimmed.to_ascii_uppercase().starts_with("VAR_GLOBAL") {
+            in_block = true;
+            continue;
+        }
+        if trimmed.eq_ignore_ascii_case("END_VAR") {
+            in_block = false;
+            continue;
+        }
+        if !in_block || trimmed.starts_with("(*") {
+            continue;
+        }
+        let declaration = trimmed.trim_end_matches(';').trim();
+        let Some((raw_names, raw_type)) = declaration.split_once(':') else {
+            return false;
+        };
+        let type_expr = raw_type
+            .split_once(":=")
+            .map_or(raw_type, |(type_part, _)| type_part)
+            .trim();
+        if type_expr.is_empty() {
+            return false;
+        }
+        for raw_name in raw_names.split(',') {
+            let name = raw_name.trim();
+            if !is_valid_st_identifier(name) || !names.insert(name.to_ascii_lowercase()) {
+                return false;
+            }
+            declaration_count += 1;
+        }
+    }
+    !in_block && declaration_count > 0
 }

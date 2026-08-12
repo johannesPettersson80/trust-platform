@@ -1,31 +1,33 @@
 ---
 source: crates/trust-syntax/tests/parser_pous.rs
+assertion_line: 214
 expression: snapshot_parse(source)
 ---
-SourceFile@0..88
-  Program@0..88
+SourceFile@0..89
+  Program@0..89
     KwProgram@0..7 "PROGRAM"
     Name@7..17
       Ident@8..12 "Test"
-    StmtList@17..77
-      Action@17..77
+    StmtList@17..78
+      Action@17..78
         KwAction@17..23 "ACTION"
-        Name@23..38
+        Name@23..29
           Ident@24..29 "Reset"
-        StmtList@38..66
-          AssignStmt@38..54
-            NameRef@38..40
-              Ident@38..39 "x"
-            Assign@40..42 ":="
-            Literal@42..44
-              IntLiteral@43..44 "0"
-            Semicolon@44..45 ";"
-          AssignStmt@54..66
-            NameRef@54..56
-              Ident@54..55 "y"
-            Assign@56..58 ":="
-            Literal@58..60
-              IntLiteral@59..60 "0"
-            Semicolon@60..61 ";"
-        KwEndAction@66..76 "END_ACTION"
-    KwEndProgram@77..88 "END_PROGRAM"
+        Colon@29..30 ":"
+        StmtList@30..67
+          AssignStmt@30..55
+            NameRef@30..41
+              Ident@39..40 "x"
+            Assign@41..43 ":="
+            Literal@43..45
+              IntLiteral@44..45 "0"
+            Semicolon@45..46 ";"
+          AssignStmt@55..67
+            NameRef@55..57
+              Ident@55..56 "y"
+            Assign@57..59 ":="
+            Literal@59..61
+              IntLiteral@60..61 "0"
+            Semicolon@61..62 ";"
+        KwEndAction@67..77 "END_ACTION"
+    KwEndProgram@78..89 "END_PROGRAM"

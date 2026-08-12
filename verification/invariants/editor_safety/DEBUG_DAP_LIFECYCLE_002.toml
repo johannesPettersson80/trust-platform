@@ -1,0 +1,129 @@
+schema_version = 1
+id = "DEBUG_DAP_LIFECYCLE_002"
+title = "Debug adapter lifecycle preserves exact request ordering and correlation"
+area = "editor_safety"
+risk = "false_status"
+status = "specified"
+owner = "trust-debug"
+last_reviewed = "2026-08-01"
+claim = "The DAP adapter starts new and unconfigured, accepts one initialize, defers one launch or attach until configuration completion or compatibility force-start, rejects competing or malformed starts without replacing state, and terminates with exact response/event ordering."
+proof_level = "S0"
+contract_kind = "state_machine"
+source_refs = ["docs/specs/13-debug-adapter.md", "crates/trust-debug/src/adapter/lifecycle_contract_tests.rs"]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["catalog_mapping", "focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+[spec]
+status = "specified"
+source_refs = ["SPEC_DEBUG_ADAPTER_001"]
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_DEBUG_ADAPTER_001#dap-session-lifecycle-and-request-ordering"
+
+[[behavior]]
+partition = { equals = "NEW_UNCONFIGURED_NO_PENDING_WORK" }
+case_family = "happy_path"
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#dap-session-lifecycle-and-request-ordering"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A new lifecycle is uninitialized, unconfigured, inactive, and owns no pending start or post-launch action."
+[[behavior]]
+partition = { equals = "ONE_INITIALIZE_AND_COORDINATE_CONVENTION" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#dap-session-lifecycle-and-request-ordering"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "The first valid initialize records default one-based or explicit zero-based coordinates; malformed initialization and a repeated initialize fail without reset or extra event."
+[[behavior]]
+partition = { equals = "START_AND_CONFIGURATION_REQUIRE_INITIALIZE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#dap-session-lifecycle-and-request-ordering"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Launch, attach, and configurationDone before initialization reject without pending state."
+[[behavior]]
+partition = { equals = "ONE_DEFERRED_LAUNCH_OR_ATTACH" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#dap-session-lifecycle-and-request-ordering"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The first valid launch or attach becomes exactly one pending start and is deferred until configuration completes."
+[[behavior]]
+partition = { equals = "MALFORMED_OR_COMPETING_START_PRESERVES_FIRST" }
+case_family = "duplicate_or_collision"
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#dap-session-lifecycle-and-request-ordering"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Malformed launch/attach never becomes pending; a second or competing launch/attach cannot replace the first pending request."
+[[behavior]]
+partition = { equals = "CONFIGURATION_REQUESTS_DO_NOT_START" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#dap-session-lifecycle-and-request-ordering"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Breakpoint and other configuration requests do not execute or discard a pending start."
+[[behavior]]
+partition = { equals = "CONFIGURATION_DONE_RESPONSE_BEFORE_PENDING_RESPONSE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#dap-session-lifecycle-and-request-ordering"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "configurationDone responds first, starts and responds to the exact pending request, and is idempotent after configuration."
+[[behavior]]
+partition = { equals = "FIRST_NONCONFIGURATION_FORCE_STARTS_ONCE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#dap-session-lifecycle-and-request-ordering"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "For clients omitting configurationDone, the first nonconfiguration request starts the exact pending launch/attach once before that request proceeds."
+[[behavior]]
+partition = { equals = "POST_LAUNCH_ACTION_SUCCESS_AND_ONCE_ONLY" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#dap-session-lifecycle-and-request-ordering"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Successful launch schedules the reviewed post-launch actions exactly once; failed launch schedules none; consumption is one-shot."
+[[behavior]]
+partition = { equals = "DISCONNECT_TERMINATE_RESPONSE_THEN_ONE_EVENT" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#dap-session-lifecycle-and-request-ordering"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "expected_delta" }
+rationale = "Disconnect and terminate correlate their response before emitting exactly one terminated event."
+[[behavior]]
+partition = { equals = "NONREQUEST_IGNORED_UNSUPPORTED_REQUEST_FAILED" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#dap-session-lifecycle-and-request-ordering"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "A nonrequest envelope is ignored and an unsupported request receives failure; neither changes lifecycle state."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Focused initial-state tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "Focused initialize, pending-start, configuration, force-start, post-launch, and termination-order tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "duplicate_or_collision"
+state = "gap_open"
+rationale = "Focused competing and malformed start tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "extra_or_unknown"
+state = "gap_open"
+rationale = "Focused nonrequest and unsupported-request tests exist, but catalog binding and dynamic proof are pending."

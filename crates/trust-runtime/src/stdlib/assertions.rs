@@ -136,7 +136,9 @@ fn assert_near(args: &[Value]) -> Result<Value, RuntimeError> {
     }
 
     let diff = (expected - actual).abs();
-    if diff <= delta {
+    let rounding_tolerance =
+        f64::EPSILON * expected.abs().max(actual.abs()).max(delta).max(1.0) * 4.0;
+    if diff <= delta || diff - delta <= rounding_tolerance {
         Ok(Value::Null)
     } else {
         Err(RuntimeError::AssertionFailed(

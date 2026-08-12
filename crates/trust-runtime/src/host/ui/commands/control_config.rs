@@ -58,26 +58,31 @@ pub(super) fn set_simple_response(
     response: anyhow::Result<serde_json::Value>,
     success: &str,
 ) {
+    if let Some(error) = control_response_error(&response) {
+        state.prompt.set_output(vec![PromptLine::plain(
+            error,
+            Style::default().fg(COLOR_RED),
+        )]);
+    } else {
+        state.prompt.set_output(vec![PromptLine::plain(
+            success.to_string(),
+            Style::default().fg(COLOR_GREEN),
+        )]);
+    }
+}
+
+pub(super) fn control_response_error(
+    response: &anyhow::Result<serde_json::Value>,
+) -> Option<String> {
     match response {
         Ok(value) => {
-            if let Some(err) = value.get("error").and_then(|v| v.as_str()) {
-                state.prompt.set_output(vec![PromptLine::plain(
-                    err.to_string(),
-                    Style::default().fg(COLOR_RED),
-                )]);
-            } else {
-                state.prompt.set_output(vec![PromptLine::plain(
-                    success.to_string(),
-                    Style::default().fg(COLOR_GREEN),
-                )]);
+            if let Some(error) = value.get("error").and_then(|value| value.as_str()) {
+                return Some(error.to_string());
             }
+            (value.get("ok").and_then(|value| value.as_bool()) == Some(false))
+                .then(|| "request rejected".to_string())
         }
-        Err(err) => {
-            state.prompt.set_output(vec![PromptLine::plain(
-                format!("Error: {err}"),
-                Style::default().fg(COLOR_RED),
-            )]);
-        }
+        Err(error) => Some(format!("Error: {error}")),
     }
 }
 
@@ -142,5 +147,5 @@ pub(super) fn is_bool_value(value: &str) -> bool {
     if trimmed.eq_ignore_ascii_case("true") || trimmed.eq_ignore_ascii_case("false") {
         return true;
     }
-    trimmed.starts_with("Bool(") || trimmed.contains("Bool(")
+    matches!(trimmed, "Bool(true)" | "Bool(false)")
 }

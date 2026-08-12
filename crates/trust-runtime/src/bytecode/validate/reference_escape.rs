@@ -123,6 +123,11 @@ fn validate_reference_escape(
                 let _target = pop_ref_provenance(&mut stack);
                 stack.push(RefProvenance::Unknown);
             }
+            0x64 => {
+                let _target_type = reader.read_u32()?;
+                let value = pop_ref_provenance(&mut stack);
+                stack.push(value);
+            }
             _ => return Err(BytecodeError::InvalidOpcode(opcode)),
         }
     }

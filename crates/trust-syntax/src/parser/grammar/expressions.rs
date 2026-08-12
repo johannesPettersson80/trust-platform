@@ -345,6 +345,19 @@ impl Parser<'_, '_> {
             self.finish_node();
             self.parse_array_repetition_arg_list();
             marker.complete(self, SyntaxKind::CallExpr);
+        } else if matches!(self.current(), TokenKind::Plus | TokenKind::Minus)
+            && self.peek_kind_n(1) == TokenKind::IntLiteral
+            && self.peek_kind_n(2) == TokenKind::LParen
+        {
+            let marker = self.start();
+            let count = self.start();
+            self.bump();
+            self.start_node(SyntaxKind::Literal);
+            self.bump();
+            self.finish_node();
+            count.complete(self, SyntaxKind::UnaryExpr);
+            self.parse_array_repetition_arg_list();
+            marker.complete(self, SyntaxKind::CallExpr);
         } else {
             self.parse_var_initializer();
         }
@@ -353,6 +366,10 @@ impl Parser<'_, '_> {
     fn parse_array_repetition_arg_list(&mut self) {
         self.start_node(SyntaxKind::ArgList);
         self.bump(); // (
+
+        if self.at(TokenKind::RParen) {
+            self.error("expected array repetition value");
+        }
 
         while !self.at(TokenKind::RParen) && !self.at_end() {
             self.start_node(SyntaxKind::Arg);

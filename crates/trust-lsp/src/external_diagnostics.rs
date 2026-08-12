@@ -161,7 +161,7 @@ impl ExternalPosition {
 impl ExternalSeverity {
     fn to_lsp(&self) -> Option<DiagnosticSeverity> {
         match self {
-            ExternalSeverity::String(value) => match value.to_ascii_lowercase().as_str() {
+            ExternalSeverity::String(value) => match value.trim().to_ascii_lowercase().as_str() {
                 "error" => Some(DiagnosticSeverity::ERROR),
                 "warning" => Some(DiagnosticSeverity::WARNING),
                 "info" | "information" => Some(DiagnosticSeverity::INFORMATION),
@@ -178,3 +178,7 @@ impl ExternalSeverity {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "external_diagnostics/contract_tests.rs"]
+mod contract_tests;

@@ -1,6 +1,7 @@
 use super::{
-    parser::{parse_io_toml_from_text, parse_runtime_toml_from_text}, validate_io_toml_text,
-    validate_opcua_client_toml_text, validate_runtime_toml_text, RuntimeBundle, RuntimeConfig,
+    parser::{parse_io_toml_from_text, parse_runtime_toml_from_text},
+    validate_io_toml_text, validate_opcua_client_toml_text, validate_runtime_toml_text,
+    RuntimeBundle, RuntimeConfig,
 };
 
 fn runtime_toml() -> String {
@@ -1331,11 +1332,7 @@ safe_state = [
         ]
     );
 
-    for (address, value) in [
-        ("%QB0", "256"),
-        ("%QW0", "65536"),
-        ("%QD0", "4294967296"),
-    ] {
+    for (address, value) in [("%QB0", "256"), ("%QW0", "65536"), ("%QD0", "4294967296")] {
         let text = format!(
             "[io]\ndriver = \"loopback\"\nparams = {{}}\nsafe_state = [{{ address = \"{address}\", value = \"{value}\" }}]\n"
         );

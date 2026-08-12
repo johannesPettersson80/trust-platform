@@ -2,8 +2,8 @@ fn logical_or_bitwise(op: BinaryOp, left: Value, right: Value) -> Result<Value, 
     match (left, right) {
         (Value::Bool(a), Value::Bool(b)) => {
             let result = match op {
-                BinaryOp::And => a && b,
-                BinaryOp::Or => a || b,
+                BinaryOp::And | BinaryOp::AndThen => a && b,
+                BinaryOp::Or | BinaryOp::OrElse => a || b,
                 BinaryOp::Xor => a ^ b,
                 _ => return Err(RuntimeError::TypeMismatch),
             };

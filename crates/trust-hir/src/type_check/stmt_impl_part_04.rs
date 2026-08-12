@@ -133,11 +133,15 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
         end: i64,
         range: TextRange,
     ) {
-        let (lower, upper) = if start <= end {
-            (start, end)
-        } else {
-            (end, start)
-        };
+        if start > end {
+            self.checker.diagnostics.error(
+                DiagnosticCode::InvalidOperation,
+                range,
+                "CASE range lower bound exceeds upper bound",
+            );
+            return;
+        }
+        let (lower, upper) = (start, end);
         let overlaps_value = tracker
             .ints
             .keys()
@@ -168,7 +172,7 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
             return;
         }
 
-        let Some(target_ref) = self.reference_target_type(target_type) else {
+        let Some(target_ref) = self.reference_attempt_operand(target_type) else {
             self.checker.diagnostics.error(
                 DiagnosticCode::TypeMismatch,
                 target.text_range(),
@@ -181,7 +185,7 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
             return;
         }
 
-        let Some(source_ref) = self.reference_target_type(value_type) else {
+        let Some(source_ref) = self.reference_attempt_operand(value_type) else {
             self.checker.diagnostics.error(
                 DiagnosticCode::TypeMismatch,
                 value.text_range(),
@@ -190,12 +194,24 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
             return;
         };
 
-        if !self
-            .checker
-            .reference_types_compatible(target_ref, source_ref)
-        {
-            let target_name = self.checker.type_name(target_ref);
-            let source_name = self.checker.type_name(source_ref);
+        let compatible = match (target_ref, source_ref) {
+            (ReferenceAttemptOperand::Pointer(target), ReferenceAttemptOperand::Pointer(source)) => {
+                self.checker.resolve_alias_type(target)
+                    == self.checker.resolve_alias_type(source)
+            }
+            (ReferenceAttemptOperand::Pointer(_), _)
+            | (_, ReferenceAttemptOperand::Pointer(_)) => false,
+            (target, source) => {
+                let target = target.target();
+                let source = source.target();
+                self.checker.reference_types_compatible(target, source)
+                    || self.checker.reference_types_compatible(source, target)
+            }
+        };
+
+        if !compatible {
+            let target_name = self.checker.type_name(target_ref.target());
+            let source_name = self.checker.type_name(source_ref.target());
             self.checker.diagnostics.error(
                 DiagnosticCode::TypeMismatch,
                 value.text_range(),
@@ -207,11 +223,14 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
         }
     }
 
-
-    fn reference_target_type(&self, type_id: TypeId) -> Option<TypeId> {
+    fn reference_attempt_operand(&self, type_id: TypeId) -> Option<ReferenceAttemptOperand> {
         let resolved = self.checker.resolve_alias_type(type_id);
         match self.checker.symbols.type_by_id(resolved)? {
-            Type::Reference { target } | Type::Pointer { target } => Some(*target),
+            Type::Reference { target } => Some(ReferenceAttemptOperand::Reference(*target)),
+            Type::Pointer { target } => Some(ReferenceAttemptOperand::Pointer(*target)),
+            Type::Class { .. } | Type::FunctionBlock { .. } | Type::Interface { .. } => {
+                Some(ReferenceAttemptOperand::Object(resolved))
+            }
             _ => None,
         }
     }
@@ -244,4 +263,19 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
         }
     }
 
+}
+
+#[derive(Clone, Copy)]
+enum ReferenceAttemptOperand {
+    Reference(TypeId),
+    Pointer(TypeId),
+    Object(TypeId),
+}
+
+impl ReferenceAttemptOperand {
+    fn target(self) -> TypeId {
+        match self {
+            Self::Reference(target) | Self::Pointer(target) | Self::Object(target) => target,
+        }
+    }
 }

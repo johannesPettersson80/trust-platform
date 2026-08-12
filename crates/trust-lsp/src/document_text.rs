@@ -212,3 +212,7 @@ pub fn apply_content_changes(
     }
     Ok(updated)
 }
+
+#[cfg(test)]
+#[path = "document_text/contract_tests.rs"]
+mod contract_tests;

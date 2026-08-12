@@ -7,6 +7,7 @@ import contextlib
 import hashlib
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import tarfile
@@ -125,7 +126,9 @@ def validate_plan(root: Path, plan: Mapping[str, Any]) -> list[str]:
                 "discovery_id": test.get("discovery_id"),
                 "path": test.get("path"),
                 "name": test.get("name"),
-                "command": " ".join(str(value) for value in test.get("command", [])),
+                "command": shlex.join(
+                    str(value) for value in test.get("command", [])
+                ),
             }
             for field, expected in expected_fields.items():
                 if catalog_row.get(field) != expected:

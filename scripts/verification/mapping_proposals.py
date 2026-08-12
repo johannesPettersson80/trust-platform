@@ -63,6 +63,48 @@ def build_mapping_proposals(
             candidate.get("candidate_invariant_ids"),
             f"{discovery_id} candidate invariants",
         )
+        exact_behavior_refs = None
+        if "exact_behavior_refs" in candidate:
+            exact_behavior_refs = _required_string_array(
+                candidate.get("exact_behavior_refs"),
+                f"{discovery_id} exact behaviors",
+            )
+            if not exact_behavior_refs:
+                raise ValueError(
+                    f"{discovery_id} exact behavior references must not be empty"
+                )
+            for behavior_ref in exact_behavior_refs:
+                match = BEHAVIOR_REF_RE.fullmatch(behavior_ref)
+                if match is None:
+                    raise ValueError(
+                        f"{discovery_id} exact behavior reference is invalid: "
+                        f"{behavior_ref}"
+                    )
+                exact_invariant_id, raw_index = match.groups()
+                if exact_invariant_id not in invariant_ids:
+                    raise ValueError(
+                        f"{discovery_id} exact behavior reference does not name "
+                        f"a candidate invariant: {behavior_ref}"
+                    )
+                exact_invariant = invariants.get(exact_invariant_id)
+                if exact_invariant is None:
+                    raise ValueError(
+                        f"{discovery_id} exact behavior reference names unknown "
+                        f"invariant: {behavior_ref}"
+                    )
+                exact_behaviors = exact_invariant.get("behavior")
+                if (
+                    not isinstance(exact_behaviors, Sequence)
+                    or isinstance(exact_behaviors, (str, bytes))
+                    or int(raw_index) >= len(exact_behaviors)
+                ):
+                    raise ValueError(
+                        f"{discovery_id} exact behavior reference does not resolve: "
+                        f"{behavior_ref}"
+                    )
+            exact_behavior_ref_set = set(exact_behavior_refs)
+        else:
+            exact_behavior_ref_set = None
         behavior_refs: list[str] = []
         oracle_refs: set[str] = set()
         rationales: list[str] = []
@@ -88,10 +130,16 @@ def build_mapping_proposals(
             for index, behavior in enumerate(behaviors):
                 if not isinstance(behavior, Mapping):
                     raise ValueError(f"{invariant_id} behavior {index} is not a table")
+                behavior_ref = f"{invariant_id}#behavior:{index}"
+                if (
+                    exact_behavior_ref_set is not None
+                    and behavior_ref not in exact_behavior_ref_set
+                ):
+                    continue
                 rationale = _required_string(
                     behavior, "rationale", f"{invariant_id} behavior {index}"
                 )
-                behavior_refs.append(f"{invariant_id}#behavior:{index}")
+                behavior_refs.append(behavior_ref)
                 rationales.append(rationale)
                 if behavior.get("outcome") == "reject":
                     failure_rationales.append(rationale)
@@ -170,6 +218,32 @@ def build_mapping_proposals(
                 "source_behavior_refs": sorted(behavior_refs),
             },
         }
+        authority_route_digest = candidate.get("authority_route_digest")
+        if authority_route_digest is not None:
+            if not _is_digest(authority_route_digest):
+                raise ValueError(
+                    f"{discovery_id} authority route digest must be tagged SHA-256"
+                )
+            if exact_behavior_refs is None:
+                raise ValueError(
+                    f"{discovery_id} authority route requires exact behavior references"
+                )
+            if semantic_payload["specified_code_ids"]:
+                raise ValueError(
+                    f"{discovery_id} authority route must preserve code gaps"
+                )
+            if (
+                not semantic_payload["spec_gap_code_ids"]
+                or not semantic_payload["spec_gap_refs"]
+            ):
+                raise ValueError(
+                    f"{discovery_id} authority route must preserve non-empty code gaps"
+                )
+            semantic_payload.update(
+                {
+                    "authority_route_digest": authority_route_digest,
+                }
+            )
         proposal_digest = proposal_payload_digest(semantic_payload)
         proposal_id = (
             f"MAP_CAND_{discovery_id.removeprefix('DISC_')}_"
@@ -380,6 +454,35 @@ def validate_mapping_quarantine(
                 )
             elif not isinstance(behaviors, Sequence) or int(raw_index) >= len(behaviors):
                 failures.append(f"{label} behavior reference does not resolve: {behavior_ref}")
+
+        if "authority_route_digest" in proposal:
+            if not _is_digest(proposal.get("authority_route_digest")):
+                failures.append(
+                    f"{label} requires a tagged SHA-256 authority_route_digest"
+                )
+            specified_code_ids = _string_list(
+                proposal.get("specified_code_ids"),
+                f"{label} specified_code_ids",
+                failures,
+            )
+            if specified_code_ids:
+                failures.append(f"{label} authority route must preserve code gaps")
+            spec_gap_code_ids = _string_list(
+                proposal.get("spec_gap_code_ids"),
+                f"{label} spec_gap_code_ids",
+                failures,
+                nonempty=True,
+            )
+            spec_gap_refs = _string_list(
+                proposal.get("spec_gap_refs"),
+                f"{label} spec_gap_refs",
+                failures,
+                nonempty=True,
+            )
+            if not spec_gap_code_ids or not spec_gap_refs:
+                failures.append(
+                    f"{label} authority route must preserve non-empty code gaps"
+                )
 
         suggestions = proposal.get("suggestions")
         if not isinstance(suggestions, Mapping):

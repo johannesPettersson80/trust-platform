@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import errno
 import json
 import os
+import subprocess
+import sys
 import tempfile
+import textwrap
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -17,6 +21,84 @@ from scripts.verification.mapping_transaction import (
 
 
 class MappingTransactionTests(unittest.TestCase):
+    def test_emfile_parent_open_propagates_errno(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "nested").mkdir()
+            root_fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY)
+            original_open = os.open
+
+            def exhausted_open(path, flags, mode=0o777, *, dir_fd=None):
+                if path == "nested" and dir_fd is not None:
+                    raise OSError(errno.EMFILE, "too many open files")
+                return original_open(path, flags, mode, dir_fd=dir_fd)
+
+            try:
+                with patch.object(os, "open", side_effect=exhausted_open):
+                    with self.assertRaises(OSError) as raised:
+                        mapping_transaction._open_target(
+                            root_fd,
+                            "nested/file",
+                            create_parent=False,
+                        )
+            finally:
+                os.close(root_fd)
+
+            self.assertEqual(errno.EMFILE, raised.exception.errno)
+
+    def test_precondition_validation_uses_bounded_descriptors(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            inputs = root / "inputs"
+            inputs.mkdir()
+            for index in range(80):
+                (inputs / f"source-{index}.txt").write_bytes(
+                    f"source-{index}".encode()
+                )
+            (root / "catalog.toml").write_bytes(b"old catalog")
+            script = textwrap.dedent(
+                """
+                import resource
+                import sys
+                from pathlib import Path
+
+                from scripts.verification.mapping_transaction import (
+                    apply_mapping_transaction,
+                )
+
+                root = Path(sys.argv[1])
+                _, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+                resource.setrlimit(resource.RLIMIT_NOFILE, (48, hard))
+                expected = {
+                    f"inputs/source-{index}.txt":
+                        f"source-{index}".encode()
+                    for index in range(80)
+                }
+                apply_mapping_transaction(
+                    root=root,
+                    replacements={"catalog.toml": b"new catalog"},
+                    expected_originals=expected,
+                    validate=lambda: [],
+                )
+                """
+            )
+
+            completed = subprocess.run(
+                [sys.executable, "-c", script, str(root)],
+                cwd=Path(__file__).resolve().parents[2],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            self.assertEqual(0, completed.returncode, completed.stderr)
+            self.assertEqual(b"new catalog", (root / "catalog.toml").read_bytes())
+            for index in range(80):
+                self.assertEqual(
+                    f"source-{index}".encode(),
+                    (inputs / f"source-{index}.txt").read_bytes(),
+                )
+
     def test_success_replaces_complete_batch_and_removes_journal(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

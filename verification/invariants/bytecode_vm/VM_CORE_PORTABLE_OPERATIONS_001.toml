@@ -1,0 +1,100 @@
+schema_version = 1
+id = "VM_CORE_PORTABLE_OPERATIONS_001"
+title = "Portable operators preserve date-time and unary contracts"
+area = "bytecode_vm"
+risk = "wrong_result"
+status = "mapped"
+owner = "trust-runtime-core"
+last_reviewed = "2026-07-30"
+claim = "Portable unary, duration, date-time, scaling, and ordering operations preserve declared runtime families, use checked range semantics, and reject invalid cross-family or non-numeric inputs."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = [
+  "docs/specs/07-standard-functions.md",
+  "docs/specs/10-runtime-semantics.md",
+  "crates/trust-runtime-core/src/program_model/ops.rs",
+  "crates/trust-runtime-core/src/program_model/ops/contracts.rs",
+  "crates/trust-runtime-core/src/program_model/ops/time_ops.rs",
+]
+tests = ["TEST_AUTO_281A41CD73A6F672999D", "TEST_AUTO_2A67E88F09F198B1E480", "TEST_AUTO_588940114336A78A3FB8", "TEST_AUTO_A564071BE41467742A6C", "TEST_AUTO_F6FD49FB0D4D3A6B24D4"]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_tests", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_VM_VALUE_SEMANTICS_001", "SPEC_IEC_STANDARD_FUNCTIONS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_VM_VALUE_SEMANTICS_001#6-13-portable-date-and-time-operator-contract"
+
+[[behavior]]
+partition = { equals = "DURATION_ADD_SUB_CHECKED_WIDTH" }
+case_family = "happy_path"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#6-13-portable-date-and-time-operator-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "TIME and LTIME addition or subtraction preserves its width and signed nanosecond result, while mixed widths are rejected and an i64 result overflow produces RuntimeError::Overflow."
+
+[[behavior]]
+partition = { equals = "SHORT_DATE_TIME_PROFILE_ARITHMETIC" }
+case_family = "happy_path"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#6-13-portable-date-and-time-operator-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "TOD and DT duration arithmetic converts toward zero to whole profile ticks; DATE, TOD, and DT same-family subtraction produces the checked TIME difference; zero resolution and out-of-range ticks reject."
+
+[[behavior]]
+partition = { equals = "LONG_DATE_TIME_NANOSECOND_ARITHMETIC" }
+case_family = "happy_path"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#6-13-portable-date-and-time-operator-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "LTOD and LDT duration arithmetic operates in signed nanoseconds, and LDATE, LTOD, and LDT same-family subtraction produces an LTIME difference without wrapping."
+
+[[behavior]]
+partition = { equals = "TIME_SCALE_CHECKED_TRUNCATION" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#6-13-portable-date-and-time-operator-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "TIME and LTIME scaling accepts numeric factors and truncates toward zero, while zero division, non-numeric factors, non-finite results, and range overflow return their documented RuntimeError."
+
+[[behavior]]
+partition = { equals = "DATE_TIME_ORDERING_MATCHED_FAMILY" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#6-13-portable-date-and-time-operator-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "All eight duration and date-time families compare their stored signed value when tags match, while cross-family ordering returns RuntimeError::TypeMismatch."
+
+[[behavior]]
+partition = { equals = "UNARY_TAG_AND_ERROR_CONTRACT" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-declared-type-materialization"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Unary sign and bitwise operations preserve the operand runtime tag, checked signed negation overflows at the minimum value, and unsupported operand tags return RuntimeError::TypeMismatch."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Focused tests are written and green; catalog binding and dynamic assertion trace are pending."
+
+[[coverage.cells]]
+dimension = "boundary_high"
+state = "gap_open"
+rationale = "Date-time and scaling overflow assertions await catalog binding and trace evidence."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Cross-family date-time, non-numeric scaling, and invalid unary assertions await catalog binding and trace evidence."

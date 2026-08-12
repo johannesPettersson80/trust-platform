@@ -1,0 +1,171 @@
+schema_version = 1
+id = "VM_CORE_PORTABLE_VALUE_CONSTRUCTION_001"
+title = "Portable runtime value construction preserves declared tags and compound identity"
+area = "bytecode_vm"
+risk = "wrong_result"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-30"
+claim = "Primitive adapters and declared enum, structure, union, array, reference, and interface construction preserve exact runtime tags and canonical type identity while rejecting registry, shape, recursive type, and serialized-data drift without a partial value."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["docs/specs/10-runtime-semantics.md", "crates/trust-runtime-core/src/value/types.rs", "crates/trust-runtime-core/src/value/types/tests.rs"]
+tests = ["TEST_AUTO_0CACB9FEE74B10D494F9", "TEST_AUTO_574E9B804AA64FB11E98", "TEST_AUTO_5EFC33A9D55E26BB0DDE", "TEST_AUTO_C8DB936A61AF426588F4", "TEST_AUTO_DDCB43AF3B442457D688", "TEST_AUTO_F12B329DE2E7136B909B"]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_tests", "hir_feature_trace", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_VM_VALUE_SEMANTICS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_VM_VALUE_SEMANTICS_001#2-2-compound-type-values"
+
+[[behavior]]
+partition = { equals = "PRIMITIVE_ADAPTER_EXACT_RUNTIME_TAG" }
+case_family = "happy_path"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-2-compound-type-values"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Each supported Rust primitive adapter materializes the exact documented PLC runtime tag and boundary value."
+
+[[behavior]]
+partition = { equals = "CANONICAL_ENUM_CONSTRUCTION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-2-compound-type-values"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Enum construction resolves aliases and case variants to the canonical enum type, variant spelling, and numeric value."
+
+[[behavior]]
+partition = { equals = "ENUM_NUMERIC_OR_VARIANT_REJECTION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-2-compound-type-values"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "An unknown enum variant or mismatched serialized numeric value is rejected without substituting an enum value."
+
+[[behavior]]
+partition = { equals = "CANONICAL_STRUCTURE_CONSTRUCTION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-2-compound-type-values"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Structure construction resolves aliases and field casing while preserving declared field order and values."
+
+[[behavior]]
+partition = { equals = "STRUCTURE_SHAPE_OR_TYPE_REJECTION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-2-compound-type-values"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Missing, extra, or incorrectly typed fields reject structure construction without producing a partial value."
+
+[[behavior]]
+partition = { equals = "CANONICAL_ARRAY_CONSTRUCTION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-2-compound-type-values"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Array construction resolves aliases and preserves declared bounds, element count, element tags, and nested structure identity."
+
+[[behavior]]
+partition = { equals = "ARRAY_BOUNDS_COUNT_OR_TYPE_REJECTION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-2-compound-type-values"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Invalid bounds, wrong element count, or element type drift rejects array construction without producing a partial value."
+
+[[behavior]]
+partition = { equals = "INTERFACE_NULL_OR_INSTANCE_COMPATIBILITY" }
+case_family = "happy_path"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-2-compound-type-values"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A declared interface accepts null and instance runtime values and rejects unrelated primitive tags."
+
+[[behavior]]
+partition = { equals = "REGISTRY_KIND_AND_ALIAS_INTEGRITY" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Unknown IDs or names, a declaration of the wrong kind, and alias cycles reject array, aggregate, and enum construction before any value is returned."
+
+[[behavior]]
+partition = { equals = "CANONICAL_UNION_CONSTRUCTION_AND_ACCESS" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Union input is canonicalized to declared type identity, field spelling, and order; subsequent lookup and mutation use that stored canonical spelling."
+
+[[behavior]]
+partition = { equals = "COMPOUND_RECURSIVE_DECLARED_TYPE_MATCH" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Declared-type matching requires exact elementary tags, inclusive subrange bounds, canonical compound identity, recursively matching members, and exact array dimensions."
+
+[[behavior]]
+partition = { equals = "ENUM_EQUALITY_CANONICAL_TYPE_AND_NUMBER" }
+case_family = "happy_path"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Runtime enum equality uses canonical type name and numeric value, while stored variant spelling remains display data."
+
+[[behavior]]
+partition = { equals = "CONSTRUCTION_ERROR_DIAGNOSTIC_IDENTITY" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Every construction and enum error renders stable identity-bearing text, and enum-error conversion preserves the original error."
+
+[[behavior]]
+partition = { equals = "ARRAY_EXTENT_NOT_REPRESENTABLE_BY_USIZE" }
+case_family = "resource_limit"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "An inclusive array extent that cannot be represented by the target usize is rejected as InvalidArrayBounds without allocation or partial construction."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Primitive and compound construction assertions await complete catalog binding and dynamic trace evidence."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Enum, structure, array, recursive matching, and stable diagnostic assertions await complete catalog binding and dynamic trace evidence."
+
+[[coverage.cells]]
+dimension = "extra_or_unknown"
+state = "gap_open"
+rationale = "Unknown registry identity, wrong declaration kind, and alias-cycle assertions await catalog binding and dynamic trace evidence."
+
+[[coverage.cells]]
+dimension = "resource_limit"
+state = "gap_open"
+rationale = "Unrepresentable array extent rejection awaits catalog binding and dynamic trace evidence."

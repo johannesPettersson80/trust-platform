@@ -16,7 +16,7 @@ fn test_additional_keywords() {
     let tokens = lex(
         "CHAR WCHAR LDATE ANY_DERIVED ANY_ELEMENTARY ANY_MAGNITUDE ANY_UNSIGNED \
              ANY_SIGNED ANY_DURATION ANY_CHARS ANY_CHAR EN ENO STEP END_STEP INITIAL_STEP \
-             TRANSITION END_TRANSITION FROM R_EDGE F_EDGE",
+             TRANSITION END_TRANSITION FROM R_EDGE F_EDGE OVERLAP overlap",
     );
     let kinds: Vec<_> = tokens
         .iter()
@@ -47,6 +47,8 @@ fn test_additional_keywords() {
             TokenKind::KwFrom,
             TokenKind::KwREdge,
             TokenKind::KwFEdge,
+            TokenKind::KwOverlap,
+            TokenKind::KwOverlap,
         ]
     );
 }

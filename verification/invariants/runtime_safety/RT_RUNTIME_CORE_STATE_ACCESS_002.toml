@@ -1,0 +1,145 @@
+schema_version = 1
+id = "RT_RUNTIME_CORE_STATE_ACCESS_002"
+title = "Runtime core state and accessors preserve live identity and atomic mutation"
+area = "runtime_safety"
+risk = "silent_corruption"
+status = "specified"
+owner = "trust-runtime"
+last_reviewed = "2026-08-01"
+claim = "Runtime core construction, registration, time, faults, metadata, debug frames, using resolution, variable access, connector projections, health publication, and VM controls preserve exact live state and fail atomically."
+proof_level = "S0"
+contract_kind = "state_machine"
+source_refs = ["docs/specs/10-runtime-semantics.md", "docs/specs/11-runtime-engine.md", "crates/trust-runtime/src/runtime/core"]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["catalog_mapping", "focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_SEMANTICS_001", "SPEC_RUNTIME_ENGINE_001"]
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_SEMANTICS_001#runtime-execution-engine"
+
+[[behavior]]
+partition = { equals = "DEFAULT_CORE_AND_BUILTIN_STATE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#runtime-execution-engine"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Construction establishes the documented default runtime state and built-in function-block definitions."
+[[behavior]]
+partition = { equals = "PROGRAM_TASK_AND_BACKGROUND_REGISTRATION" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#runtime-execution-engine"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Program registration materializes and publishes its instance, tasks preserve sampled and thread identities, and a background thread is allocated only for unscheduled programs."
+[[behavior]]
+partition = { equals = "CASE_INSENSITIVE_DECLARATION_AND_RESOURCE_IDENTITY" }
+case_family = "encoding_or_unicode"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#runtime-execution-engine"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Declaration maps use case-insensitive lookup while replacing case-only keys, and public resource identity preserves configured spelling."
+[[behavior]]
+partition = { equals = "LOGICAL_TIME_DEADLINE_TIMING_AND_FAULT_LIFECYCLE" }
+case_family = "time_or_clock_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#scan-cycle-architecture"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "expected_delta" }
+rationale = "Logical time advances with signed saturation, deadlines round-trip outside debug pause, timing reset preserves threads while clearing history, and fault state retains its original fault until explicit clear."
+[[behavior]]
+partition = { equals = "ISOLATED_METADATA_AND_VIRTUAL_DEBUG_LOCATION" }
+case_family = "encoding_or_unicode"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#runtime-execution-engine"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Metadata snapshots are isolated from later mutation; virtual file labels are closed and unsigned; debug locations resolve explicit and virtual labels."
+[[behavior]]
+partition = { equals = "FRAME_SCOPED_DEBUG_EVALUATION" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#runtime-execution-engine"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Debug evaluation targets the requested frame without reordering and rejects a missing frame before write."
+[[behavior]]
+partition = { equals = "USING_FRAME_OVERRIDE_FALLBACK_AND_REMOVAL" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#runtime-execution-engine"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Class and function-block method using frames honor the nearest override and fallback, while unknown or removed frames reject."
+[[behavior]]
+partition = { equals = "ATOMIC_DIRECT_PARTIAL_AND_MULTIBYTE_VARIABLE_ACCESS" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#runtime-execution-engine"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "expected_delta", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Direct and partial bindings preserve exact identity and every multibyte width, while bounds, type, or null-reference failures leave storage and projections unchanged."
+[[behavior]]
+partition = { equals = "LIVE_STORAGE_INITIALIZER_AND_PROCESS_IMAGE_VIEWS" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#runtime-execution-engine"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "expected_delta", diagnostics = "none", status = "unchanged" }
+rationale = "Storage registry and initializer views share live runtime-owned components, initialization context uses those components, and process-image mutation is visible through the immutable view."
+[[behavior]]
+partition = { equals = "ORDERED_IO_HEALTH_PUBLICATION_AND_SINK_REMOVAL" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#io-drivers"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "expected_delta" }
+rationale = "I/O health publication replaces the snapshot in driver order and removing the sink stops further publication."
+[[behavior]]
+partition = { equals = "CONNECTOR_LIFECYCLE_AND_HASH_PROJECTION" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-launcher-input-validation-and-startup-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Unconfigured ADS and empty ADS/OPC UA lifecycle projections are stable, reset clears OPC UA state and hash, and no active snapshot is fabricated."
+[[behavior]]
+partition = { equals = "BACKEND_AND_VM_PROFILE_CONTROL_STATE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#runtime-execution-engine"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Execution backend updates reach the metrics sink; lowering cache, register profile, and tier-1 toggles and resets preserve configuration; VM POU name requires a loaded module."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Focused core-construction tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "Focused registration, view, health, connector, using-frame, and VM-control tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "encoding_or_unicode"
+state = "gap_open"
+rationale = "Focused identity, metadata, and label tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "time_or_clock_fault"
+state = "gap_open"
+rationale = "Focused time, deadline, timing, and fault-state tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "auth_or_permission"
+state = "gap_open"
+rationale = "Focused frame-scoped debug tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "boundary_high"
+state = "gap_open"
+rationale = "Focused variable-access width and atomic-failure tests exist, but catalog binding and dynamic proof are pending."

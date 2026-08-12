@@ -1139,7 +1139,13 @@ deterministic ranking signals and invariant-demand counts. Name, path, command
 text, and scanner `reference_candidates` may break ranking ties only; they
 cannot introduce a candidate invariant absent from the execution/code-spec
 join. Facts whose observed code is entirely `spec_gap` produce specification
-demand, not mapping proposals.
+demand, not mapping proposals. One explicit exception exists for a reviewed
+test-to-invariant authority route: the route must bind the exact source commit,
+focused trace digest, C4 demand identity, live scanner identity, specified
+invariant, oracle, and exact behavior rows. It may add only a quarantined C2
+test-mapping candidate. The original C4 demand and its code/spec-gap rankings
+remain present and open; the route cannot write the code-spec map, close a
+specification gap, or promote catalog or proof state.
 
 `verification/test-catalog-proposals.toml` is a quarantined generated plane.
 Pending proposals remain `reviewed_nonmapping`, are absent from
@@ -1148,6 +1154,9 @@ proof, claim, and zero-equation counter. Suggested test class, expected result,
 and expected failure mode are non-authoritative review aids copied from exact
 oracle-backed behavior references; they are forbidden from accepted metadata
 until a reviewer confirms the test assertions against those exact references.
+Route-backed proposals additionally retain the authenticated route digest in
+their semantic payload while using the existing `behavior_refs` field as the
+single canonical serialization of the exact selected behaviors.
 Rejected proposal digests are retained in
 `verification/test-catalog-mapping-decisions.toml` and suppress identical
 candidates until their discovery identity, candidate evidence, invariant
@@ -1255,6 +1264,23 @@ from a clean tracked checkout before projection and again inside one
 recoverable compare-and-swap application. Acceptance closes the selected
 code-to-authority mapping debt only; execution, reachability, mutation
 sensitivity, adequacy, and broad-gate proof remain separate.
+
+Reviewed trace-backed authority selection is another closed transaction. Each
+selected row binds one live `spec_gap` code identity to an exact eligible
+specification fragment, reviewed invariant IDs, and scanner discovery IDs.
+Discovery identities are resolved through the frozen denominator: a
+`catalog_mapped` review must reuse its exact `catalog_test_id`, including a
+curated non-`TEST_AUTO` identity, while only a nonmapped discovery may use the
+deterministic scanner-derived test identity. Substituting a generated ID for a
+curated catalog ID is forbidden. The transaction requires every resolved test
+to exist in the catalog and every selected invariant to carry the reciprocal
+test backlink; otherwise it reports the missing catalog or backlink set and is
+not canonical-apply ready. It may change only the selected mapping's
+specification fields and review date, rebuilds all digest-bound review inputs
+before mutation, and applies the canonical replacement through the recoverable
+mapping transaction. It does not create catalog rows, invariant backlinks,
+tests, execution evidence, reachability, mutation sensitivity, or broad-gate
+proof.
 
 All three Phase 2 reports are report-only. A complete, exhaustively reviewed
 denominator returns success; corrupt
@@ -1802,6 +1828,104 @@ output; the focused validator reconstructs result labels and summary arithmetic
 instead of trusting the ledger row or artifact hash alone. This slice-level
 assertion evidence does not close the separately budgeted Phase 18 mutation
 adequacy class.
+
+### Private pre-tool-use enforcement contract
+
+The canonical private hook at `.claude/hooks/pre_tool_use_gate.py` enforces the
+repository's remote-builder rule before a Bash command executes. It is a
+private bootstrap input because `.claude/` is intentionally not transferred by
+Git, but its behavior is part of `SPEC_VERIFICATION_PROGRAM_CONTRACT_001` and
+`VERIFICATION_PRIVATE_HOOK_001`.
+
+The hook consumes one UTF-8 JSON object from standard input. A classifiable
+Bash payload has:
+
+- a top-level object;
+- `tool_input` as an object; and
+- `tool_input.command` as a nonempty string without NUL.
+
+Unknown top-level fields do not affect classification. Empty input, invalid
+UTF-8 or JSON, a non-object root, a missing or wrong-kind `tool_input`, a
+missing or non-string command, an empty/blank command, a NUL-bearing command,
+or input larger than 1 MiB is an unclassifiable enforcement request. It is
+denied, never treated as permission to continue.
+
+The command classifier applies shell lexical structure before matching. It
+must distinguish executable words from quoted data and comments, join adjacent
+quoted/unquoted fragments as the shell does, and inspect every top-level
+command segment. It denies a local invocation of:
+
+- `just test`, `just test-all`, `just clippy`, or `just fmt`;
+- `cargo build`, `cargo test`, `cargo clippy`, `cargo check`, `cargo bench`,
+  `cargo mutants`, or `cargo fmt`; and
+- `npm test`, `npm run test`, `npm run compile`, or `npm run lint`.
+
+Executable wrappers such as `command`, `env`, `bash -c`, and `sh -c`, absolute
+tool paths, newlines, pipelines, lists, and subshells do not create a bypass.
+If the executable or relevant subcommand is assembled through an environment
+variable, command substitution, backticks, or another expansion that prevents
+static classification, the request is denied. Literal mentions in an argument,
+quoted search pattern, or shell comment are not invocations and are allowed.
+
+A heavy command is allowed only when that exact invocation is contained in the
+remote command payload of `ssh` whose resolved destination argument is exactly
+`trust-builder`. Supported SSH options may precede the destination. Merely
+containing the text `ssh trust-builder`, running a harmless remote command
+before a local heavy command, using a different or dynamically expanded host,
+or placing the heavy invocation outside the remote payload does not qualify.
+Every segment is classified independently.
+
+The decision protocol is:
+
+- exit `0`, with no stdout, only for a classifiable allowed request;
+- exit `2`, with no stdout and a concise stderr reason, for policy denial or
+  unclassifiable input; and
+- any unexpected internal or dependency failure must terminate nonzero and
+  identify hook failure on stderr. It must never be caught and converted to an
+  allow decision.
+
+The hook uses only Python's standard library. If its interpreter, canonical
+file, or bootstrap digest is unavailable, the launcher/bootstrap gate must fail
+before tool execution; absence of the enforcement path is not an allow state.
+The tracked digest manifest and checkout bootstrap prove presence and identity,
+while subprocess behavior tests prove input, bypass, and decision semantics.
+Neither proof substitutes for the other.
+
+### Focused trace control-plane contract
+
+The Phase 18 focused trace control plane may execute and authenticate only the
+explicit requested scanner identities. Its trace runner, receipt validator,
+document assembler, and mapping-candidate generator are verification tooling;
+they never create specification authority, catalog mappings, proof claims, or
+debt closure by themselves.
+
+An authenticated trace receipt binds the exact sorted unique request set,
+trace document, resolved runtime identities, raw attempt/profile/executable
+evidence, active LLVM tool identities, and covered source bytes. Missing,
+duplicate, noncanonical, mismatched, forged, or hand-authored observed fields
+are rejected. Receipt output is written atomically and a different existing
+receipt is never overwritten.
+
+Focused execution runs exactly the requested live identities under the frozen
+source/input digest and requested target/profile. It may reuse only a complete
+attempt whose identity, executable, profile, and command match exactly.
+Incomplete attempts are not proof; unsupported identities remain explicit.
+The runner emits one source projection from observed coverage and does not
+modify catalog, denominator, map, gap, invariant, risk, evidence, or claim
+metadata.
+
+Trace document assembly requires equality of the request, attempt, and export
+sets. Test/binary identity, profile, duration, exit status, and attribution are
+validated. Only a zero-exit attributed observation is `observed`; a missing,
+duplicate, failed, or forged attempt fails closed and cannot be promoted by a
+summary field.
+
+Mapping-candidate generation accepts only an authenticated receipt and source
+snapshot. Candidate ordering and provenance are deterministic, outputs remain
+under the quarantine root, and no candidate operation may write catalog,
+denominator, code-map, gap, invariant, risk, evidence, or claim authority.
+Explicit reviewed authority and the atomic mapping transaction remain separate
+downstream gates.
 
 ### Phase 18 Fact-Level Burn-Down Ledger Contract
 

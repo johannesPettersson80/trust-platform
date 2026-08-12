@@ -205,3 +205,7 @@ fn parse_pem_key(pem: &[u8], label: &str) -> Result<PrivateKeyDer<'static>, Runt
     PrivateKeyDer::from_pem_slice(pem)
         .map_err(|err| RuntimeError::ControlError(format!("parse {label}: {err}").into()))
 }
+
+#[cfg(test)]
+#[path = "contract_tests.rs"]
+mod contract_tests;

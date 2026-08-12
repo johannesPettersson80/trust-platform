@@ -78,6 +78,29 @@ MAPPING_BLOCK_RE = re.compile(br"(?m)^\[\[mappings\]\][ \t]*\r?\n")
 SHA256_PREFIX = "sha256:"
 
 
+def _resolved_test_ids(
+    discovery_ids: Sequence[str],
+    denominator_reviews: Mapping[str, Mapping[str, Any]],
+) -> list[str]:
+    resolved = []
+    for discovery_id in discovery_ids:
+        review = denominator_reviews.get(discovery_id)
+        if (
+            isinstance(review, Mapping)
+            and review.get("disposition") == "catalog_mapped"
+        ):
+            catalog_test_id = review.get("catalog_test_id")
+            if not isinstance(catalog_test_id, str) or not catalog_test_id:
+                raise ValueError(
+                    f"{discovery_id} catalog_mapped review requires "
+                    "catalog_test_id"
+                )
+            resolved.append(catalog_test_id)
+        else:
+            resolved.append(_test_id_for_discovery(discovery_id))
+    return resolved
+
+
 @dataclass(frozen=True)
 class AuthoritySelectionApplication:
     """Deterministic replacements and manifest for one reviewed selection."""
@@ -242,10 +265,10 @@ def build_authority_selection_application(
             spec_ref=spec_ref,
             source_id=source_id,
         )
-        test_ids = [
-            _test_id_for_discovery(discovery_id)
-            for discovery_id in discovery_ids
-        ]
+        test_ids = _resolved_test_ids(
+            discovery_ids,
+            denominator_reviews,
+        )
         missing_tests, missing_backlinks = validate_discoveries_and_tests(
             code_id=code_id,
             discovery_ids=discovery_ids,

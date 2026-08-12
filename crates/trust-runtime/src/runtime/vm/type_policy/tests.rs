@@ -233,9 +233,7 @@ fn run_declared_type_case(
         "NONREPRESENTABLE_CONTEXT_INTEGER_TO_REAL" => {
             expect_type_mismatch(14, Value::DInt(16_777_217))
         }
-        "CONTEXTUAL_UNTYPED_NUMERIC_LITERAL_COMMON_TYPE" => {
-            expect_contextual_literal_common_type()
-        }
+        "CONTEXTUAL_UNTYPED_NUMERIC_LITERAL_COMMON_TYPE" => expect_contextual_literal_common_type(),
         "NO_ACCURACY_PRESERVING_COMMON_NUMERIC_TYPE" => {
             expect_no_accuracy_preserving_common_numeric_type()
         }
@@ -252,9 +250,7 @@ fn run_string_bound_case(
     let key = case_key(case)?;
     let string = primitive_table_with_max(24, 5);
     let outcome = match key {
-        "STRING_3_CONCAT_ASSIGNMENT_TRUNCATION" => {
-            expect_bounded_concat_assignment()
-        }
+        "STRING_3_CONCAT_ASSIGNMENT_TRUNCATION" => expect_bounded_concat_assignment(),
         "FB_INPUT_COPY_IN_LENGTH_6" => expect_result(
             normalize_value_for_type_table(&string, 0, Value::String("abcdef".into()), 0),
             Value::String("abcde".into()),

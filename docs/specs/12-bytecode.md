@@ -137,6 +137,21 @@ the existing execution-timeout category; it does not define a stable public
 error identifier. Deadline/watchdog checks remain independent and may fault an
 invocation before its instruction budget is exhausted.
 
+##### 4.6.1 Exact Boundaries and Counter Arithmetic
+
+An empty `REF_TABLE` and an empty `POU_INDEX` are valid inputs to declared
+resource-limit validation. For every fixed declared-count limit, the exact
+maximum is accepted and the first value above it is rejected. In particular,
+65,536 references are accepted and 65,537 references are rejected with an
+`InvalidSection` diagnostic identifying `REF_TABLE entries` as exceeding the
+fixed resource limit.
+
+Decoded-instruction accounting uses checked addition before either the fixed
+limit comparison or mutation of the accepted total. If incrementing the
+machine-sized counter would overflow, validation returns `InvalidSection` with
+a diagnostic identifying `decoded module instruction count overflow`, and the
+previous total remains unchanged.
+
 ### 5. Section IDs (Version 1.x)
 
 | ID | Name | Required | Purpose |
@@ -701,6 +716,8 @@ Type and partial access:
 - `0x61 SIZEOF_VALUE` (pop value; push byte size as DINT)
 - `0x62 PARTIAL_READ u32` (pop value; push selected bit/byte/word/dword field)
 - `0x63 PARTIAL_WRITE u32` (pop replacement and value; push updated value)
+- `0x64 REFERENCE_ATTEMPT u32` (target type-table index; pop source and push
+  the compatible reference/interface identity or the target family's null)
 
 Debug marker:
 - `0x70 DEBUG_MARK u32` (consume a debug marker index without changing
@@ -712,6 +729,16 @@ unimplemented in STBC 1.1 and are rejected before dispatch: `0x05`, `0x07`,
 Standard-library, function, function-block, and method calls use
 `CALL_NATIVE`; bit shifts and rotates use the registered runtime operations
 rather than those unimplemented bytecode values.
+
+`REFERENCE_ATTEMPT` is the executable form of source `?=`. Its operand must
+name a `Reference` or `Interface` type-table entry. For `REF_TO`, the VM reads
+the source reference's live storage type and accepts an exact target,
+derived-to-base relation, or implemented-interface relation; incompatibility
+pushes `Value::Reference(None)`. For an interface target, the VM checks the
+live instance POU against the class/function-block parent and implemented-
+interface metadata; incompatibility pushes `Value::Null`. A null source always
+produces the target family's null. The opcode does not mutate the assignment
+target itself; the following validated store performs the single write.
 
 Reserved opcode ranges:
 - `0x80-0xEF` reserved for future core extensions.
@@ -820,6 +847,20 @@ runtime-value traps use the stable `runtime_*` identifiers in
 `docs/specs/10-runtime-semantics.md`. `VmTrap::Runtime` preserves the embedded
 runtime error's identifier.
 
+#### 7.4.2 Numeric and Partial-Access Domains
+
+For bytecode stack-shape validation, primitive IDs 6 through 15 inclusive are
+the complete numeric domain. IDs outside that interval, including BOOL,
+bit-string, temporal, string, null, and unknown IDs, are not classified as
+numeric merely because they have a primitive table entry.
+
+The `u32` operand of `PARTIAL_READ` and `PARTIAL_WRITE` packs the partial kind
+in bits 8 and 9 and the zero-based index in bits 0 through 7; all higher bits
+must be zero. Kind 0 accepts bit indices 0 through 63, kind 1 accepts byte
+indices 0 through 7, kind 2 accepts word indices 0 through 3, and kind 3
+accepts dword indices 0 through 1. The validator rejects the first index above
+each range and any operand with bits outside the ten-bit encoding domain.
+
 #### 7.5 Fault Semantics
 
 The executor must fault on:
@@ -867,6 +908,82 @@ The encoder projects source declarations as follows:
 An enum initializer must use a constant payload compatible with its enum base
 type. Any unsupported source construct fails lowering; it is not replaced with
 an unrelated placeholder instruction.
+
+###### 7.5.1.1 Recursive Lowering Classification
+
+The encoder's support and required-seam classification traverses complete
+expression, lvalue, statement, and call-argument shapes. This includes call
+targets, value and writable-target arguments, indexed and dereferenced
+lvalues, `REF` expressions, and `SIZEOF` targets nested inside a returned or
+assigned expression. A plain name with no such descendant is not classified as
+containing a call or `SIZEOF`. This recursive classification prevents a nested
+unsupported construct from being hidden by an otherwise supported parent.
+
+###### 7.5.1.2 RETURN, REF, and Partial-Access Lowering
+
+A bare `RETURN` emits opcode `0x06`. A value-bearing `RETURN` is emitted only
+when the current POU has a resolved return slot; without that slot it remains
+unsupported and no value-return code is emitted. The `REF` builtin requires
+exactly one addressable target. Wrong arity rejects lowering, while one
+resolved writable target emits `LOAD_REF_ADDR` (`0x22`) followed by its
+four-byte reference-table index.
+
+A static partial read first resolves and loads its target, then emits
+`PARTIAL_READ` (`0x62`) followed by the packed four-byte partial-access
+operand. A partial write emits `PARTIAL_WRITE` (`0x63`) with the same operand
+encoding. The kind byte is 0 for bit, 1 for byte, 2 for word, and 3 for dword;
+the selected zero-based index occupies the low byte.
+
+###### 7.5.1.3 Literal Index Projection
+
+Static index projection accepts every signed integer, unsigned integer, and
+bit-string literal width represented by the runtime value model and preserves
+its mathematical value in an `i64` index. A nonliteral expression or a
+nonnumeric literal is not a static literal index and is left for dynamic
+lowering. An unsigned `ULINT` or `LWORD` value above `i64::MAX` rejects static
+projection with an `index literal overflow` diagnostic; it is never wrapped or
+truncated.
+
+###### 7.5.1.4 Public Constructor Debug Projection
+
+All three public `BytecodeModule` runtime constructors emit the same supported
+bytecode version and a module that passes validation. The source-free
+constructor emits no debug sections. When source text is supplied, every
+emitted statement location produces debug sections and uses the deterministic
+fallback label `file_<file_id>`. When matching source paths are also supplied,
+the same debug entry instead resolves to the supplied path. Supplying a source
+and path count mismatch rejects module construction.
+
+###### 7.5.1.5 Decoded Module and Class-Like Encoder Structure
+
+`trust_runtime::bytecode::BytecodeModule` is the public decoded-container
+representation. Its `version`, `flags`, and ordered `sections` fields expose
+the values decoded from or destined for the container described in sections 4
+through 6. Constructing or decoding this structure does not by itself assert
+semantic validity; callers must pass it through the validator before runtime
+application. Rust field layout is not a wire-format or stable ABI promise.
+Wire compatibility is defined only by the encoded byte sequence in this
+specification. Structural equality compares all three exposed components.
+
+The encoder's private `ClassLike` adapter is a structural projection shared by
+class and function-block metadata emission:
+
+- `name()` borrows the exact declared class or function-block identity;
+- `base_name()` returns the declared base identity without changing spelling
+  or assigning different encoder semantics to a function-block base and class
+  base; absence remains `None`; and
+- `interfaces()` borrows the complete declared interface list in source order;
+  and
+- `methods()` borrows the complete method list in declaration order.
+
+These signatures create no independent runtime behavior. Their authority is
+the preservation of already-specified source identities and relationships
+while the class metadata paths in section 7.5.1 emit `TYPE_TABLE` and
+`POU_INDEX`. They must not synthesize a base, reorder or filter methods, or
+rename the owner. The public type declaration and the four private trait
+signatures are structural code facts: their acceptance evidence is exact
+source-to-spec identity and downstream encoder behavior proof, not an invented
+unit test for the existence of a Rust declaration.
 
 #### 7.6 Source-to-Bytecode Fail-Closed Boundary
 
@@ -1024,6 +1141,142 @@ These observations specify configuration, resource, and diagnostic behavior
 only. Cache hits, counters, buffer identity, polling frequency, and prose are
 not Structured Text program outputs and remain excluded from optimized-backend
 semantic equivalence.
+
+#### 7.10 VM Module Materialization and Lookup
+
+After container and semantic validation, VM materialization builds one
+immutable execution view before any POU runs. `STRING_TABLE`, `TYPE_TABLE`,
+`CONST_POOL`, `REF_TABLE`, `POU_INDEX`, and `POU_BODIES` are required at this
+boundary. A missing required section, invalid table reference, duplicate POU
+identity, duplicate owner-local method identity, invalid code range, or
+fixed-limit violation rejects the complete view as `vm_bytecode_decode`; no
+partially indexed module is returned.
+
+POU names are indexed case-insensitively by their declared kind. Program,
+function, function-block, and class names occupy distinct lookup maps. Method
+lookup is case-insensitive within its owning class or function block and does
+not search an unrelated owner. Parameter order, direction, type, default
+constant, return-slot presence, and local-reference range are preserved from
+`POU_INDEX`.
+
+`VAR_META` binds at most one declared type to each reference index. A duplicate
+reference index rejects materialization rather than allowing the later row to
+replace the earlier type. Missing `VAR_META` yields an empty optional type map;
+it does not invent types.
+
+Each `REF_TABLE` row materializes exactly one VM reference:
+
+- GLOBAL, RETAIN, and INSTANCE preserve their offset and path;
+- LOCAL additionally preserves its owning frame identity;
+- IO owner 0, 1, or 2 selects input, output, or memory respectively; any other
+  IO owner rejects materialization;
+- index segments preserve every signed path index; and
+- field segments must resolve their string-table entry and preserve its exact
+  text.
+
+The VM may infer a primary instance owner for a POU only when every statically
+referenced instance slot in that POU names the same owner. Zero owners,
+multiple owners, an unknown opcode, or a truncated operand yields no inferred
+owner. Scanning must consume the complete operand width of every recognized
+opcode, including partial-access operands, so operand bytes are never
+misinterpreted as reference instructions.
+
+Native-call symbol descriptors are parsed once during materialization.
+Successful descriptors preserve the normalized target, ordered expression and
+writable-target arguments, optional formal names, conversion identity, and
+resolved function POU. A parse failure is retained as a failure and produces
+`vm_invalid_native_call` when selected; it is not reparsed into a different
+result during execution.
+
+#### 7.11 Declared Local and Static Initialization
+
+Every stack or optimized VM call initializes its declared frame state before
+the first POU instruction. The initialization plan is selected by exact POU
+identity and declaration kind and is cached only for the current materialized
+module. Replacing or invalidating the module clears the cache; a plan from a
+different module must never be reused.
+
+Frame layout is deterministic:
+
+- a function or value-returning method places its return slot first;
+- function and method parameters follow in declaration order;
+- automatic locals follow the parameters;
+- function-block parameters remain instance fields rather than frame locals;
+  and
+- external locals are not overwritten by automatic initialization.
+
+A NULL return slot receives the declared default; a caller-supplied non-NULL
+return slot is preserved. Parameters already copied into the frame are
+preserved. Automatic locals receive their explicit initializer or declared
+default. Interface-typed slots default to NULL. Class and function-block locals
+create their declared instance; a class local rejects an explicit initializer,
+while a function-block structure initializer applies only reviewed,
+case-insensitively unique input fields. Unknown, duplicate, unwritable, or
+wrong-typed initializer fields reject the call.
+
+Function and method static locals use their qualified static owner and
+initialize at most once. A method's static owner includes both the declaring
+class or function block and method name. Instance-backed static storage stays
+on that runtime instance; otherwise it stays in global storage. A later call
+preserves the stored value and does not re-evaluate the initializer.
+
+Initializer expressions use the same runtime value operations and stable
+errors as executable expressions, with the following closed behavior:
+
+- literals, unary and binary expressions, structures, arrays, `THIS`,
+  `SUPER`, `SIZEOF`, field/index access, dereference, standard functions, and
+  conversions are evaluated from the visible frame and runtime state;
+- frame names resolve case-insensitively in return, parameter, then local
+  order, followed by static, recursive instance, global, and retain storage;
+- a local declared later than the current visible-slot boundary is not
+  readable by an earlier initializer;
+- array repeat groups accept non-negative integer literal counts, reject named
+  repeat arguments, negative counts, and counts that do not fit the host, and
+  preserve the repeated argument order;
+- named fixed and variadic standard-function arguments are reordered to formal
+  order, reject duplicates, unknown or unnamed entries, enforce the required
+  prefix start, and reject holes in a variadic suffix;
+- array index rank and bounds are checked with overflow-safe signed arithmetic;
+  string and wide-string access accepts exactly one integer index; an unsigned
+  or bit-string index above `i64::MAX` reports overflow and is never wrapped to
+  a negative index;
+- a dereferenced NULL reference reports `runtime_null_reference`, while
+  incompatible values and aggregate shapes report the applicable stable type
+  or bounds error; and
+- `SIZEOF` returns DINT, rejects an unknown or unsupported type as a type
+  mismatch, and reports overflow when the byte size does not fit DINT.
+
+An initialization failure identifies the owning POU and variable and aborts
+the call before the first instruction. It does not leave a partially
+initialized automatic frame. Existing persistent static storage and unrelated
+runtime storage remain unchanged.
+
+#### 7.12 Execution Buffers, Budget, Deadline, and Debug Location
+
+The stack and register executors acquire reusable buffers only as an
+allocation optimization. Acquisition returns empty logical stacks, frames,
+registers, and temporary values. Release clears all contents and retains no
+more than the documented pool limit; reuse must not expose a prior execution's
+values or frame identities.
+
+The top-level instruction budget is shared by nested VM calls. Charging exactly
+the remaining budget succeeds and leaves zero; the next charge rejects with
+`runtime_instruction_budget_exceeded`. A rejected charge does not underflow or
+otherwise change the remaining budget. Original bytecode instruction cost is
+charged before the guarded operation commits its mutation, including fused and
+tier-1 forms.
+
+Deadline polling occurs on the first guarded operation and at the documented
+stack/register stride boundaries. A missing or future deadline permits
+execution; an expired deadline rejects before the guarded mutation with
+`runtime_deadline_exceeded`.
+
+Debug lookup is optional and fail-soft. Valid variable metadata creates
+case-preserving symbol-to-reference and first-symbol reference-to-symbol
+lookups. Valid debug entries create exact `(pou_id, code_offset)` source
+locations. A missing optional section or an entry whose string index is
+invalid is omitted without inventing a symbol, file, line, or column. Debug
+lookup never changes execution results.
 
 ### 8. Versioning
 

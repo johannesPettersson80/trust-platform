@@ -129,12 +129,34 @@ impl<'a> BytecodeEncoder<'a> {
                 ParamDirection::Out => 1,
                 ParamDirection::InOut => 2,
             };
-            let default_const_idx = match (&param.default, param.direction) {
-                (Some(expr), ParamDirection::In) => {
-                    let value = self.const_value_from_expr(expr)?;
-                    Some(self.const_index_for(&value)?)
+            let execution_control_default =
+                (param.direction == ParamDirection::In
+                    && param.name.eq_ignore_ascii_case("EN"))
+                    || (param.direction == ParamDirection::Out
+                        && param.name.eq_ignore_ascii_case("ENO"));
+            let default_const_idx = if execution_control_default {
+                Some(self.const_index_for(&crate::value::Value::Bool(true))?)
+            } else {
+                match (&param.default, param.direction) {
+                    (Some(expr), ParamDirection::In | ParamDirection::Out) => {
+                        let value = self.const_value_from_expr(expr)?;
+                        Some(self.const_index_for(&value)?)
+                    }
+                    (None, ParamDirection::In | ParamDirection::Out) => {
+                        let value = crate::harness::initializer::default_value_for_type_id(
+                            self.runtime.storage(),
+                            self.runtime.registry(),
+                            self.runtime.initializer_catalog(),
+                            &self.runtime.profile(),
+                            None,
+                            self.runtime.stdlib(),
+                            param.type_id,
+                        )
+                        .map_err(|error| BytecodeError::InvalidSection(error.to_string().into()))?;
+                        Some(self.const_index_for(&value)?)
+                    }
+                    _ => None,
                 }
-                _ => None,
             };
             out.push(ParamEntry {
                 name_idx,

@@ -5,7 +5,7 @@ area = "bytecode_vm"
 risk = "wrong_result"
 status = "mapped"
 owner = "trust-runtime"
-last_reviewed = "2026-07-29"
+last_reviewed = "2026-07-30"
 claim = "Tier-1 compilation accepts reviewed register blocks with equivalent values, traps, branches, references, calls, and instruction costs, or declines before mutation."
 proof_level = "S0"
 contract_kind = "decision_table"
@@ -22,12 +22,12 @@ source_refs = ["SPEC_BYTECODE_FORMAT_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_BYTECODE_FORMAT_001#tier-1-specialization"
+ref = "SPEC_BYTECODE_FORMAT_001#7-9-2-tier-1-specialization"
 
 [[behavior]]
 partition = { equals = "REVIEWED_BLOCK_EXECUTION" }
 case_family = "happy_path"
-oracle_ref = "SPEC_BYTECODE_FORMAT_001#tier-1-specialization"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#7-9-2-tier-1-specialization"
 outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "expected_delta", diagnostics = "none", status = "unchanged" }
@@ -36,7 +36,7 @@ rationale = "Accepted arithmetic, comparison, boolean, and reference blocks pres
 [[behavior]]
 partition = { equals = "GUARD_MISMATCH_DECLINES" }
 case_family = "wrong_type_or_shape"
-oracle_ref = "SPEC_BYTECODE_FORMAT_001#tier-1-specialization"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#7-9-2-tier-1-specialization"
 outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
@@ -45,7 +45,7 @@ rationale = "A specialization guard mismatch declines the block before mutation 
 [[behavior]]
 partition = { equals = "FUNCTION_AND_FUNCTION_BLOCK_CALLS" }
 case_family = "ordering_or_lifecycle"
-oracle_ref = "SPEC_BYTECODE_FORMAT_001#tier-1-specialization"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#7-9-2-tier-1-specialization"
 outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "expected_delta", diagnostics = "none", status = "unchanged" }
@@ -54,7 +54,7 @@ rationale = "Accepted function, native, and function-block calls preserve argume
 [[behavior]]
 partition = { equals = "DYNAMIC_SELF_AND_SUPER_REFERENCES" }
 case_family = "happy_path"
-oracle_ref = "SPEC_BYTECODE_FORMAT_001#tier-1-specialization"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#7-9-2-tier-1-specialization"
 outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "expected_delta", diagnostics = "none", status = "unchanged" }

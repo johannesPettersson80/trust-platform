@@ -5,8 +5,8 @@ area = "protocols"
 risk = "false_status"
 status = "mapped"
 owner = "trust-runtime"
-last_reviewed = "2026-07-29"
-claim = "Communication discovery, direct probes, symbol trees, and runtime mDNS must preserve their exact scope, origin, source, and evidence limits."
+last_reviewed = "2026-08-01"
+claim = "Communication discovery, request normalization, direct probes, bounded Modbus and MQTT wire parsing, ADS/OPC UA/EtherCAT symbol trees, and runtime mDNS preserve exact scope, origin, source, ordering, authentication, and evidence limits."
 proof_level = "S0"
 contract_kind = "protocol_trace"
 source_refs = ["crates/trust-runtime/src/control/comm_handlers", "crates/trust-runtime/src/host/discovery.rs", "docs/specs/11-runtime-engine.md"]
@@ -95,6 +95,105 @@ outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
 rationale = "An exact ID/name or reviewed instance suffix removes only the matching runtime entry."
+
+[[behavior]]
+partition = { equals = "DISCOVERY_REQUEST_SCOPE_ORIGIN_TIMEOUT_AND_TARGET" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#communication-discovery-scope-and-symbol-browsing"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Discovery requires the documented object shape and closed origin/scope vocabulary, applies defaults only for absent fields, clamps timeout to closed bounds, rejects unknown keys, and preserves read-only active requests."
+
+[[behavior]]
+partition = { equals = "PROTOCOL_ALIAS_TITLE_AND_DEFERRED_REGISTRY" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#communication-discovery-scope-and-symbol-browsing"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Known protocol aliases normalize deterministically, the deferred registry and stable titles are exact, and unknown normalized identity remains distinct from a known deferred protocol."
+
+[[behavior]]
+partition = { equals = "CIDR_SOCKET_AND_ENDPOINT_PARSE_BOUNDS" }
+case_family = "resource_limit"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#communication-discovery-scope-and-symbol-browsing"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "IPv4 CIDRs, socket targets, and OPC UA endpoints accept only canonical authority forms and closed port/prefix bounds; bounded enumeration is ascending and invalid or oversized forms reject before network activity."
+
+[[behavior]]
+partition = { equals = "MODBUS_SAFE_READ_AND_WIRE_RESPONSE" }
+case_family = "hardware_or_network_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#communication-discovery-scope-and-symbol-browsing"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "Safe-read defaults and bounds, MBAP/PDU construction, transaction/unit/protocol/function/length checks, and explicit exception parsing are exact and reject partial, oversized, orphaned, or mismatched data."
+
+[[behavior]]
+partition = { equals = "MQTT_CONNECT_REMAINING_LENGTH_AND_CONNACK" }
+case_family = "hardware_or_network_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#communication-discovery-scope-and-symbol-browsing"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "CONNECT construction, canonical remaining-length encoding/decoding, client-ID bounds, and CONNACK type, length, flags, session, and return-code domains reject malformed input before overclaiming protocol confirmation."
+
+[[behavior]]
+partition = { equals = "PROBE_TARGET_AUTH_SECRET_AND_BOUNDED_RESULT" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#communication-discovery-scope-and-symbol-browsing"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "not_safe_reported" }
+rationale = "Protocol target and authentication aliases normalize only documented forms, nonempty secrets require an exact trusted same-host channel, secrets never echo, and completed negative/refused/unresolvable results retain bounded evidence without false handshake claims."
+
+[[behavior]]
+partition = { equals = "BROWSE_REQUEST_KIND_SOURCE_AND_ERROR_SHAPE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#communication-discovery-scope-and-symbol-browsing"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Browse protocol/kind/source selection uses a closed matrix, honors explicit local/remote targets, rejects unknown keys, and returns stable tree/error shapes with sanitized identifiers and omitted absent metadata."
+
+[[behavior]]
+partition = { equals = "ADS_CACHED_AND_LIVE_SYMBOL_TREE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#communication-discovery-scope-and-symbol-browsing"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Cached ADS snapshots validate schema, route, and unique symbol paths; cached/live target requirements are disjoint; canonical trees and import descriptors share one sorted identity and writable-capability denominator."
+
+[[behavior]]
+partition = { equals = "OPCUA_ENDPOINT_SECURITY_AUTH_AND_NODE_TREE" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#communication-discovery-scope-and-symbol-browsing"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "OPC UA endpoint precedence, authority, security policy/mode, authentication defaults/credentials, and recursive node projection preserve normalized and raw identity and reject incomplete or unknown profiles."
+
+[[behavior]]
+partition = { equals = "ETHERCAT_DRIVER_SELECTION_AND_MODULE_TREE" }
+case_family = "hardware_or_network_fault"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#communication-discovery-scope-and-symbol-browsing"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "EtherCAT selection rejects missing, stale, and cross-protocol driver IDs, preserves the original I/O-driver index, and projects module slots and channels in source order."
+
+[[behavior]]
+partition = { equals = "PROBE_OUTCOME_SCHEMA_CONFIDENCE_WARNING_AND_AUTH" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#communication-discovery-scope-and-symbol-browsing"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Probe outcomes use a stable schema version, closed confidence domain and flags, preserve warning order and auth-required state, and keep local/unsupported/negative result classes structurally distinct."
 
 [[coverage.cells]]
 dimension = "hardware_or_network_fault"

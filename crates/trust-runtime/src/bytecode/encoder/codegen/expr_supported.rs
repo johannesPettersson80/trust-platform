@@ -30,6 +30,8 @@ fn expr_supported(expr: &crate::program_model::Expr) -> bool {
                     | BinaryOp::Pow
                     | BinaryOp::And
                     | BinaryOp::Or
+                    | BinaryOp::AndThen
+                    | BinaryOp::OrElse
                     | BinaryOp::Xor
                     | BinaryOp::Eq
                     | BinaryOp::Ne

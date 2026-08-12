@@ -286,8 +286,8 @@ impl Default for FaultSubsystem {
 #[cfg(test)]
 mod tests {
     use super::{
-        FaultAction, FaultDecision, FaultPolicy, FaultSubsystem, RetainMode, WatchdogAction,
-        WatchdogPolicy, WatchdogSubsystem,
+        FaultAction, FaultDecision, FaultInfo, FaultPolicy, FaultSubsystem, RetainMode,
+        WatchdogAction, WatchdogPolicy, WatchdogSubsystem,
     };
     use crate::error::RuntimeError;
     use crate::value::Duration;
@@ -400,6 +400,82 @@ mod tests {
         assert!(WatchdogAction::parse("warn").is_err());
         assert!(RetainMode::parse("memory").is_err());
         assert!(FaultPolicy::parse("degrade").is_err());
+    }
+
+    // RT_WATCHDOG_PORTABLE_CONFIG_MODEL_001
+    #[test]
+    fn configuration_parsers_cover_complete_tokens_and_exact_invalid_text() {
+        for (text, expected) in [
+            ("halt", WatchdogAction::Halt),
+            (" SAFE_HALT ", WatchdogAction::SafeHalt),
+            ("\trestart\n", WatchdogAction::Restart),
+        ] {
+            assert_eq!(WatchdogAction::parse(text), Ok(expected));
+        }
+        for (text, expected) in [(" none ", RetainMode::None), ("FILE", RetainMode::File)] {
+            assert_eq!(RetainMode::parse(text), Ok(expected));
+        }
+        for (text, expected) in [
+            ("HALT", FaultPolicy::Halt),
+            (" safe_halt ", FaultPolicy::SafeHalt),
+            ("Restart", FaultPolicy::Restart),
+        ] {
+            assert_eq!(FaultPolicy::parse(text), Ok(expected));
+        }
+
+        assert_eq!(
+            WatchdogAction::parse(" warn "),
+            Err(RuntimeError::InvalidConfig(
+                "invalid watchdog action ' warn '".into()
+            ))
+        );
+        assert_eq!(
+            RetainMode::parse("memory"),
+            Err(RuntimeError::InvalidConfig(
+                "invalid retain mode 'memory'".into()
+            ))
+        );
+        assert_eq!(
+            FaultPolicy::parse("degrade"),
+            Err(RuntimeError::InvalidConfig(
+                "invalid fault policy 'degrade'".into()
+            ))
+        );
+    }
+
+    // RT_WATCHDOG_PORTABLE_CONFIG_MODEL_001
+    #[test]
+    fn subsystem_defaults_and_fault_info_preserve_inert_identity() {
+        for watchdog in [WatchdogSubsystem::new(), WatchdogSubsystem::default()] {
+            assert_eq!(watchdog.policy(), WatchdogPolicy::default());
+            assert_eq!(
+                watchdog.decision(),
+                FaultDecision {
+                    action: FaultAction::SafeHalt,
+                    apply_safe_state: true,
+                }
+            );
+        }
+
+        for faults in [FaultSubsystem::new(), FaultSubsystem::default()] {
+            assert_eq!(faults.policy(), FaultPolicy::Halt);
+            assert_eq!(
+                faults.decision(),
+                FaultDecision {
+                    action: FaultAction::Halt,
+                    apply_safe_state: false,
+                }
+            );
+            assert!(!faults.is_faulted());
+            assert_eq!(faults.last_fault(), None);
+        }
+
+        let info = FaultInfo {
+            reason: "cycle deadline expired".into(),
+        };
+        let cloned = info.clone();
+        assert_eq!(info.reason.as_str(), "cycle deadline expired");
+        assert_eq!(cloned.reason, info.reason);
     }
 
     #[test]

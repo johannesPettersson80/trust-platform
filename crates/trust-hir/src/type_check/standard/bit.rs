@@ -40,7 +40,7 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
                 "expected bit string input",
             );
         }
-        if !self.is_integer_type(ty_n) {
+        if !self.checker.is_assignable(TypeId::ANY_INT, ty_n) {
             return self.checker.legacy_diagnostic_type(
                 DiagnosticCode::InvalidArgumentType,
                 arg_n.range,

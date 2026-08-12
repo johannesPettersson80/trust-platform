@@ -126,6 +126,11 @@ impl<'a> SymbolCollector<'a> {
         config_roots: &[SyntaxNode],
     ) {
         self.check_var_block_modifiers(root);
+        self.check_edge_declarations(root);
+        self.check_source_generic_types(root);
+        self.check_member_access_declarations(root);
+        self.check_overlap_variable_initializers(root);
+        self.check_by_value_type_cycles();
         self.check_at_bindings(config_roots);
     }
 

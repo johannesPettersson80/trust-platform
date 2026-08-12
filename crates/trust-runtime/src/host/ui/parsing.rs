@@ -224,7 +224,7 @@ pub(super) fn parse_events(response: &serde_json::Value) -> Vec<EventSnapshot> {
 }
 
 pub(super) fn parse_settings(response: &serde_json::Value) -> Option<SettingsSnapshot> {
-    let result = response.get("result")?;
+    let result = response.get("result")?.as_object()?;
     Some(SettingsSnapshot {
         cycle_interval_ms: result
             .get("resource.cycle_interval_ms")

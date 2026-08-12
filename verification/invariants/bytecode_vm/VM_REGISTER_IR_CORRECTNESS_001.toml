@@ -5,7 +5,7 @@ area = "bytecode_vm"
 risk = "wrong_result"
 status = "mapped"
 owner = "trust-runtime"
-last_reviewed = "2026-07-29"
+last_reviewed = "2026-07-30"
 claim = "Register-IR lowering preserves control flow, stack semantics, operands, register definitions, fusion dependencies, and original instruction costs, rejecting malformed IR before execution."
 proof_level = "S0"
 contract_kind = "decision_table"
@@ -22,12 +22,12 @@ source_refs = ["SPEC_BYTECODE_FORMAT_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_BYTECODE_FORMAT_001#register-ir-lowering-verification-and-fusion"
+ref = "SPEC_BYTECODE_FORMAT_001#7-9-1-register-ir-lowering-verification-and-fusion"
 
 [[behavior]]
 partition = { equals = "CONTROL_FLOW_AND_STACK_LOWERING" }
 case_family = "ordering_or_lifecycle"
-oracle_ref = "SPEC_BYTECODE_FORMAT_001#register-ir-lowering-verification-and-fusion"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#7-9-1-register-ir-lowering-verification-and-fusion"
 outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
@@ -36,7 +36,7 @@ rationale = "Leaders, branches, loops, RETURN, CASE selectors, and stack normali
 [[behavior]]
 partition = { equals = "INVALID_IR_REJECTED" }
 case_family = "wrong_type_or_shape"
-oracle_ref = "SPEC_BYTECODE_FORMAT_001#register-ir-lowering-verification-and-fusion"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#7-9-1-register-ir-lowering-verification-and-fusion"
 outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "not_applicable" }
@@ -45,7 +45,7 @@ rationale = "Underflow, conflicting merge depths, invalid block targets, undefin
 [[behavior]]
 partition = { equals = "COMPLETE_FUSION_WINDOW" }
 case_family = "happy_path"
-oracle_ref = "SPEC_BYTECODE_FORMAT_001#register-ir-lowering-verification-and-fusion"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#7-9-1-register-ir-lowering-verification-and-fusion"
 outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
@@ -54,7 +54,7 @@ rationale = "A complete reviewed fusion preserves operands, read dependencies, g
 [[behavior]]
 partition = { equals = "ORIGINAL_INSTRUCTION_COST_ACCOUNTING" }
 case_family = "resource_limit"
-oracle_ref = "SPEC_BYTECODE_FORMAT_001#register-ir-lowering-verification-and-fusion"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#7-9-1-register-ir-lowering-verification-and-fusion"
 outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "not_applicable" }
@@ -63,7 +63,7 @@ rationale = "Lowered and fused operations retain the exact sum of the original b
 [[behavior]]
 partition = { equals = "UNSUPPORTED_LOWERING_PRESERVES_FALLBACK_OPERANDS" }
 case_family = "extra_or_unknown"
-oracle_ref = "SPEC_BYTECODE_FORMAT_001#register-ir-lowering-verification-and-fusion"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#7-9-1-register-ir-lowering-verification-and-fusion"
 outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "not_applicable" }

@@ -44,6 +44,9 @@ pub(super) fn mesh_peer_is_live(
     let Some(evidence) = evidence else {
         return false;
     };
+    if !evidence.is_ready() {
+        return false;
+    }
     evidence.liveliness_snapshot().peers.iter().any(|peer| {
         peer == entry.name.as_str()
             || peer == entry.id.as_str()
@@ -52,10 +55,10 @@ pub(super) fn mesh_peer_is_live(
 }
 
 pub(super) fn first_address_with_port(entry: &DiscoveryEntry, port: u16) -> Option<String> {
-    entry
-        .addresses
-        .first()
-        .map(|address| format!("{address}:{port}"))
+    entry.addresses.first().map(|address| match address {
+        std::net::IpAddr::V6(_) => format!("[{address}]:{port}"),
+        std::net::IpAddr::V4(_) => format!("{address}:{port}"),
+    })
 }
 
 pub(super) fn discovery_protocols(entry: &DiscoveryEntry) -> Vec<String> {
@@ -292,7 +295,7 @@ pub(super) fn parse_container_id(cgroup: &str) -> Option<String> {
             trimmed
                 .strip_prefix("docker-")
                 .and_then(|value| value.split('.').next())
-                .filter(|value| value.len() >= 12)
+                .filter(|value| value.len() >= 12 && value.chars().all(|ch| ch.is_ascii_hexdigit()))
                 .map(|value| value.chars().take(12).collect())
         }
     })

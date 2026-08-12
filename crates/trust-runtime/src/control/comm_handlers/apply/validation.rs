@@ -16,8 +16,11 @@ pub(super) fn validate_schema_fields(protocol: &str, params: &toml::Value) -> Ve
         }
         "mqtt" => {
             validate_required_endpoint_with_example(table, "broker", "127.0.0.1:1883", &mut errors);
+            validate_string_field(table, "topic_in", true, &mut errors);
+            validate_string_field(table, "topic_out", true, &mut errors);
             validate_integer_range(table, "reconnect_ms", 1, 60000, &mut errors);
             validate_integer_range(table, "keep_alive_s", 1, 65535, &mut errors);
+            validate_error_policy(table, &mut errors);
             let has_username = table
                 .get("username")
                 .and_then(toml::Value::as_str)
@@ -186,6 +189,25 @@ pub(super) fn validate_runtime_file_fields(
                 validate_string_field(table, "listen", true, &mut errors);
             }
             validate_integer_range(table, "ads_port", 1, 65535, &mut errors);
+            validate_integer_range(table, "max_symbols", 1, 1_000_000, &mut errors);
+            validate_integer_range(table, "max_clients", 1, 10_000, &mut errors);
+            validate_integer_range(
+                table,
+                "max_subscriptions_per_client",
+                1,
+                1_000_000,
+                &mut errors,
+            );
+            validate_integer_range(table, "max_total_subscriptions", 1, 10_000_000, &mut errors);
+            validate_integer_range(
+                table,
+                "max_frame_bytes",
+                1024,
+                64 * 1024 * 1024,
+                &mut errors,
+            );
+            validate_integer_range(table, "max_sumup_items", 1, 65535, &mut errors);
+            validate_integer_range(table, "max_write_bytes", 1, 64 * 1024 * 1024, &mut errors);
             validate_array_field(table, "expose", &mut errors);
             validate_array_field(table, "writable", &mut errors);
             validate_array_field(table, "clients", &mut errors);

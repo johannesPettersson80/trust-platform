@@ -56,7 +56,7 @@ rationale = "LDATE, LTOD, and LDT constructors and accessors preserve their exac
 
 [[behavior]]
 partition = { equals = "CHECKED_SHORT_TICK_CONVERSION" }
-case_family = "boundary"
+case_family = "wrong_type_or_shape"
 oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
 outcome = "reject"
 no_partial_apply = true
@@ -74,7 +74,7 @@ rationale = "Combining DATE and TOD without timezone metadata produces DT with t
 
 [[behavior]]
 partition = { malformed = "DATE_PLUS_TOD_WITH_TIMEZONE_METADATA" }
-case_family = "unsupported_environment"
+coverage_dimension = "wrong_type_or_shape"
 oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
 outcome = "reject"
 no_partial_apply = true

@@ -75,7 +75,12 @@ class CoverageTraceCliTests(unittest.TestCase):
         }
         metadata = mock.Mock(
             code_map={"schema_version": 1, "mappings": []},
-            mappings={},
+            mappings={
+                "CODE_X": {
+                    "source_kind": "rust",
+                    "path": "crates/example/src/lib.rs",
+                }
+            },
         )
         with TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -84,7 +89,23 @@ class CoverageTraceCliTests(unittest.TestCase):
             schema.write_text("{}")
             (root / "scripts/verification").mkdir(parents=True)
             (root / "scripts/verification/coverage_trace_wrapper.py").write_text("")
+            source_path = root / "crates/example/src/lib.rs"
+            source_path.parent.mkdir(parents=True)
+            source_path.write_text("fn product() {}")
             focused_inventory = mock.Mock(spans={"CODE_X": mock.Mock()})
+            class CountingExports(dict):
+                reads = 0
+
+                def __getitem__(self, key):
+                    self.reads += 1
+                    return super().__getitem__(key)
+
+            exports = CountingExports({discovery_id: {}})
+
+            def build_once(**kwargs):
+                kwargs["coverage_exports"][discovery_id]
+                return output_document
+
             with mock.patch(
                 "scripts.verification.coverage_trace_cli.invoke_rust_extractor",
                 side_effect=AssertionError("whole Rust extractor invoked"),
@@ -126,13 +147,13 @@ class CoverageTraceCliTests(unittest.TestCase):
                 ),
             ) as source_projection, mock.patch(
                 "scripts.verification.coverage_trace_cli.export_attempt_coverage",
-                return_value={discovery_id: {}},
-            ), mock.patch(
+                return_value=exports,
+            ) as export_attempts, mock.patch(
                 "scripts.verification.coverage_trace_cli.focused_rust_path_inventory",
                 return_value=focused_inventory,
             ) as path_inventory, mock.patch(
                 "scripts.verification.coverage_trace_cli.build_rust_trace_document",
-                return_value=output_document,
+                side_effect=build_once,
             ) as build_document, mock.patch(
                 "scripts.verification.coverage_trace_cli.capture_raw_trace_evidence",
                 return_value=mock.Mock(
@@ -155,7 +176,11 @@ class CoverageTraceCliTests(unittest.TestCase):
             ), mock.patch(
                 "scripts.verification.coverage_trace_cli.validate_json_schema_instance",
                 return_value=[],
-            ):
+            ), mock.patch(
+                "scripts.verification.coverage_trace_cli."
+                "write_authenticated_trace_receipt",
+            ) as write_receipt:
+                receipt_path = root / "target/gate-artifacts/trace-receipt.json"
                 document = run_focused_rust_trace(
                     root=root,
                     discovery_ids=[discovery_id],
@@ -167,12 +192,12 @@ class CoverageTraceCliTests(unittest.TestCase):
                     source_facts=[fact],
                     source_input_digest="sha256:" + "1" * 64,
                     resume=True,
+                    authentication_receipt_path=receipt_path,
                 )
                 whole_extractor.assert_not_called()
-                source_projection.assert_called_once_with(
-                    root,
-                    ["crates/example/src/lib.rs"],
-                    metadata.mappings,
+                self.assertEqual(2, source_projection.call_count)
+                source_projection.assert_any_call(
+                    root, ["crates/example/src/lib.rs"], metadata.mappings
                 )
                 self.assertEqual(
                     focused_inventory.spans,
@@ -184,6 +209,23 @@ class CoverageTraceCliTests(unittest.TestCase):
                     metadata.mappings,
                 )
                 self.assertEqual(output_document, document)
+                self.assertEqual(
+                    1,
+                    exports.reads,
+                    "each expensive LLVM export must be consumed only once",
+                )
+                self.assertEqual(
+                    ["crates/example/src/lib.rs"],
+                    export_attempts.call_args.kwargs["source_paths"],
+                )
+                self.assertEqual(
+                    receipt_path,
+                    write_receipt.call_args.kwargs["receipt_path"],
+                )
+                self.assertEqual(
+                    [discovery_id],
+                    write_receipt.call_args.kwargs["requested"],
+                )
 
     @mock.patch(
         "scripts.verification.coverage_trace_cli.validate_json_schema_instance",
@@ -351,6 +393,89 @@ class CoverageTraceCliTests(unittest.TestCase):
         )
         self.assertTrue(all("--tests" not in command for command in commands))
         self.assertEqual(2, len(shards[0]["targets"]))
+
+        profile_shards = targeted_nextest_list_shards(
+            [
+                {
+                    "discovery_id": "DISC_LSP_CONFIG",
+                    "discovery_source_kind": "rust_unit_test",
+                    "package": "trust-lsp",
+                    "path": (
+                        "crates/trust-lsp/src/config/"
+                        "configuration_contract_tests.rs"
+                    ),
+                    "package_has_library": True,
+                    "package_binary_names": ["trust-lsp"],
+                },
+                {
+                    "discovery_id": "DISC_DEBUG_LIFECYCLE",
+                    "discovery_source_kind": "rust_unit_test",
+                    "package": "trust-debug",
+                    "path": (
+                        "crates/trust-debug/src/adapter/"
+                        "lifecycle_contract_tests.rs"
+                    ),
+                    "package_has_library": True,
+                    "package_binary_names": [],
+                },
+            ]
+        )
+        shard_by_package = {
+            shard["package"]: shard for shard in profile_shards
+        }
+        shard = shard_by_package["trust-lsp"]
+
+        self.assertIn("--bin", shard["command"])
+        self.assertIn("trust-lsp", shard["command"])
+        self.assertEqual(
+            "config::configuration_contract_tests::",
+            shard["targets"][0]["facts"][0]["nextest_test_prefix"],
+        )
+        self.assertEqual(
+            "adapter::tests::lifecycle_contract_tests::",
+            shard_by_package["trust-debug"]["targets"][0]["facts"][0][
+                "nextest_test_prefix"
+            ],
+        )
+
+    def test_nextest_listing_preserves_prefix_per_same_package_profile(self) -> None:
+        shards = targeted_nextest_list_shards(
+            [
+                {
+                    "discovery_id": "DISC_DISCOVER",
+                    "discovery_source_kind": "rust_unit_test",
+                    "package": "trust-runtime",
+                    "path": (
+                        "crates/trust-runtime/src/control/comm_handlers/"
+                        "discover/contract_tests.rs"
+                    ),
+                },
+                {
+                    "discovery_id": "DISC_BROWSE",
+                    "discovery_source_kind": "rust_unit_test",
+                    "package": "trust-runtime",
+                    "path": (
+                        "crates/trust-runtime/src/control/comm_handlers/"
+                        "browse_symbols/contract_tests.rs"
+                    ),
+                },
+            ]
+        )
+
+        self.assertEqual(1, len(shards))
+        facts_by_id = {
+            fact["discovery_id"]: fact
+            for target in shards[0]["targets"]
+            for fact in target["facts"]
+        }
+        self.assertEqual(
+            "control::comm_handlers::discover::contract_tests::",
+            facts_by_id["DISC_DISCOVER"]["nextest_test_prefix"],
+        )
+        self.assertEqual(
+            "control::comm_handlers::browse_symbols::contract_tests::",
+            facts_by_id["DISC_BROWSE"]["nextest_test_prefix"],
+        )
 
     def test_nextest_listing_batches_at_most_sixteen_exact_targets_per_package(
         self,
@@ -529,6 +654,86 @@ class CoverageTraceCliTests(unittest.TestCase):
             commands[1][commands[1].index("--test") : commands[1].index("--test") + 2],
         )
         self.assertNotIn("--all-targets", commands[1])
+
+    def test_requested_cargo_features_apply_to_listing_and_coverage_runs(self) -> None:
+        facts = [
+            {
+                "discovery_id": "DISC_FEATURED",
+                "discovery_source_kind": "rust_unit_test",
+                "package": "example",
+                "path": "crates/example/src/lib.rs",
+            }
+        ]
+        resolved = [
+            {
+                "discovery_id": "DISC_FEATURED",
+                "package": "example",
+                "cargo_target_kind": "lib",
+                "cargo_target_name": None,
+                "nextest_binary_id": "example",
+                "nextest_test_name": "module::featured_case",
+            }
+        ]
+
+        list_command = targeted_nextest_list_shards(
+            facts,
+            cargo_features=["hir", "serde"],
+        )[0]["command"]
+        run_command = coverage_run_commands(
+            resolved=resolved,
+            tool_config="/tmp/nextest.toml",
+            cargo_features=["hir", "serde"],
+        )[0]
+
+        for command in (list_command, run_command):
+            self.assertEqual(
+                ["--features", "hir,serde"],
+                command[
+                    command.index("--features") : command.index("--features") + 2
+                ],
+            )
+
+        disabled_run_command = coverage_run_commands(
+            resolved=[
+                {
+                    "discovery_id": "DISC_DISABLED",
+                    "package": "example",
+                    "cargo_target_kind": "lib",
+                    "cargo_target_name": None,
+                    "nextest_binary_id": "example",
+                    "nextest_test_name": "tests::disabled",
+                    "no_default_features": True,
+                }
+            ],
+            tool_config="/tmp/nextest.toml",
+        )[0]
+        self.assertIn("--no-default-features", disabled_run_command)
+
+        feature_shards = targeted_nextest_list_shards(
+            [
+                {
+                    "discovery_id": "DISC_DEFAULT",
+                    "discovery_source_kind": "rust_unit_test",
+                    "package": "example",
+                    "path": "crates/example/src/lib.rs",
+                    "no_default_features": False,
+                },
+                {
+                    "discovery_id": "DISC_DISABLED",
+                    "discovery_source_kind": "rust_unit_test",
+                    "package": "example",
+                    "path": "crates/example/src/lib.rs",
+                    "no_default_features": True,
+                },
+            ]
+        )
+        self.assertEqual(2, len(feature_shards))
+        self.assertEqual(
+            [False, True],
+            [shard["no_default_features"] for shard in feature_shards],
+        )
+        self.assertNotIn("--no-default-features", feature_shards[0]["command"])
+        self.assertIn("--no-default-features", feature_shards[1]["command"])
 
     def test_large_single_target_is_split_into_bounded_commands(self) -> None:
         records = [

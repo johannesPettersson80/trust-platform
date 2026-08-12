@@ -73,4 +73,37 @@ mod tests {
         validate_operand_stack_depth(VM_MAX_OPERAND_STACK).expect("fixed stack boundary must pass");
         assert!(validate_operand_stack_depth(VM_MAX_OPERAND_STACK + 1).is_err());
     }
+
+    #[test]
+    fn instruction_counter_overflow_is_fail_closed_and_preserves_total() {
+        let mut total = usize::MAX;
+        let error = charge_decoded_instruction(&mut total)
+            .expect_err("counter overflow must fail before mutation");
+        assert_eq!(total, usize::MAX);
+        assert!(error
+            .to_string()
+            .contains("decoded module instruction count overflow"));
+    }
+
+    #[test]
+    fn declared_resource_limits_accept_empty_tables_and_reject_first_excess() {
+        validate_declared_resource_limits(&RefTable::default(), &PouIndex::default())
+            .expect("empty declared tables must fit fixed resource limits");
+        validate_count(
+            BYTECODE_MAX_REFERENCES,
+            BYTECODE_MAX_REFERENCES,
+            "REF_TABLE entries",
+        )
+        .expect("the exact reference boundary must pass");
+
+        let error = validate_count(
+            BYTECODE_MAX_REFERENCES + 1,
+            BYTECODE_MAX_REFERENCES,
+            "REF_TABLE entries",
+        )
+        .expect_err("the first reference above the boundary must fail");
+        assert!(error
+            .to_string()
+            .contains("REF_TABLE entries exceed fixed resource limit"));
+    }
 }

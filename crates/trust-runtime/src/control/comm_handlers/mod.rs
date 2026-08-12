@@ -16,6 +16,10 @@ mod discovery_probe;
 mod probe;
 mod schema;
 
+#[cfg(test)]
+#[path = "capability_contract_tests.rs"]
+mod capability_contract_tests;
+
 const ADS_STATUS_TIMEOUT: Duration = Duration::from_millis(250);
 
 use contract::{
@@ -120,32 +124,37 @@ pub(super) fn audit_details_for_comm_request(
 
 fn sanitize_readonly_comm_audit_details(params: &serde_json::Value) -> serde_json::Value {
     let mut value = params.clone();
-    if let Some(object) = value.as_object_mut() {
-        for key in [
-            "password",
-            "auth_token",
-            "token",
-            "credential",
-            "credentials",
-        ] {
-            object.remove(key);
-        }
-        if let Some(target) = object
-            .get_mut("target")
-            .and_then(serde_json::Value::as_object_mut)
-        {
-            for key in [
-                "password",
-                "auth_token",
-                "token",
-                "credential",
-                "credentials",
-            ] {
-                target.remove(key);
+    redact_readonly_secrets(&mut value);
+    value
+}
+
+fn redact_readonly_secrets(value: &mut serde_json::Value) {
+    match value {
+        serde_json::Value::Object(object) => {
+            object.retain(|key, _| {
+                !matches!(
+                    key.to_ascii_lowercase().as_str(),
+                    "password"
+                        | "auth_token"
+                        | "token"
+                        | "credential"
+                        | "credentials"
+                        | "secret"
+                        | "client_secret"
+                        | "private_key"
+                )
+            });
+            for child in object.values_mut() {
+                redact_readonly_secrets(child);
             }
         }
+        serde_json::Value::Array(values) => {
+            for child in values {
+                redact_readonly_secrets(child);
+            }
+        }
+        _ => {}
     }
-    value
 }
 
 fn build_capabilities_response(state: &ControlState) -> CommCapabilitiesResponse {
@@ -482,10 +491,17 @@ fn io_driver_capability(
             ),
         );
     }
-    let driver = health
+    let canonical_driver_name = driver_name.replace('_', "-");
+    let matching = health
         .iter()
-        .find(|entry| entry.name.as_str().eq_ignore_ascii_case(driver_name));
-    let Some(driver) = driver else {
+        .filter(|entry| {
+            entry
+                .name
+                .replace('_', "-")
+                .eq_ignore_ascii_case(&canonical_driver_name)
+        })
+        .collect::<Vec<_>>();
+    if matching.is_empty() {
         return capability(
             id,
             true,
@@ -496,15 +512,28 @@ fn io_driver_capability(
             "No live driver instance is configured for this protocol.",
             action(CommNextActionKind::Setup, "Set up driver"),
         );
-    };
-    let (comm_health, detail) = match &driver.health {
-        IoDriverHealth::Ok => (CommHealth::Connected, "Driver is healthy.".to_string()),
-        IoDriverHealth::Degraded { error } => {
-            (CommHealth::Degraded, format!("Driver is degraded: {error}"))
+    }
+    let (comm_health, detail) = if let Some(error) = matching.iter().find_map(|driver| {
+        if let IoDriverHealth::Faulted { error } = &driver.health {
+            Some(error)
+        } else {
+            None
         }
-        IoDriverHealth::Faulted { error } => {
-            (CommHealth::Error, format!("Driver faulted: {error}"))
+    }) {
+        (CommHealth::Error, format!("Driver faulted: {error}"))
+    } else if let Some(error) = matching.iter().find_map(|driver| {
+        if let IoDriverHealth::Degraded { error } = &driver.health {
+            Some(error)
+        } else {
+            None
         }
+    }) {
+        (CommHealth::Degraded, format!("Driver is degraded: {error}"))
+    } else {
+        (
+            CommHealth::Connected,
+            "All driver instances are healthy.".to_string(),
+        )
     };
     capability(
         id,

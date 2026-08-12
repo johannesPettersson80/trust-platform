@@ -219,6 +219,7 @@
         },
         "trace_record_digest": { "$ref": "#/$defs/digest" },
         "candidate_signal_digest": { "$ref": "#/$defs/digest" },
+        "authority_route_digest": { "$ref": "#/$defs/digest" },
         "oracle_refs": {
           "type": "array",
           "minItems": 1,

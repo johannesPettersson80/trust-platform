@@ -105,6 +105,11 @@ fn validate_const_compat(
                 let _target = pop_const_type(&mut stack);
                 stack.push(None);
             }
+            0x64 => {
+                let target_type = reader.read_u32()?;
+                let _value = pop_const_type(&mut stack);
+                stack.push(Some(target_type));
+            }
             _ => return Err(BytecodeError::InvalidOpcode(opcode)),
         }
     }

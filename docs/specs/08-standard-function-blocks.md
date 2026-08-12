@@ -106,6 +106,12 @@ Q1 := NOT R1 AND (S OR Q1)
 
 The initial state of Q1 is FALSE (default BOOL value).
 
+The runtime stores each bistable's `Q1` independently per function-block
+instance. A scan with neither input asserted preserves that stored value. The
+dominant input is applied in the same scan as the other input, so `SR(TRUE,
+TRUE)` produces `TRUE` and `RS(TRUE, TRUE)` produces `FALSE` without an
+intermediate externally visible state.
+
 ## 3. Edge Detection (Table 44)
 
 ### R_TRIG - Rising Edge Detector
@@ -190,6 +196,39 @@ Q:    ___/‾\_______/‾\_______
 
 - R_TRIG with CLK connected to TRUE: Q=TRUE on first execution after cold restart
 - F_TRIG with CLK connected to FALSE: Q=TRUE on first execution after cold restart
+
+Each trigger stores its previous sampled phase independently per instance.
+Holding `CLK` at one level cannot produce repeated pulses. A pulse is exactly
+one executed call wide; calls are the sampling boundary, and no transition is
+inferred between calls. The aliases `DIFU` and `DIFD` execute the same state
+machines as `R_TRIG` and `F_TRIG`, respectively.
+
+### Edge-qualified input declaration shorthand
+
+IEC 61131-3 Ed.3 Tables 40 and 47 and Annex A `Edge_Decl` permit a
+function-block or program input declaration such as:
+
+```iecst
+VAR_INPUT
+  Start, Reset : BOOL R_EDGE;
+  Stop : BOOL F_EDGE;
+END_VAR
+```
+
+Each name is equivalent to a separate private implicit `R_TRIG` or `F_TRIG`
+instance whose `CLK` receives the raw input and whose `Q` is the value visible
+to the owning body. The implicit instance uses the same Table 44 state
+machine, including the first-execution behavior after cold restart, and cannot
+be named or accessed by source. Multiple names in one declaration do not share
+phase.
+
+This shorthand is not a type conversion and is not legal on an explicit
+`R_TRIG`/`F_TRIG` instance, a non-`BOOL` value, an initialized declaration, a
+function/method input, or a section other than function-block/program
+`VAR_INPUT`. Function-block methods cannot access the edge-qualified input.
+Section-level restart policy is inherited by both the raw stored input and
+hidden trigger phase; `CONSTANT` is rejected because the shorthand implies a
+function-block instance.
 
 ## 4. Counter Function Blocks (Table 45)
 
@@ -313,6 +352,28 @@ QD := (CV <= 0);
 **Note**: If both CU and CD have rising edges simultaneously, count is unchanged.
 
 **Variants**: Same as CTU (CTUD_DINT, CTUD_LINT, etc.)
+
+### Counter Runtime Conformance Contract
+
+The following requirements bind the runtime implementation of IEC
+61131-3 Table 45:
+
+- Count inputs are rising-edge inputs. Holding `CU` or `CD` high across
+  repeated calls changes `CV` only on the first call.
+- `CTU.R` dominates a `CU` edge. `CTD.LD` dominates a `CD` edge. For `CTUD`,
+  `R` dominates `LD`, which dominates both count edges.
+- Simultaneous `CTUD` rising edges cancel and leave `CV` unchanged.
+- Signed counters saturate at the minimum and maximum of their declared
+  integer type; unsigned down counters saturate at zero. No counter wraps.
+- `Q`, `QU`, and `QD` are recomputed from the post-transition `CV` on every
+  executed call. `CTU.Q` and `CTUD.QU` mean `CV >= PV`; `CTD.Q` and
+  `CTUD.QD` mean `CV <= 0` for signed types and `CV = 0` for unsigned types.
+- The generic `CTU`, `CTD`, and `CTUD` forms take their concrete `PV`/`CV`
+  type from the call. `PV` and existing `CV` must have the same supported
+  integer type. A mismatch raises `RuntimeError::TypeMismatch` and does not
+  publish new user-visible outputs.
+- Edge memory, current value, and outputs are isolated by function-block
+  instance. A new instance starts with `CV = 0` and both edge memories false.
 
 ## 5. Timer Function Blocks (Table 46, Figure 15)
 
@@ -471,6 +532,41 @@ Explicit LTIME names are supported:
 Each explicit variant follows the corresponding Figure 15 scan-step state
 machine above and requires `PT` and `ET` to use its named TIME or LTIME family.
 
+### Timer Runtime Boundary Contract
+
+- Timer state is isolated per instance. A newly created timer has `Q = FALSE`,
+  `ET = 0`, no active interval, and a first-call elapsed contribution of zero.
+- `PT <= 0` is normalized to zero. A zero-preset `TON` completes on an
+  executed call with `IN = TRUE`; a zero-preset `TP` has no positive-duration
+  pulse; and a zero-preset `TOF` expires on the falling-edge call.
+- Elapsed contributions are non-negative. A direct negative delta, a stationary
+  runtime clock, or a backward runtime clock contributes zero and establishes
+  the new baseline without reducing `ET`.
+- Elapsed accumulation saturates at the current non-negative `PT` and never
+  wraps. If the current `PT` decreases below accumulated `ET`, the same call
+  completes at the new `PT`. If active `TON.PT` increases, `Q` is recomputed
+  from the increased threshold.
+- A `TP` falling edge does not cancel an active pulse. A later rising edge
+  restarts the interval only after an executed call has sampled the intervening
+  low level.
+- Once `TOF` expires, `ET` holds the `PT` sampled at expiry while `IN` remains
+  low, even if later low-state calls provide another `PT`. A high-state call
+  rearms the instance and resets `ET`.
+- `PT` determines the output family: `TIME` publishes `TIME ET`, and `LTIME`
+  publishes `LTIME ET`. An incompatible `IN`, `PT`, or existing `ET` value
+  raises `RuntimeError::TypeMismatch` before new user-visible outputs are
+  published.
+
+### Built-in Registry Contract
+
+Runtime built-in lookup is ASCII case-insensitive. It recognizes the IEC names,
+the counter and timer width suffixes documented above, and `DIFU`/`DIFD`.
+`standard_function_blocks()` publishes one unique static definition for each
+accepted public spelling. Parameter order, names, directions, and concrete
+types in those definitions are the call-binding contract; timer `PT` and `ET`
+always use the same duration family, and counter `PV` and `CV` always use the
+same integer family.
+
 ## 6. Usage Examples
 
 ### Bistable Example
@@ -582,8 +678,8 @@ LD profile is documented in `docs/IEC_DEVIATIONS.md`; the TP/TOF diagnostic
 ### FB Definitions
 
 trust-hir provides built-in signatures for:
-1. Input variables with types and edge qualifiers
-2. Output variables with types
+1. Input variables with their declared types
+2. Output variables with their declared types
 
 Internal state variables and behavioral specifications are documented above but
 are not modeled in trust-hir. Runtime execution covers that stateful behavior;
@@ -604,10 +700,16 @@ VAR_INPUT
   CU: BOOL;
 END_VAR
 VAR
+  // Private compiler-generated state, not a source-visible declaration:
   CU_EDGE: R_TRIG;
 END_VAR
-// In body: use CU_EDGE(CLK := CU).Q instead of CU
+// Before the body: CU_EDGE(CLK := raw CU)
+// In the body: reading CU yields CU_EDGE.Q
 ```
+
+The illustrative `CU_EDGE` name is not inserted into the source symbol table.
+The hidden identity is collision-free, and every declared input name receives
+its own state.
 
 ### Timer Implementation
 

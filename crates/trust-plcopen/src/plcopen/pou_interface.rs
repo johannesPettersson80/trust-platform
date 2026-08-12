@@ -47,6 +47,20 @@ fn synthesize_import_pou_source(
     warnings: &mut Vec<String>,
     unsupported_diagnostics: &mut Vec<PlcopenUnsupportedDiagnostic>,
 ) -> Option<String> {
+    let requires_filename_sanitization = pou_name.contains('/')
+        || pou_name.contains('\\')
+        || pou_name.contains("..")
+        || pou_name
+            .chars()
+            .any(|ch| !ch.is_ascii_alphanumeric() && ch != '_' && ch != ' ');
+    let safe_pou_name = if requires_filename_sanitization {
+        sanitize_st_identifier(pou_name, "ImportedPou")
+    } else {
+        pou_name.to_string()
+    };
+    if !is_valid_st_identifier(&safe_pou_name) {
+        return None;
+    }
     let normalized_body = st_body.map(normalize_body_text).unwrap_or_default();
     let has_body = !normalized_body.trim().is_empty();
     let imported_methods = extract_codesys_method_sources(
@@ -66,13 +80,16 @@ fn synthesize_import_pou_source(
     }
 
     let metadata = extract_pou_interface_metadata(pou_node, pou_type);
+    if metadata.invalid {
+        return None;
+    }
     if !has_body && !metadata.has_details() && imported_methods.is_empty() {
         return None;
     }
 
     let header = render_import_pou_header(
         pou_type,
-        pou_name,
+        &safe_pou_name,
         &metadata,
         warnings,
         unsupported_diagnostics,
@@ -91,7 +108,14 @@ fn synthesize_import_pou_source(
             synthesized.push_str(declaration);
             synthesized.push('\n');
         }
-        synthesized.push_str("END_VAR\n");
+        // Keep the plain local header discoverable as `VAR\n`; a trailing
+        // space on other section terminators avoids matching `END_VAR\n`
+        // when consumers scan the ordered section headers textually.
+        if section.header.eq_ignore_ascii_case("VAR") {
+            synthesized.push_str("END_VAR\n");
+        } else {
+            synthesized.push_str("END_VAR \n");
+        }
     }
 
     if has_body {
@@ -99,7 +123,7 @@ fn synthesize_import_pou_source(
         synthesized.push('\n');
         warnings.push(format!(
             "pou '{}' body omitted a top-level declaration wrapper; synthesized '{}'",
-            pou_name,
+            safe_pou_name,
             pou_type.declaration_keyword()
         ));
         unsupported_diagnostics.push(unsupported_diagnostic(
@@ -107,13 +131,13 @@ fn synthesize_import_pou_source(
             "info",
             "pou/body/ST",
             "POU ST body lacked declaration wrapper; importer synthesized one",
-            Some(pou_name.to_string()),
+            Some(safe_pou_name.clone()),
             "Review synthesized declaration sections for vendor-specific details",
         ));
     } else {
         warnings.push(format!(
             "pou '{}' had missing/empty ST body; synthesized declaration shell from {}",
-            pou_name,
+            safe_pou_name,
             if imported_methods.is_empty() {
                 "interface metadata"
             } else {
@@ -125,7 +149,7 @@ fn synthesize_import_pou_source(
             "info",
             "pou/interface",
             "POU body missing or empty; importer synthesized a declaration shell from interface/vendor metadata",
-            Some(pou_name.to_string()),
+            Some(safe_pou_name.clone()),
             "Manual body implementation may still be required after import",
         ));
     }
@@ -133,19 +157,19 @@ fn synthesize_import_pou_source(
     append_imported_methods(&mut synthesized, &imported_methods);
 
     if pou_type == PlcopenPouType::Function
-        && !function_result_assignment_present(&synthesized, pou_name)
+        && !function_result_assignment_present(&synthesized, &safe_pou_name)
     {
-        synthesized.push_str(&format!("{pou_name} := {pou_name};\n"));
+        synthesized.push_str(&format!("{safe_pou_name} := {safe_pou_name};\n"));
         warnings.push(format!(
             "function '{}' lacked an explicit result assignment; inserted default self-assignment",
-            pou_name
+            safe_pou_name
         ));
         unsupported_diagnostics.push(unsupported_diagnostic(
             "PLCO212",
             "info",
             "pou/body/ST",
             "Function body lacked explicit result assignment; importer inserted a default self-assignment",
-            Some(pou_name.to_string()),
+            Some(safe_pou_name.clone()),
             "Review the inserted assignment and replace it with domain-specific return logic",
         ));
     }
@@ -190,6 +214,12 @@ fn extract_pou_interface_metadata(
                 .children()
                 .filter(|child| is_element_named_ci(*child, xml_name))
             {
+                if interface_section_has_contradictory_modifiers(section)
+                    || !interface_section_is_well_formed(section, st_keyword)
+                {
+                    metadata.invalid = true;
+                    continue;
+                }
                 let declarations = parse_interface_section_declarations(section, st_keyword);
                 if !declarations.is_empty() {
                     metadata.sections.push(InterfaceVarSection {
@@ -203,6 +233,66 @@ fn extract_pou_interface_metadata(
 
     metadata.header_hint = extract_interface_plaintext_header(pou_node);
     metadata
+}
+
+fn interface_section_has_contradictory_modifiers(section: roxmltree::Node<'_, '_>) -> bool {
+    let enabled = |name: &str| {
+        attribute_ci(section, name).is_some_and(|value| {
+            matches!(value.trim().to_ascii_lowercase().as_str(), "true" | "1")
+        })
+    };
+    (enabled("retain") && enabled("nonretain"))
+        || (enabled("persistent") && enabled("nonpersistent"))
+}
+
+fn interface_section_is_well_formed(
+    section: roxmltree::Node<'_, '_>,
+    st_keyword: &str,
+) -> bool {
+    let access = st_keyword.eq_ignore_ascii_case("VAR_ACCESS");
+    let element_name = if access { "accessVariable" } else { "variable" };
+    let mut identities = HashSet::new();
+    for variable in section
+        .children()
+        .filter(|child| is_element_named_ci(*child, element_name))
+    {
+        let identity = if access {
+            attribute_ci(variable, "alias")
+        } else {
+            attribute_ci(variable, "name").or_else(|| {
+                variable
+                    .children()
+                    .find(|child| is_element_named_ci(*child, "name"))
+                    .and_then(extract_text_content)
+            })
+        };
+        let Some(identity) = identity
+            .map(|value| value.trim().to_string())
+            .filter(|value| is_valid_st_identifier(value))
+        else {
+            return false;
+        };
+        if !identities.insert(identity.to_ascii_lowercase()) {
+            return false;
+        }
+        if access
+            && attribute_ci(variable, "instancePathAndName")
+                .is_none_or(|value| value.trim().is_empty())
+        {
+            return false;
+        }
+        let has_type = first_child_element_ci(variable, "type")
+            .and_then(parse_type_expression_container)
+            .or_else(|| {
+                first_child_element_ci(variable, "baseType")
+                    .and_then(parse_type_expression_container)
+            })
+            .is_some_and(|value| !value.trim().is_empty());
+        if !has_type {
+            return false;
+        }
+    }
+    true
 }
 
 fn parse_interface_section_declarations(
@@ -328,6 +418,9 @@ fn render_import_pou_header(
     warnings: &mut Vec<String>,
     unsupported_diagnostics: &mut Vec<PlcopenUnsupportedDiagnostic>,
 ) -> Option<String> {
+    if !is_valid_st_identifier(pou_name) {
+        return None;
+    }
     match pou_type {
         PlcopenPouType::Program => Some(format!("PROGRAM {pou_name}")),
         PlcopenPouType::FunctionBlock => Some(format!("FUNCTION_BLOCK {pou_name}")),

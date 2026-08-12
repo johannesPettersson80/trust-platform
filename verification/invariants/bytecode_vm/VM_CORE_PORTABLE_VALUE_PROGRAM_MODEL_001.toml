@@ -1,0 +1,130 @@
+schema_version = 1
+id = "VM_CORE_PORTABLE_VALUE_PROGRAM_MODEL_001"
+title = "Portable runtime values and program models preserve checked identity and mutation"
+area = "bytecode_vm"
+risk = "wrong_result"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-30"
+claim = "Portable program-model names, comparisons, partial access, reference paths, array offsets and shapes, declared widening, and structure mutation preserve canonical identity and reject invalid operations without partial mutation."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["docs/specs/10-runtime-semantics.md", "crates/trust-runtime-core/src/program_model/ops/logical_cmp.rs", "crates/trust-runtime-core/src/program_model/util.rs", "crates/trust-runtime-core/src/value/partial_access.rs", "crates/trust-runtime-core/src/value/reference.rs", "crates/trust-runtime-core/src/value/types.rs"]
+tests = ["TEST_AUTO_19F83BC6AA57441C4B3F", "TEST_AUTO_1E8C1A88234EE493A54F", "TEST_AUTO_21EFDB47ADA7E3AA6A24", "TEST_AUTO_6D40BFBAF4EAAA3E07CF", "TEST_AUTO_79387EEE458FEB850E9E", "TEST_AUTO_7A5735CC670818E7B6B3", "TEST_AUTO_87A93280853227BA7711", "TEST_AUTO_9054611BF656BB57E6D9", "TEST_AUTO_9B52EF2D81BCA8CD8A8B", "TEST_AUTO_A0C636EB85EAC33BCC35", "TEST_AUTO_A2A766C143194CC4493B", "TEST_AUTO_E5663526031738DE7BA5", "TEST_AUTO_F0334E65106785B971B6"]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_VM_VALUE_SEMANTICS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_VM_VALUE_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+
+[[behavior]]
+partition = { equals = "PROGRAM_MODEL_NAME_IDENTITY" }
+case_family = "happy_path"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Hidden setter names, static-storage prefixes, and method storage owners preserve their exact canonical spelling."
+
+[[behavior]]
+partition = { equals = "NONNUMERIC_COMPARISON_RESULT" }
+case_family = "happy_path"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A supported nonnumeric comparison returns its exact Boolean result."
+
+[[behavior]]
+partition = { equals = "PARTIAL_ACCESS_AND_REFERENCE_PATH" }
+case_family = "happy_path"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "expected_delta", diagnostics = "none", status = "unchanged" }
+rationale = "Valid IEC partial-access forms preserve sibling bits and valid reference paths preserve segment order."
+
+[[behavior]]
+partition = { equals = "PARTIAL_ACCESS_FORM_OR_BOUNDS_REJECTION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Unsupported suffixes, width mismatches, and out-of-bounds partial access are rejected without changing the source value."
+
+[[behavior]]
+partition = { equals = "ARRAY_OFFSET_ROW_MAJOR_AND_REPRESENTABLE" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A representable inclusive row-major array offset is returned exactly, including supported target-width boundaries."
+
+[[behavior]]
+partition = { equals = "ARRAY_MUTATION_PRESERVES_SHAPE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Element mutation and a dimension change with the same element count preserve the canonical array shape and values."
+
+[[behavior]]
+partition = { equals = "ARRAY_SHAPE_MUTATION_REJECTION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "A dimension change whose element count differs is rejected without changing the array."
+
+[[behavior]]
+partition = { equals = "DECLARED_ASSIGNMENT_WIDENING" }
+case_family = "happy_path"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-3-declared-type-materialization"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Each documented safe numeric widening materializes the exact destination runtime tag and value."
+
+[[behavior]]
+partition = { equals = "STRUCT_CLONE_AND_EXISTING_FIELD_MUTATION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Structure clone and equality preserve type and field identity, and mutation updates an existing field."
+
+[[behavior]]
+partition = { equals = "STRUCT_UNKNOWN_FIELD_MUTATION_REJECTION" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#2-7-portable-runtime-value-and-program-model-contracts"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Mutation of an absent structure field returns false and does not create that field."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "Focused tests observed exact successful name, comparison, access, array, widening, and structure assertions."
+
+[[coverage.cells]]
+dimension = "boundary_high"
+state = "covered"
+rationale = "Focused tests observed exact extreme array-offset assertions."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "covered"
+rationale = "Focused tests observed exact malformed, bounds, width, shape, and absent-field rejection assertions."

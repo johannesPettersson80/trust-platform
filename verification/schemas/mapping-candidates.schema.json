@@ -110,7 +110,20 @@
           "type": "array",
           "items": { "type": "string", "minLength": 1 },
           "uniqueItems": true
+        },
+        "authority_route_digest": { "$ref": "#/$defs/digest" },
+        "exact_behavior_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]+#behavior:[0-9]+$"
+          },
+          "uniqueItems": true
         }
+      },
+      "dependentRequired": {
+        "authority_route_digest": ["exact_behavior_refs"]
       },
       "additionalProperties": false
     },

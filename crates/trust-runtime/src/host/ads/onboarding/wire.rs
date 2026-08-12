@@ -735,7 +735,10 @@ fn project_sumup_payloads(
             ));
         }
         let point_name = result.point_name.clone();
-        if results_by_point.insert(point_name.clone(), result).is_some() {
+        if results_by_point
+            .insert(point_name.clone(), result)
+            .is_some()
+        {
             return Err(OnboardingWireError::new(
                 OnboardingWireErrorKind::WrongPlcPort,
                 format!("ADS sum-up read returned duplicate point '{point_name}'"),

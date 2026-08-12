@@ -6,7 +6,7 @@ risk = "silent_corruption"
 status = "mapped"
 owner = "verification"
 last_reviewed = "2026-07-29"
-claim = "An at-rest-canonical code-spec report must partition every finding exactly once into deterministic untrusted review-required proposals without inferring source liveness or semantic bindings. Existing exact-path authority is also proposal-only until every singular or ambiguous group receives an explicit semantic decision. Complete reviewed identity, semantic, and authority-reuse selections must live-reconstruct the exact report and metadata, project only the selected transition, rebuild before mutation, and apply their canonical replacement set and manifest through one recoverable compare-and-swap transaction without inventing authority or creating proof."
+claim = "An at-rest-canonical code-spec report must partition every finding exactly once into deterministic untrusted review-required proposals without inferring source liveness or semantic bindings. Existing exact-path authority is also proposal-only until every singular or ambiguous group receives an explicit semantic decision. Complete reviewed identity, semantic, authority-reuse, and trace-backed authority selections must live-reconstruct their exact inputs, preserve curated catalog identities, project only the selected transition, rebuild before mutation, and apply their canonical replacement set and manifest through one recoverable compare-and-swap transaction without inventing authority or creating proof."
 proof_level = "T1"
 contract_kind = "protocol_trace"
 source_refs = [
@@ -21,6 +21,7 @@ source_refs = [
   "scripts/verification/code_spec_authority_reuse.py",
   "scripts/verification/code_spec_authority_reuse_projection.py",
   "scripts/verification/code_spec_authority_reuse_selection.py",
+  "scripts/verification/code_spec_authority_selection.py",
   "verification/schemas/code-spec-refresh-proposals.schema.json",
 ]
 tests = ["TEST_VERIFICATION_METADATA_GATE_001"]
@@ -37,10 +38,19 @@ source_refs = ["SPEC_VERIFICATION_PROGRAM_CONTRACT_001"]
 kind = "trust_contract"
 ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
 
+[[behavior]]
+partition = { equals = "TRACE_BACKED_AUTHORITY_CATALOG_IDENTITY" }
+case_family = "happy_path"
+oracle_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
+rationale = "A catalog-mapped discovery reuses its exact curated or generated catalog_test_id, reciprocal invariant backlinks are required, and the recoverable transaction changes only the selected code-to-authority fields."
+
 [[coverage.cells]]
 dimension = "happy_path"
 state = "covered"
-rationale = "Focused fixtures generate a schema-valid proposal plane whose exact partition and operation-set digest reconcile, then project complete reviewed identity and semantic queues without inferring unrelated proof links."
+rationale = "Focused fixtures generate a schema-valid proposal plane whose exact partition and operation-set digest reconcile, project complete reviewed identity and semantic queues without inferring unrelated proof links, and preserve a curated catalog identity through trace-backed authority selection."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"

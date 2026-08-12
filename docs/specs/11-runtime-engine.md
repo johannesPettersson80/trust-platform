@@ -355,6 +355,56 @@ declared type. Typed snapshot values are decoded according to that declared
 type, including `REAL`, `TIME`, and fixed-width `STRING`; a conversion failure
 is represented as an entry error rather than a fabricated untyped value.
 
+##### Process-image interface and binding transaction
+
+A new process-image interface has empty `%I`, `%Q`, and `%M` byte areas, no
+bindings, and no hierarchical values. Resizing validates all three requested
+area lengths before changing any area. Shrinking truncates only the removed
+suffix; growing preserves the retained prefix and zero-initializes every new
+byte. A failed resize leaves all three areas byte-for-byte unchanged.
+
+Concrete bit, byte, word, double-word, and long-word access uses the selected
+area and byte offset. Multi-byte values are little-endian. Bit writes preserve
+the other seven bits in the addressed byte. A successful write changes no
+other area. A wrong value kind, wildcard address, zero-length byte-string
+window, overflowing address calculation, or window beyond the 16 MiB cap is
+rejected before allocation or mutation.
+
+A fixed-width string write accepts valid UTF-8 whose byte length does not
+exceed the declared nonzero window. It writes the payload then zero-fills the
+remaining window, removing bytes from a previous longer value. Reading stops
+at the first NUL byte; invalid UTF-8 before that terminator is a type error.
+Unallocated portions of an in-range read are zero-filled conceptually without
+growing the process image.
+
+Hierarchical addresses are stored outside the flat byte areas and are keyed by
+their complete area, size, bit, and path identity. Reading an absent
+hierarchical key fails rather than fabricating zero. Writing one hierarchical
+key does not allocate a flat process-image byte or alter another hierarchical
+key.
+
+Bindings retain insertion order. Snapshot rows are partitioned into input,
+output, and memory lists while retaining insertion order within each area.
+Named bindings use the declared name as their display name; reference bindings
+remain unnamed unless an explicit display name was supplied. Recomputing
+binding provenance replaces every row's previous source with the callback
+result, including clearing a prior source when the callback returns none. A
+wildcard binding appears as unresolved and is never read as a concrete zero.
+
+Start-of-cycle input synchronization is transactional across every eligible
+`%I` and `%M` binding. The interface first reads and type-checks every source
+value and resolves every destination. Only after the complete batch succeeds
+are values committed to program storage. A read, conversion, undefined target,
+or null-reference failure leaves all bound program values unchanged. `%Q`
+bindings are ignored by this phase.
+
+End-of-cycle output synchronization has the symmetric all-or-nothing rule for
+eligible `%Q` and `%M` bindings. It resolves and converts every program value
+into a staged process image before replacing output, memory, or hierarchical
+state. Any missing value, null reference, conversion failure, bounds failure,
+or type mismatch leaves all three interface states unchanged. `%I` bindings
+are ignored by this phase.
+
 ##### Typed floating-point egress
 
 At end-of-cycle synchronization, typed `%Q` and `%M` bindings declared as
@@ -400,6 +450,29 @@ The built-in driver registry exposes the stable canonical names `ethercat`,
 order. Accepted aliases resolve to the canonical name before validation or
 construction; this includes `sim`/`noop`, `modbus_tcp`, `mqtt-tcp`, and
 `ether-cat`/`ecat`. The explicit driver name `none` selects no driver.
+Driver lookup trims surrounding whitespace and is ASCII-case-insensitive.
+Unknown and empty names are configuration errors. `none` is reserved and
+cannot be replaced by a registered driver.
+
+Registry validation and construction are separate boundaries. Validation
+invokes the selected driver's parameter validator only; it must not construct
+a driver, open a device/socket, start a worker, or perform a protocol
+connection. Construction runs only after successful validation and returns the
+canonical name in the built specification. A registered alias cannot shadow a
+canonical name, and an alias whose target is absent does not create a usable
+entry. Canonical enumeration never includes aliases, empty names, or `none`.
+
+Operator-facing I/O provenance uses the same canonicalization and alias table
+as driver selection. Internal `%M` bindings always report `Internal memory`.
+With no enabled driver, an external binding has no asserted source. With
+exactly one enabled driver, its protocol-specific source is shown; disabled
+drivers do not affect that choice. With two or more enabled drivers, the
+conservative label is `Multiple I/O drivers` because whole-image composition
+cannot assign one driver to the row. Modbus labels use the direction-specific
+configured base plus the addressed word offset, MQTT labels use the
+direction-specific topic, and GPIO labels use the addressed bit number.
+Provenance is a configuration projection and never claims a connection,
+successful exchange, or healthy hardware.
 
 The GPIO driver accepts `chardev`/`libgpiod` (defaulting to
 `/dev/gpiochip0`) and the compatibility `sysfs` backend (defaulting to
@@ -411,6 +484,46 @@ free before this mapping rejection. GPIO read or write failure sets faulted
 driver health with the original error. A configured watchdog/fault safe-state
 output is written through the GPIO driver and is successful only under the
 safe-state confirmation rule below.
+
+GPIO parameters themselves follow these fail-closed rules:
+
+- the parameter root is a table; absent `inputs` or `outputs` means an empty
+  list, while a present list and every list entry must have the declared TOML
+  shape;
+- the backend name is ASCII-case-insensitive: absent, `chardev`, and
+  `libgpiod` select the character-device backend, while `sysfs` selects the
+  compatibility backend; no other name is accepted;
+- every entry has a string `address` and a nonnegative `u32` physical `line`;
+  `pin` is a compatibility alias used only when `line` is absent;
+- `invert` and output `initial` default to false and accept booleans, integer
+  zero/nonzero, or strings `true`/`false`/`1`/`0`;
+- input `debounce_ms` defaults to zero and accepts a nonnegative integer or
+  unsigned decimal string; and
+- one physical line may appear only once across all inputs and outputs, and one
+  process-image bit may appear only once within its input or output list.
+
+Parameter validation performs all mapping-shape and collision checks without
+opening a GPIO device or exporting a sysfs line. A simple bit address maps byte
+and bit directly, with bit numbers restricted to 0 through 7. Internal
+process-image helpers return a configuration error for an out-of-range byte or
+bit and never panic; writes change only the selected bit.
+
+On input handoff, entries are evaluated in declaration order. Each raw value is
+inverted when configured, then debounced, then written to its `%I` bit without
+changing other bits. The first debounced sample establishes state. A change
+before the configured delay retains the prior state; a change at or after the
+delay is accepted. On output handoff, the selected `%Q` bit is inverted when
+configured and sent only when it differs from the last successfully written
+level. Failed writes are not memoized and are retried on the next handoff.
+
+Any backend, process-image bounds, or malformed sysfs value failure
+short-circuits the handoff and records faulted health containing the original
+error. A later complete successful handoff restores healthy status. Sysfs input
+values are exactly trimmed `0` or `1`; other content is rejected rather than
+being interpreted as energized. Synthetic filesystem tests prove parsing and
+sysfs file semantics only. They do not prove pin ownership, voltage, wiring,
+kernel driver operation, or device-in-the-loop behavior; those claims require
+the separately reviewed real-hardware case and artifact.
 
 Process-image drivers must keep scan-cycle methods bounded. Drivers with
 blocking wire protocols may own background workers, but the `IoDriver` boundary
@@ -617,6 +730,73 @@ rejected before process-image mutation or Modbus wire encoding; it must not
 become an infinite `REAL` value or register payload. This is a truST Modbus
 product and safety contract outside IEC 61131-3, not an IEC decision or
 deviation.
+
+###### Modbus and MQTT typed point-map contract
+
+Typed point maps bind one protocol scalar to one bounded process-image scalar.
+They do not reinterpret arbitrary trailing bytes, merge overlapping
+definitions, or use a partially converted batch as PLC input.
+
+The common scalar set is `bool`, `u16`, `i16`, `u32`, `i32`, and `f32`.
+Documented IEC-style aliases (`boolean`, `word`, `int`, `dword`, `dint`, and
+`real`) and explicit-width aliases select the same type case-insensitively.
+Integer conversion rounds to the nearest integer with half-way values away
+from zero, then checks the declared range. F32 conversion must remain finite
+after narrowing. Inbound scaling is `engineering = raw * scale + offset`;
+outbound scaling is `raw = (engineering - offset) / scale`. Scale must be
+finite and non-zero and offset must be finite. Boolean points do not accept
+scaling.
+
+Process-image numeric values are little-endian and occupy exactly two or four
+bytes according to their declared type. A Boolean occupies one selected bit;
+its bit index is `0..=7`, and writes preserve every other bit in the byte.
+Every offset-plus-width calculation is checked for arithmetic overflow and
+image bounds before mutation. A failed conversion or range check leaves the
+complete destination bytes unchanged.
+
+Within one input or output map, two point definitions must not claim the same
+protocol identity or overlapping process-image storage. Boolean bits in the
+same byte are distinct storage only when their bit indices differ. Modbus
+register ranges account for the type's complete one- or two-register width and
+the selected function/table. MQTT identities use the exact normalized topic.
+An input and output may use the same process-image offset because `%I` and
+`%Q` are separate images. Ambiguous duplicates or overlaps are configuration
+errors before a worker or transport is started.
+
+For MQTT:
+
+- a point topic is trimmed, non-empty, contains no control character, and is
+  an exact publish/delivery topic rather than a `+` or `#` subscription
+  filter;
+- Boolean maps require `image_bit`; numeric maps reject it;
+- payload formats are text, JSON, binary little-endian, and binary big-endian,
+  including their documented aliases; omitted format means text;
+- text and JSON numeric strings permit surrounding whitespace but must contain
+  one complete finite scalar;
+- JSON Boolean input accepts a Boolean, number, or recognized Boolean string;
+  JSON numeric input accepts a number or numeric string;
+- binary Boolean payloads contain exactly one byte and numeric binary payloads
+  contain exactly the declared width; extra and truncated bytes are rejected;
+  and
+- output metric names are trimmed, non-empty, and free of control characters.
+
+For Modbus:
+
+- FC01/FC02 points are Boolean and FC03/FC04 points are numeric; FC05/FC15
+  outputs are Boolean and FC06/FC16 outputs are numeric;
+- omitted type defaults to Boolean for bit functions and U16 for register
+  functions;
+- FC06 accepts only one-register U16/I16 values;
+- byte order applies inside every 16-bit register and word order applies
+  between the two registers of a 32-bit value; both default to big-endian and
+  accept the documented `big`/`be` and `little`/`le` aliases; and
+- a decoded register scalar consumes exactly the declared register byte count.
+  A truncated or oversized buffer is rejected rather than partially decoded.
+
+These point-map rules are truST protocol/product behavior outside IEC
+61131-3. Driver error policy may classify the resulting error, but cannot turn
+an invalid configuration, malformed scalar, out-of-range value, or partial
+batch into accepted PLC data.
 
 2. **MQTT (baseline profile)**
 - Topic bridge between broker payloads and process image bytes.
@@ -935,6 +1115,31 @@ after every received CONNACK, including rejected CONNACK responses. It does not
 leave a discovery session active. MQTTS port reachability without a TLS MQTT
 exchange remains `port_reachable`.
 
+The Modbus discovery wire probe emits a valid MBAP header with protocol ID
+zero, exact transaction ID, unit ID, and PDU length. FC43/14 uses transaction
+1; an optional FC03 safe read uses transaction 2 after a fresh bounded
+connection. Request PDUs are limited to the Modbus TCP PDU maximum and an
+empty or oversized PDU is rejected before writing. A response is protocol
+evidence only when transaction ID, protocol ID, length, unit ID, function, and
+complete body all match the request. Response length is 2 through 260 bytes;
+a normal function response is accepted, and an exception function requires an
+explicit exception code. A mismatched unit, truncated exception, malformed
+length, unexpected function, or partial body is not Modbus evidence.
+
+The MQTT discovery CONNECT packet uses MQTT 3.1.1, clean-session true,
+keepalive zero, no credential or will flags, and a bounded UTF-8 client ID.
+Remaining Length uses the canonical shortest MQTT base-128 encoding and is
+limited to four bytes and 268,435,455; overlong, non-minimal, truncated, or
+overflow encodings reject. CONNACK is exactly packet type `0x20`, remaining
+length 2, a session-present flag of zero or one, and return code 0 through 5.
+Reserved acknowledgement flags, extra bytes, unknown return codes, and
+session-present set on a rejected connection are malformed protocol input, not
+`likely` evidence. Valid return code zero is `confirmed`; codes 4 and 5 are
+`likely` with authentication required; other valid rejection codes are
+`likely` without that flag. A valid CONNACK is followed by DISCONNECT even
+when rejected. Malformed input and TCP-only behavior never become protocol
+confirmation.
+
 ##### Communication discovery scope and symbol browsing
 
 Communication discovery is a bounded authoring operation. A directed Modbus or
@@ -947,6 +1152,56 @@ module chain, but it remains mock evidence. OPC UA generic discovery currently
 returns an explicit server-setup warning and no candidates. A registered
 protocol whose discovery is deferred returns an empty candidate set and a
 stable unavailable warning; an unknown protocol is a request error.
+
+`comm.discover` schema version 1 requires a non-empty string protocol. Its
+optional scope is an object, origin is `this_host` or `runtime`, and passive
+defaults true. Unknown request or scope keys are rejected so misspelled safety
+limits cannot silently disappear. A requested non-passive scan still performs
+connect/read-only operations and returns the stable warning that active write
+probes are unsupported. Timeout defaults to 150 ms and is clamped to the
+closed 1 through 2,000 ms range; malformed timeout types are request errors.
+
+Protocol aliases are deterministic: Modbus hyphen/underscore forms select
+`modbus_tcp`; OPC UA server and client aliases remain distinct; MQTT broker
+selects `mqtt`; ADS client and TwinCAT select `ads`; and truST/runtime/mDNS
+aliases select `discovery`. Deferred registered protocols return their
+protocol-specific stable title in the unavailable warning. A blank or unknown
+protocol never falls through to a generic registered protocol.
+
+A Modbus directed host accepts a host, IPv4 address, or bracketed IPv6 address
+with optional nonzero port and defaults to port 502. Its unit ID defaults to 1.
+The optional safe FC03 read requires `probe_read_address`; quantity defaults to
+1 and is limited to 1 through 125. Supplying quantity without an address, zero,
+or a value above 125 rejects the request before a connection. A CIDR is trimmed
+and parsed as IPv4/prefix; `/24` is the broadest accepted range. Enumeration is
+ascending and canonicalized to the containing network: `/24` through `/30`
+exclude network and broadcast, `/31` includes both point-to-point addresses,
+and `/32` includes its sole address.
+
+MQTT discovery never performs an undirected network scan. Missing host returns
+no candidates plus the stable directed-host warning. A directed host accepts a
+host, IPv4 address, or bracketed IPv6 address. An omitted port probes the
+distinct resolved addresses at both 1883 and 8883 in deterministic
+address/port order; an explicit nonzero port probes only that endpoint.
+Schemes, userinfo, paths, queries, fragments, invalid ports, ambiguous
+unbracketed IPv6, duplicate socket addresses, and unresolved targets reject
+before probing. Port 8883 yields only MQTTS TCP-reachability evidence unless a
+TLS MQTT exchange is actually completed.
+
+OPC UA client discovery requires a directed host or endpoint. A bare host
+defaults to `opc.tcp://<host>:4840`; an explicit valid port, bracketed IPv6
+authority, or path is retained, and a canonical `opc.tcp://` endpoint is
+trimmed and retained. Other schemes, userinfo, zero or invalid ports, query or
+fragment components, and ambiguous unbracketed IPv6 reject before calling Get
+Endpoints. Endpoint discovery failure is an explicit warning and empty result,
+not a successful fabricated endpoint.
+
+Every candidate ID is deterministic and contains only ASCII alphanumeric,
+hyphen, underscore, period, and the protocol-owned separators added by the
+projection. Candidate source and confidence come from the actual observation;
+labels and parameters do not upgrade TCP reachability into protocol
+confirmation. Candidate order follows deterministic target/source order, and
+duplicate observations are collapsed by their protocol identity.
 
 Symbol browsing returns a versioned tree whose `protocol`, `kind`, IDs, paths,
 type labels, writable flag, and protocol-specific identifiers are derived from
@@ -966,6 +1221,57 @@ the owning source:
 - OPC UA leaf browsing retains the raw node ID and maps a supported scalar data
   type into the exact apply-facing type name. Browse failure retains the
   classified protocol error instead of returning an empty successful tree.
+
+`comm.browse_symbols` schema version 1 requires a non-empty string protocol.
+Kind defaults to `symbols`; protocol and kind are trimmed, ASCII-case folded,
+and hyphen-normalized before dispatch. Unknown request or target keys reject.
+The supported protocol/kind pairs are ADS `symbols`, OPC UA client `nodes`,
+EtherCAT `channels`, and local OPC UA server, ADS server, or OpenOT `symbols`.
+Every other pair is an explicit request error. Local browsing is selected only
+for `symbols` on a local-capable protocol when the target is absent, explicitly
+local, or has no remote host; a nonempty remote host never falls through to
+project compilation.
+
+Every successful response includes exact schema version, canonical protocol,
+canonical kind, and a tree. Empty optional `error`, `route`, `ads_import`, and
+warning members are omitted. A structured protocol error contains an empty
+tree and no route/import payload. Secrets from targets, cached snapshots, route
+plans, and protocol errors never appear in the tree, warnings, or diagnostic
+text.
+
+A cached ADS snapshot must use the current snapshot schema, a non-empty trimmed
+route name, and valid non-empty dotted symbol paths. Empty segments, leading or
+trailing periods, duplicate descriptor identities, and conflicting duplicate
+symbol paths reject before tree or import projection. Snapshot order is
+canonicalized before both projections. ADS groups and leaves are sorted
+lexicographically at every level. Groups carry deterministic path-derived IDs,
+`type = group`, children, and no size or writable claim. Leaves retain exact
+remote path, ADS source type, byte size, and a writable flag derived only from
+the remote Write capability. The tree and `ads_import.snapshot` contain the
+same descriptor denominator.
+
+An ADS live target accepts `ip`/`host` and `ams_net_id`/`target_net_id`
+aliases. Host and AMS Net ID are trimmed; host is a bare IPv4, IPv6, or DNS
+name without scheme, userinfo, path, query, or fragment. AMS Net ID is exactly
+six decimal octets in the range 0 through 255. AMS port defaults to 851 and
+must be nonzero. Conflicting duplicate aliases reject. Missing target and
+snapshot, or an instance ID without the target needed for live browsing,
+reject before route or wire activity. Cached browsing performs no route check
+or network activity.
+
+OPC UA browsing target, security, authentication, and credential rules are the
+same as OPC UA client Test. The derived security profile's anonymous flag must
+agree with the normalized auth mode. Each projected node preserves child
+order, raw NodeId, browse path, OPC UA type NodeId label, apply-facing scalar
+data type, and writable flag recursively; only its UI ID is sanitized.
+
+EtherCAT browsing selects a configured EtherCAT driver by its exact
+protocol-qualified instance identity, retaining the original `io.drivers`
+index when other protocols precede it. Without an instance it selects the
+first configured EtherCAT driver. A stale or cross-protocol identity rejects.
+Module and channel order is configuration order; module IDs, paths, model,
+slot, channel count, per-channel index, one-byte BOOL type, and ownership are
+projected without claiming a live hardware observation.
 
 Reading a project file, generated temporary artifact, cached snapshot, or live
 wire response remains an external oracle. A structural response-shape
@@ -1130,6 +1436,31 @@ the scheduler and host-control paths. The subsystem decision projection reads
 the installed action without mutating the stored policy. These are truST
 runtime configuration contracts, not IEC deviations.
 
+##### Portable watchdog and fault configuration model
+
+Configuration token parsing trims surrounding whitespace and compares ASCII
+case-insensitively. `WatchdogAction` and `FaultPolicy` accept exactly `halt`,
+`safe_halt`, and `restart`; `RetainMode` accepts exactly `none` and `file`.
+Every other token returns `RuntimeError::InvalidConfig`. The diagnostic
+preserves the complete original, untrimmed text in one of these exact forms:
+`invalid watchdog action '<text>'`, `invalid fault policy '<text>'`, or
+`invalid retain mode '<text>'`.
+
+The default `WatchdogPolicy` is disabled, has a zero duration, and selects
+`SafeHalt`. Both `WatchdogSubsystem::new` and `Default` store that policy.
+Their decision projects `Halt` to `(Halt, apply_safe_state = true)`,
+`SafeHalt` to `(SafeHalt, true)`, and `Restart` to `(Restart, false)`.
+The watchdog `Halt` projection therefore deliberately differs from the
+ordinary `FaultPolicy::Halt` projection: a watchdog timeout requires safe
+output handling before halt.
+
+Both `FaultSubsystem::new` and `Default` select `FaultPolicy::Halt`, report a
+healthy state, and contain no last fault. Reading policy, decision, faulted
+state, or last fault does not mutate the holder. `FaultInfo` stores the exact
+human-readable reason supplied by the host, and cloning it preserves that
+text. Constructing or reading these portable model records does not execute a
+halt, safe-state write, restart, retain operation, or recovery action.
+
 #### 6.7 Retain Storage (IEC 61131-3 §6.5.6)
 
 Retentive variables must follow IEC 61131-3 retentive variable rules (§6.5.6, Figure 9). At
@@ -1173,6 +1504,10 @@ migration, orphan reporting, and atomic apply boundary as retained globals.
 
 Insertion stores the complete runtime `Value` without changing its concrete
 variant or nested contents. This is a deterministic snapshot-construction
+contract: constructing a snapshot from an ordered map, borrowing its values,
+and consuming it back into a map preserve the exact key spelling, entry order,
+runtime value variants, and nested values without normalization or
+reconstruction.
 contract, not a validation bypass: declared-type migration, non-finite value
 rejection, serialization, and atomic application remain owned by the retain
 save/load/apply boundaries below. Successful insertion alone does not mean a
@@ -1422,6 +1757,10 @@ preserves those identities across the merged source set:
 - sibling functions, function blocks, classes, and interfaces declared inside
   one namespace are registered by full name, resolve within that namespace,
   and execute as one semantic graph; and
+- type and member defaults retain their declaring namespace/`USING` context,
+  so a qualified or imported namespaced constant resolves identically across
+  source order and from every consuming source; a missing or ambiguous import
+  fails before runtime publication; and
 - program names are unique under ASCII-case-insensitive comparison across the
   merged source set. A collision rejects assembly, reports the duplicate
   condition, and retains the reviewed original spelling in the diagnostic.
@@ -1554,7 +1893,11 @@ with sources from resolved local project dependencies. Legacy `--config`
 startup recursively compiles those source types beneath its literal runtime
 root. Source discovery must not interpret project or directory names as glob
 syntax, must use deterministic path ordering, and must propagate directory and
-file-read failures. An empty or invalid source set is a startup error.
+file-read failures. An empty or invalid source set is a startup error. Startup
+without a project or legacy configuration is the IDE-shell mode: it compiles
+one synthetic empty `Main` program rooted at `__ide_bootstrap__.st`, exposes no
+bundle, and marks the loaded runtime as an IDE shell instead of claiming that a
+project was loaded.
 
 Before the first PLC scan, the launcher must successfully complete all startup
 preparation: bundle-version validation; source and bytecode validation; runtime,
@@ -1567,7 +1910,10 @@ not report the PLC as running. Warm startup loads and validates the configured
 retain snapshot before execution. Cold startup does not read retained values.
 Bundle-version compatibility is checked before watchdog, fault, or other
 runtime policy is mutated; an unsupported version leaves the prior runtime
-policy unchanged.
+policy unchanged. A disabled ADS or OPC UA client is a startup no-op and must
+not construct a transport. Enabling either client without its loaded sidecar
+configuration is a startup error detected before transport construction or
+connection-state mutation.
 
 Simulation startup rejects a CLI or project time scale of zero. `--simulation`
 enables simulation without discarding the project's simulation model; a CLI
@@ -1695,6 +2041,106 @@ The status and configuration surfaces project one effective runtime state:
   requested limit, and return matching persisted samples or alerts when they
   exist.
 
+Status, health, and task-stat projection is fail-closed and deterministic.
+`status` returns an error when runtime settings, control mode, I/O health,
+metrics, or realtime-status state is unavailable; it must not substitute
+production mode, VM defaults, an empty driver list, zero metrics, or a default
+realtime posture for an internal read failure. `tasks.stats` likewise returns
+an error when metrics are unavailable. `health` returns an error when I/O
+health or realtime status is unavailable.
+
+The aggregate `health.ok` value is true only when the resource is running,
+ready, or paused, has no resource fault, has no faulted I/O driver, and has no
+realtime error. A degraded I/O driver or realtime warning remains visible but
+does not alone make the aggregate false. Every I/O entry contains its exact
+name and one of `ok`, `degraded`, or `faulted`; only degraded and faulted
+entries contain their stable error detail. Status preserves I/O registration
+order. Task statistics are sorted lexically by task name, independent of map
+iteration order. Profiling contributors retain contribution-descending order
+with their established lexical tie-break.
+
+`events.tail` and `faults` accept either no parameters or a strict object
+containing only optional `limit`. The default is 50 and the accepted range is
+1 through 1,000 inclusive. Null, a non-object, an unknown key, a non-integer,
+a Boolean, or an out-of-range value rejects instead of silently selecting a
+default. Both operations return newest entries first and fail when the event
+store is unavailable. `events.tail` applies the limit to all events. `faults`
+first selects only `RuntimeEvent::Fault` entries and then applies the limit, so
+intervening non-fault events cannot reduce the requested number of faults.
+`SafeStateFailed` remains its own event type and is not silently relabeled as
+the originating resource fault.
+
+Historian query parameters are strict objects. `historian.query` permits only
+`variable`, `since_ms`, and `limit`; `historian.alerts` permits only `limit`.
+An omitted object uses limits 250 and 200 respectively. Query limit is in the
+range 1 through 5,000 inclusive and alert limit is in the range 1 through
+1,000 inclusive. `since_ms` is an exactly representable nonnegative integer.
+When present, `variable` is a string that is non-empty after trimming; the
+trimmed exact path is used for matching. Unknown fields, null, wrong types,
+fractional values, empty variable names, and out-of-range limits reject with
+`invalid params` rather than relying on the historian's defensive internal
+clamp. A disabled historian still returns `historian disabled` and does not
+claim that an invalid query was executed.
+
+`config.set` helper validation is exact and side-effect-free. Boolean fields
+accept only JSON booleans. Positive-integer fields accept an exactly
+representable signed 64-bit JSON integer in the range 1 through `i64::MAX`;
+zero, negative, fractional, Boolean, string, container, and larger unsigned
+values reject. Non-empty strings trim Unicode whitespace and reject all-empty
+input.
+
+String arrays preserve order, trim every entry, and reject a non-array,
+non-string entry, or empty trimmed entry. String maps require an object, trim
+both keys and values, reject empty trimmed keys or values and non-string
+values, and emit deterministic key order. Empty arrays and objects are valid
+where the owning setting permits an empty collection.
+
+Runtime-cloud WAN rules are a strict array of objects containing exactly
+`action` and `target`; link-preference rules contain exactly `source`, `target`,
+and `transport`. Missing, null, wrong-typed, empty, or unknown fields reject
+with the owning key and zero-based entry index. All strings are trimmed.
+Transport uses the closed runtime-cloud vocabulary and canonicalizes the
+Modbus hyphen/underscore alias. Rule order is preserved.
+
+Validation errors have the stable prefix
+`invalid config value for '<key>':`. They may identify an entry or unknown
+field but do not serialize sibling values. Helper rejection performs no state
+mutation and cannot append an item to either the updated or restart-required
+result.
+
+Live `config.set` requires an object; an absent payload and a non-object payload
+are distinct errors. An empty object is a successful no-op with empty
+`updated` and `restart_required` arrays. The handler stages the complete
+effective settings, control token, control mode, and debug-enabled state,
+validates every key and all final-state cross-field requirements, and only then
+commits any of them. An unknown key, startup-only key, type/value error,
+cross-field error, unavailable lock, or scheduler-update rejection leaves all
+four state domains unchanged.
+
+The final state may use `web.auth = token` only with a non-empty final
+`control.auth_token`. This applies both when token mode is selected and when an
+existing token is cleared. A TCP control endpoint that requires authentication
+never accepts a null token. Supplying a new token and selecting token web auth
+in one object is order-independent. Token and mesh-token values are trimmed,
+never returned, and never included in success or error text.
+
+`updated` contains each accepted request key exactly once in canonical lexical
+order. `restart_required` is the lexical subset whose effective runtime service
+cannot change in place: retain mode; web, discovery, mesh, runtime-cloud, and
+control-mode settings. Log level, watchdog settings, fault policy, retain save
+interval, control token, and debug-enabled state are live updates and do not
+claim restart. A rejected request returns neither list.
+
+`config.get` returns the complete effective key projection without credential
+values. Control and mesh credentials expose only presence; control additionally
+exposes length when present and null length when absent. Enum-like values use
+the same canonical lowercase or snake-case spelling accepted by configuration:
+watchdog actions, fault policy, retain mode, control mode, mesh role,
+runtime-cloud profile/transport, realtime scheduler, and execution backend.
+Derived startup/backend-source, simulation, observability, and credential
+presence fields are read-only observations rather than implicit authorization
+for `config.set`.
+
 ###### Runtime execution-backend selection and construction contract
 
 The host-runtime execution-backend selector trims surrounding whitespace and
@@ -1760,9 +2206,159 @@ entry. For the reviewed non-wrapped cycle window containing 5, 10, 15, 20, and
 25 milliseconds, the snapshot reports five samples, a median of at least
 10 milliseconds, a p95 not below the median, and a maximum of 25 milliseconds.
 
-This batch does not establish window rollover, percentile behavior for every
-sample population, clock accuracy, concurrent collection, instrumentation
-completeness, a stable overhead budget, or a general execution-time guarantee.
+Cycle, task, and call durations are represented in milliseconds as finite
+`f64` values derived from non-negative monotonic durations. The first sample
+sets minimum, maximum, average, and last to the same value. Later samples update
+minimum and maximum, set last to the newest value, and compute the arithmetic
+mean over every accepted sample. An unrecorded statistics object exposes zero
+for every duration field and zero samples/calls. Recording a zero duration is a
+real sample, not an absent value.
+
+Cycle percentile reporting uses a rolling window of the most recent 512 cycle
+durations. The 513th sample evicts only the oldest sample. Snapshots sort a copy
+of the retained values and do not mutate collection order or future rollover.
+For a sorted population of `n`, p50, p95, and p99 use index
+`round((n - 1) * q)` for quantile `q`; quantiles below zero clamp to zero and
+above one clamp to one. An empty window reports zero percentiles, zero maximum,
+and zero samples. Every non-empty snapshot reports the exact retained sample
+count, p50 <= p95 <= p99 <= maximum, and finite values.
+
+Task identities are exact and independent. A recorded task duration creates or
+updates only that task. A positive missed-activation count increments both the
+runtime-wide overrun counter and that task's overrun counter with saturating
+`u64` arithmetic. A zero missed count is a no-op and does not materialize an
+otherwise absent task. Fault counts also saturate. Snapshot task rows are
+sorted by task name so identical runtime state has deterministic JSON and
+control-surface projection regardless of hash-map insertion order.
+
+Call identities are the exact `kind:name` pair. Each call row reports its own
+minimum, maximum, mean, last duration, call count, and total call time divided
+by the number of recorded cycles as `avgCycleMs`. When no cycle has been
+recorded, the denominator is one so a recorded call remains visible, while its
+cycle percentages are zero because no cycle budget exists. Multiple calls with
+the same identity aggregate; different identities never merge.
+
+Top contributors contain at most five call identities, ordered by descending
+`avgCycleMs` and then ascending identity key for ties. `cyclePct` is
+`avgCycleMs / cycle.avgMs * 100`; `lastCyclePct` is
+`call.lastMs / cycle.lastMs * 100`. A zero cycle denominator yields zero rather
+than NaN or infinity. Percentages are not clamped to 100 because nested or
+overlapping instrumentation may legitimately sum beyond one cycle budget.
+
+Setting profiling from enabled to disabled clears all accumulated call rows and
+contributors. Calls while disabled are ignored. Repeatedly setting the already
+disabled state remains empty; repeatedly setting the already enabled state
+preserves current samples. Re-enabling after a disabled interval begins with an
+empty profile and does not reconstruct ignored calls. Cycle, task, fault, and
+overrun metrics are independent of the profiling toggle.
+
+A metrics snapshot is observational: it does not reset counters, consume
+samples, reorder retained window state, or alter profiling enablement.
+Successive snapshots without new records preserve all metric values except
+that monotonic uptime may increase. The default and explicitly selected
+execution backend are reported exactly.
+
+These rules establish the in-memory accounting and snapshot contract. They do
+not claim wall-clock accuracy, lock-free concurrent collection,
+instrumentation completeness, a stable observer-overhead budget, or a general
+execution-time guarantee.
+
+###### Runtime terminal console contract
+
+The optional `trust-runtime ui` terminal console is an operator-facing
+projection of the versioned control protocol. It does not own a second runtime
+state model and it does not make a successful control operation out of a
+failed, malformed, or unavailable control response. These are truST product
+rules outside IEC 61131-3.
+
+Endpoint selection is deterministic. An explicit endpoint is parsed and used
+without requiring a bundle. Otherwise the selected bundle supplies the
+endpoint and optional configured authentication token. An explicit token has
+precedence over the environment and bundle; a nonempty environment token has
+precedence over the bundle. Empty token text is absence, not a credential.
+Every request is one newline-delimited JSON object and carries the selected
+token in `auth`. The refresh transaction requests, in order, `status`,
+`tasks.stats`, `io.list`, `events.tail` with limit 20, and `config.get`, using
+distinct request IDs 1 through 5. Transport or decoding failure aborts that
+refresh; the console retains the last complete snapshot instead of installing
+a partial one.
+
+Response projection has closed fallback behavior:
+
+- status requires an object result and a string state; absent optional
+  counters and timings are zero, the resource is `resource`, the fault is
+  `none`, the control mode is `unknown`, and simulation defaults to production
+  at scale one;
+- task, I/O, and event projections preserve response order and return an empty
+  list when `result` is absent or not an array;
+- I/O string values remain unquoted while non-string JSON scalars use their
+  JSON spelling;
+- event levels `fault` and `error` map to Fault, `warn` and `warning` map to
+  Warn, and other or absent levels map to Info;
+- settings require a result object and use the documented runtime defaults.
+  Negative or unrepresentable cycle intervals and simulation scales are
+  rejected as absent and defaulted rather than narrowed.
+
+Console configuration is advisory. An absent, unreadable, or malformed
+`runtime.toml`, an absent console table, and a layout containing no recognized
+panel names all select the built-in layout. Recognized layout names are
+case-insensitive, retain declared order, and discard unknown entries. A
+positive `console.refresh_ms` overrides the CLI default only when the caller
+left that default unchanged; zero and negative refresh values are invalid and
+do not create a busy loop.
+
+Prompt editing is UTF-8 safe: the cursor always denotes a character boundary,
+left/right/backspace operate on one complete Unicode scalar, and no accepted
+key sequence may panic. Activation positions the cursor at the end of the
+initial text; deactivation clears transient history navigation. Empty and
+whitespace-only commands are not retained. History traversal saturates at the
+oldest entry, advances toward newer entries, and clears the input after the
+newest entry. Suggestion traversal wraps in both directions, and selecting a
+suggestion records and executes that exact slash-prefixed command.
+
+Read-only mode accepts only observation and exit interaction. `/` reports
+read-only state without activating a prompt, and `q` exits. It must not issue
+pause, resume, stepping, restart, shutdown, I/O, configuration, or other
+mutating requests. Beginner mode exposes only its documented beginner command
+set and disables direct debug controls. A confirmation performs an action only
+for case-insensitive `y` or `yes`; every other response cancels. Escape and
+control-C leave a normal inactive prompt without executing the pending
+operation.
+
+The cycle sparkline retains at most 120 finite nonnegative samples, rounded to
+tenths of a millisecond with zero rendered as the minimum visible bucket.
+Absent, NaN, infinite, or negative cycle values do not become fabricated large
+samples. Alerts retain at most five newest entries. Event alert deduplication
+uses the complete event identity (code, timestamp, level, and message), so a
+new occurrence reusing a code is not hidden; informational events do not
+produce alerts. Watch evaluation preserves watch-list order and classifies a
+missing result as `unknown`, a protocol error as `error: <message>`, and a
+transport failure as `unavailable`.
+
+Command and menu selection is deterministic. Command names are the documented
+lowercase tokens, optional leading `/` is accepted, numeric menus are
+one-based, and invalid or out-of-range choices retain the current mode with an
+explicit error. Navigation wraps over the currently eligible entries. I/O
+Read may select any listed point; Set, Force, and Unforce offer output points
+only. Boolean values receive the TRUE/FALSE chooser, while other values enter
+the explicit value prompt. A local force marker is added or removed only after
+the corresponding control response succeeds. `unforce all` retains markers
+whose release failed and reports the failure; it must not claim that all
+forces were released after a partial failure.
+
+Settings distinguish live acceptance from durable project mutation. Boolean
+inputs accept the documented true/false aliases; TOML scalar parsing trims
+text and preserves Boolean, signed integer, or string type. Nested TOML update
+creates missing tables but rejects traversing a scalar. A project-backed
+setting is reported saved only after the candidate TOML validates and the file
+write succeeds. A control-backed setting is reported saved only after the
+control response is successful; when both live and durable updates are
+required, either failure is visible and success is not fabricated. Restart
+menus open only for an accepted change that actually requires restart.
+
+These unit-level rules prove console parsing and state transitions. They do not
+replace an interactive terminal smoke test for rendering, terminal restoration,
+or a live runtime control connection.
 
 The role and transport rules in section 6.9.4 govern these handlers. A pairing
 token retains its stored role; an unauthenticated network connection receives
@@ -1831,6 +2427,75 @@ evaluation name, or unavailable/poisoned I/O snapshot fails closed with a
 negative response. These failures do not return an empty successful projection
 or mutate debug or runtime state.
 
+###### Runtime control I/O and variable mutation contract
+
+The attach-mode JSON control surface uses strict parameter objects for debug
+mutation. `io.write` and `io.force` require exactly string fields `address` and
+`value`; `io.unforce` requires exactly string field `address`. `eval` requires
+exactly string field `expr`; `set` requires exactly string fields `target` and
+`value`; `var.force` requires exactly string fields `target` and `value`; and
+`var.unforce` requires exactly string field `target`. Missing parameters use
+the stable `missing params` failure. Null, a non-object, a missing field, a
+wrong-typed field, or an unknown field rejects as `invalid params`. Rejection
+queues no write and changes no force.
+
+Control I/O addresses use the canonical uppercase `%I`, `%Q`, or `%M` grammar
+after trimming surrounding whitespace. A mutation address is concrete:
+wildcards reject. Flat addresses must fit the 16,777,216-byte area, including
+the complete width of byte, word, double-word, and long-word accesses.
+Hierarchical addresses retain every declared path segment and bit coordinate.
+The same address eligibility applies to write, force, and release; release
+cannot use an address that write or force would reject merely because no new
+value is supplied.
+
+`io.list` returns the cached snapshot directly and fails with
+`no snapshot available` before the first captured scan. `io.read` returns
+`{"snapshot": null}` for that legitimate pre-scan state. If the snapshot lock
+is unavailable, both operations fail with `I/O snapshot unavailable`; they do
+not collapse an internal failure into a pre-scan state. A returned snapshot is
+one coherent cached scan, including only the force marks captured with that
+scan.
+
+The attach-mode scalar text grammar is deliberately small. After trimming,
+`TRUE` and `FALSE` match ASCII-case-insensitively and produce Boolean values.
+A base-ten signed integer accepted exactly by the `i64` domain produces a
+`LINT`; optional leading sign and leading zeroes are accepted, while an empty
+string, separators, base prefixes, decimal points, exponent notation, quoted
+text, and out-of-range integers reject as `unsupported value`. This admission
+grammar does not bypass target-width or declared-type checks when the queued
+mutation is applied at a scan boundary.
+
+An accepted `io.write` appends one one-shot request in arrival order. Multiple
+writes to the same address remain distinct ordered requests. An accepted
+`io.force` creates an active force; forcing the same exact address again
+replaces its value in place without duplicating or reordering the force.
+`io.unforce` removes only the exact matching force and is idempotent when no
+such force exists.
+
+The bounded `eval` operation trims `expr`, rejects an empty name, and performs
+an exact snapshot lookup: global storage first, then retained storage. It is a
+name read, not general expression execution. An absent snapshot returns
+`no snapshot available`; an unknown name returns `unknown identifier`.
+Successful values use the stable runtime debug representation.
+
+Variable mutation targets use exact lowercase prefixes. `set` admits
+`global:<name>` and `retain:<name>` only. Force and release additionally admit
+`instance:<id>:<name>`, where `id` consists only of ASCII decimal digits in
+the inclusive `u32` range. Surrounding whitespace on the complete target is
+not ignored because it changes the prefix; whitespace around the name after
+the delimiter is trimmed. Every name must remain non-empty. Instance names
+retain all text after the second delimiter, after surrounding whitespace is
+removed.
+
+An accepted `set` queues a one-shot variable write for the next scan. A later
+pending write to the same exact target replaces the earlier value in place;
+different targets retain arrival order. Force uses the same target identity
+and scalar grammar. `var.forced` returns active variable forces in stable
+insertion order with canonical targets `global:<name>`, `retain:<name>`, or
+`instance:<normalized-u32>:<name>` and stable debugger-formatted values.
+Re-forcing one target replaces its value without duplication. Release removes
+only the exact target and is idempotent.
+
 ##### 6.8.1a Offline communication authoring client
 
 `trust-runtime comm` is a scriptable local authoring surface. Each accepted
@@ -1874,6 +2539,53 @@ protocol ID, category, apply mode, configuration owner, multi-instance
 capability, and typed field definitions. Secret fields are marked as secret
 metadata, have no secret default, and never serialize a credential value.
 
+The schema registry is a closed, deterministic product contract. Its protocol
+order is `modbus_tcp`, `mqtt`, `ethercat`, `gpio`, `simulated`, `loopback`,
+`opcua`, `opcua_client`, `openot`, `discovery`, `mesh`, `realtime_t0`,
+`runtime_cloud`, `ads_server`, and `ads`. Protocol IDs and action IDs are
+unique. Filtering trims surrounding whitespace, folds ASCII case, and treats
+hyphens as underscores; an unknown string selects no protocols, while a
+non-string protocol filter is malformed and must not silently return the
+unfiltered registry.
+
+Each protocol has non-empty title, purpose, availability, primary category,
+configuration home, apply mode, lifecycle effect, and at least one category
+containing its primary category. The closed configuration homes are
+`io.toml`, `runtime.toml`, `opcua_client.toml`, and `ads.toml`; every protocol
+must route to the apply implementation that owns that home. The closed action
+vocabulary is `add`, `edit`, `upsert`, `remove`, `disable`, `discover`,
+`browse_symbols`, `test`, `doctor`, and `route_script`. Actions are unique per
+protocol. `supports_test` is true exactly when `test` is advertised; a schema
+must not expose one half of a usable Test control.
+
+Field IDs are non-empty and unique within a protocol. Labels and help are
+non-empty. The closed field-type vocabulary is `string`, `secret`, `boolean`,
+`number`, `enum`, `endpoint`, `path`, `json_array`, and `json_object`, and a
+default has the matching JSON shape. Required fields have a non-null default.
+Only `secret` fields carry `secret = true`; their default is always null and
+they are never required. Enum options are non-empty, unique strings containing
+the default. Number validation uses a complete integer range with `min <= max`
+and a default within that range. Endpoint validation is either `host_port` or
+`socket_addr`. A visibility predicate references another field in the same
+protocol and its comparison value is valid for that controlling field.
+
+Schema defaults and apply validation are one contract, not separate sources of
+truth. Every directly applicable default set is accepted by its owning
+validator. Every advertised integer bound, enum option set, endpoint shape,
+required string, array shape, and object shape is enforced by that same apply
+route. ADS-client and OPC-UA-client connection arrays are intentionally empty
+authoring seeds: while `enabled` is true, they are incomplete until the user
+selects at least one connection and point/node, and the apply route must reject
+activation without that selection.
+
+Configured `io.toml` instances retain stable protocol-qualified IDs and appear
+only under their matching protocol. Instance parameters are an observation
+projection, not a credential retrieval surface: secret-valued keys such as
+passwords, tokens, and private keys are omitted or replaced with a non-secret
+presence marker before serialization. Schema filtering and configured-instance
+projection must never cause a persisted credential to appear in a response,
+diagnostic, or display name.
+
 The version-4 capability registry contains exactly the 15 registered
 communication protocols. Build availability, platform availability,
 configuration state, and operational evidence are distinct. Every protocol
@@ -1885,6 +2597,55 @@ returning `result.ok = false` for a completed negative protocol test.
 Unsupported Test operations return `supported = false` and must not appear as
 usable controls.
 
+`comm.test` requires a non-empty string protocol and an object-valued `params`;
+an absent request or protocol fails at the control-envelope boundary, while a
+present non-object `params` value returns a structured `params` field error
+before protocol work rather than being reinterpreted as an empty target.
+Protocol normalization follows the communication-schema rules. The supported set is exactly Modbus TCP,
+MQTT, OPC UA client, simulated I/O, and loopback I/O. Simulated and loopback
+return successful `local_driver` evidence without opening a socket. EtherCAT
+and GPIO return a stable hardware-health explanation with `supported = false`.
+Every other registered or unknown protocol returns the stable unsupported
+result without network activity, evidence, or field errors.
+
+Modbus and MQTT Test are bounded TCP-reachability probes, not protocol
+handshakes. Their positive detail and evidence therefore claim only that the
+resolved port accepted a TCP connection. Modbus accepts a host, IPv4 address,
+or bracketed IPv6 address with an optional port and defaults an omitted port
+to 502. MQTT accepts the `mqtt://` and `tcp://` cleartext schemes with default
+port 1883 and the `mqtts://` and `ssl://` TLS schemes with default port 8883.
+An explicit valid port is retained. Empty hosts, zero or invalid ports,
+userinfo, paths, queries, fragments, unsupported schemes, and ambiguous
+unbracketed IPv6 are field errors before DNS or connection activity. A
+resolution failure is a field error; a resolved but refused or timed-out
+connection is a completed negative Test with target, resolved address, and
+effective timeout evidence.
+
+The Test timeout defaults to 500 ms and is bounded to 1 through 5,000 ms.
+Zero and values above the maximum clamp to the nearest bound. Negative,
+fractional, string, object, array, and boolean timeout values are field errors;
+they must not silently select the default. The effective bounded timeout is
+reported in evidence. Address resolution and connection attempts share that
+single total budget and try resolved addresses in deterministic resolver order
+until one succeeds or the budget expires.
+
+OPC UA client Test accepts `endpoint_url` or the `host` alias. A bare host
+defaults to `opc.tcp://<host>:4840`; an explicit port or path is retained
+under `opc.tcp://`, and an already canonical URL is byte-preserved after
+trimming. Security policy and mode use the OPC UA configuration vocabulary.
+Authentication is `anonymous` or the `username`, `user_name`, and `user`
+aliases; username authentication requires non-empty trimmed username and
+password values. The trust-server-certificate flag defaults false. A target
+validation failure is field-specific and starts no handshake. A completed
+handshake failure retains its stable OPC UA error classification and
+credential-free endpoint/security evidence.
+
+Any non-empty nested `password`, `auth_token`, `token`, `secret`, or
+`client_secret` value requires the exact server-observed
+`trusted_same_host` credential channel. Empty secret strings do not create a
+credential. A blocked Test has no evidence or protocol error, never echoes
+request parameters, and returns only a secret-presence-safe field error.
+
 Communication capability `health` and fleet topology runtime, endpoint, and
 link status are versioned product-projection vocabularies, not the
 connector-report `health` vocabulary in
@@ -1893,6 +2654,57 @@ connector-report `health` vocabulary in
 `connected`, `degraded`, `error`, or `configured_policy`. Consumers must
 interpret values within their response type and reject unknown values rather
 than treating them as healthy.
+
+The capability response order is `ads`, `ads_server`, `opcua`,
+`opcua_client`, `modbus_tcp`, `mqtt`, `openot`, `discovery`, `mesh`,
+`realtime_t0`, `runtime_cloud`, `ethercat`, `gpio`, `simulated`, and
+`loopback`. Capability IDs, health values, platform values, and next-action
+kinds are closed serialized vocabularies. Platform is `unix` for OpenOT and
+EtherCAT, `linux` for GPIO and realtime T0, and absent for protocols without a
+platform restriction.
+
+Capability booleans and health are coherent. `operational = true` requires
+`built = true`, `configured = true`, and `health = connected`; `connected`
+likewise requires all three booleans true. `not_configured` requires
+`configured = false` and `operational = false`. `not_in_build` requires
+`built = false` and `operational = false`, while `configured` may remain true
+because persisted configuration and build availability are independent.
+`configured_policy` requires `configured = true` and `operational = false`.
+Configured connectors with unavailable live evidence report `degraded` or
+`configured_policy`, never `connected`.
+
+An I/O capability matches its canonical driver name case-insensitively and
+accepts the schema spelling alias with hyphens and underscores normalized.
+When multiple live instances belong to one protocol, the projection is
+conservative across the complete matching set: any faulted instance yields
+`error`; otherwise any degraded instance yields `degraded`; only an all-healthy
+non-empty set yields `connected`. Detail text must not hide a worse matching
+instance merely because a healthier instance was registered first.
+
+ADS client capability maps `healthy` to `connected`, `faulted` to `error`,
+`disabled` to `not_configured`, and `degraded`, `not_ready`, or `unknown` to
+`degraded`. OPC UA client capability is `not_configured` without configured
+connections, `degraded` when configured status is unavailable,
+`configured_policy` before a live read exists, `error` if any connection is
+faulted, `connected` only when every connection is connected with zero
+degraded points, and otherwise `degraded`. Build-disabled projections retain
+the independent configured fact but are never operational.
+
+The next-action projection is deterministic. Connected health uses `none`;
+not-in-build uses `get_build_with_feature`; simulation uses
+`switch_to_online`; runtime-unreachable uses `open_runtime_pane`;
+not-configured and configured-policy use `setup`; and degraded or error uses
+`diagnose_ads` for ADS and `setup` for other protocols. Action labels are
+non-empty.
+
+Read-only communication audit details are recursively credential-free.
+Credential key matching is ASCII-case-insensitive and covers `password`,
+`auth_token`, `token`, `credential`, `credentials`, `secret`, and
+`client_secret` at every object depth, including objects inside arrays.
+Non-secret protocol, target, scope, snapshot-metadata, and selection fields are
+preserved. Audit sanitization never replaces a secret with its value, embeds it
+in detail text, or relies on the caller placing credentials at a particular
+depth.
 
 ###### Communication apply mutation and security
 
@@ -1926,6 +2738,32 @@ Runtime-backed protocols update `runtime.toml` and their owned sidecars as one
 validated authoring operation. Audit records include operation, protocol,
 result, dry-run state, and secret presence without secret values.
 
+The runtime-file authoring boundary is project-confined and transactional.
+Every configured sidecar path is trimmed, must be relative to the selected
+project root, and must remain below that root after lexical normalization and
+existing-parent canonicalization. Absolute paths, empty paths, `..` escape,
+and symlink escape are rejected before any directory or file is changed.
+`runtime.toml` and every owned ADS or OPC UA sidecar are rendered completely
+in memory, parsed by their production configuration parsers, and staged before
+publication. A successful operation replaces the complete output set; a
+failure staging, validating, creating, writing, syncing, renaming, or removing
+any member preserves the complete pre-operation set. It must never publish a
+new `runtime.toml` that points to an absent, stale, or partially written
+sidecar.
+
+Dry-run and Validate perform the same normalization, path-confinement,
+rendering, and production-parser checks but create no directories, temporary
+files, sidecars, or runtime file. Add, Edit, and Upsert are byte-idempotent for
+identical normalized input. For protocols with an `enabled` field, Disable
+retains the existing owned configuration and changes only that field; Runtime
+Cloud, whose absent section denotes disabled policy, removes its cloud
+section. Remove deletes the runtime section and its owned sidecar in the same
+transaction; a missing sidecar is an idempotent success. Malformed or
+unreadable existing input fails closed without replacing it. Unrelated runtime
+sections, comments, and ADS-server clients not supplied by an update remain
+intact. No failure response, audit entry, temporary-file name, or persisted
+document includes a secret value.
+
 ###### Offline communication operation and fleet-topology truth
 
 Offline schema, apply, and topology require no live runtime and must not invent
@@ -1936,6 +2774,23 @@ disable, and removes the selected section and sidecar on remove. Configured
 OpenOT appears as configured evidence without a live payload. Offline results
 exclude passwords, tokens, source allowlists, and other secret-bearing fields.
 
+Offline topology requires a readable valid `runtime.toml`. A missing optional
+`io.toml` is an empty configured-driver set; a present malformed or unreadable
+file is an error rather than an empty topology. An enabled ADS or OPC UA client
+pointer requires its readable valid project-confined sidecar. Disabled pointers
+do not read or require their sidecars. Relative sidecars resolve from the
+selected project; absolute paths and normalized or symlink escapes reject
+before a read.
+
+The offline host and runtime are configuration evidence: source is `config`,
+runtime mode is `stopped`, health is `configured_policy`, and host/runtime live
+timestamps, runtime load, endpoint live payloads, and host temperature, uptime,
+and load are absent. Configured service and enabled-driver endpoints remain in
+configuration order with their offline detail and policy/disabled health.
+Offline links are sorted and deduplicated by stable link ID. A parser or
+sidecar failure reports the owned file and reason but never includes a secret
+value or publishes a partial topology.
+
 Fleet topology identity and roles come from the selected project and current
 runtime evidence. Configuration determines runtime identity, endpoint roles,
 counterparts, stable link IDs, and external-node relationships. Merely enabling
@@ -1944,6 +2799,177 @@ a service projects `configured_policy`, not a live connection. Live values and
 retains its detail. Every link reports stable ID, source, destination, protocol,
 role, direction, and evidence-derived status. Fleet output never serializes
 MQTT, mesh, ADS, OPC UA, or other credentials.
+
+Fleet topology schema version 4 contains `hosts`, `links`, `shared`, and
+`external` arrays and omits an empty `discovered` array. IDs are deterministic
+ASCII projection keys. The common sanitizer lowercases ASCII alphanumeric
+characters, replaces each other character with a hyphen, trims boundary
+hyphens, and returns `unknown` if no alphanumeric character remains. Local host
+identity prefers the first non-empty normalized value from `HOSTNAME`,
+`COMPUTERNAME`, and the operating-system hostname; normalization trims
+whitespace and trailing DNS dots. A container identity is the first
+reverse-scanned cgroup component containing at least 12 hexadecimal characters,
+or the hexadecimal component of a `docker-<id>.scope` record, truncated to 12
+characters. Short, non-hexadecimal, and empty components do not become
+container IDs.
+
+Configured host IP projection parses valid listen values as hosts, removes
+unspecified wildcard addresses, sorts and deduplicates the result, and falls
+back to `127.0.0.1` only when no concrete host remains. Bracketed IPv6 is
+unbracketed in the host inventory. Whenever an IP address is combined with a
+port for an endpoint, IPv6 is bracketed so the result is an unambiguous socket
+authority; IPv4 and hostnames use `host:port`.
+
+Discovery timestamps floor nanoseconds to milliseconds. An entry is stale only
+when its age is strictly greater than 120,000 ms; future timestamps remain
+fresh by saturating age at zero. The newest observed timestamp is the maximum
+over the complete entry set and is absent for an empty set. An entry is self
+when either its runtime name or discovery ID equals the current runtime ID and
+is excluded from discovered-host and discovered-node projections.
+Discovery-derived protocol order is `discovery`, then `web`, `mesh`, and
+`control` when those advertised surfaces exist. Discovery IDs use the
+sanitized runtime name for runtime nodes, the host-group when supplied for
+host nodes, and otherwise the discovery ID. Shared host identity requires a
+matching non-empty host group on a self entry; name similarity or address
+overlap alone does not claim same-host placement.
+
+Configured I/O endpoints retain configuration order and use the configuration
+index in their stable endpoint ID. The first protocol instance omits an index
+suffix; later instances include their zero-based configuration index. Driver
+protocol normalization trims and folds ASCII case, maps hyphens to
+underscores, and canonicalizes both `modbus-tcp` and `modbus_tcp` as
+`modbus_tcp`. Roles are `client` for Modbus TCP and MQTT, `master` for
+EtherCAT, and `owned_driver` otherwise. Display names use the trimmed `address`
+or `broker` when present; otherwise the first configured instance uses the
+protocol display name and later instances append their one-based ordinal.
+
+An enabled configured I/O endpoint binds to the corresponding enabled runtime
+health row while disabled configured rows consume no live-health ordinal.
+Healthy, degraded, and faulted driver evidence map to `connected`, `degraded`,
+and `error` with the underlying detail retained. Missing health is
+`configured_policy`; a disabled endpoint is `disabled`, has no live sample,
+and does not advertise Test. Test support is true exactly for an enabled
+canonical Modbus TCP or MQTT endpoint, regardless of accepted hyphen,
+underscore, or ASCII-case spelling. Health-only endpoints use the same
+canonical protocol, role, health, ID, and Test rules.
+
+I/O snapshot live evidence exists only when both a snapshot and a nonzero
+observation timestamp exist. It reports exact input, output, and memory counts
+and at most eight deterministic samples in input-then-output-then-memory order.
+Each sample retains direction, optional name, canonical IEC address, and either
+the debug-form scalar value, an error object, or `unresolved`. Bit, byte, word,
+double-word, long-word, fixed-byte, and wildcard addresses preserve area and
+size without inventing a bit coordinate for non-bit values.
+
+Fleet endpoint parameters recursively preserve the TOML JSON shape while
+redacting secret or access-control values at any depth, including tables inside
+arrays. Credential matching is ASCII-case-insensitive and covers `password`,
+`auth_token`, `token`, `credential`, `credentials`, `secret`,
+`client_secret`, and `private_key`. ADS source pins and allowlists
+(`source_ip`, `source_cidr`, `allowed_clients`, and `clients`) are likewise
+redacted rather than exposed as editable topology data. A redacted value is the
+literal non-secret marker `<redacted>`; no sibling value or container shape may
+reveal the original credential.
+
+ADS and OPC UA client endpoint projections retain the configured connection
+denominator and order. ADS parameters expose route name, target identity,
+host, AMS port, whether a local identity is set, transport class, automatic
+route policy, and point mapping, but never a route credential. Symbol points
+and index-group points remain distinct. OPC UA parameters expose endpoint,
+security policy and mode, authentication class, a Boolean username-presence
+fact, trust policy, timing, and point mapping, but never username credentials
+or a password. Read, write, and read-write access serialize exactly and the
+writable flag follows access rather than live status.
+
+Live connection evidence matches ADS configuration by exact connection name
+or target AMS Net ID plus AMS port, and OPC UA configuration by exact
+connection name or endpoint URL. Unmatched live rows cannot upgrade a
+configured connection. Exact name identity takes precedence over a fallback
+target or endpoint match so one stale row cannot cross-bind two configured
+connections. A missing report or a report with no matching row is
+`configured_policy`; a matching fault dominates as `error`; otherwise any
+non-connected state or degraded point yields `degraded`; only a non-empty set
+where every configured connection has a matching connected row with zero
+degraded points is `connected`. A partial match is therefore degraded rather
+than connected or configured-only.
+
+ADS live state labels come from the ADS diagnostic contract. OPC UA state
+labels are `disabled`, `configured_policy`, `connecting`, `connected`,
+`reconnecting`, `stale`, and `error`. Per-connection topology health maps
+connected with zero degraded points to `connected`, faulted to `error`,
+connected with degraded points and all transitional live states to
+`degraded`, and disabled/configured to `configured_policy`.
+
+Live summary counts, connection arrays, and freshness timestamps are computed
+only over the configured connections and their matched status rows. Extra or
+stale status rows from an earlier configuration do not affect `connected`,
+`total`, or `last_seen_ms`. Each configured connection remains present even
+when unmatched, with null live fields. Freshness is the maximum matched
+per-connection or per-point observation; when a report exists but supplies no
+timestamp, the projection may use the projection time but must not claim an
+unmatched row's timestamp.
+
+Fleet link IDs are
+`link:<sanitized-protocol>:<sanitized-role>:<sanitized-from>:<sanitized-to>`.
+The link retains its unsanitized source, destination, protocol, role,
+direction, detail, same-host fact, status, and security fact separately.
+Configured links remain present while disabled or while live evidence is
+missing; their status is respectively `disabled` or `configured_policy`.
+Healthy, degraded, and faulted driver evidence maps to the same link status as
+its endpoint.
+
+Configured Modbus targets project an outbound client link to an external device
+identified by the trimmed address. Configured EtherCAT adapters project an
+outbound master link to an external fieldbus segment identified by the trimmed
+adapter. Empty or non-string targets do not create external nodes or links.
+Modbus link security follows its Boolean TLS configuration; EtherCAT does not
+claim transport security. MQTT brokers project a publish-subscribe link to one
+shared broker node per exact trimmed broker address, sorted deterministically,
+with the runtime listed once in `used_by`; broker security follows its Boolean
+TLS configuration.
+
+ADS and OPC UA client links retain configured connection order and remain
+`configured_policy` without a matching status row. ADS security follows the
+route transport, and OPC UA security is false only for policy `none`. ADS
+external identity uses the target AMS Net ID; OPC UA external identity uses the
+sanitized endpoint URL. Their link status follows the matching per-connection
+health contract above and never derives from an unrelated status row.
+
+Configured mesh targets are `configured_policy` without mesh evidence,
+`connected` only when the exact target or its embedded peer identity is in the
+live peer registry, `degraded` when the mesh session is ready but that peer is
+absent, and otherwise `configured_policy`. Merely having a configured target
+does not prove a live mesh link.
+
+Shared MQTT nodes are grouped by exact trimmed broker address in lexical order.
+Duplicate configured drivers contribute the local runtime ID once. Drivers
+without a non-empty broker create neither a shared node nor a shared link.
+
+External-node projection order is configured mesh targets, unresolved runtime
+cloud targets, observed discovery peers, configured driver targets, ADS
+targets, and OPC UA targets. IDs are unique in the result and the first
+authoritative source for an ID wins. A runtime-cloud link with an explicit
+managed target does not create a fabricated external placeholder; an empty
+target creates the stable indexed policy placeholder. Self-discovery entries
+are excluded from external, discovered, host, runtime, endpoint, and link
+populations.
+
+Each non-self discovery peer appears once in the `discovered` inventory with
+its exact addresses, advertised optional control/web/mesh fields, stable
+protocol order, `observed` direction, `adopted = false`, discovery source, and
+floored last-seen timestamp. Duplicate observations with the same discovery
+identity collapse without reordering the first observation.
+
+Discovered entries sharing a non-empty host group coalesce into one host node.
+That host retains first-observation order, a sorted deduplicated IP union, the
+newest host timestamp, and one runtime child per unique runtime identity in
+observation order. Entries without a host group use independent
+discovery-identity hosts. A discovered runtime is `connected` while fresh and
+`runtime_unreachable` while stale. Advertised web and mesh endpoints are
+observations, not listener probes; web follows runtime freshness, while mesh is
+`connected` only with ready matching mesh evidence and otherwise
+`configured_policy`. Discovered endpoints are unowned and never advertise
+Test.
 
 ##### 6.8.1b ADS CLI authoring and server-control contract
 
@@ -2850,6 +3876,50 @@ Frontend telemetry updates the same health snapshot; collaborative-presence
 functionality that is not implemented is reported explicitly as out of scope,
 not as an active collaboration session.
 
+Workspace path normalization trims outer whitespace, removes `.` components,
+uses `/` in returned paths, and rejects an empty non-root path, absolute or
+rooted input, every `..` component, and every component beginning with `.`.
+Source paths additionally end in `.st` case-insensitively. File and tree
+enumeration omit hidden entries, return project-relative `/`-separated paths,
+and sort tree siblings by name. Source enumeration includes only `.st` files
+and does not follow a path outside the selected root.
+
+Reads decode UTF-8 and admit a file whose exact byte length equals the
+configured limit; one byte over returns `too_large`. Fingerprints contain exact
+byte length and the filesystem modification time in Unix-epoch milliseconds.
+Glob inputs are trimmed; absent or blank input disables that filter, malformed
+syntax returns `invalid_input`, and a valid pattern is preserved as the
+matching authority.
+
+IDE positions count Unicode scalar values within zero-based lines. A position
+beyond its line clamps to that line's byte end and a line beyond the document
+clamps to document end. Compiler text offsets converted back to IDE positions
+must be valid UTF-8 boundaries. Rename edits are applied from greatest start
+offset to least so earlier offsets remain stable. Every range is ordered,
+in-bounds, on UTF-8 boundaries, and non-overlapping; invalid edit sets reject
+without returning partially edited text.
+
+Completion prefix extraction considers ASCII letters, digits, and `_` in the
+current line before the cursor. In-scope declaration fallback recognizes valid
+ASCII identifiers from POU/type/class declarations and variable declaration
+left-hand sides, ignores comment-only lines, ranks prefix-matching symbols
+before keywords and non-prefix matches, deduplicates labels
+ASCII-case-insensitively, then applies the requested result limit.
+
+The formatter is deterministic, uses two spaces per nesting level, removes
+trailing horizontal whitespace, preserves blank lines and comment text, and
+returns one terminal newline for every nonempty input. POU, declaration,
+conditional, loop, case, repeat, action, transition, method, property, class,
+interface, resource, and configuration openers indent their bodies. Their
+corresponding `END_*`, `ELSE`, `ELSIF`, and `UNTIL` lines dedent before
+rendering; branch continuations then indent their following body.
+
+Session removal is atomic across session authority, frontend telemetry,
+analysis cache, and every document's open-handle set. Expiry removes entries
+whose deadline is less than or equal to the current second and leaves later
+deadlines intact. Generated session tokens are URL-safe unpadded encodings of
+32 random bytes.
+
 The standalone IDE resource contract is:
 
 - one source apply must remain below 250 ms, and the repeated local in-process
@@ -2884,6 +3954,59 @@ preserve the documented realtime-link fields. Removed legacy fleet mutation
 routes remain not found rather than forwarding to a current Runtime Cloud
 operation.
 
+###### Unified Web IDE hardware and settings interaction contract
+
+The `Hardware` and `Settings` tabs are rendered operator surfaces, not
+source-presence claims. Their tab buttons use the tab/tabpanel ARIA
+relationship, expose exactly one selected tab, update the `/ide/<tab>` route,
+and preserve the selected tab across a same-origin reload. `Ctrl+2` and
+`Ctrl+3` select Hardware and Settings when focus is outside a code editor.
+Changing tabs does not itself write `runtime.toml`, `io.toml`, or
+`simulation.toml`.
+
+Hardware loads the active project's current runtime and I/O snapshots before
+presenting them as configured state. A planned or offline runtime remains
+visibly offline; the canvas, cards, or presence of configuration must not
+invent a live connection. The component palette exposes its categories as
+expandable buttons with accurate `aria-expanded` state. Hydrated I/O and
+runtime communication drivers appear as labeled cards. Expanding and
+collapsing the driver region updates both the visible region and the
+controlling button's `aria-expanded` value.
+
+Every driver-card configuration action carries one exact settings key and
+category. Activating it selects Settings, updates the route, renders the owning
+category, and focuses or exposes the corresponding field. Loopback and
+simulated drivers share the documented simulated-I/O settings rather than
+inventing a separate loopback schema. Runtime and endpoint actions preserve
+the selected runtime scope when routing to Settings. Merely opening a
+configuration action does not save a value.
+
+Settings renders all categories plus a text filter. Filtering is
+case-insensitive over labels, keys, category names, and group text; it reports
+the visible and total field counts, hides nonmatching editable fields, and
+offers a clear action that restores the category. A no-match query displays
+an explicit empty result rather than stale fields. Category selection clears
+neither entered values nor the selected runtime. Credential-bearing password
+and token fields render with password input semantics. The Advanced category
+labels runtime state as read-only and keeps import, export, reset, and
+direct-TOML actions distinct from ordinary field edits.
+
+Hardware and Settings use the shared `ide-runtime-selection-changed` event.
+An accepted runtime-scope change on either surface is reflected by the other
+without a write or feedback loop. Runtime-, I/O-, and simulation-backed fields
+retain their distinct persistence targets. Structured JSON fields are parsed
+and normalized before any write. Saves are serialized in user-action order,
+use the current revision/version precondition, and dispatch the matching
+runtime- or I/O-config-updated event only after a successful write. A parse,
+authorization, conflict, transport, or backend failure is shown as a failure
+and must not be reported as saved.
+
+Automated acceptance must exercise these behaviors in the shipped browser
+surface. Module-source string checks may lock packaging details but do not
+prove rendering, interaction, routing, focus, accessibility state, or
+cross-tab synchronization. Final acceptance also retains a real rendered
+screenshot or recording for the Hardware and Settings journeys.
+
 ###### Standalone configuration UI workspace contract
 
 The standalone configuration UI projects the current product mode, planned
@@ -2904,6 +4027,51 @@ identifies the workspace runtime and whether it is managed. Live-target
 profiles may be listed, upserted, selected, connected, queried, and removed; an
 unreachable target remains disconnected with its last error and active target
 visible.
+
+Workspace runtime IDs are trimmed, nonempty, lowercased ASCII identifiers
+containing only letters, digits, `-`, and `_`. Resolution is exact after
+normalization; duplicate configured resource names reject the workspace.
+Workspace discovery admits `runtime.toml` at the selected root and in direct
+child directories only, sorts runtimes by normalized ID, and rejects an empty
+workspace. A generated runtime contains validated `runtime.toml`, `io.toml`,
+and `src/main.st` files beneath a new child named by that ID. Creation never
+reuses an existing ID or filesystem path. Deletion cannot remove the last
+runtime, the workspace root, or any path outside the workspace root.
+
+Host-group input is trimmed and lowercased. ASCII letters, digits, `-`, and `_`
+are preserved; every other character becomes `-`; an empty result is absent.
+The generated runtime template uses `default-host` when no nonempty group is
+supplied and binds its resource, service, Unix control socket, local web
+listener, local discovery, peer mesh, and Dev Runtime Cloud identity to the
+normalized runtime.
+
+Configuration revisions are lowercase SHA-256 over the exact UTF-8 file text.
+An expected revision is checked before validation or replacement. A mismatch
+returns the current revision as a conflict and leaves the file unchanged.
+Accepted writes validate the complete candidate and replace the destination
+through a sibling temporary file. Structured Text paths are relative to
+`src/`, remain contained there, and end in `.st` case-insensitively; absolute
+paths, parent traversal, empty paths, and other extensions reject.
+
+Live targets are trimmed HTTP(S) origins. A missing scheme receives `http://`;
+an explicit scheme is lowercase `http://` or `https://`. The target contains a
+nonempty authority and no user-info, path, query, or fragment; one optional
+terminal slash is removed. Profiles are keyed by normalized target and listed
+in key order. A blank label defaults to the normalized target. Snapshots expose
+the target and label, connection state, active target, last error, and update
+time, but never the stored credential token. Removing the active profile also
+clears its token, connection state, last error, and cached Runtime Cloud state.
+
+Lifecycle probes accept configured `tcp://<socket-address>` and, on Unix,
+nonempty `unix://<path>` endpoints. Empty, malformed, unsupported, or
+unreachable endpoints are offline. Status distinguishes an externally running
+runtime from a child managed by this configuration UI; stop and restart do not
+claim ownership of or terminate an externally managed process.
+
+Every configuration-UI response is JSON with the requested HTTP status.
+Structured errors retain the stable `error_code`, message, ordered field-error
+list, and optional conflict version without converting an error into `ok:
+true`.
 
 ##### 6.8.2 Versioned deployment and rollback
 
@@ -3119,6 +4287,50 @@ trace hash are not part of product compatibility. This contract does not yet
 define different-seed behavior, programmatic disturbance reordering, or
 overflow policy beyond the currently specified finite configuration limits.
 
+##### 6.9.4.1 Simulation configuration and conversion boundaries
+
+An absent optional simulation file yields no configuration; a present
+unreadable or malformed file returns a path-qualified configuration error.
+With no sections, file-backed defaults are disabled, seed zero, and time scale
+one. File-backed time scale must be at least one. `SimulationController`
+defensively treats a programmatically supplied scale of zero as one without
+silently enabling a disabled model.
+
+Coupling sources are concrete `%Q` addresses and targets are concrete `%I`
+addresses. Thresholds are finite. `on_true` and `on_false` require a threshold,
+are parsed according to the target process-image width, and must fit that width
+without truncation or wrapping. Coupling delays must fit the signed runtime
+duration range. Without a threshold, numeric coupling conversion to
+`BYTE`/`WORD`/`DWORD` is checked and overflow is an error; `LWORD` preserves the
+accepted unsigned value. Bit conversion uses zero/nonzero truth. Fixed byte
+strings must fit their configured byte count.
+
+File-backed set disturbances default to kind `set`, require a concrete `%I`
+target and a width-valid value, and require `at_ms` to fit the signed runtime
+duration range. Fault kind is ASCII-case-insensitive and defaults its message
+when omitted. Unknown kinds and missing set fields are rejected. Disturbances
+are stably sorted by due time: declarations with equal due times retain file
+order.
+
+Physics configuration defaults to the in-tree Rapier backend, a 10 ms fixed
+step, and 1000 encoder counts per radian. The step is within
+`1..=floor(i64::MAX / 1_000_000)` milliseconds, the largest millisecond value
+representable by the signed nanosecond runtime duration. Global and per-joint
+counts-per-radian are finite and positive. Revolute joint velocity and bounds
+are finite, lower does not exceed upper, IDs are unique, enable sources are
+`%QX` bits, and feedback targets are `%IW` words. Disabled physics or enabled
+physics with no joints does not infer simulation activation and creates no
+physics controller.
+
+Disabled controllers perform no disturbance, coupling, or physics I/O.
+Enabled pre-cycle processing applies equal-time disturbances and effects in
+stable insertion order. A source value that has not changed since its last
+post-cycle observation does not enqueue another effect. Backend address errors
+while reading a coupling remain I/O errors; a failed injected or delayed input
+write and a physics enable-read failure become visible simulation faults.
+These checks prove deterministic in-process model semantics, not physical
+plant fidelity.
+
 ##### 6.9.5 Runtime control authorization
 
 Runtime control uses the ordered role hierarchy `viewer < operator < engineer <
@@ -3131,6 +4343,43 @@ with the required role in the human-readable error. Missing and invalid
 credentials retain their separate authentication error codes. Clients must use
 the stable code, not parse the prose, when distinguishing authentication from
 authorization failure.
+
+The control endpoint grammar is exact and whitespace-sensitive. `tcp://` is
+followed by a numeric IPv4 or bracketed IPv6 socket address with a required
+port, and only a loopback IP is admitted. Hostnames, non-loopback addresses,
+missing ports, trailing text, case variants, and leading/trailing whitespace
+reject before binding. On Unix, `unix://` is followed by a nonempty socket
+path; no implicit default path is created. Endpoint accessors preserve the
+parsed address/path, and a started server owns the same shared control state
+supplied by its caller.
+
+Control source identity preserves registration order, IDs, paths, and text.
+Exact stored paths have first priority. For a relative request with a project
+root, lookup next considers `<root>/<request>` and, for a single path
+component, `<root>/src/<request>`. Existing candidates may match an existing
+registered path through filesystem canonicalization. Only after those checks
+may a relative suffix match be used, and it succeeds only when exactly one
+registered path has that suffix. Ambiguous suffixes and unmatched absolute
+paths return no file. Source-text lookup is exact by file ID and returns the
+first registered row for a duplicate ID.
+
+Web-to-control dispatch injects a request token only when the JSON payload has
+no `auth` member; an explicit string, null, or malformed `auth` member is never
+overwritten. Communication operations `comm.apply`, `comm.test`,
+`comm.browse_symbols`, and `ads.import_symbols.apply` receive one
+server-owned `credential_channel` parameter. Missing client identity, `unix`,
+`loopback`, and numeric loopback socket addresses classify as
+`trusted_same_host`; every other client identity classifies as
+`untrusted_remote_plain_tcp`. The server-owned value replaces a caller-supplied
+value, but a non-object parameter shape remains unchanged for the handler to
+reject. Other operations receive no injected field.
+
+Successful status responses whose result is an object include access
+capabilities for the authenticated role. Viewer and Operator cannot write,
+force, release, or write HMI values; Engineer and Admin can. A denied role
+includes a stable human-facing reason beginning with the capitalized role,
+while Engineer and Admin use JSON `null`. Non-object or absent results are not
+rewritten.
 
 Authentication and transport defaults are:
 
@@ -3156,7 +4405,12 @@ The explicit operation matrix is:
 Parameter-sensitive operations retain these boundaries:
 
 - ADS doctor and symbol import/browse are Viewer-only for cached/offline reads
-  and Engineer for live-device or write-enabled work.
+  and Engineer for live-device or write-enabled work. Presence of a non-null
+  live `target` requires Engineer even if a snapshot is also present; later
+  request validation may still reject that ambiguous combination.
+  `ads.import_symbols.apply` is always write-enabled and therefore always
+  requires Engineer, including when its source symbols came from a cached
+  snapshot.
 - `config.set` requires Admin if any request key is `control.auth_token`,
   `control.mode`, `control.debug_enabled`, `web.auth`, `mesh.auth_token`,
   `mesh.role`, `mesh.zenohd_version`, `mesh.plugin_versions`,
@@ -3169,9 +4423,177 @@ Parameter-sensitive operations retain these boundaries:
   requires Admin; an Engineer may use an already enabled surface but cannot
   enable it.
 
+The registry is the single classification authority. Its operation names are
+exact, lowercase wire tokens; case variants, whitespace variants, and unknown
+names are unclassified and receive the Admin fail-safe. Every dispatchable
+operation appears exactly once, no non-dispatchable alias receives authority,
+and the debug-surface flag is true only for debug state, stack, scope,
+variables, locations, pause/resume/step, breakpoint, evaluation, variable
+write, variable force, and variable release operations. A classification
+change is a security-contract change and requires the complete role matrix to
+be reviewed, not merely one example request.
+
+##### 6.9.6 Control credentials, pairing, and TLS materials
+
+Role text is trimmed and matched ASCII-case-insensitively against exactly
+`viewer`, `operator`, `engineer`, and `admin`; serialization and display use
+those lowercase spellings. Permission inclusion follows that exact total
+order. Secret comparison returns true only for equal bytes and equal length,
+including the empty string, and examines the complete expected byte length
+even when the provided value is shorter.
+
+Control authentication applies this precedence:
+
+1. A configured primary control token, when exactly matched, grants Admin.
+2. Otherwise a supplied valid pairing token grants its stored role.
+3. If credentials are required, an absent token returns
+   `missing_auth_token` and a supplied but unmatched token returns
+   `invalid_auth_token`.
+4. Without required credentials, a client explicitly identified as `unix` or
+   an in-process client with no transport identifier receives Admin. A
+   network-style client identifier containing `:` receives Viewer. An opaque
+   non-network identifier does not by itself reduce local authority.
+
+Credential-state lock failure is authentication failure. It cannot be
+interpreted as “no token configured” and cannot grant local or network
+authority.
+
+A pairing session owns at most one pending code. Starting again replaces the
+previous pending code. A code is exactly six ASCII decimal digits, expires
+300 seconds after creation, and remains valid at its exact `expires_at`
+second. Claim input trims surrounding whitespace. A wrong code does not
+consume the pending session; an expired or successful claim does. A successful
+claim returns one URL-safe, unpadded 32-byte random token, stores it enabled,
+and assigns a unique stable ID even when multiple claims occur in one clock
+second.
+
+The default pairing role is Operator. Viewer, Operator, and Engineer requests
+retain their requested role; an Admin request is reduced to Engineer so the
+pairing flow cannot mint an Admin credential. At most 256 enabled pairing
+tokens may exist. Reaching that bound rejects the claim without creating a
+token, and a later claim is possible after a token is revoked. Tokens expire
+30 days after creation and remain valid through their exact `expires_at`
+second. Validation accepts only an enabled, unexpired, byte-exact token and
+returns its stored role.
+
+Listing preserves storage order, never exposes the token, and reports only a
+Unicode ellipsis plus the last at most four characters. Revoking an exact ID
+disables only that token and is idempotently false when the ID is absent.
+Revoke-all returns the number that changed from enabled to disabled. Disabled
+tokens remain visible until expiry but never validate and are not counted
+toward the enabled-token limit.
+
+The pairing file is a JSON object with a `tokens` array. An absent file loads
+an empty store. Unreadable or malformed content grants no token authority.
+Legacy rows with `expires_at = 0` derive
+`created_at + 30 days` with saturating arithmetic; already expired legacy rows
+are pruned rather than temporarily revived. Expired rows are removed on load
+and before every pairing, claim, validation, list, or revoke operation.
+Successful token creation and revocation become externally successful only
+after the resulting file is durably written. On Unix the credential file mode
+is `0600`; replacement must not expose a partial JSON credential set.
+
+TLS material loading is inert when TLS mode is disabled: paths may be absent
+and no file is read. Every enabled mode requires certificate and private-key
+paths. An absolute path is used unchanged; a relative path requires a project
+root and resolves against it. An optional CA path resolves by the same rule.
+Read failures identify certificate, key, or CA ownership and the resolved
+path. When CA is omitted, the server certificate bytes are the client trust
+root. The tiny-http projection contains owned copies of certificate and
+private-key PEM only.
+
+A rustls server configuration requires at least one valid certificate and one
+valid private key, and rejects malformed, empty, or certificate/key-mismatched
+material. A rustls client configuration requires at least one valid CA
+certificate and rejects malformed or empty trust roots. Provider installation
+is process-wide and repeatable; failure remains a visible control error rather
+than silently selecting an insecure configuration.
+
+##### 6.9.7 Runtime web authentication and POST admission
+
+The embedded web surface applies one shared authentication contract before a
+route may read or mutate runtime state. In `local` mode, authority is derived
+only from the request socket: an IPv4 or IPv6 loopback peer receives Admin and
+every non-loopback or unavailable peer identity is unauthenticated. In `token`
+mode, the first `X-Trust-Token` header name is matched
+ASCII-case-insensitively, while its value is byte-exact and is not trimmed. An
+exact primary web token grants Admin. Otherwise, an exact enabled pairing token
+grants its stored role. Missing, unknown, expired, or disabled tokens are
+unauthenticated. Failure to read primary credential state fails closed and
+must not fall through to pairing authority.
+
+Role authorization follows the hierarchy in section 6.9.5. An authenticated
+role below the route requirement returns `forbidden`; absent authority returns
+`unauthorized`. Both denials are JSON objects with `ok: false` and the stable
+error text, use `application/json`, and return HTTP 403 and 401 respectively.
+The accepted token value is forwarded to control dispatch. A server-owned
+internal control token is used only when the web request supplied no token; it
+must not replace an explicit token. The `X-Trust-Ide-Session` header name is
+also ASCII-case-insensitive and its value is preserved exactly.
+
+Every state-changing API route applies the following POST admission rules
+before parsing or dispatch:
+
+- Where JSON is required, `Content-Type` is the media type
+  `application/json`, matched ASCII-case-insensitively and optionally followed
+  by media-type parameters. Prefix and suffix lookalikes such as
+  `application/jsonx` and `application/json-patch+json` are rejected with HTTP
+  415 and `contract_violation`.
+- A request without `Origin` is accepted only when its socket peer is
+  loopback. A non-loopback or unavailable peer without `Origin` is rejected
+  with HTTP 403 and `permission_denied`.
+- A supplied Origin requires Host. The literal opaque origin `null` is denied.
+  Otherwise, after ASCII case normalization and removal of at most one terminal
+  slash, Origin must equal `<scheme>://<host>`, where the scheme is `https`
+  exactly when web TLS is enabled and Host is the trimmed request Host value.
+  Host, scheme, port, path, user-info, and prefix/suffix mismatches are denied;
+  origin comparison never uses prefix matching.
+- JSON body admission is inclusive at the configured byte limit. Reading at
+  most one byte beyond that limit distinguishes an oversized body from a
+  malformed JSON body without unbounded allocation. A body of exactly the
+  limit is parsed; a larger body returns HTTP 413. Empty or malformed JSON
+  returns HTTP 400. Limit arithmetic is overflow-safe for every `usize` value.
+
+POST-policy denials are JSON with `Content-Type: application/json`, `ok:
+false`, a stable `denial_code`, and the documented error text. Admission proves
+only request framing, origin, and body shape; route authentication,
+authorization, and semantic validation remain separate mandatory checks.
+
+Shared web helper grammar is deterministic:
+
+- Header names are ASCII-case-insensitive; the first matching value is trimmed
+  at its outer ASCII whitespace and otherwise preserved.
+- A web listen socket projects to `http` or `https` according to TLS. Wildcard
+  IPv4 projects to `localhost`; hostnames and IPv4 retain their host and port;
+  IPv6 is emitted in bracketed URL authority form.
+- Query parsing uses the first exact key. `limit` is an unsigned decimal
+  integer. General values decode `+` as space and valid `%HH` octets before
+  lossy UTF-8 conversion. A malformed or incomplete percent escape is
+  preserved literally rather than fabricating a NUL byte or silently deleting
+  source characters.
+- A Runtime Cloud rollout action path is exactly
+  `/api/runtime-cloud/rollouts/<nonempty-id>/<nonempty-action>` with no extra
+  path component. Outer whitespace inside either captured component is removed;
+  path-prefix, suffix, and case variants do not match.
+- Probe JSON succeeds only for `ok: true`. Success projects `result.plc_name`,
+  falling back to `result.resource` and then `PLC`, plus `result.state` falling
+  back to `online`. Invalid JSON, missing/false `ok`, or a non-string error
+  projects `{ok:false,error:"unreachable"}`; a string error is preserved.
+- QR output is a complete SVG for the exact input bytes or a visible control
+  error when the payload exceeds encoder capacity. Wall-clock helpers expose
+  Unix-epoch milliseconds and nanoseconds, with nanoseconds never earlier than
+  the contemporaneous millisecond value multiplied by one million.
+
 #### 6.10 Configuration and Resources
 
-IEC configurations may declare multiple resources. Each resource is scheduled independently in its own OS thread. (IEC 61131-3 Ed.3, §6.8.1; Table 62)
+IEC configurations model one or more resources (IEC 61131-3 Ed.3, §6.8.1;
+Table 62). The runtime scheduler supports several independently constructed
+resources, each scheduled in its own OS thread. The current
+`CompileSession::build_runtime` source profile constructs exactly one resource:
+it accepts zero or one explicit `RESOURCE` and rejects a multi-resource source
+configuration instead of flattening it. Multi-resource orchestration therefore
+uses separately constructed runtimes; one source build does not yet project an
+IEC multi-resource configuration into several runtime objects.
 
 Cross-resource data exchange is limited to explicitly declared globals (e.g., `VAR_GLOBAL` in configuration scope). (IEC 61131-3 Ed.3, §6.8.1; Table 62) Shared globals are synchronized under a single configuration lock: each resource cycle copies shared values in, executes ready tasks, then writes back updates before releasing the lock. This preserves deterministic ordering while serializing shared-global access.
 
@@ -3217,6 +4639,65 @@ normative for parsing and activation:
 - Loading is fail closed. No partially parsed runtime, I/O, connector sidecar,
   or default substitute is returned after any required file read or validation
   failure.
+
+The configuration contract enums use trimmed ASCII-case-insensitive input and
+closed vocabularies. Web authentication accepts `local` or `token`. TLS accepts
+`disabled`, `self-managed` (with the compatibility spelling `self_managed`),
+or `provisioned`. Mesh role accepts `peer`, `client`, or `router`. Runtime-cloud
+profile accepts `dev`, `plant`, or `wan`; Plant and WAN require secure
+transport while Dev does not. Preferred runtime-cloud transport accepts
+`realtime`, `zenoh`, `mesh`, `mqtt`, `modbus-tcp` (with compatibility spelling
+`modbus_tcp`), `opcua`, `discovery`, or `web`. OpenOT fence mode accepts
+`fenced` or `unfenced`, and its source accepts `heartbeat` or exact `st-fb`.
+Canonical output always uses the hyphenated lowercase spelling. Empty text,
+near matches, extra words, unsupported punctuation, and NUL-bearing values
+reject with the owning configuration key in the error.
+
+Default optional runtime connectors are disabled. The ADS client sidecar is
+`ads.toml` with a 20-millisecond worker tick; the OPC UA client sidecar is
+`opcua_client.toml` with a 250-millisecond polling interval. Default OpenOT
+telemetry is disabled, has an empty path, capacity 4096, fenced mode,
+heartbeat source, no producer alias or producer list, and does not allow
+unfenced proof. These defaults apply only when the corresponding documented
+configuration is omitted; they cannot replace malformed explicit values.
+
+##### Runtime web setup and I/O projection contract
+
+The web setup surface uses the explicitly selected bundle root, otherwise the
+current directory. A derived default resource name is the final path component
+with every non-ASCII-alphanumeric character replaced by `_`; a missing
+component uses `trust-plc`. Existing valid `runtime.toml` and project
+`io.toml` values take precedence over platform defaults. Setup need remains
+true while runtime configuration is absent or neither project nor system I/O
+configuration exists.
+
+I/O mutation accepts either a nonempty ordered `drivers` list or the legacy
+single `driver`, with the list taking precedence when present. Driver names are
+trimmed and nonempty. Parameters are JSON objects converted recursively to
+TOML tables; null becomes an empty string, and Boolean, representable integer,
+float, string, array, and object shapes retain their value. A top-level
+non-object parameter rejects rather than being wrapped or discarded. Every
+driver is enabled in the resulting configuration.
+
+The I/O response preserves driver order, parameters, safe-state order, source
+identity, and system-I/O selection. Its legacy primary `driver` and `params`
+are the first configured driver. Address projection uses `%I`, `%Q`, or `%M`
+plus `X`, `B`, `W`, `D`, or `L`, retains bit indices, and emits `%<area>*` for a
+wildcard. Boolean safe values use `TRUE`/`FALSE`; integer and bit-string widths
+use unsigned or signed decimal without narrowing.
+
+Saving project I/O validates the complete rendered TOML before replacement.
+Selecting system I/O removes only the project `io.toml`; selecting project I/O
+does not change system configuration. Setup validates and writes
+`runtime.toml`, writes validated project `io.toml` unless system I/O is
+selected, and invokes system setup only when explicitly requested.
+
+Source listing inspects the direct `src/` directory, includes regular `.st`
+files case-insensitively, and sorts names. Source reads canonicalize both the
+`src/` root and requested path and reject traversal or symbolic escape. HMI
+asset reads apply the same containment rule under `hmi/` and admit only a
+regular file with lowercase `.svg`; another extension, directory, traversal,
+or symbolic escape rejects.
 
 #### 6.11 Bytecode Format (Overview)
 

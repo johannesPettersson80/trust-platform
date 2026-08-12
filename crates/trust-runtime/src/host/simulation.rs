@@ -3,6 +3,7 @@
 #![allow(missing_docs)]
 
 use std::collections::VecDeque;
+use std::num::IntErrorKind;
 use std::path::Path;
 
 use rapier3d::dynamics::{RevoluteJoint, RevoluteJointBuilder};
@@ -15,6 +16,8 @@ use crate::io::{IoAddress, IoSize};
 use crate::memory::IoArea;
 use crate::value::{Duration, Value};
 use crate::Runtime;
+
+const MAX_DURATION_MILLIS: u64 = (i64::MAX / 1_000_000) as u64;
 
 #[derive(Debug, Clone)]
 pub struct SimulationConfig {
@@ -498,7 +501,7 @@ impl CouplingSection {
             source,
             target,
             threshold: self.threshold,
-            delay: Duration::from_millis(self.delay_ms.unwrap_or(0) as i64),
+            delay: duration_from_millis("couplings.delay_ms", self.delay_ms.unwrap_or(0))?,
             on_true,
             on_false,
         })
@@ -507,7 +510,7 @@ impl CouplingSection {
 
 impl DisturbanceSection {
     fn into_disturbance(self) -> Result<SimulationDisturbance, RuntimeError> {
-        let at = Duration::from_millis(self.at_ms as i64);
+        let at = duration_from_millis("disturbances.at_ms", self.at_ms)?;
         let kind_name = self.kind.unwrap_or_else(|| "set".to_string());
         if kind_name.eq_ignore_ascii_case("fault") {
             let message = self
@@ -549,11 +552,10 @@ impl PhysicsSection {
     fn into_config(self) -> Result<PhysicsConfig, RuntimeError> {
         let backend = parse_physics_backend(self.backend.as_deref().unwrap_or("in_tree_rapier"))?;
         let step_ms = self.step_ms.unwrap_or(10);
-        if step_ms == 0 || step_ms > i64::MAX as u64 {
-            return Err(invalid_config(
-                "physics.step_ms must be between 1 and i64::MAX",
-            ));
+        if step_ms == 0 {
+            return Err(invalid_config("physics.step_ms must be >= 1"));
         }
+        let step = duration_from_millis("physics.step_ms", step_ms)?;
         let encoder_counts_per_radian = self.encoder_counts_per_radian.unwrap_or(1000.0);
         validate_positive_finite(
             "physics.encoder_counts_per_radian",
@@ -568,7 +570,7 @@ impl PhysicsSection {
         Ok(PhysicsConfig {
             enabled: self.enabled.unwrap_or(true),
             backend,
-            step: Duration::from_millis(step_ms as i64),
+            step,
             encoder_counts_per_radian,
             joints,
         })
@@ -668,6 +670,15 @@ fn validate_physics_targets(
         return Ok(());
     };
     for (idx, joint) in physics.joints.iter().enumerate() {
+        if physics.joints[..idx]
+            .iter()
+            .any(|previous| previous.id == joint.id)
+        {
+            return Err(invalid_config(format!(
+                "duplicate physics joint id '{}'",
+                joint.id
+            )));
+        }
         if couplings
             .iter()
             .any(|coupling| coupling.target == joint.feedback_target)
@@ -725,9 +736,15 @@ fn derive_coupling_value(rule: &SignalCouplingRule, source: &Value) -> Result<Va
 fn coerce_to_size(source: &Value, target_size: IoSize) -> Result<Value, RuntimeError> {
     match target_size {
         IoSize::Bit => Ok(Value::Bool(value_to_bool(source))),
-        IoSize::Byte => Ok(Value::Byte(value_to_u64(source)? as u8)),
-        IoSize::Word => Ok(Value::Word(value_to_u64(source)? as u16)),
-        IoSize::DWord => Ok(Value::DWord(value_to_u64(source)? as u32)),
+        IoSize::Byte => Ok(Value::Byte(
+            u8::try_from(value_to_u64(source)?).map_err(|_| RuntimeError::Overflow)?,
+        )),
+        IoSize::Word => Ok(Value::Word(
+            u16::try_from(value_to_u64(source)?).map_err(|_| RuntimeError::Overflow)?,
+        )),
+        IoSize::DWord => Ok(Value::DWord(
+            u32::try_from(value_to_u64(source)?).map_err(|_| RuntimeError::Overflow)?,
+        )),
         IoSize::LWord => Ok(Value::LWord(value_to_u64(source)?)),
         IoSize::Bytes(len) => {
             let text = value_to_text(source)?;
@@ -798,9 +815,15 @@ fn parse_io_value(text: &str, size: IoSize) -> Result<Value, RuntimeError> {
                 format!("invalid BOOL simulation value '{trimmed}'").into(),
             )),
         },
-        IoSize::Byte => Ok(Value::Byte(parse_u64(trimmed)? as u8)),
-        IoSize::Word => Ok(Value::Word(parse_u64(trimmed)? as u16)),
-        IoSize::DWord => Ok(Value::DWord(parse_u64(trimmed)? as u32)),
+        IoSize::Byte => Ok(Value::Byte(
+            u8::try_from(parse_u64(trimmed)?).map_err(|_| RuntimeError::Overflow)?,
+        )),
+        IoSize::Word => Ok(Value::Word(
+            u16::try_from(parse_u64(trimmed)?).map_err(|_| RuntimeError::Overflow)?,
+        )),
+        IoSize::DWord => Ok(Value::DWord(
+            u32::try_from(parse_u64(trimmed)?).map_err(|_| RuntimeError::Overflow)?,
+        )),
         IoSize::LWord => Ok(Value::LWord(parse_u64(trimmed)?)),
         IoSize::Bytes(len) => {
             let text = trimmed.trim_matches('\'');
@@ -812,6 +835,15 @@ fn parse_io_value(text: &str, size: IoSize) -> Result<Value, RuntimeError> {
     }
 }
 
+fn duration_from_millis(name: &str, millis: u64) -> Result<Duration, RuntimeError> {
+    if millis > MAX_DURATION_MILLIS {
+        return Err(invalid_config(format!(
+            "{name} must be <= {MAX_DURATION_MILLIS}"
+        )));
+    }
+    Ok(Duration::from_millis(millis as i64))
+}
+
 fn parse_u64(text: &str) -> Result<u64, RuntimeError> {
     let trimmed = text.trim();
     if let Some(hex) = trimmed
@@ -819,11 +851,25 @@ fn parse_u64(text: &str) -> Result<u64, RuntimeError> {
         .or_else(|| trimmed.strip_prefix("0X"))
     {
         return u64::from_str_radix(hex, 16).map_err(|err| {
-            RuntimeError::InvalidConfig(format!("invalid hex value '{trimmed}': {err}").into())
+            if matches!(
+                err.kind(),
+                IntErrorKind::PosOverflow | IntErrorKind::NegOverflow
+            ) {
+                RuntimeError::Overflow
+            } else {
+                RuntimeError::InvalidConfig(format!("invalid hex value '{trimmed}': {err}").into())
+            }
         });
     }
     trimmed.parse::<u64>().map_err(|err| {
-        RuntimeError::InvalidConfig(format!("invalid numeric value '{trimmed}': {err}").into())
+        if matches!(
+            err.kind(),
+            IntErrorKind::PosOverflow | IntErrorKind::NegOverflow
+        ) {
+            RuntimeError::Overflow
+        } else {
+            RuntimeError::InvalidConfig(format!("invalid numeric value '{trimmed}': {err}").into())
+        }
     })
 }
 
@@ -866,3 +912,7 @@ fn format_io(address: &IoAddress) -> String {
         format!("%{area}{size}{}", address.byte)
     }
 }
+
+#[cfg(test)]
+#[path = "simulation_contract_tests.rs"]
+mod contract_tests;

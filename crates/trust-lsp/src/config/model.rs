@@ -56,7 +56,9 @@ impl ProjectConfig {
             roots.extend(self.include_paths.iter().cloned());
         }
         for lib in &self.libraries {
-            roots.push(lib.path.clone());
+            if !roots.contains(&lib.path) {
+                roots.push(lib.path.clone());
+            }
         }
         roots
     }
@@ -79,12 +81,21 @@ impl ProjectConfig {
 }
 
 /// Standard library selection settings.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct StdlibSettings {
     /// Named profile (e.g., "iec", "full", "none").
     pub profile: Option<String>,
     /// Allow list of function/FB names (case-insensitive).
     pub allow: Option<Vec<String>>,
+}
+
+impl Default for StdlibSettings {
+    fn default() -> Self {
+        Self {
+            profile: Some("full".to_string()),
+            allow: None,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

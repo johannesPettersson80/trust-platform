@@ -69,6 +69,114 @@ Runtime initializer coercion is owned by the initializer service rather than
 duplicated across callers, and runtime declaration lowering uses named
 structural fields rather than positional tuples.
 
+Elementary initializer coercion preserves the requested destination tag and
+checks the complete destination domain. Signed integers, unsigned integers,
+and bit strings accept integer source tags only and reject negative-to-unsigned
+or width-overflowing values instead of wrapping. REAL and LREAL accept numeric
+source tags only; a non-finite source or a value that becomes non-finite at the
+destination width is rejected. BOOL accepts BOOL only. TIME and LTIME may
+convert between their two runtime tags; DATE, LDATE, TOD, LTOD, DT, and LDT
+require their exact runtime family and width.
+
+STRING and WSTRING accept their own tag, the other string tag, and the
+documented character inputs. CHAR and WCHAR accept their exact tag or an
+exactly one-scalar STRING/WSTRING input; CHAR additionally requires an ASCII
+scalar and WCHAR requires a scalar representable by `u16`. Bounded string
+initializers truncate by Unicode scalar count, not UTF-8 byte count. These are
+initializer-materialization rules and do not create additional source-level
+implicit conversion operators.
+
+Derived initializer coercion resolves aliases and subranges through their
+target/base type. A partial fixed-array initializer fills leading elements in
+row-major order and leaves omitted elements at their recursive type default.
+After complete repetition expansion, excess rightmost elements are
+constant-validated and ignored. Either cardinality mismatch emits the
+preparation warning required by IEC 61131-3 Ed.3 §6.4.4.5.2; it is not a
+runtime materialization error. A non-array input is rejected. Structure and
+union input is field-named and case-insensitive, is stored with declaration
+spelling and order, recursively coerces supplied members, defaults omitted
+members, and rejects unknown members or a non-aggregate input.
+
+Default materialization applies a registered type-level initializer before the
+ordinary type default. A declared structure field or union variant initializer
+then overrides that member's recursive type default. Type and member
+initializers are evaluated with the supplied storage, current-instance,
+date/time profile, and standard-library capabilities before being coerced
+through the same destination boundary. A missing catalog record is an error;
+it is never replaced with a silent type default.
+
+Fixed arrays validate every inclusive dimension and the checked total element
+count before allocating, then recursively materialize one default per element.
+The wildcard sentinel retains its declared dimensions with no elements.
+Structures and unions retain declared name, field spelling, and order.
+Unresolved generic `ANY_INT` slots default to `NULL`. Unknown types, reversed or
+overflowing array extents, invalid aggregate shapes, and initializer recursion
+beyond 64 ownership steps fail with `TypeMismatch`; no partial aggregate is
+published.
+
+Subranges materialize their declared lower bound when they have no explicit
+type initializer. Every initializer, assignment, parameter/result transfer,
+reference write, and retained-value restoration into a subrange validates the
+inclusive bounds after numeric normalization and before storage. A rejected
+value leaves the complete destination unchanged.
+
+#### 1.2.2 Textual ACTION fail-closed boundary
+
+The production runtime has no textual-SFC action-control engine. A parsed
+`ACTION name: ... END_ACTION` node is retained for front-end diagnostics only.
+Before program-model lowering or bytecode emission, compilation must detect any
+such node and fail with an unsupported textual ACTION/SFC diagnostic.
+
+In particular:
+
+- action statements must not be appended to the enclosing POU body;
+- action statements must not be silently omitted while a runnable owner is
+  emitted;
+- declaration alone must fail even when the action body is empty or has no
+  observable side effect; and
+- multi-file compilation must fail when any participating source contains a
+  textual action declaration.
+
+Visual SFC remains a separate authoring surface. Its executable result is the
+ordinary generated companion ST and runtime wrapper specified by
+`17-visual-editors-runtime-unification.md`, not a textual ACTION node.
+
+Fixed-array indices retain every declared lower and upper bound. Each
+multidimensional index is checked against its corresponding dimension before
+the storage offset is calculated; the checked row-major offset gives the
+rightmost dimension unit stride. A failed index read produces no value, and a
+failed index write leaves every element unchanged.
+
+Ordinary enumeration runtime values retain their enum type identity and
+selected declared literal. Values from different enum types never become
+compatible through equal ordinals. Named-value integer types retain their
+integer base representation and full base range. Whole-array and
+whole-structure assignment copies the complete value; later mutation of one
+ordinary aggregate does not mutate the other.
+
+A truST union retains every declared variant as an independent logical member.
+Variant defaults and aggregate overrides materialize recursively, and a write
+to one variant leaves every other variant unchanged. Whole-union assignment
+requires the same declared union type and copies every variant. `SIZEOF`
+reserves the maximum storage size of any one variant; that storage-layout rule
+does not introduce runtime aliasing. Shared backing bits require an IEC
+`STRUCT OVERLAP` declaration.
+
+Direct-I/O layout resolves aliases, subranges, and enumerations to their
+storage type. BOOL occupies a bit; 8-, 16-, 32-, and 64-bit elementary
+families map to byte, word, double-word, and long-word I/O widths respectively.
+A bounded STRING occupies exactly its declared byte capacity. Unbounded
+STRING, WSTRING, function-block, class, interface, pointer, reference, and
+other non-materializable layouts are rejected.
+
+An absolute field address has an `%I`, `%Q`, or `%M` area. A relative
+structured-field address has `%X`, `%B`, `%W`, `%D`, or `%L` followed by a
+decimal byte offset; `%X` optionally adds a decimal bit from zero through
+seven. Relative offsets are added to the base binding with checked arithmetic.
+Bit offsets carry into bytes, non-BOOL leaves reject a bit offset, and a
+hierarchical address advances only its final path component while preserving
+the root byte identity. No offset or stride may wrap.
+
 The HIR layer must not depend on runtime `Value` types or raw CST nodes for
 lowered initializer metadata. Syntax classification helpers delegate to the
 central `trust-syntax` classifier. These are architectural dependency
@@ -172,11 +280,27 @@ pub enum Value {
 ```
 
 IEC `REF_TO` and the documented non-IEC `POINTER TO` extension share the same
-runtime reference model. `POINTER TO` supports `ADR(...)`, dereference (`^`),
-`NULL`, and `?=` as a typed vendor extension.
+runtime storage-handle representation but remain distinct source type
+families. `POINTER TO` supports `ADR(...)`, dereference (`^`), `NULL`, and
+same-family checked-copy `?=` as a typed vendor extension. No operation
+implicitly converts `REF_TO` to `POINTER TO` or vice versa.
 `Value::Null` remains the runtime sentinel for `NULL` literals and void-like
 results, while uninitialized `REF_TO` / `POINTER TO` storage defaults to
 `Value::Reference(None)` (IEC 61131-3 Ed.3 §6.4.4.10.2).
+
+An ordinary compatible assignment copies the storage/instance identity. A
+dynamic OOP assignment attempt evaluates its source once and then overwrites
+the destination with that same identity when the runtime instance satisfies
+the declared target class, function-block, or interface relation; otherwise it
+overwrites the destination with `Value::Reference(None)`. Failure is an
+ordinary NULL result, not a runtime error. An elementary/aggregate reference
+or pointer checked-copy attempt is accepted only for its statically compatible
+same-family target or NULL.
+
+Dereference reads and writes traverse the retained storage identity. A null
+dereference returns `RuntimeError::NullReference` before any load or store;
+the destination of a failed read and the target storage of a failed write
+remain unchanged.
 
 #### 2.1.1 User-facing value presentation
 
@@ -187,6 +311,33 @@ values retain a decimal component, strings use the Structured Text quoting and
 `$` escaping rules, durations use the shortest exact `T#` unit, and an
 instance reference renders as `Instance`. The reviewed formatter output must
 not contain implementation names such as `Int(`, `Real(`, or `Instance(`.
+
+The complete stable presentation contract is:
+
+- all signed/unsigned integer and bit-string tags render as an unprefixed
+  decimal number. Finite real values use Rust-independent numeric text, with
+  `.0` appended when the representation has neither a decimal point nor an
+  exponent;
+- `TIME` and `LTIME` use `T#` and `LT#`. The formatter selects seconds,
+  milliseconds, microseconds, then nanoseconds as the first unit that
+  represents the signed nanosecond count exactly; zero therefore renders in
+  seconds, and negative values preserve their sign;
+- short `DATE`, `TOD`, and `DT` values use `D#`, `TOD#`, and `DT#` followed by
+  their stored tick count. Long variants use `LD#`, `LTOD#`, and `LDT#`
+  followed by their stored nanosecond count;
+- `STRING` and `CHAR` use single quotes, doubling each IEC dollar escape and
+  escaping an embedded quote as `$'`. `WSTRING` and `WCHAR` add the `W`
+  prefix. A stored invalid wide-character scalar renders as `W'?'` rather than
+  inserting invalid Unicode;
+- arrays render as `[N]` using their current element count; structures render
+  as `TypeName {...}`; enumerations render as `TypeName::VariantName`;
+  populated and empty references render as `REF` and `NULL_REF`; an instance
+  identity renders as `Instance`; and the void/null sentinel renders as
+  `NULL`.
+
+This text is diagnostic/debug presentation, not source serialization: it does
+not promise round-trip reconstruction of aggregates, references, instances, or
+calendar values.
 
 #### 2.2 Compound Type Values
 
@@ -232,6 +383,11 @@ wire/storage shape temporarily, but every entry point with declared type context
 must validate before storing or executing the value; validation failure returns
 a diagnostic error and never substitutes a default value.
 
+The primitive Rust adapters preserve the exact runtime tag implied by their
+source type: `bool` becomes `BOOL`, `i16` becomes `INT`, `i32` becomes `DINT`,
+`i64` becomes `LINT`, `u8` becomes `USINT`, and `u16` becomes `UINT`. These
+adapters do not widen, narrow, or infer a different PLC type.
+
 #### 2.3 Declared-Type Materialization
 
 IEC 61131-3 Ed.3 section 6.6.1.6 permits implicit conversion for assignments
@@ -262,6 +418,15 @@ reject the operation with a type mismatch rather than choosing a type by a
 total numeric rank. Thus `INT + REAL` may use `REAL`, while `DINT + REAL`,
 `ULINT + REAL`, and signed/unsigned cross-family operations require an explicit
 conversion.
+
+The portable runtime normalization helpers enforce the same closed families.
+Conversion to the signed `i64` execution domain accepts signed values and
+unsigned values through `i64::MAX`, returning overflow above that boundary.
+Conversion to the unsigned `u64` execution domain accepts every unsigned value
+and non-negative signed values, while a negative signed value is a type
+mismatch. Conversion to the floating execution domain accepts only the ten
+numeric runtime tags. Bit strings, booleans, references, strings, and `NULL`
+are not silently reinterpreted as numeric values.
 
 A representable untyped numeric literal is contextualized to the other typed
 operand or to the common typed argument of an overloaded standard function,
@@ -502,9 +667,38 @@ The portable runtime core SHALL preserve these value and program-model rules:
   their declared range; out-of-range tick conversion and timezone-bearing
   `DATE` plus `TOD` combination are rejected. Duration nanosecond and
   millisecond views describe the same stored duration.
-- L-value roots, qualified/indexed paths, initializer lookup, hidden property
-  setter names, and static-storage names preserve their canonical segment and
-  prefix identity. Internal helper names SHALL NOT collide with user symbols.
+- Civil-date conversion uses the proleptic Gregorian calendar and maps
+  `1970-01-01` to day zero. Leap years are divisible by four except centuries
+  not divisible by 400. Invalid months, invalid day-of-month values, and
+  non-leap February 29 return `InvalidDate`; any intermediate or final
+  calculation outside signed 64-bit range returns `Overflow` rather than
+  panicking or wrapping.
+- A short date/time profile resolution is valid only when it is positive, no
+  larger than one day, and divides exactly into `86_400_000_000_000`
+  nanoseconds. Otherwise profile conversion returns `InvalidResolution`.
+  `ticks_per_day` is that exact quotient. `days_to_ticks` multiplies by the
+  quotient and adds the configured epoch with checked signed arithmetic.
+  Nanosecond conversion uses truncation toward zero for `DivisionMode::Trunc`
+  and Euclidean division for `DivisionMode::Euclid`, including negative input.
+  IEC 61131-3 Ed.3 section 6.4.2.1 and Table 10 define the DATE, TOD, and DT
+  families while leaving the short-type starting date implementer-specific;
+  the epoch, resolution, checked range, and division choices here are the truST
+  runtime profile contract, not an IEC deviation.
+- An L-value name is its own root and qualified name. Field and index nodes
+  recursively preserve the root name of their target. Only an uninterrupted
+  name/field chain has a qualified name, formed by joining its exact segments
+  with `.`; an index or dereference anywhere in that chain makes the qualified
+  name unavailable. `contains_index` is true for an index and for any field
+  whose target contains an index. It is false for a name or dereference and
+  does not inspect the expression behind a dereference.
+- An initializer catalog starts empty. Each insert allocates the next
+  consecutive `InitializerId`, beginning at zero, and preserves the exact
+  expression under that identity. A missing initializer or missing type
+  default returns no value. Setting a type default is last-write-wins for that
+  type and does not remove either the old or new initializer record.
+- Hidden property setter names and static-storage names preserve their
+  canonical segment and prefix identity. Internal helper names SHALL NOT
+  collide with user symbols.
 - The numeric-kind classifier preserves the declared runtime tag for every
   supported numeric value. Numeric and Boolean operations use their checked
   runtime contract. Non-numeric comparisons are accepted only for the
@@ -519,13 +713,47 @@ The portable runtime core SHALL preserve these value and program-model rules:
   and integer exponent boundary failures require separately cataloged
   behaviors. The reviewed Boolean result is `TRUE >= FALSE = TRUE`; it does
   not certify other Boolean operand/operator combinations.
-- Elementary defaults retain their declared runtime tags. Unknown type IDs are
-  rejected. Partial bit/byte/word reads and writes enforce bounds, and a write
-  changes only the selected portion. Reference-path helpers preserve segment
-  order and accept only the documented IEC partial-access suffixes.
+- Default construction preserves the exact declared runtime tag for every
+  elementary type. Fixed-size arrays preserve their declared inclusive
+  dimensions and row-major element count, with every element recursively
+  initialized to its element-type default; wildcard arrays start empty while
+  retaining their wildcard dimensions. Invalid array bounds are rejected.
+  Structures and unions preserve declared field order and recursively default
+  every field. An enumeration selects its first declared enumerator and rejects
+  an empty declaration. Aliases delegate to their target type. References and
+  pointers default to an empty reference; `NULL` and interfaces default to
+  `NULL`. An integer subrange defaults to its lower bound using the exact base
+  integer tag and rejects a non-integer base. Unknown type IDs and runtime types
+  without a portable value representation are rejected.
+- Partial bit/byte/word reads and writes enforce bounds, and a write changes
+  only the selected portion. Reference-path helpers preserve segment order and
+  accept only the documented IEC partial-access suffixes.
+- Borrowed reference-path traversal returns the original value for an empty
+  path. A field segment borrows only an existing structure field. An index
+  segment borrows only an existing array element selected by exact inclusive
+  multidimensional bounds and row-major offset; traversal then continues
+  recursively through the remaining segments. A missing field, wrong
+  aggregate kind, wrong index arity, out-of-bounds index, or unrepresentable
+  offset returns no value. Borrowed traversal does not synthesize a `CHAR` or
+  `WCHAR` from string storage; string element paths use the materializing
+  reference route. A string materialization/write path accepts exactly one
+  index for its string segment.
 - Array offsets use inclusive bounds and row-major order. Arity mismatches,
   out-of-bounds indices, checked-arithmetic failures, and offsets that cannot
   be represented by the target `usize` are rejected rather than wrapped.
+- Portable `SIZEOF` type calculation resolves aliases, subranges, and
+  enumerations to their storage type; sums structure fields; selects the
+  largest union variant; multiplies fixed inclusive array dimensions by the
+  element size; uses the declared bounded string capacity (twice that capacity
+  for `WSTRING`); and uses the runtime reference-handle width for references
+  and pointers. Unknown types, unbounded strings, wildcard or reversed array
+  dimensions, and unsupported types are rejected. Any representable dimension
+  product or byte-size overflow is rejected rather than wrapped.
+- Portable runtime-value size calculation uses the exact elementary tag width,
+  counts string content in Unicode scalar elements (`WSTRING` twice), sums
+  structure fields, multiplies a validated array extent by its element size,
+  resolves an enumeration through its declared base type, and uses the runtime
+  reference-handle width. `NULL` has no storage size and is rejected.
 - Stable runtime error identifiers use the exact lower-snake-case strings
   defined by section 10.2; a representative-family test proves only the named
   identifiers it asserts.
@@ -534,6 +762,43 @@ The portable runtime core SHALL preserve these value and program-model rules:
   mutation preserves shape. Structure construction resolves aliases and
   validates field types; clone/equality preserve field identity and mutation
   updates existing fields only.
+- A serialized array value is accepted only when its complete ordered
+  dimension list equals the resolved declaration, the element count equals the
+  checked inclusive row-major extent, and every element recursively matches
+  the declared element type. Reversed bounds and an extent not representable
+  by `usize` are `InvalidArrayBounds`; a different dimension list, element
+  count, or element type returns `ArrayDimensionsMismatch`,
+  `ArrayElementCountMismatch`, or `ArrayElementTypeMismatch` respectively.
+  Unknown type IDs, non-array types, and alias cycles are rejected without
+  constructing a partial array.
+- Serialized structure and union input resolves the type name and field names
+  case-insensitively, then stores the declaration's canonical type name, field
+  spelling, and field order. Missing, extra, or recursively mismatched fields
+  are rejected. Unknown names or IDs, non-aggregate types, and alias cycles are
+  rejected. After construction, field lookup and mutation use the stored
+  canonical spelling; they do not perform another case-folded lookup.
+- Enumeration construction resolves aliases, type names, and variant names
+  case-insensitively, but stores the declaration's canonical type and variant
+  spelling. Deserialized numeric data must equal the declared enumerator
+  number. Unknown IDs or names, non-enum types, alias cycles, unknown variants,
+  and numeric mismatches return their corresponding `EnumValueError`. Runtime
+  enum equality is the canonical type name plus numeric value; the stored
+  variant spelling is display data and does not independently determine
+  equality.
+- Declared-type matching is exact for every elementary runtime tag. Subranges
+  require the declared integer base tag and inclusive bounds. Enumeration,
+  structure/union, and array values additionally require canonical type
+  identity and recursively matching members; arrays also require exact
+  dimensions and checked length. References and pointers accept an empty or
+  populated reference and `NULL`; interfaces accept an instance or `NULL`.
+  Unknown, generic, and otherwise non-materializable types never match a
+  runtime value.
+- `ValueConstructionError` and `EnumValueError` display text is stable
+  diagnostic data. It identifies the rejected type ID or name, alias cycle,
+  expected and actual dimensions/count/type, aggregate field, enum variant,
+  and expected/actual numeric value as applicable. Converting an
+  `EnumValueError` to `ValueConstructionError` preserves the original enum
+  error and its diagnostic text.
 - Interface values accept the explicit null representation and compatible
   instance references. Declared assignment materializes only the documented
   safe numeric widening and stores the destination runtime tag.
@@ -780,6 +1045,150 @@ impl Runtime {
 
 `Runtime::new` initializes the `DateTimeProfile` to its default (epoch 1970-01-01, 1 ms resolution).
 
+#### 4.1.1 Runtime Core State and Control Boundaries
+
+A newly constructed runtime has resource name `RESOURCE`, the bytecode-VM
+execution backend, zero logical time and cycle count, empty user storage,
+registries, task state, debug state, and protocol connections, and the default
+date/time profile. Construction registers the reviewed standard function-block
+definitions and their function-block types before user declarations are
+accepted.
+
+Runtime declaration registration preserves these lookup and lifecycle rules:
+
+- functions, function blocks, classes, and interfaces are keyed
+  case-insensitively by their uppercase declaration name;
+- program registration creates its runtime instance, publishes that instance
+  under the declared program name, and only then exposes the program
+  definition;
+- registering a function, function block, class, or program invalidates any VM
+  local-initialization plan derived from the prior declaration set; and
+- metadata snapshots own clones of the declaration, task, access, profile, and
+  statement-location state. Later runtime mutation cannot retroactively alter a
+  prior snapshot.
+
+Task registration records the current logical time as its initial scheduling
+baseline. If its `SINGLE` variable already contains `TRUE`, the saved sample is
+initialized to `TRUE` so registration creates no artificial rising edge. Each
+distinct task name receives one stable nonzero debugger thread identifier,
+reused if that task name is registered again. When at least one registered
+program is absent from every task's program list, one separate stable
+background thread identifier is allocated on demand; otherwise no background
+identifier is allocated. Resetting live task timing establishes the supplied
+time as every task's new `last_run`, clears sampled `SINGLE` state and overrun
+history, and preserves thread identities.
+
+Logical time updates are deterministic. Setting time stores the exact signed
+nanosecond value. Advancing time adds with signed saturation, so positive or
+negative overflow clamps to `i64::MAX` or `i64::MIN`; it never wraps.
+
+Execution and output-commit deadlines are optional absolute instants. Setting a
+deadline records the debugger watchdog-pause total at that instant. The
+effective deadline adds only pause time accumulated after that baseline, using
+checked instant arithmetic; with no debugger pause it equals the configured
+deadline exactly. Clearing a deadline yields no effective deadline.
+
+#### 4.1.2 Debug, Evaluation, and VAR_ACCESS Boundaries
+
+Runtime debug source state is keyed by numeric file identity. Statement
+locations and source text replace the prior entry for the same file. A source
+label resolves either through an explicitly registered exact label or through
+the exact virtual form `file_<unsigned-decimal-id>`. Malformed, signed,
+case-changed, or suffix-free virtual labels do not resolve. VM line and column
+inputs are one-based and are projected to the same nearest-statement resolver
+used by source breakpoints; missing labels, source text, or statement entries
+return no location.
+
+Debug expression, lvalue read, and lvalue write operations use the requested
+runtime frame as the temporary current frame without changing persistent frame
+order. The selected frame's instance supplies instance context. A missing frame
+returns `runtime_invalid_frame` and performs no evaluation or write. With no
+frame, the operation uses global runtime context.
+
+`VAR_ACCESS` reads and writes resolve the binding's stored reference:
+
+- a direct read returns the referenced value and a direct write replaces it;
+- a partial binding applies the declared bit/byte/word/dword projection,
+  preserves unselected bits, and maps bounds or type failures to the
+  corresponding runtime error;
+- an unknown access name reports `runtime_undefined_variable` on write and no
+  value on read; and
+- an unresolved stored reference reports `runtime_null_reference` on write and
+  no value on read.
+
+Failed partial or unresolved writes leave the referenced value unchanged.
+
+Fault entrypoints clear queued debugger runtime mutations before applying fault
+policy. They record the original fault once in runtime fault state and metrics,
+emit its debug event when debugging is enabled, and return that original error
+unless safe-state application itself fails. A safe-state failure returns
+`runtime_safe_state_failed` while retaining the original fault as the recorded
+root. Clearing fault state removes the recorded fault without changing runtime
+declarations, time, or thread identities.
+
+#### 4.1.3 Runtime Access, Diagnostics, and Protocol Projection Contract
+
+Runtime accessors expose live runtime state; they do not return detached
+declaration or process-image copies. Mutating variable storage, the type
+registry, the initializer catalog, the process image, or the `VAR_ACCESS` map
+through its mutable accessor is therefore immediately observable through the
+corresponding immutable accessor. The combined registry/initializer and
+instance-initialization accessors must borrow the one runtime-owned set of
+objects, so callers cannot accidentally initialize against a stale registry,
+declaration set, or standard library. Resource identity preserves the exact
+configured spelling.
+
+Function, function-block, class, and interface registration uses an uppercase
+lookup key while preserving the declaration's spelling in its value. A later
+case-only registration replaces the same logical entry instead of creating a
+second entry. Function, function-block, and class registration invalidates
+derived local-initialization plans. Read-only declaration accessors expose the
+same registered definitions; the standard-library accessor exposes the
+runtime's registered built-ins.
+
+Execution-backend selection is one transaction: after success, both the runtime
+selector and an attached metrics sink report the selected backend. Register-VM
+profiling, register-IR lowering-cache reuse, and tier-1 specialization each
+have independent enable controls and snapshots. Resetting one diagnostic
+surface clears its cache/counters without changing its current enabled state or
+configured capacity/threshold. With no bytecode module loaded, resolving any
+VM POU identifier returns no name.
+
+The process-image accessors share the one input, output, and memory image.
+Driver health publication replaces the prior sink contents in driver
+registration order, reports each driver's current `ok`, `degraded`, or
+`faulted` state, and publishes an empty snapshot after all drivers are cleared.
+Removing the health sink stops publication without modifying the last snapshot
+owned by the caller.
+
+Protocol lifecycle projections are fail-closed and side-effect bounded:
+
+- an unconfigured ADS subsystem reports zero connections and `disabled`;
+  shutdown of that empty subsystem succeeds;
+- an unconfigured OPC UA client reports zero connections and `enabled = false`;
+  reset of that empty subsystem succeeds;
+- deployed configuration hashes round-trip through status projections; an
+  OPC UA reset creates a fresh unconfigured subsystem and clears its prior
+  deployed hash; and
+- an active ADS device lookup returns no snapshot when no live connection
+  matches the requested target.
+
+`USING` resolution is tied to the selected frame. Function and program owners
+resolve case-insensitively. A function-block or class instance frame resolves a
+matching method case-insensitively; a non-empty method `USING` list overrides
+the owning type's list, while an empty method list inherits the owning type's
+list. A frame owned by the function block or class itself uses the type list.
+Unknown or removed frame identities resolve to no list.
+
+`VAR_ACCESS` names are exact external binding identities. The map retains the
+declared name, stored reference, and optional projection. Bit projections
+return/write `BOOL`; byte, word, and double-word projections return/write
+`BYTE`, `WORD`, and `DWORD` respectively, with index zero denoting the
+least-significant portion. Successful writes replace only the selected bits.
+Projection bounds and value-type mismatches report the stable runtime bounds
+or type error and are atomic: neither the selected value nor any unselected bit
+may change.
+
 #### 4.3 Task Scheduling (Periodic + Event)
 
 Tasks are scheduled per IEC 61131-3 Ed.3 §6.8.2:
@@ -801,6 +1210,10 @@ event_due = single_prev == FALSE && single_now == TRUE
 periodic_due = interval > 0 && single_now == FALSE &&
                (current_time - last_run) >= interval
 ```
+
+New task scheduling state records the supplied current logical time as
+`last_run`, clears the saved `SINGLE` sample to `FALSE`, and starts missed
+interval accounting at zero.
 
 The SINGLE input must resolve to a BOOL variable; if it is missing or non-BOOL, task execution
 fails with a runtime error.
@@ -914,6 +1327,97 @@ These helper contracts constrain observable runtime results and deterministic
 execution order; they do not promote internal implementation layout to a
 public compatibility promise.
 
+#### 4.7 Runtime Metadata, Cycle, I/O, and Metrics Transactions
+
+Applying bytecode is fail-closed. Container validation, metadata extraction,
+VM materialization, resource selection, task-reference validation, and
+process-image limit validation must all succeed before the executable module is
+committed. A failed application preserves the prior executable module, resource
+identity, tasks, scheduling state, and process-image sizes. Applying metadata
+without executable bytecode intentionally clears the executable VM and all
+derived VM caches.
+
+Named resource selection is case-insensitive and does not silently select the
+primary resource when the requested name is absent. The sole compatibility
+exception is one resource named exactly, ignoring case, `RESOURCE`; a caller
+may assign that legacy placeholder its requested resource identity. Multiple
+resources or any differently named resource do not qualify for this exception.
+
+Program and task references are case-insensitive at every runtime boundary:
+metadata validation, scheduled/background classification, task execution,
+metadata snapshots, and `USING` resolution must agree on the same declaration.
+A case-only spelling difference cannot make a program execute as both scheduled
+and background, cannot pass validation and then fail execution, and cannot
+hide a program's `USING` directives.
+
+One successful scan cycle has this transaction order:
+
+1. reject an already faulted resource;
+2. apply queued debugger writes, read driver/process/protocol inputs, and
+   reapply forced values;
+3. collect and deterministically sort ready tasks, then execute their programs
+   and function-block references;
+4. execute each unscheduled program once in declaration order;
+5. stage retain persistence when configured;
+6. materialize process/protocol outputs, enforce the output-commit deadline,
+   and write every registered driver;
+7. publish OpenOT scan telemetry, refresh I/O health, record metrics and debug
+   events, then saturating-increment the cycle number.
+
+A failure before completion records one runtime fault and does not increment
+the cycle number. Output commit is rollback-safe: if protocol capture, deadline
+checking, or any driver output write fails, the process output image is
+restored to its pre-commit bytes. An expired output deadline reports the
+watchdog-timeout category. Negative logical time projects to protocol time
+zero; non-negative milliseconds project exactly until the `u64` boundary.
+
+I/O health snapshots replace, rather than append to, the previous sink content
+and preserve driver registration order and names. Applying a non-empty safe
+state first updates the complete output image, then asks every driver to write
+that same image. The operation returns the first write or non-OK-health
+failure, but still attempts later drivers and refreshes the health snapshot.
+An empty safe state performs no output write and only refreshes health.
+
+Metrics are optional and non-blocking. With no sink, timing acquisition and
+recording are no-ops. With a sink, backend changes, cycles, tasks, profiled
+calls, missed intervals, and faults update the same shared metrics object.
+Overrun addition and fault counts saturate rather than wrap.
+
+Mesh snapshots resolve requested global names case-insensitively, omit unknown
+names, preserve request order, and emit the canonical stored declaration
+spelling. Mesh updates resolve names case-insensitively, update only existing
+globals, and never create storage for an unknown name.
+
+#### 4.8 Retain, Restart, and Online-Change Transactions
+
+A retain snapshot preserves insertion order. Replacing an existing key changes
+its value in place and does not append a duplicate. Program-member retain keys
+use the closed form `@program/<program-path>/<variable>`; parsing splits at the
+last slash so a qualified program path is preserved, and rejects missing
+prefix, program, separator, or variable components.
+
+Only `RETAIN` and `PERSISTENT` declarations survive a warm restart.
+`NON_RETAIN` and unspecified declarations are reinitialized. Scalars, strings,
+dates, enums, and recursively retainable arrays/structures may be retained;
+runtime references and instance identities are never retained, including when
+nested in an aggregate.
+
+Restart is prepared against isolated storage before commit. A preparation,
+initializer, retained-value migration, or store-load failure leaves the live
+storage, instances, cycle count, fault state, debug mutations, and executable
+module unchanged. Commit atomically installs prepared storage, clears debug
+runtime mutations and fault state, resets task timing and the cycle count, and
+resets OpenOT scan-relative producer state. Warm restart restores eligible
+values after reconstructing instances with stable identity order; cold restart
+uses declaration initializers only.
+
+Online change is one composed transaction: load the retain snapshot, prepare a
+warm restart and retained-value migration, validate and materialize the new
+bytecode, then commit restart and retained storage. It returns metadata from
+the committed runtime. Any failure before commit leaves the old executable
+runtime usable; protocol-server refresh belongs to the owning host after this
+core swap succeeds.
+
 ### 5. Statement Execution
 
 #### 5.1 Statement Result
@@ -943,7 +1447,7 @@ pub enum StmtResult {
 | FOR | `ForStmt` | `FOR i := start TO end BY step DO ... END_FOR;` |
 | WHILE | `WhileStmt` | `WHILE cond DO ... END_WHILE;` |
 | REPEAT | `RepeatStmt` | `REPEAT ... UNTIL cond END_REPEAT;` |
-| RETURN | `ReturnStmt` | `RETURN;` or `RETURN expr;` |
+| RETURN | `ReturnStmt` | IEC `RETURN;` or truST DEV-022 `RETURN expr;` |
 | EXIT | `ExitStmt` | `EXIT;` (break innermost loop) |
 | CONTINUE | `ContinueStmt` | `CONTINUE;` (next iteration) |
 | Expression | `ExprStmt` | Function/FB calls as statements |
@@ -953,9 +1457,14 @@ pub enum StmtResult {
 
 **FOR Loop**:
 - Control variable, initial, final, increment must be same integer type
-- Control variable must NOT be modified in loop body
+- Initial, final, and increment are evaluated once in source order and captured
+- Control variable and variables used by initial/final must NOT be modified in loop body
 - Termination test at start: `var > final` (positive step) or `var < final` (negative step)
-- Step of zero is a runtime error
+- Step of zero is a runtime error before control/body mutation
+- Increment overflow is a runtime error before storing a wrapped value
+- Normal completion leaves the first out-of-range value; zero iterations leave
+  the initial value; EXIT leaves the current value
+- CONTINUE performs the normal increment before the next test
 - The production VM performs its internal zero-step and direction comparisons
   in the evaluated step value's integer type; it must not introduce a
   differently typed numeric sentinel that makes a valid signed or unsigned
@@ -969,7 +1478,9 @@ pub enum StmtResult {
 - Selector must be elementary type
 - Case labels must match selector type
 - Duplicate/overlapping labels are errors
-- ELSE branch optional
+- Reversed ranges are errors and are not normalized
+- Selector is evaluated exactly once; the first matching branch executes
+- ELSE branch is optional; no match and no ELSE is a no-op
 
 **EXIT/CONTINUE**:
 - Must be inside a loop (FOR, WHILE, REPEAT)
@@ -1003,6 +1514,61 @@ statement invokes the supplied statement hook exactly once before the
 statement completes. This contract does not establish debug-disabled behavior,
 breakpoint, location, call-depth, or multi-statement ordering; those require
 separate proof or their owning debug-control partitions.
+
+#### 5.6 Source-to-runtime statement lowering
+
+For source accepted by the parser and semantic analyzer, harness compilation
+lowers statements in lexical order to the portable program model described by
+IEC 61131-3 Ed.3 section 7.3.3. Empty statements emit no runtime operation.
+Expression statements preserve their call expression. Assignments preserve
+ordinary versus reference-assignment-attempt form, contextualize the right
+side with the declared destination type, and route a property target through
+its setter call. Bounded `STRING`/`WSTRING` destinations retain their declared
+capacity at the assignment boundary.
+
+`IF` lowers ordered `ELSIF` branches and one optional `ELSE`. `CASE` lowers
+single labels, comma-separated labels, inclusive ranges, character/string
+labels, enumeration labels, and compile-time integer constants without
+changing source order. Its selector is evaluated once, and an unmatched
+selector with no ELSE block completes without mutation. `FOR` preserves the
+declared control variable and contextualizes start, end, and step with its
+type; an omitted `BY` becomes the typed integer value one. Start, end, and step
+are evaluated once in that order before the first test. Zero step and checked
+increment failure occur before the mutation described in section 5.3.
+`WHILE` and `REPEAT` preserve pre-test and post-test placement respectively.
+`EXIT`, `CONTINUE`, `RETURN`, labels, and `JMP` retain
+their explicit control-flow identity. Source locations, when available, are
+registered in statement order and do not change execution semantics.
+The current bytecode publication boundary rejects a program containing `JMP`
+with the stable unsupported C5 edge-case diagnostic; retaining the lowered
+identity does not claim executable jump support.
+
+#### 5.6.1 Portable statement representation contract
+
+The portable program model preserves the complete lowered statement identity
+until bytecode publication:
+
+- `Assign`, reference `AssignAttempt`, expression, `IF`, `CASE`, `FOR`,
+  `WHILE`, `REPEAT`, label, `JMP`, `RETURN`, `EXIT`, and `CONTINUE` are distinct
+  nodes. Every node stores its optional source location, and `Stmt::location`
+  returns a reference to that exact location without synthesizing or
+  normalizing one;
+- `IF` retains ordered `ELSIF` pairs and a separate `ELSE` block. `CASE`
+  retains ordered branch groups, each branch's ordered labels, and a separate
+  `ELSE` block. A case label remains either one exact runtime value or one
+  inclusive signed range; representation does not reorder, merge, normalize,
+  or silently discard labels;
+- loop nodes retain their control expression(s), body order, and—in the `FOR`
+  case—the exact control name and explicit lowered step;
+- a label retains its name and optional attached statement, while `JMP`
+  retains its target name; and
+- the host statement result channel distinguishes normal continuation, return
+  with or without a value, loop exit, loop continue, and a named jump. Cloning
+  a result preserves its value or jump target.
+
+This representation contract supports IEC 61131-3 Ed.3 section 7.3.3 and
+Table 72. Whether a represented form is accepted by a particular production
+backend remains governed by that backend's validation contract.
 
 ### 6. Expression Evaluation
 
@@ -1054,16 +1620,22 @@ Per IEC 61131-3 (Table 71):
 
 #### 6.3 Short-Circuit Evaluation
 
-Per IEC 61131-3, short-circuit evaluation is implementer-specific. This implementation uses short-circuit:
+Per IEC 61131-3, short-circuit evaluation is implementer-specific. truST uses
+the closed choice recorded in `docs/IEC_DECISIONS.md`:
 
-- `AND`: Stop on first FALSE
-- `OR`: Stop on first TRUE
+- `BOOL AND` and `BOOL &`: stop on a FALSE left operand
+- `BOOL OR`: stop on a TRUE left operand
+- `BOOL XOR`: evaluate both operands
+- bit-string `AND`, `&`, `OR`, and `XOR`: evaluate both operands
 
-This matches common programming languages and prevents unnecessary side effects from function calls in boolean expressions.
+A skipped Boolean operand produces no call, fault, read, write, or other side
+effect. Every operand that is evaluated follows the IEC left-operand-first
+rule.
 
 #### 6.4 Type Promotion
 
-When operands have different types, implicit widening applies:
+When operands have different types, only accuracy-preserving implicit widening
+applies:
 
 ```
 SINT → INT → DINT → LINT
@@ -1071,7 +1643,18 @@ USINT → UINT → UDINT → ULINT
 REAL → LREAL
 ```
 
-Narrowing conversions require explicit type conversion functions (e.g., `DINT_TO_INT`).
+Signed/unsigned cross-family combinations and integer-to-real combinations
+that can lose accuracy have no implicit common type. Narrowing and
+accuracy-losing conversions require explicit conversion functions (for
+example `DINT_TO_INT` or `DINT_TO_REAL`). Representable untyped literals are
+contextualized to the other typed operand.
+
+Integer arithmetic, integer division (truncation toward zero), `MOD`, and unary
+negation are checked in the result type. Division by zero reports
+`RuntimeError::DivisionByZero`; modulo by zero reports
+`RuntimeError::ModuloByZero`. Either fault, and arithmetic overflow, aborts the
+containing assignment before storage so the destination retains its previous
+value.
 
 #### 6.5 REAL binary arithmetic overflow
 
@@ -1193,6 +1776,126 @@ This is a bounded host-helper contract. It does not make the old host
 evaluator a production execution path and does not authorize function-block,
 method, I/O, or other side-effecting calls.
 
+##### 6.11.1 Constant-expression helper authority
+
+The constant-expression helper follows the expression ordering and result
+error requirements of IEC 61131-3 Ed.3 section 7.3.2 and Table 71 within this
+closed, side-effect-free product boundary:
+
+- literals are returned without coercion, and unary and binary expression
+  trees are evaluated recursively with the portable operator implementation;
+  division by zero, type mismatch, and overflow remain exact runtime errors
+  rather than being replaced by a value;
+- an unqualified name, or a field-only qualified chain such as
+  `Constants.Limits.High`, is resolved as one exact name through the supplied
+  resolver. An unresolved name, an indexed/dereferenced chain, `THIS`,
+  `SUPER`, or a call outside the array-repeat grammar is not a constant
+  expression;
+- a `SIZEOF(type)` expression uses the supplied type registry, returns the byte
+  count as `DINT`, maps an unknown or unsized type to `TypeMismatch`, and maps a
+  size or `DINT` conversion overflow to `Overflow`;
+- an ordinary array initializer evaluates its elements left-to-right and has
+  the one-based helper shape `1..N`. A repetition group implements IEC
+  61131-3 Ed.3 section 6.4.4.5.2: every positional expression in the group is
+  evaluated for every repetition in source order. Zero repetitions contribute
+  no elements; a negative count, a count not representable by the helper, a
+  named argument, or a target that is not an integer literal is rejected
+  without partial success.
+
+The resolver is the helper's complete name authority. It does not fall through
+to runtime storage, perform a call, or create a missing constant.
+
+##### 6.11.2 Storage-expression helper authority
+
+The bounded storage-expression helper evaluates IEC expression forms from
+section 7.3.2 against an explicitly supplied storage snapshot. It is not the
+cycle executor and has no implicit write capability.
+
+- An ordinary name resolves in this exact order: current local frame, current
+  instance including its nearest inherited field, global storage, then retained
+  helper storage. A missing name returns `UndefinedVariable`.
+- `THIS` returns the supplied current instance. `SUPER` returns its immediate
+  parent. Missing current-instance context is `TypeMismatch`; a stale current
+  instance is `NullReference`; and a current instance without a parent is
+  `TypeMismatch`. These value forms support the reference concepts in IEC
+  61131-3 Ed.3 sections 6.6.5.7.2 and 6.6.5.7.3 without authorizing a method
+  call.
+- A field-only name chain is first treated as one exact qualified storage name.
+  Only when that exact name is absent is its target evaluated as a structure or
+  instance. Structure lookup preserves the stored field contract, instance
+  lookup includes inherited fields, and an absent field returns
+  `UndefinedField`. `%X`, `%B`, `%W`, and `%D` partial-access suffixes use the
+  portable bit-string access rules and preserve their exact type or bounds
+  error.
+- An untyped structure initializer rejects duplicate field names
+  case-insensitively before returning the aggregate. Its values are otherwise
+  evaluated left-to-right. Array initializer/repetition behavior is identical
+  to section 6.11.1.
+- An array index accepts the integer and bit-string index value tags supported
+  by the portable offset helper, requires one index per declared dimension,
+  honors every inclusive lower and upper bound, and returns the selected
+  row-major element. `STRING` and `WSTRING` accept exactly one one-based
+  character index and return `CHAR` and `WCHAR`, respectively. Wrong index
+  arity or type is `TypeMismatch`; an index value outside the helper's signed
+  host range is `Overflow`; and a representable, validly typed index outside
+  its bounds is `IndexOutOfBounds`.
+- Boolean `AND`/`&` with a false left operand and Boolean `OR` with a true left
+  operand do not evaluate the right operand, following the closed truST choice
+  for the implementer-specific evaluation extent in IEC section 7.3.2.
+  `XOR`, bit-string operators, and non-short-circuited cases evaluate both
+  operands left-to-right.
+- `REF(lvalue)` implements the reference operation in IEC 61131-3 Ed.3 section
+  6.4.4.10.3 only for an existing local, current-instance, or global root and
+  validated field/index path. It never creates storage. Dereference returns the
+  current referenced value; an empty or stale reference is `NullReference`, and
+  a non-reference operand is `TypeMismatch`.
+- `SIZEOF(type)` follows section 6.11.1. Calls are rejected unless a
+  `StandardLibrary` capability is explicitly supplied. With that capability,
+  only a name or field-only qualified call target is admitted; an unknown
+  target is `UndefinedFunction`. Positional arguments retain source order.
+  Named arguments are all-or-nothing, case-insensitive, unique, and are
+  reordered to the registered fixed parameter order. Variadic names must form
+  one contiguous registered sequence at or above its declared start and meet
+  its minimum count. Missing, duplicate, mixed, unknown, or gapped names fail
+  before the function is called.
+
+`ArgValue::Target` reads the existing lvalue and supplies its current value to
+a pure standard-library call. This does not turn the call into an output or
+in-out write path.
+
+##### 6.11.3 Storage-lvalue helper authority
+
+The storage-lvalue helper applies the assignment-target concepts used by IEC
+61131-3 Ed.3 sections 7.3.2 and 7.3.3 through a fail-closed host boundary:
+
+- reads are the corresponding storage-expression read and therefore use the
+  same name, aggregate, index, partial-access, and dereference semantics;
+- a simple write updates the first existing target in this order: current local
+  frame, current instance including the nearest inherited field, global
+  storage, then retained helper storage. An unknown name returns
+  `UndefinedVariable` and creates nothing;
+- a field-only qualified lvalue first targets an existing exact qualified
+  local, instance, or global storage name, matching expression and reference
+  resolution. Only when that exact name is absent does the write rebuild a
+  structure target or address an instance field;
+- an index write first validates target shape, index arity, index type, and all
+  inclusive bounds. It replaces only the selected element and commits the
+  rebuilt aggregate through its owning lvalue. Any validation or recursive
+  commit failure leaves the stored aggregate unchanged;
+- a structure field write changes only an existing field. An instance field
+  write changes the exact nearest resolved instance field. An absent field is
+  `UndefinedField`, and neither path adds a field. Partial-access writes change
+  only the selected bit/byte/word/double-word and preserve every other bit;
+- a dereference write accepts either a `REF(lvalue)` expression or an existing
+  non-empty reference value, validates its complete field/index path, and
+  writes only that target. Empty or stale references return `NullReference`;
+  non-reference values return `TypeMismatch`; and failed writes do not mutate
+  storage.
+
+These precedence and error mappings are truST host-runtime contracts. They do
+not add source-language scoping rules or an IEC deviation, and they do not
+authorize helper evaluation as production cyclic execution.
+
 #### 6.12 Host-stage expression evaluation contract
 
 The test-only host evaluator preserves these exact reviewed expression
@@ -1233,12 +1936,93 @@ combination, temporal boundary, reference lifetime, inheritance graph, or
 failure partition in IEC 61131-3 Ed.3 section 7.3.2. Production execution
 remains the validated STBC/VM path.
 
+#### 6.12.1 Source-to-runtime expression lowering
+
+Harness lowering preserves the expression tree and contextual declared type
+for the IEC 61131-3 Ed.3 section 7.3.2 expression forms. Parentheses affect
+grouping but emit no extra runtime node. Unary and binary operators retain
+their parsed operator and operand order. Names, field selection,
+multidimensional indices, dereference, `REF`, `THIS`, `SUPER`, calls, named
+arguments, array/aggregate initializers, and `SIZEOF` retain their semantic
+target.
+
+Literal lowering accepts decimal and based integers with separators, real
+exponents, narrow and wide strings with IEC dollar escapes, the short and long
+time/date families, typed bit strings, characters, and resolved enumeration
+members. Context-free untyped integers use the reviewed default integer value;
+an assignment or call-parameter context materializes the literal in the
+declared destination type and rejects a value outside that type. Array
+repetition expands in source order as specified by IEC 61131-3 Ed.3 section
+6.4.4.5.2, while aggregate fields retain their written names for declared-type
+materialization.
+
+Malformed literals, unresolved types, invalid constant-only operands, invalid
+assignment targets, calls with missing arguments, and unsupported syntax fail
+compilation. Lowering never substitutes a default expression merely to keep a
+malformed program executable.
+
+#### 6.13 Portable date and time operator contract
+
+IEC 61131-3 Ed.3 section 6.6.2.5.12 and Table 35 define the accepted
+`TIME`/`DATE`/`TOD`/`DT` and long-family operator combinations and require an
+error when the result exceeds the implementer-specific output range. The
+portable runtime applies those operators as follows:
+
+- `TIME` and `LTIME` addition or subtraction preserves width and uses checked
+  signed nanoseconds.
+- Short `DATE`, `TOD`, and `DT` arithmetic converts a duration to whole
+  `DateTimeProfile` ticks by truncating toward zero. Same-family subtraction
+  converts the signed tick difference back to a checked `TIME`.
+- Long `LDATE`, `LTOD`, and `LDT` arithmetic operates directly in signed
+  nanoseconds. Same-family subtraction returns `LTIME`.
+- Duration addition to `TOD`, `LTOD`, `DT`, or `LDT` does not wrap at a day
+  boundary; it returns the checked signed value in the same family.
+- `TIME` and `LTIME` multiplication or division accepts signed and unsigned
+  integer, `REAL`, and `LREAL` factors. Integer division and the final real
+  result truncate toward zero. Zero division returns
+  `RuntimeError::DivisionByZero`, a non-numeric factor returns
+  `RuntimeError::TypeMismatch`, and a non-finite or out-of-range result returns
+  `RuntimeError::Overflow`.
+- Ordering compares stored ticks or nanoseconds only when both operands have
+  the same runtime family. Cross-family ordering returns
+  `RuntimeError::TypeMismatch`.
+
+All rejected operations produce no substitute value or partial mutation.
+
 ### 7. POU Execution
+
+#### 7.0 Portable POU-definition representation
+
+The portable definition model preserves the semantic inputs needed by
+initializer materialization and bytecode publication:
+
+- every parameter retains its name, declared type, direction, optional direct
+  address, and optional default expression;
+- every variable retains its name, declared type, optional initializer,
+  retain policy, static-storage, external, constant, and optional direct-address
+  attributes. These attributes are independent; representation does not infer
+  one flag from another;
+- a function keeps its return type, ordered parameters, ordinary locals,
+  static locals, ordered `USING` imports, and ordered body;
+- a function block keeps an optional base classified distinctly as a function
+  block or class, plus ordered parameters, instance variables, temporaries,
+  imports, methods, and body;
+- a method keeps its optional return type, ordered parameters, ordinary and
+  static locals, imports, and body; and
+- classes and interfaces keep their optional named base, ordered imports, and
+  methods. Classes additionally keep ordered instance variables.
+
+Names and import order are preserved exactly at this representation boundary;
+case-insensitive resolution and duplicate/conflict rejection belong to the
+owning assembly/registry boundary. The model corresponds to IEC 61131-3 Ed.3
+Tables 19, 40, 47, 48, and 51, with truST product metadata fields governed by
+this runtime specification rather than treated as IEC deviations.
 
 #### 7.1 FUNCTION
 
 - **Stateless**: Variables re-initialized each call
-- **Return value**: Via function name assignment or RETURN statement
+- **Return value**: Via IEC function-name assignment or the truST DEV-022
+  value-bearing RETURN extension
 - **Side effects**: VAR_IN_OUT and VAR_EXTERNAL may be modified
 - **Default result**: If no assignment/RETURN occurs, the function result is the default initial value of its return type (IEC 61131-3 Ed.3 §6.4.2, Table 10).
 
@@ -1317,12 +2101,61 @@ fn call_fb(
 - **Access specifiers**: PUBLIC, PROTECTED, PRIVATE, INTERNAL
 - **Inheritance**: Can OVERRIDE base implementation
 
+Member visibility is a compile-time boundary and does not disappear during
+lowering:
+
+- an accepted `PUBLIC`, same-owner `PRIVATE`, derived `PROTECTED`, or
+  same-namespace `INTERNAL` call lowers to the same method identity selected by
+  semantic resolution;
+- dynamic dispatch through a public interface or base reference reaches the
+  selected concrete implementation without widening access to any other
+  member;
+- `SUPER.member` selects the inherited implementation but remains subject to
+  the inherited member's visibility;
+- an inaccessible member produces a compile error and no runnable
+  program/class/function-block model; and
+- runtime metadata must not synthesize callable entries for rejected access
+  paths.
+
+Class and function-block ordinary variables and truST properties follow the
+same compile-time matrix. For function-block directional members, inputs and
+outputs are externally readable, outputs are externally read-only, in-outs are
+usable only for call binding and inside the FB body, and externals are
+implicitly protected (IEC 61131-3 Ed.3 §6.6.7.7). A rejected external write or
+member access performs no runtime storage change.
+
 #### 7.5 EN/ENO Mechanism
 
-Standard enable/enable-out mechanism:
+Every function, function block, and method uses one deterministic call
+transaction:
 
-- `EN` (input): If FALSE, POU not executed, ENO set FALSE
-- `ENO` (output): TRUE if execution succeeded
+1. Resolve the callable and its declaration-order parameter metadata.
+2. If a named `EN` actual exists, evaluate it exactly once before all other
+   actuals regardless of its written position.
+3. If `EN` is false, skip every other actual and writable-target resolution,
+   do not enter the body, preserve function-block/receiver state and ordinary
+   caller targets, copy only `FALSE` to a connected `ENO`, and return the
+   declared type default for a value-producing callable.
+4. Otherwise evaluate each actual exactly once from left to right in source
+   order. Bind formal names without reordering evaluation. Snapshot inputs and
+   in-outs; initialize function/method outputs per call and use stored
+   function-block inputs/outputs.
+5. Initialize `ENO` to `TRUE`, execute the body, and allow the body to set it
+   `FALSE`.
+6. On normal return, capture every result/output/in-out/ENO value, validate the
+   complete destination set, then commit all connected transfers. `ENO =
+   FALSE` set by a normally returning body does not cancel its other
+   transfers.
+7. On a runtime execution error, report the error, force the call's ENO
+   disposition to false, and commit no result, output, in-out, or receiver /
+   function-block instance mutation through the failed call boundary.
+
+A call cannot map the same or overlapping caller storage to two writable
+formals. Rejecting this before execution makes transfer independent of
+parameter declaration order. An input may snapshot storage that is also the
+single target of one output or in-out. These implementer-specific rules are
+recorded in
+[`IEC_DECISIONS.md`](../IEC_DECISIONS.md#2026-07-30---pou-call-evaluation-execution-control-and-output-transfer).
 
 #### 7.6 Host-stage POU evaluation contract
 
@@ -1332,8 +2165,9 @@ lowering:
 
 - the reviewed function call binds the supplied named input, executes the
   body, and returns the assigned function result;
-- omitted interface inputs, uninitialized local interface variables, and an
-  unassigned interface return value use the explicit runtime `Null` value;
+- omitted interface inputs use their declaration initializer or declared type
+  default; uninitialized call-local interface variables and an unassigned
+  interface return use their declared type default;
 - function-block instance variables persist across calls;
 - an omitted function-block `VAR_INPUT` uses its declared default on the first
   call and reuses the last explicitly stored input on later calls;
@@ -1349,7 +2183,8 @@ lowering:
   by position;
 - a function call with `EN := FALSE` does not execute its reviewed body, leaves
   the existing global counter at `INT#0`, and copies `FALSE` to the caller's
-  `ENO` target;
+  `ENO` target; `EN` is evaluated first and suppresses every other actual and
+  writable-target resolution;
 - the reviewed function binding copies `VAR_INPUT a = INT#2` into the call,
   copies `VAR_OUTPUT b = INT#5` and `VAR_IN_OUT c = INT#4` back to their
   caller targets, and returns `INT#2`; and
@@ -1358,6 +2193,321 @@ lowering:
 
 These rules specify the host-stage model exercised by focused unit tests.
 Production program execution remains the STBC/VM path.
+
+#### 7.7 Source-to-runtime POU assembly
+
+Harness compilation predeclares all functions, function blocks, classes, and
+interfaces from the semantic declaration catalog before lowering bodies. This
+permits forward and cross-file type references while still rejecting
+case-insensitive duplicate POU names. Namespace qualification and each POU's
+local `USING` list are preserved in its runtime definition.
+
+Function parameters retain declaration order, direction, type, accepted input
+or output initializer, and reviewed direct address. Inputs use their
+initializer only when omitted. Outputs materialize their initializer or type
+default at the start of every call before body execution and optional
+copy-back. Ordinary and temporary locals are likewise per-call storage.
+`VAR_STAT` uses function-qualified persistent storage and is initialized once
+per runtime construction. `VAR_IN_OUT` and `VAR_EXTERNAL` carry no declaration
+initializer; the former aliases caller storage and the latter refers to an
+existing global without creating a local slot. Function return assignment and
+`RETURN` use the declared return type. A function that declares a result type
+but provides no result assignment is rejected as a missing return value.
+
+Function-block parameters retain the same ordered parameter contract.
+`VAR`/`VAR_STAT` are instance state, `VAR_TEMP` is call-temporary state, and
+separate instances never share those fields. A function block may extend a
+function block or class; another base kind is rejected. Program `VAR`,
+`VAR_INPUT`, `VAR_OUTPUT`, and `VAR_IN_OUT` declarations become instance state,
+`VAR_TEMP` is cycle-temporary, program `VAR_GLOBAL` is lifted into assembled
+global storage, and `VAR_EXTERNAL` creates no duplicate.
+
+Class fields, base identity, methods, and synthesized property getter/setter
+methods are retained. Function blocks retain their methods and properties as
+well. Interface declarations retain their base and method/property signatures;
+they allocate no concrete instance storage by themselves. Method parameters,
+locals, `VAR_STAT`, return type, and local `USING` context follow the function
+rules, with method-static storage isolated by owning instance.
+
+Wildcard direct addresses are not accepted on `VAR_INPUT` or `VAR_IN_OUT`.
+Unsupported variable-block kinds, invalid direct addresses, unknown types or
+bases, incompatible inheritance, and missing required names/types fail
+compilation rather than producing a partial POU definition. These rules
+implement the runtime assembly boundary for IEC 61131-3 Ed.3 sections 6.4.2,
+6.5, and 6.6.
+
+#### 7.8 Source-to-runtime type assembly
+
+Harness compilation materializes the supported IEC derived-type declarations
+into one project type registry before it lowers POU variables and bodies. A
+declared type retains its source spelling as its canonical name and is found
+case-insensitively. Enclosing namespaces qualify the canonical name. An
+unqualified type reference may resolve through the declaration's active
+`USING` list; an explicitly qualified reference is resolved as written.
+
+The runtime registry represents the following declaration contracts:
+
+- a directly derived type is a named alias to its resolved target;
+- an integer subrange retains its resolved integer base and inclusive lower
+  and upper bounds;
+- an array retains its element type and every declared dimension in source
+  order;
+- a structure retains field order, all names from a multi-name declaration,
+  the resolved field type, an optional relative/direct address, and an
+  optional field-default initializer;
+- a union retains the same ordered member metadata as variants;
+- an enumeration retains its declared base type, source-ordered named values,
+  implicit values beginning at zero, and checked continuation from the
+  preceding explicit value;
+- `REF_TO` retains its target type according to IEC Table 12;
+- the truST `POINTER TO` extension retains its target type under the separate
+  pointer policy in `02-data-types.md`; and
+- bounded `STRING[n]` and `WSTRING[n]` retain their character capacity in the
+  resolved target type.
+
+Every integer constant operand that defines a subrange bound, array dimension,
+bounded-string capacity, or explicit enumeration value is imported from the
+semantic declaration result with its resolved constant identity and value.
+Runtime type lowering must not reevaluate it against an empty or source-order
+partial constant map. The selected value remains stable across source
+permutations and retains declaration-site namespace/`USING` resolution.
+
+Fixed bounds are inclusive and require `lower <= upper`. String capacities are
+positive. Enumeration explicit values and implicit successors fit the
+declared integer base; continuation uses checked arithmetic and never
+saturates or wraps. Undefined, mutable, ambiguous, cyclic, non-integer,
+out-of-domain, or otherwise invalid operands fail compilation before the type
+registry exposes a partial declaration.
+
+A structure may contain a `REF_TO` field targeting its own declared type. The
+registry reserves that owning identity before lowering its fields so the
+self-reference resolves to the completed structure rather than to an
+unrelated or unknown type.
+
+A type-level default initializer is lowered once into the runtime initializer
+catalog and bound to the declared type. A default on a structure or union
+member is likewise bound to that exact member. Multiple names in one member
+declaration retain independent member identities while sharing the same
+declared default expression. Each retained initializer also preserves the
+declaration namespace and active `USING` context needed to select the same
+constant identity chosen by semantic analysis. Importing or instantiating the
+type from another source does not rebind that default to the consumer's
+namespace context.
+
+Type-level and member-level constant dependencies are evaluated from the
+complete accepted project constant graph before a value of that type is
+materialized. A later-declared constant therefore cannot be observed through
+its temporary elementary default. Reordering source units does not change the
+result. Explicit qualification is exact; unqualified lookup uses the
+declaration's lexical namespace and `USING` list and fails closed on a missing
+or ambiguous match.
+
+Default materialization follows this precedence chain:
+
+1. elementary or recursively assigned data-type default;
+2. structure/union member-specific default;
+3. listed type-level aggregate override;
+4. variable-specific initializer; and
+5. eligible exact-instance `VAR_CONFIG` override.
+
+An omitted aggregate member inherits the preceding applicable default. A
+failed constant dependency, coercion, or aggregate override returns no
+partially initialized runtime.
+
+Function-block, class, and interface declarations are predeclared as type
+identities before their members or dependent POU bodies are lowered. Derived
+data types and POU types occupy one case-insensitive project type namespace:
+duplicate names, including case-only or cross-kind collisions, are rejected.
+Unknown targets, invalid bounds or capacities, and malformed member
+declarations fail compilation rather than leaving a reserved or partial type
+available to the returned runtime.
+
+These rules are the runtime-assembly projection of IEC 61131-3 Ed.3 section
+6.4.4 and Tables 11-12. Namespace lookup and `POINTER TO` are the documented
+truST product behaviors described in `02-data-types.md`; they do not alter the
+IEC type rules.
+
+#### 7.9 Source-to-runtime variable assembly
+
+After resolving each declaration's type, harness compilation projects IEC
+variable sections into the runtime POU and global metadata model without
+changing declaration order or source spelling.
+
+For functions and methods, `VAR_INPUT`, `VAR_OUTPUT`, and `VAR_IN_OUT` become
+ordered parameters with their IEC direction. Inputs retain an optional
+omission default. Outputs retain an optional per-call initializer. `VAR` and
+`VAR_TEMP` become automatic locals and are reinitialized for each call from
+their explicit initializer or declared type default. `VAR_STAT` becomes
+function- or method-qualified static storage and is initialized once; method
+static storage is receiver-local. `VAR_IN_OUT` aliases caller storage and
+cannot declare an initializer. `VAR_EXTERNAL` refers to existing global
+storage, cannot declare an initializer, and creates no local variable record.
+
+For function blocks, `VAR_INPUT`, `VAR_OUTPUT`, and `VAR_IN_OUT` become ordered
+parameters. Input and output declaration initializers are materialized when
+the instance is created; a supplied input replaces its stored value, while an
+omitted input reuses it. `VAR` and `VAR_STAT` become persistent instance
+variables initialized with the instance, while `VAR_TEMP` becomes
+call-temporary storage reinitialized on every invocation. `VAR_IN_OUT` aliases
+caller storage and has no declaration initializer. For programs, the input,
+output, ordinary, and static sections all become initialized persistent
+program-instance variables, while `VAR_TEMP` becomes cycle-temporary storage
+reinitialized on every cycle. Program `VAR_IN_OUT` remains externally supplied
+storage and cannot declare an initializer. Program
+`VAR_GLOBAL` declarations are lifted into the project global table, and
+`VAR_EXTERNAL` creates no duplicate program field. Class `VAR` and `VAR_STAT`
+declarations become class fields; a class `VAR_EXTERNAL` creates no field.
+
+Every projected variable retains:
+
+- each declared name in source order, including every name in a multi-name
+  declaration;
+- its resolved type identity;
+- its lowered optional initializer;
+- its `CONSTANT` state where the runtime record has such a field;
+- its effective `RETAIN`, `NON_RETAIN`, unspecified, or truST `PERSISTENT`
+  policy;
+- whether it uses static storage; and
+- its parsed concrete direct address, including area, size, byte/bit
+  coordinates, and complete hierarchy path.
+
+Qualifier validation precedes projection. Exactly one occurrence of
+`CONSTANT`, `RETAIN`, `NON_RETAIN`, or truST `PERSISTENT` may qualify a
+declaration section. A restart policy is projected only for ordinary
+function-block/program/class storage, truST static storage,
+function-block/program inputs and outputs, and globals. Function/method
+call-local storage, in-out aliases, temporaries, external aliases, access
+paths, and configuration bindings reject a restart qualifier. The compiler
+must not accept a qualifier and replace it with `Unspecified`. `CONSTANT`
+remains orthogonal read-only metadata on the accepted storage-declaration
+sections in `03-variables.md`, but cannot be combined with a restart policy.
+
+An accepted function-block/program `VAR_INPUT` edge declaration lowers to one
+raw input slot plus one hidden trigger state per declared name. At each
+executed function-block invocation or program cycle, the runtime samples the
+raw input exactly once, advances the Table 44 `R_TRIG` or `F_TRIG` state
+machine, and supplies `Q` as the input value visible to the owning body.
+Holding a level cannot repeat a pulse, multiple names never share phase, and
+an unexecuted function block does not sample or infer an intervening edge. The
+hidden state is not a source-visible field and cannot collide with a user
+declaration.
+
+Cold restart uses the Table 44 initial phase: an initially high `R_EDGE` and
+an initially low `F_EDGE` each pulse on the first execution. On warm restart,
+the raw input and hidden phase follow the same effective input-section
+`RETAIN`, `NON_RETAIN`, unspecified, or truST `PERSISTENT` policy. Retained
+phase therefore suppresses a fabricated pulse at an unchanged retained level;
+reinitialized phase follows the cold initial-state rule. Function-block
+methods cannot resolve the transformed input.
+
+A constant declaration is available to every constant-expression initializer
+that can see it in the same accepted lexical, namespace, configuration, or
+resource scope, independent of textual declaration order. The compiler
+evaluates the scope's case-insensitive constant-dependency graph before
+materializing consuming input, output, local, temporary, static, instance, or
+global initializers. A later POU-local constant is therefore available to an
+earlier parameter or local declaration without leaking into another POU with
+the same leaf name. Each name in a multi-name declaration receives its own
+variable record and independent storage while retaining the same declared
+initializer expression and address metadata. A cyclic, undefined, mutable,
+ambiguous, incompatible, or otherwise invalid dependency fails compilation
+before a runtime is returned.
+
+Root, namespace, program, configuration, and resource `VAR_GLOBAL`
+declarations become global metadata and initialized storage. Namespace-owned
+globals retain their qualified names. A global declaration's retain policy and
+resolved type remain attached to its restart metadata; its initializer is
+evaluated only after the owning declaration has been accepted.
+
+Wildcard direct addresses remain governed by IEC 61131-3 Ed.3 section
+6.5.5.4: they are rejected for `VAR_INPUT` and `VAR_IN_OUT`, and an accepted
+program or function-block wildcard requires a matching `VAR_CONFIG` binding.
+Malformed concrete addresses, unknown types, missing names/types, and variable
+sections not supported by the owning POU fail compilation rather than
+producing partial runtime metadata.
+
+Runtime assembly enforces the complete variable-section ownership matrix
+before registering the POU. A function, method, or function block containing
+`VAR_GLOBAL`, `VAR_ACCESS`, or `VAR_CONFIG` is rejected. A program accepts its
+IEC `VAR_GLOBAL` and `VAR_ACCESS` additions but rejects `VAR_CONFIG`. A class
+accepts ordinary/static-extension and external fields only; directional,
+temporary, global, access, and configuration sections are rejected. An
+interface with a direct variable section is rejected, while parameter sections
+inside an interface method prototype remain signature metadata. No rejected
+section is silently ignored, lifted to another scope, or used to construct a
+partial runtime type, POU, global, access path, or initializer.
+
+These rules project IEC 61131-3 Ed.3 sections 6.5.1-6.5.6, Figures 7-9, and
+Tables 13-16. `PERSISTENT` remains the documented truST extension specified in
+`03-variables.md`; this runtime projection does not classify it as IEC
+behavior.
+
+#### 7.10 Project-wide source assembly and declaration resolution
+
+Harness compilation treats the complete `CompileSession` source list as one
+project declaration graph. Every source is parsed and entered into the
+semantic project before runtime declarations are materialized. Source-vector
+order and optional source paths are not visibility rules: reordering otherwise
+identical source units, or adding diagnostic path metadata, must not change
+which valid declarations resolve or the canonical runtime identities they
+produce.
+
+Before lowering dependent variables or bodies, the assembler establishes
+project-wide identities for derived data types, function blocks, classes,
+interfaces, functions, programs, and visible constant declarations.
+Derived-type definitions and constant expressions are resolved in dependency
+order rather than source-file order. Consequently:
+
+- a type alias, array element, structure field, variable, or POU member may
+  name a compatible declaration in a later source unit;
+- a function, function block, class, interface, or program may be referenced
+  from an earlier source unit;
+- a root or namespace global initializer may use a visible constant declared
+  in a later source unit, and a POU/configuration/resource initializer may use
+  a visible constant declared later in its accepted declaration scope;
+- a configuration may occur before the program and task-related declarations
+  it binds; and
+- the permitted self-reference remains a structure field whose type is
+  `REF_TO` the owning structure. A by-value or alias dependency cycle is
+  rejected instead of leaving a reserved placeholder in the returned runtime.
+
+Namespace membership, explicit qualified names, and unqualified `USING`
+resolution follow IEC 61131-3 Ed.3 section 6.9.4 and Tables 64-66 across the
+complete source set. An explicit qualified reference is resolved exactly as
+written and never falls back to a same-leaf declaration imported through
+`USING`. Multiple imported matches are ambiguous and fail closed.
+
+The derived-type and POU-type identities occupy the one case-insensitive
+project type namespace defined in section 7.8. Duplicate identities are
+rejected across source units as well as within one unit, including case-only
+duplicates and data-type/POU-type collisions. Function and program identities
+are likewise compared case-insensitively across the project. Exactly one
+`CONFIGURATION` may survive whole-project assembly; declarations in separate
+files do not create separate runtime configurations.
+
+Runtime configuration lowering starts only after the complete program and
+constant declaration sets are available. Qualified program types and visible
+constant references therefore resolve independently of whether the provider
+source precedes or follows the consumer source. Constant lookup remains
+case-insensitive and scope-correct; project discovery does not leak a
+POU-local, namespace-local, or resource-local constant into an unrelated
+scope. Unknown program types, unknown explicit qualified names, ambiguous
+imports, duplicate declarations, and type or constant dependency cycles
+return a compile error without registering a partial program, type,
+configuration, or global.
+
+Within an accepted declaration, member, parameter, variable, enum-value, and
+dimension order remains source order. Where a diagnostic reports multiple
+independent missing declarations, the original `CompileSession` order is the
+stable reporting order. With labeled errors enabled, an explicit `SourceFile`
+path is the diagnostic label; otherwise the stable zero-based virtual source
+index is used. Paths also feed debug source identity, but they do not alter
+semantic lookup or executable declaration identity.
+
+IEC 61131-3 defines the namespace and configuration semantics but does not
+define repository files or `CompileSession` ordering. Project-wide discovery,
+dependency ordering, path labels, and order-independent runtime assembly are
+truST product behavior, not IEC deviations.
 
 ### 8. Standard Library
 
@@ -1649,6 +2799,17 @@ Human-readable `Display` text is diagnostic context and may become more
 specific without changing the code. Machine consumers and verification cases
 must compare the code, not message substrings.
 
+Conversion boundaries preserve the committed error identity:
+
+- converting a `BytecodeError` produces `RuntimeError::Bytecode`, preserving
+  the source bytecode stable code and its rendered diagnostic detail;
+- converting either `DateTimeError` value produces
+  `RuntimeError::DateTimeRange` with the original value and
+  `runtime_date_time_range`;
+- converting `DateTimeCalcError::InvalidDate`, `InvalidResolution`, or
+  `Overflow` normalizes to `RuntimeError::Overflow` and
+  `runtime_overflow`.
+
 The HMI admission boundary uses the same runtime codes for type and subrange
 failures. It additionally reports `runtime_string_capacity_exceeded` for a
 rejected bounded-string request and `runtime_non_finite_value` for a rejected
@@ -1765,6 +2926,43 @@ order and, after exhausting the reviewed bound without a match, panics with
 These rules specify the in-process Rust testing API. They do not establish the
 JSON-line transport contract, physical I/O behavior, or wall-clock timing.
 
+`SourceFile::new` records virtual source text without a path;
+`SourceFile::with_path` preserves the caller's exact path label.
+`CompileSession::from_source` owns one source and leaves diagnostics unlabeled
+by default. `from_sources` owns all sources in caller order and enables
+per-source labels when more than one source is present; an explicit
+`label_errors` selection overrides that default. Runtime, bytecode-module, and
+encoded-byte builds first complete source instrumentation and then compile the
+same ordered source set. A source/path helper requires equal list lengths.
+Parse, semantic, lowering, instrumentation, and bytecode-encoding failures are
+returned as `CompileError`, never as a partial runtime or module.
+
+`TestHarness::from_source` and `from_sources` build the host runtime and apply a
+runtime-aligned bytecode module before publishing the harness. Read-only,
+mutable, and consuming runtime accessors expose that same runtime. Every call
+to `cycle` increments the completed-cycle count exactly once, even when the
+cycle returns a runtime error, and reports the post-cycle virtual time.
+`run_cycles(0)` is passive. Direct-address parsing failures retain their runtime
+error at direct I/O methods and are translated to a boundary error at
+`bind_direct`.
+
+Reload is transactional. It compiles and bytecode-initializes a replacement,
+applies the prior retain snapshot, preserves debug-control ownership, virtual
+time, and completed-cycle count, and only then replaces the live harness.
+Compilation or retain migration failure leaves the entire old harness usable.
+Single- and multi-source reloads have the same state rule.
+
+##### 11.1.1 Debug expression and assignment-target parsing
+
+Debug input is trimmed and may contain one trailing semicolon. Empty or
+syntactically invalid input is a compile error. Watch expressions accept
+side-effect-free syntax and calls only to the reviewed pure standard-function,
+conversion, and time-split families. User calls, function-block/method calls,
+and dynamically targeted calls are rejected before lowering. Assignment
+targets accept names, fields, indices, and dereferences that lower to an
+`LValue`; a call anywhere in the target is rejected. Caller-provided `USING`
+names and the mutable type registry are the only external lowering context.
+
 The in-process symbolic boundary resolves a unique program variable by its
 unqualified name and resolves indexed array elements and dotted
 function-block fields beneath that variable. If more than one program supplies
@@ -1781,6 +2979,149 @@ and leaves the declared target readable in the following snapshot while the
 misspelled watch remains an individual unresolved-name result.
 `TestHarness::bind_direct` rejects a misspelled declaration with the stable
 `undeclared_binding` code and does not create a binding.
+
+##### 11.1.2 Symbolic boundary resolution
+
+The in-process boundary is fail-closed. Reads and writes first resolve an exact
+declared global name, then an exact variable name that occurs in exactly one
+bound program instance. A global therefore takes precedence over same-named
+program variables. Multiple matching programs produce `ambiguous_name` with
+candidate paths in program registration order. A missing simple read or write
+produces `unresolved_name`; a missing simple direct-binding target produces
+`undeclared_binding`. Failed writes and binds do not create fallback globals,
+aliases, or I/O bindings.
+
+Composite reads and writes accept only assignment-path syntax rooted at a
+declared global or uniquely resolved program variable: structure and instance
+fields, constant array indices, partial bit/byte/word/dword selections, and
+reference dereference. Arbitrary expressions, calls, and rootless paths are
+`unsupported_path_syntax`. Out-of-range indices, null dereferences, and
+incompatible runtime values are `wrong_kind`; unresolved fields remain
+`unresolved_name`. Boundary writes preserve the supplied runtime `Value`
+identity and do not perform an implicit numeric conversion.
+
+Direct binding accepts only a declared scalar simple name. A global name is
+bound by name; a unique program variable is bound by its storage reference.
+Composite paths are rejected as unsupported, ambiguous simple names retain
+their candidate list, and an invalid direct-address string is translated to
+`internal_failure` at the harness boundary.
+
+`BoundaryError` exposes a stable snake-case code, an optional affected path,
+and candidates only for ambiguity. Its display text contains the complete
+human-readable diagnosis without changing those machine fields. Runtime
+undefined-variable, undefined-program, undefined-field, type-mismatch,
+null-reference, and array-bound failures have explicit boundary mappings;
+other runtime failures are redacted to `internal_failure`.
+
+Each `BoundaryEntry` is internally consistent: `ok(value)` has status `Ok`, one
+value, no error, and `is_ok() == true`; `error(error)` has status `Error`, no
+value, one error, and `is_ok() == false`.
+
+##### 11.1.3 Configuration assembly and access binding
+
+Harness compilation assembles exactly one runtime configuration from the
+complete ordered source set. Without a `CONFIGURATION`, at least one `PROGRAM`
+declaration is required and every declared program is instantiated once under
+its declared name as an untasked background program. With a
+`CONFIGURATION`, every declared program type must be bound by a configured
+instance or by an explicitly requested test-builder extra instance. Unbound
+types are a compile error that names every missing declaration in declaration
+order. Extra-instance names are case-insensitive for matching and
+deduplication, do not replace configured instances, and must name an existing
+program declaration.
+
+Only one `CONFIGURATION` may be assembled. A `RESOURCE` supplies the runtime
+resource identity. Program instance names, task names, and program type
+resolution are ASCII case-insensitive; caller spelling remains the stored
+display name. Duplicate instance names, a second instance of one program type,
+unknown program types, unknown tasks, and unbound program declarations are
+compile errors. A namespaced program type is selected with its qualified name;
+`USING` is not a configuration-body declaration.
+
+One harness build materializes exactly one runtime resource. With no explicit
+`RESOURCE`, configuration-level tasks and programs belong to the implicit
+resource named `RESOURCE`. With one explicit resource, its exact instance name
+becomes runtime identity; the implementer-specific identifier after `ON` does
+not replace it or select the host backend. Multiple explicit resources, or an
+explicit resource mixed with configuration-level task/program declarations,
+fail before global allocation, program registration, or task attachment.
+
+`TASK` initialization requires one unsigned integer literal `PRIORITY` in the
+runtime `u32` range and accepts at most one non-negative `TIME` literal
+`INTERVAL` and one named `SINGLE` trigger. `SINGLE` must resolve at assembly
+time to a visible `BOOL` global; literals, missing names, and non-Boolean
+variables are rejected. Unknown or repeated task-initializer fields are
+rejected. The omitted interval and trigger use zero/no-trigger defaults. Task
+names are case-insensitively unique in their configuration/resource scope and
+accepted tasks retain declaration order and source spelling. A configured
+program is attached only to its named task; a program without `WITH` remains a
+background program. Function-block task bindings must resolve beneath the
+configured program instance to an actual function-block instance and cannot
+use a direct address.
+
+Program-level `RETAIN` or `NON_RETAIN` configuration qualifiers apply to
+variables whose declaration policy is unspecified. They do not replace an
+explicit variable-level policy. Conflicting program-level policies for the
+same program type are rejected before instances are registered.
+
+All root, program-declared global, configuration, and resource globals are
+allocated before their accepted literal or constant-expression initializers
+are materialized. Constant-expression values are resolved from the accepted
+scope dependency graph, not by reading the temporary default value of a
+later-declared global. Function-block globals are created as instances and
+accept reviewed aggregate initialization of externally initializable members.
+Class globals are created as instances but reject aggregate initializers at
+the semantic boundary. Interface globals begin as null references. Each global
+records its type, initial value or instance recipe, and retain policy for
+restart.
+
+The single-resource runtime stores root/vendor GVL, program-global,
+configuration-global, and resource-global declarations in one effective
+case-insensitive global namespace while preserving accepted spelling.
+Cross-host duplicates are rejected before allocation. A resource
+`VAR_EXTERNAL` links to the matching global without allocating or registering
+another global. Configuration/resource `VAR_GLOBAL CONSTANT` values may feed
+any accepted initializer that can see them, independent of declaration order;
+configuration constants are visible to the contained resource, while resource
+constants do not escape that resource. Sections other than `VAR_GLOBAL`,
+resource `VAR_EXTERNAL`, `VAR_ACCESS`, and `VAR_CONFIG` are rejected in these
+scopes rather than being reinterpreted as globals.
+
+Access paths are resolved case-insensitively from a global root or from a
+field that is unique across configured program instances, followed by
+structure fields, instance fields, constant array indices, and at most one
+terminal bit/byte/word/dword partial selection. Missing roots, ambiguous
+unqualified program fields, invalid indices, invalid fields, and malformed
+partial paths are compile errors. A `VAR_ACCESS` variable path registers a
+symbolic read/write alias. A direct `VAR_ACCESS` declaration instead creates a
+direct-address global and must not create a symbolic alias.
+
+A wildcard direct declaration remains unresolved until one matching
+`VAR_CONFIG ... AT` entry supplies a fully specified address in the same I/O
+area. The runtime wildcard guard reports its outstanding names sorted and
+deduplicated; the semantic boundary may reject an individual unmapped
+declaration earlier. `VAR_CONFIG` targets must be variable access paths:
+direct-address and partial-selection targets are rejected. `VAR_CONFIG AT`
+also rejects wildcard addresses and area mismatches. Its optional initializer
+is evaluated after allocation and written to the resolved variable.
+Successful bindings resize each process-image area to include the complete byte
+span of its highest scalar binding; sparse addresses are valid and do not
+alias another area.
+
+Each symbolic `VAR_ACCESS` binding also retains its declared access direction.
+An omitted direction is `READ_ONLY`. Runtime reads remain available for both
+directions, but a write through a read-only binding fails without changing the
+whole value or a partial projection. `READ_WRITE` does not override IEC target
+eligibility: constants, temporary/external/in-out variables, and externally
+connected function-block inputs cannot become writable through the access map.
+The declared access type must equal the resolved target type before a binding
+is registered.
+
+Instance-specific `VAR_CONFIG` initialization accepts persistent program
+variables, nested function-block members, and structure components. It rejects
+type mismatches and constant, temporary, external, or in-out targets before
+evaluation or mutation. An accepted initializer is applied after allocation
+to the exact configured instance and overrides its declaration/type default.
 
 #### 11.2 Harness automation JSON-line contract
 
@@ -1823,6 +3164,57 @@ cannot encode per-entry errors.
 
 The detailed wire examples and stable error vocabulary are in
 `docs/guides/TRUST_HARNESS_PROTOCOL.md`.
+
+##### 11.2.1 Automation state and typed-value codec
+
+`HarnessAutomation` is initially unloaded. Every operation that requires a
+runtime, including reload, cycle, symbolic or direct I/O, time advancement,
+restart, snapshot, and bounded execution, returns `not_loaded` until a load
+succeeds. An empty source list is invalid. A load publishes its replacement
+harness only after compilation and the mandatory initial cycle both succeed,
+so a failed replacement cannot destroy an older usable session.
+
+The automation clock is represented by the runtime's signed nanosecond
+`Duration`. Millisecond inputs are therefore accepted only from zero through
+`floor(i64::MAX / 1_000_000)`. This limit applies equally to `cycle`,
+`advance_time`, and `run_until`; a larger input is `invalid_argument` and must
+not panic or mutate cycle count, time, or values. A zero-count cycle performs
+no time advance. Snapshot preserves cycle and time and reports every distinct
+requested name in deterministic lexical order; an unresolved name is an
+entry-local boundary error.
+
+`run_until` reads the target before consuming its budget. A current match
+returns zero cycles. Otherwise each iteration advances the requested virtual
+time, runs one cycle, and then rechecks. Timeout occurs after exactly
+`max_cycles`; those completed cycles and time advances remain committed. A
+cycle failure also retains work committed by earlier iterations.
+
+The typed JSON codec is closed over BOOL; signed and unsigned integers; REAL
+and LREAL; bit strings; TIME, LTIME, DATE, LDATE, TOD, LTOD, DT, and LDT;
+STRING, WSTRING, CHAR, and WCHAR; ARRAY, STRUCT, ENUM, and NULL. Type names are
+ASCII case-insensitive. Required payload fields have exact JSON kinds, integer
+widths are checked, REAL rejects finite values outside the `f32` domain, and
+CHAR requires exactly one ASCII scalar while WCHAR requires exactly one scalar
+representable by `u16`. Unsupported type names and malformed typed objects are
+`invalid_argument`.
+
+Untyped JSON booleans, strings, nulls, arrays, and numbers decode
+deterministically. Integer numbers select the smallest signed IEC container
+through `LINT`; JSON integers above `i64::MAX` select the smallest unsigned
+container through `ULINT`; fractional numbers select `LREAL`. Non-empty
+untyped arrays use a zero-based one-dimensional bound and recursively decode
+their elements; an empty untyped array is invalid because it supplies no IEC
+array bound. Typed arrays require `[lower, upper]` integer pairs and an element
+count that matches their complete declared shape. Typed structures require a
+type name and object-valued fields, and typed enumerations require a type name,
+variant, and signed numeric value.
+
+Encoding emits the canonical uppercase type tag and the canonical field for
+each runtime value. Every codec-supported finite value whose character payload
+is a valid Unicode scalar must survive encode-then-decode without changing its
+runtime value, dimensions, structure field values, or enumeration identity.
+References and instance handles are observable-only encodings and are not
+accepted as incoming typed values.
 
 #### 11.3 Example Tests
 
@@ -1927,8 +3319,8 @@ fn test_timer() {
 
 - CLASS/INTERFACE/METHOD/PROPERTY support
 - Inheritance (EXTENDS) + interface conformance (IMPLEMENTS)
-- REFERENCE types (`REF_TO`) plus assignment-attempt semantics; the incomplete
-  static compatibility check is recorded in `docs/IEC_DEVIATIONS.md`
+- REFERENCE types (`REF_TO`) plus IEC dynamic assignment-attempt semantics and
+  the separate typed `POINTER TO` product extension
 - `VAR_STAT` documented vendor-extension storage semantics
 - Direct address I/O (%I, %Q, %M)
 

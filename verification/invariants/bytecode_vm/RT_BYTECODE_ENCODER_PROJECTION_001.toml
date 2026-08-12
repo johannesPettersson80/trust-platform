@@ -5,7 +5,7 @@ area = "bytecode_vm"
 risk = "wrong_result"
 status = "mapped"
 owner = "trust-runtime"
-last_reviewed = "2026-07-27"
+last_reviewed = "2026-07-30"
 claim = "Successful source lowering emits complete type, POU, storage, resource, debug, and instruction projections that decode and validate as one STBC module."
 proof_level = "S0"
 contract_kind = "decision_table"
@@ -22,12 +22,12 @@ source_refs = ["SPEC_BYTECODE_FORMAT_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"
+ref = "SPEC_BYTECODE_FORMAT_001#7-5-1-source-to-bytecode-projection"
 
 [[behavior]]
 partition = { equals = "TYPE_TABLE_PROJECTION" }
 case_family = "happy_path"
-oracle_ref = "SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#7-5-1-source-to-bytecode-projection"
 outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
@@ -36,7 +36,7 @@ rationale = "Composite, alias, subrange, reference, class, function-block, and i
 [[behavior]]
 partition = { equals = "POU_METHOD_AND_PARAMETER_PROJECTION" }
 case_family = "happy_path"
-oracle_ref = "SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#7-5-1-source-to-bytecode-projection"
 outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
@@ -45,7 +45,7 @@ rationale = "Class inheritance, method ownership, override slots, interface slot
 [[behavior]]
 partition = { equals = "STORAGE_REFERENCE_VAR_AND_RETAIN_PROJECTION" }
 case_family = "happy_path"
-oracle_ref = "SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#7-5-1-source-to-bytecode-projection"
 outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "expected_delta", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
@@ -54,7 +54,7 @@ rationale = "Function and method slots, scoped variable types, initializers, ret
 [[behavior]]
 partition = { equals = "IO_RESOURCE_AND_PROCESS_IMAGE_PROJECTION" }
 case_family = "happy_path"
-oracle_ref = "SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#7-5-1-source-to-bytecode-projection"
 outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "expected_delta", diagnostics = "none", status = "unchanged" }
@@ -63,7 +63,7 @@ rationale = "Direct variables emit their exact IO_MAP address and reference bind
 [[behavior]]
 partition = { equals = "DEBUG_SOURCE_MAP_PROJECTION" }
 case_family = "happy_path"
-oracle_ref = "SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#7-5-1-source-to-bytecode-projection"
 outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
@@ -72,7 +72,7 @@ rationale = "Debug entries retain their owning POU, bytecode offset, source path
 [[behavior]]
 partition = { equals = "CONTROL_FLOW_INSTRUCTION_LOWERING" }
 case_family = "happy_path"
-oracle_ref = "SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#7-5-1-source-to-bytecode-projection"
 outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
@@ -81,7 +81,7 @@ rationale = "Labels and supported selection or iteration constructs emit explici
 [[behavior]]
 partition = { equals = "DYNAMIC_REFERENCE_INSTRUCTION_LOWERING" }
 case_family = "happy_path"
-oracle_ref = "SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#7-5-1-source-to-bytecode-projection"
 outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
@@ -90,7 +90,7 @@ rationale = "Resolved function-block and method field access emits LOAD_SELF, RE
 [[behavior]]
 partition = { equals = "ENCODED_MODULE_VALIDATES_AND_LOADS" }
 case_family = "happy_path"
-oracle_ref = "SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#7-5-1-source-to-bytecode-projection"
 outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "expected_delta", diagnostics = "none", status = "unchanged" }
@@ -99,7 +99,7 @@ rationale = "Supported source, including case-insensitively resolved calls, prod
 [[behavior]]
 partition = { equals = "ENUM_CONSTANT_ENCODING_VALIDATES" }
 case_family = "happy_path"
-oracle_ref = "SPEC_BYTECODE_FORMAT_001#source-to-bytecode-projection"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#7-5-1-source-to-bytecode-projection"
 outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }

@@ -1,12 +1,12 @@
 schema_version = 1
 id = "IEC_LEXER_PRAGMA_TRIVIA_001"
-title = "Balanced pragmas are lossless parser trivia"
+title = "Pragmas are lossless parser trivia only when brace-delimited"
 area = "compiler_iec"
 risk = "wrong_result"
 status = "mapped"
 owner = "trust-syntax"
-last_reviewed = "2026-07-29"
-claim = "A balanced brace-delimited pragma is emitted as one lossless Pragma token and classified as parser trivia so removing it preserves the exact tokenization of surrounding Structured Text."
+last_reviewed = "2026-08-01"
+claim = "A balanced brace-delimited pragma is emitted as one lossless Pragma token and classified as parser trivia so removing it preserves the exact tokenization of surrounding Structured Text; an unterminated opening brace is rejected as a lexical error rather than accepted as pragma trivia."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = [
@@ -27,7 +27,7 @@ missing = [
 [input]
 name = "source"
 type = "Structured Text source"
-declared = "A balanced brace-delimited pragma alone or adjacent to ordinary Structured Text"
+declared = "A brace-delimited pragma, an unterminated pragma opening, or brace text inside a character string"
 
 [spec]
 status = "specified"
@@ -63,6 +63,15 @@ outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
 rationale = "Brace text inside a character string remains part of the string token and is not emitted as a pragma."
+
+[[behavior]]
+partition = { equals = "UNTERMINATED_PRAGMA_REJECTION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#trust-lexer-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "added", status = "error" }
+rationale = "End of input before the closing brace is a lexical error and must not produce a balanced Pragma token."
 
 [[coverage.cells]]
 dimension = "happy_path"

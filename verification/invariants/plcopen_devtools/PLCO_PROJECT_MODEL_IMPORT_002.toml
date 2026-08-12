@@ -1,0 +1,154 @@
+schema_version = 1
+id = "PLCO_PROJECT_MODEL_IMPORT_002"
+title = "PLCopen project models normalize without redirecting or hiding loss"
+area = "plcopen_devtools"
+risk = "silent_corruption"
+status = "specified"
+owner = "trust-plcopen"
+last_reviewed = "2026-08-01"
+claim = "Supported PLCopen configurations, resources, tasks, and program instances preserve reviewed hierarchy, order, scheduling, binding, identity, and accounting rules, while ambiguous or invalid models fail closed instead of being silently redirected."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = [
+  "docs/guides/PLCOPEN_INTEROP_COMPATIBILITY.md",
+  "crates/trust-plcopen/src/plcopen/import_project_model.rs",
+  "crates/trust-plcopen/src/plcopen/type_parser.rs",
+  "crates/trust-plcopen/src/plcopen/tests/project_model_contract.rs",
+]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["catalog_mapping", "focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_PLCOPEN_IMPORT_DECISION_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#project-model-import-contract"
+
+[[behavior]]
+partition = { equals = "SUPPORTED_HIERARCHIES_AND_ALIAS_FORMS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#project-model-import-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Nested holders, direct configurations, direct resources, case-insensitive element names, and reviewed alias attributes reconstruct the documented model without losing complete nodes."
+
+[[behavior]]
+partition = { equals = "DIRECT_RESOURCE_SYNTHETIC_CONFIGURATION" }
+case_family = "boundary_low"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#project-model-import-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Resources directly under instances are wrapped only in ImportedConfiguration, preserving resource content and order."
+
+[[behavior]]
+partition = { equals = "INTERVAL_NORMALIZATION" }
+case_family = "boundary_low"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#project-model-import-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Trimmed IEC time literals are preserved and supported nonnegative PT seconds or milliseconds convert exactly to deterministic ST time literals."
+
+[[behavior]]
+partition = { equals = "TASK_DEFAULTS_AND_EVENT_MODE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#project-model-import-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A periodic task defaults to T#100ms and priority 1 when omitted, while an event task retains event mode without an interval default."
+
+[[behavior]]
+partition = { equals = "PROGRAM_BINDING_AND_TASK_INHERITANCE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#project-model-import-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Bound and unbound programs preserve identity, type, retention prefix, explicit task binding, and the valid owning-task inheritance relationship."
+
+[[behavior]]
+partition = { equals = "IDENTIFIER_NORMALIZATION_AND_SCOPED_COLLISION" }
+case_family = "boundary_low"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#project-model-import-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Invalid identities normalize with warnings and case-insensitive collisions receive deterministic suffixes independently in each hierarchy scope."
+
+[[behavior]]
+partition = { equals = "AUTO_TASK_SYNTHESIS" }
+case_family = "boundary_low"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#project-model-import-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A program-only configuration or resource receives one AutoTask with reviewed defaults and PLCO507 or PLCO506 respectively."
+
+[[behavior]]
+partition = { equals = "AMBIGUOUS_OR_INVALID_SCHEDULING_REJECTION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#project-model-import-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Both interval and event, an invalid explicit interval or priority, or an explicit unknown task reference rejects the owning configuration without source publication."
+
+[[behavior]]
+partition = { equals = "INCOMPLETE_CHILD_ISOLATION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#project-model-import-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "An incomplete task or program is diagnosed and omitted while complete sibling nodes remain renderable and counted."
+
+[[behavior]]
+partition = { equals = "EMPTY_MODEL_ACCOUNTING" }
+case_family = "missing_required"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#project-model-import-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Empty instances produces PLCO501 and no source, while an explicit named empty configuration is preserved with PLCO508 and semantic loss."
+
+[[behavior]]
+partition = { equals = "DETERMINISTIC_RENDER_AND_REPORT_ORDER" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_PLCOPEN_IMPORT_DECISION_001#project-model-import-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Tasks, programs, and resources retain the documented render order, XML sibling order, and exact imported-node counts."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Focused project-model tests exist, but accepted catalog binding and dynamic proof are pending."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Focused fail-closed scheduling and child-validation tests exist, but accepted catalog binding and dynamic proof are pending."
+
+[[coverage.cells]]
+dimension = "boundary_low"
+state = "gap_open"
+rationale = "Focused normalization and synthesis boundary tests exist, but accepted catalog binding and dynamic proof are pending."
+
+[[coverage.cells]]
+dimension = "missing_required"
+state = "gap_open"
+rationale = "Focused empty-model tests exist, but accepted catalog binding and dynamic proof are pending."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "Focused hierarchy and render-order tests exist, but accepted catalog binding and dynamic proof are pending."

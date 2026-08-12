@@ -1,6 +1,6 @@
 //! API documentation generation from tagged ST comments.
 
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap};
 use std::fmt::Write;
 use std::path::{Path, PathBuf};
 

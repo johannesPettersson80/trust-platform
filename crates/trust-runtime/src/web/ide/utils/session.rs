@@ -48,3 +48,7 @@ pub(in crate::web::ide) fn now_secs() -> u64 {
         .unwrap_or_default()
         .as_secs()
 }
+
+#[cfg(test)]
+#[path = "session/contract_tests.rs"]
+mod contract_tests;

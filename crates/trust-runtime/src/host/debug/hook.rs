@@ -42,3 +42,7 @@ pub struct NoopDebugHook;
 impl DebugHook for NoopDebugHook {
     fn on_statement(&mut self, _location: Option<&SourceLocation>, _call_depth: u32) {}
 }
+
+#[cfg(test)]
+#[path = "hook/contract_tests.rs"]
+mod contract_tests;

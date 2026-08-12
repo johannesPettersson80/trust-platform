@@ -90,6 +90,50 @@ class CodeSpecAuthoritySelectionTests(unittest.TestCase):
             application.manifest["missing_invariant_backlinks"],
         )
 
+    def test_catalog_mapped_curated_test_identity_is_reused(self) -> None:
+        fixture = Fixture(
+            self.root / "curated-catalog-id",
+            include_canonical_authority=True,
+        )
+        curated_test_id = "TEST_CURATED_EXACT_BEHAVIOR_001"
+        fixture.rewrite_toml(
+            f"verification/invariants/runtime_safety/{INVARIANT_ID}.toml",
+            TEST_ID,
+            curated_test_id,
+        )
+        fixture.rewrite_toml(
+            "verification/test-catalog.toml",
+            TEST_ID,
+            curated_test_id,
+        )
+        fixture.rewrite_toml(
+            "verification/test-catalog-denominator.toml",
+            'disposition = "reviewed_nonmapping"\n'
+            'reason_code = "no_reviewed_spec_or_invariant_binding"',
+            'disposition = "catalog_mapped"\n'
+            f'catalog_test_id = "{curated_test_id}"',
+        )
+
+        application = fixture.build()
+        updated = tomllib.loads(
+            application.replacements[
+                "verification/code-spec-map.toml"
+            ].decode()
+        )
+
+        self.assertEqual(
+            [curated_test_id],
+            updated["mappings"][0]["test_ids"],
+        )
+        self.assertEqual(
+            [],
+            application.manifest["missing_catalog_test_ids"],
+        )
+        self.assertEqual(
+            [],
+            application.manifest["missing_invariant_backlinks"],
+        )
+
     def test_json_and_toml_selections_have_identical_results(self) -> None:
         json_application = self.fixture.build()
         other_root = self.root / "toml"

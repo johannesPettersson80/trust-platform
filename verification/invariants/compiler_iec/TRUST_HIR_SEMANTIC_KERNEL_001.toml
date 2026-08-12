@@ -5,7 +5,7 @@ area = "compiler_iec"
 risk = "silent_corruption"
 status = "mapped"
 owner = "trust-hir"
-last_reviewed = "2026-07-30"
+last_reviewed = "2026-08-01"
 claim = "Source identity, query reuse and invalidation, cross-file translation, semantic outcomes, declaration catalogs, cancellation, and concurrency preserve one coherent project revision without stale or invented identities."
 proof_level = "S0"
 contract_kind = "decision_table"
@@ -23,7 +23,7 @@ tests = ["TEST_AUTO_051E7C6E43B61B5CABA5", "TEST_AUTO_0A678B365C9975C76F0E", "TE
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["assertion_reachability", "broad_remote_gate"]
+missing = ["catalog_mapping", "focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -95,6 +95,42 @@ outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
 rationale = "A completed query observes one synchronized revision; cancellation or concurrency cannot panic, deadlock, or publish a partial model."
+
+[[behavior]]
+partition = { equals = "DECLARATION_CATALOG_ORDER_DUPLICATE_AND_ROUNDTRIP" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_HIR_SEMANTIC_KERNEL_001#hir-semantic-kernel-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Declaration and reference records preserve every constructor field, retain duplicate debt, and sort deterministically by their documented file, range, owner, name, and kind keys."
+
+[[behavior]]
+partition = { equals = "FILE_IDENTITY_BIJECTION_AND_MONOTONIC_ALLOCATION" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_HIR_SEMANTIC_KERNEL_001#hir-semantic-kernel-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Project keys and file identities form one stable bidirectional map; automatic identities are monotonic, explicit identities advance but never lower the floor, and removal never recycles an identity."
+
+[[behavior]]
+partition = { equals = "QUALIFIED_NAME_SCOPE_PATH_AND_SOURCE_IDENTITY" }
+case_family = "encoding_or_unicode"
+oracle_ref = "SPEC_HIR_SEMANTIC_KERNEL_001#hir-semantic-kernel-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Qualified names, scope/owner chains, virtual and path keys, and source ranges preserve supplied text and ordering while applying only the documented separator and current-directory normalization."
+
+[[behavior]]
+partition = { equals = "SEMANTIC_OUTCOME_EXPLICIT_RESOLUTION_STATE" }
+case_family = "missing_required"
+oracle_ref = "SPEC_HIR_SEMANTIC_KERNEL_001#4-stable-semantic-outcomes-and-diagnostic-context"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Resolved semantic outcomes transform their payload exactly once, while every nonresolved classification preserves its complete payload without invoking the resolved mapper."
 
 [[coverage.cells]]
 dimension = "happy_path"

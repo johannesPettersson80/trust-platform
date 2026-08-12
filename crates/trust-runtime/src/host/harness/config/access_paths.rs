@@ -49,6 +49,60 @@ pub(super) fn resolve_access_path(
     }
 }
 
+#[derive(Clone, Copy)]
+enum AccessTargetPolicy {
+    Writable,
+    ReadOnly(&'static str),
+    Forbidden(&'static str),
+}
+
+fn access_target_policy(runtime: &Runtime, path: &AccessPath) -> AccessTargetPolicy {
+    let AccessPath::Parts(parts) = path else {
+        return AccessTargetPolicy::Writable;
+    };
+    let mut names = parts.iter().filter_map(|part| match part {
+        AccessPart::Name(name) => Some(name),
+        AccessPart::Index(_) | AccessPart::Partial(_) => None,
+    });
+    let Some(program_name) = names.next() else {
+        return AccessTargetPolicy::Writable;
+    };
+    let Some(variable_name) = names.next() else {
+        return AccessTargetPolicy::Writable;
+    };
+    let Some(program) = runtime
+        .programs()
+        .values()
+        .find(|program| program.name.eq_ignore_ascii_case(program_name.as_str()))
+    else {
+        return AccessTargetPolicy::Writable;
+    };
+
+    if program
+        .temps
+        .iter()
+        .any(|variable| variable.name.eq_ignore_ascii_case(variable_name.as_str()))
+    {
+        return AccessTargetPolicy::Forbidden("VAR_TEMP");
+    }
+    let Some(variable) = program
+        .vars
+        .iter()
+        .find(|variable| variable.name.eq_ignore_ascii_case(variable_name.as_str()))
+    else {
+        return AccessTargetPolicy::Writable;
+    };
+    if variable.external {
+        AccessTargetPolicy::Forbidden("VAR_EXTERNAL")
+    } else if variable.in_out {
+        AccessTargetPolicy::Forbidden("VAR_IN_OUT")
+    } else if variable.constant {
+        AccessTargetPolicy::ReadOnly("CONSTANT")
+    } else {
+        AccessTargetPolicy::Writable
+    }
+}
+
 fn resolve_access_parts(
     runtime: &Runtime,
     parts: &[AccessPart],
@@ -114,7 +168,9 @@ fn resolve_access_parts(
                             .storage()
                             .ref_for_instance(id, field.as_ref())
                             .ok_or_else(|| {
-                                CompileError::new("invalid access path instance field")
+                                CompileError::new(
+                                    "invalid access path instance field; VAR_TEMP and VAR_EXTERNAL cannot be exposed",
+                                )
                             })?;
                         current_value = runtime
                             .storage()

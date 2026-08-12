@@ -1,0 +1,129 @@
+schema_version = 1
+id = "RT_CONTROL_CONFIG_TRANSACTION_002"
+title = "Live control configuration validates and commits atomically"
+area = "control_security"
+risk = "silent_corruption"
+status = "specified"
+owner = "trust-runtime"
+last_reviewed = "2026-08-01"
+claim = "config.set strictly validates scalar, collection, rule, credential, and cross-field inputs against one staged effective state, then commits every accepted domain together or leaves all domains unchanged."
+proof_level = "S0"
+contract_kind = "state_machine"
+source_refs = ["docs/specs/11-runtime-engine.md", "crates/trust-runtime/src/control/config_handlers/validation_contract_tests.rs", "crates/trust-runtime/src/control/config_handlers/handler_contract_tests.rs"]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["catalog_mapping", "focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-request-job-and-state-surface-contract"
+
+[[behavior]]
+partition = { equals = "EMPTY_OBJECT_NOOP" }
+case_family = "boundary_low"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-request-job-and-state-surface-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "An empty object succeeds with empty updated and restart_required lists and changes no state."
+[[behavior]]
+partition = { equals = "BOOLEAN_INTEGER_AND_NONEMPTY_STRING_VALIDATION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-request-job-and-state-surface-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Booleans, positive integers, and trimmed nonempty strings accept only their exact JSON shape and numeric domain."
+[[behavior]]
+partition = { equals = "STRING_ARRAY_AND_MAP_VALIDATION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-request-job-and-state-surface-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Arrays preserve order and maps deterministic key order while non-string or empty trimmed entries reject with exact ownership."
+[[behavior]]
+partition = { equals = "WAN_AND_LINK_RULE_CLOSED_SHAPE" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-request-job-and-state-surface-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "WAN and link rules accept only their required trimmed fields, preserve order, and reject unknown, missing, empty, or malformed entries."
+[[behavior]]
+partition = { equals = "COMPLETE_STAGED_STATE_COMMIT" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-request-job-and-state-surface-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Settings, control token, control mode, debug state, and scheduler effects commit only after the complete final state validates."
+[[behavior]]
+partition = { equals = "REJECTED_REQUEST_ZERO_MUTATION" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-request-job-and-state-surface-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Unknown/startup-only keys, type/value/cross-field errors, lock failure, or scheduler rejection leave every state domain unchanged and return no success lists."
+[[behavior]]
+partition = { equals = "TOKEN_WEB_AND_TCP_CROSS_FIELD_POLICY" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-request-job-and-state-surface-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Token web auth and authenticated TCP require a nonempty final control token, with order-independent same-request updates."
+[[behavior]]
+partition = { equals = "SECRET_REDACTION" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-request-job-and-state-surface-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Token and mesh-token values are trimmed but never returned or included in success or error text."
+[[behavior]]
+partition = { equals = "CANONICAL_UPDATED_AND_RESTART_LISTS" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-request-job-and-state-surface-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Updated keys and the exact restart-required subset are unique and lexically ordered."
+[[behavior]]
+partition = { equals = "CONFIG_GET_CANONICAL_SECRET_FREE_PROJECTION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-request-job-and-state-surface-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "config.get returns complete canonical effective values and credential presence metadata without credential content."
+
+[[coverage.cells]]
+dimension = "boundary_low"
+state = "gap_open"
+rationale = "Focused no-op tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Focused scalar and collection validation tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "extra_or_unknown"
+state = "gap_open"
+rationale = "Focused rule and unknown-field tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "Focused staging, atomic rejection, and output ordering tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "auth_or_permission"
+state = "gap_open"
+rationale = "Focused token policy and redaction tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Focused canonical projection tests exist, but catalog binding and dynamic proof are pending."

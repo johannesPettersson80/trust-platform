@@ -5,8 +5,8 @@ area = "runtime_safety"
 risk = "false_status"
 status = "mapped"
 owner = "trust-runtime"
-last_reviewed = "2026-07-26"
-claim = "Runtime status, health, configuration, realtime, metrics, and historian query surfaces agree on effective state, preserve fault evidence, and reject invalid live configuration atomically."
+last_reviewed = "2026-08-01"
+claim = "Runtime status, health, configuration, realtime, metrics, event, fault, task-statistics, and historian query surfaces agree on effective state, preserve fault evidence and ordering, fail closed when required stores or locks are unavailable, and reject invalid live configuration atomically."
 proof_level = "S1"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-runtime/src/control"]
@@ -86,6 +86,42 @@ outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
 rationale = "Historian query and alert operations return an items array, honor the limit, and include matching persisted entries when present."
+
+[[behavior]]
+partition = { equals = "EVENT_TAIL_LIMIT_ORDER_AND_STORE_FAILURE" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-request-job-and-state-surface-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Event tail uses the exact default and closed limit domain, returns newest first, preserves distinct safe-state events, returns an empty array for an empty store, and fails rather than inventing data when the store is unavailable."
+
+[[behavior]]
+partition = { equals = "FAULT_FILTER_LIMIT_ORDER_AND_STORE_FAILURE" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-request-job-and-state-surface-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Fault queries filter the authoritative fault class before applying the exact default or explicit limit, return newest first, exclude safe-state failure events, preserve the empty shape, and fail when the store is unavailable."
+
+[[behavior]]
+partition = { equals = "TASK_STATS_ORDER_PROJECTION_AND_METRICS_FAILURE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-request-job-and-state-surface-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Task statistics preserve duration, overrun, contribution ranking, profiling state, lexical public order, and the empty shape, and fail closed when metrics cannot be read."
+
+[[behavior]]
+partition = { equals = "STATUS_AND_HEALTH_DEPENDENCY_FAILURE_CLOSED" }
+case_family = "concurrency_or_cancellation"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-control-request-job-and-state-surface-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "not_applicable", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Status and health reject when required settings, metrics, control-mode, realtime, or I/O-health state cannot be read instead of projecting a partial or optimistic result."
 
 [[coverage.cells]]
 dimension = "happy_path"

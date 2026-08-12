@@ -1,0 +1,101 @@
+schema_version = 1
+id = "TRUST_HIR_DIAGNOSTIC_MODEL_002"
+title = "HIR diagnostic identities and builder transactions are stable"
+area = "compiler_iec"
+risk = "false_status"
+status = "specified"
+owner = "trust-hir"
+last_reviewed = "2026-08-01"
+claim = "Diagnostic codes, severities, formatting, related information, ordering, exact deduplication, and error-state reporting preserve the public HIR diagnostic contract without hiding distinct findings."
+proof_level = "S0"
+contract_kind = "state_machine"
+source_refs = ["docs/specs/26-hir-semantic-kernel.md", "crates/trust-hir/src/diagnostics", "crates/trust-hir/src/diagnostics/contract_tests.rs"]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["catalog_mapping", "focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+[spec]
+status = "specified"
+source_refs = ["SPEC_HIR_SEMANTIC_KERNEL_001"]
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_HIR_SEMANTIC_KERNEL_001#4-stable-semantic-outcomes-and-diagnostic-context"
+
+[[behavior]]
+partition = { equals = "REGISTERED_CODE_IDENTITY_AND_FAMILY" }
+case_family = "happy_path"
+oracle_ref = "SPEC_HIR_SEMANTIC_KERNEL_001#4-stable-semantic-outcomes-and-diagnostic-context"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Every registered string code is unique and its prefix agrees with its stable error, warning, or hint family."
+[[behavior]]
+partition = { equals = "CONSTRUCTOR_FIELD_PRESERVATION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_HIR_SEMANTIC_KERNEL_001#4-stable-semantic-outcomes-and-diagnostic-context"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Constructors retain code, explicit or default severity, primary range, message, and an initially empty related list."
+[[behavior]]
+partition = { equals = "EXPLICIT_SEVERITY_AND_ERROR_STATE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_HIR_SEMANTIC_KERNEL_001#4-stable-semantic-outcomes-and-diagnostic-context"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Explicit constructors control severity and has_errors observes that explicit severity rather than guessing from the code family."
+[[behavior]]
+partition = { equals = "EXACT_DUPLICATE_SUPPRESSION" }
+case_family = "duplicate_or_collision"
+oracle_ref = "SPEC_HIR_SEMANTIC_KERNEL_001#4-stable-semantic-outcomes-and-diagnostic-context"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Only byte-for-byte equivalent diagnostic records are deduplicated; a changed range, message, severity, or related entry remains distinct."
+[[behavior]]
+partition = { equals = "FIRST_INSERTION_ORDER" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_HIR_SEMANTIC_KERNEL_001#4-stable-semantic-outcomes-and-diagnostic-context"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Builder helpers retain the first insertion order and an empty builder finishes as an empty vector."
+[[behavior]]
+partition = { equals = "RELATED_INFORMATION_APPEND_ORDER" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_HIR_SEMANTIC_KERNEL_001#4-stable-semantic-outcomes-and-diagnostic-context"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Related entries append in call order without reordering or replacement."
+[[behavior]]
+partition = { equals = "STABLE_DISPLAY_FORMAT" }
+case_family = "encoding_or_unicode"
+oracle_ref = "SPEC_HIR_SEMANTIC_KERNEL_001#4-stable-semantic-outcomes-and-diagnostic-context"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Formatting preserves the exact severity, code, message, and source range contract."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Focused code and constructor tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Focused explicit-severity tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "duplicate_or_collision"
+state = "gap_open"
+rationale = "Focused exact-deduplication tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "Focused ordering tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "encoding_or_unicode"
+state = "gap_open"
+rationale = "Focused display tests exist, but catalog binding and dynamic proof are pending."

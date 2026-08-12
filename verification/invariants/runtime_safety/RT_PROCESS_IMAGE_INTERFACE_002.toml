@@ -1,0 +1,122 @@
+schema_version = 1
+id = "RT_PROCESS_IMAGE_INTERFACE_002"
+title = "Process-image interface and binding synchronization are transactional"
+area = "runtime_safety"
+risk = "safety_critical"
+status = "specified"
+owner = "trust-runtime"
+last_reviewed = "2026-08-01"
+claim = "The process-image interface preserves independent bounded areas, exact typed and hierarchical values, ordered binding metadata, and all-or-nothing input and output synchronization."
+proof_level = "S0"
+contract_kind = "state_machine"
+source_refs = ["docs/specs/11-runtime-engine.md", "crates/trust-runtime/src/io/interface_contract_tests.rs"]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["catalog_mapping", "focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_ENGINE_001"]
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_ENGINE_001#process-image-interface-and-binding-transaction"
+
+[[behavior]]
+partition = { equals = "INITIAL_EMPTY_THREE_AREA_STATE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#process-image-interface-and-binding-transaction"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A new interface has empty input, output, and memory areas with no flat bindings or hierarchical values."
+[[behavior]]
+partition = { equals = "ATOMIC_THREE_AREA_RESIZE" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#process-image-interface-and-binding-transaction"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "expected_delta", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Resize validates all areas first, preserves retained prefixes, truncates suffixes, zero-fills growth, and leaves every area unchanged on failure."
+[[behavior]]
+partition = { equals = "CONCRETE_TYPED_AREA_ACCESS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#process-image-interface-and-binding-transaction"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "expected_delta", diagnostics = "none", status = "unchanged" }
+rationale = "Bit writes preserve sibling bits, byte through long-word values round-trip little-endian, and only the selected process-image area changes."
+[[behavior]]
+partition = { equals = "INVALID_OR_WILDCARD_ACCESS_NO_ALLOCATION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#process-image-interface-and-binding-transaction"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Wrong value kind, wildcard access, zero-length string window, or out-of-cap concrete window rejects before allocation or mutation; unresolved wildcard snapshots remain unresolved."
+[[behavior]]
+partition = { equals = "FIXED_UTF8_STRING_WINDOW" }
+case_family = "encoding_or_unicode"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#process-image-interface-and-binding-transaction"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "expected_delta", diagnostics = "stable_error", status = "unchanged" }
+rationale = "String capacity counts UTF-8 bytes, writes zero-fill the remainder, reads stop at NUL, and invalid UTF-8 rejects without fabricating text."
+[[behavior]]
+partition = { equals = "EXACT_HIERARCHICAL_VALUE_IDENTITY" }
+case_family = "missing_required"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#process-image-interface-and-binding-transaction"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Hierarchical keys retain area, size, bit, and full path, do not allocate flat storage, and an absent key fails rather than fabricating zero."
+[[behavior]]
+partition = { equals = "ORDERED_BINDINGS_PROVENANCE_AND_SNAPSHOT" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#process-image-interface-and-binding-transaction"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Binding variants retain insertion order and target identity; snapshots partition areas without reordering; provenance refresh replaces or clears every prior source."
+[[behavior]]
+partition = { equals = "ATOMIC_INPUT_AND_MEMORY_BINDING_READ" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#process-image-interface-and-binding-transaction"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Input synchronization stages all input and memory values, ignores output bindings, and commits none when any later binding fails."
+[[behavior]]
+partition = { equals = "ATOMIC_OUTPUT_AND_MEMORY_BINDING_WRITE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_RUNTIME_ENGINE_001#process-image-interface-and-binding-transaction"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "expected_delta", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Output synchronization stages all output and memory values, ignores input bindings, and changes no process-image or hierarchical state when any later binding fails."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Focused initial-state and typed-access tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "boundary_high"
+state = "gap_open"
+rationale = "Focused cap, resize, and unallocated-read tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Focused invalid and wildcard access tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "encoding_or_unicode"
+state = "gap_open"
+rationale = "Focused fixed UTF-8 window tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "missing_required"
+state = "gap_open"
+rationale = "Focused absent hierarchical-value tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "Focused binding order and atomic cycle-boundary tests exist, but catalog binding and dynamic proof are pending."

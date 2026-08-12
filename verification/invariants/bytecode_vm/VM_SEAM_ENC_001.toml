@@ -5,7 +5,7 @@ area = "bytecode_vm"
 risk = "silent_corruption"
 status = "implemented"
 owner = "trust-runtime"
-last_reviewed = "2026-07-28"
+last_reviewed = "2026-07-30"
 claim = "HIR-clean constructs that the bytecode encoder cannot lower must fail bytecode-module construction visibly rather than emitting NOP or returning partial bytecode."
 proof_level = "G1"
 contract_kind = "decision_table"
@@ -30,12 +30,12 @@ source_refs = ["SPEC_BYTECODE_FORMAT_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_BYTECODE_FORMAT_001"
+ref = "SPEC_BYTECODE_FORMAT_001#7-6-source-to-bytecode-fail-closed-boundary"
 
 [[behavior]]
 partition = { equals = "SUPPORTED_LOOP_CONTROL" }
 case_family = "happy_path"
-oracle_ref = "SPEC_BYTECODE_FORMAT_001#source-to-bytecode-fail-closed-boundary"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#7-6-source-to-bytecode-fail-closed-boundary"
 outcome = "accept_value"
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
 rationale = "Supported EXIT and CONTINUE statements inside active loops lower to explicit jump paths and execute with the expected control flow."
@@ -43,7 +43,7 @@ rationale = "Supported EXIT and CONTINUE statements inside active loops lower to
 [[behavior]]
 partition = { equals = "UNSUPPORTED_STATEMENT" }
 case_family = "extra_or_unknown"
-oracle_ref = "SPEC_BYTECODE_FORMAT_001#source-to-bytecode-fail-closed-boundary"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#7-6-source-to-bytecode-fail-closed-boundary"
 outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
@@ -52,7 +52,7 @@ rationale = "A source JMP statement accepted by analysis but unsupported by the 
 [[behavior]]
 partition = { equals = "UNSUPPORTED_EXPRESSION_AFTER_VALID_PREFIX" }
 case_family = "extra_or_unknown"
-oracle_ref = "SPEC_BYTECODE_FORMAT_001#source-to-bytecode-fail-closed-boundary"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#7-6-source-to-bytecode-fail-closed-boundary"
 outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
@@ -61,7 +61,7 @@ rationale = "An executable array-initializer assignment unsupported by the encod
 [[behavior]]
 partition = { equals = "EXPLICIT_VOID_FUNCTION_RETURN_TYPE" }
 case_family = "extra_or_unknown"
-oracle_ref = "SPEC_BYTECODE_FORMAT_001#source-to-bytecode-fail-closed-boundary"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#7-6-source-to-bytecode-fail-closed-boundary"
 outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }

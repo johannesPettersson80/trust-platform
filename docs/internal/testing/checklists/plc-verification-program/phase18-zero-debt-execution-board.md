@@ -1655,7 +1655,377 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   Evidence:
   `docs/internal/testing/evidence/plc-verification-program/2026-07-30-p18-dap-wire-schema.md`.
   <!-- generated:dap-wire-schema-6:end -->
-- [ ] `VERIF-P18-005` Eliminate all 3,777 `reviewed_nonmapping` test facts.
+
+  Portable runtime-core and startup coherent-batch progress (2026-07-30):
+  focused authority and executable proof now cover portable lifecycle/default
+  construction, recursive compound values, watchdog configuration, datetime
+  calculation, LValue projections, stable error identity, numeric widening,
+  initializer catalogs, task-state construction, `SIZEOF`, and runtime startup
+  orchestration. The portable-core batches retire 68 live `spec_gap` facts.
+  Five new startup tests plus two strengthened signal tests pass 7/7; an exact
+  eight-test trace observes 8/8 selected identities, and reviewed automation
+  binds all 17 traced startup facts. The clean 17,232-fact report now contains
+  3,096 `specified` and 14,101 remaining `spec_gap` facts. The frozen
+  4,457-test denominator contains 4,440 catalog-mapped and 17
+  `reviewed_nonmapping` identities. Two pre-existing retain-snapshot invariant
+  backlink findings remain explicit. The datetime proof exposed and fixed
+  extreme-year intermediate overflow and acceptance of unrepresentable
+  resolutions; the startup proof exposed no production defect. This is slice
+  progress only: `VERIF-P18-003`, the two retain findings, remaining
+  specifications/tests, mutation/adequacy/environment proof, and final broad
+  gates remain open. No broad workspace gate ran. Evidence:
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-30-p18-portable-core-startup.md`.
+
+  Bytecode and authority-selection coherent-batch progress (2026-07-30): six
+  exact bytecode specification sections, six focused invariants, and eight new
+  cataloged behavior-lock tests bind 233 executable facts across the complete
+  237-fact `crates/trust-runtime/src/bytecode/` denominator. Focused execution
+  passes 10/10; the complete module trace observes 118/118 selected identities,
+  the exact authority trace 51/51, and the new-test trace 8/8. Four structural
+  facts remain explicit `spec_gap`: the public module type and three
+  `ClassLike` trait signatures. The work also exposed and fixed a
+  catalog-identity substitution defect, specified the recoverable
+  authority-selection contract, and binds all 11 facts in that transaction
+  module. The clean 17,233-fact report contains 3,340 `specified`, 13,858
+  remaining `spec_gap`, and zero findings. This is 244 newly specified facts
+  relative to the preceding startup report. `VERIF-P18-003`, the retained
+  structural facts, mutation/adequacy/environment proof, and final broad gates
+  remain open. No broad workspace gate ran. Evidence:
+  `docs/internal/testing/evidence/plc-verification-program/2026-07-30-p18-bytecode-authority.md`.
+
+  trust-syntax contract-authority progress (2026-08-01): the exact 229-test
+  uncataloged `trust-syntax` contract population is now semantically routed
+  against reviewed product specification authority before catalog mapping.
+  Four public specification documents close the lexer candidate, lexer/parser
+  handoff, textual ACTION, call-argument, generic/user-defined type,
+  reference/pointer, partial-access, string-index, and parser recovery
+  boundaries. Five new `specified` invariants contribute 90 explicit behavior
+  partitions: 198 tests route to those new partitions and 31 route to existing
+  lexer pragma/token, statement-form, and parser-recovery partitions. Static
+  local validation parses every new invariant, validates its schema, resolves
+  every oracle fragment against the registered active source, and accounts
+  229/229 tests with zero unrouted identities. This is specification-authoring
+  progress only: the tests remain `reviewed_nonmapping`, the new invariants
+  retain explicit catalog-mapping/reachability/mutation/broad-gate debt, no
+  code-spec fact changed disposition, and `VERIF-P18-003` remains globally
+  open. The mandatory planner was attempted but stopped when it remained a
+  long-running repository scan; it is not counted as proof. Proof is local;
+  no compilation, test execution, conformance scan, coverage trace, or broad
+  workspace gate ran.
+
+  trust-plcopen contract-authority progress (2026-08-01): the cached exact
+  denominator contains 195 live `trust-plcopen` tests: 15 are already
+  catalog-mapped and the remaining 180 are the active
+  `reviewed_nonmapping` authority population. Those 180 comprise 170 focused
+  global-variable, project-model, semantic-import, semantic-export, and
+  transactional-publication contract tests plus three stable contract-table
+  and seven shim/metric tests. The public PLCopen compatibility specification
+  now owns the five previously missing product contracts, and five new
+  `specified` invariants contribute 61 explicit behavior partitions. Static
+  routing accounts 180/180 tests with zero unrouted identities across 71 new
+  or existing owning partitions; the stable target/options/POU tables and
+  shim/metric rules reuse their existing reviewed authority instead of
+  duplicating it. Targeted local metadata validation parses all five new
+  invariants, checks the canonical case-family vocabulary and structured
+  deltas, validates their schemas, resolves every oracle fragment against the
+  active registered source, confirms repository-wide invariant-ID uniqueness,
+  and passes `git diff --check`. This is specification-authoring progress
+  only: all 180 tests remain `reviewed_nonmapping`, catalog binding, focused
+  execution, reachability, mutation sensitivity, cross-platform proof, and
+  broad gates remain explicit debt, no code-spec fact changed disposition,
+  and `VERIF-P18-003` remains globally open. Proof is local; no compilation,
+  test execution, conformance scan, coverage trace, or broad workspace gate
+  ran. A metadata-validator help probe unexpectedly entered the validator's
+  repository-wide scan and was terminated without output; it is not counted
+  as proof.
+
+  trust-dev contract-authority progress (2026-08-01): the exact 132-test
+  `reviewed_nonmapping` population is now semantically routed as one complete
+  package batch: 14 JSON-RPC envelope/dispatch tests, 14 workspace containment
+  tests, 28 harness transaction tests, 39 documentation
+  discovery/publication tests, and 37 language-workflow projection tests. The
+  public Agent API and developer-workflow specifications already contained
+  the detailed expected behavior; this batch therefore did not invent a new
+  product rule from tests or implementation. It added four stable direct
+  Agent API authority anchors, expanded the registered source coverage, and
+  removed the stale registry limitation that contradicted the already
+  normative symbolic-link containment contract. Five new `specified`
+  invariants contribute 48 behavior partitions, and static routing accounts
+  132/132 tests with zero unrouted identities. Targeted local metadata
+  validation checks canonical case families, structured deltas, schemas,
+  direct oracle fragments, source-registry coverage, and repository-wide
+  invariant-ID uniqueness; `git diff --check` passes. This is authority
+  progress only: all 132 tests remain `reviewed_nonmapping`, and catalog
+  binding, focused execution, reachability, mutation sensitivity,
+  cross-platform proof, broad gates, and `VERIF-P18-003` remain open. Proof is
+  local; no compilation, test execution, conformance scan, coverage trace, or
+  broad workspace gate ran.
+
+  trust-lsp contract-authority progress (2026-08-01): the exact 270-test
+  `reviewed_nonmapping` population across the ten configuration, dependency,
+  document-text, external-diagnostic, runtime-value, index-cache,
+  library-document, library-graph, server-state, and telemetry contract-test
+  modules is now semantically routed as one complete package batch. The public
+  LSP product specification already contained the detailed expected behavior;
+  this batch therefore did not infer or invent product rules from tests or
+  implementation. It expanded the registered source coverage and added ten
+  complementary `specified` invariants with 87 behavior partitions. Static
+  routing accounts 270/270 tests with zero unrouted identities: 47
+  configuration, 42 dependency, 40 document-text, 21 external-diagnostic, 27
+  runtime-value, 16 index-cache, 16 library-document, 20 library-graph, 21
+  server-state, and 20 telemetry tests. Targeted local metadata validation
+  checks all ten schemas, canonical case families, structured deltas, direct
+  oracle fragments, source-registry coverage, and 400 repository-wide unique
+  invariant IDs; `git diff --check` passes. This is authority progress only:
+  all 270 tests remain `reviewed_nonmapping`, and catalog binding, focused
+  execution, reachability, mutation sensitivity, cross-platform proof, broad
+  gates, and `VERIF-P18-003` remain open. Proof is local; no compilation, test
+  execution, conformance scan, coverage trace, or broad workspace gate ran.
+
+  trust-hir contract-authority progress (2026-08-01): the exact 770-test
+  `reviewed_nonmapping` population across 35 semantic-model, diagnostic, and
+  type-checking modules is now semantically routed with zero leftovers. This
+  review found that most expected behavior was already governed by the public
+  data-type, variable, POU, expression, semantic-rule, configuration, HIR
+  kernel, and warning specifications and by 12 existing reviewed invariants;
+  those contracts were reused rather than duplicated. Seven genuine
+  invariant-partition gaps were added for the diagnostic model, symbol/type
+  registries, textual ACTION analysis, expression operators, edge-qualified
+  inputs, ANY_BIT partial access, and user-defined type semantics, contributing
+  70 explicit behavior partitions. Static routing accounts 770/770 tests:
+  536 reuse existing invariants and 234 route to the seven new invariants.
+  Targeted local validation checks all seven schemas, canonical case families,
+  structured deltas, direct oracle fragments, refreshed source-registry
+  coverage, and 407 repository-wide unique invariant IDs; `git diff --check`
+  passes. This is authority progress only: all 770 tests remain
+  `reviewed_nonmapping`, and catalog binding, focused execution, reachability,
+  mutation sensitivity, cross-platform proof, broad gates, and
+  `VERIF-P18-003` remain open. Proof is local; no compilation, test execution,
+  conformance scan, coverage trace, or broad workspace gate ran.
+
+  runtime-harness contract-authority progress (2026-08-01): the exact
+  782-test `reviewed_nonmapping` population across all 34
+  `crates/trust-runtime/src/host/harness/` contract-test modules is now
+  semantically routed with zero leftovers. The public runtime-semantics
+  specification already owns the detailed source-compilation, project
+  assembly, configuration/access, coercion/codec, lowering, execution, and
+  harness lifecycle transactions; its registry coverage was refreshed rather
+  than duplicating those rules. Four new `specified` invariants contribute 51
+  behavior partitions for source assembly, configuration/access assembly,
+  typed-value protocol handling, and host source lowering. Static routing
+  accounts 782/782 tests: 376 source-assembly, 191 source-lowering, 97
+  configuration/access, 76 value/protocol, 21 existing TestHarness API, and 21
+  existing process-image tests. Targeted local validation checks all four
+  schemas, canonical case families, structured deltas, direct oracle
+  fragments, refreshed source coverage, and 411 repository-wide unique
+  invariant IDs; `git diff --check` passes. This is authority progress only:
+  all 782 tests remain `reviewed_nonmapping`, and catalog binding, focused
+  execution, reachability, mutation sensitivity, platform proof, broad gates,
+  and `VERIF-P18-003` remain open. Proof is local; no compilation, test
+  execution, conformance scan, coverage trace, or broad workspace gate ran.
+
+  runtime-control contract-authority progress (2026-08-01): the exact
+  717-test `reviewed_nonmapping` population across all 25
+  `crates/trust-runtime/src/control/` contract-test modules is now semantically
+  routed with zero leftovers. The public runtime-engine specification already
+  owns the detailed control-request, source/endpoint, authorization,
+  configuration, I/O/variable mutation, status/historian, communication, and
+  fleet-topology transactions; its registry coverage was refreshed rather
+  than duplicating those rules. Five new `specified` invariants contribute 52
+  behavior partitions for authentication/operation policy, request/source
+  boundaries, live configuration atomicity, mutation/query handling, and
+  fleet projection. Static routing accounts 717/717 tests: 395 route to those
+  five new invariants and 322 reuse the existing communication schema,
+  discovery/browse, apply-mutation, and control-state invariants. Targeted
+  local validation checks all five schemas, canonical case families,
+  structured deltas, direct oracle fragments, refreshed source coverage, and
+  416 repository-wide unique invariant IDs; `git diff --check` passes. This
+  is authority progress only: all 717 tests remain `reviewed_nonmapping`, and
+  catalog binding, focused execution, reachability, mutation sensitivity,
+  platform/hardware proof, broad gates, and `VERIF-P18-003` remain open. Proof
+  is local; no compilation, test execution, conformance scan, coverage trace,
+  or broad workspace gate ran.
+
+  runtime-host contract-authority progress (2026-08-01): the exact 481-test
+  `reviewed_nonmapping` population across the 23 non-harness
+  `crates/trust-runtime/src/host/` contract-test modules is now semantically
+  routed with zero leftovers. Existing debug-control, DAP-session,
+  helper-evaluation, metrics, simulation, and operator-console authority is
+  reused for 342 tests. Four genuine gaps add 36 behavior partitions for the
+  symbolic boundary protocol, pairing/TLS lifecycle, package-registry
+  artifact integrity, and optional debug trace sink; the public runtime,
+  developer-workflow, and debug specifications already contained the detailed
+  rules and only their source coverage was refreshed. Static routing accounts
+  481/481 tests with zero unrouted identities. Targeted local validation checks
+  all four schemas, canonical case families, structured deltas, direct oracle
+  fragments, refreshed source coverage, and 420 repository-wide unique
+  invariant IDs; `git diff --check` passes. This is authority progress only:
+  all 481 tests remain `reviewed_nonmapping`, and catalog binding, focused
+  execution, reachability, mutation sensitivity, platform/security proof,
+  broad gates, and `VERIF-P18-003` remain open. Proof is local; no compilation,
+  test execution, conformance scan, coverage trace, or broad workspace gate
+  ran.
+
+  runtime-web contract-authority progress (2026-08-01): the exact 233-test
+  `reviewed_nonmapping` population across all 13
+  `crates/trust-runtime/src/web/` contract-test modules is now semantically
+  routed with zero leftovers. The public runtime-engine specification already
+  owns the detailed Web IDE utility, configuration-UI workspace, web
+  authentication, POST admission, shared helper, and setup/I/O projection
+  rules; its registry coverage was refreshed rather than duplicating those
+  rules. Five new `specified` invariants contribute 45 behavior partitions:
+  74 tests route to the IDE utility contract, 58 to configuration-UI routes,
+  47 to authentication and POST admission, 30 to setup/I/O projection, and 24
+  to shared helper grammar. Targeted local validation checks all five schemas,
+  canonical case families, matching coverage dimensions, structured deltas,
+  refreshed source coverage, 425 repository-wide unique invariant IDs, and
+  `git diff --check`; static routing accounts 233/233 identities with zero
+  invalid destinations. This is authority progress only: all 233 tests remain
+  `reviewed_nonmapping`, and catalog binding, focused execution, reachability,
+  mutation sensitivity, browser/platform proof, broad gates, and
+  `VERIF-P18-003` remain open. Proof is local; no compilation, test execution,
+  conformance scan, coverage trace, or broad workspace gate ran.
+
+  runtime-I/O contract-authority progress (2026-08-01): the exact 98-test
+  `reviewed_nonmapping` population across all six
+  `crates/trust-runtime/src/io/` contract-test modules is now semantically
+  routed with zero leftovers. The public runtime-engine specification already
+  owns the detailed process-image interface, registry/provenance, GPIO, and
+  shared Modbus/MQTT point-map rules; its registry coverage was refreshed
+  rather than duplicating those rules. Four new `specified` invariants
+  contribute 42 behavior partitions: 25 tests route to process-image
+  interface transactions, 20 to driver registry/provenance, 26 to GPIO
+  parameter/backend handoff, and 27 to typed point maps. Targeted local
+  validation checks all four schemas, canonical case families, matching
+  coverage dimensions, structured deltas, refreshed source coverage, 429
+  repository-wide unique invariant IDs, and `git diff --check`; static routing
+  accounts 98/98 identities with zero invalid destinations. This is authority
+  progress only: all 98 tests remain `reviewed_nonmapping`, and catalog
+  binding, focused execution, reachability, mutation sensitivity, physical
+  GPIO/external-protocol proof, broad gates, and `VERIF-P18-003` remain open.
+  Proof is local; no compilation, test execution, conformance scan, coverage
+  trace, or broad workspace gate ran.
+
+  runtime-language contract-authority progress (2026-08-01): the exact
+  157-test `reviewed_nonmapping` population across the seven
+  `crates/trust-runtime/tests/*contract.rs` language/stdlib modules is now
+  semantically routed with zero leftovers. The public lexical, data-type,
+  variable, standard-function, standard-function-block, and runtime-semantics
+  specifications already own the detailed rules; their registry coverage was
+  refreshed rather than duplicating those rules. The existing edge-declaration
+  invariant exactly owns nine execution tests. Five new `specified` invariants
+  contribute 52 behavior partitions for literal materialization (23 tests),
+  conversion boundaries (26), core/helper functions (48), function-block
+  runtime state (24), and user-type materialization (27). Targeted local
+  validation checks all five schemas, canonical case families, matching
+  coverage dimensions, structured deltas, refreshed source coverage, 434
+  repository-wide unique invariant IDs, and `git diff --check`; static routing
+  accounts 157/157 identities with zero invalid destinations. This is
+  authority progress only: all 157 tests remain `reviewed_nonmapping`, and
+  catalog binding, focused execution, reachability, mutation sensitivity,
+  broad gates, and `VERIF-P18-003` remain open. Proof is local; no compilation,
+  test execution, conformance scan, coverage trace, or broad workspace gate
+  ran.
+
+  runtime-config/core/VM contract-authority progress (2026-08-01): the exact
+  100-test `reviewed_nonmapping` population across runtime configuration
+  contracts, runtime-core accessors/state, and VM module/local-initialization
+  modules is now semantically routed with zero leftovers. The public runtime
+  engine and runtime-semantics specifications already own the detailed rules;
+  their registry coverage was refreshed rather than duplicating those rules.
+  Three new `specified` invariants contribute 29 behavior partitions: 27 tests
+  route to the configuration value model, 41 to runtime core state/accessors,
+  and 32 to VM module/local initialization. Targeted local validation checks
+  all three schemas, canonical case families, matching coverage dimensions,
+  structured deltas, refreshed source coverage, 437 repository-wide unique
+  invariant IDs, and `git diff --check`; static routing accounts 100/100
+  identities with zero invalid destinations. This is authority progress only:
+  all 100 tests remain `reviewed_nonmapping`, and catalog binding, focused
+  execution, reachability, mutation sensitivity, broad gates, and
+  `VERIF-P18-003` remain open. Proof is local; no compilation, test execution,
+  conformance scan, coverage trace, or broad workspace gate ran.
+
+  runtime-tail contract-authority progress (2026-08-01): the exact 70-test
+  `reviewed_nonmapping` population across bytecode helper, program-model,
+  runtime-subsystem, CURRENT_DT, value-display, and borrowed-reference modules
+  is now semantically routed with zero leftovers. Eight bytecode tests reuse
+  the exact previously authored lowering, constructor, literal-index,
+  resource-counter, return/reference, and numeric-domain invariants. The
+  public runtime and standard-function specifications already own the other
+  detailed rules; their registry coverage was refreshed. Five new `specified`
+  invariants contribute 31 behavior partitions for program-model structure
+  (18 tests), runtime subsystem helpers (17), CURRENT_DT host-clock behavior
+  (5), value display (12), and borrowed reference traversal (10). Targeted
+  local validation checks all five schemas, canonical case families, matching
+  coverage dimensions, structured deltas, refreshed source coverage, 442
+  repository-wide unique invariant IDs, and `git diff --check`; static routing
+  accounts 70/70 identities with zero invalid destinations. This is authority
+  progress only: all 70 tests remain `reviewed_nonmapping`, and catalog
+  binding, focused execution, reachability, mutation sensitivity, broad gates,
+  and `VERIF-P18-003` remain open. Proof is local; no compilation, test
+  execution, conformance scan, coverage trace, or broad workspace gate ran.
+
+  final debug/portable-core contract-authority progress (2026-08-01): the last
+  26 tests in the frozen 4,245-test `reviewed_nonmapping` authority denominator
+  are now semantically routed with zero leftovers. One portable-core unary
+  test reuses the exact existing portable-operations invariant. The public
+  debug-adapter specification already owns lifecycle and request ordering; one
+  new `specified` invariant contributes 11 behavior partitions for the 25 DAP
+  lifecycle tests. Targeted local validation checks the schema, canonical case
+  families, matching coverage dimensions, structured deltas, refreshed source
+  coverage, 443 repository-wide unique invariant IDs, and `git diff --check`;
+  static routing accounts 26/26 identities with zero invalid destinations.
+  Across all completed authority batches, static semantic routing now accounts
+  for the complete frozen 4,245/4,245 `reviewed_nonmapping` population with no
+  unrouted identity. This closes the specification/invariant-authoring
+  denominator only: the tests still retain their catalog disposition until the
+  consolidated mapping transaction, and focused execution, reachability,
+  mutation sensitivity, platform/hardware/UX proof, broad gates, and
+  `VERIF-P18-003` remain open. Proof is local; no compilation, test execution,
+  conformance scan, coverage trace, or broad workspace gate ran.
+
+  recovered static authority refresh (2026-08-12): an exact clean source
+  freeze found 8,690 active scanner facts and 17,465 code facts. The complete
+  76-finding code-identity ledger was reviewed with zero unclassified items;
+  six exact stale identities were transferred, 15 body digests were rebound,
+  and nine singular-owner facts were registered against their existing gaps.
+  Three new test facts are now catalog-bound: two runtime-clock behaviors use
+  `TRUST_RUNTIME_CLOCK_DISPATCH_001`, while the canonical LSP severity-key
+  collision uses `LSP_CONFIGURATION_NORMALIZATION_002#behavior:12`. The
+  alias-only collision partition remains explicit P18-006 test debt. The
+  current denominator closes exactly as 4,457 mapped plus 4,233 nonmapping,
+  and the reviewed route inventory and 203-batch execution plan cover exactly
+  those 4,233 nonmapping identities with 59 mapped companions on routed paths.
+  Scanner, denominator, route, plan, and companion identities are unique and
+  equal at every required boundary. A clean `trust-builder` candidate at
+  `649643786636d1034297a17f8809f7d8e539b337` then regenerated 17,465 live
+  code facts with zero findings and zero blocking findings, and reproduced the
+  route-plan digests. This is authority, catalog, and static
+  planning progress only; global P18-003/P18-005 closure, focused execution,
+  reachability, mutation, and all later proof rows remain open. No Rust test,
+  Cargo build, broad validator, `just fmt`, `just clippy`, or `just test-all`
+  ran. Evidence:
+  `docs/internal/testing/evidence/plc-verification-program/2026-08-12-p18-recovered-static-authority-refresh.md`.
+
+  focused trace resolver repair (2026-08-12): the closed target-profile table
+  is now authoritative before generic target fallback. A dedicated shard owner
+  copies each test's target and module prefix before grouping and separates
+  default-feature from no-default-feature commands. The original focused red
+  exposed three target/name failures; a second detached baseline red exposed
+  source-derived feature classification and same-package mixed-profile prefix
+  loss. The repaired candidate passes the complete 48-test focused Python gate.
+  A resolver-only nextest-list preflight resolves exactly 4,233/4,233 requested
+  identities, including 4,231 default-feature and two no-default-feature rows,
+  with zero unsupported identities and without executing a coverage test. The
+  earlier 3,997 attempts are not reusable because all 29 instrumented
+  executable digests changed; the next authenticated trace therefore starts
+  fresh only after the static candidate is frozen. This repairs the trace
+  harness only; semantic mapping review, authenticated trace completion,
+  reachability, and all downstream Phase 18 rows remain open. No broad
+  workspace test, `just fmt`, `just clippy`, or `just test-all` ran. Evidence:
+  `docs/internal/testing/evidence/plc-verification-program/2026-08-12-p18-focused-trace-resolver-repair.md`.
+- [ ] `VERIF-P18-005` Eliminate all 4,233 current `reviewed_nonmapping` test
+  facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
   accepted invariant and an executable suite, bind governed gate/fuzz/device
   campaigns to equivalent executed proof contracts, or remove it with

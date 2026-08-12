@@ -175,6 +175,49 @@ impl VariableStorage {
         }
     }
 
+    pub(crate) fn write_by_ref_parts_typed(
+        &mut self,
+        registry: &trust_hir::types::TypeRegistry,
+        location: MemoryLocation,
+        offset: usize,
+        path: &[RefSegment],
+        value: Value,
+    ) -> bool {
+        if path.is_empty() {
+            return self.write_direct_slot_by_location(location, offset, value);
+        }
+        let Some(resolved) = self.resolve_reference_parts(location, offset, path) else {
+            return false;
+        };
+        match resolved.location {
+            MemoryLocation::Global => self
+                .globals
+                .get_index_mut(resolved.offset)
+                .map(|(_, slot)| {
+                    crate::value::write_value_path_typed(slot, &resolved.path, value, registry)
+                })
+                .unwrap_or(false),
+            MemoryLocation::Local(frame_id) => self
+                .frames
+                .iter_mut()
+                .find(|frame| frame.id == frame_id)
+                .and_then(|frame| frame.variables.get_index_mut(resolved.offset))
+                .map(|(_, slot)| {
+                    crate::value::write_value_path_typed(slot, &resolved.path, value, registry)
+                })
+                .unwrap_or(false),
+            MemoryLocation::Instance(instance_id) => self
+                .instances
+                .get_mut(&instance_id)
+                .and_then(|instance| instance.variables.get_index_mut(resolved.offset))
+                .map(|(_, slot)| {
+                    crate::value::write_value_path_typed(slot, &resolved.path, value, registry)
+                })
+                .unwrap_or(false),
+            MemoryLocation::Io(_) | MemoryLocation::Retain => false,
+        }
+    }
+
     fn resolve_reference_parts(
         &self,
         location: MemoryLocation,

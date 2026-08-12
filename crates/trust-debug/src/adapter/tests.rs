@@ -40,3 +40,5 @@ mod tests_part_04;
 mod tests_part_05;
 #[path = "tests_part_06.rs"]
 mod tests_part_06;
+#[path = "lifecycle_contract_tests.rs"]
+mod lifecycle_contract_tests;

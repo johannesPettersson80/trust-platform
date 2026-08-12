@@ -186,8 +186,11 @@ impl AdsRsTransport {
 
     fn connect_with<F>(&mut self, connector: F) -> Result<(), AdsTransportError>
     where
-        F: FnOnce((&str, u16), ads::Timeouts, ads::Source)
-            -> Result<ads::Client, AdsTransportError>,
+        F: FnOnce(
+            (&str, u16),
+            ads::Timeouts,
+            ads::Source,
+        ) -> Result<ads::Client, AdsTransportError>,
     {
         if !matches!(self.route.security.transport, TransportSecurity::Plain) {
             return Err(AdsTransportError::new(

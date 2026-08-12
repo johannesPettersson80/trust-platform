@@ -178,8 +178,8 @@ pub fn unsigned_from_u128(target: NumericKind, value: u128) -> Result<Value, Run
 #[cfg(test)]
 mod tests {
     use super::{
-        NumericKind, numeric_kind, signed_from_i128, to_i64, to_u64, unsigned_from_u128,
-        wider_numeric,
+        is_accuracy_preserving_widening, numeric_kind, signed_from_i128, to_f64, to_i64, to_u64,
+        unsigned_from_u128, wider_numeric, NumericKind,
     };
     use crate::error::RuntimeError;
     use crate::value::Value;
@@ -188,6 +188,94 @@ mod tests {
     fn numeric_kind_identifies_supported_runtime_values() {
         assert_eq!(numeric_kind(&Value::DInt(1)), Some(NumericKind::DInt));
         assert_eq!(numeric_kind(&Value::LReal(1.0)), Some(NumericKind::LReal));
+    }
+
+    #[test]
+    fn numeric_kind_and_widening_matrix_cover_every_runtime_numeric_tag() {
+        let tagged_values = [
+            (Value::SInt(0), NumericKind::SInt),
+            (Value::Int(0), NumericKind::Int),
+            (Value::DInt(0), NumericKind::DInt),
+            (Value::LInt(0), NumericKind::LInt),
+            (Value::USInt(0), NumericKind::USInt),
+            (Value::UInt(0), NumericKind::UInt),
+            (Value::UDInt(0), NumericKind::UDInt),
+            (Value::ULInt(0), NumericKind::ULInt),
+            (Value::Real(0.0), NumericKind::Real),
+            (Value::LReal(0.0), NumericKind::LReal),
+        ];
+        for (value, expected) in tagged_values {
+            assert_eq!(numeric_kind(&value), Some(expected), "{value:?}");
+        }
+        for value in [
+            Value::Bool(false),
+            Value::Byte(0),
+            Value::Word(0),
+            Value::DWord(0),
+            Value::LWord(0),
+            Value::String("0".into()),
+            Value::Reference(None),
+            Value::Null,
+        ] {
+            assert_eq!(numeric_kind(&value), None, "{value:?}");
+        }
+
+        let kinds = [
+            NumericKind::SInt,
+            NumericKind::Int,
+            NumericKind::DInt,
+            NumericKind::LInt,
+            NumericKind::USInt,
+            NumericKind::UInt,
+            NumericKind::UDInt,
+            NumericKind::ULInt,
+            NumericKind::Real,
+            NumericKind::LReal,
+        ];
+        let accepted_widenings = [
+            (NumericKind::Int, NumericKind::SInt),
+            (NumericKind::DInt, NumericKind::SInt),
+            (NumericKind::DInt, NumericKind::Int),
+            (NumericKind::LInt, NumericKind::SInt),
+            (NumericKind::LInt, NumericKind::Int),
+            (NumericKind::LInt, NumericKind::DInt),
+            (NumericKind::UInt, NumericKind::USInt),
+            (NumericKind::UDInt, NumericKind::USInt),
+            (NumericKind::UDInt, NumericKind::UInt),
+            (NumericKind::ULInt, NumericKind::USInt),
+            (NumericKind::ULInt, NumericKind::UInt),
+            (NumericKind::ULInt, NumericKind::UDInt),
+            (NumericKind::Real, NumericKind::SInt),
+            (NumericKind::Real, NumericKind::Int),
+            (NumericKind::LReal, NumericKind::SInt),
+            (NumericKind::LReal, NumericKind::Int),
+            (NumericKind::LReal, NumericKind::DInt),
+            (NumericKind::LReal, NumericKind::Real),
+        ];
+
+        for target in kinds {
+            for source in kinds {
+                let expected_widening = accepted_widenings.contains(&(target, source));
+                assert_eq!(
+                    is_accuracy_preserving_widening(target, source),
+                    expected_widening,
+                    "target={target:?}, source={source:?}"
+                );
+
+                let expected_common = if target == source || expected_widening {
+                    Some(target)
+                } else if accepted_widenings.contains(&(source, target)) {
+                    Some(source)
+                } else {
+                    None
+                };
+                assert_eq!(
+                    wider_numeric(target, source),
+                    expected_common,
+                    "left={target:?}, right={source:?}"
+                );
+            }
+        }
     }
 
     #[test]
@@ -393,6 +481,52 @@ mod tests {
                 unsigned_from_u128(target, 0),
                 Err(RuntimeError::TypeMismatch)
             );
+        }
+    }
+
+    #[test]
+    fn unsigned_and_float_normalization_preserve_values_and_reject_non_numeric_tags() {
+        let unsigned_cases = [
+            (Value::USInt(u8::MAX), u64::from(u8::MAX)),
+            (Value::UInt(u16::MAX), u64::from(u16::MAX)),
+            (Value::UDInt(u32::MAX), u64::from(u32::MAX)),
+            (Value::ULInt(u64::MAX), u64::MAX),
+            (Value::SInt(i8::MAX), i8::MAX as u64),
+            (Value::Int(i16::MAX), i16::MAX as u64),
+            (Value::DInt(i32::MAX), i32::MAX as u64),
+            (Value::LInt(i64::MAX), i64::MAX as u64),
+        ];
+        for (value, expected) in unsigned_cases {
+            assert_eq!(to_u64(&value), Ok(expected));
+        }
+        for value in [
+            Value::SInt(-1),
+            Value::Int(-1),
+            Value::DInt(-1),
+            Value::LInt(-1),
+        ] {
+            assert_eq!(to_u64(&value), Err(RuntimeError::TypeMismatch));
+        }
+
+        let float_cases = [
+            (Value::Real(1.25), 1.25_f64),
+            (Value::LReal(-2.5), -2.5_f64),
+            (Value::SInt(i8::MIN), i8::MIN as f64),
+            (Value::Int(i16::MIN), i16::MIN as f64),
+            (Value::DInt(i32::MIN), i32::MIN as f64),
+            (Value::LInt(i64::MIN), i64::MIN as f64),
+            (Value::USInt(u8::MAX), u8::MAX as f64),
+            (Value::UInt(42), 42.0_f64),
+            (Value::UDInt(u32::MAX), u32::MAX as f64),
+            (Value::ULInt(u64::MAX), u64::MAX as f64),
+        ];
+        for (value, expected) in float_cases {
+            assert_eq!(to_f64(&value), Ok(expected));
+        }
+
+        for value in [Value::Bool(false), Value::Word(0), Value::Null] {
+            assert_eq!(to_u64(&value), Err(RuntimeError::TypeMismatch));
+            assert_eq!(to_f64(&value), Err(RuntimeError::TypeMismatch));
         }
     }
 }

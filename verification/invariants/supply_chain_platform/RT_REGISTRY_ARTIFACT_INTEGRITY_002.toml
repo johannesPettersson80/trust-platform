@@ -1,0 +1,133 @@
+schema_version = 1
+id = "RT_REGISTRY_ARTIFACT_INTEGRITY_002"
+title = "Local package registry publishes and downloads complete verified artifacts"
+area = "supply_chain_platform"
+risk = "supply_chain"
+status = "specified"
+owner = "trust-runtime"
+last_reviewed = "2026-08-01"
+claim = "Registry configuration, identities, staged payloads, metadata, indexes, authorization, verification, and download transactions preserve one complete content-addressed package state and fail closed on corruption or traversal."
+proof_level = "S0"
+contract_kind = "state_machine"
+source_refs = ["docs/specs/22-developer-workflows.md", "crates/trust-runtime/src/host/registry/registry_integrity_contract_tests.rs"]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["catalog_mapping", "focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+[spec]
+status = "specified"
+source_refs = ["SPEC_DEVELOPER_WORKFLOWS_001"]
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_DEVELOPER_WORKFLOWS_001#package-registry-storage-and-integrity-contract"
+
+[[behavior]]
+partition = { equals = "INITIALIZE_NEW_PUBLIC_OR_PRIVATE_ROOT" }
+case_family = "happy_path"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#package-registry-storage-and-integrity-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Initialization creates the schema-1 configuration, index, and packages directory, requiring a normalized nonempty token for private mode."
+[[behavior]]
+partition = { equals = "REINITIALIZE_PRESERVES_VALID_INDEX_AND_PACKAGES" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#package-registry-storage-and-integrity-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Reinitialization validates and preserves every existing package/index row; malformed state is not replaced with an empty default."
+[[behavior]]
+partition = { equals = "CONFINED_PACKAGE_IDENTITY_SEGMENTS" }
+case_family = "platform_or_filesystem_variation"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#package-registry-storage-and-integrity-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Normalized names/versions are one safe ASCII segment; separators, traversal, absolute paths, and symlink redirection reject."
+[[behavior]]
+partition = { equals = "IMMUTABLE_PACKAGE_IDENTITY" }
+case_family = "duplicate_or_collision"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#package-registry-storage-and-integrity-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A second publish of one name/version pair leaves payload, metadata, and index unchanged."
+[[behavior]]
+partition = { equals = "STAGED_PUBLICATION_ATOMICITY" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#package-registry-storage-and-integrity-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Publication validates first, stages outside final identity, commits complete package plus index, and leaves no final identity on failure."
+[[behavior]]
+partition = { equals = "COMPLETE_SORTED_METADATA_DIGEST" }
+case_family = "happy_path"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#package-registry-storage-and-integrity-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Metadata binds exact identity, resource/schema, timestamp, sorted regular files, checked byte total, per-file SHA-256, and deterministic package digest."
+[[behavior]]
+partition = { equals = "VERIFICATION_REJECTS_ANY_METADATA_PAYLOAD_DRIFT" }
+case_family = "supply_chain_or_artifact_fault"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#package-registry-storage-and-integrity-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "status_degraded" }
+rationale = "Missing, extra, reordered, duplicated, renamed, resized, modified, mismatched, malformed, or unsupported metadata/payload facts reject without repair."
+[[behavior]]
+partition = { equals = "INDEX_EXACT_SORTED_SUMMARIES" }
+case_family = "duplicate_or_collision"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#package-registry-storage-and-integrity-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Index schema 1 contains exactly one name/version-sorted summary matching each committed package's metadata."
+[[behavior]]
+partition = { equals = "VERIFIED_DOWNLOAD_DESTINATION_ATOMICITY" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#package-registry-storage-and-integrity-contract"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Verified download checks stored and copied packages, leaves an existing empty destination empty on preflight failure, and rejects nonempty destinations unchanged."
+[[behavior]]
+partition = { equals = "PRIVATE_OPERATION_AUTH_BEFORE_STATE" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#package-registry-storage-and-integrity-contract"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Every private list/publish/download/verify operation authenticates before reading or mutating package state and never returns the configured token."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Focused initialization, metadata, and publication tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "persistence_or_recovery"
+state = "gap_open"
+rationale = "Focused reinitialize/download recovery tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "platform_or_filesystem_variation"
+state = "gap_open"
+rationale = "Focused path and symlink tests exist, but cross-platform proof is pending."
+[[coverage.cells]]
+dimension = "duplicate_or_collision"
+state = "gap_open"
+rationale = "Focused identity and index collision tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "Focused staged-publication tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "supply_chain_or_artifact_fault"
+state = "gap_open"
+rationale = "Focused corruption tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "auth_or_permission"
+state = "gap_open"
+rationale = "Focused private-registry auth tests exist, but catalog binding and dynamic proof are pending."

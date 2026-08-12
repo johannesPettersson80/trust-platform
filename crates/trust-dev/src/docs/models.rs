@@ -67,14 +67,20 @@ struct DocDiagnostic {
 
 #[derive(Debug, Clone)]
 struct CommentBlock {
-    lines: Vec<String>,
+    lines: Vec<CommentLine>,
     start_line: usize,
+}
+
+#[derive(Debug, Clone)]
+struct CommentLine {
+    text: String,
+    line: usize,
 }
 
 enum CurrentTag {
     Brief,
     Detail,
+    Ignored,
     Param(usize),
     Return,
 }
-

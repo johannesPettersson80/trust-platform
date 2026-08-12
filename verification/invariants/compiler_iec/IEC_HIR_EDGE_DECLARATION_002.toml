@@ -1,0 +1,114 @@
+schema_version = 1
+id = "IEC_HIR_EDGE_DECLARATION_002"
+title = "Edge-qualified inputs preserve their declaration and pulse contract"
+area = "compiler_iec"
+risk = "wrong_result"
+status = "specified"
+owner = "trust-hir"
+last_reviewed = "2026-08-01"
+claim = "R_EDGE and F_EDGE declarations are accepted only for Boolean PROGRAM or FUNCTION_BLOCK inputs under legal storage policy and preserve independent hidden trigger identity and owner-body visibility."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["docs/specs/03-variables.md", "crates/trust-hir/tests/semantic_type_checking/edge_declaration_contract.rs"]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["catalog_mapping", "focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+[spec]
+status = "specified"
+source_refs = ["SPEC_IEC_VARIABLES_001"]
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_IEC_VARIABLES_001#edge-detection-qualifiers-tables-40-and-47"
+
+[[behavior]]
+partition = { equals = "PROGRAM_OR_FB_BOOL_INPUT_EDGE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_VARIABLES_001#edge-detection-qualifiers-tables-40-and-47"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "R_EDGE and F_EDGE are legal only on BOOL inputs owned by a PROGRAM or FUNCTION_BLOCK."
+[[behavior]]
+partition = { equals = "NON_BOOL_EDGE_DECLARATION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_VARIABLES_001#edge-detection-qualifiers-tables-40-and-47"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A non-BOOL declaration cannot acquire an edge qualifier."
+[[behavior]]
+partition = { equals = "WRONG_OWNER_OR_SECTION" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_IEC_VARIABLES_001#edge-detection-qualifiers-tables-40-and-47"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Functions, methods, non-input sections, and other owners cannot declare edge-qualified storage."
+[[behavior]]
+partition = { equals = "INDEPENDENT_HIDDEN_TRIGGER_IDENTITY" }
+case_family = "duplicate_or_collision"
+oracle_ref = "SPEC_IEC_VARIABLES_001#edge-detection-qualifiers-tables-40-and-47"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Each declared name owns a distinct non-user-visible trigger state that cannot collide with a source symbol."
+[[behavior]]
+partition = { equals = "OWNER_BODY_PULSE_VISIBILITY" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_IEC_VARIABLES_001#edge-detection-qualifiers-tables-40-and-47"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The direct owner body observes the current trigger pulse, while function-block methods cannot read or write the qualified input."
+[[behavior]]
+partition = { equals = "LEGAL_RETENTION_POLICY" }
+case_family = "persistence_or_recovery"
+oracle_ref = "SPEC_IEC_VARIABLES_001#edge-detection-qualifiers-tables-40-and-47"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected_delta", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Legal RETAIN, NON_RETAIN, or PERSISTENT input sections apply the same restart policy to raw input and hidden trigger phase."
+[[behavior]]
+partition = { equals = "CONSTANT_EDGE_INPUT" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_IEC_VARIABLES_001#edge-detection-qualifiers-tables-40-and-47"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "CONSTANT storage cannot contain the implicit trigger instance required by an edge declaration."
+
+[[behavior]]
+partition = { equals = "INVALID_EDGE_SUFFIX_INITIALIZER_OR_EXPLICIT_TRIGGER_SHAPE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_VARIABLES_001#edge-detection-qualifiers-tables-40-and-47"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "One declared input may carry exactly one R_EDGE or F_EDGE suffix; duplicate or mixed suffixes, an explicit initializer, and a suffix on an explicit trigger instance reject before hidden state is created."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Focused legal declaration tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Focused non-Boolean tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "auth_or_permission"
+state = "gap_open"
+rationale = "Focused owner, section, method, and constant tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "duplicate_or_collision"
+state = "gap_open"
+rationale = "Focused hidden-identity tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "Focused pulse visibility tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "persistence_or_recovery"
+state = "gap_open"
+rationale = "Focused retention-policy tests exist, but restart execution proof is pending."

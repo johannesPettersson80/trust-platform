@@ -7,6 +7,7 @@ use smol_str::SmolStr;
 
 use crate::error;
 use crate::memory::VariableStorage;
+use crate::program_model::edge_phase_storage_name;
 use crate::task::TaskState;
 use crate::value::Value;
 
@@ -59,6 +60,38 @@ impl Runtime {
                             var.name.clone(),
                             value.clone(),
                         ));
+                    }
+                }
+                if let Some(inputs) = self.edge_inputs.get(&program.name) {
+                    for input in inputs {
+                        let Some(var) = program
+                            .vars
+                            .iter()
+                            .find(|var| var.name.eq_ignore_ascii_case(input.name.as_str()))
+                        else {
+                            continue;
+                        };
+                        if !retain_on_warm(var.retain) {
+                            continue;
+                        }
+                        let phase_name = edge_phase_storage_name(
+                            program.name.as_str(),
+                            input.name.as_str(),
+                        );
+                        let Some(value) = self
+                            .storage
+                            .get_instance_var(*id, phase_name.as_str())
+                            .cloned()
+                        else {
+                            continue;
+                        };
+                        if value_is_retainable(&value) {
+                            retained_program_vars.push((
+                                program.name.clone(),
+                                phase_name,
+                                value,
+                            ));
+                        }
                     }
                 }
             }

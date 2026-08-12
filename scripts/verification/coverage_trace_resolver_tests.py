@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
 
+from scripts.verification import coverage_trace_resolver
 from scripts.verification.coverage_trace_resolver import (
     mechanical_rust_target,
     resolve_rust_tests,
@@ -76,6 +78,55 @@ def _multi_target_list() -> dict[str, object]:
 
 
 class CoverageTraceResolverTests(unittest.TestCase):
+    def test_source_based_no_default_feature_classifier_selects_only_disabled_tests(
+        self,
+    ) -> None:
+        facts = [
+            {
+                "discovery_id": "DISC_DISABLED",
+                "discovery_source_kind": "rust_unit_test",
+                "package": "trust-runtime",
+                "path": (
+                    "crates/trust-runtime/src/control/comm_handlers/"
+                    "capability_contract_tests.rs"
+                ),
+                "name": (
+                    "capability_contract_ads_without_wire_build_is_not_operational"
+                ),
+            },
+            {
+                "discovery_id": "DISC_DEFAULT",
+                "discovery_source_kind": "rust_unit_test",
+                "package": "trust-runtime",
+                "path": (
+                    "crates/trust-runtime/src/control/comm_handlers/"
+                    "capability_contract_tests.rs"
+                ),
+                "name": (
+                    "capability_contract_serializes_exact_protocol_id_vocabulary_and_order"
+                ),
+            },
+        ]
+        classifier = getattr(
+            coverage_trace_resolver,
+            "no_default_feature_discovery_ids",
+            None,
+        )
+        self.assertIsNotNone(
+            classifier,
+            "source feature classifier is required for exact feature sharding",
+        )
+        if classifier is None:
+            return
+
+        self.assertEqual(
+            {"DISC_DISABLED"},
+            classifier(
+                root=Path(__file__).resolve().parents[2],
+                facts=facts,
+            ),
+        )
+
     def test_mechanical_target_selection_never_expands_to_all_package_targets(self) -> None:
         cases = [
             (
@@ -110,6 +161,28 @@ class CoverageTraceResolverTests(unittest.TestCase):
                 self.assertEqual(expected[0], target.get("kind"))
                 self.assertEqual(expected[1], target.get("name"))
                 self.assertEqual(expected[2], tuple(target.get("cargo_args", ())))
+
+        lsp_fact = _fact(
+            "DISC_LSP_CONFIG",
+            path=(
+                "crates/trust-lsp/src/config/"
+                "configuration_contract_tests.rs"
+            ),
+            source_kind="rust_unit_test",
+        )
+        lsp_fact["package"] = "trust-lsp"
+        lsp_fact["package_has_library"] = True
+        lsp_fact["package_binary_names"] = ["trust-lsp"]
+
+        lsp_target = mechanical_rust_target(lsp_fact)
+
+        self.assertEqual("bin", lsp_target["kind"])
+        self.assertEqual("trust-lsp", lsp_target["name"])
+        self.assertEqual(("--bin", "trust-lsp"), lsp_target["cargo_args"])
+        self.assertEqual(
+            "config::configuration_contract_tests::",
+            lsp_target["test_prefix"],
+        )
 
     def test_binary_only_package_unit_test_uses_its_single_binary_target(self) -> None:
         fact = _fact(
@@ -240,6 +313,19 @@ class CoverageTraceResolverTests(unittest.TestCase):
             ["one::same_name", "two::same_name"],
             unsupported[0]["candidate_test_names"],
         )
+
+        fact = _fact("DISC_PREFIXED")
+        fact["cargo_target_kind"] = "lib"
+        fact["cargo_target_name"] = None
+        fact["nextest_test_prefix"] = "one::"
+
+        resolved, unsupported = resolve_rust_tests(
+            facts=[fact],
+            nextest_document=_list("one::same_name", "two::same_name"),
+        )
+
+        self.assertEqual([], unsupported)
+        self.assertEqual("one::same_name", resolved[0]["nextest_test_name"])
 
     def test_missing_and_non_rust_facts_are_explicitly_unsupported(self) -> None:
         resolved, unsupported = resolve_rust_tests(

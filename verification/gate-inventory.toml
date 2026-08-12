@@ -24,6 +24,50 @@ rationale = "The existing strict verification workflow runs one live denominator
 
 [[surfaces]]
 schema_version = 1
+id = "GATE_SCRIPT_PRIVATE_HOOK_CONTRACT"
+discovery_id = "DISC_2C9666DD5BC194847CCB"
+source_kind = "gate_script"
+path = "scripts/private_hook_contract_gate.sh"
+name = "private_hook_contract_gate"
+command = "scripts/private_hook_contract_gate.sh"
+variant = "Private pre-tool-use hook producer contract"
+command_role = "helper"
+disposition = "assigned"
+suite_ids = ["pr", "veryquick"]
+owner = "verification"
+duration_class = "fast"
+environment = "trust_builder"
+artifact_kind = "machine_local"
+artifact_paths = ["target/gate-artifacts/cases/TEST_VERIFICATION_PRIVATE_HOOK_CONTRACT_001.json"]
+artifact_retention = "machine_local"
+enforcement = "planned"
+required_env = []
+rationale = "The cataloged producer executes the private bootstrap hook as a subprocess and emits case-bound evidence; the suite owns the helper without treating it as a separate milestone entrypoint."
+
+[[surfaces]]
+schema_version = 1
+id = "GATE_SCRIPT_FOCUSED_TRACE_CONTROL_PLANE"
+discovery_id = "DISC_82500F85AF676289CF04"
+source_kind = "gate_script"
+path = "scripts/focused_trace_control_plane_gate.sh"
+name = "focused_trace_control_plane_gate"
+command = "scripts/focused_trace_control_plane_gate.sh"
+variant = "Focused trace control-plane behavior-lock suite"
+command_role = "helper"
+disposition = "assigned"
+suite_ids = ["pr", "veryquick"]
+owner = "verification"
+duration_class = "fast"
+environment = "trust_builder"
+artifact_kind = "machine_local"
+artifact_paths = ["target/gate-artifacts/cases/TEST_VERIFICATION_FOCUSED_TRACE_CONTROL_PLANE_001.json"]
+artifact_retention = "machine_local"
+enforcement = "planned"
+required_env = []
+rationale = "The bounded Python self-test suite proves the focused trace control-plane contract without running Rust tests or coverage; it remains a helper rather than a broad milestone entrypoint."
+
+[[surfaces]]
+schema_version = 1
 id = "GATE_SCRIPT_P18_ZERO_DEBT"
 discovery_id = "DISC_0F77A231E09CE5746803"
 source_kind = "gate_script"

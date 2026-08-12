@@ -106,11 +106,19 @@ fn shift(args: &[Value], op: ShiftOp) -> Result<Value, RuntimeError> {
         }
         ShiftOp::RotateLeft => {
             let shift = count % width;
-            ((value << shift) | (value >> (width - shift))) & mask
+            if shift == 0 {
+                value & mask
+            } else {
+                ((value << shift) | (value >> (width - shift))) & mask
+            }
         }
         ShiftOp::RotateRight => {
             let shift = count % width;
-            ((value >> shift) | (value << (width - shift))) & mask
+            if shift == 0 {
+                value & mask
+            } else {
+                ((value >> shift) | (value << (width - shift))) & mask
+            }
         }
     };
     Ok(bit_value_to_result(result, width))

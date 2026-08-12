@@ -1,0 +1,97 @@
+schema_version = 1
+id = "LSP_LIBRARY_GRAPH_DIAGNOSTICS_002"
+title = "Library graph diagnostics are canonical and duplicate-free"
+area = "editor_safety"
+risk = "wrong_result"
+status = "specified"
+owner = "trust-lsp"
+last_reviewed = "2026-08-01"
+claim = "Configured library nodes preserve order and metadata while missing dependencies, version mismatches, conflicting identities, and every distinct cycle produce stable duplicate-free issue identities and canonical order."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["docs/specs/14-lsp.md", "crates/trust-lsp/src/library_graph.rs", "crates/trust-lsp/src/library_graph/contract_tests.rs"]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["catalog_mapping", "focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+[spec]
+status = "specified"
+source_refs = ["SPEC_LSP_CONTRACT_001"]
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_LSP_CONTRACT_001#763-persisted-and-external-input-integrity"
+
+[[behavior]]
+partition = { equals = "EMPTY_AND_ORDERED_GRAPH_NODES" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_LSP_CONTRACT_001#763-persisted-and-external-input-integrity"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Empty configuration yields empty graph, and node order and version/path/dependency metadata follow configuration order."
+[[behavior]]
+partition = { equals = "MISSING_DEPENDENCY_DEDUPLICATION" }
+case_family = "missing_required"
+oracle_ref = "SPEC_LSP_CONTRACT_001#763-persisted-and-external-input-integrity"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "An absent dependency yields one L001 with exact subject even when its edge is duplicated."
+[[behavior]]
+partition = { equals = "VERSION_REQUIREMENT_PARTITIONS" }
+case_family = "boundary_low"
+oracle_ref = "SPEC_LSP_CONTRACT_001#763-persisted-and-external-input-integrity"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Unversioned accepts any configured version, exact matches accept, and mismatch emits L002 with sorted available versions and explicit absent/present labels."
+[[behavior]]
+partition = { equals = "CASE_INSENSITIVE_DECLARATION_CONFLICT" }
+case_family = "duplicate_or_collision"
+oracle_ref = "SPEC_LSP_CONTRACT_001#763-persisted-and-external-input-integrity"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Library and dependency identities compare case-insensitively, duplicate same-version declarations do not conflict, and differing or unspecified/explicit versions emit one L003."
+[[behavior]]
+partition = { equals = "CANONICAL_SELF_AND_MULTI_NODE_CYCLES" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_LSP_CONTRACT_001#763-persisted-and-external-input-integrity"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Self-cycle and longer cycles emit L004 starting at the lexicographically smallest identity with rotation-invariant canonical paths."
+[[behavior]]
+partition = { equals = "DISTINCT_CYCLE_AND_EDGE_DEDUPLICATION" }
+case_family = "duplicate_or_collision"
+oracle_ref = "SPEC_LSP_CONTRACT_001#763-persisted-and-external-input-integrity"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Duplicate edges do not duplicate a cycle issue, while distinct and overlapping cycles remain distinct exactly once."
+[[behavior]]
+partition = { equals = "GLOBAL_ISSUE_CLASS_ORDER" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_LSP_CONTRACT_001#763-persisted-and-external-input-integrity"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Conflicts, missing/version issues, and canonical cycles use the stable global issue order."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "Focused node, cycle, and issue-order tests exist, but accepted catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "missing_required"
+state = "gap_open"
+rationale = "Focused missing-dependency tests exist, but accepted catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "boundary_low"
+state = "gap_open"
+rationale = "Focused version boundary tests exist, but accepted catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "duplicate_or_collision"
+state = "gap_open"
+rationale = "Focused declaration, edge, and cycle deduplication tests exist, but accepted catalog binding and dynamic proof are pending."

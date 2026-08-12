@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import re
 from collections import defaultdict
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from typing import Any
 
 from .mapping_demand_refinement import (
@@ -21,6 +22,7 @@ def merge_focused_queue(
     focused_proposals: Sequence[Mapping[str, Any]],
     selected_discovery_ids: Sequence[str],
     code_mappings: Mapping[str, Mapping[str, Any]],
+    authenticated_authority_route_digests: Collection[str] = (),
 ) -> tuple[dict[str, Any], list[Mapping[str, Any]]]:
     """Replace only selected discoveries and rebuild aggregate demand views."""
 
@@ -54,8 +56,12 @@ def merge_focused_queue(
             + ", ".join(pending_other_batches)
         )
     _require_exact_focused_scope(
-        records=focused_demands + new_proposals,
+        demands=focused_demands,
+        proposals=new_proposals,
         selected=selected,
+        authenticated_authority_route_digests=(
+            authenticated_authority_route_digests
+        ),
     )
 
     merged_demands = _replace_selected(
@@ -123,23 +129,50 @@ def _replace_selected(
 
 def _require_exact_focused_scope(
     *,
+    demands: Sequence[Mapping[str, Any]],
+    proposals: Sequence[Mapping[str, Any]],
+    selected: set[str],
+    authenticated_authority_route_digests: Collection[str],
+) -> None:
+    demand_by_id = _focused_records_by_id(demands, selected, "demand")
+    proposal_by_id = _focused_records_by_id(proposals, selected, "proposal")
+    for discovery_id in sorted(set(demand_by_id) & set(proposal_by_id)):
+        demand = demand_by_id[discovery_id]
+        proposal = proposal_by_id[discovery_id]
+        route_digest = proposal.get("authority_route_digest")
+        if (
+            demand.get("candidate_tier") != "C4"
+            or demand.get("unmapped_code_ids") != []
+            or not demand.get("covered_code_ids")
+            or not demand.get("spec_gap_refs")
+            or not isinstance(route_digest, str)
+            or re.fullmatch(r"sha256:[0-9a-f]{64}", route_digest) is None
+            or route_digest not in authenticated_authority_route_digests
+        ):
+            raise ValueError(
+                "focused discovery has both demand and unauthenticated proposal: "
+                f"{discovery_id}"
+            )
+
+
+def _focused_records_by_id(
     records: Sequence[Mapping[str, Any]],
     selected: set[str],
-) -> None:
-    seen: set[str] = set()
+    label: str,
+) -> dict[str, Mapping[str, Any]]:
+    indexed: dict[str, Mapping[str, Any]] = {}
     for record in records:
         discovery_id = _required_string(
-            record, "discovery_id", "focused queue record"
+            record, "discovery_id", f"focused {label}"
         )
         if discovery_id not in selected:
             raise ValueError(
-                f"focused queue record escapes selected scope: {discovery_id}"
+                f"focused {label} escapes selected scope: {discovery_id}"
             )
-        if discovery_id in seen:
-            raise ValueError(
-                f"focused discovery has both demand and proposal: {discovery_id}"
-            )
-        seen.add(discovery_id)
+        if discovery_id in indexed:
+            raise ValueError(f"focused queue duplicates {label} {discovery_id}")
+        indexed[discovery_id] = record
+    return indexed
 
 
 def _demand_observations(

@@ -18,3 +18,5 @@ fn registry_profile_covers_required_endpoints() {
         .iter()
         .any(|field| field == "package_sha256"));
 }
+
+include!("registry_integrity_contract_tests.rs");

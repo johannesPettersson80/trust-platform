@@ -272,3 +272,7 @@ fn build_runtime_aligned_bytecode(
         .encode()
         .map_err(|err| CompileError::new(err.to_string()))
 }
+
+#[cfg(test)]
+#[path = "harness_contract_tests.rs"]
+mod contract_tests;

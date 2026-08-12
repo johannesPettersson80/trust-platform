@@ -16,6 +16,27 @@ pub(crate) fn lower_configuration(
         ));
     }
     let config = configs[0].clone();
+    let explicit_resources = config
+        .children()
+        .filter(|child| child.kind() == SyntaxKind::Resource)
+        .count();
+    if explicit_resources > 1 {
+        return Err(CompileError::new(
+            "multiple RESOURCE declarations are not supported by the single-resource runtime",
+        ));
+    }
+    if explicit_resources == 1
+        && config.children().any(|child| {
+            matches!(
+                child.kind(),
+                SyntaxKind::TaskConfig | SyntaxKind::ProgramConfig
+            )
+        })
+    {
+        return Err(CompileError::new(
+            "implicit resource TASK/PROGRAM content cannot be mixed with an explicit RESOURCE",
+        ));
+    }
     let using = collect_using_directives(&config);
     let mut ctx = inputs.context(registry, using);
     let mut globals = Vec::new();

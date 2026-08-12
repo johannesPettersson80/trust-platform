@@ -3,6 +3,10 @@ use serde_json::json;
 use super::types::{EvalParams, SetParams, VarForceParams, VarTarget, VarTargetParams};
 use super::{parse_value, ControlResponse, ControlState};
 
+#[cfg(test)]
+#[path = "variable_handlers/contract_tests.rs"]
+mod contract_tests;
+
 pub(super) fn handle_eval(
     id: u64,
     params: Option<serde_json::Value>,
@@ -47,15 +51,20 @@ pub(super) fn handle_set(
         Ok(value) => value,
         Err(err) => return ControlResponse::error(id, err.to_string()),
     };
-    if let Some(name) = params.target.strip_prefix("global:") {
-        state.debug.enqueue_global_write(name.trim(), value);
-        return ControlResponse::ok(id, json!({"status": "queued"}));
+    match parse_var_target(&params.target) {
+        Ok(VarTarget::Global(name)) => state.debug.enqueue_global_write(name, value),
+        Ok(VarTarget::Retain(name)) => state.debug.enqueue_retain_write(name, value),
+        Ok(VarTarget::Instance(_, _)) => {
+            return ControlResponse::error(id, "unsupported target".into())
+        }
+        Err(error)
+            if error.starts_with("missing global") || error.starts_with("missing retain") =>
+        {
+            return ControlResponse::error(id, error)
+        }
+        Err(_) => return ControlResponse::error(id, "unsupported target".into()),
     }
-    if let Some(name) = params.target.strip_prefix("retain:") {
-        state.debug.enqueue_retain_write(name.trim(), value);
-        return ControlResponse::ok(id, json!({"status": "queued"}));
-    }
-    ControlResponse::error(id, "unsupported target".into())
+    ControlResponse::ok(id, json!({"status": "queued"}))
 }
 
 pub(super) fn handle_var_force(
@@ -157,10 +166,13 @@ fn parse_var_target(target: &str) -> Result<VarTarget, String> {
     }
     if let Some(rest) = target.strip_prefix("instance:") {
         let mut parts = rest.splitn(2, ':');
-        let id = parts
-            .next()
-            .and_then(|value| value.parse::<u32>().ok())
-            .ok_or_else(|| "invalid instance id".to_string())?;
+        let id_text = parts.next().unwrap_or_default();
+        if id_text.is_empty() || !id_text.bytes().all(|byte| byte.is_ascii_digit()) {
+            return Err("invalid instance id".to_string());
+        }
+        let id = id_text
+            .parse::<u32>()
+            .map_err(|_| "invalid instance id".to_string())?;
         let name = parts.next().unwrap_or("").trim();
         if name.is_empty() {
             return Err("missing instance name".into());

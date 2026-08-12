@@ -10,6 +10,13 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from .frozen_rust_nextest_authority_target import (
+    authority_route_profile_fields,
+)
+from .frozen_rust_nextest_lsp_target import (
+    LSP_REMAINING_PROFILE_KEY,
+    lsp_remaining_profile_fields,
+)
 from .coverage_trace_filter import exact_name_matcher
 
 
@@ -46,6 +53,7 @@ class FrozenRustTargetProfile:
     allowed_cfg_attributes: frozenset[str]
     no_default_features_cfg: str | None
     no_default_features_shard_name: str | None
+    additional_no_default_features_cfgs: frozenset[str] = frozenset()
 
     @property
     def cargo_target_args(self) -> tuple[str, ...]:
@@ -301,6 +309,12 @@ WASM_ANALYSIS_REMAINING_LIB_PROFILE = FrozenRustTargetProfile(
     allowed_cfg_attributes=frozenset(),
     no_default_features_cfg=None,
     no_default_features_shard_name=None,
+)
+
+LSP_REMAINING_PROFILE = FrozenRustTargetProfile(
+    **lsp_remaining_profile_fields(
+        "crates/trust-lsp/src/config/configuration_contract_tests.rs"
+    )
 )
 
 WASM_ANALYSIS_REMAINING_PREFIXES: Mapping[str, str] = {
@@ -846,6 +860,7 @@ TARGET_PROFILES: Mapping[str, FrozenRustTargetProfile] = {
         VERIFICATION_CASES_REMAINING_PROFILE,
         PLCOPEN_REMAINING_PROFILE,
         WASM_ANALYSIS_REMAINING_PROFILE,
+        LSP_REMAINING_PROFILE,
         RUNTIME_REMAINING_LIB_PROFILE,
     )
 }
@@ -858,6 +873,9 @@ def get_target_profile(
 ) -> FrozenRustTargetProfile:
     """Return one explicitly supported frozen target profile."""
 
+    authority_fields = authority_route_profile_fields(key, path)
+    if authority_fields is not None:
+        return FrozenRustTargetProfile(**authority_fields)
     if key == HIR_REMAINING_PROFILE_KEY:
         return _hir_remaining_profile(path)
     if key == SYNTAX_REMAINING_PROFILE_KEY:
@@ -910,6 +928,8 @@ def get_target_profile(
         return _wasm_analysis_remaining_profile(path)
     if key == RUNTIME_REMAINING_PROFILE_KEY:
         return _runtime_remaining_profile(path)
+    if key == LSP_REMAINING_PROFILE_KEY:
+        return FrozenRustTargetProfile(**lsp_remaining_profile_fields(path))
     try:
         return TARGET_PROFILES[key]
     except KeyError as error:
@@ -1292,9 +1312,14 @@ def split_feature_shards(
                     )
                 if full_name in classified:
                     raise ValueError(f"duplicate selected source test {full_name}")
-                disabled = (
-                    profile.no_default_features_cfg is not None
-                    and profile.no_default_features_cfg in cfg_attributes
+                no_default_cfgs = set(
+                    profile.additional_no_default_features_cfgs
+                )
+                if profile.no_default_features_cfg is not None:
+                    no_default_cfgs.add(profile.no_default_features_cfg)
+                disabled = any(
+                    attribute in no_default_cfgs
+                    for attribute in cfg_attributes
                 )
                 if disabled and len(cfg_attributes) != 1:
                     raise ValueError(
@@ -1386,7 +1411,10 @@ def build_nextest_command(
         *profile.cargo_target_args,
     ]
     if no_default_features:
-        if profile.no_default_features_cfg is None:
+        if (
+            profile.no_default_features_cfg is None
+            and not profile.additional_no_default_features_cfgs
+        ):
             raise ValueError(
                 f"{profile.key} has no no-default-features shard"
             )
@@ -1429,7 +1457,10 @@ def build_catalog_command(
         *profile.cargo_target_args,
     ]
     if no_default_features:
-        if profile.no_default_features_cfg is None:
+        if (
+            profile.no_default_features_cfg is None
+            and not profile.additional_no_default_features_cfgs
+        ):
             raise ValueError(
                 f"{profile.key} has no no-default-features shard"
             )

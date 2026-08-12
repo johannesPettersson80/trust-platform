@@ -4,10 +4,15 @@ from __future__ import annotations
 
 import shlex
 from collections.abc import Mapping, Sequence
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 from typing import Any
 
+from .authority_route_execution_plan import _profile_key
 from .coverage_trace_filter import exact_name_matcher
+from .frozen_rust_nextest_target import (
+    get_target_profile,
+    no_default_feature_test_names,
+)
 
 
 RUST_SOURCE_KINDS = {"rust_unit_test", "rust_integration_test"}
@@ -21,6 +26,51 @@ NEXTEST_LIBRARY_KINDS = {
 }
 
 
+def no_default_feature_discovery_ids(
+    *,
+    root: Path,
+    facts: Sequence[Mapping[str, Any]],
+) -> set[str]:
+    """Classify exact closed-profile tests that require disabled features."""
+
+    root = root.resolve()
+    by_path: dict[str, list[Mapping[str, Any]]] = {}
+    for fact in facts:
+        path = _required_string(fact, "path", "scanner fact")
+        by_path.setdefault(path, []).append(fact)
+    disabled_ids: set[str] = set()
+    for raw_path, path_facts in sorted(by_path.items()):
+        profile = get_target_profile(_profile_key(raw_path), path=raw_path)
+        if (
+            profile.no_default_features_cfg is None
+            and not profile.additional_no_default_features_cfgs
+        ):
+            continue
+        source_path = (root / raw_path).resolve()
+        try:
+            source_path.relative_to(root)
+        except ValueError as error:
+            raise ValueError(
+                f"Rust scanner fact has unsafe source path {raw_path!r}"
+            ) from error
+        source = source_path.read_text()
+        names = [
+            _required_string(fact, "name", "scanner fact")
+            for fact in path_facts
+        ]
+        disabled_names = no_default_feature_test_names(
+            profile=profile,
+            source=source,
+            test_names=names,
+        )
+        for fact in path_facts:
+            if fact["name"] in disabled_names:
+                disabled_ids.add(
+                    _required_string(fact, "discovery_id", "scanner fact")
+                )
+    return disabled_ids
+
+
 def mechanical_rust_target(fact: Mapping[str, Any]) -> dict[str, Any]:
     source_kind = _required_string(
         fact, "discovery_source_kind", "scanner fact"
@@ -31,6 +81,28 @@ def mechanical_rust_target(fact: Mapping[str, Any]) -> dict[str, Any]:
     if path.is_absolute() or "\\" in raw_path or ".." in path.parts:
         raise ValueError(f"Rust scanner fact has unsafe source path {raw_path!r}")
     parts = path.parts
+    try:
+        profile = get_target_profile(
+            _profile_key(raw_path),
+            path=raw_path,
+        )
+    except ValueError:
+        profile = None
+    if profile is not None:
+        if profile.package != package:
+            raise ValueError(
+                f"Rust scanner fact package differs from closed profile for {raw_path}"
+            )
+        if profile.discovery_source_kind != source_kind:
+            raise ValueError(
+                f"Rust scanner fact source kind differs from closed profile for {raw_path}"
+            )
+        return {
+            "kind": profile.target_kind,
+            "name": profile.target_name,
+            "cargo_args": profile.cargo_target_args,
+            "test_prefix": profile.test_prefix,
+        }
     if source_kind == "rust_integration_test":
         try:
             tests_index = parts.index("tests")
@@ -128,6 +200,7 @@ def mechanical_rust_target(fact: Mapping[str, Any]) -> dict[str, Any]:
 
 def mechanical_resolved_rust_command(
     record: Mapping[str, Any],
+    cargo_features: Sequence[str] = (),
 ) -> str:
     """Rebuild one exact nextest command from its resolved runtime identity."""
 
@@ -164,6 +237,14 @@ def mechanical_resolved_rust_command(
         f"(binary_id({exact_name_matcher(binary_id)}) & "
         f"test({exact_name_matcher(test_name)}))"
     )
+    feature_args = (
+        ["--features", ",".join(cargo_features)]
+        if cargo_features
+        else []
+    )
+    no_default_features = record.get("no_default_features", False)
+    if not isinstance(no_default_features, bool):
+        raise ValueError("resolved test no_default_features must be a boolean")
     return shlex.join(
         [
             "cargo",
@@ -172,6 +253,8 @@ def mechanical_resolved_rust_command(
             "-p",
             package,
             *target_args,
+            *(["--no-default-features"] if no_default_features else []),
+            *feature_args,
             "-E",
             expression,
         ]
@@ -245,6 +328,17 @@ def resolve_rust_tests(
             continue
         package = _required_string(fact, "package", discovery_id)
         name = _required_string(fact, "name", discovery_id)
+        no_default_features = fact.get("no_default_features", False)
+        if not isinstance(no_default_features, bool):
+            raise ValueError(
+                f"{discovery_id} no_default_features must be a boolean"
+            )
+        prefix_requested = "nextest_test_prefix" in fact
+        test_prefix = fact.get("nextest_test_prefix")
+        if prefix_requested and not isinstance(test_prefix, str):
+            raise ValueError(
+                f"{discovery_id} nextest_test_prefix must be a string"
+            )
         target_requested = (
             "cargo_target_kind" in fact or "cargo_target_name" in fact
         )
@@ -316,7 +410,11 @@ def resolve_rust_tests(
                     target_suite_key is None
                     or test["suite_key"] == target_suite_key
                 )
-                and test["test_name"].rsplit("::", 1)[-1] == name
+                and (
+                    test["test_name"] == f"{test_prefix}{name}"
+                    if prefix_requested
+                    else test["test_name"].rsplit("::", 1)[-1] == name
+                )
             ),
             key=lambda row: (row["binary_id"], row["test_name"]),
         )
@@ -357,6 +455,7 @@ def resolve_rust_tests(
                 fact, "ignore_state", discovery_id
             ),
             "package": package,
+            "no_default_features": no_default_features,
             "nextest_binary_id": match["binary_id"],
             "nextest_binary_path": match["binary_path"],
             "nextest_test_name": match["test_name"],

@@ -4,6 +4,7 @@ use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
+use std::collections::HashSet;
 
 use smol_str::SmolStr;
 #[cfg(target_os = "linux")]
@@ -239,16 +240,25 @@ impl GpioConfig {
         let table = params
             .as_table()
             .ok_or_else(|| invalid_gpio("io.params must be a table"))?;
-        let backend = match table.get("backend").and_then(|v| v.as_str()) {
+        let backend = match table.get("backend") {
             None => GpioBackendKind::Chardev,
-            Some(name) if name.eq_ignore_ascii_case("sysfs") => GpioBackendKind::Sysfs,
-            Some(name)
+            Some(toml::Value::String(name)) if name.eq_ignore_ascii_case("sysfs") => {
+                GpioBackendKind::Sysfs
+            }
+            Some(toml::Value::String(name))
                 if name.eq_ignore_ascii_case("libgpiod")
                     || name.eq_ignore_ascii_case("chardev") =>
             {
                 GpioBackendKind::Chardev
             }
-            Some(name) => return Err(invalid_gpio(format!("unsupported gpio backend '{name}'"))),
+            Some(toml::Value::String(name)) => {
+                return Err(invalid_gpio(format!("unsupported gpio backend '{name}'")))
+            }
+            Some(_) => {
+                return Err(invalid_gpio(
+                    "unsupported gpio backend value; expected a string",
+                ))
+            }
         };
         let sysfs_base = table
             .get("sysfs_base")
@@ -263,6 +273,7 @@ impl GpioConfig {
 
         let inputs = parse_gpio_inputs(table.get("inputs"))?;
         let outputs = parse_gpio_outputs(table.get("outputs"))?;
+        ensure_unique_gpio_mappings(&inputs, &outputs)?;
 
         Ok(Self {
             backend,
@@ -337,11 +348,23 @@ fn parse_address(table: &toml::Table, key: &str) -> Result<IoAddress, RuntimeErr
 }
 
 fn parse_line(table: &toml::Table) -> Result<u32, RuntimeError> {
-    if let Some(line) = table.get("line").and_then(|v| v.as_integer()) {
-        return Ok(line as u32);
+    if let Some(value) = table.get("line") {
+        let line = value
+            .as_integer()
+            .and_then(|line| u32::try_from(line).ok())
+            .ok_or_else(|| {
+                invalid_gpio("gpio entry requires 'line' (BCM) as a nonnegative u32")
+            })?;
+        return Ok(line);
     }
-    if let Some(line) = table.get("pin").and_then(|v| v.as_integer()) {
-        return Ok(line as u32);
+    if let Some(value) = table.get("pin") {
+        let line = value
+            .as_integer()
+            .and_then(|line| u32::try_from(line).ok())
+            .ok_or_else(|| {
+                invalid_gpio("gpio entry requires 'pin' alias as a nonnegative u32")
+            })?;
+        return Ok(line);
     }
     Err(invalid_gpio("gpio entry requires 'line' (BCM)"))
 }
@@ -387,6 +410,7 @@ fn ensure_input_address(address: &IoAddress) -> Result<(), RuntimeError> {
     if !matches!(address.area, crate::memory::IoArea::Input) {
         return Err(invalid_gpio("gpio input address must be %I"));
     }
+    map_bit(address)?;
     Ok(())
 }
 
@@ -399,6 +423,46 @@ fn ensure_output_address(address: &IoAddress) -> Result<(), RuntimeError> {
     }
     if !matches!(address.area, crate::memory::IoArea::Output) {
         return Err(invalid_gpio("gpio output address must be %Q"));
+    }
+    map_bit(address)?;
+    Ok(())
+}
+
+fn ensure_unique_gpio_mappings(
+    inputs: &[GpioInputEntry],
+    outputs: &[GpioOutputEntry],
+) -> Result<(), RuntimeError> {
+    let mut physical_lines = HashSet::new();
+    let mut input_bits = HashSet::new();
+    let mut output_bits = HashSet::new();
+
+    for entry in inputs {
+        if !physical_lines.insert(entry.line) {
+            return Err(invalid_gpio(format!(
+                "gpio physical line {} is mapped more than once",
+                entry.line
+            )));
+        }
+        if !input_bits.insert((entry.address.byte, entry.address.bit)) {
+            return Err(invalid_gpio(format!(
+                "gpio input process-image bit %IX{}.{} is mapped more than once",
+                entry.address.byte, entry.address.bit
+            )));
+        }
+    }
+    for entry in outputs {
+        if !physical_lines.insert(entry.line) {
+            return Err(invalid_gpio(format!(
+                "gpio physical line {} is mapped more than once",
+                entry.line
+            )));
+        }
+        if !output_bits.insert((entry.address.byte, entry.address.bit)) {
+            return Err(invalid_gpio(format!(
+                "gpio output process-image bit %QX{}.{} is mapped more than once",
+                entry.address.byte, entry.address.bit
+            )));
+        }
     }
     Ok(())
 }
@@ -413,6 +477,9 @@ fn map_bit(address: &IoAddress) -> Result<(usize, u8), RuntimeError> {
 }
 
 fn read_bit(buffer: &[u8], byte: usize, bit: u8) -> Result<bool, RuntimeError> {
+    if bit > 7 {
+        return Err(invalid_gpio("gpio bit index must be between 0 and 7"));
+    }
     let Some(byte_val) = buffer.get(byte) else {
         return Err(invalid_gpio("gpio mapping outside output buffer"));
     };
@@ -420,6 +487,9 @@ fn read_bit(buffer: &[u8], byte: usize, bit: u8) -> Result<bool, RuntimeError> {
 }
 
 fn write_bit(buffer: &mut [u8], byte: usize, bit: u8, value: bool) -> Result<(), RuntimeError> {
+    if bit > 7 {
+        return Err(invalid_gpio("gpio bit index must be between 0 and 7"));
+    }
     let Some(byte_val) = buffer.get_mut(byte) else {
         return Err(invalid_gpio("gpio mapping outside input buffer"));
     };
@@ -567,7 +637,13 @@ impl GpioBackend for SysfsBackend {
     fn read(&mut self, line: u32) -> Result<bool, RuntimeError> {
         let value_path = self.gpio_path(line, "value");
         let text = self.read_path(&value_path)?;
-        Ok(text.trim() != "0")
+        match text.trim() {
+            "0" => Ok(false),
+            "1" => Ok(true),
+            value => Err(RuntimeError::IoDriver(SmolStr::new(format!(
+                "invalid gpio value '{value}' for line {line}; expected 0 or 1"
+            )))),
+        }
     }
 
     fn write(&mut self, line: u32, value: bool) -> Result<(), RuntimeError> {
@@ -912,3 +988,7 @@ sysfs_base = "/tmp/gpio"
         assert_eq!(runtime.io().outputs(), &[1]);
     }
 }
+
+#[cfg(test)]
+#[path = "gpio_contract_tests.rs"]
+mod contract_tests;

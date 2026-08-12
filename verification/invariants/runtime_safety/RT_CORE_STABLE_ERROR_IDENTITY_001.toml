@@ -1,0 +1,48 @@
+schema_version = 1
+id = "RT_CORE_STABLE_ERROR_IDENTITY_001"
+title = "Portable stable errors preserve exhaustive machine text identity"
+area = "runtime_safety"
+risk = "wrong_result"
+status = "mapped"
+owner = "trust-runtime-core"
+last_reviewed = "2026-07-30"
+claim = "Every committed StableErrorCode exposes one unique exact lower-snake-case machine string and Display emits that identical string."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["docs/specs/10-runtime-semantics.md", "crates/trust-runtime-core/src/error_code.rs"]
+tests = ["TEST_AUTO_43A286B3C4BA741428D9"]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_tests", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_SEMANTICS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_SEMANTICS_001#10-2-stable-machine-error-identifiers"
+
+[[behavior]]
+partition = { equals = "EXHAUSTIVE_UNIQUE_LOWER_SNAKE_CASE_IDENTITY" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#10-2-stable-machine-error-identifiers"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The complete committed enum has no omitted or duplicated identifier, and every as_str result is the exact lower-snake-case form required by the product contract."
+
+[[behavior]]
+partition = { equals = "DISPLAY_EQUALS_MACHINE_IDENTITY" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#10-2-stable-machine-error-identifiers"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Display emits exactly the same machine identity as as_str for every committed stable error code."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Focused exhaustive machine-string assertions await catalog binding and dynamic trace."

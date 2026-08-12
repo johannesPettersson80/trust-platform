@@ -2,6 +2,8 @@ fn lower_program_var_blocks(
     program: &SyntaxNode,
     ctx: &mut LoweringContext<'_>,
 ) -> Result<ProgramVars, CompileError> {
+    validate_special_var_sections(program, "PROGRAM", true)?;
+    resolve_pou_local_constants(program, ctx)?;
     let mut globals = Vec::new();
     let mut vars = Vec::new();
     let mut temps = Vec::new();
@@ -10,12 +12,25 @@ fn lower_program_var_blocks(
         .filter(|child| child.kind() == SyntaxKind::VarBlock)
     {
         let kind = var_block_kind(&var_block)?;
-        let qualifiers = var_block_qualifiers(&var_block);
+        let qualifiers = var_block_qualifiers(&var_block)?;
+        validate_retention_policy(
+            "program",
+            kind,
+            qualifiers,
+            &[
+                VarBlockKind::Input,
+                VarBlockKind::Output,
+                VarBlockKind::Var,
+                VarBlockKind::Stat,
+                VarBlockKind::Global,
+            ],
+        )?;
         for var_decl in var_block
             .children()
             .filter(|child| child.kind() == SyntaxKind::VarDecl)
         {
             let parts = parse_var_decl(&var_decl)?;
+            reject_borrowed_storage_initializer(kind, &parts)?;
             let type_id = lower_type_ref(&parts.type_ref, ctx)?;
             let init_expr = parts
                 .initializer
@@ -35,10 +50,14 @@ fn lower_program_var_blocks(
                 if let Some(expr) = init_expr.as_ref() {
                     let value = ctx.eval_compile_time_const_initializer(expr, type_id)?;
                     for name in &parts.names {
-                        ctx.register_compile_time_const(name.as_str(), value.clone());
                         if matches!(kind, VarBlockKind::Global) {
                             let qualified = namespace_qualified_name(&var_block, name.as_str());
-                            ctx.register_compile_time_const(qualified.as_str(), value.clone());
+                            ctx.register_global_compile_time_const(
+                                qualified.as_str(),
+                                value.clone(),
+                            );
+                        } else {
+                            ctx.register_compile_time_const(name.as_str(), value.clone());
                         }
                     }
                 }
@@ -69,6 +88,7 @@ fn lower_program_var_blocks(
                             retain: qualifiers.retain,
                             static_storage: false,
                             external: false,
+                            in_out: false,
                             constant: qualifiers.constant,
                             address: address_info.clone(),
                         });
@@ -101,6 +121,7 @@ fn lower_program_var_blocks(
                             retain: qualifiers.retain,
                             static_storage: false,
                             external: false,
+                            in_out: kind == VarBlockKind::InOut,
                             constant: qualifiers.constant,
                             address: address_info.clone(),
                         });

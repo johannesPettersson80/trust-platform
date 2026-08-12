@@ -26,6 +26,7 @@ pub(super) fn topology_shared(runtime_id: &str, io_drivers: &[IoDriverConfig]) -
 }
 
 pub(super) fn topology_external(
+    runtime_id: &str,
     settings: &RuntimeSettings,
     io_drivers: &[IoDriverConfig],
     ads_client_config: Option<&AdsClientConfig>,
@@ -65,6 +66,9 @@ pub(super) fn topology_external(
         external.push(item);
     }
     for entry in discovery_entries {
+        if is_self_discovery_entry(runtime_id, entry) {
+            continue;
+        }
         let item = FleetExternal {
             id: discovered_external_id(entry),
             kind: "runtime".to_string(),
@@ -99,9 +103,13 @@ pub(super) fn topology_discovered(
     runtime_id: &str,
     entries: &[DiscoveryEntry],
 ) -> Vec<FleetDiscovered> {
+    let mut seen = BTreeSet::new();
     entries
         .iter()
-        .filter(|entry| !is_self_discovery_entry(runtime_id, entry))
+        .filter(|entry| {
+            !is_self_discovery_entry(runtime_id, entry)
+                && seen.insert(discovered_external_id(entry))
+        })
         .map(|entry| FleetDiscovered {
             id: discovered_external_id(entry),
             kind: "runtime".to_string(),
@@ -126,32 +134,47 @@ pub(super) fn discovered_hosts(
     entries: &[DiscoveryEntry],
     mesh_evidence: Option<&crate::mesh::MeshTopologyEvidence>,
 ) -> Vec<FleetHost> {
-    entries
+    let mut hosts = BTreeMap::<String, FleetHost>::new();
+    for entry in entries
         .iter()
         .filter(|entry| !is_self_discovery_entry(runtime_id, entry))
-        .map(|entry| {
-            let runtime = discovered_runtime(entry, mesh_evidence);
-            FleetHost {
-                host_id: discovered_host_id(entry),
-                hostname: entry
-                    .host_group
-                    .as_ref()
-                    .map(ToString::to_string)
-                    .unwrap_or_else(|| entry.name.to_string()),
-                board: None,
-                arch: "unknown".to_string(),
-                os: "unknown".to_string(),
-                ips: entry.addresses.iter().map(ToString::to_string).collect(),
-                temp_c: None,
-                uptime_s: None,
-                load: None,
-                containers: Vec::new(),
-                runtimes: vec![runtime],
-                source: Some("discovery".to_string()),
-                last_seen_ms: Some(discovery_last_seen_ms(entry)),
-            }
-        })
-        .collect()
+    {
+        let host_id = discovered_host_id(entry);
+        let runtime = discovered_runtime(entry, mesh_evidence);
+        let seen_ms = discovery_last_seen_ms(entry);
+        let host = hosts.entry(host_id.clone()).or_insert_with(|| FleetHost {
+            host_id,
+            hostname: entry
+                .host_group
+                .as_ref()
+                .map(ToString::to_string)
+                .unwrap_or_else(|| entry.name.to_string()),
+            board: None,
+            arch: "unknown".to_string(),
+            os: "unknown".to_string(),
+            ips: Vec::new(),
+            temp_c: None,
+            uptime_s: None,
+            load: None,
+            containers: Vec::new(),
+            runtimes: Vec::new(),
+            source: Some("discovery".to_string()),
+            last_seen_ms: Some(seen_ms),
+        });
+        host.ips
+            .extend(entry.addresses.iter().map(ToString::to_string));
+        host.ips.sort();
+        host.ips.dedup();
+        host.last_seen_ms = Some(host.last_seen_ms.unwrap_or(0).max(seen_ms));
+        if !host
+            .runtimes
+            .iter()
+            .any(|existing| existing.runtime_id == runtime.runtime_id)
+        {
+            host.runtimes.push(runtime);
+        }
+    }
+    hosts.into_values().collect()
 }
 
 pub(super) fn discovered_runtime(

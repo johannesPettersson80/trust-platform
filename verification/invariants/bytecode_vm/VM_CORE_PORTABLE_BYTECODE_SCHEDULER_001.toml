@@ -1,0 +1,144 @@
+schema_version = 1
+id = "VM_CORE_PORTABLE_BYTECODE_SCHEDULER_001"
+title = "Portable bytecode and VM helpers preserve deterministic execution contracts"
+area = "bytecode_vm"
+risk = "wrong_result"
+status = "mapped"
+owner = "trust-runtime"
+last_reviewed = "2026-07-30"
+claim = "Portable bytecode records and readers, VM stacks, constant-pool decoding, dispatch helpers, SIZEOF, and trap mapping remain deterministic and checked."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["docs/specs/10-runtime-semantics.md", "crates/trust-runtime-core/src/bytecode/format/header.rs", "crates/trust-runtime-core/src/bytecode/format/pou.rs", "crates/trust-runtime-core/src/bytecode/format/refs_consts.rs", "crates/trust-runtime-core/src/bytecode/format/types.rs", "crates/trust-runtime-core/src/bytecode/mod.rs", "crates/trust-runtime-core/src/error.rs", "crates/trust-runtime-core/src/vm/const_pool.rs", "crates/trust-runtime-core/src/vm/dispatch_ops.rs", "crates/trust-runtime-core/src/vm/dispatch_sizeof.rs", "crates/trust-runtime-core/src/vm/errors.rs", "crates/trust-runtime-core/src/vm/frames.rs", "crates/trust-runtime-core/src/vm/helpers.rs", "crates/trust-runtime-core/src/vm/stack.rs"]
+tests = ["TEST_AUTO_0182F7ACD68B4D33DF7A", "TEST_AUTO_1869429B84BBC37F3DA2", "TEST_AUTO_1AC3BE6D73E6E539D693", "TEST_AUTO_1C96EBCA5E35D76524D9", "TEST_AUTO_7636C85FE76F5DB55BB4", "TEST_AUTO_7860D27AECD7349B4C5A", "TEST_AUTO_89053FD5D616E169829F", "TEST_AUTO_9B528C376417D3CDD0D2", "TEST_AUTO_9C72DD2482F10E7D5AEB", "TEST_AUTO_B00E9C0F09D249210AD0", "TEST_AUTO_C01864A789B8447D5D0E", "TEST_AUTO_EFE9A8C1424C348DDF8F"]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_VM_PORTABLE_CORE_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_VM_PORTABLE_CORE_001#4-6-portable-bytecode-scheduler-and-vm-helper-contracts"
+
+[[behavior]]
+partition = { equals = "BYTECODE_ALIGNMENT_AND_RAW_RECORDS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_VM_PORTABLE_CORE_001#4-6-portable-bytecode-scheduler-and-vm-helper-contracts"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Alignment uses zero padding and validated records preserve their raw discriminants."
+
+[[behavior]]
+partition = { equals = "BYTECODE_READER_EOF_AND_RESOURCE_LOOKUP" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_VM_PORTABLE_CORE_001#4-6-portable-bytecode-scheduler-and-vm-helper-contracts"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Readers decode little-endian fields, return absence at EOF without over-read, and resolve named resources case-insensitively."
+
+[[behavior]]
+partition = { equals = "VM_FRAME_AND_OPERAND_STACKS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_VM_PORTABLE_CORE_001#4-6-portable-bytecode-scheduler-and-vm-helper-contracts"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Valid frame and operand stack operations preserve LIFO, pair/swap ordering, and call-depth state."
+
+[[behavior]]
+partition = { equals = "VM_STACK_OR_FRAME_BOUNDS_REJECTION" }
+case_family = "boundary_low"
+oracle_ref = "SPEC_VM_PORTABLE_CORE_001#4-6-portable-bytecode-scheduler-and-vm-helper-contracts"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Operand underflow, invalid local references, and call-depth overflow are rejected before stack or frame mutation."
+
+[[behavior]]
+partition = { equals = "VM_CONST_POOL_VALUE_DECODE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_VM_PORTABLE_CORE_001#4-6-portable-bytecode-scheduler-and-vm-helper-contracts"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Constant-pool decoding preserves primitive, enumeration, and alias runtime identity."
+
+[[behavior]]
+partition = { equals = "VM_CONST_POOL_INVALID_PAYLOAD_REJECTION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_VM_PORTABLE_CORE_001#4-6-portable-bytecode-scheduler-and-vm-helper-contracts"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Invalid constant payload widths, tags, and type shapes are rejected before installation."
+
+[[behavior]]
+partition = { equals = "VM_DISPATCH_OPCODE_AND_BORROW_HELPERS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_VM_PORTABLE_CORE_001#4-6-portable-bytecode-scheduler-and-vm-helper-contracts"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Valid dispatch helpers preserve opcode shape, operand decoding, stack/jump effects, and borrow materialization."
+
+[[behavior]]
+partition = { equals = "VM_DISPATCH_INVALID_OPERAND_REJECTION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_VM_PORTABLE_CORE_001#4-6-portable-bytecode-scheduler-and-vm-helper-contracts"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "An invalid opcode shape or operand decode is rejected before dispatch mutates VM state."
+
+[[behavior]]
+partition = { equals = "VM_SIZEOF_TYPE_TABLE_RESOLUTION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_VM_PORTABLE_CORE_001#4-6-portable-bytecode-scheduler-and-vm-helper-contracts"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "SIZEOF resolves a valid type through the validated type table."
+
+[[behavior]]
+partition = { equals = "VM_SIZEOF_INVALID_TYPE_TABLE_REJECTION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_VM_PORTABLE_CORE_001#4-6-portable-bytecode-scheduler-and-vm-helper-contracts"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "SIZEOF rejects an absent or invalid type-table entry."
+
+[[behavior]]
+partition = { equals = "VM_TRAP_TO_RUNTIME_ERROR_MAPPING" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_VM_PORTABLE_CORE_001#4-6-portable-bytecode-scheduler-and-vm-helper-contracts"
+outcome = "trap"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "fault_visible" }
+rationale = "Each VM trap maps to its corresponding stable runtime error without partial state mutation."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "covered"
+rationale = "Focused tests observed exact bytecode decode, stack, constant-pool, dispatch, and SIZEOF success assertions."
+
+[[coverage.cells]]
+dimension = "boundary_low"
+state = "covered"
+rationale = "Focused tests observed exact stack and frame lower-bound rejection assertions."
+
+[[coverage.cells]]
+dimension = "boundary_high"
+state = "covered"
+rationale = "Focused tests observed exact reader EOF and resource lookup assertions."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "covered"
+rationale = "Focused tests observed exact invalid payload, dispatch, SIZEOF, and trap assertions."

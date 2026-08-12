@@ -55,7 +55,8 @@ impl MqttInputPoint {
     fn from_toml(value: MqttPointToml) -> Result<Self, RuntimeError> {
         let data_type = parse_data_type(value.data_type.as_deref(), "input_points")?;
         validate_point_shape("input_points", data_type, value.image_bit)?;
-        let (scale, offset) = parse_scale_offset("input_points", data_type, value.scale, value.offset)?;
+        let (scale, offset) =
+            parse_scale_offset("input_points", data_type, value.scale, value.offset)?;
         Ok(Self {
             topic: parse_point_topic("input_points", &value.topic)?,
             image_offset: value.image_offset,
@@ -75,7 +76,8 @@ impl MqttOutputPoint {
         let (scale, offset) =
             parse_scale_offset("output_points", data_type, value.scale, value.offset)?;
         let topic = parse_point_topic("output_points", &value.topic)?;
-        let metric_name = parse_metric_name(value.metric_name.as_deref().unwrap_or(topic.as_str()))?;
+        let metric_name =
+            parse_metric_name(value.metric_name.as_deref().unwrap_or(topic.as_str()))?;
         Ok(Self {
             topic,
             metric_name,
@@ -91,9 +93,12 @@ impl MqttOutputPoint {
 
 fn parse_point_topic(context: &str, topic: &str) -> Result<SmolStr, RuntimeError> {
     let topic = topic.trim();
-    if topic.is_empty() {
+    if topic.is_empty() || topic.contains(['+', '#']) || topic.chars().any(char::is_control) {
         return Err(RuntimeError::InvalidConfig(
-            format!("mqtt {context}.topic must not be empty").into(),
+            format!(
+                "mqtt {context}.topic must be an exact non-empty topic without wildcards or control characters"
+            )
+            .into(),
         ));
     }
     Ok(SmolStr::new(topic))
@@ -245,14 +250,105 @@ fn parse_bool_payload(payload: &[u8], format: MqttPayloadFormat) -> Result<bool,
             )),
         },
         MqttPayloadFormat::BinaryLe | MqttPayloadFormat::BinaryBe => {
-            let Some(value) = payload.first() else {
+            let [value] = payload else {
                 return Err(RuntimeError::IoDriver(
-                    "mqtt bool binary payload must contain at least one byte".into(),
+                    "mqtt bool binary payload must contain exactly one byte".into(),
                 ));
             };
             Ok(*value != 0)
         }
     }
+}
+
+fn validate_mqtt_point_maps(
+    input_points: &[MqttInputPoint],
+    output_points: &[MqttOutputPoint],
+) -> Result<(), RuntimeError> {
+    validate_input_point_map(input_points)?;
+    validate_output_point_map(output_points)
+}
+
+fn validate_input_point_map(points: &[MqttInputPoint]) -> Result<(), RuntimeError> {
+    for (index, point) in points.iter().enumerate() {
+        let image_range = mqtt_image_range(point.image_offset, point.image_bit, point.data_type)?;
+        for previous in &points[..index] {
+            if point.topic == previous.topic {
+                return Err(RuntimeError::InvalidConfig(
+                    "mqtt input_points contain duplicate topics".into(),
+                ));
+            }
+            if ranges_overlap(
+                image_range.clone(),
+                mqtt_image_range(
+                    previous.image_offset,
+                    previous.image_bit,
+                    previous.data_type,
+                )?,
+            ) {
+                return Err(RuntimeError::InvalidConfig(
+                    "mqtt input_points contain overlapping process-image ranges".into(),
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn validate_output_point_map(points: &[MqttOutputPoint]) -> Result<(), RuntimeError> {
+    for (index, point) in points.iter().enumerate() {
+        let image_range = mqtt_image_range(point.image_offset, point.image_bit, point.data_type)?;
+        for previous in &points[..index] {
+            if point.topic == previous.topic {
+                return Err(RuntimeError::InvalidConfig(
+                    "mqtt output_points contain duplicate topics".into(),
+                ));
+            }
+            if ranges_overlap(
+                image_range.clone(),
+                mqtt_image_range(
+                    previous.image_offset,
+                    previous.image_bit,
+                    previous.data_type,
+                )?,
+            ) {
+                return Err(RuntimeError::InvalidConfig(
+                    "mqtt output_points contain overlapping process-image ranges".into(),
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn mqtt_image_range(
+    image_offset: usize,
+    image_bit: Option<u8>,
+    data_type: MqttPointType,
+) -> Result<std::ops::Range<usize>, RuntimeError> {
+    let start = image_offset
+        .checked_mul(8)
+        .ok_or_else(|| RuntimeError::InvalidConfig("mqtt point image range overflow".into()))?;
+    if data_type == MqttPointType::Bool {
+        let start = start
+            .checked_add(usize::from(
+                image_bit.expect("bool point shape validates image_bit"),
+            ))
+            .ok_or_else(|| RuntimeError::InvalidConfig("mqtt point image range overflow".into()))?;
+        return Ok(start..start + 1);
+    }
+    let len = match data_type {
+        MqttPointType::U16 | MqttPointType::I16 => 16,
+        MqttPointType::U32 | MqttPointType::I32 | MqttPointType::F32 => 32,
+        MqttPointType::Bool => unreachable!(),
+    };
+    let end = start
+        .checked_add(len)
+        .ok_or_else(|| RuntimeError::InvalidConfig("mqtt point image range overflow".into()))?;
+    Ok(start..end)
+}
+
+fn ranges_overlap(left: std::ops::Range<usize>, right: std::ops::Range<usize>) -> bool {
+    left.start < right.end && right.start < left.end
 }
 
 fn parse_bool_text(payload: &[u8]) -> Result<bool, RuntimeError> {
@@ -310,8 +406,9 @@ fn parse_json_payload(payload: &[u8]) -> Result<serde_json::Value, RuntimeError>
 }
 
 fn parse_utf8_payload(payload: &[u8]) -> Result<&str, RuntimeError> {
-    std::str::from_utf8(payload)
-        .map_err(|err| RuntimeError::IoDriver(format!("mqtt text payload is not UTF-8: {err}").into()))
+    std::str::from_utf8(payload).map_err(|err| {
+        RuntimeError::IoDriver(format!("mqtt text payload is not UTF-8: {err}").into())
+    })
 }
 
 fn parse_binary_numeric(
@@ -383,7 +480,11 @@ fn exact_binary_payload<const N: usize>(
 
 fn encode_bool_payload(value: bool, format: MqttPayloadFormat) -> Result<Vec<u8>, RuntimeError> {
     match format {
-        MqttPayloadFormat::Text => Ok(if value { b"true".to_vec() } else { b"false".to_vec() }),
+        MqttPayloadFormat::Text => Ok(if value {
+            b"true".to_vec()
+        } else {
+            b"false".to_vec()
+        }),
         MqttPayloadFormat::Json => serde_json::to_vec(&value).map_err(|err| {
             RuntimeError::IoDriver(format!("mqtt bool JSON encode failed: {err}").into())
         }),
@@ -504,7 +605,9 @@ fn write_image_bool(
 ) -> Result<(), RuntimeError> {
     let bit = bit.expect("bool point shape validates image_bit");
     let byte = image.get_mut(offset).ok_or_else(|| {
-        RuntimeError::IoDriver(format!("mqtt point image_offset {offset} is outside input image").into())
+        RuntimeError::IoDriver(
+            format!("mqtt point image_offset {offset} is outside input image").into(),
+        )
     })?;
     let mask = 1u8 << bit;
     if value {
@@ -518,7 +621,9 @@ fn write_image_bool(
 fn read_image_bool(image: &[u8], offset: usize, bit: Option<u8>) -> Result<bool, RuntimeError> {
     let bit = bit.expect("bool point shape validates image_bit");
     let byte = image.get(offset).ok_or_else(|| {
-        RuntimeError::IoDriver(format!("mqtt point image_offset {offset} is outside output image").into())
+        RuntimeError::IoDriver(
+            format!("mqtt point image_offset {offset} is outside output image").into(),
+        )
     })?;
     Ok((*byte & (1u8 << bit)) != 0)
 }
@@ -644,13 +749,17 @@ fn finite_f32_value(value: f32, label: &str) -> Result<f64, RuntimeError> {
     if value.is_finite() {
         Ok(f64::from(value))
     } else {
-        Err(RuntimeError::IoDriver(format!("{label} must be finite").into()))
+        Err(RuntimeError::IoDriver(
+            format!("{label} must be finite").into(),
+        ))
     }
 }
 
 #[cfg(test)]
 mod point_map_nonfinite_tests {
     use super::*;
+
+    include!("tests/point_map_contract.rs");
 
     #[test]
     fn mapped_f32_text_payload_rejects_non_finite() {

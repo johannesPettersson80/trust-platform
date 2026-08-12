@@ -5,7 +5,7 @@ area = "editor_safety"
 risk = "false_status"
 status = "mapped"
 owner = "trust-debug"
-last_reviewed = "2026-07-27"
+last_reviewed = "2026-08-01"
 claim = "DAP framing, initialization, run control, thread, frame, scope, and variable projection, safe evaluation, presentation, source discovery, breakpoint input, and reload revalidation preserve the documented session contract."
 proof_level = "S0"
 contract_kind = "state_machine"
@@ -131,6 +131,33 @@ outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "expected_delta" }
 rationale = "A known thread projects its current stack frame, IEC local/global/instance scopes, structured and array children, references, and declared public instance type names without exposing internal instance IDs."
+
+[[behavior]]
+partition = { equals = "DEBUG_WIRE_OPTIONAL_FIELD_SHAPE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#dap-json-wire-schema"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Source, scope, and variable payloads use camelCase wire names and omit absent optional fields and coordinates."
+
+[[behavior]]
+partition = { equals = "VARIABLE_HANDLE_LIFECYCLE_AND_EXPANDABILITY" }
+case_family = "boundary_high"
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#runtime-debug-state-mutation-and-projection-invariants"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Handles are positive, preserve complete kinds, never alias live entries, fail before exhaustion can wrap, and clear invalidates all old IDs; only structured, instance, and non-null-reference values expand."
+
+[[behavior]]
+partition = { equals = "ORDERED_STRUCT_INSTANCE_AND_IO_PROJECTION" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_DEBUG_ADAPTER_001#runtime-debug-state-mutation-and-projection-invariants"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Entry, field, element, instance, and I/O projections preserve defined order, evaluate names, normalized public identity, canonical direct addresses, value/error/unresolved states, and captured-I/O scope availability."
 
 [[coverage.cells]]
 dimension = "happy_path"

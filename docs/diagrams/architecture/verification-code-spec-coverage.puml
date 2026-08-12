@@ -39,11 +39,14 @@ package "Live test denominator" {
 
 package "Execution-guided mapping accelerator" {
   [closed exact nextest target profiles] as TargetProfiles
+  [exact Cargo target + feature shard owner] as RustShards
   [Rust nextest + LLVM profiles] as RustTrace
   [direct ST / conformance adapter] as DirectTrace
   [VS Code c8 adapter] as VsCodeTrace
   [structural explicit route] as StructuralTrace
   database "source-bound per-test trace" as Trace
+  database "authenticated trace receipt\nraw evidence + source closure" as TraceReceipt
+  [reviewed exact test-invariant routes] as ReviewedRoutes
   [deterministic candidate + demand join] as CandidateJoin
   database "quarantined proposals\nC1 / C2 / C3" as Proposals
   database "review decisions" as Decisions
@@ -96,7 +99,8 @@ TestScanners --> TestFacts
 TestDenominator --> FocusedResolver : reviewed DISC identity
 TestFacts --> FocusedResolver : final campaign refresh only
 FocusedResolver --> TargetProfiles : exact selected DISC identities
-TargetProfiles --> RustTrace : package + binary + module prefix
+TargetProfiles --> RustShards : package + target + module prefix
+RustShards --> RustTrace : isolated default / no-default commands
 TestFacts --> DirectTrace
 TestFacts --> VsCodeTrace
 TestFacts --> StructuralTrace
@@ -104,7 +108,13 @@ RustTrace --> Trace
 DirectTrace --> Trace
 VsCodeTrace --> Trace
 StructuralTrace --> Trace
+Trace --> TraceReceipt : validated one-pass reconstruction
+TraceReceipt --> CandidateJoin : revalidate bytes without LLVM replay
 Trace --> CandidateJoin : observed CODE identities only
+Trace --> ReviewedRoutes : exact source commit + trace digest
+FocusedResolver --> ReviewedRoutes : exact reviewed DISC identity
+VerificationGraph --> ReviewedRoutes : specified invariant + oracle rows
+ReviewedRoutes --> CandidateJoin : authenticated C2 test route
 Facts --> CandidateJoin
 Map --> CandidateJoin : specified invariant joins
 Specs --> CandidateJoin : spec-gap demand
@@ -150,6 +160,20 @@ note bottom of Proposals
   proof, claims, or zero-equation counts.
 end note
 
+note bottom of ReviewedRoutes
+  A route may coexist with its original C4 code/spec demand.
+  It binds exact behavior rows and route provenance for quarantine only.
+  It has no write edge into the code map or specification gaps and cannot
+  promote catalog, coverage, proof, claims, or zero-equation state.
+end note
+
+note bottom of TraceReceipt
+  Trace production consumes each isolated LLVM export once. The receipt binds
+  the canonical trace, requested identities, profiles, executables, LLVM tools,
+  and covered source bytes. Reuse revalidates those bytes and cannot bypass
+  source-commit, identity-set, schema, or raw-evidence checks.
+end note
+
 note bottom of SemanticReview
   Coverage, names, paths, and mutation kills are not semantic proof.
   Each assertion is bound to exact oracle behavior rows;
@@ -158,6 +182,8 @@ end note
 
 note bottom of TargetProfiles
   Profiles close package, target, binary, and module-prefix identity.
+  The dedicated shard owner copies those properties per test before grouping,
+  and separates default-feature from no-default-feature commands.
   The browser-analysis profile executes native Rust facade tests only;
   it does not claim wasm32, JavaScript, or rendered-browser proof.
   The ADS-core profile is closed to mapping.rs, quality.rs, and symbols.rs;

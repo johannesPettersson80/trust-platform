@@ -69,3 +69,7 @@ fn is_io_address(address: &str) -> bool {
     }
     false
 }
+
+#[cfg(test)]
+#[path = "nondeterminism/contract_tests.rs"]
+mod contract_tests;

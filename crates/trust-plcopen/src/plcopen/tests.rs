@@ -4,3 +4,8 @@ include!("tests/roundtrip_import.rs");
 include!("tests/shims.rs");
 include!("tests/shims_metrics.rs");
 include!("tests/export_profile.rs");
+include!("tests/semantic_import_contract.rs");
+include!("tests/project_model_contract.rs");
+include!("tests/global_var_contract.rs");
+include!("tests/semantic_export_contract.rs");
+include!("tests/transaction_contract.rs");

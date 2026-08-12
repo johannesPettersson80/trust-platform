@@ -120,6 +120,16 @@ mod tests {
     }
 
     #[test]
+    fn task_state_new_preserves_time_and_clears_event_and_overrun_history() {
+        let current_time = Duration::from_nanos(-17);
+        let state = TaskState::new(current_time);
+
+        assert!(!state.last_single);
+        assert_eq!(state.last_run, current_time);
+        assert_eq!(state.overrun_count, 0);
+    }
+
+    #[test]
     fn task_readiness_tracks_periodic_due_time_and_overrun() {
         let mut one_period = TaskState::new(Duration::ZERO);
         let exact = evaluate_task_readiness(

@@ -5,7 +5,7 @@ area = "bytecode_vm"
 risk = "wrong_result"
 status = "mapped"
 owner = "trust-runtime"
-last_reviewed = "2026-07-28"
+last_reviewed = "2026-07-30"
 claim = "Runtime metadata loading preserves resources, tasks, program and function-block associations, process-image sizes, storage references, and version rejection before execution."
 proof_level = "S0"
 contract_kind = "protocol_trace"
@@ -22,12 +22,12 @@ source_refs = ["SPEC_BYTECODE_FORMAT_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_BYTECODE_FORMAT_001#metadata-integration-requirements"
+ref = "SPEC_BYTECODE_FORMAT_001#9-metadata-integration-requirements"
 
 [[behavior]]
 partition = { equals = "RESOURCE_TASK_AND_PROCESS_IMAGE_MATERIALIZATION" }
 case_family = "ordering_or_lifecycle"
-oracle_ref = "SPEC_BYTECODE_FORMAT_001#metadata-integration-requirements"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#9-metadata-integration-requirements"
 outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "expected_delta", diagnostics = "none", status = "expected_delta" }
@@ -36,7 +36,7 @@ rationale = "Decoded resources create their declared process-image sizes, tasks,
 [[behavior]]
 partition = { equals = "POU_AND_FUNCTION_BLOCK_STORAGE_ASSOCIATION" }
 case_family = "happy_path"
-oracle_ref = "SPEC_BYTECODE_FORMAT_001#metadata-integration-requirements"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#9-metadata-integration-requirements"
 outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
@@ -45,7 +45,7 @@ rationale = "Program and function-block instances bind to the decoded POU and re
 [[behavior]]
 partition = { equals = "APPLY_ENCODED_BYTES_AND_EXECUTE" }
 case_family = "happy_path"
-oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#7-4-validator-before-apply"
 outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "expected_delta", retain = "unchanged", process_image = "expected_delta", diagnostics = "none", status = "unchanged" }
@@ -54,7 +54,7 @@ rationale = "Applying a complete validated byte container materializes the candi
 [[behavior]]
 partition = { equals = "CURRENT_SOURCE_TO_STBC_TO_CLEAN_VM_LOAD" }
 case_family = "happy_path"
-oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#7-4-validator-before-apply"
 outcome = "accept_value"
 no_partial_apply = true
 delta = { target = "set_to_expected", siblings = "expected_delta", retain = "expected_delta", process_image = "expected_delta", diagnostics = "none", status = "expected_delta" }
@@ -63,7 +63,7 @@ rationale = "A supported current source fixture encoded by the current encoder v
 [[behavior]]
 partition = { equals = "UNSUPPORTED_BYTECODE_VERSION_REJECTION" }
 case_family = "extra_or_unknown"
-oracle_ref = "SPEC_BYTECODE_FORMAT_001#versioning"
+oracle_ref = "SPEC_BYTECODE_FORMAT_001#8-versioning"
 outcome = "reject"
 no_partial_apply = true
 delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }

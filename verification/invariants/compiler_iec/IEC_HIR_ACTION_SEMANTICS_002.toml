@@ -1,0 +1,134 @@
+schema_version = 1
+id = "IEC_HIR_ACTION_SEMANTICS_002"
+title = "Textual ACTION bodies retain owner semantics and isolated control flow"
+area = "compiler_iec"
+risk = "wrong_result"
+status = "specified"
+owner = "trust-hir"
+last_reviewed = "2026-08-01"
+claim = "Every textual ACTION is analyzed in its direct PROGRAM or FUNCTION_BLOCK context while preserving independent identity, labels, jumps, return rules, and the non-callable compilation boundary."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["docs/specs/04-pou-declarations.md", "docs/specs/09-semantic-rules.md", "crates/trust-hir/tests/semantic_actions.rs"]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["catalog_mapping", "focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+[spec]
+status = "specified"
+source_refs = ["SPEC_IEC_POU_DECLARATIONS_001", "SPEC_IEC_SEMANTIC_RULES_001"]
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_IEC_SEMANTIC_RULES_001#12-textual-action-analysis"
+
+[[behavior]]
+partition = { equals = "DIRECT_OWNER_VARIABLE_AND_GLOBAL_SCOPE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001#12-textual-action-analysis"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Program and function-block actions share owner variables, globals, USING directives, and function/function-block visibility."
+[[behavior]]
+partition = { equals = "FUNCTION_BLOCK_RECEIVER_AND_INHERITANCE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_POU_DECLARATIONS_001#8-action-declaration-table-56-table-72-section-674"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Function-block actions share the receiver and inherited scope, including valid THIS and SUPER access."
+[[behavior]]
+partition = { equals = "INDEPENDENT_OWNER_IDENTITY" }
+case_family = "duplicate_or_collision"
+oracle_ref = "SPEC_IEC_POU_DECLARATIONS_001#8-action-declaration-table-56-table-72-section-674"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Names compare case-insensitively within one owner, remain independent across owners, and do not reserve the ordinary Boolean variable namespace."
+[[behavior]]
+partition = { equals = "DUPLICATE_ACTION_OR_LABEL" }
+case_family = "duplicate_or_collision"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001#12-textual-action-analysis"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Duplicate action names within one owner and duplicate labels within one action are rejected case-insensitively."
+[[behavior]]
+partition = { equals = "ACTION_LOCAL_JUMP" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001#12-textual-action-analysis"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Forward and backward jumps resolve only inside the action's independent label table."
+[[behavior]]
+partition = { equals = "CROSS_BOUNDARY_JUMP" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001#12-textual-action-analysis"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A jump cannot enter or leave an action or bind to another action's labels."
+[[behavior]]
+partition = { equals = "ACTION_STATEMENT_SEMANTIC_ERROR" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001#12-textual-action-analysis"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Unresolved names, incompatible assignments, invalid calls, non-Boolean conditions, and loop-control misuse retain their ordinary primary diagnostics."
+[[behavior]]
+partition = { equals = "ACTION_RETURN_CONTROL_CONTEXT" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_POU_DECLARATIONS_001#8-action-declaration-table-56-table-72-section-674"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A bare return is valid under a PROGRAM or FUNCTION_BLOCK owner; a return value is rejected because neither owner returns one."
+[[behavior]]
+partition = { equals = "ACTION_NAME_NOT_CALLABLE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001#12-textual-action-analysis"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Action declarations are not functions, methods, or function-block instances and cannot satisfy a call expression."
+[[behavior]]
+partition = { equals = "OWNER_SCOPE_ISOLATION" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_IEC_SEMANTIC_RULES_001#12-textual-action-analysis"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "An action does not acquire another owner's local scope or a base receiver when its direct owner has none."
+
+[[behavior]]
+partition = { equals = "VALID_ACTION_STATEMENT_CONTROL_AND_CALL_SEMANTICS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_POU_DECLARATIONS_001#action-declaration-table-56-table-72-section-674"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "An action body applies ordinary nested selection, iteration, assignment, and resolved function or function-block call semantics inside its direct owner context."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Focused owner-scope tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "duplicate_or_collision"
+state = "gap_open"
+rationale = "Focused name and label collision tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "Focused local jump tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "auth_or_permission"
+state = "gap_open"
+rationale = "Focused owner and jump-boundary tests exist, but catalog binding and dynamic proof are pending."
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Focused invalid statement, return, and call tests exist, but catalog binding and dynamic proof are pending."

@@ -439,6 +439,11 @@ impl Runtime {
         let Some(binding) = self.access.get(name) else {
             return Err(error::RuntimeError::UndefinedVariable(name.into()));
         };
+        if !binding.writable {
+            return Err(error::RuntimeError::InvalidConfig(
+                format!("VAR_ACCESS '{name}' is read-only").into(),
+            ));
+        }
         if let Some(partial) = binding.partial {
             let current = self
                 .storage

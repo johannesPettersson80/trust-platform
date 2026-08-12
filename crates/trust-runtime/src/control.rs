@@ -137,6 +137,16 @@ impl ControlEndpoint {
         }
         #[cfg(unix)]
         if let Some(rest) = text.strip_prefix("unix://") {
+            if rest.is_empty() {
+                return Err(RuntimeError::ControlError(
+                    "unix endpoint path must not be empty".into(),
+                ));
+            }
+            if text.trim() != text {
+                return Err(RuntimeError::ControlError(
+                    "unix endpoint must not contain surrounding whitespace".into(),
+                ));
+            }
             return Ok(Self::Unix(PathBuf::from(rest)));
         }
         Err(RuntimeError::ControlError(

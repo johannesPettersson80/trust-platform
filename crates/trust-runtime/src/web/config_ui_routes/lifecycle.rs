@@ -271,3 +271,7 @@ pub(super) fn config_ui_runtime_lifecycle_apply(
         "requested_mode": payload.mode.as_deref().unwrap_or(""),
     }))
 }
+
+#[cfg(test)]
+#[path = "lifecycle/contract_tests.rs"]
+mod contract_tests;

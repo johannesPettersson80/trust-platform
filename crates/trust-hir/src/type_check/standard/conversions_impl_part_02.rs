@@ -22,13 +22,13 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
 
     pub(in crate::type_check) fn is_numeric_type(&self, type_id: TypeId) -> bool {
         self.checker
-            .resolved_type(type_id)
+            .resolved_type(self.base_type_id(type_id))
             .is_some_and(|ty| ty.is_numeric())
     }
 
     pub(in crate::type_check) fn is_integer_type(&self, type_id: TypeId) -> bool {
         self.checker
-            .resolved_type(type_id)
+            .resolved_type(self.base_type_id(type_id))
             .is_some_and(|ty| ty.is_integer())
     }
 

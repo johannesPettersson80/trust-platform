@@ -69,17 +69,35 @@ def apply_mapping_transaction(
             _recover_unlocked(root_fd)
             with _open_targets(
                 root_fd,
-                set(normalized) | set(preconditions),
+                set(normalized),
                 create_parents=set(normalized),
             ) as targets:
-                _validate_target_aliases(targets)
+                target_identities = _validate_target_aliases(targets)
                 for relative, expected in sorted(preconditions.items()):
-                    target = targets.get(relative)
-                    actual = (
-                        _read_target(target)
-                        if target is not None
-                        else None
-                    )
+                    held_target = targets.get(relative)
+                    opened_target = None
+                    if relative not in targets:
+                        opened_target = _open_target(
+                            root_fd,
+                            relative,
+                            create_parent=False,
+                        )
+                    target = held_target or opened_target
+                    try:
+                        if opened_target is not None:
+                            _register_target_identity(
+                                target_identities,
+                                relative,
+                                opened_target,
+                            )
+                        actual = (
+                            _read_target(target)
+                            if target is not None
+                            else None
+                        )
+                    finally:
+                        if opened_target is not None:
+                            opened_target.close()
                     if actual != expected:
                         raise ValueError(
                             "mapping transaction precondition failed: "
@@ -260,6 +278,8 @@ def _open_root(root: Path) -> int:
     try:
         return os.open(root, _DIRECTORY_FLAGS)
     except OSError as error:
+        if error.errno not in {errno.ELOOP, errno.ENOTDIR}:
+            raise
         raise ValueError(
             "mapping transaction root must be a non-symlink directory"
         ) from error
@@ -309,11 +329,15 @@ def _open_target(
                         part, _DIRECTORY_FLAGS, dir_fd=parent_fd
                     )
                 except OSError as error:
+                    if error.errno not in {errno.ELOOP, errno.ENOTDIR}:
+                        raise
                     raise ValueError(
                         "mapping transaction target contains symlink or "
                         f"non-directory: {relative}"
                     ) from error
             except OSError as error:
+                if error.errno not in {errno.ELOOP, errno.ENOTDIR}:
+                    raise
                 raise ValueError(
                     "mapping transaction target contains symlink or "
                     f"non-directory: {relative}"
@@ -343,6 +367,8 @@ def _read_at(
     except FileNotFoundError:
         return None
     except OSError as error:
+        if error.errno not in {errno.ELOOP, errno.ENOTDIR}:
+            raise
         raise ValueError(
             f"mapping transaction target is not a regular file: "
             f"{relative or name}"
@@ -456,6 +482,8 @@ def _exclusive_lock(root_fd: int) -> Iterator[None]:
             dir_fd=root_fd,
         )
     except OSError as error:
+        if error.errno not in {errno.EISDIR, errno.ELOOP, errno.ENOTDIR}:
+            raise
         raise ValueError(
             "mapping transaction lock must be a regular non-symlink file"
         ) from error
@@ -513,20 +541,29 @@ def _normalize_entries(
 
 def _validate_target_aliases(
     targets: Mapping[str, _Target | None],
-) -> None:
+) -> dict[tuple[int, int, str], str]:
     seen: dict[tuple[int, int, str], str] = {}
     for relative, target in targets.items():
         if target is None:
             continue
-        parent = os.fstat(target.parent_fd)
-        identity = (parent.st_dev, parent.st_ino, target.name)
-        previous = seen.get(identity)
-        if previous is not None and previous != relative:
-            raise ValueError(
-                f"mapping transaction resolved target alias: "
-                f"{previous}, {relative}"
-            )
-        seen[identity] = relative
+        _register_target_identity(seen, relative, target)
+    return seen
+
+
+def _register_target_identity(
+    seen: dict[tuple[int, int, str], str],
+    relative: str,
+    target: _Target,
+) -> None:
+    parent = os.fstat(target.parent_fd)
+    identity = (parent.st_dev, parent.st_ino, target.name)
+    previous = seen.get(identity)
+    if previous is not None and previous != relative:
+        raise ValueError(
+            f"mapping transaction resolved target alias: "
+            f"{previous}, {relative}"
+        )
+    seen[identity] = relative
 
 
 def _validate_lexical_target_identities(

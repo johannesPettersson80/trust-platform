@@ -278,7 +278,14 @@ def normalize_nextest_jsonl(
         event_name = event.get("event")
         if not isinstance(raw_name, str) or not raw_name:
             raise ValueError(f"test event on line {line_number} lacks a name")
-        name = normalize_event_test_name(profile, raw_name)
+        try:
+            name = normalize_event_test_name(profile, raw_name)
+        except ValueError:
+            # Libtest JSON exposes source-level ignored tests from the whole
+            # binary, including modules outside this exact path selection.
+            if event_name in {"started", "ignored"}:
+                continue
+            raise
         if name not in expected_full_names:
             # Nextest's libtest JSON stream reports source-level ignored tests
             # even when an exact expression selects other tests only. They did

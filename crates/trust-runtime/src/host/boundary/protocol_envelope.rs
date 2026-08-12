@@ -39,3 +39,7 @@ impl BoundaryEntry {
         matches!(self.status, BoundaryEntryStatus::Ok)
     }
 }
+
+#[cfg(test)]
+#[path = "protocol_envelope_contract_tests.rs"]
+mod contract_tests;

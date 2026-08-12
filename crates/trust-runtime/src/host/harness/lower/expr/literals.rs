@@ -102,9 +102,8 @@ fn lower_literal_with_context(
             resolve_type_name(&prefix, ctx)?
         };
         if let Some(ident) = ident_literal {
-            if let Some(Value::Enum(enum_value)) = enum_literal_value(&ident, type_id, ctx.registry)
-            {
-                return Ok(Expr::Literal(Value::Enum(enum_value)));
+            if let Some(value) = enum_literal_value(&ident, type_id, ctx.registry) {
+                return Ok(Expr::Literal(value));
             }
         }
         if value == Value::Null {
@@ -178,8 +177,20 @@ fn parse_string_literal(text: &str, is_wide: bool) -> Result<String, CompileErro
                 i += 2;
             }
             b'\'' => {
-                result.push('\'');
-                i += 2;
+                let mut quote_end = i + 2;
+                while quote_end < end && bytes[quote_end] == quote {
+                    quote_end += 1;
+                }
+                if quote_end == end && quote_end - (i + 1) >= 2 {
+                    // Accept the IEC escape followed by a closing quote, as
+                    // well as the common trailing spelling with one extra
+                    // quote (`$'''`). Both denote one apostrophe.
+                    result.push('\'');
+                    i = end;
+                } else {
+                    result.push('\'');
+                    i += 2;
+                }
             }
             b'"' => {
                 result.push('"');
@@ -408,6 +419,13 @@ fn parse_time_of_day_nanos(text: &str) -> Result<i64, CompileError> {
         .next()
         .ok_or_else(|| CompileError::new("invalid TOD literal"))?;
     let (seconds, nanos) = parse_seconds_fraction(seconds_part)?;
+    if !(0..=23).contains(&hours)
+        || !(0..=59).contains(&minutes)
+        || !(0..=59).contains(&seconds)
+        || !(0..1_000_000_000).contains(&nanos)
+    {
+        return Err(CompileError::new("invalid TOD literal"));
+    }
     let total = hours
         .checked_mul(3_600)
         .and_then(|v| v.checked_add(minutes.checked_mul(60)?))
@@ -484,6 +502,16 @@ pub(in crate::harness) fn enum_literal_value(
     type_id: TypeId,
     registry: &TypeRegistry,
 ) -> Option<Value> {
+    if registry.is_named_value_type(type_id) {
+        let Type::Enum { base, values, .. } = registry.get(type_id)? else {
+            return None;
+        };
+        let numeric = values
+            .iter()
+            .find(|(variant, _)| variant.eq_ignore_ascii_case(name))
+            .map(|(_, value)| *value)?;
+        return crate::harness::coerce_value_to_type(Value::LInt(numeric), *base).ok();
+    }
     EnumValue::new(registry, type_id, name)
         .ok()
         .map(|value| Value::Enum(Box::new(value)))
@@ -737,6 +765,9 @@ pub(in crate::harness) fn resolve_initializer_enum_variant(
         scope_context.this_type,
         name.as_str(),
     ) else {
+        if let Some(value) = enum_literal_value(name.as_str(), target_type_id, ctx.registry) {
+            return Ok(Expr::Literal(value));
+        }
         return Ok(expr);
     };
     let Some(symbol) = symbols.get(symbol_id) else {

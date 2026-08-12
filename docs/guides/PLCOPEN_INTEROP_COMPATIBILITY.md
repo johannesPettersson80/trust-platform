@@ -293,6 +293,222 @@ ecosystem/source/replacement/notes tuple are aggregated into one record with
 the exact occurrence count. Unknown ecosystems and empty token streams are
 returned unchanged without a synthetic application record.
 
+## Semantic XML-to-ST Import Contract
+
+Semantic import treats PLCopen element and attribute names
+case-insensitively. POU kinds are normalized after removing ASCII punctuation:
+`program`, `prg`, and equivalent case or punctuation spellings map to
+`PROGRAM`; `function`, `fun`, and `fc` map to `FUNCTION`; and
+`functionBlock` and `fb` map to `FUNCTION_BLOCK`. No other POU kind is inferred.
+
+The supported XML type projection is exact and fail-closed:
+
+- `bool`, `byte`, `word`, `dword`, `lword`, `sint`, `int`, `dint`, `lint`,
+  `usint`, `uint`, `udint`, `ulint`, `real`, `lreal`, `time`, `ltime`, `date`,
+  `ldate`, `tod`, `ltod`, `dt`, `ldt`, `char`, and `wchar` map to their
+  uppercase ST names.
+- `string` and `wstring` retain a positive integer `length` or `maxLength`;
+  an omitted length is unbounded. Zero, negative, nonnumeric, or expression
+  lengths are unsupported.
+- A derived type requires a nonblank identity. An array requires at least one
+  complete lower/upper dimension and a complete base type; dimensions retain
+  source order. A structure requires at least one complete, named, typed
+  field; fields and simple initializers retain source order. An enumeration
+  requires at least one uniquely named element under ASCII-case-insensitive
+  comparison and retains explicit values. A subrange requires both bounds and
+  a base type, whether the bounds are direct or nested beneath `range`.
+- An incomplete aggregate is rejected as one semantic unit. Import never
+  publishes a shortened structure, enumeration, array, subrange, interface,
+  or data-type source assembled from only the valid children.
+
+POU interface sections render in this stable order: `VAR_INPUT`,
+`VAR_OUTPUT`, `VAR_IN_OUT`, `VAR_EXTERNAL`, ordinary `VAR`, `VAR_TEMP`, then
+`VAR_GLOBAL`. Variable order and simple initial values are preserved.
+`CONSTANT`, `RETAIN`, and `PERSISTENT` modifiers retain declared order;
+contradictory `RETAIN` and `NON_RETAIN` reject the POU. Access variables map
+`ReadOnly` to `READ_ONLY` and otherwise use `READ_WRITE`. Missing names,
+missing or unsupported types, invalid ST identifiers, or duplicate declaration
+names under ASCII-case-insensitive comparison reject the owning POU without
+publishing a partial source.
+
+A complete ST body whose outer declaration matches its POU is preserved after
+newline normalization. A statement-only body is wrapped with the semantic
+interface and `PLCO207`; an interface without a body produces a declaration
+shell and `PLCO208`. A function uses its structured return type, or defaults
+to `INT` with `PLCO211`. If executable source contains no real assignment to
+the function result, import inserts `<function> := <function>;` and reports
+`PLCO212`; comments and strings do not count as assignments. A `PROGRAM` used
+as a derived instance type is promoted to `FUNCTION_BLOCK` with `PLCO210`.
+A supported ST body beside any executable FBD, LD, SFC, or unknown body is
+ambiguous and rejects the whole POU rather than selecting one representation.
+
+CODESYS method metadata is semantic only on a `FUNCTION_BLOCK`. The reviewed
+plain-text method header, interface, body, visibility, return type, and source
+order are preserved before `END_FUNCTION_BLOCK`. Missing header metadata
+defaults to `METHOD PUBLIC` with `PLCO214`; method metadata on another POU
+kind is skipped with `PLCO213`; and a case-insensitively matching method
+already present in the ST body is not duplicated.
+
+## Global-Variable Import and Projection Contract
+
+Each CODESYS `globalVars` list is one publication unit. A valid
+`interfaceasplaintext` payload takes precedence over structured `variable`
+children. Plain text retains leading attributes and the `VAR_GLOBAL` header
+suffix, and comma-separated declarations expand in source order with the
+same type and initializer. Structured declarations retain XML order, types,
+initial values, and attribute order. A child `name` is accepted when the
+attribute is absent; an unnamed list receives a stable fallback identity.
+
+A list with no declarations reports `PLCO601` and is not imported. An
+unparseable preferred plain-text payload reports `PLCO602` and does not fall
+back to structured children. One invalid identifier, duplicate variable name
+under ASCII-case-insensitive comparison, missing type, or malformed
+declaration rejects the entire list without writing a shortened source.
+List identities are normalized deterministically and reported as warnings;
+colliding list identities receive `_2`, `_3`, and later suffixes under
+ASCII-case-insensitive comparison.
+
+In the default `NativeVendorParity` mode, an ordinary list renders one
+`VAR_GLOBAL` source. A true CODESYS `qualified_only` attribute renders the
+list as a namespace, preserving its leading attribute and declarations; a
+false attribute does not create a namespace. In `StrictIecAdapter` mode, an
+ordinary list is wrapped in one configuration. A qualified list instead
+renders one `<list>_TYPE` structure and one configuration containing a single
+instance of that type.
+
+Strict mode injects a `VAR_EXTERNAL` declaration only into a POU that contains
+a real qualified `<list>.<member>` reference. Matching is identifier-boundary
+and ASCII-case-insensitive, ignores comments and string literals, and does not
+match longer identifiers. An existing declaration suppresses injection only
+when the symbol occurs in an actual `VAR_EXTERNAL` section. New external
+sections appear after existing variable sections and before executable
+statements, and each insertion reports `PLCO603` for the owning POU.
+
+The import report counts every discovered list, only complete imported lists,
+and exactly the source paths actually written. Skipped lists remain visible in
+diagnostics and semantic-loss scoring; they are not hidden by successful
+siblings.
+
+## Project-Model Import Contract
+
+The supported project model accepts `instances/configurations/configuration`,
+a configuration directly beneath `instances`, or resources directly beneath
+`instances`. Direct resources are wrapped in the deterministic
+`ImportedConfiguration`. Configuration, resource, task, and program element
+names and their reviewed alias attributes are case-insensitive. Holder and
+child XML order is preserved, and a program nested beneath a task inherits
+that task unless it names another valid task explicitly.
+
+Identifiers are normalized to valid ST identifiers with deterministic
+warnings. Duplicates receive `_2`, `_3`, and later suffixes under
+ASCII-case-insensitive comparison, independently within configuration,
+resource, task, and program scopes. Configuration-level content renders before
+resources; within each scope, tasks render before program bindings.
+
+Task intervals already written as IEC `T#`, `TIME#`, or `LTIME#` literals are
+trimmed and preserved. Nonnegative ISO-second forms `PT<n>S` and `PT<n>MS`
+are converted exactly to milliseconds or seconds; negative, nonfinite,
+overflowing, empty, or otherwise unsupported explicit intervals reject the
+owning configuration. A task without an interval or event uses
+`INTERVAL := T#100ms`; an event task remains event-driven and receives no
+interval default. Missing priority defaults to `1`; invalid explicit priority
+rejects the owning configuration. A task specifying both interval and event
+is ambiguous and is rejected.
+
+Program bindings retain optional `RETAIN` or `NON_RETAIN`, instance identity,
+type identity, and an optional valid task binding. An explicit unknown task
+reference rejects the owning configuration; it is never silently redirected.
+When a scope contains programs but no tasks, import creates `AutoTask` with
+`T#100ms` and priority `1`: configuration-level synthesis reports `PLCO507`,
+and resource-level synthesis reports `PLCO506`.
+
+An incomplete task or program is diagnosed and omitted while complete siblings
+remain renderable. Empty `instances` reports `PLCO501` and emits no source. An
+explicit empty named configuration is preserved as an empty configuration,
+reports `PLCO508`, and contributes semantic loss. Reported counts equal the
+complete configurations, resources, tasks, and program instances actually
+rendered.
+
+## Semantic ST-to-XML Export Contract
+
+Semantic export recognizes `PROGRAM`, `FUNCTION`, and `FUNCTION_BLOCK` and
+normalizes bodies to LF with one trailing newline. `TEST_PROGRAM` and
+`TEST_FUNCTION_BLOCK` export as their standard POU kinds with an explicit
+warning. Unsupported top-level nodes are omitted with source-path and one-based
+physical-line warnings. POU source-map entries retain project-relative paths
+and declaration lines.
+
+`TYPE` extraction retains declaration order, source identity, multiline
+structures, and complete type expressions. The elementary, string, derived,
+array, structure, enumeration, and subrange projections are the inverse of the
+supported import forms above. Derived types require valid dot-qualified ST
+identifiers; strings require positive integer lengths; and aggregates require
+all dimensions, fields, members, bounds, and base types. Empty, duplicate,
+unfinished, or partially malformed types are never shortened into publishable
+XML.
+
+`VAR_GLOBAL` extraction retains leading attributes, modifiers, declarations,
+initializers, and comma-name order. Multiple blocks in one source receive
+stable ordinal names derived from the source name. An unterminated block, one
+malformed declaration, or a duplicate variable identity rejects the entire
+global list.
+
+Configuration extraction preserves configuration-level and resource-level
+tasks and program instances. Keyword case is insignificant, task intervals
+are normalized through the project-model rules, and `RETAIN` or `NON_RETAIN`
+binding prefixes are retained. Ambiguous task modes, invalid task values,
+missing resource terminators, or unknown task references reject the complete
+configuration rather than publishing a partial model. Methods of a function
+block preserve source order, visibility, return type, variable sections, and
+source identity; duplicate method identities reject export.
+
+Any ST parser error, duplicate POU or data-type identity under
+ASCII-case-insensitive comparison, partial global block, or invalid
+configuration stops semantic publication before the output XML or source-map
+sidecar changes. On success, every report count equals the corresponding
+published XML-node count. POUs and source-map entries use one deterministic
+identity order, XML attribute data is escaped, CDATA source text remains
+unchanged, and a generic export/import round trip recovers the supported POU,
+method, data-type, configuration, task, and program identities.
+
+## Transactional Filesystem and Artifact Contract
+
+All imported file names and folder segments are sanitized to one nonempty
+portable component. They cannot retain `/`, `\\`, `.`, `..`, a Windows device
+name, or a trailing dot or space. Generated paths remain beneath `src/`.
+Existing filesystem entries and names reserved earlier in the same import are
+compared ASCII-case-insensitively; collisions receive deterministic `_2`,
+`_3`, and later suffixes without replacing existing files or directories.
+
+Export source discovery is recursive, literal, and deterministic. Every ASCII
+case spelling of `.st` and `.pou` is accepted, unrelated extensions are
+ignored, and source paths are sorted. A matching directory entry or symbolic
+link is rejected instead of read as source. Output and import-destination
+symbolic links are likewise rejected without following or modifying their
+targets.
+
+CDATA splitting is byte-preserving for source and vendor-hook payloads,
+including embedded `]]>` sequences. The embedded and sidecar source maps are
+equal and bind every published POU to a positive source line. Repeated export
+of the same model is byte-deterministic except for the documented generation
+timestamp; the sidecar source map is fully deterministic.
+
+Export publishes one coherent artifact set: generic export commits XML and
+source map; adapter export additionally commits its adapter report; Siemens
+export additionally commits the complete SCL bundle. Reports contain only the
+paths that were committed. A duplicate semantic identity, output symlink, or
+failure to publish any member rolls back the whole export set to the exact
+pre-call filesystem state.
+
+Malformed XML and a non-`project` root are side-effect free. Import publishes
+complete sources, an optional preserved-vendor-extension artifact, and the
+migration report as one coherent set; failure to publish the report or vendor
+artifact rolls back the whole set. Existing exact, case-alias, batch, and
+post-sanitization source-name collisions are preserved through deterministic
+suffixing. The sole report-only failure is a well-formed project with no
+importable ST content: it writes the migration report describing the rejected
+content, but writes no source or vendor-extension artifact.
+
 ## CODESYS ST Fixture Pack and Parity Gate
 
 Deliverable 5 includes deterministic CODESYS ST fixture packs for

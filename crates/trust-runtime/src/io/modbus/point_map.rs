@@ -353,12 +353,16 @@ fn normalize_modbus_register_bytes(
     word_order: ModbusWordOrder,
 ) -> Result<Vec<u8>, RuntimeError> {
     let expected = usize::from(data_type.register_count()) * 2;
-    if wire.len() < expected {
+    if wire.len() != expected {
         return Err(RuntimeError::IoDriver(
-            "modbus mapped register response truncated".into(),
+            format!(
+                "modbus mapped register response must contain exactly {expected} byte(s), got {}",
+                wire.len()
+            )
+            .into(),
         ));
     }
-    let mut bytes = wire[..expected].to_vec();
+    let mut bytes = wire.to_vec();
     if matches!(byte_order, ModbusByteOrder::Little) {
         swap_register_bytes(&mut bytes)?;
     }
@@ -366,6 +370,135 @@ fn normalize_modbus_register_bytes(
         reverse_register_words(&mut bytes)?;
     }
     Ok(bytes)
+}
+
+pub(super) fn validate_modbus_point_maps(
+    input_points: &[ModbusInputPoint],
+    output_points: &[ModbusOutputPoint],
+) -> Result<(), RuntimeError> {
+    validate_input_points(input_points)?;
+    validate_output_points(output_points)
+}
+
+fn validate_input_points(points: &[ModbusInputPoint]) -> Result<(), RuntimeError> {
+    for (index, point) in points.iter().enumerate() {
+        let protocol_len = point.data_type.register_count().max(1);
+        let protocol_end = point.address.checked_add(protocol_len).ok_or_else(|| {
+            RuntimeError::InvalidConfig(
+                "io.params.input_points Modbus address range overflow".into(),
+            )
+        })?;
+        let image_range = point_image_range(point.image_offset, point.image_bit, point.data_type)?;
+        for previous in &points[..index] {
+            let previous_protocol_len = previous.data_type.register_count().max(1);
+            let previous_protocol_end = previous
+                .address
+                .checked_add(previous_protocol_len)
+                .ok_or_else(|| {
+                    RuntimeError::InvalidConfig(
+                        "io.params.input_points Modbus address range overflow".into(),
+                    )
+                })?;
+            if point.function == previous.function
+                && ranges_overlap(
+                    usize::from(point.address)..usize::from(protocol_end),
+                    usize::from(previous.address)..usize::from(previous_protocol_end),
+                )
+            {
+                return Err(RuntimeError::InvalidConfig(
+                    "io.params.input_points contain duplicate or overlapping Modbus address ranges"
+                        .into(),
+                ));
+            }
+            if ranges_overlap(
+                image_range.clone(),
+                point_image_range(
+                    previous.image_offset,
+                    previous.image_bit,
+                    previous.data_type,
+                )?,
+            ) {
+                return Err(RuntimeError::InvalidConfig(
+                    "io.params.input_points contain overlapping process-image ranges".into(),
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn validate_output_points(points: &[ModbusOutputPoint]) -> Result<(), RuntimeError> {
+    for (index, point) in points.iter().enumerate() {
+        let protocol_len = point.data_type.register_count().max(1);
+        let protocol_end = point.address.checked_add(protocol_len).ok_or_else(|| {
+            RuntimeError::InvalidConfig(
+                "io.params.output_points Modbus address range overflow".into(),
+            )
+        })?;
+        let image_range = point_image_range(point.image_offset, point.image_bit, point.data_type)?;
+        for previous in &points[..index] {
+            let previous_protocol_len = previous.data_type.register_count().max(1);
+            let previous_protocol_end = previous
+                .address
+                .checked_add(previous_protocol_len)
+                .ok_or_else(|| {
+                    RuntimeError::InvalidConfig(
+                        "io.params.output_points Modbus address range overflow".into(),
+                    )
+                })?;
+            if point.function == previous.function
+                && ranges_overlap(
+                    usize::from(point.address)..usize::from(protocol_end),
+                    usize::from(previous.address)..usize::from(previous_protocol_end),
+                )
+            {
+                return Err(RuntimeError::InvalidConfig(
+                    "io.params.output_points contain duplicate or overlapping Modbus address ranges"
+                        .into(),
+                ));
+            }
+            if ranges_overlap(
+                image_range.clone(),
+                point_image_range(
+                    previous.image_offset,
+                    previous.image_bit,
+                    previous.data_type,
+                )?,
+            ) {
+                return Err(RuntimeError::InvalidConfig(
+                    "io.params.output_points contain overlapping process-image ranges".into(),
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn point_image_range(
+    image_offset: usize,
+    image_bit: u8,
+    data_type: ModbusPointType,
+) -> Result<std::ops::Range<usize>, RuntimeError> {
+    let start = image_offset.checked_mul(8).ok_or_else(|| {
+        RuntimeError::InvalidConfig("io.params.modbus point image range overflow".into())
+    })?;
+    if data_type == ModbusPointType::Bool {
+        let start = start.checked_add(usize::from(image_bit)).ok_or_else(|| {
+            RuntimeError::InvalidConfig("io.params.modbus point image range overflow".into())
+        })?;
+        return Ok(start..start + 1);
+    }
+    let len = data_type.image_len().checked_mul(8).ok_or_else(|| {
+        RuntimeError::InvalidConfig("io.params.modbus point image range overflow".into())
+    })?;
+    let end = start.checked_add(len).ok_or_else(|| {
+        RuntimeError::InvalidConfig("io.params.modbus point image range overflow".into())
+    })?;
+    Ok(start..end)
+}
+
+fn ranges_overlap(left: std::ops::Range<usize>, right: std::ops::Range<usize>) -> bool {
+    left.start < right.end && right.start < left.end
 }
 
 fn apply_modbus_order(
@@ -573,6 +706,8 @@ fn checked_image_range(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    include!("tests/point_map_contract.rs");
 
     #[test]
     fn mapped_f32_wire_decode_rejects_non_finite() {

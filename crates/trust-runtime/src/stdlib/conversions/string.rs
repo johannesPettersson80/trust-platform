@@ -53,6 +53,9 @@ pub(super) fn parse_int_text(text: &str) -> Result<i128, RuntimeError> {
     let cleaned: String = trimmed.chars().filter(|c| *c != '_').collect();
     if let Some((base_str, digits)) = cleaned.split_once('#') {
         let base: u32 = base_str.parse().map_err(|_| RuntimeError::TypeMismatch)?;
+        if !(2..=36).contains(&base) {
+            return Err(RuntimeError::TypeMismatch);
+        }
         if digits.is_empty() {
             return Err(RuntimeError::TypeMismatch);
         }

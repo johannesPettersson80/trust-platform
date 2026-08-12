@@ -105,12 +105,18 @@ impl Parser<'_, '_> {
         self.start_node(SyntaxKind::StructDef);
         self.bump(); // STRUCT
 
+        if self.at(TokenKind::KwOverlap) {
+            self.bump();
+        }
+
         while !self.at(TokenKind::KwEndStruct) && !self.at_end() {
             self.parse_var_decl();
         }
 
         if self.at(TokenKind::KwEndStruct) {
             self.bump();
+        } else {
+            self.error("expected END_STRUCT");
         }
 
         self.finish_node();
@@ -127,6 +133,8 @@ impl Parser<'_, '_> {
 
         if self.at(TokenKind::KwEndUnion) {
             self.bump();
+        } else {
+            self.error("expected END_UNION");
         }
 
         self.finish_node();
@@ -137,10 +145,16 @@ impl Parser<'_, '_> {
         self.start_node(SyntaxKind::EnumDef);
         self.bump(); // (
 
+        if self.at(TokenKind::RParen) {
+            self.error("expected enumeration value");
+        }
+
         while !self.at(TokenKind::RParen) && !self.at_end() {
             self.start_node(SyntaxKind::EnumValue);
             if self.at(TokenKind::Ident) {
                 self.parse_name();
+            } else {
+                self.error("expected enumeration value");
             }
 
             // Optional value assignment
@@ -160,6 +174,8 @@ impl Parser<'_, '_> {
 
         if self.at(TokenKind::RParen) {
             self.bump();
+        } else {
+            self.error("expected ')' after enumeration");
         }
 
         // Optional base type
@@ -193,10 +209,16 @@ impl Parser<'_, '_> {
             self.error("expected '(' after enum base type");
         }
 
+        if self.at(TokenKind::RParen) {
+            self.error("expected enumeration value");
+        }
+
         while !self.at(TokenKind::RParen) && !self.at_end() {
             self.start_node(SyntaxKind::EnumValue);
             if self.at(TokenKind::Ident) {
                 self.parse_name();
+            } else {
+                self.error("expected enumeration value");
             }
 
             // Optional value assignment
@@ -216,12 +238,17 @@ impl Parser<'_, '_> {
 
         if self.at(TokenKind::RParen) {
             self.bump();
+        } else {
+            self.error("expected ')' after enumeration");
         }
 
         self.finish_node();
     }
 
     fn at_typed_enum_def(&self) -> bool {
+        if self.at(TokenKind::KwString) || self.at(TokenKind::KwWString) {
+            return false;
+        }
         if !(self.current().is_type_keyword() || self.at(TokenKind::Ident)) {
             return false;
         }
@@ -309,25 +336,29 @@ impl Parser<'_, '_> {
     }
 
     /// Parse a VAR block.
+    pub(crate) fn parse_pou_var_block(&mut self) {
+        if self.at(TokenKind::KwVarAccess) {
+            self.parse_var_access_block();
+        } else if self.at(TokenKind::KwVarConfig) {
+            self.parse_var_config_block();
+        } else {
+            self.parse_var_block();
+        }
+    }
+
+    /// Parse an ordinary variable declaration block.
     pub(crate) fn parse_var_block(&mut self) {
         self.start_node(SyntaxKind::VarBlock);
         self.bump(); // VAR, VAR_INPUT, etc.
 
-        // Parse optional modifiers
+        // IEC class/FB access and storage specifiers may appear in either order.
         while matches!(
             self.current(),
             TokenKind::KwConstant
                 | TokenKind::KwRetain
                 | TokenKind::KwNonRetain
                 | TokenKind::KwPersistent
-        ) {
-            self.bump();
-        }
-
-        // Parse optional access specifier (PUBLIC/PRIVATE/PROTECTED/INTERNAL)
-        if matches!(
-            self.current(),
-            TokenKind::KwPublic
+                | TokenKind::KwPublic
                 | TokenKind::KwPrivate
                 | TokenKind::KwProtected
                 | TokenKind::KwInternal
@@ -383,6 +414,12 @@ impl Parser<'_, '_> {
         if self.at(TokenKind::Colon) {
             self.bump();
             self.parse_type_ref();
+
+            while matches!(self.current(), TokenKind::KwREdge | TokenKind::KwFEdge) {
+                self.bump();
+            }
+        } else {
+            self.error("expected ':' after variable name");
         }
 
         // Parse initializer
@@ -527,6 +564,8 @@ impl Parser<'_, '_> {
             self.bump();
             if self.at(TokenKind::KwTo) {
                 self.bump();
+            } else {
+                self.error("expected TO after POINTER");
             }
             self.parse_type_ref();
             self.finish_node();

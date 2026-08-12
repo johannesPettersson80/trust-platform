@@ -316,11 +316,7 @@ mod tests {
                         [0xAA, 0xBB],
                         "fault must not copy the cached snapshot"
                     );
-                    assert_health(
-                        worker.health(),
-                        true,
-                        "modbus input refresh pending",
-                    );
+                    assert_health(worker.health(), true, "modbus input refresh pending");
                 }
                 IoDriverErrorPolicy::Warn | IoDriverErrorPolicy::Ignore => {
                     result.expect("warn and ignore must return degraded success");
@@ -329,11 +325,7 @@ mod tests {
                         [0x11, 0x22],
                         "warn and ignore may copy the last accepted snapshot"
                     );
-                    assert_health(
-                        worker.health(),
-                        false,
-                        "modbus input refresh pending",
-                    );
+                    assert_health(worker.health(), false, "modbus input refresh pending");
                 }
             }
             assert_last_error(&worker, "modbus input refresh pending");
@@ -353,20 +345,15 @@ mod tests {
 
             match policy {
                 IoDriverErrorPolicy::Fault => {
-                    assert!(result.is_err(), "fault must reject a pending output deadline");
-                    assert_health(
-                        worker.health(),
-                        true,
-                        "modbus output handoff pending",
+                    assert!(
+                        result.is_err(),
+                        "fault must reject a pending output deadline"
                     );
+                    assert_health(worker.health(), true, "modbus output handoff pending");
                 }
                 IoDriverErrorPolicy::Warn | IoDriverErrorPolicy::Ignore => {
                     result.expect("warn and ignore must return degraded success");
-                    assert_health(
-                        worker.health(),
-                        false,
-                        "modbus output handoff pending",
-                    );
+                    assert_health(worker.health(), false, "modbus output handoff pending");
                 }
             }
 
@@ -387,10 +374,7 @@ mod tests {
         }
     }
 
-    fn stalled_worker(
-        policy: IoDriverErrorPolicy,
-        latest_inputs: Option<Vec<u8>>,
-    ) -> ModbusWorker {
+    fn stalled_worker(policy: IoDriverErrorPolicy, latest_inputs: Option<Vec<u8>>) -> ModbusWorker {
         let shared = Arc::new(Mutex::new(ModbusWorkerState::new()));
         {
             let mut state = shared.lock().expect("worker state lock");

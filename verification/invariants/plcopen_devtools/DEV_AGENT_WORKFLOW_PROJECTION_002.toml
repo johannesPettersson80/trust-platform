@@ -1,0 +1,150 @@
+schema_version = 1
+id = "DEV_AGENT_WORKFLOW_PROJECTION_002"
+title = "Agent language workflows preserve source authority and evidence"
+area = "plcopen_devtools"
+risk = "wrong_result"
+status = "specified"
+owner = "trust-dev"
+last_reviewed = "2026-08-01"
+claim = "Agent project discovery, diagnostics, AST canonicalization and similarity, format preview, and project orientation resolve the documented source authority, preserve public coordinates and evidence, remain deterministic, and do not mutate selected files."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = [
+  "docs/specs/20-agent-api-v1.md",
+  "docs/guides/AGENT_CONTRACT_V1.md",
+  "crates/trust-dev/src/workflow.rs",
+  "crates/trust-dev/src/workflow/contract_tests.rs",
+]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["catalog_mapping", "focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "cross_platform_execution", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_AGENT_API_V1_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_AGENT_API_V1_001#7-agent-workflow-projection-authority"
+
+[[behavior]]
+partition = { equals = "PROJECT_SOURCE_DISCOVERY" }
+case_family = "platform_or_filesystem_variation"
+oracle_ref = "SPEC_AGENT_API_V1_001#7-agent-workflow-projection-authority"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Whole-project discovery accepts every case spelling of .st and .pou, treats metacharacters literally, recurses, deduplicates, sorts, ignores unsupported shapes, honors source-root authority, and rejects symlink escape."
+
+[[behavior]]
+partition = { equals = "DIAGNOSTIC_SOURCE_SELECTION_AND_NONMUTATION" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_AGENT_API_V1_001#7-agent-workflow-projection-authority"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Inline content requires a path and overrides disk without mutation; whole-project mode uses the canonical project and optional source root and includes mixed-case source extensions."
+
+[[behavior]]
+partition = { equals = "DIAGNOSTIC_PUBLIC_COORDINATES_AND_ORDER" }
+case_family = "boundary_low"
+oracle_ref = "SPEC_AGENT_API_V1_001#7-agent-workflow-projection-authority"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Issues use deterministic file/position order, one-based public line and column, byte spans, optional nonblank codes, and ordered related evidence without empty synthetic fields."
+
+[[behavior]]
+partition = { equals = "CANONICAL_SOURCE_SELECTION" }
+case_family = "missing_required"
+oracle_ref = "SPEC_AGENT_API_V1_001#7-agent-workflow-projection-authority"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Canonicalization requires inline content or a path; inline content is authoritative even without an existing path and disk selection uses the shared algorithm."
+
+[[behavior]]
+partition = { equals = "CANONICAL_STREAM_AND_FIVE_GRAM_EVIDENCE" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_AGENT_API_V1_001#7-agent-workflow-projection-authority"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Canonical version 1 exposes parse errors, erases trivia and identifier or literal values, and returns sorted duplicate-free five-token grams."
+
+[[behavior]]
+partition = { equals = "SIMILARITY_SOURCE_SELECTION_AND_SCORE" }
+case_family = "boundary_low"
+oracle_ref = "SPEC_AGENT_API_V1_001#7-agent-workflow-projection-authority"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Both sides require an effective source independently, short empty gram sets score exactly 1.0, and structural differences retain unique and shared gram counts with strict threshold decisions."
+
+[[behavior]]
+partition = { equals = "FORMAT_PREVIEW_SOURCE_AUTHORITY" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_AGENT_API_V1_001#7-agent-workflow-projection-authority"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Inline preview never mutates disk, omitted content reads disk and reports exact changed state, and missing or escaping files fail without creation."
+
+[[behavior]]
+partition = { equals = "PROJECT_INFO_PRESENCE_AND_PARSE_ORIENTATION" }
+case_family = "extra_or_unknown"
+oracle_ref = "SPEC_AGENT_API_V1_001#7-agent-workflow-projection-authority"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Optional file and bytecode presence is factual, malformed runtime or I/O config remains visible as parseError, and vendor profile or manifest presence is not fabricated."
+
+[[behavior]]
+partition = { equals = "PROJECT_INFO_SAFE_SUMMARIES" }
+case_family = "auth_or_permission"
+oracle_ref = "SPEC_AGENT_API_V1_001#7-agent-workflow-projection-authority"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Runtime orientation redacts control-token values, I/O orientation reports driver and safe-state counts, and no secret value is copied into the result."
+
+[[behavior]]
+partition = { equals = "PROJECT_INFO_SOURCE_LIST_AND_ROOT" }
+case_family = "ordering_or_lifecycle"
+oracle_ref = "SPEC_AGENT_API_V1_001#7-agent-workflow-projection-authority"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Source listings are deterministic and project-relative, program presence tracks the real artifact, and an explicit source root remains authoritative."
+
+[[coverage.cells]]
+dimension = "platform_or_filesystem_variation"
+state = "gap_open"
+rationale = "Focused source-discovery tests exist, but accepted catalog binding and cross-platform proof are pending."
+
+[[coverage.cells]]
+dimension = "ordering_or_lifecycle"
+state = "gap_open"
+rationale = "Focused diagnostics, canonicalization, formatting, and orientation ordering tests exist, but accepted catalog binding and dynamic proof are pending."
+
+[[coverage.cells]]
+dimension = "boundary_low"
+state = "gap_open"
+rationale = "Focused coordinate and similarity boundary tests exist, but accepted catalog binding and dynamic proof are pending."
+
+[[coverage.cells]]
+dimension = "missing_required"
+state = "gap_open"
+rationale = "Focused source-selection precondition tests exist, but accepted catalog binding and dynamic proof are pending."
+
+[[coverage.cells]]
+dimension = "extra_or_unknown"
+state = "gap_open"
+rationale = "Focused malformed-or-absent project-info tests exist, but accepted catalog binding and dynamic proof are pending."
+
+[[coverage.cells]]
+dimension = "auth_or_permission"
+state = "gap_open"
+rationale = "Focused project-info redaction tests exist, but accepted catalog binding and dynamic proof are pending."

@@ -15,6 +15,30 @@ this log. IEC-permitted interpretation choices belong in
 `docs/IEC_DECISIONS.md`. Existing entries are not classification precedent;
 re-check them against this rule when touched.
 
+## 2026-07-30 - Value-bearing RETURN statement
+
+- ID: DEV-022
+- Area: Structured Text subprogram control statements
+- Normative IEC requirement: IEC 61131-3 Ed.3 section 7.3.3.2.4 and the
+  `Subprog_Ctrl_Stmt` production in Annex A define the textual `RETURN`
+  statement as the keyword `RETURN` without an expression. Function results
+  are assigned through the function-name result variable.
+- truST behavior and conflict:
+  - truST additionally accepts `RETURN <expression>` in a function or
+    value-returning method.
+  - The expression is checked against the declared result type, supplies that
+    result, and exits the POU immediately.
+  - Accepting an expression after `RETURN` extends both the normative grammar
+    and the normative function-result assignment model.
+- Impact:
+  - Source using value-bearing `RETURN` is accepted by truST but is not
+    portable to a strictly conforming IEC 61131-3 implementation.
+- Mitigation:
+  - Portable source should assign the function-name result variable and then
+    use bare `RETURN`.
+  - truST rejects a value-bearing `RETURN` in a POU without a declared return
+    type and type-checks the expression before execution.
+
 ## 2026-07-27 - Integer-base exponentiation
 
 - ID: DEV-021

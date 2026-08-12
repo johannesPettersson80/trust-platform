@@ -183,7 +183,7 @@ class MappingReviewBatchTests(unittest.TestCase):
                     """
 schema_version = 1
 id = "INV_1"
-tests = []
+tests = ["TEST_AUTO_00000000000000000001"]
 missing = ["cataloged_behavior_tests"]
 [[behavior]]
 case_family = "happy_path"
@@ -251,6 +251,14 @@ rationale = "Awaiting catalog acceptance."
                     "verification/invariants/verification/INV_1.toml"
                 ].decode()
             )["tests"],
+        )
+        self.assertEqual(
+            1,
+            tomllib.loads(
+                plan.replacements[
+                    "verification/invariants/verification/INV_1.toml"
+                ].decode()
+            )["tests"].count("TEST_AUTO_00000000000000000001"),
         )
         self.assertEqual(
             ["MAP_CAND_00000000000000000002_A1B2C3D4"],

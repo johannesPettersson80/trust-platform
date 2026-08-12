@@ -9,8 +9,8 @@ use text_size::TextRange;
 use crate::diagnostics::{DiagnosticBuilder, DiagnosticCode};
 use crate::semantic::{SemanticOutcome, LEGACY_UNKNOWN_TYPE_ID};
 use crate::symbols::{
-    ParamDirection, ScopeId, ScopeKind, SymbolId, SymbolKind, SymbolTable, UsingResolution,
-    Visibility,
+    EnumValueResolution, ParamDirection, ScopeId, ScopeKind, SymbolId, SymbolKind, SymbolTable,
+    UsingResolution, VarQualifier, Visibility,
 };
 use crate::types::{Type, TypeId};
 use trust_syntax::syntax::{SyntaxKind, SyntaxNode};

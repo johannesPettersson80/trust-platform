@@ -1,0 +1,80 @@
+schema_version = 1
+id = "VM_CORE_RUNTIME_ERROR_IDENTITY_001"
+title = "Portable runtime errors preserve exhaustive stable identity"
+area = "bytecode_vm"
+risk = "wrong_result"
+status = "mapped"
+owner = "trust-runtime-core"
+last_reviewed = "2026-07-30"
+claim = "Every stable error code and committed runtime error variant has its specified stable machine identifier, bytecode conversion preserves source code and detail, date-time value errors preserve their value, and date-time calculation errors normalize to runtime overflow."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["docs/specs/10-runtime-semantics.md", "crates/trust-runtime-core/src/error.rs", "crates/trust-runtime-core/src/error_code.rs"]
+tests = ["TEST_AUTO_98B76C342B6329C5F20C", "TEST_AUTO_D6F408EB78D88E1237B5"]
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_tests", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_VM_VALUE_SEMANTICS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_VM_VALUE_SEMANTICS_001#10-2-stable-machine-error-identifiers"
+
+[[behavior]]
+partition = { equals = "EXHAUSTIVE_STABLE_ERROR_CODE_STRINGS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#10-2-stable-machine-error-identifiers"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Every committed stable error code exposes the exact lower-snake-case machine string and the same Display identity, with no duplicate or omitted enum variant."
+
+[[behavior]]
+partition = { equals = "EXHAUSTIVE_RUNTIME_VARIANT_STABLE_CODE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#10-2-stable-machine-error-identifiers"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Every currently committed RuntimeError variant returns its exact runtime, bytecode, or VM stable code."
+
+[[behavior]]
+partition = { equals = "BYTECODE_ERROR_CONVERSION" }
+case_family = "happy_path"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#10-2-stable-machine-error-identifiers"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Bytecode conversion preserves the source stable code and rendered diagnostic detail in RuntimeError::Bytecode."
+
+[[behavior]]
+partition = { equals = "DATE_TIME_VALUE_ERROR_CONVERSION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#10-2-stable-machine-error-identifiers"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Both DateTimeError values remain attached to RuntimeError::DateTimeRange and report runtime_date_time_range."
+
+[[behavior]]
+partition = { equals = "DATE_TIME_CALCULATION_ERROR_NORMALIZATION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_VM_VALUE_SEMANTICS_001#10-2-stable-machine-error-identifiers"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "stable_error", status = "unchanged" }
+rationale = "Invalid date, invalid resolution, and arithmetic overflow calculation errors all normalize to RuntimeError::Overflow and runtime_overflow."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "Focused exhaustive-code and bytecode-conversion assertions await catalog binding and dynamic trace."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "Focused date-time conversion assertions await catalog binding and dynamic trace."

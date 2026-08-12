@@ -1261,7 +1261,7 @@ class FrozenRustNextestBatchTests(unittest.TestCase):
 
     def test_normalizer_ignores_unselected_ignored_test_events(self) -> None:
         expected = f"{TEST_NAME_PREFIX}selected"
-        ignored = f"{TEST_NAME_PREFIX}ignored_by_source"
+        ignored = "trust-runtime::trust_runtime$outside::ignored_by_source"
         raw = "\n".join(
             [
                 json.dumps(

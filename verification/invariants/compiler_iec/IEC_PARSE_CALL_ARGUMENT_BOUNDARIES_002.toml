@@ -1,0 +1,166 @@
+schema_version = 1
+id = "IEC_PARSE_CALL_ARGUMENT_BOUNDARIES_002"
+title = "Call argument parser preserves complete bindings and fails closed"
+area = "compiler_iec"
+risk = "wrong_result"
+status = "specified"
+owner = "trust-syntax"
+last_reviewed = "2026-08-01"
+claim = "The parser preserves complete positional, formal input, formal output, in-out, EN/ENO, nested, method, and writable-target call syntax without claiming semantic binding, retains the documented semantic-rejection ordering shape, and rejects incomplete delimiters, separators, expressions, targets, and statement termination visibly."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = [
+  "crates/trust-syntax/src/parser/grammar/expressions.rs",
+  "crates/trust-syntax/src/parser/grammar/statements.rs",
+  "docs/specs/06-statements.md",
+]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = [
+  "catalog_mapping",
+  "assertion_reachability",
+  "mutation_sensitivity",
+  "broad_remote_gate",
+]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_IEC_STATEMENTS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_IEC_STATEMENTS_001#3-1-shared-call-syntax"
+
+[[behavior]]
+partition = { equals = "EMPTY_OR_POSITIONAL_ARGUMENT_LIST" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#3-1-shared-call-syntax"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "An empty argument list and one or more comma-separated positional actuals retain one complete call node."
+
+[[behavior]]
+partition = { equals = "FORMAL_INPUT_OUTPUT_AND_INOUT_SYNTAX" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#3-1-shared-call-syntax"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Named := inputs and in-outs and named => outputs preserve their names, operators, expressions, and targets for semantic binding."
+
+[[behavior]]
+partition = { equals = "NAMED_EN_AND_ENO_SYNTAX" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#3-1-shared-call-syntax"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Named EN input and ENO output connections retain the same formal argument syntax as their reviewed execution-control roles."
+
+[[behavior]]
+partition = { equals = "NESTED_AND_METHOD_CALL_ACTUALS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#3-1-shared-call-syntax"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Nested calls and method-call actuals preserve their nested delimiter and receiver structure."
+
+[[behavior]]
+partition = { equals = "WRITABLE_OUTPUT_TARGET_SHAPES" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#3-1-shared-call-syntax"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Selected, indexed, and dereferenced output targets retain their complete lvalue syntax for later writability validation."
+
+[[behavior]]
+partition = { equals = "POSITIONAL_PREFIX_FORMAL_SUFFIX" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#3-1-shared-call-syntax"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The documented truST extension retains a positional prefix followed by a complete formal suffix."
+
+[[behavior]]
+partition = { equals = "REORDERED_FORMAL_ARGUMENTS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#3-1-shared-call-syntax"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Complete formal actuals retain source order while semantic name binding remains order-independent."
+
+[[behavior]]
+partition = { equals = "POSITIONAL_AFTER_FORMAL_SEMANTIC_BOUNDARY" }
+case_family = "boundary_low"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#3-1-shared-call-syntax"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "The parser retains a complete positional-after-formal call shape so semantic analysis, not recovery, owns the ordering diagnostic."
+
+[[behavior]]
+partition = { equals = "MALFORMED_ARGUMENT_SEPARATOR" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#3-1-shared-call-syntax"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A leading comma, doubled trailing comma, or missing comma between actuals is rejected at the argument-list boundary."
+
+[[behavior]]
+partition = { equals = "MISSING_FORMAL_INPUT_EXPRESSION" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#3-1-shared-call-syntax"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A named := actual without its expression is visibly incomplete."
+
+[[behavior]]
+partition = { equals = "MISSING_FORMAL_OUTPUT_TARGET" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#3-1-shared-call-syntax"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A named => actual without its output target is visibly incomplete."
+
+[[behavior]]
+partition = { equals = "UNCLOSED_ARGUMENT_LIST" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#3-1-shared-call-syntax"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "An argument list without its closing parenthesis fails at a bounded call or statement boundary."
+
+[[behavior]]
+partition = { equals = "MISSING_CALL_STATEMENT_TERMINATOR" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_STATEMENTS_001#3-1-shared-call-syntax"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A standalone call statement without its required semicolon is rejected without absorbing the following statement."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "The focused call parser contract tests exist, but accepted catalog binding and dynamic proof are pending."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "The focused call parser contract tests exist, but accepted catalog binding and dynamic proof are pending."
+
+[[coverage.cells]]
+dimension = "boundary_low"
+state = "gap_open"
+rationale = "The focused call parser contract tests exist, but accepted catalog binding and dynamic proof are pending."

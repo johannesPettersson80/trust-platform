@@ -18,6 +18,10 @@ use super::super::type_policy::{
 use super::super::{materialize_borrowed_value, VmModule, VmNativeArgSpec};
 use super::VM_LOCAL_SENTINEL_FRAME_ID;
 
+mod indices;
+
+use indices::resolve_vm_arg_indices;
+
 #[derive(Debug, Clone)]
 pub(super) struct VmNativeArg {
     pub(super) name: Option<SmolStr>,
@@ -674,7 +678,21 @@ pub(super) fn bind_vm_call_arguments(
                     .map_err(VmTrap::Runtime)?;
             }
             1 => {
-                locals[slot] = Value::Null;
+                locals[slot] = if let Some(default_const_idx) = param.default_const_idx {
+                    module
+                        .consts
+                        .get(default_const_idx as usize)
+                        .map(|value| {
+                            clone_value_with_profile(
+                                runtime,
+                                value,
+                                RegisterValueOpKind::ConstLoadClone,
+                            )
+                        })
+                        .ok_or(VmTrap::InvalidConstIndex(default_const_idx))?
+                } else {
+                    Value::Null
+                };
                 if let Some(arg) = arg {
                     let (target, target_type_idx) =
                         bind_output_target(runtime, module, caller_frame, arg)?;
@@ -712,55 +730,6 @@ pub(super) fn bind_vm_call_arguments(
     }
 
     Ok((locals, out_bindings))
-}
-
-fn resolve_vm_arg_indices(
-    params: &[super::super::VmParamMeta],
-    args: &[VmNativeArg],
-) -> Result<Vec<Option<usize>>, VmTrap> {
-    let positional = args.iter().all(|arg| arg.name.is_none());
-    if positional {
-        if args.len() > params.len() {
-            return Err(VmTrap::InvalidNativeCall(
-                format!(
-                    "too many positional arguments: expected at most {}, got {}",
-                    params.len(),
-                    args.len()
-                )
-                .into(),
-            ));
-        }
-        return Ok((0..params.len())
-            .map(|index| (index < args.len()).then_some(index))
-            .collect());
-    }
-
-    let mut consumed = vec![false; args.len()];
-    let mut ordered_named_index = 0usize;
-    let mut indices = Vec::with_capacity(params.len());
-    for param in params {
-        let arg_index =
-            resolve_named_arg_index(args, &consumed, &param.name, &mut ordered_named_index);
-        if let Some(index) = arg_index {
-            consumed[index] = true;
-        }
-        indices.push(arg_index);
-    }
-    if let Some((index, _)) = consumed
-        .iter()
-        .enumerate()
-        .find(|(_, consumed)| !**consumed)
-    {
-        let name = args[index]
-            .name
-            .as_deref()
-            .unwrap_or("<positional>")
-            .to_owned();
-        return Err(VmTrap::InvalidNativeCall(
-            format!("unexpected named argument '{name}'").into(),
-        ));
-    }
-    Ok(indices)
 }
 
 pub(super) fn require_output_target(arg: &VmNativeArg) -> Result<VmWriteTarget, VmTrap> {

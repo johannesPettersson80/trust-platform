@@ -90,6 +90,80 @@ class FocusedMappingQueueTests(unittest.TestCase):
                 code_mappings={},
             )
 
+    def test_authenticated_route_proposal_preserves_same_discovery_demand(
+        self,
+    ) -> None:
+        discovery_id = "DISC_" + "2" * 20
+        gap_code = "CODE_" + "A" * 64
+        demand = _demand(discovery_id, gap_code)
+
+        merged_candidate, proposals = merge_focused_queue(
+            existing_queue={
+                "demands": [],
+                "proposals": [],
+                "unmapped_code_demand_ranking": [],
+            },
+            focused_candidate_document={
+                "candidates": [{"discovery_id": discovery_id}],
+                "demands": [demand],
+                "spec_demand_observations": [],
+                "demand_ranking": [],
+                "structural_demand_ranking": [],
+                "unmapped_code_demand_ranking": [],
+            },
+            focused_proposals=[
+                {
+                    "discovery_id": discovery_id,
+                    "id": "ROUTED",
+                    "authority_route_digest": "sha256:" + "a" * 64,
+                }
+            ],
+            selected_discovery_ids=[discovery_id],
+            code_mappings={gap_code: _gap_mapping(gap_code)},
+            authenticated_authority_route_digests={"sha256:" + "a" * 64},
+        )
+
+        self.assertEqual([demand], merged_candidate["demands"])
+        self.assertEqual(
+            [discovery_id],
+            [proposal["discovery_id"] for proposal in proposals],
+        )
+        self.assertEqual(
+            [discovery_id],
+            merged_candidate["demand_ranking"][0]["affected_discovery_ids"],
+        )
+
+    def test_unauthenticated_proposal_cannot_overlap_demand(self) -> None:
+        discovery_id = "DISC_" + "2" * 20
+        gap_code = "CODE_" + "A" * 64
+        with self.assertRaisesRegex(
+            ValueError, "both demand and unauthenticated proposal"
+        ):
+            merge_focused_queue(
+                existing_queue={
+                    "demands": [],
+                    "proposals": [],
+                    "unmapped_code_demand_ranking": [],
+                },
+                focused_candidate_document={
+                    "candidates": [{"discovery_id": discovery_id}],
+                    "demands": [_demand(discovery_id, gap_code)],
+                    "spec_demand_observations": [],
+                    "demand_ranking": [],
+                    "structural_demand_ranking": [],
+                    "unmapped_code_demand_ranking": [],
+                },
+                focused_proposals=[
+                    {
+                        "discovery_id": discovery_id,
+                        "id": "UNAUTHENTICATED",
+                        "authority_route_digest": "sha256:" + "a" * 64,
+                    }
+                ],
+                selected_discovery_ids=[discovery_id],
+                code_mappings={gap_code: _gap_mapping(gap_code)},
+            )
+
     def test_focused_empty_result_removes_only_selected_records(self) -> None:
         old_discovery = "DISC_" + "1" * 20
         selected_discovery = "DISC_" + "2" * 20

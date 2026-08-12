@@ -2,6 +2,7 @@ use smol_str::SmolStr;
 
 use crate::debug::SourceLocation;
 use crate::value::Value;
+use trust_hir::TypeId;
 
 use super::expr::{Expr, LValue};
 
@@ -33,6 +34,7 @@ pub enum Stmt {
     AssignAttempt {
         target: LValue,
         value: Expr,
+        target_type: TypeId,
         location: Option<SourceLocation>,
     },
     Expr {
@@ -111,3 +113,7 @@ impl Stmt {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "stmt/contract_tests.rs"]
+mod contract_tests;

@@ -83,6 +83,9 @@ PROPOSAL_FIELDS_V2 = (
     "oracle_refs",
     "behavior_refs",
 )
+OPTIONAL_AUTHORITY_ROUTE_FIELDS = (
+    "authority_route_digest",
+)
 PROPOSAL_FIELDS_V1 = tuple(
     field for field in PROPOSAL_FIELDS_V2 if field != "assertion_source_digests"
 )
@@ -327,11 +330,23 @@ def _append_proposal_table(
         fields = PROPOSAL_FIELDS_V2
     else:
         raise ValueError("proposal schema version is unsupported")
-    if set(proposal) != {*fields, "assertions", "suggestions"}:
+    present_route_fields = tuple(
+        field for field in OPTIONAL_AUTHORITY_ROUTE_FIELDS if field in proposal
+    )
+    if set(proposal) != {
+        *fields,
+        *present_route_fields,
+        "assertions",
+        "suggestions",
+    }:
         raise ValueError("proposal fields drift")
     lines.extend(["", f"[[{table_name}]]"])
     lines.extend(
         f"{field} = {_toml_value(proposal[field])}" for field in fields
+    )
+    lines.extend(
+        f"{field} = {_toml_value(proposal[field])}"
+        for field in present_route_fields
     )
     assertions = proposal.get("assertions")
     if not isinstance(assertions, Sequence) or isinstance(

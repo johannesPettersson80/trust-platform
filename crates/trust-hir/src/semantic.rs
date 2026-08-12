@@ -521,3 +521,7 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "semantic/contract_tests.rs"]
+mod contract_tests;

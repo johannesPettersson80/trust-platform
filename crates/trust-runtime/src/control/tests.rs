@@ -9,3 +9,5 @@ include!("tests/debug_mutation_lifecycle.rs");
 include!("tests/authorization_matrix.rs");
 include!("tests/authorization_trace.rs");
 include!("tests/core.rs");
+include!("tests/control_endpoint_source_contract.rs");
+include!("tests/control_request_boundary_contract.rs");

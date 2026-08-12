@@ -4,8 +4,8 @@
 
 use crate::error::RuntimeError;
 pub use crate::numeric::{
-    NumericKind, numeric_kind, signed_from_i128, to_f64, to_i64, to_u64, unsigned_from_u128,
-    wider_numeric,
+    numeric_kind, signed_from_i128, to_f64, to_i64, to_u64, unsigned_from_u128, wider_numeric,
+    NumericKind,
 };
 use crate::value::{Duration, Value};
 use smol_str::SmolStr;

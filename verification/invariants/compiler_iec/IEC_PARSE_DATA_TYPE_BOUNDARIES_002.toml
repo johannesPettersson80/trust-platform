@@ -1,0 +1,325 @@
+schema_version = 1
+id = "IEC_PARSE_DATA_TYPE_BOUNDARIES_002"
+title = "Data-type, reference, selector, and edge parser boundaries"
+area = "compiler_iec"
+risk = "wrong_result"
+status = "specified"
+owner = "trust-syntax"
+last_reviewed = "2026-08-01"
+claim = "The parser preserves documented generic, user-defined, reference, pointer, partial-access, string-index, and edge-declaration syntax for semantic analysis and visibly rejects incomplete or structurally invalid forms at bounded recovery boundaries."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = [
+  "crates/trust-syntax/src/parser/grammar/declarations.rs",
+  "crates/trust-syntax/src/parser/grammar/expressions.rs",
+  "crates/trust-syntax/src/parser/grammar/pou",
+  "docs/specs/02-data-types.md",
+  "docs/specs/03-variables.md",
+]
+tests = []
+gates = ["veryquick", "pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["catalog_mapping", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_IEC_DATA_TYPES_CANDIDATE_001", "SPEC_IEC_VARIABLES_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#7-parser-acceptance-and-recovery-boundaries"
+
+[[behavior]]
+partition = { equals = "GENERIC_KEYWORD_TYPE_REFERENCE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#7-parser-acceptance-and-recovery-boundaries"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Every case spelling of every ANY-family keyword retains a generic TypeRef node."
+
+[[behavior]]
+partition = { equals = "GENERIC_DERIVED_AND_POU_SIGNATURE_SHAPE" }
+case_family = "boundary_low"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#7-parser-acceptance-and-recovery-boundaries"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Generic references remain syntactically visible in derived-type and POU-signature positions so semantic analysis owns unsupported-use diagnostics."
+
+[[behavior]]
+partition = { equals = "GENERIC_KEYWORD_AS_DECLARATION_NAME" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#7-parser-acceptance-and-recovery-boundaries"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A reserved ANY-family keyword cannot occupy a declaration-name position."
+
+[[behavior]]
+partition = { equals = "GENERIC_CONTEXT_MISSING_NESTED_TYPE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#7-parser-acceptance-and-recovery-boundaries"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "ARRAY OF and POINTER TO remain incomplete when their required nested type is absent after a generic context."
+
+[[behavior]]
+partition = { equals = "PARTIAL_ACCESS_SELECTOR_FORM" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#7-parser-acceptance-and-recovery-boundaries"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Case-insensitive %X, %B, %W, and %D selectors with separated decimal digits, plus an unprefixed bit selector, retain one partial-access suffix."
+
+[[behavior]]
+partition = { equals = "PARTIAL_ACCESS_COMPOSITE_BASE_AND_LVALUE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#7-parser-acceptance-and-recovery-boundaries"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Selected, indexed, and dereferenced bases retain their field-expression nodes and complete read or assignment-target syntax."
+
+[[behavior]]
+partition = { equals = "INVALID_PARTIAL_ACCESS_SELECTOR" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#7-parser-acceptance-and-recovery-boundaries"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A missing, identifier, parenthesized, radix-prefixed, or signed partial selector is rejected instead of becoming a field or general expression."
+
+[[behavior]]
+partition = { equals = "REFERENCE_AND_POINTER_TYPE_SHAPE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#7-parser-acceptance-and-recovery-boundaries"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "REF_TO and POINTER TO retain elementary, user-defined, nested pointer, and array target types."
+
+[[behavior]]
+partition = { equals = "REF_AND_ADR_CALL_SHAPE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#7-parser-acceptance-and-recovery-boundaries"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Complete REF(expr) and ADR(expr) forms retain one parenthesized argument for semantic typing."
+
+[[behavior]]
+partition = { equals = "POSTFIX_DEREFERENCE_PATH_AND_LVALUE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#7-parser-acceptance-and-recovery-boundaries"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Postfix dereference composes with nested dereference, field selection, index selection, reads, and assignment targets."
+
+[[behavior]]
+partition = { equals = "NULL_ASSIGNMENT_AND_COMPARISON_SHAPE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#7-parser-acceptance-and-recovery-boundaries"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "NULL remains a primary expression in assignment, equality, and inequality syntax while compatibility stays semantic."
+
+[[behavior]]
+partition = { equals = "REFERENCE_ASSIGNMENT_ATTEMPT_SHAPE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#7-parser-acceptance-and-recovery-boundaries"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A complete assignment attempt retains both target and ordinary or NULL source operands."
+
+[[behavior]]
+partition = { equals = "EMPTY_REF_CALL_SEMANTIC_BOUNDARY" }
+case_family = "boundary_low"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#7-parser-acceptance-and-recovery-boundaries"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "An empty but closed REF() remains one call node so semantic analysis owns the missing-argument diagnostic."
+
+[[behavior]]
+partition = { equals = "MISSING_REFERENCE_OR_POINTER_TARGET_TYPE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#7-parser-acceptance-and-recovery-boundaries"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "REF_TO without a target, POINTER without TO, or POINTER TO without a target is visibly incomplete."
+
+[[behavior]]
+partition = { equals = "INVALID_REF_OR_ADR_CALL_SHAPE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#7-parser-acceptance-and-recovery-boundaries"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "ADR without an argument and REF without a closing parenthesis fail at the bounded call boundary."
+
+[[behavior]]
+partition = { equals = "PREFIX_DEREFERENCE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#7-parser-acceptance-and-recovery-boundaries"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "Dereference is postfix; prefix caret syntax is rejected rather than normalized."
+
+[[behavior]]
+partition = { equals = "ASSIGNMENT_ATTEMPT_MISSING_OPERAND" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#7-parser-acceptance-and-recovery-boundaries"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "An assignment attempt without its target or source is visibly incomplete."
+
+[[behavior]]
+partition = { equals = "STRING_INDEX_READ_WRITE_AND_COMPOSITE_BASE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#7-parser-acceptance-and-recovery-boundaries"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "String indexing composes with selected, array-indexed, and dereferenced bases in read and assignment-target positions."
+
+[[behavior]]
+partition = { equals = "STRING_INDEX_COMPLETE_EXPRESSION_NODE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#7-parser-acceptance-and-recovery-boundaries"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "One computed integer expression and its complete index-expression node are retained between the brackets."
+
+[[behavior]]
+partition = { equals = "INVALID_STRING_INDEX_SHAPE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#7-parser-acceptance-and-recovery-boundaries"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A missing index, empty second index, trailing comma, or missing closing bracket fails at the bounded postfix boundary."
+
+[[behavior]]
+partition = { equals = "ENUMERATION_AND_DEFAULT_SHAPE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#7-parser-acceptance-and-recovery-boundaries"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "An ordinary enumeration retains its members and optional enumeration default."
+
+[[behavior]]
+partition = { equals = "INTEGER_NAMED_VALUE_SHAPE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#7-parser-acceptance-and-recovery-boundaries"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "An integer named-value declaration retains each name and complete value expression."
+
+[[behavior]]
+partition = { equals = "SUBRANGE_BOUND_EXPRESSION_SHAPE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#7-parser-acceptance-and-recovery-boundaries"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "A subrange retains signed or constant-expression lower and upper bounds for semantic evaluation."
+
+[[behavior]]
+partition = { equals = "ARRAY_TYPE_AND_INITIALIZER_SHAPE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#7-parser-acceptance-and-recovery-boundaries"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Multidimensional arrays and structure-valued, repeated, and nested repeated array initializers retain all dimensions and nested values."
+
+[[behavior]]
+partition = { equals = "STRUCTURE_RELATIVE_OVERLAP_AND_UNION_SHAPE" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#7-parser-acceptance-and-recovery-boundaries"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Structures, relative and overlap structures, unions, directly derived aggregate initializers, members, variants, and defaults retain their declared syntax."
+
+[[behavior]]
+partition = { equals = "INVALID_ARRAY_DECLARATION_SHAPE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#7-parser-acceptance-and-recovery-boundaries"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "An array without its upper bound or element type is visibly incomplete."
+
+[[behavior]]
+partition = { equals = "INVALID_ENUMERATION_SHAPE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#7-parser-acceptance-and-recovery-boundaries"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "An empty or unclosed enumeration is rejected at its declaration boundary."
+
+[[behavior]]
+partition = { equals = "INVALID_SUBRANGE_SHAPE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#7-parser-acceptance-and-recovery-boundaries"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A subrange without its upper bound is rejected instead of creating a partial range."
+
+[[behavior]]
+partition = { equals = "INVALID_AGGREGATE_DECLARATION_SHAPE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#7-parser-acceptance-and-recovery-boundaries"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "A relative field without its type or a structure or union without its matching terminator is visibly incomplete."
+
+[[behavior]]
+partition = { equals = "REPETITION_WITHOUT_VALUE" }
+case_family = "wrong_type_or_shape"
+oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001#7-parser-acceptance-and-recovery-boundaries"
+outcome = "reject"
+no_partial_apply = true
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
+rationale = "An array repetition count without its repeated value is rejected at the initializer boundary."
+
+[[behavior]]
+partition = { equals = "EDGE_DECLARATION_SUFFIX_OWNERSHIP" }
+case_family = "happy_path"
+oracle_ref = "SPEC_IEC_VARIABLES_001#edge-detection-qualifiers-tables-40-and-47"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "PROGRAM and FUNCTION_BLOCK VAR_INPUT declarations preserve one R_EDGE or F_EDGE suffix for the complete comma-separated name list."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "The focused data-type parser contract tests exist, but accepted catalog binding and dynamic proof are pending."
+
+[[coverage.cells]]
+dimension = "wrong_type_or_shape"
+state = "gap_open"
+rationale = "The focused data-type parser contract tests exist, but accepted catalog binding and dynamic proof are pending."
+
+[[coverage.cells]]
+dimension = "boundary_low"
+state = "gap_open"
+rationale = "The focused data-type parser contract tests exist, but accepted catalog binding and dynamic proof are pending."
