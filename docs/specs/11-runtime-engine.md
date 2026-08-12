@@ -1707,6 +1707,15 @@ This host-side launcher policy is a truST product contract. IEC 61131-3 does
 not define hardware-driver selection or OS-level I/O configuration, so the
 policy is not an IEC deviation.
 
+##### Windows runtime executable stack link contract
+
+The `trust-runtime` Cargo build script always declares itself as a rebuild
+input. For a Windows target it assigns the `trust-runtime` executable an
+8 MiB stack: MSVC targets emit `/STACK:8388608`, while other Windows toolchains
+emit `-Wl,--stack,8388608`. Non-Windows targets emit no executable stack linker
+argument. This is a build-platform contract for the runtime executable; it
+does not change PLC task stack limits or establish runtime stack-usage bounds.
+
 ##### Runtime bundle builder source and dependency resolution
 
 Without an explicit source override, the runtime bundle builder selects the

@@ -9635,3 +9635,25 @@ linked_invariants = ["VERIFICATION_PRIVATE_HOOK_001", "VERIFICATION_FOCUSED_TRAC
 linked_tests = ["TEST_VERIFICATION_PRIVATE_HOOK_CONTRACT_001", "TEST_VERIFICATION_FOCUSED_TRACE_CONTROL_PLANE_001"]
 linked_spec_gaps = ["SPEC_GAP_VERIFICATION_PRIVATE_HOOK_CONTRACT_001"]
 last_reviewed = "2026-08-12"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_P18_SUPPLY_CHAIN_PLATFORM_AUTHORITY_CLOSEOUT_20260812"
+title = "Phase 18 supply-chain and platform authority closeout"
+area = "supply_chain_platform"
+owner = "release-engineering"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-08-12-p18-supply-chain-platform-authority-closeout.md"
+command = "CARGO_MANIFEST_DIR=/home/johannes/projects/trust-platform/crates/trust-runtime rustc --edition=2021 --test crates/trust-runtime/tests/windows_stack_build_script.rs -o '<temporary>/windows_stack_build_script_test' && '<temporary>/windows_stack_build_script_test' windows_stack_link_arguments_match_toolchain_and_other_targets_emit_none --exact --nocapture"
+commit = "a5213de8774ba1aa16aef9a71d3ae0e668e2a8ef"
+platform = "local-linux-aarch64-raspberrypi"
+date = "2026-08-12"
+suite_id = "supporting_local"
+producer = "codex Phase 18 supply-chain authority transaction"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = ["RT_BUILD_COMMAND_001", "RT_WINDOWS_STACK_LINK_001"]
+linked_tests = ["TEST_AUTO_4CFAF7598FF6ED520833", "TEST_AUTO_4E78FA1FE054B4A0AD08", "TEST_AUTO_DC6A59A72613FBA3CFA8", "TEST_AUTO_E585CA0FF1F35FD3CC14", "TEST_AUTO_E726DF21E9F7F87134B0", "TEST_AUTO_FF69B42F579111AE16BF", "TEST_RUNTIME_BUILD_FAILURE_PRESERVES_ARTIFACT_001", "TEST_RUNTIME_WINDOWS_STACK_LINK_001"]
+linked_spec_gaps = ["SPEC_GAP_P17_HISTORICAL_CODE_SUPPLY_CHAIN_PLATFORM_001"]
+last_reviewed = "2026-08-12"

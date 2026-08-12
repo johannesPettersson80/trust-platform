@@ -86942,3 +86942,13 @@ ignore_state = "not_ignored"
 disposition = "catalog_mapped"
 catalog_test_id = "TEST_AUTO_FFF73572685349BF943D"
 last_reviewed = "2026-07-27"
+
+[[reviews]]
+discovery_id = "DISC_1F40E9F04D6C110FEB7F"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/windows_stack_build_script.rs"
+name = "windows_stack_link_arguments_match_toolchain_and_other_targets_emit_none"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_WINDOWS_STACK_LINK_001"
+last_reviewed = "2026-08-12"

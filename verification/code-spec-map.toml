@@ -254450,9 +254450,11 @@ visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_031E5F22BACAF8A1B46399E49797A842FDCB621EA9285FC08401032D49F6FC82"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_SUPPLY_CHAIN_PLATFORM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#runtime-bundle-builder-source-and-dependency-resolution"
+invariant_ids = ["RT_BUILD_COMMAND_001"]
+test_ids = ["TEST_AUTO_4CFAF7598FF6ED520833", "TEST_AUTO_E585CA0FF1F35FD3CC14", "TEST_AUTO_E726DF21E9F7F87134B0"]
+last_reviewed = "2026-08-12"
 
 [[mappings]]
 schema_version = 1
@@ -255452,9 +255454,16 @@ owner = "release-engineering"
 area = "supply_chain_platform"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_SUPPLY_CHAIN_PLATFORM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#runtime-bundle-builder-source-and-dependency-resolution"
+invariant_ids = ["RT_BUILD_COMMAND_001"]
+test_ids = [
+  "TEST_AUTO_4CFAF7598FF6ED520833",
+  "TEST_AUTO_E726DF21E9F7F87134B0",
+  "TEST_AUTO_FF69B42F579111AE16BF",
+  "TEST_RUNTIME_BUILD_FAILURE_PRESERVES_ARTIFACT_001",
+]
+last_reviewed = "2026-08-12"
 
 [[mappings]]
 schema_version = 1
@@ -256524,9 +256533,11 @@ owner = "release-engineering"
 area = "supply_chain_platform"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_SUPPLY_CHAIN_PLATFORM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#runtime-bundle-builder-source-and-dependency-resolution"
+invariant_ids = ["RT_BUILD_COMMAND_001"]
+test_ids = ["TEST_AUTO_4E78FA1FE054B4A0AD08", "TEST_AUTO_DC6A59A72613FBA3CFA8"]
+last_reviewed = "2026-08-12"
 
 [[mappings]]
 schema_version = 1
@@ -256974,9 +256985,11 @@ visibility = "public"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_81C5CB9B9B6EA81E6BAF4C956F2BC45C5D663D37EA7326B14D150F89777BE0EB"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_SUPPLY_CHAIN_PLATFORM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#runtime-bundle-builder-source-and-dependency-resolution"
+invariant_ids = ["RT_BUILD_COMMAND_001"]
+test_ids = ["TEST_AUTO_4CFAF7598FF6ED520833"]
+last_reviewed = "2026-08-12"
 
 [[mappings]]
 schema_version = 1
@@ -257269,9 +257282,11 @@ owner = "release-engineering"
 area = "supply_chain_platform"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_SUPPLY_CHAIN_PLATFORM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#runtime-bundle-builder-source-and-dependency-resolution"
+invariant_ids = ["RT_BUILD_COMMAND_001"]
+test_ids = ["TEST_AUTO_E585CA0FF1F35FD3CC14"]
+last_reviewed = "2026-08-12"
 
 [[mappings]]
 schema_version = 1
@@ -257627,9 +257642,11 @@ visibility = "private"
 risk_signals = ["broad_error_suppression", "filesystem_or_environment"]
 owner_ack = "RISK_ACK_AD5D6656D53BC5E29D5C59A02C0691462E6793CE14BA3A5441E4D9A0E00E190C"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_SUPPLY_CHAIN_PLATFORM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#windows-runtime-executable-stack-link-contract"
+invariant_ids = ["RT_WINDOWS_STACK_LINK_001"]
+test_ids = ["TEST_RUNTIME_WINDOWS_STACK_LINK_001"]
+last_reviewed = "2026-08-12"
 
 [[mappings]]
 schema_version = 1
@@ -257968,9 +257985,11 @@ visibility = "private"
 risk_signals = ["filesystem_or_environment", "state_mutation"]
 owner_ack = "RISK_ACK_C12D2507363D27A5AE6853927B20A42F006D6A8A36E0AEB76E355E920620D9C2"
 owner_ack_expires_on = "2026-10-29"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_SUPPLY_CHAIN_PLATFORM_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#runtime-bundle-builder-source-and-dependency-resolution"
+invariant_ids = ["RT_BUILD_COMMAND_001"]
+test_ids = ["TEST_AUTO_4CFAF7598FF6ED520833", "TEST_AUTO_E585CA0FF1F35FD3CC14", "TEST_AUTO_E726DF21E9F7F87134B0"]
+last_reviewed = "2026-08-12"
 
 [[mappings]]
 schema_version = 1
@@ -258387,9 +258406,11 @@ visibility = "public"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_DC147B59126502CCF6D119B67AFEE75B5525E282CB9AA2E99E37B1B22D10E8A9"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_SUPPLY_CHAIN_PLATFORM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#runtime-bundle-builder-source-and-dependency-resolution"
+invariant_ids = ["RT_BUILD_COMMAND_001"]
+test_ids = ["TEST_AUTO_4CFAF7598FF6ED520833"]
+last_reviewed = "2026-08-12"
 
 [[mappings]]
 schema_version = 1
@@ -258404,9 +258425,11 @@ owner = "release-engineering"
 area = "supply_chain_platform"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_SUPPLY_CHAIN_PLATFORM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#runtime-bundle-builder-source-and-dependency-resolution"
+invariant_ids = ["RT_BUILD_COMMAND_001"]
+test_ids = ["TEST_AUTO_4CFAF7598FF6ED520833"]
+last_reviewed = "2026-08-12"
 
 [[mappings]]
 schema_version = 1
@@ -259005,9 +259028,11 @@ owner = "release-engineering"
 area = "supply_chain_platform"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_SUPPLY_CHAIN_PLATFORM_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#runtime-bundle-builder-source-and-dependency-resolution"
+invariant_ids = ["RT_BUILD_COMMAND_001"]
+test_ids = ["TEST_AUTO_4E78FA1FE054B4A0AD08", "TEST_AUTO_DC6A59A72613FBA3CFA8"]
+last_reviewed = "2026-08-12"
 
 [[mappings]]
 schema_version = 1
@@ -311862,9 +311887,11 @@ visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_8CFD05F7F1A2B5D0B9CBC36395F2090F998E558067EF062041A6417013183B4D"
 owner_ack_expires_on = "2026-10-24"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_SUPPLY_CHAIN_PLATFORM_001"
-last_reviewed = "2026-07-24"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_ENGINE_001#runtime-bundle-builder-source-and-dependency-resolution"
+invariant_ids = ["RT_BUILD_COMMAND_001"]
+test_ids = ["TEST_AUTO_4CFAF7598FF6ED520833", "TEST_AUTO_E585CA0FF1F35FD3CC14", "TEST_AUTO_E726DF21E9F7F87134B0"]
+last_reviewed = "2026-08-12"
 
 [[mappings]]
 schema_version = 1

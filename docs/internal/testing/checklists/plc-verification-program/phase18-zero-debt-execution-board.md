@@ -2024,6 +2024,22 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   reachability, and all downstream Phase 18 rows remain open. No broad
   workspace test, `just fmt`, `just clippy`, or `just test-all` ran. Evidence:
   `docs/internal/testing/evidence/plc-verification-program/2026-08-12-p18-focused-trace-resolver-repair.md`.
+
+  supply-chain/platform authority closeout (2026-08-12): the final 11
+  `supply_chain_platform` code gaps are now specification- and test-bound.
+  Ten runtime bundle-builder functions reuse the reviewed source/dependency
+  contract, `RT_BUILD_COMMAND_001`, and exact existing builder tests. The
+  Windows Cargo build script now has an explicit 8 MiB linker-stack contract,
+  `RT_WINDOWS_STACK_LINK_001`, and one std-only behavior lock covering
+  non-Windows, Windows MSVC, and Windows non-MSVC output partitions. The local
+  focused behavior lock passed 1/1, the four-file atomic mapping transaction
+  passed the complete live 17,488-fact identity validator, and the historical
+  aggregate supply-chain gap closed with zero remaining affected code IDs.
+  No production code changed. Native Windows linking/execution, current
+  catalog execution, reachability, mutation sensitivity, later platform
+  proof, broad gates, and `VERIF-P18-003` globally remain open. No broad/full
+  workspace test, `just fmt`, `just clippy`, or `just test-all` ran. Evidence:
+  `docs/internal/testing/evidence/plc-verification-program/2026-08-12-p18-supply-chain-platform-authority-closeout.md`.
 - [ ] `VERIF-P18-005` Eliminate all 4,233 current `reviewed_nonmapping` test
   facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
