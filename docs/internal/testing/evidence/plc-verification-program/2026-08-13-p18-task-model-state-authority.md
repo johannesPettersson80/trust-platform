@@ -1,4 +1,4 @@
-# P18 portable task-model ownership and state authority
+# P18 portable task-model ownership and authority
 
 Date: 2026-08-13
 Active rows: `VERIF-P18-003`, `VERIF-P18-005`
@@ -8,13 +8,13 @@ Active rows: `VERIF-P18-003`, `VERIF-P18-005`
 This behavior-preserving slice separates portable task configuration,
 scheduling state, and readiness evaluation into focused owners while
 preserving the public `trust_runtime_core::task` API and all cataloged test
-identities. It promotes only `TaskState` and `TaskState::new` to the existing
-state-initialization authority.
+identities. It promotes `TaskState` and `TaskState::new` to the existing
+state-initialization authority, then restores the already accepted readiness
+authority to the moved `TaskReadiness` and `evaluate_task_readiness` facts.
 
-`TaskConfig`, `TaskReadiness`, and `evaluate_task_readiness` remain explicit
-`spec_gap` facts. The slice therefore does not claim complete task-model
-authority, assertion reachability, mutation sensitivity, broad workspace
-validation, or Phase 18 completion.
+`TaskConfig` remains an explicit `spec_gap` fact. The slice therefore does not
+claim complete task-model authority, new readiness product proof, mutation
+sensitivity, broad workspace validation, or Phase 18 completion.
 
 ## Behavior lock and ownership split
 
@@ -66,13 +66,13 @@ one accepted, 23 withheld, and two mappings promoted. The application is
 commit `3d5d165c56aa3f66efa4d343b65b9fdb7a93f015` records the clean authority
 checkpoint.
 
-The post-state report is
+The state-only checkpoint report is
 `sha256:c57a56893cbd4dbb3e67eb41a449f3c4e514741af952b4e30cbbe11f6424ba5c`:
 17,489 facts, zero findings, 13,836 `spec_gap`, and 3,393 `specified`.
 The state invariant and evidence now use the governed `trust-runtime` product
 owner; `trust-runtime-core` remains the component and test package.
 
-## Readiness authority boundary
+## Readiness authority reuse
 
 A fresh six-test LLVM trace at exact commit `3d5d165c` observed 6/6 tests and
 reached the moved evaluator `CODE_5114EF4A...`. The trace is
@@ -80,17 +80,55 @@ reached the moved evaluator `CODE_5114EF4A...`. The trace is
 It does not execute the `TaskReadiness` type declaration, so it cannot justify
 that structural fact.
 
-The generated authority card is
+The initial generated execution-authority card is
 `sha256:c68e8087c959a1ad8b85d2bad6f10ac6595127c142fe99276bfe1f4105863739`.
 It mechanically identifies the evaluator, the five covering readiness tests,
-and `RT_TASK_READINESS_001`. That invariant is `safety_critical`; the generated
-route requires two authority reviewers independent of the proposer. No such
-review was available in this slice. The evaluator was not promoted, no
-reviewer identity was fabricated, and the invariant was not downgraded.
+and `RT_TASK_READINESS_001`, but that candidate route is intentionally for new
+authority and requires two independent reviewers for a `safety_critical`
+invariant. It was not used to recreate already accepted authority.
 
-`TaskConfig` also remains explicit debt because the only nearby authority is a
+The repository's existing-authority generator instead had a mechanical gap:
+it accepted `mapped` invariants but excluded the same authority after it had
+advanced to `implemented`. An expected focused red proved that an implemented
+invariant produced zero candidates. Commit `fb2ad116` makes only `mapped` and
+`implemented` eligible while preserving the exact oracle, area, catalog
+backlink, complete semantic review, and atomic live-reconstruction guards. The
+paired green passed, the complete authority-tool suite passed 41/41, and the
+verification-flow diagram plus manifest were rendered with zero drift.
+
+That validator change produced one expected reviewed-body/risk-ack digest
+finding. The exact one-rebind refresh proposal is
+`sha256:12e0bc871a408421daaf0c3ad319b998ce463905342fef8a456f61de2024466a`;
+its complete selection is
+`sha256:d03a293ce4ba45ceb82b9bfee36bc5713a96119ce25b8108dcff12311a2c7447`,
+and its atomic application is
+`sha256:37d2235df495eeae6e4a4c89b175bbf3509c00d7f1dde0bc4a312e41862fbf93`.
+Commit `c566a6fe` is the clean digest-refresh checkpoint.
+
+The clean expanded authority proposal is
+`sha256:f8284069e715444b740da53a021b4c810564437ec4dc83fbfd62ea75efd65d8a`
+with operation-set digest
+`sha256:f7143ead6771cf5deaecba2e68e0dda5ebdad9601499ad7c4dc7ee6d1c0c73f8`.
+Its complete 25-group review carries forward 22 prior decisions, withholds the
+expanded watchdog group as ambiguous and the three-type retain group as mixed
+semantics, and accepts only the two-fact readiness group for
+`RT_TASK_READINESS_001`. The selection is
+`sha256:db3fafa94ec03ca01f1b4b9dff1477b8180839943dd0c14e07fa7a94fc843760`;
+the atomic application is
+`sha256:defdd9738d2213543e42d2f6b3c534bf7cfca0b17192d45c908de49319fcfeab`.
+Check and apply modes both report one accepted group, 24 withheld groups, and
+two promoted mappings. Commit `947a9d6a` records the authority restoration.
+
+The clean post-authority report is
+`sha256:ebbe5087f2e0155f1b3a43c3f91f0f8bf395599fb1087ceb0852b127a8adcce1`:
+17,489 facts, zero findings, 13,834 `spec_gap`, and 3,395 `specified`.
+No new readiness behavior or proof tier is claimed; the exact pre-split body,
+thirteen accepted tests, producer-authentic lock, assertion reachability, and
+risk acknowledgement already existed and remain bound to the same invariant.
+
+`TaskConfig` remains explicit debt because the only nearby authority is a
 cross-area omnibus scheduler invariant rather than an exact configuration
-contract. These three gaps are the honest next authority boundary.
+contract. It is the next task-model authority boundary.
 
 ## Focused execution and proof boundary
 
@@ -98,7 +136,8 @@ On `scena-rust-builder`:
 
 - the exact task behavior-lock selector passed 7/7 before and after the split,
   and passed 7/7 after the state authority transaction;
-- the authority-reuse, candidate, and code-spec contract modules passed 23/23;
+- the final authority-reuse, selection, and code-spec contract modules passed
+  41/41;
 - the identity refresh/selection/contract modules passed 34/34;
 - the fresh focused LLVM trace observed 6/6 tests with exit code zero;
 - the no-default core check, diagram rendering, and diagram drift passed.

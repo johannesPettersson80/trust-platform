@@ -2103,13 +2103,15 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   stale facts and registers five moved successors. A complete 24-group review
   accepts only the coherent two-fact `task/state.rs` group for
   `RT_CORE_TASK_STATE_INITIALIZATION_001` and retains the other 23 prior
-  withholds. The clean post-state report at `3d5d165c` accounts 17,489 facts
-  with zero findings, 13,836 `spec_gap`, and 3,393 `specified`; the exact task
-  selector passes 7/7 and 57 focused metadata-tool tests pass. A fresh six-test
-  LLVM trace reaches the moved readiness evaluator, but its `safety_critical`
-  authority route requires two reviewers independent of the proposer; no
-  authority was promoted without that review. `TaskConfig`, `TaskReadiness`,
-  the evaluator, `VERIF-P18-003`/`005`, reachability, mutation, and later
+  withholds. A focused red/green repair then permits already accepted
+  `implemented` invariants to enter the same review-only reuse queue without
+  weakening its oracle, catalog, complete-review, or atomic-apply guards. The
+  expanded 25-group review restores `RT_TASK_READINESS_001` to the moved
+  evaluator and result type and withholds all other groups. The clean
+  post-authority report at `947a9d6a` accounts 17,489 facts with zero findings,
+  13,834 `spec_gap`, and 3,395 `specified`; the exact task selector passes 7/7,
+  the fresh readiness trace observes 6/6, and the final authority-tool suite
+  passes 41/41. `TaskConfig`, `VERIF-P18-003`/`005`, mutation, and later
   candidate rows remain open. No P18-016 broad gate ran. Evidence:
   `docs/internal/testing/evidence/plc-verification-program/2026-08-13-p18-task-model-state-authority.md`.
 - [ ] `VERIF-P18-005` Eliminate all 4,233 current `reviewed_nonmapping` test
