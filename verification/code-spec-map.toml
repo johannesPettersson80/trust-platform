@@ -352605,8 +352605,10 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_SEMANTICS_001#4-3-task-scheduling-periodic-event"
+invariant_ids = ["RT_CORE_TASK_STATE_INITIALIZATION_001"]
+test_ids = ["TEST_AUTO_2AB8D93A46F8BB5F6F52"]
 last_reviewed = "2026-08-13"
 
 [[mappings]]
@@ -352622,6 +352624,8 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_SEMANTICS_001#4-3-task-scheduling-periodic-event"
+invariant_ids = ["RT_CORE_TASK_STATE_INITIALIZATION_001"]
+test_ids = ["TEST_AUTO_2AB8D93A46F8BB5F6F52"]
 last_reviewed = "2026-08-13"
