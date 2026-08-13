@@ -16,7 +16,17 @@ from typing import Any
 
 from .code_spec_authority_contract import ORACLE_AUTHORITIES
 from .code_spec_fragments import source_fragment_exists
+from .gate_inventory import (
+    INVENTORY_PATH as GATE_INVENTORY_PATH,
+    load_gate_inventory,
+    validate_gate_inventory,
+)
+from .gate_surface_authority_reuse import (
+    INVARIANT_ID as GATE_SURFACE_INVARIANT_ID,
+    build_gate_surface_authority_routes,
+)
 from .quarantine_paths import quarantine_path
+from .test_catalog_surfaces import scan_gate_scripts
 
 
 CODE_MAP_PATH = "verification/code-spec-map.toml"
@@ -37,6 +47,7 @@ def build_authority_reuse_proposal(
     invariants: Mapping[str, Mapping[str, Any]],
     tests: Mapping[str, Mapping[str, Any]],
     source_bindings: Mapping[str, str],
+    gate_routes: Mapping[str, Mapping[str, Any]],
 ) -> dict[str, Any]:
     """Derive deterministic exact-path candidates without accepting them."""
 
@@ -90,12 +101,22 @@ def build_authority_reuse_proposal(
             raise ValueError(f"{code_id}: unresolved owning gap is absent")
         area = _required_string(mapping, "area", code_id)
         path = _required_string(mapping, "path", code_id)
-        candidate_ids = tuple(sorted(set(by_path.get((area, path), []))))
+        route = gate_routes.get(code_id)
+        route_invariant = (
+            route.get("invariant_id") if isinstance(route, Mapping) else None
+        )
+        if route is not None and route_invariant not in eligible:
+            raise ValueError(f"{code_id}: routed candidate invariant is ineligible")
+        candidate_ids = tuple(
+            sorted(
+                set(by_path.get((area, path), []))
+                | ({str(route_invariant)} if route is not None else set())
+            )
+        )
         if not candidate_ids:
             no_candidate.append(code_id)
             continue
-        grouped[(area, path, candidate_ids)].append(
-            {
+        fact_row = {
                 "code_id": code_id,
                 "qualified_symbol": _required_string(
                     mapping, "qualified_symbol", code_id
@@ -111,7 +132,9 @@ def build_authority_reuse_proposal(
                 ),
                 "spec_gap_ref": gap_id,
             }
-        )
+        if route is not None:
+            fact_row["authority_route"] = dict(route)
+        grouped[(area, path, candidate_ids)].append(fact_row)
 
     candidate_groups = []
     used_invariants: set[str] = set()
@@ -332,6 +355,45 @@ def _build_from_root(
         invariants[invariant_id] = document
         source_bindings[path.relative_to(root).as_posix()] = _digest(content)
 
+    gate_inventory = load_gate_inventory(root)
+    gate_failures = validate_gate_inventory(root, gate_inventory)
+    if gate_failures:
+        raise ValueError(
+            "gate inventory is not live-canonical: " + "; ".join(gate_failures)
+        )
+    gate_batch = scan_gate_scripts(root)
+    gate_errors = [
+        diagnostic
+        for diagnostic in gate_batch.diagnostics
+        if diagnostic.severity == "error"
+    ]
+    if gate_errors:
+        raise ValueError("live gate-script discovery failed")
+    gate_candidate = _candidate_invariant(
+        invariant_id=GATE_SURFACE_INVARIANT_ID,
+        invariant=invariants.get(GATE_SURFACE_INVARIANT_ID, {}),
+        spec_sources=spec_sources,
+        tests=tests,
+    )
+    mappings = _toml_index(
+        code_map_bytes, "mappings", "code_id", "code-spec map"
+    )
+    gate_routes = (
+        build_gate_surface_authority_routes(
+            candidate_invariant=gate_candidate,
+            tests=tests,
+            inventory_records=gate_inventory,
+            live_gate_facts=gate_batch.facts,
+            mappings=mappings,
+        )
+        if gate_candidate is not None
+        else {}
+    )
+    gate_inventory_bytes = (root / GATE_INVENTORY_PATH).read_bytes()
+    source_bindings[GATE_INVENTORY_PATH.as_posix()] = _digest(
+        gate_inventory_bytes
+    )
+
     return build_authority_reuse_proposal(
         report_path=report_relative,
         report_bytes=report_bytes,
@@ -341,6 +403,7 @@ def _build_from_root(
         invariants=invariants,
         tests=tests,
         source_bindings=source_bindings,
+        gate_routes=gate_routes,
     )
 
 

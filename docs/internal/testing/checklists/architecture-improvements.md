@@ -375,3 +375,11 @@ Issue #51 init benchmark baseline evidence (2026-04-28):
   unrelated groups remain withheld. The focused suite passes 65/65 and the
   existing verification-flow diagram manifest has zero drift; final broad
   evidence remains owned only by `VERIF-P18-016`.
+- [x] `ARCH-VERIF-P18-18` Keep gate-surface authority routing in a focused
+  code-identity provider separate from the existing path-wide authority join.
+  The route requires one mapped catalog discovery, one exact live inventory
+  surface, one live gate-script fact, and one Python or shell entrypoint code
+  identity. It excludes workflow jobs and same-path Python helpers, preserves
+  the inventory proof boundary, and feeds only the existing proposal/review/
+  transaction path. The expected missing-provider red and paired green pass;
+  the live repository fixture resolves 29 entrypoints and zero helpers.

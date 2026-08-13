@@ -225,6 +225,7 @@ def proposal_bytes(
                 f"{INVARIANT_ID}.toml"
             ): "sha256:" + "6" * 64,
         },
+        gate_routes={},
     )
     return canonical_json(proposal)
 

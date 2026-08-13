@@ -5,6 +5,7 @@ cd "$(dirname "$0")/.."
 python3 scripts/validate_verification_metadata.py
 python3 -m unittest \
   scripts.verification.catalog_authority_reassignment_tests \
+  scripts.verification.gate_surface_authority_reuse_tests \
   scripts.verification.code_spec_authority_candidates_tests \
   scripts.verification.code_spec_authority_reuse_tests \
   scripts.verification.code_spec_authority_review_tests \

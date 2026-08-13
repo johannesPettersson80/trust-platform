@@ -67,6 +67,7 @@ package "Code-map refresh quarantine" {
 
 package "Existing-authority reuse quarantine" {
   [mapped + implemented authority candidate join] as AuthorityReuseJoin
+  [exact catalog + inventory + live entrypoint route] as GateSurfaceRoute
   database "complete review-required\nauthority reuse proposal" as AuthorityReuseProposal
   [semantic-owner review] as AuthorityReuseReview
   [recoverable atomic code-map transaction] as AuthorityReuseTransaction
@@ -153,6 +154,11 @@ CodeRefreshBuilder --> CodeRefreshProposals : stable IDs + exact partition
 Report --> AuthorityReuseJoin : clean zero-finding source facts
 Map --> AuthorityReuseJoin : unresolved exact path facts
 VerificationGraph --> AuthorityReuseJoin : existing mapped / implemented authority
+TestCatalog --> GateSurfaceRoute : mapped gate discovery identity
+GateInventory --> GateSurfaceRoute : exact native surface contract
+ToolExtractor --> GateSurfaceRoute : live file-entrypoint identity
+VerificationGraph --> GateSurfaceRoute : reviewed gate invariant backlink
+GateSurfaceRoute --> AuthorityReuseJoin : exact code IDs only; never path-wide helpers
 AuthorityReuseJoin --> AuthorityReuseProposal : candidates only; no proof or writes
 AuthorityReuseProposal --> AuthorityReuseReview : complete queue required
 AuthorityReuseReview --> AuthorityReuseTransaction : explicit accepted groups only
