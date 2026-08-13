@@ -149,8 +149,16 @@ class MutationProgramContractTests(unittest.TestCase):
                 retain_shard_id,
             )
         )
+        self.assertEqual([], preexecution_failures)
+
+        preexecution["survivor_resolutions"][0]["mutation_id"] = "MUTANT_INVENTED"
+        preexecution_failures = validate_mutation_program_for_shard_execution(
+            ROOT,
+            preexecution,
+            retain_shard_id,
+        )
         self.assertTrue(
-            any("match measured survivors exactly" in item for item in preexecution_failures),
+            any("references an unknown mutation" in item for item in preexecution_failures),
             preexecution_failures,
         )
 

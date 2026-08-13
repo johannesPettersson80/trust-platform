@@ -92,8 +92,13 @@ The corrective audit also retains these non-substitutable proof obligations:
 - `RT_OPERATOR_CONSOLE_PROJECTION_001`: input routing;
 - `RT_IO_CYCLE_BINDING_001`: grouped and alias binding;
 - `VERIFICATION_CASE_ARTIFACT_HELPER_001`: all four contract cells; and
-- three stale focused mutation shards: bytecode validator, HIR diagnostics,
-  and retain restart.
+- four stale mutation results: bytecode validator, runtime value conversion,
+  parser recovery, and retain restart. HIR diagnostics was rerun at exact
+  commit `d05875e0`; its baseline passed and the one reviewed mutant was caught
+  by the selected subrange diagnostic test. The runtime-value and parser
+  results became stale only because the focused runner's artifact-independent
+  refresh fix is an execution input and therefore correctly invalidated their
+  older artifacts.
 
 Hardware, rendered, and third-party interoperability proof must be recorded as
 external/manual work. Unit tests or simulator runs must not replace it.
@@ -113,6 +118,13 @@ external/manual work. Unit tests or simulator runs must not replace it.
   Regenerate only mechanically stale case tables, refresh reviewed mutation
   selectors/digests from live source, execute the three stale mutation shards
   from a clean exact-commit remote checkout, and retain raw artifacts.
+  HIR is complete at `d05875e0` (`1 caught`, `0 survived`). Bytecode, runtime
+  value conversion, parser recovery, and retain remain open: the shared builder
+  fell from 20 GiB to 9 GiB free during the retain attempt because of concurrent
+  external activity. The task-owned retain runner was terminated before a
+  filesystem failure and produced no artifact. Do not rerun any remaining
+  shard or broad gate until the builder again meets the documented disk
+  threshold.
 - [ ] `VERIF-P18-DELTA-004` Resolve the feasible behavior/test debts listed
   above test-first. Keep hardware, rendered, interoperability, and any genuine
   specification decision explicitly open until their required environment or

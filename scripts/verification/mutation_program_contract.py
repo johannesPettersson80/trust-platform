@@ -410,6 +410,13 @@ def _validate_mutation_program_contract(
         root,
         program.get("survivor_resolutions"),
         None if skip_execution_artifacts else legacy_survivor_ids | focused_survivor_ids,
+        {
+            (shard.get("id"), mutation.get("id"))
+            for shard in shards
+            if isinstance(shard, Mapping)
+            for mutation in shard.get("mutations", [])
+            if isinstance(mutation, Mapping)
+        },
         failures,
     )
     _validate_scanner_associations(root, shards, failures)
@@ -741,6 +748,7 @@ def _validate_survivor_resolutions(
     root: Path,
     value: Any,
     expected_ids: set[tuple[str, str]] | None,
+    known_ids: set[tuple[Any, Any]],
     failures: list[str],
 ) -> None:
     if not isinstance(value, list):
@@ -763,6 +771,8 @@ def _validate_survivor_resolutions(
             if key in actual_ids:
                 failures.append(f"{label} duplicates a survivor resolution")
             actual_ids.add(key)
+            if key not in known_ids:
+                failures.append(f"{label} references an unknown mutation")
         action = item.get("action")
         if not isinstance(action, str) or action not in SURVIVOR_POLICY["allowed_actions"]:
             failures.append(f"{label} action is not allowed")
