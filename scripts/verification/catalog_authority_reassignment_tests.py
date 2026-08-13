@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import tomllib
 import unittest
+from pathlib import Path
 
 from scripts.verification.catalog_authority_reassignment import (
     build_catalog_authority_reassignment,
@@ -44,6 +45,21 @@ def _invariant_source(invariant_id: str, tests: list[str]) -> str:
 
 
 class CatalogAuthorityReassignmentTests(unittest.TestCase):
+    def test_metadata_gate_registers_catalog_reassignment_tests(self) -> None:
+        gate = Path("scripts/verification_metadata_gate.sh").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn(
+            "scripts.verification.catalog_authority_reassignment_tests",
+            gate,
+            "metadata gate does not execute catalog reassignment self-tests",
+        )
+        self.assertIn(
+            "scripts.verification.mapping_catalog_updates_tests",
+            gate,
+            "metadata gate does not execute catalog update self-tests",
+        )
+
     def test_reviewed_reassignment_moves_one_identity_and_reciprocal_link(self) -> None:
         old_proposal = _proposal(1)
         old_decision = build_mapping_decision(
