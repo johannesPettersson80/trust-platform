@@ -4,8 +4,8 @@ title = "Portable numeric kinds preserve the closed widening matrix"
 area = "runtime_safety"
 risk = "wrong_result"
 status = "mapped"
-owner = "trust-runtime-core"
-last_reviewed = "2026-07-30"
+owner = "trust-runtime"
+last_reviewed = "2026-08-13"
 claim = "Every numeric runtime tag projects its exact numeric kind, nonnumeric tags project no kind, and a common numeric kind exists only for identity or one direction of the closed accuracy-preserving widening matrix."
 proof_level = "S0"
 contract_kind = "decision_table"
@@ -15,9 +15,9 @@ source_refs = [
 ]
 tests = ["TEST_AUTO_DCEF80A3BEFB3B323D32"]
 gates = ["pr"]
-evidence_refs = []
+evidence_refs = ["EVID_P18_NUMERIC_KIND_AUTHORITY_20260813"]
 spec_gap_refs = []
-missing = ["cataloged_tests", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -57,9 +57,9 @@ rationale = "Pairs that are neither identical nor related by one permitted widen
 [[coverage.cells]]
 dimension = "happy_path"
 state = "gap_open"
-rationale = "Focused exhaustive tag and widening assertions await catalog binding and dynamic trace."
+rationale = "The exhaustive cataloged behavior lock is green; producer-authentic assertion reachability and mutation sensitivity remain open."
 
 [[coverage.cells]]
 dimension = "wrong_type_or_shape"
 state = "gap_open"
-rationale = "Focused unsupported-pair assertions await catalog binding and dynamic trace."
+rationale = "The exhaustive cataloged unsupported-pair lock is green; producer-authentic assertion reachability and mutation sensitivity remain open."

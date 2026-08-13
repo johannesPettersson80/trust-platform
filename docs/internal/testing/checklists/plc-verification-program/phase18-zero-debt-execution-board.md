@@ -2078,6 +2078,23 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   mutation, global P18-003/P18-005 closure, and later proof rows remain open.
   No P18-016 broad gate ran. Evidence:
   `docs/internal/testing/evidence/plc-verification-program/2026-08-12-p18-portable-core-authority-reuse.md`.
+
+  portable numeric-kind authority progress (2026-08-13): a behavior-preserving
+  module split separates portable kind/widening ownership from numeric
+  conversion normalization while preserving the public API and cataloged test
+  identities. The guarded refresh removed four stale pre-split identities and
+  registered four moved successors; because path and qualified symbol changed,
+  the exact-successor guard correctly rejected automatic transfer. A complete
+  25-group semantic review then accepted only the coherent four-fact
+  `numeric/kind.rs` group for `RT_CORE_NUMERIC_KIND_WIDENING_001` and retained
+  the other 24 prior withholds. The clean post-authority report at
+  `aae1beef07947569f8df1c475faf7fce3723c8a3` accounts 17,489 facts with zero
+  findings, 13,836 `spec_gap`, and 3,393 `specified`, retiring one net gap.
+  Pre/post and final exact numeric behavior locks pass, as do 76 focused
+  metadata-tool tests and the no-default core check. Assertion reachability,
+  mutation sensitivity, `VERIF-P18-003`/`005`, and the later candidate rows
+  remain open. No P18-016 broad gate ran. Evidence:
+  `docs/internal/testing/evidence/plc-verification-program/2026-08-13-p18-numeric-kind-authority.md`.
 - [ ] `VERIF-P18-005` Eliminate all 4,233 current `reviewed_nonmapping` test
   facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that
