@@ -273,6 +273,31 @@ def append_invariant_tests(
     return result
 
 
+def remove_invariant_tests(
+    source: str,
+    test_ids: Sequence[str],
+) -> str:
+    """Remove exact reciprocal test links without changing other metadata."""
+
+    document = tomllib.loads(source)
+    tests = document.get("tests")
+    if not isinstance(tests, list) or any(
+        not isinstance(item, str) for item in tests
+    ):
+        raise ValueError("invariant must contain a string tests array")
+    removals = _strings(test_ids, "invariant test removals")
+    if not removals:
+        raise ValueError("invariant test removal requires at least one test ID")
+    absent = sorted(set(removals).difference(tests))
+    if absent:
+        raise ValueError(f"invariant does not reference {absent[0]}")
+    updated = [test_id for test_id in tests if test_id not in set(removals)]
+    result = _replace_top_level_array(source, field="tests", values=updated)
+    if tomllib.loads(result).get("tests") != updated:
+        raise ValueError("invariant test removal failed")
+    return result
+
+
 def remove_invariant_missing_items(
     source: str,
     items: Sequence[str],

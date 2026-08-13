@@ -358,3 +358,12 @@ Issue #51 init benchmark baseline evidence (2026-04-28):
   live-reconstruction guards remain mandatory. The expected focused red and
   paired green pass, the complete 41-test authority-tool suite is green, and
   the rendered verification flow plus diagram manifest have zero drift.
+- [x] `ARCH-VERIF-P18-16` Keep existing catalog-authority reassignment in a
+  bounded owner separate from ordinary append-only mapping review. One reviewed
+  transaction preserves the stable generated-test identity, requires exact old
+  authority and uniquely owned current proposal/decision provenance, refreshes
+  the assertion-bound accepted record, and moves both reciprocal invariant
+  links without permitting cross-area overlap. Evidence: the focused expected
+  red and paired green reassignment test plus the rendered
+  `verification-code-spec-coverage.puml`; Phase 18 final broad evidence remains
+  owned only by `VERIF-P18-016`.

@@ -56,6 +56,7 @@ package "Execution-guided mapping accelerator" {
   [source-bound assertion inventory] as AssertionInventory
   [per-subsystem semantic assignment generators] as AssignmentGenerators
   [exact assertion-to-oracle review] as SemanticReview
+  [reviewed existing-catalog authority reassignment] as CatalogReassignment
   [recoverable atomic catalog transaction] as CatalogTransaction
 }
 
@@ -137,6 +138,11 @@ AssertionInventory --> AssignmentGenerators : assertions + oracle source digests
 AssignmentGenerators --> SemanticReview : reviewed behavior selectors only
 SemanticReview --> Decisions
 SemanticReview --> CatalogTransaction : explicit accepted batch only
+SemanticReview --> CatalogReassignment : explicit replacement review only
+TestCatalog --> CatalogReassignment : one stable generated-test identity
+Decisions --> CatalogReassignment : unique current provenance
+VerificationGraph --> CatalogReassignment : old + new reciprocal links
+CatalogReassignment --> CatalogTransaction : exact guarded replacements
 CatalogTransaction --> TestCatalog
 CatalogTransaction --> TestDenominator
 CatalogTransaction --> Decisions
@@ -192,6 +198,13 @@ note bottom of SemanticReview
   Coverage, names, paths, and mutation kills are not semantic proof.
   Each assertion is bound to exact oracle behavior rows;
   high-risk mappings require two distinct reviewers.
+end note
+
+note bottom of CatalogReassignment
+  Reassignment preserves one DISC / TEST identity, requires fresh proposal,
+  assertion, trace, and two-reviewer authority, replaces uniquely owned current
+  provenance, and moves both invariant backlinks in one atomic transaction.
+  It cannot append a duplicate test or retain cross-area authority.
 end note
 
 note bottom of TargetProfiles
