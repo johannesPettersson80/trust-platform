@@ -36,7 +36,7 @@ from .mutation_execution import (
 from .mutation_program_contract import (
     REQUIRED_SHARD_IDS,
     load_mutation_program,
-    validate_mutation_program_contract,
+    validate_mutation_program_for_shard_execution,
 )
 
 
@@ -308,7 +308,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     try:
         program = load_mutation_program(ROOT)
-        failures = validate_mutation_program_contract(ROOT, program)
+        failures = validate_mutation_program_for_shard_execution(
+            ROOT,
+            program,
+            args.shard_id,
+        )
         if failures:
             raise MutationContractError("; ".join(failures))
         shard = select_source_shard(program, args.shard_id)

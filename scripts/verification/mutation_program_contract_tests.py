@@ -16,6 +16,7 @@ from .mutation_program_contract import (
     REQUIRED_SHARD_IDS,
     load_mutation_program,
     validate_mutation_program_contract,
+    validate_mutation_program_for_shard_execution,
 )
 
 
@@ -152,6 +153,49 @@ class MutationProgramContractTests(unittest.TestCase):
             any("match measured survivors exactly" in item for item in preexecution_failures),
             preexecution_failures,
         )
+
+    def test_shard_execution_preflight_does_not_require_old_execution_artifacts(self) -> None:
+        with (
+            mock.patch.object(
+                contract_module,
+                "_validate_legacy_shard",
+                side_effect=AssertionError("execution preflight read legacy results"),
+            ),
+            mock.patch.object(
+                contract_module,
+                "_validate_focused_shards",
+                side_effect=AssertionError("execution preflight read focused results"),
+            ),
+        ):
+            failures = validate_mutation_program_for_shard_execution(
+                ROOT,
+                self.program,
+                "MUTATION_SHARD_HIR_DIAGNOSTICS_001",
+            )
+        artifact_failures = [
+            failure
+            for failure in failures
+            if "artifact" in failure or "measured bytecode mutation report" in failure
+        ]
+        self.assertEqual([], artifact_failures)
+
+        corrupted = copy.deepcopy(self.program)
+        corrupted["shards"][2]["mutations"][0]["source_digest"] = "sha256:" + "0" * 64
+        failures = validate_mutation_program_for_shard_execution(
+            ROOT,
+            corrupted,
+            "MUTATION_SHARD_HIR_DIAGNOSTICS_001",
+        )
+        self.assertTrue(any("source_digest mismatch" in item for item in failures), failures)
+
+        corrupted = copy.deepcopy(self.program)
+        corrupted["proof_posture"] = "invented"
+        failures = validate_mutation_program_for_shard_execution(
+            ROOT,
+            corrupted,
+            "MUTATION_SHARD_HIR_DIAGNOSTICS_001",
+        )
+        self.assertTrue(any("proof posture" in item for item in failures), failures)
 
     def test_each_mutant_partitions_the_reviewed_associations_exactly(self) -> None:
         for shard in self.program["shards"]:

@@ -342,14 +342,14 @@ def validate_mutation_program_for_shard_execution(
     program: Any,
     shard_id: str,
 ) -> list[str]:
-    """Validate pre-execution state while exempting only the artifact being replaced."""
+    """Validate reviewed inputs without requiring the artifacts being refreshed."""
 
     if shard_id not in REQUIRED_SHARD_IDS[1:5]:
         return [f"mutation shard {shard_id} is outside the reviewed source-runner set"]
     return _validate_mutation_program_contract(
         root,
         program,
-        artifact_exempt_shard_id=shard_id,
+        skip_execution_artifacts=True,
     )
 
 
@@ -358,6 +358,7 @@ def _validate_mutation_program_contract(
     program: Any,
     *,
     artifact_exempt_shard_id: str | None = None,
+    skip_execution_artifacts: bool = False,
 ) -> list[str]:
     failures: list[str] = []
     if not isinstance(program, Mapping):
@@ -394,17 +395,21 @@ def _validate_mutation_program_contract(
     invariants = _load_invariants(root, failures)
     for index, row in enumerate(shards):
         _validate_shard(root, row, index, invariants, failures)
-    legacy_survivor_ids = _validate_legacy_shard(root, shards, failures)
-    focused_survivor_ids = _validate_focused_shards(
-        root,
-        shards,
-        failures,
-        artifact_exempt_shard_id=artifact_exempt_shard_id,
-    )
+    if skip_execution_artifacts:
+        legacy_survivor_ids: set[tuple[str, str]] = set()
+        focused_survivor_ids: set[tuple[str, str]] = set()
+    else:
+        legacy_survivor_ids = _validate_legacy_shard(root, shards, failures)
+        focused_survivor_ids = _validate_focused_shards(
+            root,
+            shards,
+            failures,
+            artifact_exempt_shard_id=artifact_exempt_shard_id,
+        )
     _validate_survivor_resolutions(
         root,
         program.get("survivor_resolutions"),
-        legacy_survivor_ids | focused_survivor_ids,
+        None if skip_execution_artifacts else legacy_survivor_ids | focused_survivor_ids,
         failures,
     )
     _validate_scanner_associations(root, shards, failures)
@@ -735,7 +740,7 @@ def _validate_focused_shards(
 def _validate_survivor_resolutions(
     root: Path,
     value: Any,
-    expected_ids: set[tuple[str, str]],
+    expected_ids: set[tuple[str, str]] | None,
     failures: list[str],
 ) -> None:
     if not isinstance(value, list):
@@ -786,7 +791,7 @@ def _validate_survivor_resolutions(
                 failures.append(f"{label} resolution_ref must not match an ignore rule")
             elif ignored.returncode != 1:
                 failures.append(f"{label} resolution_ref ignore status could not be checked")
-    if actual_ids != expected_ids:
+    if expected_ids is not None and actual_ids != expected_ids:
         failures.append(
             "mutation survivor resolutions must match measured survivors exactly"
         )
