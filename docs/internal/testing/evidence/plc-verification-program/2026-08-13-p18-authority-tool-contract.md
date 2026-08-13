@@ -125,3 +125,46 @@ commit `066619f0` records the mapping checkpoint. Its final report is
 17,491 facts, zero findings, 13,718 `spec_gap`, and 3,513 `specified`.
 Producer-authentic lock evidence and the final remote gate remain explicit
 invariant debt.
+
+## Exact gate-surface entrypoint routing
+
+The broad `scripts` source reference of
+`VERIFICATION_GATE_SURFACE_EXECUTION_001` cannot safely drive path-wide reuse:
+five Python gate paths contain 21 internal helper facts in addition to their
+five entrypoints. Commit `763e9ce0` adds a focused code-identity provider. It
+joins invariant test ID to mapped catalog discovery, unique gate-inventory
+row, live gate-script scan, and one exact Python or shell entrypoint. Workflow
+jobs and same-path helpers cannot enter this route. The expected missing-
+provider red and paired green pass; the live repository fixture resolves 29
+entrypoints (24 shell and 5 Python) and zero helpers.
+
+The identity transaction transfers the signature-changed proposal-builder
+fact without losing its existing authority, rebinds two changed bodies, and
+registers six new provider facts in the historical verification gap. Its
+application is
+`sha256:d6228c0829faeccd0a31fa57674dc668849a3b9be941fbbd11d4c42d37ccdb94`;
+commit `2b417235` is the clean 17,497-fact checkpoint.
+
+The clean report is
+`sha256:a8a89df4bd1c1afe75cb1b1bbf74feb7b00fc5b0a7a1c52d59a7829d64153ef5`.
+The complete proposal is
+`sha256:5d6dd82500e471873337b33bb1fa07002e510d54c82a2aa217f2b16daa8e0556`
+with operation-set digest
+`sha256:64a4ac4640c1146410d9d492342897ab68dccd350a7ea023be2c78a40af5ba55`.
+The independently audited selection is
+`sha256:5bd3f1616621833cb22b7a47c6412b107dd6de0e51779ac1bb469d944b609b33`:
+53 complete decisions, 29 accepted singular entrypoint groups, and the prior
+24 withholds unchanged. The atomic application is
+`sha256:8e92c41d4e8f0faaf9e42b5aa0c476c6380e1ad701f7d0b1b365ebddf03c8d01`;
+commit `20841002` records the exact mappings.
+
+After the promotion, the repository behavior-lock fixture was corrected to
+reconstruct the reviewed pre-promotion dispositions rather than expecting live
+facts to remain gaps. All 38 focused gate/reuse/inventory/reassignment tests
+and diagram drift pass. The final source-bound report at `24ff8fdc` is
+`sha256:f688320a63380b9e4da5e05f93fb7cb2fb5f8f65d3a7d06a5ab8ddff1cccb072`:
+17,497 facts, zero findings, 13,695 `spec_gap`, and 3,542 `specified`.
+
+The gate invariant remains `S0`; this batch does not claim source-bound native
+execution, GitHub job artifacts, transitive product proof, or the final remote
+candidate gate.

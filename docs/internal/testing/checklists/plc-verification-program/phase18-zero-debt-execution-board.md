@@ -4,9 +4,9 @@ Status: zero-debt contract accepted by commit-bound independent R3 review.
 Findings `P18-C01` through `P18-C08` and `P18-R2-01` are resolved.
 
 Current row: `VERIF-P18-003`, continuing as the repository-wide authority and
-coverage campaign over 13,718 explicitly mapped `spec_gap` code facts with
-zero code-spec findings. The code map now represents all 17,491 live facts, of
-which 3,513 are `specified`. The test denominator is 8,695 = 4,462
+coverage campaign over 13,695 explicitly mapped `spec_gap` code facts with
+zero code-spec findings. The code map now represents all 17,497 live facts, of
+which 3,542 are `specified`. The test denominator is 8,695 = 4,462
 `catalog_mapped` + 4,233 `reviewed_nonmapping`; `VERIF-P18-005` therefore
 remains open. The accepted P18-002 ledger owns and orders every current fact;
 it does not close any remaining specification, execution, reachability,
@@ -259,6 +259,22 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   accounts 17,491 facts with zero findings, 13,718 `spec_gap`, and 3,513
   `specified`. This closes authority only; the invariant's producer-authentic
   lock and final remote-gate debt remain open, and no P18-016 broad gate ran.
+
+  Gate-surface entrypoint progress (2026-08-13): a new focused provider joins
+  each mapped gate catalog identity to one exact inventory row, live scanner
+  fact, and file-entrypoint code identity. The expected missing-provider red
+  and paired green pass; the repository fixture resolves exactly 29 routes
+  (24 shell and 5 Python), no workflow jobs, and none of the 21 internal Python
+  helpers sharing gate paths. Identity refresh registers six new provider
+  facts as gaps and preserves the moved proposal-builder authority. A complete
+  independently audited 53-group review retains the prior 24 withholds and
+  atomically promotes only the 29 gate entrypoints to
+  `VERIFICATION_GATE_SURFACE_EXECUTION_001`. The final report at `24ff8fdc`
+  accounts 17,497 facts with zero findings, 13,695 `spec_gap`, and 3,542
+  `specified`; 38 focused tests and diagram drift pass on `trust-builder`.
+  Native execution, workflow artifacts, and the final remote gate remain open;
+  no P18-016 broad gate ran. Evidence:
+  `docs/internal/testing/evidence/plc-verification-program/2026-08-13-p18-authority-tool-contract.md`.
 
   Signed-integer slice progress (2026-07-22): exact slice
   `P18-CODE-CODE_F72E3E7BC892973CF9344497078A35D93380745CDC5DB4820F5CFB302AAEE14A`
