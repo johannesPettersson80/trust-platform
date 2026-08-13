@@ -11,6 +11,19 @@ proof_level = "T1"
 contract_kind = "protocol_trace"
 source_refs = [
   "docs/internal/testing/checklists/plc-verification-program/metadata-model.md#code-to-spec-refresh-proposal-quarantine",
+  "scripts/apply_code_spec_authority_reuse_selection.py",
+  "scripts/apply_code_spec_authority_selection.py",
+  "scripts/apply_code_spec_refresh_selection.py",
+  "scripts/apply_code_spec_semantic_selection.py",
+  "scripts/compile_code_spec_authority_candidates.py",
+  "scripts/compile_code_spec_authority_review.py",
+  "scripts/generate_code_spec_authority_reuse_proposals.py",
+  "scripts/verification/catalog_authority_reassignment.py",
+  "scripts/verification/code_spec_authority_candidates.py",
+  "scripts/verification/code_spec_authority_contract.py",
+  "scripts/verification/code_spec_authority_review.py",
+  "scripts/verification/code_spec_authority_selection_support.py",
+  "scripts/verification/code_spec_authority_selection_test_support.py",
   "scripts/verification/code_spec_refresh.py",
   "scripts/verification/code_spec_refresh_cli.py",
   "scripts/verification/code_spec_refresh_projection.py",
@@ -22,6 +35,7 @@ source_refs = [
   "scripts/verification/code_spec_authority_reuse_projection.py",
   "scripts/verification/code_spec_authority_reuse_selection.py",
   "scripts/verification/code_spec_authority_selection.py",
+  "scripts/verification/mapping_transaction.py",
   "verification/schemas/code-spec-refresh-proposals.schema.json",
 ]
 tests = ["TEST_VERIFICATION_METADATA_GATE_001"]

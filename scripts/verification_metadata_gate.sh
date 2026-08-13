@@ -5,12 +5,16 @@ cd "$(dirname "$0")/.."
 python3 scripts/validate_verification_metadata.py
 python3 -m unittest \
   scripts.verification.catalog_authority_reassignment_tests \
+  scripts.verification.code_spec_authority_candidates_tests \
   scripts.verification.code_spec_authority_reuse_tests \
+  scripts.verification.code_spec_authority_review_tests \
   scripts.verification.code_spec_semantic_contract_tests \
   scripts.verification.code_spec_semantic_selection_tests \
   scripts.verification.code_spec_refresh_tests \
   scripts.verification.code_spec_refresh_selection_tests \
-  scripts.verification.mapping_catalog_updates_tests
+  scripts.verification.code_spec_authority_selection_tests \
+  scripts.verification.mapping_catalog_updates_tests \
+  scripts.verification.mapping_transaction_tests
 python3 -m scripts.verification.phase16_readiness
 scripts/verification_assertion_inventory_gate.sh
 python3 - <<'PY' | while IFS=$'\t' read -r generator invariant; do

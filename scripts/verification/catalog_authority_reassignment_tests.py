@@ -59,6 +59,17 @@ class CatalogAuthorityReassignmentTests(unittest.TestCase):
             gate,
             "metadata gate does not execute catalog update self-tests",
         )
+        for module in (
+            "scripts.verification.code_spec_authority_candidates_tests",
+            "scripts.verification.code_spec_authority_review_tests",
+            "scripts.verification.code_spec_authority_selection_tests",
+            "scripts.verification.mapping_transaction_tests",
+        ):
+            self.assertIn(
+                module,
+                gate,
+                f"metadata gate does not execute {module} self-tests",
+            )
 
     def test_reviewed_reassignment_moves_one_identity_and_reciprocal_link(self) -> None:
         old_proposal = _proposal(1)
