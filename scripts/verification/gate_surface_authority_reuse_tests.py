@@ -190,12 +190,22 @@ class GateSurfaceAuthorityReuseTests(unittest.TestCase):
             (root / "verification/code-spec-map.toml").read_text()
         )["mappings"]
         map_by_id = {row["code_id"]: row for row in mapping_rows}
+        route_fixture = {
+            code_id: (
+                {**row, "disposition": "spec_gap"}
+                if row.get("invariant_ids") == [INVARIANT_ID]
+                and row.get("item_kind")
+                in {"python_entrypoint", "shell_entrypoint"}
+                else row
+            )
+            for code_id, row in map_by_id.items()
+        }
         routes = build_gate_surface_authority_routes(
             candidate_invariant=candidate_row,
             tests=tests,
             inventory_records=load_gate_inventory(root),
             live_gate_facts=scan_gate_scripts(root).facts,
-            mappings=map_by_id,
+            mappings=route_fixture,
         )
 
         self.assertEqual(29, len(routes))
