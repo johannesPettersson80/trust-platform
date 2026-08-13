@@ -96983,3 +96983,17 @@ reviewed_by = "trust-runtime"
 reviewed_on = "2026-08-13"
 expires_on = "2026-11-13"
 rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
+
+[[acknowledgements]]
+schema_version = 1
+id = "RISK_ACK_736F807F684A3277C90CD9CFAEEAC9ADCDFFAB2DD4F623832F4F007039607B1F"
+code_id = "CODE_736F807F684A3277C90CD9CFAEEAC9ADCDFFAB2DD4F623832F4F007039607B1F"
+owner = "verification"
+area = "verification"
+body_digest = "sha256:b74f2012bfc99417fc1d9ba5da0a91e2bfaba075d20328d0703c4b319bb82986"
+risk_signals = ["state_mutation"]
+review_ref = "docs/internal/testing/checklists/architecture-improvements.md#arch-verif-p18-16"
+reviewed_by = "verification"
+reviewed_on = "2026-08-13"
+expires_on = "2026-11-13"
+rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."

@@ -352661,3 +352661,39 @@ spec_ref = "SPEC_RUNTIME_SEMANTICS_001#4-3-task-scheduling-periodic-event"
 invariant_ids = ["RT_CORE_TASK_STATE_INITIALIZATION_001"]
 test_ids = ["TEST_AUTO_2AB8D93A46F8BB5F6F52"]
 last_reviewed = "2026-08-13"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_736F807F684A3277C90CD9CFAEEAC9ADCDFFAB2DD4F623832F4F007039607B1F"
+source_kind = "python"
+path = "scripts/verification/catalog_authority_reassignment.py"
+qualified_symbol = "scripts::verification::catalog_authority_reassignment::build_catalog_authority_reassignment"
+item_kind = "python_function"
+signature_digest = "sha256:de9ad504d90b2b605e45ee43737174528b5b3eadc406ae4777c442578d18cc62"
+reviewed_body_digest = "sha256:b74f2012bfc99417fc1d9ba5da0a91e2bfaba075d20328d0703c4b319bb82986"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = ["state_mutation"]
+owner_ack = "RISK_ACK_736F807F684A3277C90CD9CFAEEAC9ADCDFFAB2DD4F623832F4F007039607B1F"
+owner_ack_expires_on = "2026-11-13"
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
+last_reviewed = "2026-08-13"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_91E3925485D11ACD3FCB968DB5BE811A16947E728B79B1AB8667DFFD1113B41C"
+source_kind = "python"
+path = "scripts/verification/mapping_catalog_updates.py"
+qualified_symbol = "scripts::verification::mapping_catalog_updates::remove_invariant_tests"
+item_kind = "python_function"
+signature_digest = "sha256:e47725a7d4d737790b50dce9c225ab670107d6ffa4a71986e403e0ed29b284ac"
+reviewed_body_digest = "sha256:0417310daffa42bd09904eecc4b7a7045840cc7dd99438f1ad887f30ad6fcdd9"
+owner = "verification"
+area = "verification"
+visibility = "public"
+risk_signals = []
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
+last_reviewed = "2026-08-13"
