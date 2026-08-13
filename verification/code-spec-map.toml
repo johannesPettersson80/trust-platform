@@ -352567,8 +352567,10 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_SEMANTICS_001#2-3-declared-type-materialization"
+invariant_ids = ["RT_CORE_NUMERIC_KIND_WIDENING_001"]
+test_ids = ["TEST_AUTO_DCEF80A3BEFB3B323D32"]
 last_reviewed = "2026-08-13"
 
 [[mappings]]
@@ -352584,8 +352586,10 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_SEMANTICS_001#2-3-declared-type-materialization"
+invariant_ids = ["RT_CORE_NUMERIC_KIND_WIDENING_001"]
+test_ids = ["TEST_AUTO_DCEF80A3BEFB3B323D32"]
 last_reviewed = "2026-08-13"
 
 [[mappings]]
@@ -352601,8 +352605,10 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_SEMANTICS_001#2-3-declared-type-materialization"
+invariant_ids = ["RT_CORE_NUMERIC_KIND_WIDENING_001"]
+test_ids = ["TEST_AUTO_DCEF80A3BEFB3B323D32"]
 last_reviewed = "2026-08-13"
 
 [[mappings]]
@@ -352618,6 +352624,8 @@ owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
+disposition = "specified"
+spec_ref = "SPEC_RUNTIME_SEMANTICS_001#2-3-declared-type-materialization"
+invariant_ids = ["RT_CORE_NUMERIC_KIND_WIDENING_001"]
+test_ids = ["TEST_AUTO_DCEF80A3BEFB3B323D32"]
 last_reviewed = "2026-08-13"
