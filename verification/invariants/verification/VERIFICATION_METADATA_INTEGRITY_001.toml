@@ -30,7 +30,7 @@ source_refs = [
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001"
+ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#verification-metadata-model"
 
 [[coverage.cells]]
 dimension = "happy_path"

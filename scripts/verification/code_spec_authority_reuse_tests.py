@@ -11,10 +11,14 @@ from pathlib import Path
 
 try:
     from scripts.verification.code_spec_authority_reuse import (
+        _candidate_invariant,
         build_authority_reuse_proposal,
     )
 except ModuleNotFoundError:
+    _candidate_invariant = None
     build_authority_reuse_proposal = None
+
+from scripts.verification.code_spec_fragments import source_fragment_exists
 
 try:
     from scripts.verification.code_spec_authority_reuse_projection import (
@@ -285,6 +289,64 @@ class CodeSpecAuthorityReuseTests(unittest.TestCase):
         self.assertEqual([INVARIANT_ID], group["candidate_invariant_ids"])
         self.assertFalse(proposal["boundaries"]["automatic_writes"])
         self.assertFalse(proposal["boundaries"]["creates_product_proof"])
+
+    def test_metadata_integrity_authority_uses_an_exact_live_fragment(self) -> None:
+        root = Path.cwd()
+        invariant_id = "VERIFICATION_METADATA_INTEGRITY_001"
+        invariant_path = (
+            root
+            / "verification/invariants/verification"
+            / f"{invariant_id}.toml"
+        )
+        metadata_invariant = tomllib.loads(
+            invariant_path.read_text(encoding="utf-8")
+        )
+        source_rows = tomllib.loads(
+            (root / "verification/spec-sources.toml").read_text(
+                encoding="utf-8"
+            )
+        )["spec_sources"]
+        sources = {row["id"]: row for row in source_rows}
+        test_rows = tomllib.loads(
+            (root / "verification/test-catalog.toml").read_text(
+                encoding="utf-8"
+            )
+        )["tests"]
+        catalog = {row["id"]: row for row in test_rows}
+
+        oracle_ref = metadata_invariant["oracle"]["ref"]
+        self.assertEqual(
+            (
+                "SPEC_VERIFICATION_PROGRAM_CONTRACT_001"
+                "#verification-metadata-model"
+            ),
+            oracle_ref,
+            "metadata integrity authority is not bound to its exact contract",
+        )
+        source_id, fragment = oracle_ref.split("#", 1)
+        self.assertTrue(
+            source_fragment_exists(sources[source_id], fragment, root=root),
+            "metadata integrity authority fragment does not resolve",
+        )
+        self.assertIsNotNone(_candidate_invariant)
+        candidate = _candidate_invariant(
+            invariant_id=invariant_id,
+            invariant=metadata_invariant,
+            spec_sources=sources,
+            tests=catalog,
+        )
+        self.assertIsNotNone(candidate)
+        self.assertEqual(
+            [
+                "scripts/validate_verification_metadata.py",
+                "scripts/verification_metadata_gate.sh",
+            ],
+            sorted(
+                path
+                for path in candidate["source_refs"]
+                if path.startswith("scripts/")
+            ),
+        )
 
     def test_implemented_authority_remains_reusable_after_identity_move(self) -> None:
         implemented = invariant()
