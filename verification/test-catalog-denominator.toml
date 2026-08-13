@@ -10744,6 +10744,16 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
+discovery_id = "DISC_1F40E9F04D6C110FEB7F"
+discovery_source_kind = "rust_integration_test"
+path = "crates/trust-runtime/tests/windows_stack_build_script.rs"
+name = "windows_stack_link_arguments_match_toolchain_and_other_targets_emit_none"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RUNTIME_WINDOWS_STACK_LINK_001"
+last_reviewed = "2026-08-12"
+
+[[reviews]]
 discovery_id = "DISC_1F45D0E9F77308D0ECD1"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/harness/lower/runtime_clock_source_contract_tests.rs"
@@ -19524,16 +19534,6 @@ reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
 
 [[reviews]]
-discovery_id = "DISC_38EA65213A91A59D7DD6"
-discovery_source_kind = "rust_unit_test"
-path = "crates/trust-lsp/src/config/configuration_contract_tests.rs"
-name = "alias_only_severity_override_collision_uses_lexically_greatest_raw_key"
-ignore_state = "not_ignored"
-disposition = "catalog_mapped"
-catalog_test_id = "TEST_AUTO_38EA65213A91A59D7DD6"
-last_reviewed = "2026-08-12"
-
-[[reviews]]
 discovery_id = "DISC_38DC8A501AD8BE6F6BAE"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/harness/lower/statement_contract_tests.rs"
@@ -19542,6 +19542,16 @@ ignore_state = "not_ignored"
 disposition = "reviewed_nonmapping"
 reason_code = "no_reviewed_spec_or_invariant_binding"
 last_reviewed = "2026-08-01"
+
+[[reviews]]
+discovery_id = "DISC_38EA65213A91A59D7DD6"
+discovery_source_kind = "rust_unit_test"
+path = "crates/trust-lsp/src/config/configuration_contract_tests.rs"
+name = "alias_only_severity_override_collision_uses_lexically_greatest_raw_key"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_AUTO_38EA65213A91A59D7DD6"
+last_reviewed = "2026-08-12"
 
 [[reviews]]
 discovery_id = "DISC_38F324CE58A0F76EE35B"
@@ -58634,6 +58644,16 @@ catalog_test_id = "TEST_AUTO_ACF6575D2219D1F346C7"
 last_reviewed = "2026-07-26"
 
 [[reviews]]
+discovery_id = "DISC_AD12BFBD95A4ACF053BE"
+discovery_source_kind = "gate_script"
+path = "scripts/release_evidence_contract_gate.sh"
+name = "release_evidence_contract_gate"
+ignore_state = "not_ignored"
+disposition = "catalog_mapped"
+catalog_test_id = "TEST_RELEASE_EVIDENCE_CONTRACT_GUARD_001"
+last_reviewed = "2026-08-12"
+
+[[reviews]]
 discovery_id = "DISC_AD146866A0D41A091CF1"
 discovery_source_kind = "rust_unit_test"
 path = "crates/trust-runtime/src/host/debug/hook/contract_tests.rs"
@@ -86942,23 +86962,3 @@ ignore_state = "not_ignored"
 disposition = "catalog_mapped"
 catalog_test_id = "TEST_AUTO_FFF73572685349BF943D"
 last_reviewed = "2026-07-27"
-
-[[reviews]]
-discovery_id = "DISC_1F40E9F04D6C110FEB7F"
-discovery_source_kind = "rust_integration_test"
-path = "crates/trust-runtime/tests/windows_stack_build_script.rs"
-name = "windows_stack_link_arguments_match_toolchain_and_other_targets_emit_none"
-ignore_state = "not_ignored"
-disposition = "catalog_mapped"
-catalog_test_id = "TEST_RUNTIME_WINDOWS_STACK_LINK_001"
-last_reviewed = "2026-08-12"
-
-[[reviews]]
-discovery_id = "DISC_AD12BFBD95A4ACF053BE"
-discovery_source_kind = "gate_script"
-path = "scripts/release_evidence_contract_gate.sh"
-name = "release_evidence_contract_gate"
-ignore_state = "not_ignored"
-disposition = "catalog_mapped"
-catalog_test_id = "TEST_RELEASE_EVIDENCE_CONTRACT_GUARD_001"
-last_reviewed = "2026-08-12"
