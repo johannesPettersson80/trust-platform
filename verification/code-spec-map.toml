@@ -244687,25 +244687,6 @@ last_reviewed = "2026-07-21"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_ACDABC01E760F8F60B7921A486AB8B60F07EFA96E8D7E8A46518E297AC068EA8"
-source_kind = "rust"
-path = "crates/trust-runtime-core/src/numeric.rs"
-qualified_symbol = "trust_runtime_core::numeric::numeric_kind"
-item_kind = "rust_function"
-signature_digest = "sha256:6edb565910e5134631a1a378cbf33951620e12a06eaf0fb1c4021be5b6f30191"
-reviewed_body_digest = "sha256:af84231b265d609e1c0c2c19b94aad090a38450f0debb6b09ac8917dc118e8bb"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "public"
-risk_signals = []
-disposition = "specified"
-spec_ref = "SPEC_RUNTIME_SEMANTICS_001#2-3-declared-type-materialization"
-invariant_ids = ["RT_CORE_NUMERIC_KIND_WIDENING_001"]
-test_ids = ["TEST_AUTO_DCEF80A3BEFB3B323D32"]
-last_reviewed = "2026-07-30"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_ACF4B85882FB5DBE5F432319965EE77DFBC89B8B4CEA8DA216912D58F1D0D96A"
 source_kind = "rust"
 path = "crates/trust-runtime/src/host/ui/mod.rs"
@@ -245279,23 +245260,6 @@ qualified_symbol = "trust_runtime_core::scheduler::ResourceState"
 item_kind = "rust_public_type"
 signature_digest = "sha256:e9acddfa1e73f0f77793ff2f37478d6f920cfe87152599ca535dd0c9b7845579"
 reviewed_body_digest = "sha256:61452689807a666c6adafc1b09a7d308a180a45131602d867776c765003be78f"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "public"
-risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
-last_reviewed = "2026-07-21"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_B34F829FAC6963A299637E47E0CBCCF6D17866224E57759506E28BF8183ED48E"
-source_kind = "rust"
-path = "crates/trust-runtime-core/src/numeric.rs"
-qualified_symbol = "trust_runtime_core::numeric::NumericKind"
-item_kind = "rust_public_type"
-signature_digest = "sha256:e9c414b6e4e776eab5ec72a68b4243b9a9c3165f3fea67b7790e5ef324e019f5"
-reviewed_body_digest = "sha256:c2ed426511504c96de09307e04e3fd5674be5fa56114b1ee3c6f43513fd1ca68"
 owner = "trust-runtime"
 area = "runtime_safety"
 visibility = "public"
@@ -314101,25 +314065,6 @@ last_reviewed = "2026-07-29"
 
 [[mappings]]
 schema_version = 1
-code_id = "CODE_0F2FBFC16C2DD02A6490192CF5F17B6594571AD35EC79A0A0D9DEC53A92BC3DE"
-source_kind = "rust"
-path = "crates/trust-runtime-core/src/numeric.rs"
-qualified_symbol = "trust_runtime_core::numeric::wider_numeric"
-item_kind = "rust_function"
-signature_digest = "sha256:e4fd93a412fa236f8e8a85fadf708ff72d9a97f42be817cfbb8380d3a6c95bd8"
-reviewed_body_digest = "sha256:14dcbb48a5d040d109a0186a8ebfcb1950ff646cfd2f4ae331d988ec0781cf7c"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "public"
-risk_signals = []
-disposition = "specified"
-spec_ref = "SPEC_RUNTIME_SEMANTICS_001#2-3-declared-type-materialization"
-invariant_ids = ["RT_CORE_NUMERIC_KIND_WIDENING_001"]
-test_ids = ["TEST_AUTO_DCEF80A3BEFB3B323D32"]
-last_reviewed = "2026-07-30"
-
-[[mappings]]
-schema_version = 1
 code_id = "CODE_0F62040964289C924C5D746086001880A13E1D0B1AD3F4EF77C42E181A297662"
 source_kind = "python"
 path = "scripts/verification/ads_behavior_proof_assignments.py"
@@ -323378,25 +323323,6 @@ risk_signals = []
 disposition = "spec_gap"
 spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
 last_reviewed = "2026-07-29"
-
-[[mappings]]
-schema_version = 1
-code_id = "CODE_598E52DBA2A47D4065C5A0862A1CFA93B0896EE41F25E3644A51EEBCCB6C416D"
-source_kind = "rust"
-path = "crates/trust-runtime-core/src/numeric.rs"
-qualified_symbol = "trust_runtime_core::numeric::is_accuracy_preserving_widening"
-item_kind = "rust_function"
-signature_digest = "sha256:2c5b61d77c29f83e8196052226b5b9f79168de9162f97546b79238a7bfd88c45"
-reviewed_body_digest = "sha256:6bbc4541decd421119032c0d333fa8eccb54eab999e062d40fcef92354ba6ba2"
-owner = "trust-runtime"
-area = "runtime_safety"
-visibility = "private"
-risk_signals = []
-disposition = "specified"
-spec_ref = "SPEC_RUNTIME_SEMANTICS_001#2-3-declared-type-materialization"
-invariant_ids = ["RT_CORE_NUMERIC_KIND_WIDENING_001"]
-test_ids = ["TEST_AUTO_DCEF80A3BEFB3B323D32"]
-last_reviewed = "2026-07-30"
 
 [[mappings]]
 schema_version = 1
@@ -352627,3 +352553,71 @@ invariant_ids = ["REL_RELEASE_EVIDENCE_GUARD_001"]
 test_ids = ["TEST_RELEASE_EVIDENCE_CONTRACT_GUARD_001"]
 cross_area_decision_ref = "docs/internal/testing/evidence/plc-verification-program/2026-08-12-p18-release-evidence-guard-authority.md#cross-area-decision"
 last_reviewed = "2026-08-12"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_3177C9E3C59ABCC5E1A805CBF84D6612057A23B87D57CEB18B4D6D5D5DE1CD8C"
+source_kind = "rust"
+path = "crates/trust-runtime-core/src/numeric/kind.rs"
+qualified_symbol = "trust_runtime_core::numeric::kind::wider_numeric"
+item_kind = "rust_function"
+signature_digest = "sha256:e4fd93a412fa236f8e8a85fadf708ff72d9a97f42be817cfbb8380d3a6c95bd8"
+reviewed_body_digest = "sha256:14dcbb48a5d040d109a0186a8ebfcb1950ff646cfd2f4ae331d988ec0781cf7c"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "public"
+risk_signals = []
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
+last_reviewed = "2026-08-13"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_381963E00E05CBA0D15694F422D177D6A1B6DC7050EE74ABE8D4DFCA9B4DD0C5"
+source_kind = "rust"
+path = "crates/trust-runtime-core/src/numeric/kind.rs"
+qualified_symbol = "trust_runtime_core::numeric::kind::is_accuracy_preserving_widening"
+item_kind = "rust_function"
+signature_digest = "sha256:8892cccbabb1bc3ebabe9d228d9b0ae52207defe358b957c4a2933303c890577"
+reviewed_body_digest = "sha256:366aa9291dad38c23a8c046e869f6aa11b2f301acb03c570c1032bc4065910e8"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "private"
+risk_signals = []
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
+last_reviewed = "2026-08-13"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_3A3E9ECE6DA3BF1E3551716DA0DB38AC2F05B9A1488F68529543A5B8E959D98B"
+source_kind = "rust"
+path = "crates/trust-runtime-core/src/numeric/kind.rs"
+qualified_symbol = "trust_runtime_core::numeric::kind::NumericKind"
+item_kind = "rust_public_type"
+signature_digest = "sha256:e9c414b6e4e776eab5ec72a68b4243b9a9c3165f3fea67b7790e5ef324e019f5"
+reviewed_body_digest = "sha256:c2ed426511504c96de09307e04e3fd5674be5fa56114b1ee3c6f43513fd1ca68"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "public"
+risk_signals = []
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
+last_reviewed = "2026-08-13"
+
+[[mappings]]
+schema_version = 1
+code_id = "CODE_F546D4A622AAEF389938B851D50D55D12C7F10D7E3E6D270C7C64EC2E1D8316F"
+source_kind = "rust"
+path = "crates/trust-runtime-core/src/numeric/kind.rs"
+qualified_symbol = "trust_runtime_core::numeric::kind::numeric_kind"
+item_kind = "rust_function"
+signature_digest = "sha256:6edb565910e5134631a1a378cbf33951620e12a06eaf0fb1c4021be5b6f30191"
+reviewed_body_digest = "sha256:af84231b265d609e1c0c2c19b94aad090a38450f0debb6b09ac8917dc118e8bb"
+owner = "trust-runtime"
+area = "runtime_safety"
+visibility = "public"
+risk_signals = []
+disposition = "spec_gap"
+spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"
+last_reviewed = "2026-08-13"
