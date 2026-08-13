@@ -4,9 +4,9 @@ Status: zero-debt contract accepted by commit-bound independent R3 review.
 Findings `P18-C01` through `P18-C08` and `P18-R2-01` are resolved.
 
 Current row: `VERIF-P18-003`, continuing as the repository-wide authority and
-coverage campaign over 13,720 explicitly mapped `spec_gap` code facts with
+coverage campaign over 13,718 explicitly mapped `spec_gap` code facts with
 zero code-spec findings. The code map now represents all 17,491 live facts, of
-which 3,511 are `specified`. The test denominator is 8,695 = 4,462
+which 3,513 are `specified`. The test denominator is 8,695 = 4,462
 `catalog_mapped` + 4,233 `reviewed_nonmapping`; `VERIF-P18-005` therefore
 remains open. The accepted P18-002 ledger owns and orders every current fact;
 it does not close any remaining specification, execution, reachability,
@@ -247,6 +247,18 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   adequacy, and broad candidate proof remain open; no P18-016 broad gate ran.
   Evidence:
   `docs/internal/testing/evidence/plc-verification-program/2026-08-13-p18-authority-tool-contract.md`.
+
+  Metadata-integrity entrypoint progress (2026-08-13): an expected focused red
+  proved that the document-wide metadata-integrity oracle could not enter the
+  exact-fragment authority-reuse queue. Binding the existing
+  `#verification-metadata-model` contract made the focused test and full reuse
+  suite pass 11/11. A complete 26-group review retains 24 prior withholds and
+  atomically promotes only the exact Python validator and shell gate
+  entrypoints to `VERIFICATION_METADATA_INTEGRITY_001` and
+  `TEST_VERIFICATION_METADATA_GATE_001`. The final report at `066619f0`
+  accounts 17,491 facts with zero findings, 13,718 `spec_gap`, and 3,513
+  `specified`. This closes authority only; the invariant's producer-authentic
+  lock and final remote-gate debt remain open, and no P18-016 broad gate ran.
 
   Signed-integer slice progress (2026-07-22): exact slice
   `P18-CODE-CODE_F72E3E7BC892973CF9344497078A35D93380745CDC5DB4820F5CFB302AAEE14A`

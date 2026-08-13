@@ -104,3 +104,24 @@ Both matched each frozen commit. `AGENTS.md` matched
 `sha256:76576b5464443f4128a67c325527d23e59da46c019da7b79f39454dabc250263`;
 the complete `.codex/skills/**` aggregate matched
 `sha256:3f84c064eff30aca31d55c51034a05a7e2ae4a53d2c69fb6f1827585b7ac73a7`.
+
+## Metadata-integrity entrypoints
+
+The adjacent exact-source batch found that
+`VERIFICATION_METADATA_INTEGRITY_001` named the whole verification contract,
+while the reuse route correctly requires `SOURCE#fragment`. The focused test
+failed for that missing fragment. Commit `76834847` binds the already-existing
+`#verification-metadata-model` heading; the same test and the full reuse suite
+then passed 11/11.
+
+The clean report produced two singular groups for only
+`scripts/validate_verification_metadata.py::<entrypoint>` and
+`scripts/verification_metadata_gate.sh::<entrypoint>`. The complete 26-group
+selection accepts those two for `VERIFICATION_METADATA_INTEGRITY_001` and
+retains the 24 prior withholds. The atomic application is
+`sha256:60409e658a818e7c7341c0e4ca72f768222eafddb2bfccac429e9c07d77302e2`;
+commit `066619f0` records the mapping checkpoint. Its final report is
+`sha256:4f9e9650201491a8b607f4d81d2ebf88d48b4756af50b1a2e3d38ddbd86a7d54`:
+17,491 facts, zero findings, 13,718 `spec_gap`, and 3,513 `specified`.
+Producer-authentic lock evidence and the final remote gate remain explicit
+invariant debt.
