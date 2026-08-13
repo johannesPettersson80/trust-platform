@@ -94829,12 +94829,12 @@ id = "RISK_ACK_BE1593F7A0B7175D045ADD9403AEF2B0021B9C2FFB73ACC9E1452F28ED19D965"
 code_id = "CODE_BE1593F7A0B7175D045ADD9403AEF2B0021B9C2FFB73ACC9E1452F28ED19D965"
 owner = "verification"
 area = "verification"
-body_digest = "sha256:165c934422079d5839c8f267a4b835446c54c4caca5e8c0971e77fe5dbf7f634"
+body_digest = "sha256:24e8c0d4acd8be5773e9b0c3b2ca89137004fd2850cf0f9d276f114f91e287d6"
 risk_signals = ["protocol_response_or_status"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-authority-reuse.md#identity-maintenance"
+review_ref = "docs/internal/testing/checklists/architecture-improvements.md#arch-verif-p18-15"
 reviewed_by = "verification"
-reviewed_on = "2026-07-29"
-expires_on = "2026-10-29"
+reviewed_on = "2026-08-13"
+expires_on = "2026-11-13"
 rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]

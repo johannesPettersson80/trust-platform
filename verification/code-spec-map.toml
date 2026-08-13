@@ -345927,18 +345927,18 @@ path = "scripts/verification/code_spec_authority_reuse.py"
 qualified_symbol = "scripts::verification::code_spec_authority_reuse::_candidate_invariant"
 item_kind = "python_function"
 signature_digest = "sha256:dc35ac7a2401b02016ab18d746cda5dc711edea3f1549e9cd24c238923a7d497"
-reviewed_body_digest = "sha256:165c934422079d5839c8f267a4b835446c54c4caca5e8c0971e77fe5dbf7f634"
+reviewed_body_digest = "sha256:24e8c0d4acd8be5773e9b0c3b2ca89137004fd2850cf0f9d276f114f91e287d6"
 owner = "verification"
 area = "verification"
 visibility = "private"
 risk_signals = ["protocol_response_or_status"]
 owner_ack = "RISK_ACK_BE1593F7A0B7175D045ADD9403AEF2B0021B9C2FFB73ACC9E1452F28ED19D965"
-owner_ack_expires_on = "2026-10-29"
+owner_ack_expires_on = "2026-11-13"
 disposition = "specified"
 spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
 invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
 test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
-last_reviewed = "2026-07-29"
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
