@@ -337,9 +337,18 @@ class CodeSpecAuthorityReuseTests(unittest.TestCase):
             tests=catalog,
         )
         self.assertIsNotNone(candidate)
+        metadata_test = catalog["TEST_VERIFICATION_METADATA_GATE_001"]
+        self.assertEqual(
+            oracle_ref,
+            metadata_test["oracle_ref"],
+            "metadata gate catalog authority is not fragment-bound",
+        )
         self.assertEqual(
             [
                 "scripts/validate_verification_metadata.py",
+                "scripts/verification/metadata_validator/oracle_refs.py",
+                "scripts/verification/metadata_validator/schema_contracts.py",
+                "scripts/verification/metadata_validator/spec_sources.py",
                 "scripts/verification_metadata_gate.sh",
             ],
             sorted(
@@ -348,6 +357,19 @@ class CodeSpecAuthorityReuseTests(unittest.TestCase):
                 if path.startswith("scripts/")
             ),
         )
+
+    def test_metadata_gate_registers_focused_contract_tests(self) -> None:
+        gate = Path("scripts/verification_metadata_gate.sh").read_text(
+            encoding="utf-8"
+        )
+
+        for module in (
+            "scripts.verification.metadata_validator.oracle_refs_tests",
+            "scripts.verification.metadata_validator.schema_contracts_tests",
+            "scripts.verification.metadata_validator.spec_sources_tests",
+        ):
+            with self.subTest(module=module):
+                self.assertIn(module, gate)
 
     def test_implemented_authority_remains_reusable_after_identity_move(self) -> None:
         implemented = invariant()

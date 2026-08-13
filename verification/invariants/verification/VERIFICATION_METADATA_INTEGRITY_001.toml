@@ -13,6 +13,9 @@ source_refs = [
   "verification",
   "scripts/verification_metadata_gate.sh",
   "scripts/validate_verification_metadata.py",
+  "scripts/verification/metadata_validator/oracle_refs.py",
+  "scripts/verification/metadata_validator/schema_contracts.py",
+  "scripts/verification/metadata_validator/spec_sources.py",
   "docs/internal/testing/checklists/plc-verification-program/code-spec-coverage-plan.md",
 ]
 tests = ["TEST_VERIFICATION_METADATA_GATE_001"]
