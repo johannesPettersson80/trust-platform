@@ -81351,12 +81351,12 @@ id = "RISK_ACK_B0AF247D489DF0CA6A91568659FC43CC34009CACA24F136D491B7A7B9617C9D4"
 code_id = "CODE_B0AF247D489DF0CA6A91568659FC43CC34009CACA24F136D491B7A7B9617C9D4"
 owner = "verification"
 area = "verification"
-body_digest = "sha256:90f37a6c9a4e1051ffd616a3cb74f7e36a5a7ae7293e48d944b8ec3158673933"
+body_digest = "sha256:55437e449389fc097abdb2dd2c6b5e90b9058a76204a109b8a6591e57cf6aa6e"
 risk_signals = ["filesystem_or_environment", "state_mutation", "subprocess_or_thread"]
-review_ref = "docs/internal/testing/evidence/plc-verification-program/2026-07-29-p18-code-spec-authority-reuse.md#identity-maintenance"
+review_ref = "docs/internal/testing/checklists/architecture-improvements.md#arch-verif-p18-16"
 reviewed_by = "verification"
-reviewed_on = "2026-07-29"
-expires_on = "2026-10-29"
+reviewed_on = "2026-08-13"
+expires_on = "2026-11-13"
 rationale = "Acknowledges the live scanner risk signals for this exact body digest and reviewed identity-maintenance transition; it does not specify behavior, suppress risk, or create product proof."
 
 [[acknowledgements]]
