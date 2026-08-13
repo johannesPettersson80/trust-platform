@@ -12,9 +12,9 @@ identities. It promotes `TaskState` and `TaskState::new` to the existing
 state-initialization authority, then restores the already accepted readiness
 authority to the moved `TaskReadiness` and `evaluate_task_readiness` facts.
 
-`TaskConfig` remains an explicit `spec_gap` fact. The slice therefore does not
-claim complete task-model authority, new readiness product proof, mutation
-sensitivity, broad workspace validation, or Phase 18 completion.
+`TaskConfig` now has exact runtime-safety test authority. The slice still does
+not claim assertion reachability, mutation sensitivity, broad workspace
+validation, or Phase 18 completion.
 
 ## Behavior lock and ownership split
 
@@ -126,9 +126,12 @@ No new readiness behavior or proof tier is claimed; the exact pre-split body,
 thirteen accepted tests, producer-authentic lock, assertion reachability, and
 risk acknowledgement already existed and remain bound to the same invariant.
 
-`TaskConfig` remains explicit debt because the only nearby authority is a
-cross-area omnibus scheduler invariant rather than an exact configuration
-contract. It is the next task-model authority boundary.
+The stable `TEST_AUTO_8E4DAF369D706056A1CC` identity was atomically reassigned
+from the stale cross-area omnibus scheduler invariant to
+`RT_CORE_TASK_CONFIG_001`. Its fresh post-split source-closure inventory binds
+six direct field assertions to the exact configuration behavior with two
+distinct semantic reviewers. The exact remote nextest command passed 1/1 at
+the frozen `fd562274` source baseline.
 
 ## Focused execution and proof boundary
 
