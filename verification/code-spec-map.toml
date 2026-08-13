@@ -312128,9 +312128,11 @@ owner = "verification"
 area = "verification"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -312494,9 +312496,11 @@ owner = "verification"
 area = "verification"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -312832,9 +312836,11 @@ owner = "verification"
 area = "verification"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -313082,9 +313088,11 @@ owner = "verification"
 area = "verification"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -313359,9 +313367,11 @@ visibility = "public"
 risk_signals = ["fault_mapping"]
 owner_ack = "RISK_ACK_0B2C1523B3E9297884242DCE41496742E1A1B024A52DFB4F3CB222370E147B4F"
 owner_ack_expires_on = "2026-10-29"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -313841,9 +313851,11 @@ visibility = "private"
 risk_signals = ["broad_error_suppression", "filesystem_or_environment"]
 owner_ack = "RISK_ACK_0E21ABC286A94F3D51E406AA03E82F9E3C13A472D9FBD4018C726A32BBB1B5EE"
 owner_ack_expires_on = "2026-11-12"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-08-12"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -314161,9 +314173,11 @@ owner = "verification"
 area = "verification"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -315019,9 +315033,11 @@ owner = "verification"
 area = "verification"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -315305,9 +315321,11 @@ visibility = "private"
 risk_signals = ["filesystem_or_environment"]
 owner_ack = "RISK_ACK_1ABAE24312884BEDE9DF55C49EDBEE4741FBB3577B94F8B8A51520361F7295FC"
 owner_ack_expires_on = "2026-11-12"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-08-12"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -316149,9 +316167,11 @@ visibility = "private"
 risk_signals = ["filesystem_or_environment", "protocol_response_or_status", "state_mutation"]
 owner_ack = "RISK_ACK_20F6C1EC999C9B7F2BC426F14E99622E529AF82322436ADB63B9A216B7295ACA"
 owner_ack_expires_on = "2026-10-29"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -316204,9 +316224,11 @@ visibility = "public"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_2132E87F5DAD5DA175E3B15751E33698291E3BD1855895DB023310F1260C0DC4"
 owner_ack_expires_on = "2026-10-29"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -316386,9 +316408,11 @@ visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_22845E64BE6C072EF176A3A17BE62E04C1BDC6B7BC34C8E453CFAD4B0D5CB890"
 owner_ack_expires_on = "2026-10-29"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -316798,9 +316822,11 @@ owner = "verification"
 area = "verification"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -316868,9 +316894,11 @@ visibility = "public"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_25CB7D887CF4DC8B2D7C528B6C38B04720465101750C30CEB12965B992605777"
 owner_ack_expires_on = "2026-10-29"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -317209,9 +317237,11 @@ owner = "verification"
 area = "verification"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -317431,9 +317461,11 @@ owner = "verification"
 area = "verification"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -317632,9 +317664,11 @@ owner = "verification"
 area = "verification"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -317776,9 +317810,11 @@ visibility = "private"
 risk_signals = ["filesystem_or_environment"]
 owner_ack = "RISK_ACK_2C8E6A6838BF45AC37258CDACAC1DA3B8998A6C89D4DEEBE33584C93E4915A76"
 owner_ack_expires_on = "2026-10-29"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -318015,9 +318051,11 @@ owner = "verification"
 area = "verification"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -318106,9 +318144,11 @@ owner = "verification"
 area = "verification"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -318265,9 +318305,11 @@ visibility = "public"
 risk_signals = ["filesystem_or_environment"]
 owner_ack = "RISK_ACK_30FC95FDE033F121CCE0C609C443A164281B8AB3AA0817BA75EBF70CFED4AE3F"
 owner_ack_expires_on = "2026-10-29"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -318320,9 +318362,11 @@ visibility = "private"
 risk_signals = ["protocol_response_or_status", "state_mutation"]
 owner_ack = "RISK_ACK_3134BA2314DC1C81DFF68154852B0905DCEA88864D19D7C3E028666D690D2D91"
 owner_ack_expires_on = "2026-10-29"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -318584,9 +318628,11 @@ visibility = "private"
 risk_signals = ["filesystem_or_environment"]
 owner_ack = "RISK_ACK_32D4A542E06791415A93B31D72B65DD3A9F0C893FB174E6D7E35B3D65F7C032F"
 owner_ack_expires_on = "2026-10-29"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -318713,9 +318759,11 @@ owner = "verification"
 area = "verification"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -318730,9 +318778,11 @@ owner = "verification"
 area = "verification"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -319179,9 +319229,11 @@ owner = "verification"
 area = "verification"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -319772,9 +319824,11 @@ owner = "verification"
 area = "verification"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -319895,9 +319949,11 @@ owner = "verification"
 area = "verification"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -320245,9 +320301,11 @@ visibility = "private"
 risk_signals = ["fault_mapping", "state_mutation"]
 owner_ack = "RISK_ACK_40700DDF26471C25EC9A823E8960E26538D7ACA7A75F7A657163A19C14A3C0BE"
 owner_ack_expires_on = "2026-10-29"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -320770,9 +320828,11 @@ visibility = "private"
 risk_signals = ["filesystem_or_environment"]
 owner_ack = "RISK_ACK_4400C8C49B83178BACAA4BCBF7416B906E302971787DDCBC9F74B7427469A995"
 owner_ack_expires_on = "2026-10-29"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -320825,9 +320885,11 @@ visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_4476A7C0AE2418874B7D08DFD8B4A220B13D0EEAB872676221E38651F7321C93"
 owner_ack_expires_on = "2026-10-29"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -321944,9 +322006,11 @@ visibility = "private"
 risk_signals = ["filesystem_or_environment", "state_mutation"]
 owner_ack = "RISK_ACK_4E498BB082E49C33EC8C3713AE169483C452E54E89B7BA0905F1FD414EF83BED"
 owner_ack_expires_on = "2026-11-12"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-08-12"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -322130,9 +322194,11 @@ visibility = "public"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_4FC60CA03C7CE8332474C8C1B9DF474715C669BC405A68DB88287FA69B78E802"
 owner_ack_expires_on = "2026-10-29"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -322327,9 +322393,11 @@ owner = "verification"
 area = "verification"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -322689,9 +322757,11 @@ visibility = "public"
 risk_signals = ["fault_mapping"]
 owner_ack = "RISK_ACK_54EA14EB13E731CF47A47AF2A2BA3F16B25E45B72835E618B5AFA4839B9A8DE6"
 owner_ack_expires_on = "2026-10-29"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -322962,9 +323032,11 @@ visibility = "public"
 risk_signals = ["filesystem_or_environment"]
 owner_ack = "RISK_ACK_56D21F5EF13D090906B7572BA573A3196B59EE0E79BE0FC257823950B07C4F6A"
 owner_ack_expires_on = "2026-10-29"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -323610,9 +323682,11 @@ owner = "verification"
 area = "verification"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -323703,9 +323777,11 @@ visibility = "public"
 risk_signals = ["filesystem_or_environment", "state_mutation"]
 owner_ack = "RISK_ACK_5E08C72BB557291F4ECB3A0EC844116246BBF3DD1AFF94CD9B7229FD9426B2F8"
 owner_ack_expires_on = "2026-10-29"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -324054,9 +324130,11 @@ visibility = "public"
 risk_signals = ["protocol_response_or_status"]
 owner_ack = "RISK_ACK_613DC49861C16AC4AB41DF49979AE7B2472CEC94BF57D83C8B7263422130C662"
 owner_ack_expires_on = "2026-10-29"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -324583,9 +324661,11 @@ visibility = "public"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_66872CB1C8D87A5B92FE8A4613AA376EF5DF7BE128951410AC5256E46AE4C397"
 owner_ack_expires_on = "2026-10-29"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -324818,9 +324898,11 @@ owner = "verification"
 area = "verification"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -324854,9 +324936,11 @@ owner = "verification"
 area = "verification"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -324890,9 +324974,11 @@ owner = "verification"
 area = "verification"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -324907,9 +324993,11 @@ owner = "verification"
 area = "verification"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -325015,9 +325103,11 @@ owner = "verification"
 area = "verification"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -325227,9 +325317,11 @@ owner = "verification"
 area = "verification"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -325335,9 +325427,11 @@ owner = "verification"
 area = "verification"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -325536,9 +325630,11 @@ visibility = "public"
 risk_signals = ["filesystem_or_environment"]
 owner_ack = "RISK_ACK_6DB5555AA3F187F9082512C12E3BE48FC67918E9EFC44745A637938313A28444"
 owner_ack_expires_on = "2026-10-29"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -325591,9 +325687,11 @@ visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_6E0F0B9F759E11961390C3056ABE1EB63C4562E46A2C5ECBE8BDB42CAFAD7240"
 owner_ack_expires_on = "2026-10-29"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -325788,9 +325886,11 @@ visibility = "public"
 risk_signals = ["subprocess_or_thread"]
 owner_ack = "RISK_ACK_6F00308DA5DB8C38C1AF65AE2078650318532DD70349E95EA1FDC1F3A9C7FA7C"
 owner_ack_expires_on = "2026-10-29"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -325881,9 +325981,11 @@ visibility = "public"
 risk_signals = ["filesystem_or_environment"]
 owner_ack = "RISK_ACK_6F8573485D2473AB9811B5E95082F34C7E818DD80A22E87D6E6CC9EF1BE5E438"
 owner_ack_expires_on = "2026-10-29"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -326588,9 +326690,11 @@ owner = "verification"
 area = "verification"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -326772,9 +326876,11 @@ visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_76366DFA18CB8B28E0818831D9EF5BB1CB5E5A84D73BCEDE6934C5F75CE5AAB5"
 owner_ack_expires_on = "2026-10-29"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -327374,9 +327480,11 @@ owner = "verification"
 area = "verification"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -327522,9 +327630,11 @@ visibility = "public"
 risk_signals = ["broad_error_suppression", "state_mutation"]
 owner_ack = "RISK_ACK_7ADDA2E315D641FD2748B3771F5666B43B0C703986E957A72A6B976A90879809"
 owner_ack_expires_on = "2026-11-12"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-08-12"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -327615,9 +327725,11 @@ visibility = "private"
 risk_signals = ["filesystem_or_environment", "state_mutation"]
 owner_ack = "RISK_ACK_7B877EC8DADD8FAD66F06DFC4EF33C46867D33660470B9378E2202E88AD8092B"
 owner_ack_expires_on = "2026-10-29"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -327846,9 +327958,11 @@ owner = "verification"
 area = "verification"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -328335,9 +328449,11 @@ owner = "verification"
 area = "verification"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -328494,9 +328610,11 @@ owner = "verification"
 area = "verification"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -328602,9 +328720,11 @@ owner = "verification"
 area = "verification"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -329443,9 +329563,11 @@ visibility = "private"
 risk_signals = ["filesystem_or_environment", "state_mutation"]
 owner_ack = "RISK_ACK_89B67AF2D9B3E137B3C2099387EAD4CEF68D1EE6D55235979A882C51CB292C27"
 owner_ack_expires_on = "2026-10-29"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -330443,9 +330565,11 @@ owner = "verification"
 area = "verification"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -330606,9 +330730,11 @@ owner = "verification"
 area = "verification"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -330659,9 +330785,11 @@ owner = "verification"
 area = "verification"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -330887,9 +331015,11 @@ visibility = "public"
 risk_signals = ["protocol_response_or_status", "state_mutation"]
 owner_ack = "RISK_ACK_94AF9B4274693B46B06FC633DC315519619D4618C194D2A9BB2BEF72BBBD9093"
 owner_ack_expires_on = "2026-10-29"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -331903,9 +332033,11 @@ owner = "verification"
 area = "verification"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -332447,9 +332579,11 @@ owner = "verification"
 area = "verification"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -333337,9 +333471,11 @@ visibility = "public"
 risk_signals = ["filesystem_or_environment", "state_mutation"]
 owner_ack = "RISK_ACK_AA5E5E3446A804F6049F802D9898EFBF45DEDF6A8212891E6CF28ED9A8332CA4"
 owner_ack_expires_on = "2026-10-29"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -333627,9 +333763,11 @@ owner = "verification"
 area = "verification"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -333710,9 +333848,11 @@ visibility = "public"
 risk_signals = ["filesystem_or_environment", "state_mutation"]
 owner_ack = "RISK_ACK_AC311ADFBE0A5E5E202A8F20A96401A6501F48CC736247AFC5FBF25B0A962CA9"
 owner_ack_expires_on = "2026-10-29"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -333835,9 +333975,11 @@ owner = "verification"
 area = "verification"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -334040,9 +334182,11 @@ owner = "verification"
 area = "verification"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -334074,9 +334218,11 @@ owner = "verification"
 area = "verification"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -334436,9 +334582,11 @@ visibility = "private"
 risk_signals = ["subprocess_or_thread"]
 owner_ack = "RISK_ACK_B2807C8AE2A60CDEBEBAFC06BBFF2AF075D716643F72A1811D7AFEB88C5FB84D"
 owner_ack_expires_on = "2026-10-29"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -334453,9 +334601,11 @@ owner = "verification"
 area = "verification"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -334906,9 +335056,11 @@ visibility = "public"
 risk_signals = ["filesystem_or_environment", "state_mutation"]
 owner_ack = "RISK_ACK_B60C852F5AC51134D3E52FC2D196F88C92985EA9D09BA5C5AB3C2D75AA35BE87"
 owner_ack_expires_on = "2026-10-29"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -335768,9 +335920,11 @@ owner = "verification"
 area = "verification"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -336566,9 +336720,11 @@ visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_C2A087A8F7B98F5F67FF9D543581994EC36CDDFCAD10457ECCBB63990805ABA5"
 owner_ack_expires_on = "2026-10-29"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -336744,9 +336900,11 @@ owner = "verification"
 area = "verification"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -337493,9 +337651,11 @@ owner = "verification"
 area = "verification"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -337673,9 +337833,11 @@ owner = "verification"
 area = "verification"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -337692,9 +337854,11 @@ visibility = "private"
 risk_signals = ["filesystem_or_environment"]
 owner_ack = "RISK_ACK_CB9441338EA4557219BFAF4EDF3C5FC3ED15B23CD30302EC31E7DE0E3CF4811C"
 owner_ack_expires_on = "2026-10-29"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -337893,9 +338057,11 @@ owner = "verification"
 area = "verification"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -338259,9 +338425,11 @@ visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_CF2BD86526D82B250E3C926D796B0DE1B25B4A61B174CD9B85F8C08E73289649"
 owner_ack_expires_on = "2026-10-29"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -338725,9 +338893,11 @@ owner = "verification"
 area = "verification"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -338852,9 +339022,11 @@ visibility = "public"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_D3C55BE7927217B642A22E94E37C338D5150656E15A878BF706928E2D310B5DC"
 owner_ack_expires_on = "2026-10-29"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -338907,9 +339079,11 @@ visibility = "public"
 risk_signals = ["filesystem_or_environment"]
 owner_ack = "RISK_ACK_D4B7E3605FA8B23B473AB643F41E2E7D0A173299E082340D009B539EAE56FF72"
 owner_ack_expires_on = "2026-10-29"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -338962,9 +339136,11 @@ owner = "verification"
 area = "verification"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -339034,9 +339210,11 @@ owner = "verification"
 area = "verification"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -339072,9 +339250,11 @@ visibility = "public"
 risk_signals = ["filesystem_or_environment"]
 owner_ack = "RISK_ACK_D61CCB5FF4E5E83B5ED74208D408A802F71DAC9F3FDB269324778DFD129AD2E2"
 owner_ack_expires_on = "2026-10-29"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -339125,9 +339305,11 @@ owner = "verification"
 area = "verification"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -340191,9 +340373,11 @@ owner = "verification"
 area = "verification"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -340284,9 +340468,11 @@ visibility = "public"
 risk_signals = ["filesystem_or_environment"]
 owner_ack = "RISK_ACK_E09EBA69C2CB49972F94D5A36F1F20A35F676163CCA3E0B4A1B107B9A8EE2A29"
 owner_ack_expires_on = "2026-10-29"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -340413,9 +340599,11 @@ visibility = "private"
 risk_signals = ["filesystem_or_environment", "randomness"]
 owner_ack = "RISK_ACK_E0F5FC0E0BE06349010C47EAD924EA581059C79E4257E7C7ED0CBDB27876C898"
 owner_ack_expires_on = "2026-10-29"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -340468,9 +340656,11 @@ visibility = "private"
 risk_signals = ["subprocess_or_thread"]
 owner_ack = "RISK_ACK_E13C9E0C4D61C1F70A15E43E11347DDB75331755A5059B825A231DF30351AA53"
 owner_ack_expires_on = "2026-10-29"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -340568,9 +340758,11 @@ owner = "verification"
 area = "verification"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -340811,9 +341003,11 @@ visibility = "public"
 risk_signals = ["protocol_response_or_status", "state_mutation"]
 owner_ack = "RISK_ACK_E43E757C8F14648200347D6D0795FBCBB21F5E4C3F656F4129C68B0C8CEEA1AA"
 owner_ack_expires_on = "2026-10-29"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -341539,9 +341733,11 @@ visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_E9C90B9E9838026A15BC2AB911EB088EBA88EB6BA6C284DBE0B23C93309D3C8C"
 owner_ack_expires_on = "2026-10-29"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -341691,9 +341887,11 @@ visibility = "private"
 risk_signals = ["filesystem_or_environment"]
 owner_ack = "RISK_ACK_EB2F18FEF7069455FA50330A45DF110E73AAEA81681B9880597BC7AFC5E0E392"
 owner_ack_expires_on = "2026-11-12"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-08-12"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -341886,9 +342084,11 @@ owner = "verification"
 area = "verification"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -342290,9 +342490,11 @@ owner = "verification"
 area = "verification"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -342610,9 +342812,11 @@ owner = "verification"
 area = "verification"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -342720,9 +342924,11 @@ visibility = "public"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_F2E5086B4A27326835D4FFCC52FDD69A6B951B3F8385C0A74A79E7BE5218260E"
 owner_ack_expires_on = "2026-10-29"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -342938,9 +343144,11 @@ owner = "verification"
 area = "verification"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -343061,9 +343269,11 @@ owner = "verification"
 area = "verification"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -343480,9 +343690,11 @@ visibility = "public"
 risk_signals = ["filesystem_or_environment"]
 owner_ack = "RISK_ACK_F9459E7B08763A8276EE63BAA1C518BA51AF861BC8B5ADAB179FDF16824DE85E"
 owner_ack_expires_on = "2026-10-29"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -343556,9 +343768,11 @@ owner = "verification"
 area = "verification"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -343829,9 +344043,11 @@ visibility = "private"
 risk_signals = ["protocol_response_or_status", "state_mutation"]
 owner_ack = "RISK_ACK_FC2494E3C6FFAB649519EED9718003470CA40560AA9F8773A15968B9136503D4"
 owner_ack_expires_on = "2026-10-29"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -344581,9 +344797,11 @@ owner = "verification"
 area = "verification"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -345371,9 +345589,11 @@ owner = "verification"
 area = "verification"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -345599,9 +345819,11 @@ owner = "verification"
 area = "verification"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -345616,9 +345838,11 @@ owner = "verification"
 area = "verification"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -351728,9 +351952,11 @@ visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_2D23FCE604050B563D150F36EBDE35A5EA48CE5E9F8A3CE7D71D388CEFDD86C3"
 owner_ack_expires_on = "2026-11-12"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-08-12"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -351796,9 +352022,11 @@ owner = "verification"
 area = "verification"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-08-12"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -352679,8 +352907,10 @@ visibility = "public"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_736F807F684A3277C90CD9CFAEEAC9ADCDFFAB2DD4F623832F4F007039607B1F"
 owner_ack_expires_on = "2026-11-13"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine"
+invariant_ids = ["VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
 last_reviewed = "2026-08-13"
 
 [[mappings]]
