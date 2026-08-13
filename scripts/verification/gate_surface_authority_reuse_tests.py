@@ -163,6 +163,20 @@ class GateSurfaceAuthorityReuseTests(unittest.TestCase):
             ),
         )
 
+    def test_already_specified_entrypoint_creates_no_reuse_route(self) -> None:
+        rows = mappings()
+        rows[CODE_ENTRY]["disposition"] = "specified"
+        self.assertEqual(
+            {},
+            build_gate_surface_authority_routes(
+                candidate_invariant=candidate(),
+                tests=catalog(),
+                inventory_records=inventory(),
+                live_gate_facts=[live_fact()],
+                mappings=rows,
+            ),
+        )
+
     def test_gate_route_fails_closed_on_inventory_identity_drift(self) -> None:
         self.assertIsNotNone(build_gate_surface_authority_routes)
         records = inventory()

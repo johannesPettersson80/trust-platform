@@ -95,7 +95,6 @@ def build_gate_surface_authority_routes(
             for row in mappings.values()
             if row.get("path") == path
             and row.get("area") == "verification"
-            and row.get("disposition") == "spec_gap"
             and row.get("item_kind") == expected_item_kind
         ]
         if len(code_rows) != 1:
@@ -103,6 +102,8 @@ def build_gate_surface_authority_routes(
                 f"{test_id}: expected one exact gate entrypoint, got {len(code_rows)}"
             )
         mapping = code_rows[0]
+        if mapping.get("disposition") != "spec_gap":
+            continue
         code_id = _required_string(mapping, "code_id", test_id)
         if code_id in routes:
             raise ValueError(f"{code_id}: gate entrypoint route is duplicated")
