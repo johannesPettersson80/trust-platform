@@ -4,9 +4,9 @@ Status: zero-debt contract accepted by commit-bound independent R3 review.
 Findings `P18-C01` through `P18-C08` and `P18-R2-01` are resolved.
 
 Current row: `VERIF-P18-003`, continuing as the repository-wide authority and
-coverage campaign over 13,835 explicitly mapped `spec_gap` code facts with
+coverage campaign over 13,720 explicitly mapped `spec_gap` code facts with
 zero code-spec findings. The code map now represents all 17,491 live facts, of
-which 3,396 are `specified`. The test denominator is 8,695 = 4,462
+which 3,511 are `specified`. The test denominator is 8,695 = 4,462
 `catalog_mapped` + 4,233 `reviewed_nonmapping`; `VERIF-P18-005` therefore
 remains open. The accepted P18-002 ledger owns and orders every current fact;
 it does not close any remaining specification, execution, reachability,
@@ -233,6 +233,20 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   range, failure, simulation, and replay boundary. Add a negative fixture
   proving a gap marked closed while live facts still use `spec_gap` fails the
   strict gate.
+
+  Verification authority-tool progress (2026-08-13): fourteen exact CLI and
+  focused authority/review/selection/transaction source groups are bound to
+  `SPEC_VERIFICATION_PROGRAM_CONTRACT_001#code-to-spec-refresh-proposal-quarantine`,
+  `VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001`, and
+  `TEST_VERIFICATION_METADATA_GATE_001`. A complete independently audited
+  38-group review accepts only those 14 singular groups, retains all 24 prior
+  withholds, and atomically promotes exactly 115 code facts. The final report
+  at `07e58204` accounts 17,491 facts with zero findings, 13,720 `spec_gap`,
+  and 3,511 `specified`; the focused ownership suite passes 65/65 and diagram
+  drift is zero on `trust-builder`. Execution reachability, mutation,
+  adequacy, and broad candidate proof remain open; no P18-016 broad gate ran.
+  Evidence:
+  `docs/internal/testing/evidence/plc-verification-program/2026-08-13-p18-authority-tool-contract.md`.
 
   Signed-integer slice progress (2026-07-22): exact slice
   `P18-CODE-CODE_F72E3E7BC892973CF9344497078A35D93380745CDC5DB4820F5CFB302AAEE14A`

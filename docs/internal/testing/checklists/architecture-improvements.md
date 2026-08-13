@@ -367,3 +367,11 @@ Issue #51 init benchmark baseline evidence (2026-04-28):
   red and paired green reassignment test plus the rendered
   `verification-code-spec-coverage.puml`; Phase 18 final broad evidence remains
   owned only by `VERIF-P18-016`.
+- [x] `ARCH-VERIF-P18-17` Bind the existing code-spec authority proposal,
+  review, selection, and recoverable-transaction owners to one exact
+  verification contract without broad path inference. Fourteen singular path
+  groups and 115 facts reuse the existing invariant, specification fragment,
+  mapped test, risk acknowledgements, and atomic application route; 24
+  unrelated groups remain withheld. The focused suite passes 65/65 and the
+  existing verification-flow diagram manifest has zero drift; final broad
+  evidence remains owned only by `VERIF-P18-016`.
