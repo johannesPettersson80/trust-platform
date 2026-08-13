@@ -195,3 +195,57 @@ The final report is
 focused gate-route, authority-reuse, gate-inventory, and catalog-reassignment
 suites pass 40/40 and diagram drift is zero. This still closes only P18-003
 authority debt for the selected facts.
+
+## Metadata-contract validator authority
+
+The next conservative review rejected a 73-fact fuzz-tool sweep because those
+paths mix root fuzz execution, nested targets, campaign binding, reporting,
+live scanning, and validation semantics. It selected only the three exact
+metadata-contract modules already owned by the metadata model.
+
+The authority test first failed because `TEST_VERIFICATION_METADATA_GATE_001`
+used the bare `SPEC_VERIFICATION_PROGRAM_CONTRACT_001` reference and the
+metadata-integrity invariant did not name the three implementation paths. A
+separate registration test also failed because their focused suites were not
+part of the gate. Commit `cc749bf6` binds the existing
+`#verification-metadata-model` fragment, adds the exact source references, and
+registers the specification-source, schema-contract, and new oracle-reference
+test modules. The new four-case suite locks rejection of unknown, inactive,
+ineligible, or unreviewed oracle sources; missing active stable-error authority;
+unsupported partition shapes; and non-opaque equals labels. The same authority
+tests and the complete focused set then passed.
+
+Registering the tests changed the shell gate entrypoint body. The refresh
+proposal is
+`sha256:5a48f679ec9402af248354f3ccda98124c94715e1a3ffdec86e7e5d898753f70`;
+the selection is
+`sha256:6989df3d8dee40199080724d7c40dce2097d9df77f2fdb77713215b43a3db20a`;
+and the atomic one-rebind application is
+`sha256:5e4704c5fb1298651c4dfe3e80c598bf9f28b5f0c8c8138ac8c1a3b3cdc89807`.
+Commit `8d38e527` records the clean identity checkpoint.
+
+The clean report is
+`sha256:bcdeca67a691e1777cd36796d53054b7f439676884259597fc76736046214f54`.
+The authority proposal is
+`sha256:b7dbc1e1f47a090134e45a477dcb5735dfbc82a3b8c925bd42156e14dc5aae18`
+with operation-set digest
+`sha256:b753d6a6e7a9cebd0726dae1f0180548c9d4d71f7637ae55ccf96c884194e897`.
+An independent audit verified 27 complete decisions: the unchanged 24 prior
+withholds and three singular accepted groups containing exactly 22 facts from
+`oracle_refs.py` (3), `schema_contracts.py` (6), and `spec_sources.py` (13).
+It verified that `invariants.py` and every other path are absent and that all
+12 risk-bearing facts have exact current acknowledgements. Its fresh live
+`--check` projected code-map digest
+`sha256:d6cde5797adf4d4e2e69a230e6e37708594b5c360c0a71c0b2b3218a0e2f4921`.
+
+The reviewed selection is
+`sha256:1e883a5f445a79c3377217d2f012f80c997031ffdae05be2f05d7fc0f01ac091`;
+the atomic 22-fact application is
+`sha256:90db6a5ab342a8be106318e31bde90565710eb08ccf61db244dc0bf886361ef9`;
+and commit `d82df125` records the recoverable promotion. The final report is
+`sha256:bf0d0aa48195dca161c5f4c42236ec52317124979c53e50e2746802964774e1b`:
+17,497 facts, zero findings, 13,667 `spec_gap`, and 3,570 `specified`; the
+verification area has 3,462 remaining gaps. The focused 30-test suite passes.
+No broad gate ran. This closes only P18-003 authority debt for these 22 facts;
+producer-authentic lock evidence, reachability, mutation sensitivity,
+adequacy, and the P18-016 candidate remain open.

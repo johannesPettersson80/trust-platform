@@ -4,9 +4,9 @@ Status: zero-debt contract accepted by commit-bound independent R3 review.
 Findings `P18-C01` through `P18-C08` and `P18-R2-01` are resolved.
 
 Current row: `VERIF-P18-003`, continuing as the repository-wide authority and
-coverage campaign over 13,689 explicitly mapped `spec_gap` code facts with
+coverage campaign over 13,667 explicitly mapped `spec_gap` code facts with
 zero code-spec findings. The code map now represents all 17,497 live facts, of
-which 3,548 are `specified`. The test denominator is 8,695 = 4,462
+which 3,570 are `specified`. The test denominator is 8,695 = 4,462
 `catalog_mapped` + 4,233 `reviewed_nonmapping`; `VERIF-P18-005` therefore
 remains open. The accepted P18-002 ledger owns and orders every current fact;
 it does not close any remaining specification, execution, reachability,
@@ -285,6 +285,25 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   The final report at `047462ae` accounts 17,497 facts with zero findings,
   13,689 `spec_gap`, and 3,548 `specified`; 40 focused tests and diagram drift
   pass on `trust-builder`. No P18-016 broad gate ran.
+
+  Metadata-contract validator progress (2026-08-13): the focused authority
+  test first failed because the mapped metadata gate still used a document-wide
+  oracle and the metadata-integrity invariant did not name the three exact
+  implementation sources. Commit `cc749bf6` binds the existing
+  `#verification-metadata-model` contract, registers the existing specification
+  source and schema-contract suites, and adds a focused four-case
+  oracle-reference suite. The same focused test then passed. After one exact
+  shell-gate body rebind, a zero-finding report and independent review accepted
+  only three singular groups: `metadata_validator/oracle_refs.py` (3 facts),
+  `schema_contracts.py` (6), and `spec_sources.py` (13). The prior 24 groups
+  remain withheld and `metadata_validator/invariants.py` remains a gap. The
+  atomic application at `d82df125` promotes exactly 22 facts to
+  `VERIFICATION_METADATA_INTEGRITY_001`; the final report accounts 17,497 facts
+  with zero findings, 13,667 `spec_gap`, and 3,570 `specified`. The focused
+  suite passes 30/30 on `trust-builder`. This is P18-003 authority progress
+  only; producer-authentic lock evidence, dynamic reachability, mutation,
+  adequacy, and P18-016 remain open. Evidence:
+  `docs/internal/testing/evidence/plc-verification-program/2026-08-13-p18-authority-tool-contract.md`.
 
   Signed-integer slice progress (2026-07-22): exact slice
   `P18-CODE-CODE_F72E3E7BC892973CF9344497078A35D93380745CDC5DB4820F5CFB302AAEE14A`
