@@ -114,6 +114,19 @@ class GateSurfaceAuthorityReuseTests(unittest.TestCase):
             "exact gate-surface authority route provider is not implemented",
         )
 
+    def test_provider_is_bound_to_recoverable_authority_contract(self) -> None:
+        invariant = tomllib.loads(
+            Path(
+                "verification/invariants/verification/"
+                "VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001.toml"
+            ).read_text()
+        )
+        self.assertIn(
+            "scripts/verification/gate_surface_authority_reuse.py",
+            invariant["source_refs"],
+            "gate route provider lacks exact recoverable authority",
+        )
+
     def test_python_gate_route_selects_only_the_entrypoint_code_identity(self) -> None:
         self.assertIsNotNone(build_gate_surface_authority_routes)
         routes = build_gate_surface_authority_routes(

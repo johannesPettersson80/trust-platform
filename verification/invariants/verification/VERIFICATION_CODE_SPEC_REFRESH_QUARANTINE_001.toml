@@ -24,6 +24,7 @@ source_refs = [
   "scripts/verification/code_spec_authority_review.py",
   "scripts/verification/code_spec_authority_selection_support.py",
   "scripts/verification/code_spec_authority_selection_test_support.py",
+  "scripts/verification/gate_surface_authority_reuse.py",
   "scripts/verification/code_spec_refresh.py",
   "scripts/verification/code_spec_refresh_cli.py",
   "scripts/verification/code_spec_refresh_projection.py",
