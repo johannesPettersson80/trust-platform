@@ -259813,9 +259813,11 @@ visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_0488531DDB402B1ECD0498D3056F475D36B340E1BFD2AB8CD09F0C48CF47C4FF"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#verification-metadata-model"
+invariant_ids = ["VERIFICATION_METADATA_INTEGRITY_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -260114,9 +260116,11 @@ owner = "verification"
 area = "verification"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#verification-metadata-model"
+invariant_ids = ["VERIFICATION_METADATA_INTEGRITY_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -261653,9 +261657,11 @@ owner = "verification"
 area = "verification"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#verification-metadata-model"
+invariant_ids = ["VERIFICATION_METADATA_INTEGRITY_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -262750,9 +262756,11 @@ owner = "verification"
 area = "verification"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#verification-metadata-model"
+invariant_ids = ["VERIFICATION_METADATA_INTEGRITY_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -264532,9 +264540,11 @@ visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_24FF80C2AD59EABAA00548796F2F9B4B59A7598A24F918F12A60B73CCCBBB840"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#verification-metadata-model"
+invariant_ids = ["VERIFICATION_METADATA_INTEGRITY_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -264989,9 +264999,11 @@ visibility = "private"
 risk_signals = ["subprocess_or_thread"]
 owner_ack = "RISK_ACK_2755FBBED9FEDD6EAF32738D0CEE0AD3B39CA4F4B9CF21EF3E5D10CC3164E673"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#verification-metadata-model"
+invariant_ids = ["VERIFICATION_METADATA_INTEGRITY_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -265754,9 +265766,11 @@ visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_2D0F325C4D24D65DBC400EB6450E3A8FFADCA00B4C71C0BD043994BCA77DE6E7"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#verification-metadata-model"
+invariant_ids = ["VERIFICATION_METADATA_INTEGRITY_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -265989,9 +266003,11 @@ visibility = "public"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_2F002C34AEDDFE932785987C0E675E8339B04B00DF5562629B06A88BABF7BAB1"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#verification-metadata-model"
+invariant_ids = ["VERIFICATION_METADATA_INTEGRITY_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -266406,9 +266422,11 @@ visibility = "private"
 risk_signals = ["subprocess_or_thread"]
 owner_ack = "RISK_ACK_31A4C3DFB44D3317C500A5B308C9363B861A8FD091C2C918B60FF983B1DF2A41"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#verification-metadata-model"
+invariant_ids = ["VERIFICATION_METADATA_INTEGRITY_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -272455,9 +272473,11 @@ visibility = "public"
 risk_signals = ["protocol_response_or_status"]
 owner_ack = "RISK_ACK_59308D6E87A54F25FB4069265FDF9ADD5B2E3846240052669F5597E285D4E189"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#verification-metadata-model"
+invariant_ids = ["VERIFICATION_METADATA_INTEGRITY_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -276031,9 +276051,11 @@ visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_6FC30FB88CB862CA81B1891B71FF37AE44B6EEE6CFE395C0B0C6DD9A055B128C"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#verification-metadata-model"
+invariant_ids = ["VERIFICATION_METADATA_INTEGRITY_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -276438,9 +276460,11 @@ visibility = "public"
 risk_signals = ["protocol_response_or_status"]
 owner_ack = "RISK_ACK_711C48994FAFFEACABE050C9CFD89A6808BE4D65FE36E7E557E1C0839232583D"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#verification-metadata-model"
+invariant_ids = ["VERIFICATION_METADATA_INTEGRITY_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -282151,9 +282175,11 @@ visibility = "private"
 risk_signals = ["state_mutation"]
 owner_ack = "RISK_ACK_94AADE52460103D5823F521C8D945564985B1410525A579A8FA158D8428A812C"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#verification-metadata-model"
+invariant_ids = ["VERIFICATION_METADATA_INTEGRITY_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -282972,9 +282998,11 @@ owner = "verification"
 area = "verification"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#verification-metadata-model"
+invariant_ids = ["VERIFICATION_METADATA_INTEGRITY_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -285426,9 +285454,11 @@ owner = "verification"
 area = "verification"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#verification-metadata-model"
+invariant_ids = ["VERIFICATION_METADATA_INTEGRITY_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -287752,9 +287782,11 @@ owner = "verification"
 area = "verification"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#verification-metadata-model"
+invariant_ids = ["VERIFICATION_METADATA_INTEGRITY_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -289369,9 +289401,11 @@ visibility = "private"
 risk_signals = ["filesystem_or_environment", "state_mutation"]
 owner_ack = "RISK_ACK_C3292E66FE30A2833C486C616C7E447E45ED696191E9D58633ADE0062F8AEF03"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#verification-metadata-model"
+invariant_ids = ["VERIFICATION_METADATA_INTEGRITY_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -291857,9 +291891,11 @@ owner = "verification"
 area = "verification"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#verification-metadata-model"
+invariant_ids = ["VERIFICATION_METADATA_INTEGRITY_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -292738,9 +292774,11 @@ visibility = "public"
 risk_signals = ["protocol_response_or_status"]
 owner_ack = "RISK_ACK_D82224FBED0C47F8B44B12A33655EAAFB273495E8B979101CB5EC83DE9FE76E6"
 owner_ack_expires_on = "2026-10-21"
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#verification-metadata-model"
+invariant_ids = ["VERIFICATION_METADATA_INTEGRITY_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -295117,9 +295155,11 @@ owner = "verification"
 area = "verification"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#verification-metadata-model"
+invariant_ids = ["VERIFICATION_METADATA_INTEGRITY_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -295998,9 +296038,11 @@ owner = "verification"
 area = "verification"
 visibility = "public"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-29"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#verification-metadata-model"
+invariant_ids = ["VERIFICATION_METADATA_INTEGRITY_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
@@ -298073,9 +298115,11 @@ owner = "verification"
 area = "verification"
 visibility = "private"
 risk_signals = []
-disposition = "spec_gap"
-spec_gap_ref = "SPEC_GAP_P17_HISTORICAL_CODE_VERIFICATION_001"
-last_reviewed = "2026-07-21"
+disposition = "specified"
+spec_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#verification-metadata-model"
+invariant_ids = ["VERIFICATION_METADATA_INTEGRITY_001"]
+test_ids = ["TEST_VERIFICATION_METADATA_GATE_001"]
+last_reviewed = "2026-08-13"
 
 [[mappings]]
 schema_version = 1
