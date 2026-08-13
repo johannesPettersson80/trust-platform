@@ -9723,3 +9723,25 @@ linked_invariants = ["RT_CORE_NUMERIC_KIND_WIDENING_001"]
 linked_tests = ["TEST_AUTO_DCEF80A3BEFB3B323D32"]
 linked_spec_gaps = ["SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"]
 last_reviewed = "2026-08-13"
+
+[[evidence]]
+schema_version = 1
+id = "EVID_P18_TASK_MODEL_STATE_AUTHORITY_20260813"
+title = "Phase 18 portable task-model ownership and state authority"
+area = "runtime_safety"
+owner = "trust-runtime"
+status = "mapped"
+kind = "committed_file"
+path = "docs/internal/testing/evidence/plc-verification-program/2026-08-13-p18-task-model-state-authority.md"
+command = "ssh trust-builder 'cd /home/johannes/projects/trust-platform-p18-portable-d53471c2 && python3 -m unittest scripts.verification.code_spec_authority_reuse_tests scripts.verification.code_spec_authority_candidates_tests scripts.verification.code_spec_contract_tests && CARGO_TARGET_DIR=$HOME/.cache/codex-targets/trust-platform-gate cargo nextest run -p trust-runtime-core --lib -E \"binary_id(=trust-runtime-core) & test(task::tests::)\"'"
+commit = "3d5d165c56aa3f66efa4d343b65b9fdb7a93f015"
+platform = "trust-builder-linux-x86_64 (scena-rust-builder)"
+date = "2026-08-13"
+suite_id = "pr"
+producer = "codex Phase 18 task-model state authority transaction"
+generated_report_version = "manual-v1"
+proof_kind = "none"
+linked_invariants = ["RT_CORE_TASK_STATE_INITIALIZATION_001"]
+linked_tests = ["TEST_AUTO_2AB8D93A46F8BB5F6F52"]
+linked_spec_gaps = ["SPEC_GAP_P17_HISTORICAL_CODE_RUNTIME_SAFETY_001"]
+last_reviewed = "2026-08-13"

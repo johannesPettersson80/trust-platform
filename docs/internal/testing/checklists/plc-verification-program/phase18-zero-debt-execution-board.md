@@ -2095,6 +2095,23 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   mutation sensitivity, `VERIF-P18-003`/`005`, and the later candidate rows
   remain open. No P18-016 broad gate ran. Evidence:
   `docs/internal/testing/evidence/plc-verification-program/2026-08-13-p18-numeric-kind-authority.md`.
+
+  portable task-model state-authority progress (2026-08-13): a
+  behavior-preserving module split separates task configuration, mutable
+  scheduling state, and readiness evaluation while preserving the public API
+  and seven cataloged task-test identities. The guarded refresh removes five
+  stale facts and registers five moved successors. A complete 24-group review
+  accepts only the coherent two-fact `task/state.rs` group for
+  `RT_CORE_TASK_STATE_INITIALIZATION_001` and retains the other 23 prior
+  withholds. The clean post-state report at `3d5d165c` accounts 17,489 facts
+  with zero findings, 13,836 `spec_gap`, and 3,393 `specified`; the exact task
+  selector passes 7/7 and 57 focused metadata-tool tests pass. A fresh six-test
+  LLVM trace reaches the moved readiness evaluator, but its `safety_critical`
+  authority route requires two reviewers independent of the proposer; no
+  authority was promoted without that review. `TaskConfig`, `TaskReadiness`,
+  the evaluator, `VERIF-P18-003`/`005`, reachability, mutation, and later
+  candidate rows remain open. No P18-016 broad gate ran. Evidence:
+  `docs/internal/testing/evidence/plc-verification-program/2026-08-13-p18-task-model-state-authority.md`.
 - [ ] `VERIF-P18-005` Eliminate all 4,233 current `reviewed_nonmapping` test
   facts.
   After the owning `P18-003` authority is accepted, catalog-map each to that

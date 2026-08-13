@@ -4,17 +4,17 @@ title = "Portable task state starts from the supplied logical time"
 area = "runtime_safety"
 risk = "wrong_result"
 status = "mapped"
-owner = "trust-runtime-core"
-last_reviewed = "2026-07-30"
+owner = "trust-runtime"
+last_reviewed = "2026-08-13"
 claim = "New portable task state records the exact supplied logical time, starts with no sampled SINGLE edge, and starts missed-interval accounting at zero."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["docs/specs/10-runtime-semantics.md", "crates/trust-runtime-core/src/task/state.rs"]
 tests = ["TEST_AUTO_2AB8D93A46F8BB5F6F52"]
 gates = ["pr"]
-evidence_refs = []
+evidence_refs = ["EVID_P18_TASK_MODEL_STATE_AUTHORITY_20260813"]
 spec_gap_refs = []
-missing = ["cataloged_tests", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
 
 [spec]
 status = "specified"
@@ -35,5 +35,5 @@ rationale = "Construction preserves the supplied signed logical time exactly, se
 
 [[coverage.cells]]
 dimension = "ordering_or_lifecycle"
-state = "gap_open"
-rationale = "Focused task-state initialization assertions await catalog binding and dynamic trace."
+state = "covered"
+rationale = "The cataloged constructor lock and focused LLVM trace preserve supplied logical time while proving false SINGLE history and zero overruns at initialization."
