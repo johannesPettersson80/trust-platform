@@ -286,6 +286,21 @@ class CodeSpecAuthorityReuseTests(unittest.TestCase):
         self.assertFalse(proposal["boundaries"]["automatic_writes"])
         self.assertFalse(proposal["boundaries"]["creates_product_proof"])
 
+    def test_implemented_authority_remains_reusable_after_identity_move(self) -> None:
+        implemented = invariant()
+        implemented["status"] = "implemented"
+
+        proposal = json.loads(
+            proposal_bytes(invariant_rows={INVARIANT_ID: implemented})
+        )
+
+        self.assertEqual(2, proposal["summary"]["singular_candidate_facts"])
+        self.assertEqual(0, proposal["summary"]["no_candidate_facts"])
+        self.assertEqual(
+            [INVARIANT_ID],
+            proposal["candidate_groups"][0]["candidate_invariant_ids"],
+        )
+
     def test_multiple_exact_path_authorities_remain_ambiguous(self) -> None:
         secondary = invariant(SECOND_INVARIANT_ID)
         secondary["oracle"] = {

@@ -351,3 +351,10 @@ Issue #51 init benchmark baseline evidence (2026-04-28):
   22/22 on `trust-builder`, the focused public-contract table tests pass 3/3,
   `plcopen-interchange-contracts.puml` was rendered on the same builder, and
   the diagram manifest has zero drift.
+- [x] `ARCH-VERIF-P18-15` Preserve accepted code authority across source-only
+  identity moves when the owning invariant has advanced from `mapped` to
+  `implemented`: both statuses may enter the review-only candidate queue, but
+  exact oracle, area, catalog backlink, complete semantic review, and atomic
+  live-reconstruction guards remain mandatory. The expected focused red and
+  paired green pass, the complete 41-test authority-tool suite is green, and
+  the rendered verification flow plus diagram manifest have zero drift.

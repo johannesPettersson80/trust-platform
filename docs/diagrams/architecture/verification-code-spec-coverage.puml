@@ -64,6 +64,13 @@ package "Code-map refresh quarantine" {
   database "review-required code-map proposals" as CodeRefreshProposals
 }
 
+package "Existing-authority reuse quarantine" {
+  [mapped + implemented authority candidate join] as AuthorityReuseJoin
+  database "complete review-required\nauthority reuse proposal" as AuthorityReuseProposal
+  [semantic-owner review] as AuthorityReuseReview
+  [recoverable atomic code-map transaction] as AuthorityReuseTransaction
+}
+
 package "Existing enforcement path" {
   [canonical JSON + Markdown report] as Report
   [report / changed / full policy] as Policy
@@ -137,6 +144,13 @@ Join --> Report
 Report --> CodeRefreshBuilder : at-rest-canonical observations
 Map --> CodeRefreshBuilder : byte-identical source mapping
 CodeRefreshBuilder --> CodeRefreshProposals : stable IDs + exact partition
+Report --> AuthorityReuseJoin : clean zero-finding source facts
+Map --> AuthorityReuseJoin : unresolved exact path facts
+VerificationGraph --> AuthorityReuseJoin : existing mapped / implemented authority
+AuthorityReuseJoin --> AuthorityReuseProposal : candidates only; no proof or writes
+AuthorityReuseProposal --> AuthorityReuseReview : complete queue required
+AuthorityReuseReview --> AuthorityReuseTransaction : explicit accepted groups only
+AuthorityReuseTransaction --> Map : compare-and-swap reviewed mappings
 Report --> Policy
 Policy --> Gate
 Report --> Planner : reuse one scan

@@ -351,7 +351,10 @@ def _candidate_invariant(
     spec_sources: Mapping[str, Mapping[str, Any]],
     tests: Mapping[str, Mapping[str, Any]],
 ) -> dict[str, Any] | None:
-    if invariant.get("id") != invariant_id or invariant.get("status") != "mapped":
+    if invariant.get("id") != invariant_id or invariant.get("status") not in {
+        "mapped",
+        "implemented",
+    }:
         return None
     area = invariant.get("area")
     spec = invariant.get("spec")
