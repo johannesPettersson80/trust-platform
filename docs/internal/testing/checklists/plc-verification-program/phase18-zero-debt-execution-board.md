@@ -3,17 +3,14 @@
 Status: zero-debt contract accepted by commit-bound independent R3 review.
 Findings `P18-C01` through `P18-C08` and `P18-R2-01` are resolved.
 
-Current row: `VERIF-P18-003`, continuing as one repository-wide authority and
-coverage campaign over 15,104 explicitly mapped `spec_gap` code facts, zero
-code-spec findings, and eleven historical placeholder invariants. All nine
-current exact-behavior-marker debts and the complete identity-maintenance and
-semantic-review queues are closed. The code map now represents all 17,229 live
-facts, of which 2,090 are `specified`. The test denominator is 4,416 =
-4,406 `catalog_mapped` + ten newly added PLCopen `reviewed_nonmapping` facts;
-`VERIF-P18-005` is therefore reopened until those ten tests receive accepted
-bindings. The accepted P18-002 ledger owns and orders every current fact; it
-does not close any remaining specification, execution, reachability, mutation,
-or adequacy population.
+Current row: `VERIF-P18-003`, continuing as the repository-wide authority and
+coverage campaign over 13,835 explicitly mapped `spec_gap` code facts with
+zero code-spec findings. The code map now represents all 17,491 live facts, of
+which 3,396 are `specified`. The test denominator is 8,695 = 4,462
+`catalog_mapped` + 4,233 `reviewed_nonmapping`; `VERIF-P18-005` therefore
+remains open. The accepted P18-002 ledger owns and orders every current fact;
+it does not close any remaining specification, execution, reachability,
+mutation, or adequacy population.
 
 ## Objective
 
@@ -2096,7 +2093,7 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   remain open. No P18-016 broad gate ran. Evidence:
   `docs/internal/testing/evidence/plc-verification-program/2026-08-13-p18-numeric-kind-authority.md`.
 
-  portable task-model state-authority progress (2026-08-13): a
+  portable task-model authority progress (2026-08-13): a
   behavior-preserving module split separates task configuration, mutable
   scheduling state, and readiness evaluation while preserving the public API
   and seven cataloged task-test identities. The guarded refresh removes five
@@ -2108,11 +2105,13 @@ There is exactly one final broad candidate milestone, owned by `P18-016`.
   weakening its oracle, catalog, complete-review, or atomic-apply guards. The
   expanded 25-group review restores `RT_TASK_READINESS_001` to the moved
   evaluator and result type and withholds all other groups. The clean
-  post-authority report at `947a9d6a` accounts 17,489 facts with zero findings,
-  13,834 `spec_gap`, and 3,395 `specified`; the exact task selector passes 7/7,
-  the fresh readiness trace observes 6/6, and the final authority-tool suite
-  passes 41/41. `TaskConfig`, `VERIF-P18-003`/`005`, mutation, and later
-  candidate rows remain open. No P18-016 broad gate ran. Evidence:
+  post-TaskConfig report at `73292072` accounts 17,491 facts with zero
+  findings, 13,835 `spec_gap`, and 3,396 `specified`; the exact task selector
+  passes 7/7, the fresh readiness trace observes 6/6, the exact TaskConfig test
+  passes 1/1, and the final focused authority/transaction suite passes 61/61.
+  TaskConfig now has exact specification, code, invariant, and test authority.
+  `VERIF-P18-003`/`005`, reachability, mutation, and later candidate rows remain
+  open. No P18-016 broad gate ran. Evidence:
   `docs/internal/testing/evidence/plc-verification-program/2026-08-13-p18-task-model-state-authority.md`.
 - [ ] `VERIF-P18-005` Eliminate all 4,233 current `reviewed_nonmapping` test
   facts.

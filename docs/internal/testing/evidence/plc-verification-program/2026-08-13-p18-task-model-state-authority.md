@@ -12,9 +12,9 @@ identities. It promotes `TaskState` and `TaskState::new` to the existing
 state-initialization authority, then restores the already accepted readiness
 authority to the moved `TaskReadiness` and `evaluate_task_readiness` facts.
 
-`TaskConfig` now has exact runtime-safety test authority. The slice still does
-not claim assertion reachability, mutation sensitivity, broad workspace
-validation, or Phase 18 completion.
+`TaskConfig` now has exact runtime-safety specification, code, and test
+authority. The slice still does not claim assertion reachability, mutation
+sensitivity, broad workspace validation, or Phase 18 completion.
 
 ## Behavior lock and ownership split
 
@@ -132,6 +132,43 @@ from the stale cross-area omnibus scheduler invariant to
 six direct field assertions to the exact configuration behavior with two
 distinct semantic reviewers. The exact remote nextest command passed 1/1 at
 the frozen `fd562274` source baseline.
+
+## TaskConfig exact code authority
+
+The catalog-reassignment transaction added two verification-tool identities.
+The reviewed refresh proposal is
+`sha256:6c93ee1d8c9cfcb9db4c65982a440ac02b1fc6026a21009eb51ca8798afeab34`
+with operation-set digest
+`sha256:8256981f33ed5bf4d6f83832c06e8153e17eec805742cbb21ec9b7c01f526d44`.
+Its atomic application is
+`sha256:bd235e8b0c25a3d67164ce7604c8f98f8101f68792ecad014832fc5891169143`;
+commit `7597faab` registers both exact facts in the historical verification
+specification gap. Registration is not specification authority, execution, or
+proof, and neither fact is promoted by this slice.
+
+The clean 17,491-fact report at `7597faab` had zero findings. Its complete
+25-group authority-reuse proposal is
+`sha256:2e2bf5d918c4985f14dc772efbc6987f64787f1c1abaccfca2a319345eb2219b`
+with operation-set digest
+`sha256:63d5cbb49ca1bd247f1add9846d9f9ba5a0b14ec2b16fd76d02f0b73c513f434`.
+The complete selection is
+`sha256:391d1dc5f2b1ddccf59412494599bda5e64a9b0e0d9a77bb365596efeaf9581a`:
+24 prior ambiguous, mixed-semantics, or claim-mismatch groups remain withheld,
+and only the one-fact `task/config.rs` group is accepted for
+`RT_CORE_TASK_CONFIG_001`. The atomic application is
+`sha256:282d7e9e64b026d467c9cec8c04743588394d5fb69fea44cb5f3e412ea4ee9e2`;
+commit `73292072` binds the exact `TaskConfig` fact to
+`SPEC_RUNTIME_SEMANTICS_001#4-3-task-scheduling-periodic-event`, the invariant,
+and `TEST_AUTO_8E4DAF369D706056A1CC`, and removes only that fact from the
+historical runtime-safety gap.
+
+The final source-bound report is
+`sha256:30267c630ee5d7d5859f1c57db8e797d4ea65352709c48cef68746bf8d972250`:
+17,491 facts, zero findings, 13,835 `spec_gap`, and 3,396 `specified`. The
+focused authority/transaction modules pass 61/61, the exact TaskConfig nextest
+selector passes 1/1, and diagram drift is zero. The canonical planner and
+catalog-staleness gate remain globally red on the pre-existing Phase 18
+metadata population outside this slice; no broad candidate gate ran.
 
 ## Focused execution and proof boundary
 
