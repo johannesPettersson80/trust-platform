@@ -1,3 +1,0 @@
-# The mapping accelerator uses a wrapper only through its dedicated
-# `catalog-trace` tool profile. Ordinary nextest profiles remain unchanged.
-experimental = ["wrapper-scripts"]

@@ -1,9 +1,0 @@
-schema_version = 1
-decision = "accept_unique_unmapped_same_file_sibling_gap_route"
-proposal = "docs/internal/testing/evidence/plc-verification-program/2026-07-24/collect-source-paths-gap-route-proposal.json"
-proposal_digest = "sha256:52dd88d55c67a83b5e376a46b8392d4b38f5c4b8cac5638fa904eec7745729cc"
-reviewed_by = "release-engineering"
-independent_reviewer = "codex-review-attribution-perf"
-reviewed_on = "2026-07-24"
-expires_on = "2026-10-24"
-rationale = "The sole frozen unmapped fact is unchanged from the complete source report, and every mapped fact in the same bundle-builder source file unanimously uses one existing supply-chain historical gap. This decision routes metadata only; it does not specify behavior, map a test, promote proof, close the gap, or create an IEC decision or deviation."

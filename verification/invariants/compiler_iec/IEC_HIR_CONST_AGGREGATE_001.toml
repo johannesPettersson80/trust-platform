@@ -56,7 +56,7 @@ rationale = "Nonaggregate targets, arbitrary array-call defaults, nested member 
 
 [[behavior]]
 partition = { above = "DECLARED_DEFAULT_BOUND" }
-case_family = "above_max"
+coverage_dimension = "above_max"
 oracle_ref = "SPEC_IEC_DATA_TYPES_CANDIDATE_001"
 outcome = "reject"
 no_partial_apply = true

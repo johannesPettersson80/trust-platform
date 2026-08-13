@@ -3,18 +3,18 @@ id = "RT_CONFIG_UI_ROUTE_CONTRACT_002"
 title = "Configuration UI route helpers preserve workspace and live-target authority"
 area = "hmi_ui"
 risk = "data_loss"
-status = "specified"
+status = "mapped"
 owner = "trust-runtime"
 last_reviewed = "2026-08-01"
 claim = "Configuration UI route helpers normalize exact runtime and live-target identities, discover and mutate only one selected workspace, enforce revision and source-path preconditions, project endpoint health honestly, and return stable JSON errors."
 proof_level = "S0"
 contract_kind = "state_machine"
 source_refs = ["docs/specs/11-runtime-engine.md", "crates/trust-runtime/src/web/config_ui_routes"]
-tests = []
+tests = ["TEST_AUTO_A012BE9C7A90E2D0016E"]
 gates = ["veryquick", "pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["catalog_mapping", "focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "rendered_configuration_ui_smoke", "broad_remote_gate"]
+missing = ["focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "rendered_configuration_ui_smoke", "broad_remote_gate"]
 
 [spec]
 status = "specified"

@@ -282,13 +282,6 @@ is closed rather than inferred from this procedure.
   Phase 3 lexical/source-geometry regressions and future `*_tests.py` modules
   cannot be omitted by a hand-maintained command. The production module
   `metadata_validator/ignored_tests.py` is explicitly excluded.
-- `verification/code-spec-risk-acknowledgements.toml` owns Phase 17 high-risk
-  source acknowledgements. Each `RISK_ACK_*` record resolves one exact mapped
-  `CODE_*` fact and repeats its owner, area, body digest, risk signals, review
-  anchor, reviewer role, and expiry. The code-spec validator rejects free-form,
-  duplicate, orphan, invented, stale, expired, or mapping-divergent records;
-  the acknowledgement creates no product proof and closes no specification
-  gap.
 - Run `scripts/report_requirement_oracle_audit.py` with
   `scripts/validate_requirement_oracle_audit_report.py` for the Phase 6 audit.
   The report covers all committed invariants, distinguishes active eligible
@@ -387,24 +380,6 @@ is closed rather than inferred from this procedure.
   explicit case or scanner association IDs. Those IDs are traceability labels,
   not claims that a named test killed a mutant. Shards are capped at two
   mutants; broad workspace and `test-all` commands fail validation.
-- Phase 18 assertion reachability is separate from the Phase 10 adequacy-only
-  mutation program. Validate its reviewed plan and canonical raw artifact with
-  `python3 scripts/p18_assertion_reachability.py`. Execute a predeclared shard
-  only from a clean checkout with explicit generated target and scratch roots:
-
-  ```text
-  python3 scripts/p18_assertion_reachability.py --write \
-    --shard-id ASSERTION_REACHABILITY_SIGNED_INTEGER_MATERIALIZATION_001 \
-    --target-dir /absolute/generated/cargo-target \
-    --scratch-root /absolute/generated/scratch-root
-  ```
-
-  The producer manually bootstraps `AGENTS.md` and `.codex/skills/**` into its
-  isolated archived checkout, runs each exact baseline, applies only the pinned
-  cargo-mutants selector, and retains raw selected-test output. The semantic
-  validator, not the producer label, decides whether a mapped test is proven.
-  This P18-007 evidence does not satisfy the separately budgeted P18-009
-  mutation-adequacy class.
 - The four reviewed source-only shards use one fail-closed executor and one
   closed artifact format. Run each shard from a clean committed checkout and
   write only to the exact `result_artifact_path` reserved by its manifest row:

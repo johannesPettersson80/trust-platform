@@ -30,20 +30,20 @@ ref = "SPEC_DEVELOPER_WORKFLOWS_001#test-case-execution"
 
 [[behavior]]
 partition = { equals = "PROGRAM_ASSERTION_RESULT" }
-case_family = "failure_path"
+case_family = "wrong_type_or_shape"
 oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#test-case-execution"
 outcome = "reject"
 no_partial_apply = true
-delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "failed" }
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "expected_delta" }
 rationale = "Entering a TEST_PROGRAM body and reaching a failing ASSERT_* returns the assertion-failure result rather than a false pass."
 
 [[behavior]]
 partition = { equals = "FUNCTION_BLOCK_BODY_EXECUTION" }
-case_family = "failure_path"
+case_family = "wrong_type_or_shape"
 oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#test-case-execution"
 outcome = "reject"
 no_partial_apply = true
-delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "failed" }
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "expected_delta" }
 rationale = "The selected TEST_FUNCTION_BLOCK is invoked at its function-block boundary and reaches its deliberate assertion catcher."
 
 [[behavior]]
@@ -52,7 +52,7 @@ case_family = "ordering_or_lifecycle"
 oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#test-case-execution"
 outcome = "accept_value"
 no_partial_apply = true
-delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "passed" }
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "expected_delta" }
 rationale = "Repeated and adjacent cases execute their body after a cold restart and observe declared initial state instead of a predecessor's mutation."
 
 [[behavior]]
@@ -66,11 +66,11 @@ rationale = "An ordinary configured runtime rejects an unbound test program, whi
 
 [[behavior]]
 partition = { equals = "CASE_DEADLINE" }
-case_family = "timeout"
+case_family = "time_or_clock_fault"
 oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#test-case-execution"
-outcome = "timeout"
+outcome = "fault_visible"
 no_partial_apply = true
-delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "error" }
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "fault_visible" }
 rationale = "A case that overruns its configured deadline returns ExecutionTimeout rather than hanging or passing."
 
 [[behavior]]
@@ -79,7 +79,7 @@ case_family = "extra_or_unknown"
 oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#test-case-execution"
 outcome = "reject"
 no_partial_apply = true
-delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "error" }
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "expected_diagnostic", status = "fault_visible" }
 rationale = "The specification requires a non-assertion runtime failure to remain an error, but this batch has no direct execution test for that partition."
 
 [[behavior]]
@@ -92,7 +92,7 @@ delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_appl
 rationale = "The project is compiled before per-case execution timing begins, so the reviewed two-second case deadline measures the selected OSCAT case rather than project recompilation."
 
 [[coverage.cells]]
-dimension = "failure_path"
+dimension = "wrong_type_or_shape"
 state = "covered"
 rationale = "Accepted catalog mappings bind reviewed assertions to every failure_path behavior in DEV_TEST_EXECUTION_001; dynamic proof and broad remote validation remain explicit debt."
 
@@ -102,7 +102,7 @@ state = "covered"
 rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in DEV_TEST_EXECUTION_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
-dimension = "timeout"
+dimension = "time_or_clock_fault"
 state = "covered"
 rationale = "Accepted catalog mappings bind reviewed assertions to every timeout behavior in DEV_TEST_EXECUTION_001; dynamic proof and broad remote validation remain explicit debt."
 

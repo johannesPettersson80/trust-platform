@@ -1,4 +1,0 @@
-{"type":"suite","event":"started","test_count":1,"nextest":{"crate":"trust-runtime","test_binary":"plcopen_motion_oop_library","kind":"test"}}
-{"type":"test","event":"started","name":"trust-runtime::plcopen_motion_oop_library$plcopen_motion_deferred_public_surfaces_remain_absent"}
-{"type":"test","event":"ok","name":"trust-runtime::plcopen_motion_oop_library$plcopen_motion_deferred_public_surfaces_remain_absent","exec_time":12.931096183}
-{"type":"suite","event":"ok","passed":1,"failed":0,"ignored":0,"measured":0,"filtered_out":1,"exec_time":12.931096183,"nextest":{"crate":"trust-runtime","test_binary":"plcopen_motion_oop_library","kind":"test"}}

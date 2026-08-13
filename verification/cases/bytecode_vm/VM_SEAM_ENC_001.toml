@@ -6,30 +6,30 @@ owner = "trust-runtime"
 status = "planned"
 invariant = "VM_SEAM_ENC_001"
 generator = "gen_cases.py v1"
-generator_digest = "sha256:ec7669700f012af7edf67413f55d8875a6d667a81c4a5ce0d5801a244b43b549"
-source_digest = "sha256:2be1e4af9b30495652062cadb913d32f3bbafb436d33c9f7b36a4b41037fb0c9"
-last_reviewed = "2026-07-28"
+generator_digest = "sha256:72778cbbe0dfdeb8945fab41987ce77a8d81ed8c1d18f2a2d77fa8ce5a2934a3"
+source_digest = "sha256:978fc6ac001ef7a3acf07593cb4c4f254b1782c01e884e481aca4f32f820e7fc"
+last_reviewed = "2026-07-30"
 
 [[case]]
 id = "VM_SEAM_ENC_001_SUPPORTED_LOOP_CONTROL_D29CD0E7"
 family = "happy_path"
 input = { source_partition = { equals = "SUPPORTED_LOOP_CONTROL" }, scenario = "SUPPORTED_LOOP_CONTROL" }
-expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }, oracle_ref = "SPEC_BYTECODE_FORMAT_001#source-to-bytecode-fail-closed-boundary" }
+expect = { outcome = "accept_value", delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }, oracle_ref = "SPEC_BYTECODE_FORMAT_001#7-6-source-to-bytecode-fail-closed-boundary" }
 
 [[case]]
 id = "VM_SEAM_ENC_001_UNSUPPORTED_STATEMENT_695F0675"
 family = "extra_or_unknown"
 input = { source_partition = { equals = "UNSUPPORTED_STATEMENT" }, scenario = "UNSUPPORTED_STATEMENT" }
-expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }, no_partial_apply = true, oracle_ref = "SPEC_BYTECODE_FORMAT_001#source-to-bytecode-fail-closed-boundary" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }, no_partial_apply = true, oracle_ref = "SPEC_BYTECODE_FORMAT_001#7-6-source-to-bytecode-fail-closed-boundary" }
 
 [[case]]
 id = "VM_SEAM_ENC_001_UNSUPPORTED_EXPRESSION_AFTER_VALID_PREFIX_8588F066"
 family = "extra_or_unknown"
 input = { source_partition = { equals = "UNSUPPORTED_EXPRESSION_AFTER_VALID_PREFIX" }, scenario = "UNSUPPORTED_EXPRESSION_AFTER_VALID_PREFIX" }
-expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }, no_partial_apply = true, oracle_ref = "SPEC_BYTECODE_FORMAT_001#source-to-bytecode-fail-closed-boundary" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }, no_partial_apply = true, oracle_ref = "SPEC_BYTECODE_FORMAT_001#7-6-source-to-bytecode-fail-closed-boundary" }
 
 [[case]]
 id = "VM_SEAM_ENC_001_EXPLICIT_VOID_FUNCTION_RETURN_TYPE_DB94B863"
 family = "extra_or_unknown"
 input = { source_partition = { equals = "EXPLICIT_VOID_FUNCTION_RETURN_TYPE" }, scenario = "EXPLICIT_VOID_FUNCTION_RETURN_TYPE" }
-expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }, no_partial_apply = true, oracle_ref = "SPEC_BYTECODE_FORMAT_001#source-to-bytecode-fail-closed-boundary" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }, no_partial_apply = true, oracle_ref = "SPEC_BYTECODE_FORMAT_001#7-6-source-to-bytecode-fail-closed-boundary" }

@@ -1,8 +1,0 @@
-{"type":"suite","event":"started","test_count":3,"nextest":{"crate":"trust-runtime","test_binary":"web_io_config_integration","kind":"test"}}
-{"type":"test","event":"started","name":"trust-runtime::web_io_config_integration$web_io_config_integration_part_19::runtime_cloud_ha_split_brain_preflight_denies_dual_active_candidates"}
-{"type":"test","event":"started","name":"trust-runtime::web_io_config_integration$web_io_config_integration_part_03::runtime_cloud_link_transport_endpoint_switches_edge_mode_and_checks_same_host"}
-{"type":"test","event":"started","name":"trust-runtime::web_io_config_integration$web_io_config_integration_part_19::runtime_cloud_ha_split_brain_preflight_checks_candidates_outside_action_subset"}
-{"type":"test","event":"ok","name":"trust-runtime::web_io_config_integration$web_io_config_integration_part_03::runtime_cloud_link_transport_endpoint_switches_edge_mode_and_checks_same_host","exec_time":0.051313522}
-{"type":"test","event":"ok","name":"trust-runtime::web_io_config_integration$web_io_config_integration_part_19::runtime_cloud_ha_split_brain_preflight_denies_dual_active_candidates","exec_time":0.056065957}
-{"type":"test","event":"ok","name":"trust-runtime::web_io_config_integration$web_io_config_integration_part_19::runtime_cloud_ha_split_brain_preflight_checks_candidates_outside_action_subset","exec_time":0.063928414}
-{"type":"suite","event":"ok","passed":3,"failed":0,"ignored":0,"measured":0,"filtered_out":47,"exec_time":0.171307893,"nextest":{"crate":"trust-runtime","test_binary":"web_io_config_integration","kind":"test"}}

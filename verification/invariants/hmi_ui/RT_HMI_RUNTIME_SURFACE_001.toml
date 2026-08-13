@@ -45,7 +45,6 @@ rationale = "HMI reads expose typed runtime values with timestamp and quality th
 [[behavior]]
 partition = { equals = "ALLOWLISTED_WRITE_OR_READ_ONLY_DENIAL" }
 case_family = "auth_or_permission"
-coverage_dimension = "permission_or_policy"
 oracle_ref = "SPEC_RUNTIME_ENGINE_001#runtime-hmi-descriptor-live-state-and-control-contract"
 outcome = "accept_value"
 no_partial_apply = true
@@ -103,7 +102,7 @@ state = "covered"
 rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in RT_HMI_RUNTIME_SURFACE_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
-dimension = "permission_or_policy"
+dimension = "auth_or_permission"
 state = "gap_open"
 rationale = "Reviewed HMI write and read-only assertions await generated catalog mapping."
 

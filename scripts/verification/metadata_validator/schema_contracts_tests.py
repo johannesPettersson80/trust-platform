@@ -20,7 +20,6 @@ from scripts.verification.metadata_validator.constants import AREAS
 from scripts.verification.metadata_validator.integrity import (
     SPEC_GAP_RESOLUTION_STATUSES,
 )
-from scripts.verification.metadata_validator.code_spec import CODE_SPEC_SCHEMA_FILES
 from scripts.verification.metadata_validator.suites import (
     DURATION_CLASSES,
     ENVIRONMENTS,
@@ -32,19 +31,6 @@ ROOT = Path(__file__).resolve().parents[3]
 
 
 class SchemaContractsTests(unittest.TestCase):
-    def test_primary_metadata_gate_owns_phase17_code_spec_schemas(self) -> None:
-        self.assertTrue(
-            {
-                "code-spec-map.schema.json",
-                "code-spec-debt-baseline.schema.json",
-                "code-spec-coverage-report.schema.json",
-                "code-spec-private-inputs.schema.json",
-                "code-spec-refresh-proposals.schema.json",
-                "code-spec-risk-acknowledgements.schema.json",
-            }
-            == CODE_SPEC_SCHEMA_FILES
-        )
-
     def test_committed_catalog_schema_matches_validator_vocabularies(self) -> None:
         schema = load_catalog_schema()
 

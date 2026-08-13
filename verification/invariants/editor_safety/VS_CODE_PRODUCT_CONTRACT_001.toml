@@ -105,7 +105,7 @@ partition = { equals = "NATIVE_TESTING_AND_SNIPPETS" }
 case_family = "ordering_or_lifecycle"
 oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#111-native-testing-and-snippets"
 outcome = "accept_value"
-delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected", status = "unchanged" }
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
 rationale = "Native Testing discovery, execution, refresh, and result state stay synchronized with live TEST_PROGRAM and TEST_FUNCTION_BLOCK declarations, while snippet identity and syntax proof remain affirmative."
 
 [[behavior]]
@@ -121,7 +121,7 @@ partition = { equals = "PLCOPEN_IMPORT_EXPORT_WORKFLOW" }
 case_family = "persistence_or_recovery"
 oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#113-plcopen-import-and-export-workflow"
 outcome = "accept_value"
-delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected_delta", process_image = "unchanged", diagnostics = "expected", status = "unchanged" }
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected_delta", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
 rationale = "PLCopen import and export are cancellation-safe and confirmation-gated, preserve selected identities, report operation-specific failures, and reject malformed or unsupported Ladder interchange without coercion."
 
 [[behavior]]
@@ -129,7 +129,7 @@ partition = { equals = "VISUAL_AUTHORING_TRANSFORMATIONS" }
 case_family = "wrong_type_or_shape"
 oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#114-visual-model-transformations-and-generated-execution"
 outcome = "accept_value"
-delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected", status = "unchanged" }
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
 rationale = "Ladder, Blockly, and SFC transformations preserve deterministic authoring structure, and all visual runtime authority converges on generated Structured Text rather than retained component engines."
 
 [[behavior]]
@@ -137,7 +137,7 @@ partition = { equals = "HMI_LM_ARTIFACT_WORKFLOW" }
 case_family = "persistence_or_recovery"
 oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#115-hmi-language-model-tools-and-evidence"
 outcome = "accept_value"
-delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected_delta", process_image = "unchanged", diagnostics = "expected", status = "unchanged" }
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "expected_delta", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
 rationale = "HMI language-model tools validate inputs and cancellation and produce deterministic, bounded candidate, intent, lock, trace, snapshot, journey, binding, and provenance artifacts."
 
 [[behavior]]
@@ -145,7 +145,7 @@ partition = { equals = "LIBRARY_PROJECT_AND_RECOVERY" }
 case_family = "platform_or_filesystem_variation"
 oracle_ref = "SPEC_VSCODE_PRODUCT_CONTRACT_001#116-libraries-project-creation-persistence-and-focused-recovery"
 outcome = "accept_value"
-delta = { target = "set_to_expected", siblings = "expected_delta", retain = "expected_delta", process_image = "unchanged", diagnostics = "expected", status = "unchanged" }
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "expected_delta", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
 rationale = "Library edits, code actions, project creation, authoring-pane persistence, runtime source defaults, and focused recovery preserve unrelated state and make cancellation or failure explicit."
 
 [[coverage.cells]]

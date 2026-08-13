@@ -50,7 +50,7 @@ rationale = "A compatible implicit conversion may warn without becoming an incom
 
 [[behavior]]
 partition = { above = "CYCLOMATIC_COMPLEXITY_15" }
-case_family = "above_max"
+coverage_dimension = "above_max"
 oracle_ref = "SPEC_HIR_WARNING_POLICY_001"
 outcome = "accept_value"
 no_partial_apply = true

@@ -1,8 +1,0 @@
-{"type":"suite","event":"started","test_count":3,"nextest":{"crate":"trust-runtime","test_binary":"io_address","kind":"test"}}
-{"type":"test","event":"started","name":"trust-runtime::io_address$direct_address_parser_rejects_non_decimal_and_out_of_range_components"}
-{"type":"test","event":"started","name":"trust-runtime::io_address$direct_address_parser_covers_hierarchy_and_exact_wildcards"}
-{"type":"test","event":"started","name":"trust-runtime::io_address$direct_address_parser_rejects_malformed_wildcards"}
-{"type":"test","event":"ok","name":"trust-runtime::io_address$direct_address_parser_covers_hierarchy_and_exact_wildcards","exec_time":0.012459085}
-{"type":"test","event":"ok","name":"trust-runtime::io_address$direct_address_parser_rejects_non_decimal_and_out_of_range_components","exec_time":0.013061377}
-{"type":"test","event":"ok","name":"trust-runtime::io_address$direct_address_parser_rejects_malformed_wildcards","exec_time":0.014407004}
-{"type":"suite","event":"ok","passed":3,"failed":0,"ignored":0,"measured":0,"filtered_out":2,"exec_time":0.039927466,"nextest":{"crate":"trust-runtime","test_binary":"io_address","kind":"test"}}

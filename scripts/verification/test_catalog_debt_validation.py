@@ -27,14 +27,6 @@ from .test_catalog_debt import (
     analyze_unmapped_test_debt,
 )
 from .test_catalog_json_schema import validate_json_schema_instance
-from .test_catalog_debt_mapping_validation import (
-    CANDIDATE_TIER_COUNT_FIELDS,
-    MAPPING_ACCELERATOR_FIELDS,
-    SPEC_DEMAND_RANKING_FIELDS,
-    STRUCTURAL_DEMAND_RANKING_FIELDS,
-    UNMAPPED_CODE_DEMAND_RANKING_FIELDS,
-    validate_mapping_accelerator,
-)
 from .test_catalog_denominator import (
     DENOMINATOR_PATH,
     DENOMINATOR_SCHEMA_PATH,
@@ -70,7 +62,6 @@ ROOT_FIELDS = {
     "summary",
     "denominator_review",
     "unmapped_tests",
-    "mapping_accelerator",
     "limitations",
 }
 ANALYSIS_FIELDS = {
@@ -78,7 +69,6 @@ ANALYSIS_FIELDS = {
     "summary",
     "denominator_review",
     "unmapped_tests",
-    "mapping_accelerator",
     "limitations",
 }
 SCOPE_FIELDS = {
@@ -295,14 +285,10 @@ def validate_report_files(
                 reviews=denominator.get("reviews", []),
                 ignored_tests=validator.ignored_tests,
             )
-            proposal_document = tomllib.loads(
-                (root / "verification/test-catalog-proposals.toml").read_text()
-            )
             expected_analysis = analyze_unmapped_test_debt(
                 tests=tests,
                 facts=scan.inferred_facts,
                 denominator_review=denominator_review,
-                mapping_proposals=proposal_document,
             )
         except ValueError as exc:
             failures.append(f"unmapped-test debt analysis failed: {exc}")
@@ -358,17 +344,6 @@ def validate_schema_contract(schema: dict[str, Any]) -> list[str]:
         ("denominator_summary", DENOMINATOR_SUMMARY_FIELDS),
         ("denominator_source_count", DENOMINATOR_SOURCE_FIELDS),
         ("unmapped_test", UNMAPPED_FIELDS),
-        ("mapping_accelerator", MAPPING_ACCELERATOR_FIELDS),
-        ("candidate_tier_count", CANDIDATE_TIER_COUNT_FIELDS),
-        ("spec_demand_ranking", SPEC_DEMAND_RANKING_FIELDS),
-        (
-            "structural_demand_ranking",
-            STRUCTURAL_DEMAND_RANKING_FIELDS,
-        ),
-        (
-            "unmapped_code_demand_ranking",
-            UNMAPPED_CODE_DEMAND_RANKING_FIELDS,
-        ),
     ):
         definition = definitions.get(name, {}) if isinstance(definitions, dict) else {}
         if definition.get("type") != "object" or definition.get("additionalProperties") is not False:
@@ -420,20 +395,6 @@ def validate_schema_contract(schema: dict[str, Any]) -> list[str]:
         failures.append("unmapped-test debt schema must pin zero unreviewed facts")
     if denominator_properties.get("exhaustive", {}).get("const") is not True:
         failures.append("unmapped-test debt schema must pin exhaustive denominator review")
-    tier_definition = (
-        definitions.get("candidate_tier_count", {})
-        if isinstance(definitions, dict)
-        else {}
-    )
-    tier_enum = (
-        tier_definition.get("properties", {})
-        .get("candidate_tier", {})
-        .get("enum", [])
-        if isinstance(tier_definition, dict)
-        else []
-    )
-    if tier_enum != ["C1", "C2", "C3"]:
-        failures.append("unmapped-test debt schema candidate tiers must be C1, C2, C3")
     return failures
 
 
@@ -539,7 +500,6 @@ def _validate_analysis_shape(payload: Mapping[str, Any], failures: list[str]) ->
     ]
     if len(discovery_ids) != len(set(discovery_ids)):
         failures.append("unmapped_tests discovery IDs must be unique")
-    validate_mapping_accelerator(payload.get("mapping_accelerator"), failures)
 
 
 def _validate_internal_counts(payload: Mapping[str, Any], failures: list[str]) -> None:

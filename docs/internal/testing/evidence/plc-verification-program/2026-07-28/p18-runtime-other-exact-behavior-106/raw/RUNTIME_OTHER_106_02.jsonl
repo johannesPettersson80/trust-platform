@@ -1,6 +1,0 @@
-{"type":"suite","event":"started","test_count":2,"nextest":{"crate":"trust-ide","test_binary":"ide_features","kind":"test"}}
-{"type":"test","event":"started","name":"trust-ide::ide_features$ide_features_part_02::test_rename_refuses_shadow_capture_with_named_reason"}
-{"type":"test","event":"started","name":"trust-ide::ide_features$ide_features_part_02::test_rename_refuses_cross_file_reference_capture"}
-{"type":"test","event":"ok","name":"trust-ide::ide_features$ide_features_part_02::test_rename_refuses_shadow_capture_with_named_reason","exec_time":0.017060823}
-{"type":"test","event":"ok","name":"trust-ide::ide_features$ide_features_part_02::test_rename_refuses_cross_file_reference_capture","exec_time":0.021822292}
-{"type":"suite","event":"ok","passed":2,"failed":0,"ignored":0,"measured":0,"filtered_out":51,"exec_time":0.038883115,"nextest":{"crate":"trust-ide","test_binary":"ide_features","kind":"test"}}

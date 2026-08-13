@@ -320,6 +320,11 @@ fn lexical_contract_rejects_unterminated_narrow_string() {
 }
 
 #[test]
+fn lexical_contract_rejects_unterminated_wide_string() {
+    assert_rejected_candidate("\"unterminated", &[TokenKind::WideStringLiteral]);
+}
+
+#[test]
 fn lexical_contract_accepts_duration_prefix_aliases() {
     for source in ["T#1s", "TIME#1s", "LT#1s", "LTIME#1s"] {
         assert_single(source, TokenKind::TimeLiteral);

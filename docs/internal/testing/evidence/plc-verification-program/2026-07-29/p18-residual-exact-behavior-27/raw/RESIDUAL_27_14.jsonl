@@ -1,6 +1,0 @@
-{"type":"suite","event":"started","test_count":2,"nextest":{"crate":"trust-runtime","test_binary":"stdlib_numeric_full","kind":"test"}}
-{"type":"test","event":"started","name":"trust-runtime::stdlib_numeric_full$split_functions"}
-{"type":"test","event":"started","name":"trust-runtime::stdlib_numeric_full$numeric_full"}
-{"type":"test","event":"ok","name":"trust-runtime::stdlib_numeric_full$numeric_full","exec_time":0.009132728}
-{"type":"test","event":"ok","name":"trust-runtime::stdlib_numeric_full$split_functions","exec_time":0.077899012}
-{"type":"suite","event":"ok","passed":2,"failed":0,"ignored":0,"measured":0,"filtered_out":0,"exec_time":0.08703174,"nextest":{"crate":"trust-runtime","test_binary":"stdlib_numeric_full","kind":"test"}}

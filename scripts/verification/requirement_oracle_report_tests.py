@@ -234,25 +234,6 @@ class RequirementOracleAnalysisTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     analysis_for(validator)
 
-    def test_registered_backlog_gap_remains_an_honest_blocked_oracle(self) -> None:
-        validator = loaded_validator()
-        invariant = copy.deepcopy(
-            validator.invariants["P17_HISTORICAL_CODE_BYTECODE_VM_001"]
-        )
-        gap_id = invariant["oracle"]["ref"]
-
-        self.assertEqual(
-            "registered_backlog",
-            validator.spec_gaps[gap_id]["resolution_status"],
-        )
-        row = next(
-            row
-            for row in analysis_for(validator)["invariants"]
-            if row["invariant_id"] == invariant["id"]
-        )
-
-        self.assertEqual("spec_gap_blocked", row["oracle_state"])
-
     def test_names_paths_and_unreferenced_sources_cannot_create_mappings(self) -> None:
         validator = loaded_validator()
         before = analysis_for(validator)

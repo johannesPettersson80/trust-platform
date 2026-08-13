@@ -204,6 +204,19 @@ END_PROGRAM
 }
 
 #[test]
+fn action_semantics_accept_bare_return_in_function_block_action() {
+    check_no_errors(
+        r#"
+FUNCTION_BLOCK Controller
+ACTION Stop:
+    RETURN;
+END_ACTION
+END_FUNCTION_BLOCK
+"#,
+    );
+}
+
+#[test]
 fn action_semantics_reject_incompatible_assignment() {
     check_has_error(
         r#"

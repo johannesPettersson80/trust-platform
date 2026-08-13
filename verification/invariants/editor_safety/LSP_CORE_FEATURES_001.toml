@@ -2,9 +2,9 @@ schema_version = 1
 id = "LSP_CORE_FEATURES_001"
 title = "LSP core features preserve deterministic project and protocol truth"
 area = "editor_safety"
-risk = "correctness"
+risk = "wrong_result"
 status = "mapped"
-owner = "language-tooling"
+owner = "trust-lsp"
 last_reviewed = "2026-07-29"
 claim = "Completion, hover, signature help, diagnostics, navigation, refactors, formatting, workspace indexing, semantic tokens, values, code actions, and document lifecycle must follow the normative LSP contract without stale, partial, or fabricated success."
 proof_level = "S0"
@@ -41,7 +41,7 @@ partition = { equals = "DIAGNOSTICS_DELIVERY" }
 case_family = "ordering_or_lifecycle"
 oracle_ref = "SPEC_LSP_CONTRACT_001#62-diagnostics"
 outcome = "accept_value"
-delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected", status = "unchanged" }
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
 rationale = "Syntax, semantic, and warning diagnostics preserve ownership, severity, cancellation, and dependent-file refresh without false empty success."
 
 [[behavior]]
@@ -97,7 +97,7 @@ partition = { equals = "CODE_ACTIONS_AND_QUICK_FIXES" }
 case_family = "missing_required"
 oracle_ref = "SPEC_LSP_CONTRACT_001#642-code-actions-quick-fixes"
 outcome = "accept_value"
-delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected", status = "unchanged" }
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
 rationale = "Code actions expose only applicable fixes and return complete edits for the current diagnostic and project state."
 
 [[behavior]]
@@ -105,7 +105,7 @@ partition = { equals = "DOCUMENT_SYNC_AND_LIFECYCLE" }
 case_family = "ordering_or_lifecycle"
 oracle_ref = "SPEC_LSP_CONTRACT_001#72-document-synchronization"
 outcome = "accept_value"
-delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected", status = "unchanged" }
+delta = { target = "set_to_expected", siblings = "expected_delta", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
 rationale = "Open, change, close, and dependent-document refresh preserve revision order and restore durable project truth."
 
 [[behavior]]
@@ -121,7 +121,7 @@ partition = { equals = "HMI_COMMAND_AND_DESCRIPTOR_ERRORS" }
 case_family = "wrong_type_or_shape"
 oracle_ref = "SPEC_LSP_CONTRACT_001#662-hmi-command-and-descriptor-diagnostics"
 outcome = "accept_value"
-delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected", status = "unchanged" }
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
 rationale = "HMI command inputs and descriptor content validate before mutation, independently of runtime compilation, with bounded near-match guidance."
 
 [[behavior]]
@@ -145,7 +145,7 @@ partition = { equals = "LEARNER_HINT_THRESHOLD" }
 case_family = "extra_or_unknown"
 oracle_ref = "SPEC_LSP_CONTRACT_001#665-learner-hints"
 outcome = "accept_value"
-delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected", status = "unchanged" }
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
 rationale = "Learner hints add only high-confidence recovery and remain absent for valid or low-confidence input."
 
 [[behavior]]
@@ -153,7 +153,7 @@ partition = { equals = "OPENOT_EDITOR_PROJECTION" }
 case_family = "wrong_type_or_shape"
 oracle_ref = "SPEC_LSP_CONTRACT_001#666-openot-editor-projection"
 outcome = "accept_value"
-delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected", status = "unchanged" }
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
 rationale = "OpenOT completion, inlay, validation, and logging actions project only documented typed values and records."
 
 [[behavior]]
@@ -176,7 +176,7 @@ rationale = "Runtime values override only the same resolved local or namespace i
 partition = { equals = "COMPLETION_CANCELLATION_RESPONSE" }
 case_family = "ordering_or_lifecycle"
 oracle_ref = "SPEC_LSP_CONTRACT_001#664-completion-recovery-and-visibility"
-outcome = "reject_before_mutation"
+outcome = "reject"
 delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
 rationale = "A cancelled completion request returns no payload and cannot masquerade as a completed empty analysis."
 

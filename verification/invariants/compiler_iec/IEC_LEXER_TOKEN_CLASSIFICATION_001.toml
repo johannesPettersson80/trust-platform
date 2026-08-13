@@ -132,7 +132,7 @@ rationale = "A line comment and a matching parenthesized block comment produce L
 
 [[behavior]]
 partition = { equals = "NUMERIC_DOT_RANGE_BOUNDARY" }
-case_family = "boundary"
+case_family = "boundary_high"
 oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#6a-trust-emitted-token-contract"
 outcome = "accept_value"
 no_partial_apply = true
@@ -159,7 +159,7 @@ rationale = "Supported date, time-of-day, and combined date-and-time prefixes an
 
 [[behavior]]
 partition = { equals = "TOKEN_UTF8_BYTE_RANGE" }
-case_family = "boundary"
+case_family = "boundary_high"
 oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#source-boundary-contract"
 outcome = "accept_value"
 no_partial_apply = true

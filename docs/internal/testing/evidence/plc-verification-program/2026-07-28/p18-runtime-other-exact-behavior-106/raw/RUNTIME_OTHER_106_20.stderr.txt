@@ -1,9 +1,0 @@
-info: experimental features enabled: wrapper-scripts
-   Compiling trust-runtime v0.24.59 (/home/johannes/projects/trust-platform-p18-runtime-other-106-1dc84908/crates/trust-runtime)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.34s
-────────────
- Nextest run ID 7c8a6377-4d11-4330-887a-46b03d12649b with nextest profile: default
-    Starting 1 test across 1 binary (12 tests skipped)
-        PASS [   0.016s] (1/1) trust-runtime::retain_integrity retain_store_loads_legacy_v1_snapshot
-────────────
-     Summary [   0.018s] 1 test run: 1 passed, 12 skipped

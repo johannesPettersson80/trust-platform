@@ -3,7 +3,7 @@ id = "DEV_DOCS_DISCOVERY_PUBLICATION_002"
 title = "Developer API docs discover, extract, render, and publish atomically"
 area = "plcopen_devtools"
 risk = "silent_corruption"
-status = "specified"
+status = "mapped"
 owner = "trust-dev"
 last_reviewed = "2026-08-01"
 claim = "Developer API documentation discovers the complete supported literal source set, associates and diagnoses authoritative comments deterministically, escapes the complete HTML surface, and publishes exactly the selected artifact set or leaves prior output unchanged."
@@ -19,11 +19,11 @@ source_refs = [
   "crates/trust-dev/src/docs/tests/discovery_contract.rs",
   "crates/trust-dev/src/docs/tests/publication_contract.rs",
 ]
-tests = []
+tests = ["TEST_AUTO_5680AD06844E911EC1A9"]
 gates = ["veryquick", "pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["catalog_mapping", "focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "cross_platform_execution", "broad_remote_gate"]
+missing = ["focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "cross_platform_execution", "broad_remote_gate"]
 
 [spec]
 status = "specified"

@@ -3,7 +3,7 @@ id = "DEV_AGENT_JSONRPC_ENVELOPE_002"
 title = "Agent JSON-RPC envelopes preserve correlation and failure class"
 area = "plcopen_devtools"
 risk = "compatibility"
-status = "specified"
+status = "mapped"
 owner = "trust-dev"
 last_reviewed = "2026-08-01"
 claim = "The Agent API v1 parser, envelope validator, dispatcher, method inventory, and error projection preserve the reviewed JSON-RPC request identity and distinguish parse, envelope, method, and parameter failures without ambiguous response members."
@@ -15,11 +15,11 @@ source_refs = [
   "crates/trust-dev/src/agent.rs",
   "crates/trust-dev/src/agent/contract_tests.rs",
 ]
-tests = []
+tests = ["TEST_AUTO_E6A30CE520FFBCDD7A6E"]
 gates = ["veryquick", "pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["catalog_mapping", "focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+missing = ["focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
 
 [spec]
 status = "specified"

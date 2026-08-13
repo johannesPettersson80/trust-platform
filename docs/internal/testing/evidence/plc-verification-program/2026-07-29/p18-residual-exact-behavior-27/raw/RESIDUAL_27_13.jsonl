@@ -1,4 +1,0 @@
-{"type":"suite","event":"started","test_count":1,"nextest":{"crate":"trust-runtime","test_binary":"runtime_core_behavior_lock","kind":"test"}}
-{"type":"test","event":"started","name":"trust-runtime::runtime_core_behavior_lock$vm_fixture_execution_image_status_and_values_are_stable"}
-{"type":"test","event":"ok","name":"trust-runtime::runtime_core_behavior_lock$vm_fixture_execution_image_status_and_values_are_stable","exec_time":0.148163825}
-{"type":"suite","event":"ok","passed":1,"failed":0,"ignored":0,"measured":0,"filtered_out":6,"exec_time":0.148163825,"nextest":{"crate":"trust-runtime","test_binary":"runtime_core_behavior_lock","kind":"test"}}

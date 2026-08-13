@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import inspect
 import subprocess
 import tempfile
 import unittest
@@ -22,40 +21,6 @@ from scripts.verification.report_gate import (
 
 
 class VerificationReportGateTests(unittest.TestCase):
-    def test_report_gate_contract_can_run_phase17_checker_once_before_planner(self) -> None:
-        self.assertIn("run_code_spec", inspect.signature(build_report).parameters)
-
-    def test_phase17_checker_output_is_reused_by_planner(self) -> None:
-        commands: list[list[str]] = []
-
-        def fake_runner(command: list[str]) -> CommandResult:
-            commands.append(command)
-            name = "plan_tests" if "scripts/plan_tests.py" in command else "fixture"
-            stdout = '{"code_spec_outcomes": [], "areas": [], "missing_test_classes": [], "spec_gaps": [], "unmapped_files": [], "unknown_areas": [], "uninventoried_areas": []}\n' if name == "plan_tests" else ""
-            return CommandResult(name, command, 0, stdout, "")
-
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            (root / "verification").mkdir()
-            (root / "verification/test-catalog.toml").write_text("")
-            output = Path("target/gate-artifacts/verification/code-spec")
-            report = build_report(
-                root=root,
-                changed_files=["crates/trust-runtime/src/runtime/cycle.rs"],
-                intent="bugfix",
-                baseline="BASE",
-                command_runner=fake_runner,
-                run_code_spec=True,
-                code_spec_output_dir=output,
-            )
-
-        checker = [command for command in commands if "scripts/code_spec_coverage_gate.py" in command]
-        planner = [command for command in commands if "scripts/plan_tests.py" in command]
-        self.assertEqual(1, len(checker))
-        self.assertEqual(1, len(planner))
-        self.assertIn(str(output / "code-spec-coverage.json"), planner[0])
-        self.assertEqual(6, len(report.commands))
-
     def test_default_output_dir_lives_under_target(self) -> None:
         self.assertEqual(DEFAULT_OUTPUT_DIR, Path("target/gate-artifacts/verification"))
 

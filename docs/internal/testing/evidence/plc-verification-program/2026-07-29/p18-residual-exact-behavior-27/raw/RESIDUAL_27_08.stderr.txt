@@ -1,9 +1,0 @@
-info: experimental features enabled: wrapper-scripts
-   Compiling trust-runtime v0.24.60 (/home/johannes/projects/trust-platform-p18-residual-source/crates/trust-runtime)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.70s
-────────────
- Nextest run ID 1d851c7d-fd7a-4758-841b-dcaf09905d48 with nextest profile: default
-    Starting 1 test across 1 binary
-        PASS [   0.035s] (1/1) trust-runtime::bytecode_optional_sections unknown_optional_section_is_preserved_and_ignored_by_runtime_apply
-────────────
-     Summary [   0.036s] 1 test run: 1 passed, 0 skipped

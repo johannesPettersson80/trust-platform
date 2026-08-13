@@ -3,11 +3,11 @@ id = "IEC_PARSE_RECOVER_001"
 title = "Parser recovery advances and reports malformed structure"
 area = "compiler_iec"
 risk = "silent_corruption"
-status = "implemented"
+status = "gap_open"
 owner = "trust-syntax"
 last_reviewed = "2026-07-14"
 claim = "Parser recovery must visibly reject malformed statement, literal, product-extension, delimiter, terminator, and nesting structure while preserving only a bounded partial tree for tooling."
-proof_level = "G1"
+proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-syntax/src"]
 tests = ["TEST_AUTO_5AFBA0A9B09308B307A8", "TEST_AUTO_BD20C08C66256CFB638D", "TEST_AUTO_C0ABE0A15530B5A2F5C0", "TEST_AUTO_CB4F519F73BE3B2118DE", "TEST_AUTO_D32DA38076E458C4708A", "TEST_AUTO_F1888E05720F069BDF08", "TEST_AUTO_F627D87564ECA0E3906F", "TEST_AUTO_F861248D3482A78B0E6F", "TEST_IEC_PARSER_DEEP_PAREN_BOUND_001", "TEST_IEC_PARSER_DEEP_UNARY_BOUND_001", "TEST_IEC_PARSER_MISSING_POU_TERMINATOR_001", "TEST_IEC_PARSER_NESTED_TERMINATOR_RECOVERY_001", "TEST_IEC_PARSER_RECOVERY_TRACE_001", "TEST_IEC_PARSER_REQUIRED_DELIMITERS_001", "TEST_IEC_PARSER_UNCLOSED_CALL_001", "TEST_IEC_PARSER_UNKNOWN_TOKEN_PROGRESS_001"]
@@ -30,7 +30,7 @@ source_refs = ["SPEC_IEC_DECISIONS_001", "SPEC_IEC_POU_DECLARATIONS_001", "SPEC_
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_IEC_STATEMENTS_001#malformed-source-recovery"
+ref = "SPEC_IEC_STATEMENTS_001"
 
 [[behavior]]
 partition = { equals = "CASE_MISSING_OF" }

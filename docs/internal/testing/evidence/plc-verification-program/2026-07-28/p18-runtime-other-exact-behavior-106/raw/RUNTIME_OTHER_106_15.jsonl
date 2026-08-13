@@ -1,4 +1,0 @@
-{"type":"suite","event":"started","test_count":1,"nextest":{"crate":"trust-runtime","test_binary":"io_cycle","kind":"test"}}
-{"type":"test","event":"started","name":"trust-runtime::io_cycle$io_snapshot_emitted_after_cycle_output_commit"}
-{"type":"test","event":"ok","name":"trust-runtime::io_cycle$io_snapshot_emitted_after_cycle_output_commit","exec_time":0.017516562}
-{"type":"suite","event":"ok","passed":1,"failed":0,"ignored":0,"measured":0,"filtered_out":1,"exec_time":0.017516562,"nextest":{"crate":"trust-runtime","test_binary":"io_cycle","kind":"test"}}

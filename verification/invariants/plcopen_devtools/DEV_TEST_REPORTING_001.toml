@@ -46,7 +46,7 @@ rationale = "Human failure, zero-filter, list, and timeout-wording fixtures pres
 
 [[behavior]]
 partition = { equals = "CI_OUTPUT_SELECTION" }
-case_family = "configuration"
+case_family = "ordering_or_lifecycle"
 oracle_ref = "SPEC_DEVELOPER_WORKFLOWS_001#test-reporting-and-ci-output"
 outcome = "accept_value"
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
@@ -58,6 +58,6 @@ state = "covered"
 rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in DEV_TEST_REPORTING_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
-dimension = "configuration"
+dimension = "ordering_or_lifecycle"
 state = "covered"
 rationale = "Accepted catalog mappings bind reviewed assertions to every configuration behavior in DEV_TEST_REPORTING_001; dynamic proof and broad remote validation remain explicit debt."

@@ -1,8 +1,0 @@
-{"type":"suite","event":"started","test_count":3,"nextest":{"crate":"trust-runtime","test_binary":"opcua_integration","kind":"test"}}
-{"type":"test","event":"started","name":"trust-runtime::opcua_integration$opcua_server_cold_starts_before_first_runtime_snapshot"}
-{"type":"test","event":"started","name":"trust-runtime::opcua_integration$opcua_interop_reads_exposed_scalars_with_reference_client"}
-{"type":"test","event":"started","name":"trust-runtime::opcua_integration$opcua_security_enforces_user_auth_and_certificate_trust"}
-{"type":"test","event":"ok","name":"trust-runtime::opcua_integration$opcua_interop_reads_exposed_scalars_with_reference_client","exec_time":1.171797905}
-{"type":"test","event":"ok","name":"trust-runtime::opcua_integration$opcua_server_cold_starts_before_first_runtime_snapshot","exec_time":1.177028027}
-{"type":"test","event":"ok","name":"trust-runtime::opcua_integration$opcua_security_enforces_user_auth_and_certificate_trust","exec_time":2.192530125}
-{"type":"suite","event":"ok","passed":3,"failed":0,"ignored":0,"measured":0,"filtered_out":1,"exec_time":4.541356057,"nextest":{"crate":"trust-runtime","test_binary":"opcua_integration","kind":"test"}}

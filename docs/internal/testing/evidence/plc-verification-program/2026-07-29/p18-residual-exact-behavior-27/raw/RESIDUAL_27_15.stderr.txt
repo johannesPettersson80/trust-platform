@@ -1,8 +1,0 @@
-info: experimental features enabled: wrapper-scripts
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.11s
-────────────
- Nextest run ID 7ba4f701-7a16-4c85-a6b2-91444f035484 with nextest profile: default
-    Starting 1 test across 1 binary (69 tests skipped)
-        PASS [   0.012s] (1/1) trust-runtime-core value::string_semantics::tests::narrow_string_index_rejects_out_of_range_chars
-────────────
-     Summary [   0.013s] 1 test run: 1 passed, 69 skipped

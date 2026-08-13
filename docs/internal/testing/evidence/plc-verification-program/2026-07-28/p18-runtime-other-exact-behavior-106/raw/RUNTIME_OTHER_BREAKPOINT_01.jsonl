@@ -1,4 +1,0 @@
-{"type":"suite","event":"started","test_count":1,"nextest":{"crate":"trust-runtime","test_binary":"trust_runtime","kind":"lib"}}
-{"type":"test","event":"started","name":"trust-runtime::trust_runtime$debug::breakpoints::tests::breakpoint_stop_suppression_is_identity_scoped"}
-{"type":"test","event":"ok","name":"trust-runtime::trust_runtime$debug::breakpoints::tests::breakpoint_stop_suppression_is_identity_scoped","exec_time":0.040759646}
-{"type":"suite","event":"ok","passed":1,"failed":0,"ignored":0,"measured":0,"filtered_out":1102,"exec_time":0.040759646,"nextest":{"crate":"trust-runtime","test_binary":"trust_runtime","kind":"lib"}}

@@ -21,7 +21,6 @@ from .area_routing import (
     intent_overlay,
     normalize_changed_path,
 )
-from .code_spec_gate import changed_path_outcomes
 from .metadata_validator.constants import AREAS, HIGH_RISKS, INTENTS, ROOT, VERIFICATION
 from .metadata_validator.core import Validator
 from .metadata_validator.integrity import OPEN_GAP_RESOLUTIONS, test_counts_as_runnable
@@ -33,8 +32,6 @@ EXIT_SPEC_GAP = 3
 EXIT_UNMAPPED = 4
 EXIT_USAGE = 5
 EXIT_METADATA_INVALID = 6
-EXIT_MISSING_SPEC = 7
-EXIT_STALE_SPEC_REVIEW = 8
 BEHAVIOR_INTENTS = {"bugfix", "feature"}
 HIGHEST_RISK = "safety_critical"
 GLOBAL_INTENT_TEST_CLASSES = {"metadata_validation"}
@@ -63,27 +60,15 @@ class PlanResult:
     risk_notes: list[str]
     waiver_notes: list[str]
     risk_changes: list[str]
-    code_spec_outcomes: list[str]
     baseline: str | None
 
     @property
     def exit_code(self) -> int:
-        code_kinds = {
-            outcome.partition(": ")[2].split(maxsplit=1)[0]
-            for outcome in self.code_spec_outcomes
-            if outcome.partition(": ")[1]
-        }
-        if self.unmapped_files or "unmapped" in code_kinds:
+        if self.unmapped_files:
             return EXIT_UNMAPPED
-        if "missing_spec" in code_kinds:
-            return EXIT_MISSING_SPEC
-        if "stale_spec_review" in code_kinds:
-            return EXIT_STALE_SPEC_REVIEW
         if self.unknown_areas or self.uninventoried_areas or self.spec_gaps:
             return EXIT_SPEC_GAP
-        if "spec_gap" in code_kinds:
-            return EXIT_SPEC_GAP
-        if self.missing_test_classes or "missing_tests" in code_kinds:
+        if self.missing_test_classes:
             return EXIT_MISSING_TESTS
         return EXIT_CLEAR
 
@@ -94,8 +79,6 @@ class PlanResult:
             EXIT_MISSING_TESTS: "missing_tests",
             EXIT_SPEC_GAP: "spec_gap",
             EXIT_UNMAPPED: "unmapped",
-            EXIT_MISSING_SPEC: "missing_spec",
-            EXIT_STALE_SPEC_REVIEW: "stale_spec_review",
         }[self.exit_code]
 
 
@@ -136,7 +119,6 @@ class Planner:
         changed_files: list[str] | None,
         area: str | None,
         baseline: str | None,
-        code_spec_report: str | None = None,
     ) -> PlanResult:
         if intent not in INTENTS:
             raise ValueError(f"unknown intent {intent!r}")
@@ -273,11 +255,6 @@ class Planner:
         if spec_gaps:
             missing_classes.clear()
 
-        code_spec_outcomes = (
-            code_spec_outcomes_from_report(Path(code_spec_report), normalized_files)
-            if code_spec_report and normalized_files
-            else []
-        )
         return PlanResult(
             intent=intent,
             areas=sorted(resolved_areas),
@@ -301,7 +278,6 @@ class Planner:
                 self.areas,
                 self.spec_sources,
             ),
-            code_spec_outcomes=code_spec_outcomes,
             baseline=baseline,
         )
 
@@ -314,44 +290,6 @@ def wrapped_optional(path: Path, key: str) -> list[dict[str, Any]]:
     if not isinstance(records, list):
         raise ValueError(f"{path} must use [[{key}]]")
     return records
-
-
-def code_spec_outcomes_from_report(
-    report_path: Path,
-    changed_files: list[str],
-) -> list[str]:
-    try:
-        payload = json.loads(report_path.read_text())
-    except (OSError, json.JSONDecodeError) as error:
-        raise ValueError(f"cannot load code-spec report {report_path}: {error}") from error
-    raw_facts = payload.get("facts") if isinstance(payload, dict) else None
-    raw_findings = payload.get("findings") if isinstance(payload, dict) else None
-    if not isinstance(raw_facts, list) or not isinstance(raw_findings, list):
-        raise ValueError("code-spec report must contain facts and findings arrays")
-    facts: dict[str, dict[str, Any]] = {}
-    mappings: dict[str, dict[str, Any]] = {}
-    for index, raw in enumerate(raw_facts):
-        if not isinstance(raw, dict):
-            raise ValueError(f"code-spec report fact[{index}] must be an object")
-        code_id = raw.get("code_id")
-        path = raw.get("path")
-        disposition = raw.get("disposition")
-        if not isinstance(code_id, str) or not isinstance(path, str):
-            raise ValueError(f"code-spec report fact[{index}] lacks code_id or path")
-        facts[code_id] = {"path": path}
-        if isinstance(disposition, str) and disposition != "missing_spec":
-            mappings[code_id] = {
-                "disposition": disposition,
-                "spec_gap_ref": raw.get("disposition_ref", "reported-spec-gap"),
-            }
-    if any(not isinstance(finding, str) for finding in raw_findings):
-        raise ValueError("code-spec report findings must be strings")
-    return changed_path_outcomes(
-        changed_files,
-        facts=facts,
-        mappings=mappings,
-        failures=raw_findings,
-    )
 
 
 def render_text(result: PlanResult) -> str:
@@ -416,9 +354,6 @@ def render_text(result: PlanResult) -> str:
         lines.extend(f"- {note}" for note in result.risk_changes)
     elif result.baseline:
         lines.extend(["", "Risk changes since baseline:", "- none detected"])
-    if result.code_spec_outcomes:
-        lines.extend(["", "Code-to-spec outcomes:"])
-        lines.extend(f"- {outcome}" for outcome in result.code_spec_outcomes)
     lines.extend([
         "",
         "Planner note: expected behavior is intentionally omitted. If a spec gap",
@@ -449,7 +384,6 @@ def result_to_json(result: PlanResult) -> str:
             "risk_notes": result.risk_notes,
             "waiver_notes": result.waiver_notes,
             "risk_changes": result.risk_changes,
-            "code_spec_outcomes": result.code_spec_outcomes,
             "baseline": result.baseline,
         },
         indent=2,
@@ -464,10 +398,6 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     source.add_argument("--changed", nargs="+", help="Changed files to classify")
     source.add_argument("--area", help="Canonical area to plan")
     parser.add_argument("--baseline", help="Baseline revision for risk-change reporting")
-    parser.add_argument(
-        "--code-spec-report",
-        help="Canonical Phase 17 report produced by the code-spec checker",
-    )
     parser.add_argument("--format", choices=["text", "json"], default="text")
     return parser.parse_args(argv)
 
@@ -478,13 +408,7 @@ def main(argv: list[str] | None = None) -> int:
     except SystemExit as exc:
         return int(exc.code) if exc.code == 0 else EXIT_USAGE
     try:
-        result = Planner().plan(
-            args.intent,
-            args.changed,
-            args.area,
-            args.baseline,
-            args.code_spec_report,
-        )
+        result = Planner().plan(args.intent, args.changed, args.area, args.baseline)
     except MetadataValidationError as exc:
         print(str(exc), file=sys.stderr)
         return EXIT_METADATA_INVALID

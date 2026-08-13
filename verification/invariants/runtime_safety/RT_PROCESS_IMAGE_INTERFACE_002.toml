@@ -3,18 +3,18 @@ id = "RT_PROCESS_IMAGE_INTERFACE_002"
 title = "Process-image interface and binding synchronization are transactional"
 area = "runtime_safety"
 risk = "safety_critical"
-status = "specified"
+status = "mapped"
 owner = "trust-runtime"
 last_reviewed = "2026-08-01"
 claim = "The process-image interface preserves independent bounded areas, exact typed and hierarchical values, ordered binding metadata, and all-or-nothing input and output synchronization."
 proof_level = "S0"
 contract_kind = "state_machine"
 source_refs = ["docs/specs/11-runtime-engine.md", "crates/trust-runtime/src/io/interface_contract_tests.rs"]
-tests = []
+tests = ["TEST_AUTO_0F04086AAE85048DC2CE"]
 gates = ["veryquick", "pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["catalog_mapping", "focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+missing = ["focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
 
 [spec]
 status = "specified"

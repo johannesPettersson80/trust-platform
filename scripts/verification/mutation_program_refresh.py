@@ -33,7 +33,9 @@ from .mutation_program_contract import (
 )
 
 
-SOURCE_SHARD_IDS = frozenset(REQUIRED_SHARD_IDS[1:5])
+# The legacy bytecode-validator shard remains non-executable through the focused runner,
+# but its source-derived digest and selector fields still need the same safe refresh path.
+SOURCE_SHARD_IDS = frozenset(REQUIRED_SHARD_IDS[:5])
 DERIVED_MUTATION_FIELDS = frozenset({"source_digest", "selector_name"})
 _SHARD_HEADER_RE = re.compile(r"(?m)^\[\[shards\]\][ \t]*(?:#.*)?$")
 _MUTATION_HEADER_RE = re.compile(r"(?m)^\[\[shards\.mutations\]\][ \t]*(?:#.*)?$")

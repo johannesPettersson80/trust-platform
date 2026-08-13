@@ -1,9 +1,0 @@
-info: experimental features enabled: wrapper-scripts
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.28s
-────────────
- Nextest run ID 126383a3-84eb-4907-b7ce-773b78fb7c99 with nextest profile: default
-    Starting 2 tests across 1 binary (35 tests skipped)
-        PASS [   0.008s] (1/2) trust-runtime::openot_telemetry openot_telemetry_publishes_crc_valid_heartbeats
-        PASS [   0.014s] (2/2) trust-runtime::openot_telemetry openot_telemetry_publish_failure_is_fail_closed
-────────────
-     Summary [   0.014s] 2 tests run: 2 passed, 35 skipped

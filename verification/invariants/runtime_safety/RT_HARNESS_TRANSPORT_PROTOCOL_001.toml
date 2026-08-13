@@ -10,13 +10,7 @@ claim = "Every non-empty JSON-line request produces one versioned response, fail
 proof_level = "T1"
 contract_kind = "protocol_trace"
 source_refs = ["crates/trust-runtime/src/bin/trust-harness.rs"]
-tests = [
-  "TEST_RUNTIME_HARNESS_PROTOCOL_SELECTION_001",
-  "TEST_RUNTIME_HARNESS_LINE_ISOLATION_001",
-  "TEST_RUNTIME_HARNESS_V1_WATCH_FAILURE_001",
-  "TEST_RUNTIME_HARNESS_V1_WATCH_SHAPE_001",
-  "TEST_RUNTIME_HARNESS_ERROR_CLASSIFICATION_001",
-]
+tests = ["TEST_RUNTIME_HARNESS_PROTOCOL_SELECTION_001", "TEST_RUNTIME_HARNESS_LINE_ISOLATION_001", "TEST_RUNTIME_HARNESS_V1_WATCH_FAILURE_001", "TEST_RUNTIME_HARNESS_V1_WATCH_SHAPE_001", "TEST_RUNTIME_HARNESS_ERROR_CLASSIFICATION_001"]
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []

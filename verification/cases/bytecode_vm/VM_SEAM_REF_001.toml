@@ -6,18 +6,18 @@ owner = "trust-runtime-core"
 status = "planned"
 invariant = "VM_SEAM_REF_001"
 generator = "gen_cases.py v1"
-generator_digest = "sha256:6fd825a3bcf1ea477efd9aac400a845cac97577dd986499c58e57bea490ffc7a"
-source_digest = "sha256:771004731e81a033ce824df466ad72869027584fb4ccad1d52eedbe5d7bf6705"
-last_reviewed = "2026-07-17"
+generator_digest = "sha256:72778cbbe0dfdeb8945fab41987ce77a8d81ed8c1d18f2a2d77fa8ce5a2934a3"
+source_digest = "sha256:55676f2d80ea32a60bc3c191d2e0c39e7a3612fcecc9917cc560c868afe998ee"
+last_reviewed = "2026-07-30"
 
 [[case]]
 id = "VM_SEAM_REF_001_LOCAL_REFERENCE_OUTSIDE_POU_RANGE_8578E25F"
 family = "wrong_type_or_shape"
 input = { source_partition = { equals = "LOCAL_REFERENCE_OUTSIDE_POU_RANGE" }, scenario = "LOCAL_REFERENCE_OUTSIDE_POU_RANGE" }
-expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }, no_partial_apply = true, oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }, no_partial_apply = true, oracle_ref = "SPEC_BYTECODE_FORMAT_001#7-4-validator-before-apply" }
 
 [[case]]
 id = "VM_SEAM_REF_001_FRAME_LOCAL_REFERENCE_ESCAPES_B4EE64E0"
 family = "persistence_or_recovery"
 input = { source_partition = { equals = "FRAME_LOCAL_REFERENCE_ESCAPES" }, scenario = "FRAME_LOCAL_REFERENCE_ESCAPES" }
-expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }, no_partial_apply = true, oracle_ref = "SPEC_BYTECODE_FORMAT_001#validator-before-apply" }
+expect = { outcome = "reject", delta = { target = "unchanged", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }, no_partial_apply = true, oracle_ref = "SPEC_BYTECODE_FORMAT_001#7-4-validator-before-apply" }

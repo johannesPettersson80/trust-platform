@@ -1,9 +1,0 @@
-info: experimental features enabled: wrapper-scripts
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.31s
-────────────
- Nextest run ID 30082f40-5af8-4df3-8331-fdaf4cef54e9 with nextest profile: default
-    Starting 2 tests across 1 binary (1 test skipped)
-        PASS [   0.038s] (1/2) trust-dev::cli_smoke trust_dev_help_surfaces_workbench_commands
-        PASS [   0.054s] (2/2) trust-dev::cli_smoke trust_dev_subcommand_help_is_stable
-────────────
-     Summary [   0.055s] 2 tests run: 2 passed, 1 skipped

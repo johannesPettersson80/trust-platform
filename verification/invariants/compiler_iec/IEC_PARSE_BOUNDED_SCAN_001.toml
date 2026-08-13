@@ -26,7 +26,7 @@ ref = "SPEC_IEC_STATEMENTS_001#malformed-source-recovery"
 
 [[behavior]]
 partition = { equals = "BALANCED_BRACKET_CONTAINS_COMMA" }
-case_family = "boundary"
+case_family = "boundary_high"
 oracle_ref = "SPEC_IEC_STATEMENTS_001#malformed-source-recovery"
 outcome = "accept_value"
 no_partial_apply = true
@@ -53,7 +53,7 @@ rationale = "A closing parenthesis inside an unclosed bracket cannot close the o
 
 [[behavior]]
 partition = { equals = "BALANCED_NESTED_PAREN_BEFORE_OWNER_CLOSE" }
-case_family = "boundary"
+case_family = "boundary_high"
 oracle_ref = "SPEC_IEC_STATEMENTS_001#malformed-source-recovery"
 outcome = "accept_value"
 no_partial_apply = true
@@ -62,7 +62,7 @@ rationale = "After a nested parenthesis is balanced, recovery returns the owning
 
 [[behavior]]
 partition = { equals = "BALANCED_NESTED_BRACKET_BEFORE_OWNER_CLOSE" }
-case_family = "boundary"
+case_family = "boundary_high"
 oracle_ref = "SPEC_IEC_STATEMENTS_001#malformed-source-recovery"
 outcome = "accept_value"
 no_partial_apply = true
@@ -70,7 +70,7 @@ delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_appl
 rationale = "After a nested bracket is balanced, recovery returns the owning closing parenthesis and preserves the following semicolon."
 
 [[coverage.cells]]
-dimension = "boundary"
+dimension = "boundary_high"
 state = "covered"
 rationale = "Focused unit tests cover nested commas and balanced parenthesis and bracket depth before the owning closer."
 

@@ -1,9 +1,0 @@
-info: experimental features enabled: wrapper-scripts
-   Compiling trust-runtime v0.24.60 (/home/johannes/projects/trust-platform-p18-residual-source/crates/trust-runtime)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.74s
-────────────
- Nextest run ID 915d13f1-9b11-4a7a-9171-225631bb0f5a with nextest profile: default
-    Starting 1 test across 1 binary
-        PASS [   0.093s] (1/1) trust-runtime::fb_timers_full timer_variants
-────────────
-     Summary [   0.094s] 1 test run: 1 passed, 0 skipped

@@ -3,18 +3,18 @@ id = "LSP_DEPENDENCY_RESOLUTION_002"
 title = "LSP dependencies resolve through one trusted reproducible graph"
 area = "editor_safety"
 risk = "supply_chain"
-status = "specified"
+status = "mapped"
 owner = "trust-lsp"
 last_reviewed = "2026-08-01"
 claim = "Dependency parsing, transitive local resolution, identity conflict detection, lock integrity, atomic lock publication, transport and host trust, and cache identity preserve the reviewed reproducible graph without exposing partial invalid authority."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["docs/specs/14-lsp.md", "crates/trust-lsp/src/config", "crates/trust-lsp/src/config/dependency_contract_tests.rs"]
-tests = []
+tests = ["TEST_AUTO_1EAD51B70346446E6563"]
 gates = ["veryquick", "pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["catalog_mapping", "focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "network_policy_execution", "broad_remote_gate"]
+missing = ["focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "network_policy_execution", "broad_remote_gate"]
 
 [spec]
 status = "specified"

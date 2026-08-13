@@ -1,4 +1,0 @@
-{"type":"suite","event":"started","test_count":1,"nextest":{"crate":"trust-runtime","test_binary":"bytecode_container","kind":"test"}}
-{"type":"test","event":"started","name":"trust-runtime::bytecode_container$duplicate_standard_section_ids_are_rejected"}
-{"type":"test","event":"ok","name":"trust-runtime::bytecode_container$duplicate_standard_section_ids_are_rejected","exec_time":0.013311727}
-{"type":"suite","event":"ok","passed":1,"failed":0,"ignored":0,"measured":0,"filtered_out":6,"exec_time":0.013311727,"nextest":{"crate":"trust-runtime","test_binary":"bytecode_container","kind":"test"}}

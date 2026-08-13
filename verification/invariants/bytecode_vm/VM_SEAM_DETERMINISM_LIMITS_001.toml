@@ -3,11 +3,11 @@ id = "VM_SEAM_DETERMINISM_LIMITS_001"
 title = "VM determinism and resource limits are specified before validation"
 area = "bytecode_vm"
 risk = "wrong_result"
-status = "implemented"
+status = "gap_open"
 owner = "trust-runtime-core"
 last_reviewed = "2026-07-30"
 claim = "STBC validation and execution enforce the fixed container, instruction, reference, local, parameter, operand-stack, call-depth, and per-invocation instruction limits written in the product specifications."
-proof_level = "G2"
+proof_level = "S0"
 contract_kind = "state_machine"
 source_refs = [
   "crates/trust-runtime-core/src/vm",

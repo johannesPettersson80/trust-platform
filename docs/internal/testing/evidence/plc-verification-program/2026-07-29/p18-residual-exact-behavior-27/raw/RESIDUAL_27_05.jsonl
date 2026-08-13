@@ -1,6 +1,0 @@
-{"type":"suite","event":"started","test_count":2,"nextest":{"crate":"trust-runtime","test_binary":"trust_runtime","kind":"lib"}}
-{"type":"test","event":"started","name":"trust-runtime::trust_runtime$eval::tests::debug_hook_fires_once_per_statement"}
-{"type":"test","event":"started","name":"trust-runtime::trust_runtime$control::tests::debug_activation_and_mutation_follow_the_reviewed_role_boundary"}
-{"type":"test","event":"ok","name":"trust-runtime::trust_runtime$eval::tests::debug_hook_fires_once_per_statement","exec_time":0.01769302}
-{"type":"test","event":"ok","name":"trust-runtime::trust_runtime$control::tests::debug_activation_and_mutation_follow_the_reviewed_role_boundary","exec_time":0.042831545}
-{"type":"suite","event":"ok","passed":2,"failed":0,"ignored":0,"measured":0,"filtered_out":1101,"exec_time":0.060524565,"nextest":{"crate":"trust-runtime","test_binary":"trust_runtime","kind":"lib"}}

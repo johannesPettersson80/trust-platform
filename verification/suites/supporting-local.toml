@@ -15,7 +15,6 @@ inventory_ids = [
   "GATE_SCRIPT_MUTATION_REFRESH_REGRESSION",
   "GATE_SCRIPT_PREPUSH_CI",
   "GATE_SCRIPT_SALSA_SPIKE",
-  "GATE_SCRIPT_VERIFICATION_ASSERTION_INVENTORY",
 ]
 evidence_destination = "docs/internal/testing/evidence/"
 includes = []

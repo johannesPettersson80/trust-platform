@@ -18,7 +18,7 @@ source_refs = [
 ]
 tests = ["TEST_AUTO_281A41CD73A6F672999D", "TEST_AUTO_2A67E88F09F198B1E480", "TEST_AUTO_588940114336A78A3FB8", "TEST_AUTO_A564071BE41467742A6C", "TEST_AUTO_F6FD49FB0D4D3A6B24D4"]
 gates = ["pr"]
-evidence_refs = ["EVID_P18_PORTABLE_CORE_AUTHORITY_REUSE_20260812"]
+evidence_refs = []
 spec_gap_refs = []
 missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
 

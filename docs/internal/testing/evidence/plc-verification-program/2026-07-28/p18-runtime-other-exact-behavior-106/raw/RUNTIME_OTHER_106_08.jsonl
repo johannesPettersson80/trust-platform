@@ -1,4 +1,0 @@
-{"type":"suite","event":"started","test_count":1,"nextest":{"crate":"trust-runtime","test_binary":"conformance_cli_command","kind":"test"}}
-{"type":"test","event":"started","name":"trust-runtime::conformance_cli_command$conformance_command_supports_update_verify_and_mismatch_taxonomy"}
-{"type":"test","event":"ok","name":"trust-runtime::conformance_cli_command$conformance_command_supports_update_verify_and_mismatch_taxonomy","exec_time":0.163403644}
-{"type":"suite","event":"ok","passed":1,"failed":0,"ignored":0,"measured":0,"filtered_out":0,"exec_time":0.163403644,"nextest":{"crate":"trust-runtime","test_binary":"conformance_cli_command","kind":"test"}}

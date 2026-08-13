@@ -3,7 +3,7 @@ id = "PLCO_SEMANTIC_IMPORT_002"
 title = "PLCopen semantic import publishes only complete supported ST"
 area = "plcopen_devtools"
 risk = "silent_corruption"
-status = "specified"
+status = "mapped"
 owner = "trust-plcopen"
 last_reviewed = "2026-08-01"
 claim = "Supported PLCopen type, interface, body, function, and CODESYS method semantics map to deterministic ST, while incomplete, duplicate, ambiguous, or invalid semantic units fail closed without shortened source publication."
@@ -16,11 +16,11 @@ source_refs = [
   "crates/trust-plcopen/src/plcopen/xml_common.rs",
   "crates/trust-plcopen/src/plcopen/tests/semantic_import_contract.rs",
 ]
-tests = []
+tests = ["TEST_AUTO_E42CBE548051AD2506C7"]
 gates = ["veryquick", "pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["catalog_mapping", "focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+missing = ["focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
 
 [spec]
 status = "specified"

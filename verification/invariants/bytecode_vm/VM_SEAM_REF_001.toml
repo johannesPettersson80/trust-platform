@@ -3,11 +3,11 @@ id = "VM_SEAM_REF_001"
 title = "Frame-local references cannot escape their owning frame"
 area = "bytecode_vm"
 risk = "silent_corruption"
-status = "implemented"
+status = "gap_open"
 owner = "trust-runtime-core"
 last_reviewed = "2026-07-30"
 claim = "Bytecode validation and runtime reference handling must prevent a local-frame reference from being stored where it can later dereference against a different frame."
-proof_level = "G1"
+proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-runtime/src/bytecode/validate", "crates/trust-runtime-core/src/vm"]
 tests = ["TEST_AUTO_9466D8EBC1CB0CF5F987", "TEST_BYTECODE_LOCAL_REF_PATH_ACCEPTANCE_001", "TEST_BYTECODE_LOCAL_REF_RANGE_REJECTION_001", "TEST_BYTECODE_REF_ESCAPE_PRODUCT_REJECTION_001", "TEST_BYTECODE_REF_ESCAPE_VALIDATOR_REJECTION_001", "TEST_CONFORMANCE_REFERENCE_WRITE_001", "TEST_VM_REF_ESCAPE_TRACE_001"]
@@ -30,7 +30,7 @@ source_refs = ["SPEC_BYTECODE_FORMAT_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_BYTECODE_FORMAT_001#7-4-validator-before-apply"
+ref = "SPEC_BYTECODE_FORMAT_001"
 
 [[behavior]]
 partition = { equals = "LOCAL_REFERENCE_OUTSIDE_POU_RANGE" }

@@ -1,8 +1,0 @@
-info: experimental features enabled: wrapper-scripts
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.29s
-────────────
- Nextest run ID 215220e9-5f3a-44b0-95b6-670472d7ac39 with nextest profile: default
-    Starting 1 test across 1 binary
-        PASS [   0.595s] (1/1) trust-runtime::fleet_lifecycle_command managed_runtime_lifecycle_runs_through_the_shipped_cli
-────────────
-     Summary [   0.595s] 1 test run: 1 passed, 0 skipped

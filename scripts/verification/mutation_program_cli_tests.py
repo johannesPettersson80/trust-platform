@@ -100,6 +100,78 @@ class MutationProgramCliTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
+            instruction_source = (
+                root / "crates/trust-runtime/src/bytecode/validate/pou_and_instr.rs"
+            )
+            instruction_source.parent.mkdir(parents=True)
+            instruction_source.write_text("fn validate_instruction_stream() {}\n")
+            stack_source = instruction_source.with_name("stack_shape.rs")
+            stack_source.write_text("fn validate_stack_shape() {}\n")
+            manifest = root / "verification/mutation-program.toml"
+            manifest.parent.mkdir()
+            manifest.write_text(_legacy_refresh_fixture())
+            before = tomllib.loads(manifest.read_text())
+            candidates = {
+                instruction_source.name: {
+                    "name": "current instruction-stream selector",
+                    "function": {"function_name": "validate_instruction_stream"},
+                    "genre": "FnValue",
+                    "replacement": "Ok(())",
+                },
+                stack_source.name: {
+                    "name": "current stack-shape selector",
+                    "function": {"function_name": "validate_stack_shape"},
+                    "genre": "FnValue",
+                    "replacement": "Ok(())",
+                },
+            }
+
+            with mock.patch(
+                "scripts.verification.mutation_program_refresh.discover_mutants",
+                side_effect=lambda source, *_args: [candidates[source.name]],
+            ):
+                exit_code = refresh_main(
+                    [
+                        "--root",
+                        str(root),
+                        "--shard-id",
+                        "MUTATION_SHARD_BYTECODE_VALIDATOR_001",
+                    ]
+                )
+
+            self.assertEqual(0, exit_code)
+            after = tomllib.loads(manifest.read_text())
+            before_mutations = before["shards"][0]["mutations"]
+            after_mutations = after["shards"][0]["mutations"]
+            for source, before_mutation, after_mutation in zip(
+                (instruction_source, stack_source),
+                before_mutations,
+                after_mutations,
+                strict=True,
+            ):
+                self.assertEqual(
+                    {
+                        key: value
+                        for key, value in before_mutation.items()
+                        if key not in {"source_digest", "selector_name"}
+                    },
+                    {
+                        key: value
+                        for key, value in after_mutation.items()
+                        if key not in {"source_digest", "selector_name"}
+                    },
+                )
+                self.assertEqual(
+                    "sha256:" + hashlib.sha256(source.read_bytes()).hexdigest(),
+                    after_mutation["source_digest"],
+                )
+                self.assertEqual(
+                    candidates[source.name]["name"],
+                    after_mutation["selector_name"],
+                )
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
             source = root / "crates/trust-runtime/src/runtime/restart.rs"
             source.parent.mkdir(parents=True)
             source.write_text("fn retain_on_warm() -> bool { true }\n")
@@ -270,6 +342,42 @@ def _refresh_fixture(
         test_command = ["cargo", "test", "-p", "trust-runtime", "retain"]
         association_ids = ["DISC_FIRST"]
         {second}
+        """
+    )
+
+
+def _legacy_refresh_fixture() -> str:
+    return textwrap.dedent(
+        """
+        schema_version = 1
+
+        [[shards]]
+        id = "MUTATION_SHARD_BYTECODE_VALIDATOR_001"
+        title = "Bytecode validator"
+
+        [[shards.mutations]]
+        id = "MUTANT_VALIDATE_INSTRUCTION_STREAM_BYPASS"
+        source_file = "crates/trust-runtime/src/bytecode/validate/pou_and_instr.rs"
+        source_digest = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        function = "validate_instruction_stream"
+        genre = "FnValue"
+        replacement = "Ok(())"
+        selector_name = "stale instruction-stream selector"
+        build_command = ["cargo", "test", "--no-run"]
+        test_command = ["cargo", "test"]
+        association_ids = ["CASE_INSTRUCTION"]
+
+        [[shards.mutations]]
+        id = "MUTANT_VALIDATE_STACK_SHAPE_BYPASS"
+        source_file = "crates/trust-runtime/src/bytecode/validate/stack_shape.rs"
+        source_digest = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        function = "validate_stack_shape"
+        genre = "FnValue"
+        replacement = "Ok(())"
+        selector_name = "stale stack-shape selector"
+        build_command = ["cargo", "test", "--no-run"]
+        test_command = ["cargo", "test"]
+        association_ids = ["CASE_STACK"]
         """
     )
 

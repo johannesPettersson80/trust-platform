@@ -3,7 +3,7 @@ id = "PLCO_SEMANTIC_EXPORT_002"
 title = "PLCopen semantic export publishes complete deterministic XML"
 area = "plcopen_devtools"
 risk = "silent_corruption"
-status = "specified"
+status = "mapped"
 owner = "trust-plcopen"
 last_reviewed = "2026-08-01"
 claim = "Supported ST POUs, types, global lists, project models, and methods export with complete deterministic identities, counts, source locations, and inverse semantic forms, while parse errors or partial semantic units block publication."
@@ -18,11 +18,11 @@ source_refs = [
   "crates/trust-plcopen/src/plcopen/st_extract/type_to_xml.rs",
   "crates/trust-plcopen/src/plcopen/tests/semantic_export_contract.rs",
 ]
-tests = []
+tests = ["TEST_AUTO_E06D36B6334F9AC5F664"]
 gates = ["veryquick", "pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["catalog_mapping", "focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+missing = ["focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
 
 [spec]
 status = "specified"

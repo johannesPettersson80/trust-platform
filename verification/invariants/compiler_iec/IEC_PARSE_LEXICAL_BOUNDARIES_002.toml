@@ -3,7 +3,7 @@ id = "IEC_PARSE_LEXICAL_BOUNDARIES_002"
 title = "Parser preserves valid lexical forms and rejects lexer errors"
 area = "compiler_iec"
 risk = "wrong_result"
-status = "specified"
+status = "mapped"
 owner = "trust-syntax"
 last_reviewed = "2026-08-01"
 claim = "The parser consumes valid lexical forms and trivia without reconstruction, retains shape-valid temporal tokens for later value validation, and never reinterprets an Error candidate as valid Structured Text."
@@ -14,11 +14,11 @@ source_refs = [
   "crates/trust-syntax/src/parser",
   "docs/specs/01-lexical-elements.md",
 ]
-tests = []
+tests = ["TEST_AUTO_3E0AE60543863611EC4E"]
 gates = ["veryquick", "pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["catalog_mapping", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
 
 [spec]
 status = "specified"

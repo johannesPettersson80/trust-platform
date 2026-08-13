@@ -16,14 +16,6 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v6
-        with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: editors/vscode/package-lock.json
-      - name: Install pinned TypeScript parser
-        shell: bash
-        run: npm ci --ignore-scripts --prefix editors/vscode
       - name: Run enforcing verification gate
         shell: bash
         run: |

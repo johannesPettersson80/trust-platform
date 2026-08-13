@@ -6409,12 +6409,8 @@ name = "xtask"
 version = "0.24.61"
 dependencies = [
  "anyhow",
- "proc-macro2",
- "quote",
  "serde",
  "serde_json",
- "sha2",
- "syn 2.0.117",
  "toml",
 ]
 

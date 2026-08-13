@@ -10,11 +10,11 @@ claim = "Runtime debug breakpoint control, registry profiles and authentication,
 proof_level = "S0"
 contract_kind = "state_machine"
 source_refs = ["docs/specs/08-debug-adapter.md", "docs/specs/11-runtime-engine.md", "crates/trust-runtime/src/host", "crates/trust-runtime/tests"]
-tests = ["TEST_AUTO_19E22E422BC38C306B99", "TEST_AUTO_2BF93534ED0410D8DF91", "TEST_AUTO_3D7E211119AC55A342FA", "TEST_AUTO_3FD9DCA298624C97001E", "TEST_AUTO_42AE8211EF71BC9B2C1E", "TEST_AUTO_454E2B975FDEE42FC567", "TEST_AUTO_64A4991F06885FE8F756", "TEST_AUTO_7B7DA852E4D9CE86AF04", "TEST_AUTO_870863E508DE2AB1E2C2", "TEST_AUTO_89E7DE8C62E066814C73", "TEST_AUTO_96B3235911C7C0E1D57D", "TEST_AUTO_9AE4A6759E75A869499F", "TEST_AUTO_A77CDB943FD0784CC65A", "TEST_AUTO_B269AFAF1D0DDC79A33B", "TEST_AUTO_D265CDCB534920D15105", "TEST_AUTO_D38D6B71B00105F1DED1", "TEST_AUTO_D6A7D909604F60CEEBCD", "TEST_AUTO_E048C15F73C978C98194", "TEST_AUTO_E1EC3E8E0342A900E592", "TEST_AUTO_EA95B65B17CA05D25CB2", "TEST_AUTO_F843BBAC95455806869E"]
+tests = []
 gates = ["pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["focused_execution", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+missing = ["catalog_mapping", "focused_execution", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
 
 [spec]
 status = "specified"

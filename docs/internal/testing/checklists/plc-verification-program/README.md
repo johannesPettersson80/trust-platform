@@ -10,15 +10,14 @@ Created: 2026-07-07. Split into focused documents: 2026-07-08.
 ## Purpose
 
 The goal is not "more tests." The goal is that every important truST product
-claim is traceable from its production implementation to:
+claim is traceable to:
 
-1. a stable production code identity,
-2. a written specification or explicit spec gap,
-3. an invariant,
-4. a test or proof plan,
-5. a suite/gate,
-6. durable evidence,
-7. a release/public-claim status.
+1. a written specification or explicit spec gap,
+2. an invariant,
+3. a test or proof plan,
+4. a suite/gate,
+5. durable evidence,
+6. a release/public-claim status.
 
 If a claim creates or changes a user-facing workflow, the user story or public
 workflow is part of the written specification. It must describe the actor,
@@ -49,9 +48,6 @@ This is a SQLite-style proof discipline adapted to PLC risk:
 - `verification-areas.md`: domain ownership, invariant classes, harnesses, and
   initial high-risk invariant seeds.
 - `implementation-board.md`: staged implementation checklist.
-- `code-spec-coverage-plan.md`: Phase 17 production-code denominator,
-  code-to-spec mapping contract, exact risk-acknowledgement ledger,
-  changed-code ratchet, and enforcement plan.
 - `execution-slice-001.md`: Phase 16 readiness and the queued first
   spec-to-green product vertical.
 - `fable-review-brief.md`: prompt and acceptance criteria for external review.
@@ -75,11 +71,6 @@ The program must start with specifications, not tests.
 8. Run the bytecode/VM pilot first.
 9. Broaden to runtime safety, IEC/HIR, protocols, editor/UI, release, and
    hardware lab only after the pilot produces useful reports.
-10. After the registered graph closes, inventory production code itself and
-    require every code unit to link to an active specification, explicit gap,
-    or narrowly reviewed non-behavioral/generated/vendored disposition. Make
-    new and changed uncovered code strict before historical debt is fully
-    remediated.
 
 Most important safety area:
 

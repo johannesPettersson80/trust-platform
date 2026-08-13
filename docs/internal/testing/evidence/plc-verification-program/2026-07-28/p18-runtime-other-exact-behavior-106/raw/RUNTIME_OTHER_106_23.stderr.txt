@@ -1,9 +1,0 @@
-info: experimental features enabled: wrapper-scripts
-   Compiling trust-runtime v0.24.59 (/home/johannes/projects/trust-platform-p18-runtime-other-106-1dc84908/crates/trust-runtime)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.04s
-────────────
- Nextest run ID 96153026-8192-42a4-9010-e00a4c460a50 with nextest profile: default
-    Starting 1 test across 1 binary (17 tests skipped)
-        PASS [   0.032s] (1/1) trust-runtime::runtime_safety_fail_closed requested_stop_faults_when_safe_state_handoff_is_unconfirmed
-────────────
-     Summary [   0.033s] 1 test run: 1 passed, 17 skipped

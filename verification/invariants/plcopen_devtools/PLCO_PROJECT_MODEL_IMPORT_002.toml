@@ -3,7 +3,7 @@ id = "PLCO_PROJECT_MODEL_IMPORT_002"
 title = "PLCopen project models normalize without redirecting or hiding loss"
 area = "plcopen_devtools"
 risk = "silent_corruption"
-status = "specified"
+status = "mapped"
 owner = "trust-plcopen"
 last_reviewed = "2026-08-01"
 claim = "Supported PLCopen configurations, resources, tasks, and program instances preserve reviewed hierarchy, order, scheduling, binding, identity, and accounting rules, while ambiguous or invalid models fail closed instead of being silently redirected."
@@ -15,11 +15,11 @@ source_refs = [
   "crates/trust-plcopen/src/plcopen/type_parser.rs",
   "crates/trust-plcopen/src/plcopen/tests/project_model_contract.rs",
 ]
-tests = []
+tests = ["TEST_AUTO_BB61ED066EBFD860C974"]
 gates = ["veryquick", "pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["catalog_mapping", "focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+missing = ["focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
 
 [spec]
 status = "specified"

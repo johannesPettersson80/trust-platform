@@ -48,6 +48,10 @@ class MutationProgramContractTests(unittest.TestCase):
                 self.assertFalse(definition["additionalProperties"])
 
     def test_exact_source_mutant_and_test_bindings_are_required(self) -> None:
+        self.assertEqual(
+            "crates/trust-runtime/src/runtime/retain_snapshot.rs",
+            self.program["shards"][4]["mutations"][0]["source_file"],
+        )
         for mutation in (
             lambda value: value["shards"][1]["mutations"][0].__setitem__("source_digest", "sha256:" + "0" * 64),
             lambda value: value["shards"][2]["mutations"][0].__setitem__("function", "invented"),

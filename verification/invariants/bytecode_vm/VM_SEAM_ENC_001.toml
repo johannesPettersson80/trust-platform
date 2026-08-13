@@ -3,11 +3,11 @@ id = "VM_SEAM_ENC_001"
 title = "Unencodable source constructs fail closed"
 area = "bytecode_vm"
 risk = "silent_corruption"
-status = "implemented"
+status = "gap_open"
 owner = "trust-runtime"
 last_reviewed = "2026-07-30"
 claim = "HIR-clean constructs that the bytecode encoder cannot lower must fail bytecode-module construction visibly rather than emitting NOP or returning partial bytecode."
-proof_level = "G1"
+proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-runtime/src/bytecode/encoder"]
 tests = ["TEST_AUTO_2D17DC9BA441E47099C3", "TEST_AUTO_9754A8A2443EE9A1BED9", "TEST_VM_ENCODER_FAIL_CLOSED_TRACE_001", "TEST_VM_LOWERING_SUPPORTED_CONTROL_FLOW_001", "TEST_VM_LOWERING_UNSUPPORTED_EXPRESSION_001", "TEST_VM_LOWERING_UNSUPPORTED_STATEMENT_001"]
@@ -30,7 +30,7 @@ source_refs = ["SPEC_BYTECODE_FORMAT_001"]
 
 [oracle]
 kind = "trust_contract"
-ref = "SPEC_BYTECODE_FORMAT_001#7-6-source-to-bytecode-fail-closed-boundary"
+ref = "SPEC_BYTECODE_FORMAT_001"
 
 [[behavior]]
 partition = { equals = "SUPPORTED_LOOP_CONTROL" }

@@ -7,8 +7,7 @@
     "schema_version", "generator", "generator_version", "report_status",
     "input_digest", "command", "commit", "timestamp", "platform",
     "input_paths", "output_paths", "scope", "summary",
-    "denominator_review", "unmapped_tests", "mapping_accelerator",
-    "limitations"
+    "denominator_review", "unmapped_tests", "limitations"
   ],
   "properties": {
     "schema_version": { "const": 1 },
@@ -34,7 +33,6 @@
     "summary": { "$ref": "#/$defs/summary" },
     "denominator_review": { "$ref": "#/$defs/denominator_review" },
     "unmapped_tests": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/unmapped_test" } },
-    "mapping_accelerator": { "$ref": "#/$defs/mapping_accelerator" },
     "limitations": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
   },
   "additionalProperties": false,
@@ -100,12 +98,14 @@
         "ignored_registry_owned_facts": { "type": "integer", "minimum": 0 },
         "by_nonmapping_reason": {
           "type": "object",
-          "required": ["fuzz_program_owned", "gate_inventory_owned", "ignored_test_registry_owned", "no_reviewed_spec_or_invariant_binding"],
+          "required": ["assertion_oracle_unresolved", "fuzz_program_owned", "gate_inventory_owned", "ignored_test_registry_owned", "no_reviewed_spec_or_invariant_binding", "not_catalogable_product_oracle"],
           "properties": {
+            "assertion_oracle_unresolved": { "type": "integer", "minimum": 0 },
             "fuzz_program_owned": { "type": "integer", "minimum": 0 },
             "gate_inventory_owned": { "type": "integer", "minimum": 0 },
             "ignored_test_registry_owned": { "type": "integer", "minimum": 0 },
-            "no_reviewed_spec_or_invariant_binding": { "type": "integer", "minimum": 0 }
+            "no_reviewed_spec_or_invariant_binding": { "type": "integer", "minimum": 0 },
+            "not_catalogable_product_oracle": { "type": "integer", "minimum": 0 }
           },
           "additionalProperties": false
         },
@@ -133,171 +133,6 @@
         "path": { "type": "string", "minLength": 1 },
         "name": { "type": "string", "minLength": 1 },
         "ignore_state": { "enum": ["not_ignored", "ignored", "conditional"] }
-      },
-      "additionalProperties": false
-    },
-    "mapping_accelerator": {
-      "type": "object",
-      "required": [
-        "pending_proposals",
-        "by_candidate_tier",
-        "specification_demands",
-        "unmapped_code_facts",
-        "demand_ranking",
-        "structural_demand_ranking",
-        "unmapped_code_demand_ranking"
-      ],
-      "properties": {
-        "pending_proposals": { "type": "integer", "minimum": 0 },
-        "by_candidate_tier": {
-          "type": "array",
-          "minItems": 3,
-          "maxItems": 3,
-          "items": { "$ref": "#/$defs/candidate_tier_count" }
-        },
-        "specification_demands": { "type": "integer", "minimum": 0 },
-        "unmapped_code_facts": { "type": "integer", "minimum": 0 },
-        "demand_ranking": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/spec_demand_ranking" }
-        },
-        "structural_demand_ranking": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/structural_demand_ranking" }
-        },
-        "unmapped_code_demand_ranking": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/unmapped_code_demand_ranking" }
-        }
-      },
-      "additionalProperties": false
-    },
-    "candidate_tier_count": {
-      "type": "object",
-      "required": ["candidate_tier", "pending_proposals"],
-      "properties": {
-        "candidate_tier": { "enum": ["C1", "C2", "C3"] },
-        "pending_proposals": { "type": "integer", "minimum": 0 }
-      },
-      "additionalProperties": false
-    },
-    "spec_demand_ranking": {
-      "type": "object",
-      "required": [
-        "spec_gap_ref",
-        "affected_discovery_ids",
-        "covered_code_ids",
-        "tests_touching",
-        "code_facts_touched"
-      ],
-      "properties": {
-        "spec_gap_ref": {
-          "type": "string",
-          "pattern": "^SPEC_GAP_[A-Z0-9_]+$"
-        },
-        "affected_discovery_ids": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "pattern": "^DISC_[A-F0-9]{20}$"
-          },
-          "uniqueItems": true
-        },
-        "covered_code_ids": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "pattern": "^CODE_[A-F0-9]{64}$"
-          },
-          "uniqueItems": true
-        },
-        "tests_touching": { "type": "integer", "minimum": 1 },
-        "code_facts_touched": { "type": "integer", "minimum": 1 }
-      },
-      "additionalProperties": false
-    },
-    "structural_demand_ranking": {
-      "type": "object",
-      "required": [
-        "cell_id",
-        "parent_spec_gap_ref",
-        "area",
-        "owner",
-        "source_kind",
-        "path",
-        "qualified_symbol_parent",
-        "item_kind",
-        "affected_discovery_ids",
-        "covered_code_ids",
-        "tests_touching",
-        "tests_exclusive",
-        "tests_dominant",
-        "code_facts_touched"
-      ],
-      "properties": {
-        "cell_id": { "type": "string", "pattern": "^DEMAND_CELL_[A-F0-9]{64}$" },
-        "parent_spec_gap_ref": {
-          "type": "string",
-          "pattern": "^SPEC_GAP_[A-Z0-9_]+$"
-        },
-        "area": { "type": "string", "minLength": 1 },
-        "owner": { "type": "string", "minLength": 1 },
-        "source_kind": { "type": "string", "minLength": 1 },
-        "path": { "type": "string", "minLength": 1 },
-        "qualified_symbol_parent": { "type": "string" },
-        "item_kind": { "type": "string", "minLength": 1 },
-        "affected_discovery_ids": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "pattern": "^DISC_[A-F0-9]{20}$"
-          },
-          "uniqueItems": true
-        },
-        "covered_code_ids": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "pattern": "^CODE_[A-F0-9]{64}$"
-          },
-          "uniqueItems": true
-        },
-        "tests_touching": { "type": "integer", "minimum": 1 },
-        "tests_exclusive": { "type": "integer", "minimum": 0 },
-        "tests_dominant": { "type": "integer", "minimum": 0 },
-        "code_facts_touched": { "type": "integer", "minimum": 1 }
-      },
-      "additionalProperties": false
-    },
-    "unmapped_code_demand_ranking": {
-      "type": "object",
-      "required": [
-        "area",
-        "affected_discovery_ids",
-        "covered_code_ids",
-        "tests_touching",
-        "code_facts_touched"
-      ],
-      "properties": {
-        "area": { "type": "string", "minLength": 1 },
-        "affected_discovery_ids": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "pattern": "^DISC_[A-F0-9]{20}$"
-          },
-          "uniqueItems": true
-        },
-        "covered_code_ids": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "pattern": "^CODE_[A-F0-9]{64}$"
-          },
-          "uniqueItems": true
-        },
-        "tests_touching": { "type": "integer", "minimum": 1 },
-        "code_facts_touched": { "type": "integer", "minimum": 1 }
       },
       "additionalProperties": false
     }

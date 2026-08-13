@@ -48,6 +48,6 @@ state = "covered"
 rationale = "Accepted catalog mappings bind reviewed assertions to every ordering_or_lifecycle behavior in RT_CONTROL_AUDIT_VISIBILITY_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
-dimension = "permission_or_policy"
+dimension = "auth_or_permission"
 state = "gap_open"
 rationale = "Reviewed disabled-feature assertion awaits generated catalog mapping."

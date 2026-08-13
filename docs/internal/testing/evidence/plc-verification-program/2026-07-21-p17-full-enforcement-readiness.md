@@ -21,9 +21,10 @@ stop row to close.
 
 The debt baseline still names the pre-baseline implementation SHA, contains
 `entries = []`, retains `append_policy = "delete_only"`, and now uses
-`enforcement_mode = "full"`. The historical origin and delete-only conversion
-remain bound by `2026-07-21-p17-baseline-freeze.md` and the production frozen
-history validator.
+`enforcement_mode = "full"`. This record is retained only as historical
+implementation-side readiness. Its former Phase 17 baseline-freeze companion
+belonged to the later per-function campaign and has been removed; this document
+does not provide current verification authority.
 
 ## Bootstrap and private input
 

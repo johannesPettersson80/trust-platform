@@ -15,7 +15,7 @@ source_refs = [
 ]
 tests = ["TEST_AUTO_DCEF80A3BEFB3B323D32"]
 gates = ["pr"]
-evidence_refs = ["EVID_P18_NUMERIC_KIND_AUTHORITY_20260813"]
+evidence_refs = []
 spec_gap_refs = []
 missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
 

@@ -24,7 +24,6 @@ commands = [
   "workflow job .github/workflows/salsa-hardening.yml#memory-regression",
   "workflow job .github/workflows/salsa-hardening.yml#fuzz-smoke",
   "workflow job .github/workflows/verification-gate.yml#verification-report",
-  "python3 scripts/code_spec_coverage_gate.py",
 ]
 command_bindings = [
   "GATE_JOB_CI_FMT",
@@ -42,7 +41,6 @@ command_bindings = [
   "GATE_JOB_SALSA_MEMORY_REGRESSION",
   "GATE_JOB_SALSA_FUZZ_SMOKE",
   "GATE_JOB_VERIFICATION_REPORT",
-  "GATE_SCRIPT_CODE_SPEC_COVERAGE",
 ]
 inventory_ids = [
   "GATE_JOB_CI_ARCHITECTURE_SAFETY",
@@ -62,9 +60,6 @@ inventory_ids = [
   "GATE_JOB_VERIFICATION_REPORT",
   "GATE_SCRIPT_ARCHITECTURE_EXTERNAL_SAFETY_AST_GREP",
   "GATE_SCRIPT_CHECK_GATE_OBSERVABILITY",
-  "GATE_SCRIPT_CODE_SPEC_COVERAGE",
-  "GATE_SCRIPT_FOCUSED_TRACE_CONTROL_PLANE",
-  "GATE_SCRIPT_PRIVATE_HOOK_CONTRACT",
   "GATE_SCRIPT_RELEASE_EVIDENCE_CONTRACT",
   "GATE_SCRIPT_RUNTIME_BOUNDARY_FAIL_CLOSED_AST_GREP",
   "GATE_SCRIPT_RUNTIME_CLOUD_SECURITY_PROFILE",

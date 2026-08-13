@@ -1,7 +1,0 @@
-schema_version = 1
-id = "P18_CLAIM_MATRIX_V1"
-source_sha = "a74efe093d4a9fbb60e3d4cf3fd89dbaf8c2ce35"
-input_closure_sha256 = "sha256:417819d51fc3ca700604c3c8e5839b23d87f720ba2b58be9189d6e66a12548cc"
-state = "open"
-last_reviewed = "2026-07-21"
-claims = []

@@ -1,8 +1,0 @@
-info: experimental features enabled: wrapper-scripts
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.21s
-────────────
- Nextest run ID 71e592f9-3aaa-4da5-9905-fdd2876c36e7 with nextest profile: default
-    Starting 1 test across 1 binary (31 tests skipped)
-        PASS [   0.040s] (1/1) trust-hir::semantic_standard_functions test_new_delete_calls_ok
-────────────
-     Summary [   0.041s] 1 test run: 1 passed, 31 skipped

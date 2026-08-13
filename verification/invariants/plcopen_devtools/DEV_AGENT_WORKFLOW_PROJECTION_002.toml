@@ -3,7 +3,7 @@ id = "DEV_AGENT_WORKFLOW_PROJECTION_002"
 title = "Agent language workflows preserve source authority and evidence"
 area = "plcopen_devtools"
 risk = "wrong_result"
-status = "specified"
+status = "mapped"
 owner = "trust-dev"
 last_reviewed = "2026-08-01"
 claim = "Agent project discovery, diagnostics, AST canonicalization and similarity, format preview, and project orientation resolve the documented source authority, preserve public coordinates and evidence, remain deterministic, and do not mutate selected files."
@@ -15,11 +15,11 @@ source_refs = [
   "crates/trust-dev/src/workflow.rs",
   "crates/trust-dev/src/workflow/contract_tests.rs",
 ]
-tests = []
+tests = ["TEST_AUTO_BA9E35DDB18D64081B1F"]
 gates = ["veryquick", "pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["catalog_mapping", "focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "cross_platform_execution", "broad_remote_gate"]
+missing = ["focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "cross_platform_execution", "broad_remote_gate"]
 
 [spec]
 status = "specified"

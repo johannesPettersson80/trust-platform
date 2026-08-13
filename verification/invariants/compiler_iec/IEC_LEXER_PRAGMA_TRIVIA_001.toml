@@ -70,7 +70,7 @@ case_family = "wrong_type_or_shape"
 oracle_ref = "SPEC_IEC_LEXICAL_ELEMENTS_001#trust-lexer-contract"
 outcome = "reject"
 no_partial_apply = true
-delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "added", status = "error" }
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "unchanged", diagnostics = "expected_diagnostic", status = "unchanged" }
 rationale = "End of input before the closing brace is a lexical error and must not produce a balanced Pragma token."
 
 [[coverage.cells]]

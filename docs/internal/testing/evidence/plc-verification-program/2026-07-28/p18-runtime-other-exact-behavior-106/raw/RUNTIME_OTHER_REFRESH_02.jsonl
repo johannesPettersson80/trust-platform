@@ -1,6 +1,0 @@
-{"type":"suite","event":"started","test_count":2,"nextest":{"crate":"trust-dev","test_binary":"cli_smoke","kind":"test"}}
-{"type":"test","event":"started","name":"trust-dev::cli_smoke$trust_dev_subcommand_help_is_stable"}
-{"type":"test","event":"started","name":"trust-dev::cli_smoke$trust_dev_help_surfaces_workbench_commands"}
-{"type":"test","event":"ok","name":"trust-dev::cli_smoke$trust_dev_help_surfaces_workbench_commands","exec_time":0.03760584}
-{"type":"test","event":"ok","name":"trust-dev::cli_smoke$trust_dev_subcommand_help_is_stable","exec_time":0.053980292}
-{"type":"suite","event":"ok","passed":2,"failed":0,"ignored":0,"measured":0,"filtered_out":1,"exec_time":0.091586132,"nextest":{"crate":"trust-dev","test_binary":"cli_smoke","kind":"test"}}

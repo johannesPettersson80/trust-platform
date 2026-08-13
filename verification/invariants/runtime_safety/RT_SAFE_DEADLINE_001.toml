@@ -3,11 +3,11 @@ id = "RT_SAFE_DEADLINE_001"
 title = "Execution deadline expiry is visible"
 area = "runtime_safety"
 risk = "safety_critical"
-status = "implemented"
+status = "gap_open"
 owner = "trust-runtime"
 last_reviewed = "2026-07-28"
 claim = "The runtime execution deadline must be armed as documented, its expiry must be visible, and a pre-commit watchdog fault must not physically write the pending output image."
-proof_level = "G1"
+proof_level = "S0"
 contract_kind = "state_machine"
 source_refs = [
   "crates/trust-runtime/src/runtime",

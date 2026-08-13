@@ -3,7 +3,7 @@ id = "IEC_PARSE_ACTION_BOUNDARIES_002"
 title = "Textual ACTION parser ownership and recovery boundaries"
 area = "compiler_iec"
 risk = "wrong_result"
-status = "specified"
+status = "mapped"
 owner = "trust-syntax"
 last_reviewed = "2026-08-01"
 claim = "The parser accepts only the documented textual ACTION declaration shape in PROGRAM and FUNCTION_BLOCK owners, preserves each complete ST body under its own action node, and rejects malformed names, punctuation, ownership, nesting, local declarations, terminators, and unsupported textual-SFC forms visibly."
@@ -13,16 +13,11 @@ source_refs = [
   "crates/trust-syntax/src/parser/grammar/pou/pou_part_06.rs",
   "docs/specs/04-pou-declarations.md",
 ]
-tests = []
+tests = ["TEST_AUTO_B11511B287B5A711546D"]
 gates = ["veryquick", "pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = [
-  "catalog_mapping",
-  "assertion_reachability",
-  "mutation_sensitivity",
-  "broad_remote_gate",
-]
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
 
 [spec]
 status = "specified"

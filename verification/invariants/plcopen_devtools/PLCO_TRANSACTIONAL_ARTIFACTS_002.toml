@@ -3,7 +3,7 @@ id = "PLCO_TRANSACTIONAL_ARTIFACTS_002"
 title = "PLCopen import and export publish one recoverable artifact transaction"
 area = "plcopen_devtools"
 risk = "data_loss"
-status = "specified"
+status = "mapped"
 owner = "trust-plcopen"
 last_reviewed = "2026-08-01"
 claim = "PLCopen import and export keep generated paths portable and contained, discover source deterministically, reject symbolic-link traversal, and either publish a complete coherent artifact set or restore the exact pre-call filesystem state, except for the specified report-only no-content result."
@@ -18,11 +18,11 @@ source_refs = [
   "crates/trust-plcopen/src/plcopen/xml_common.rs",
   "crates/trust-plcopen/src/plcopen/tests/transaction_contract.rs",
 ]
-tests = []
+tests = ["TEST_AUTO_31507F5CF7F569FCA8D7"]
 gates = ["veryquick", "pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["catalog_mapping", "focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "cross_platform_execution", "broad_remote_gate"]
+missing = ["focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "cross_platform_execution", "broad_remote_gate"]
 
 [spec]
 status = "specified"

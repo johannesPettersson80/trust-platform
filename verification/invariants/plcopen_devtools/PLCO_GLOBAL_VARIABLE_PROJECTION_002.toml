@@ -3,7 +3,7 @@ id = "PLCO_GLOBAL_VARIABLE_PROJECTION_002"
 title = "PLCopen global-variable lists project atomically and deterministically"
 area = "plcopen_devtools"
 risk = "silent_corruption"
-status = "specified"
+status = "mapped"
 owner = "trust-plcopen"
 last_reviewed = "2026-08-01"
 claim = "Each reviewed CODESYS global-variable list preserves its authoritative representation, identity, declaration order, projection mode, and report accounting, while malformed lists and unsafe or synthetic references cannot publish partial or misplaced ST."
@@ -15,11 +15,11 @@ source_refs = [
   "crates/trust-plcopen/src/plcopen/pou_externals.rs",
   "crates/trust-plcopen/src/plcopen/tests/global_var_contract.rs",
 ]
-tests = []
+tests = ["TEST_AUTO_D5AA47BC063202E9FCE6"]
 gates = ["veryquick", "pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["catalog_mapping", "focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+missing = ["focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
 
 [spec]
 status = "specified"

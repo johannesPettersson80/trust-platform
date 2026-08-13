@@ -256,7 +256,7 @@ REVIEWED_SHARDS: dict[str, dict[str, Any]] = {
         "mutations": [
             _mutation(
                 "MUTANT_RETAIN_ON_WARM_FALSE",
-                "crates/trust-runtime/src/runtime/restart.rs",
+                "crates/trust-runtime/src/runtime/retain_snapshot.rs",
                 "retain_on_warm",
                 "FnValue",
                 "false",

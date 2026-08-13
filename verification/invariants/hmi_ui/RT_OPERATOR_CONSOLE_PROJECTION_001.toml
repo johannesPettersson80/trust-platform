@@ -66,7 +66,7 @@ state = "covered"
 rationale = "Accepted catalog mappings bind reviewed assertions to every happy_path behavior in RT_OPERATOR_CONSOLE_PROJECTION_001; dynamic proof and broad remote validation remain explicit debt."
 
 [[coverage.cells]]
-dimension = "permission_or_policy"
+dimension = "auth_or_permission"
 state = "gap_open"
 rationale = "Reviewed input-routing assertions await generated catalog mapping."
 

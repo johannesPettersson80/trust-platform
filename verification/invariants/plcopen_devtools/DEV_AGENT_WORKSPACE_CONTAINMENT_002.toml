@@ -3,7 +3,7 @@ id = "DEV_AGENT_WORKSPACE_CONTAINMENT_002"
 title = "Agent workspace operations remain normalized and contained"
 area = "plcopen_devtools"
 risk = "security"
-status = "specified"
+status = "mapped"
 owner = "trust-dev"
 last_reviewed = "2026-08-01"
 claim = "Agent workspace and project operations preserve normalized portable paths and exact bytes while rejecting lexical, canonical, project-root, and symbolic-link escapes before reading or mutating outside their authority."
@@ -15,11 +15,11 @@ source_refs = [
   "crates/trust-dev/src/agent.rs",
   "crates/trust-dev/src/agent/contract_tests.rs",
 ]
-tests = []
+tests = ["TEST_AUTO_D3581225F94285CB4952"]
 gates = ["veryquick", "pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["catalog_mapping", "focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "cross_platform_execution", "broad_remote_gate"]
+missing = ["focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "cross_platform_execution", "broad_remote_gate"]
 
 [spec]
 status = "specified"

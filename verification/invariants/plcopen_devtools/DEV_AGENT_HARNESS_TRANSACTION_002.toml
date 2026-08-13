@@ -3,7 +3,7 @@ id = "DEV_AGENT_HARNESS_TRANSACTION_002"
 title = "Agent harness requests produce ordered isolated fixture results"
 area = "plcopen_devtools"
 risk = "wrong_result"
-status = "specified"
+status = "mapped"
 owner = "trust-dev"
 last_reviewed = "2026-08-01"
 claim = "Agent harness source selection, validation, execution, assertion accounting, failure projection, session isolation, and timeout reporting preserve the reviewed request order and typed evidence without converting fixture failures into protocol success or shared-state mutation."
@@ -16,11 +16,11 @@ source_refs = [
   "crates/trust-dev/src/agent/contract_tests.rs",
   "crates/trust-dev/src/agent/harness_contract_tests.rs",
 ]
-tests = []
+tests = ["TEST_AUTO_D3004610DE24F6D3AFD1"]
 gates = ["veryquick", "pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["catalog_mapping", "focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+missing = ["focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
 
 [spec]
 status = "specified"

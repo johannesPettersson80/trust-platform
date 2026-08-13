@@ -3,20 +3,16 @@ id = "RT_RETAIN_SNAPSHOT_INSERT_001"
 title = "Retained snapshot insertion preserves deterministic identity, order, and value"
 area = "runtime_safety"
 risk = "safety_critical"
-status = "implemented"
+status = "gap_open"
 owner = "trust-runtime"
 last_reviewed = "2026-07-22"
 claim = "Inserting a new resolved retained name appends exactly one exact runtime value; reinserting the same name replaces that value at its original position without changing cardinality, sibling values, or sibling order. Insertion does not claim persistence or reload validity."
-proof_level = "G1"
+proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["crates/trust-runtime-core/src/retain.rs"]
 tests = ["TEST_AUTO_EE2DE2F42D3ED0AFDBD9", "TEST_RUNTIME_RETAIN_SNAPSHOT_INSERT_001", "TEST_RUNTIME_RETAIN_SNAPSHOT_INSERT_TRACE_001"]
 gates = ["pr"]
-evidence_refs = [
-  "EVID_TEST_RUNTIME_RETAIN_SNAPSHOT_INSERT_TRACE_001_LOCK_BASELINE",
-  "EVID_TEST_RUNTIME_RETAIN_SNAPSHOT_INSERT_TRACE_001_LOCK_COMPARE",
-  "EVID_RT_RETAIN_SNAPSHOT_INSERT_ASSERTION_REACHABILITY_001",
-]
+evidence_refs = ["EVID_TEST_RUNTIME_RETAIN_SNAPSHOT_INSERT_TRACE_001_LOCK_BASELINE", "EVID_TEST_RUNTIME_RETAIN_SNAPSHOT_INSERT_TRACE_001_LOCK_COMPARE"]
 spec_gap_refs = []
 missing = [
   "mutation_sensitivity",

@@ -89,7 +89,7 @@ rationale = "Reference assignment attempt requires a reference-compatible target
 
 [[behavior]]
 partition = { malformed = "UNRESOLVED_DEREFERENCE_OR_DELETE_OPERAND" }
-case_family = "missing_required"
+coverage_dimension = "missing_required"
 oracle_ref = "SPEC_HIR_SIZEOF_AND_ALLOCATION_001"
 outcome = "reject"
 no_partial_apply = true

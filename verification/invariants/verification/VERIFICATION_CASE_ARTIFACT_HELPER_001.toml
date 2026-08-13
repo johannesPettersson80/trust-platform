@@ -49,9 +49,9 @@ rationale = "Standalone runs use the workspace target artifact directory and a c
 partition = { equals = "BLOCKED_CASE_WITHOUT_EXECUTION" }
 case_family = "missing_required"
 oracle_ref = "SPEC_VERIFICATION_PROGRAM_CONTRACT_001#case-artifact"
-outcome = "blocked"
+outcome = "status_degraded"
 no_partial_apply = true
-delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "stable_error", status = "unchanged" }
+delta = { target = "unchanged", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "stable_error", status = "status_degraded" }
 rationale = "A blocked case is recorded as blocked without invoking its probe or runner."
 
 [[behavior]]

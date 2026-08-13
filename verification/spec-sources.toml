@@ -1118,9 +1118,9 @@ visible_steps = [
   "Install truST from the Marketplace.",
   "Open the shipped tutorial in VS Code.",
   "Open src/main.st and src/config.st.",
-  "Run Structured Text: Open Runtime Panel.",
-  "Start the runtime in Local mode.",
-  "Toggle %IX0.0 and confirm PumpRunning changes in the runtime panel.",
+  "Choose Simulator in the truST sidebar and press Start.",
+  "Open Live Values.",
+  "Toggle %IX0.0 and confirm PumpRunning changes in Live Values.",
   "Open /hmi from the same running project and confirm the dashboard updates.",
   "Set one breakpoint and press F5 to verify the debugger path.",
 ]
@@ -2225,30 +2225,6 @@ conflicts_with = []
 
 [[spec_sources]]
 schema_version = 2
-id = "SPEC_P17_CODE_SPEC_COVERAGE_001"
-title = "Phase 17 production code-to-spec coverage contract"
-area = "verification"
-owner = "verification"
-status = "mapped"
-authority = "reviewed_decision"
-source_status = "active"
-oracle_eligible = true
-visibility = "internal"
-locator_kind = "tracked_file"
-path = "docs/internal/testing/checklists/plc-verification-program/code-spec-coverage-plan.md"
-version = "2026-07-21"
-last_reviewed = "2026-07-21"
-covers = [
-  "code_spec_fragment_resolution",
-  "code_spec_mapping_validation",
-]
-known_limitations = [
-  "This verification-tooling contract creates no product-behavior proof and closes no product specification gap.",
-]
-conflicts_with = []
-
-[[spec_sources]]
-schema_version = 2
 id = "SPEC_PLCOPEN_IMPORT_DECISION_001"
 title = "truST PLCopen import compatibility contract"
 area = "plcopen_devtools"
@@ -2364,15 +2340,11 @@ covers = [
   "verification_metadata_contract",
   "case_proof_contract",
   "ci_report_gate_contract",
-  "code_spec_refresh_quarantine",
-  "private-pre-tool-use-enforcement-contract",
-  "focused-trace-control-plane-contract",
 ]
 known_limitations = [
   "The contract validates verification metadata and evidence integrity; it does not independently prove product behavior.",
 ]
 conflicts_with = []
-
 
 [[spec_sources]]
 schema_version = 2
@@ -2393,7 +2365,6 @@ covers = ["1_product_shell_and_command_exposure", "2_discover", "3_examples_proj
 known_limitations = []
 conflicts_with = []
 
-
 [[spec_sources]]
 schema_version = 2
 id = "SPEC_MITSUBISHI_GXWORKS3_COMPATIBILITY_001"
@@ -2412,7 +2383,6 @@ last_reviewed = "2026-07-26"
 covers = ["scope", "supported_gx_works3_subset_v1", "known_gaps_incompatibilities", "migration_guidance", "regression_coverage"]
 known_limitations = []
 conflicts_with = []
-
 
 [[spec_sources]]
 schema_version = 2
@@ -2461,7 +2431,6 @@ known_limitations = [
 ]
 conflicts_with = []
 
-
 [[spec_sources]]
 schema_version = 2
 id = "SPEC_HIR_SEMANTIC_KERNEL_001"
@@ -2480,7 +2449,6 @@ last_reviewed = "2026-08-01"
 covers = ["1_source_identity_and_revision_lifecycle", "2_query_reuse_and_invalidation", "3_cross_file_semantic_translation", "4_stable_semantic_outcomes_and_diagnostic_context", "5_declaration_catalog", "6_concurrency_and_cancellation", "7_primitive_model_fail_closed_rules", "8_symbol_table_scope_and_type_registry_contract", "diagnostic_builder_and_registry_contract", "project_source_identity_registry"]
 known_limitations = []
 conflicts_with = []
-
 
 [[spec_sources]]
 schema_version = 2
@@ -2501,7 +2469,6 @@ covers = ["1_diagnostic_boundary", "2_value_attributes", "3_state_attributes", "
 known_limitations = []
 conflicts_with = []
 
-
 [[spec_sources]]
 schema_version = 2
 id = "SPEC_HIR_WARNING_POLICY_001"
@@ -2521,7 +2488,6 @@ covers = ["1_unused_declarations", "2_implicit_conversion", "3_cyclomatic_comple
 known_limitations = []
 conflicts_with = []
 
-
 [[spec_sources]]
 schema_version = 2
 id = "SPEC_HIR_SIZEOF_AND_ALLOCATION_001"
@@ -2540,7 +2506,6 @@ last_reviewed = "2026-07-26"
 covers = ["1_sizeof_result_and_accepted_operands", "2_sizeof_rejected_operands", "3_allocation_and_deletion"]
 known_limitations = []
 conflicts_with = []
-
 
 [[spec_sources]]
 schema_version = 2

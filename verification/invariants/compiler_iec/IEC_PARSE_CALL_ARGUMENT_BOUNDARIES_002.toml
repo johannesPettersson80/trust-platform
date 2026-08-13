@@ -3,7 +3,7 @@ id = "IEC_PARSE_CALL_ARGUMENT_BOUNDARIES_002"
 title = "Call argument parser preserves complete bindings and fails closed"
 area = "compiler_iec"
 risk = "wrong_result"
-status = "specified"
+status = "mapped"
 owner = "trust-syntax"
 last_reviewed = "2026-08-01"
 claim = "The parser preserves complete positional, formal input, formal output, in-out, EN/ENO, nested, method, and writable-target call syntax without claiming semantic binding, retains the documented semantic-rejection ordering shape, and rejects incomplete delimiters, separators, expressions, targets, and statement termination visibly."
@@ -14,16 +14,11 @@ source_refs = [
   "crates/trust-syntax/src/parser/grammar/statements.rs",
   "docs/specs/06-statements.md",
 ]
-tests = []
+tests = ["TEST_AUTO_ED2A2F0E9F1939415271"]
 gates = ["veryquick", "pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = [
-  "catalog_mapping",
-  "assertion_reachability",
-  "mutation_sensitivity",
-  "broad_remote_gate",
-]
+missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
 
 [spec]
 status = "specified"

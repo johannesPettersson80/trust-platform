@@ -3,18 +3,18 @@ id = "RT_WEB_IDE_UTILITY_CONTRACT_002"
 title = "Standalone Web IDE utility contracts preserve confined deterministic authoring state"
 area = "hmi_ui"
 risk = "silent_corruption"
-status = "specified"
+status = "mapped"
 owner = "trust-runtime"
 last_reviewed = "2026-08-01"
 claim = "Standalone Web IDE path, filesystem, analysis, formatting, and session utilities preserve project containment, Unicode-safe edits, deterministic results, exact size limits, and complete session-owned cleanup."
 proof_level = "S0"
 contract_kind = "state_machine"
 source_refs = ["docs/specs/11-runtime-engine.md", "crates/trust-runtime/src/web/ide/utils"]
-tests = []
+tests = ["TEST_AUTO_B48EA2C29B768CE1BDD2"]
 gates = ["veryquick", "pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["catalog_mapping", "focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "rendered_browser_ide_smoke", "broad_remote_gate"]
+missing = ["focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "rendered_browser_ide_smoke", "broad_remote_gate"]
 
 [spec]
 status = "specified"

@@ -1,9 +1,0 @@
-info: experimental features enabled: wrapper-scripts
-   Compiling trust-runtime v0.24.59 (/home/johannes/projects/trust-platform-p18-runtime-other-106-1dc84908/crates/trust-runtime)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.94s
-────────────
- Nextest run ID 06e531a8-c95e-470f-be5a-84ad53c8f8b4 with nextest profile: default
-    Starting 1 test across 1 binary (1 test skipped)
-        PASS [   0.018s] (1/1) trust-runtime::io_cycle io_snapshot_emitted_after_cycle_output_commit
-────────────
-     Summary [   0.018s] 1 test run: 1 passed, 1 skipped

@@ -1,6 +1,0 @@
-{"type":"suite","event":"started","test_count":2,"nextest":{"crate":"trust-runtime","test_binary":"debug_control","kind":"test"}}
-{"type":"test","event":"started","name":"trust-runtime::debug_control$runtime_event_sender_drop_buffers_event_in_debug_control"}
-{"type":"test","event":"started","name":"trust-runtime::debug_control$logpoint_sender_drop_buffers_log_in_debug_control"}
-{"type":"test","event":"ok","name":"trust-runtime::debug_control$runtime_event_sender_drop_buffers_event_in_debug_control","exec_time":0.012861454}
-{"type":"test","event":"ok","name":"trust-runtime::debug_control$logpoint_sender_drop_buffers_log_in_debug_control","exec_time":0.014340834}
-{"type":"suite","event":"ok","passed":2,"failed":0,"ignored":0,"measured":0,"filtered_out":18,"exec_time":0.027202288,"nextest":{"crate":"trust-runtime","test_binary":"debug_control","kind":"test"}}

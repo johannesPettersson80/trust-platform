@@ -130,11 +130,6 @@ def generate_report(
         reviews=denominator["reviews"],
         ignored_tests=validator.ignored_tests,
     )
-    proposal_path = root / "verification/test-catalog-proposals.toml"
-    try:
-        mapping_proposals = tomllib.loads(proposal_path.read_text())
-    except (OSError, tomllib.TOMLDecodeError) as exc:
-        raise ValueError(f"mapping proposal queue cannot be read: {exc}") from exc
 
     input_paths = sorted(
         set(scan.provenance.input_paths)
@@ -163,7 +158,6 @@ def generate_report(
             tests=tests,
             facts=scan.inferred_facts,
             denominator_review=denominator_review,
-            mapping_proposals=mapping_proposals,
         ),
     )
     schema = json.loads((root / SCHEMA_PATH).read_text())

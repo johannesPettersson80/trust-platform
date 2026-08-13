@@ -3,18 +3,18 @@ id = "RT_WEB_HELPER_GRAMMAR_002"
 title = "Runtime web helper grammar preserves exact request and projection semantics"
 area = "runtime_safety"
 risk = "wrong_result"
-status = "specified"
+status = "mapped"
 owner = "trust-runtime"
 last_reviewed = "2026-08-01"
 claim = "Shared runtime web helpers preserve first-header and first-query authority, exact URL and rollout grammar, non-destructive decoding, stable probe fallbacks, bounded QR rendering, and coherent epoch units."
 proof_level = "S0"
 contract_kind = "decision_table"
 source_refs = ["docs/specs/11-runtime-engine.md", "crates/trust-runtime/src/web/web_helpers/contract_tests.rs"]
-tests = []
+tests = ["TEST_AUTO_965EDC85DA3B126DD123"]
 gates = ["veryquick", "pr"]
 evidence_refs = []
 spec_gap_refs = []
-missing = ["catalog_mapping", "focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+missing = ["focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
 
 [spec]
 status = "specified"

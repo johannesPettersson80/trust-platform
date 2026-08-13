@@ -12,7 +12,7 @@ contract_kind = "decision_table"
 source_refs = ["docs/specs/10-runtime-semantics.md", "crates/trust-runtime-core/src/datetime.rs"]
 tests = ["TEST_AUTO_0DD6F5FFD78B0AAF4BAC", "TEST_AUTO_BA82D0C35FD9C81BB003", "TEST_AUTO_D22C929A6648C0C54C86"]
 gates = ["pr"]
-evidence_refs = ["EVID_P18_PORTABLE_CORE_AUTHORITY_REUSE_20260812"]
+evidence_refs = []
 spec_gap_refs = []
 missing = ["assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
 

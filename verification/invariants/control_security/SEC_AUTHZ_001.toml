@@ -3,14 +3,14 @@ id = "SEC_AUTHZ_001"
 title = "Runtime control authorization is explicit and default deny"
 area = "control_security"
 risk = "security"
-status = "implemented"
+status = "gap_open"
 owner = "trust-runtime"
 last_reviewed = "2026-07-16"
 claim = "Runtime control, API, HMI, file-read, write, force, and release operations must have explicit denied and allowed role boundaries."
-proof_level = "G1"
+proof_level = "S0"
 contract_kind = "state_machine"
 source_refs = ["crates/trust-runtime/src", "crates/trust-debug/src"]
-tests = ["TEST_AUTO_06C20CB12B91B0E18977", "TEST_AUTO_151AF83E7ACDF303EB01", "TEST_AUTO_326FED38FACAFFC3CAF3", "TEST_AUTO_4C19A9BC8EB40CFF9C71", "TEST_AUTO_68DA65888D7C2439D11F", "TEST_AUTO_8A5177A2CAABE2525469", "TEST_AUTO_A2D72CD1E66CDA51A5A6", "TEST_AUTO_B4CE6789A4A5D02DE0ED", "TEST_AUTO_E089E5D43399F96CC63F", "TEST_AUTO_E0EA51662EC8697B47D6", "TEST_AUTO_F55812F3561AC14DE4EE", "TEST_CONTROL_AUTHORIZATION_FAILSAFE_001", "TEST_CONTROL_AUTHORIZATION_TRACE_001", "TEST_DEBUG_AUTHORIZATION_MATRIX_001"]
+tests = ["TEST_CONTROL_AUTHORIZATION_FAILSAFE_001", "TEST_CONTROL_AUTHORIZATION_TRACE_001", "TEST_DEBUG_AUTHORIZATION_MATRIX_001"]
 gates = ["pr"]
 evidence_refs = [
   "EVID_TEST_CONTROL_AUTHORIZATION_TRACE_001_RED",

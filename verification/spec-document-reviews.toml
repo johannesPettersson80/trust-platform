@@ -1751,23 +1751,6 @@ last_reviewed = "2026-07-19"
 
 [[document_reviews]]
 schema_version = 1
-document_id = "SPEC_DOC_3DAC0584844F2F32984BA12D"
-path = "docs/internal/testing/checklists/plc-verification-program/p17-independent-review-protocol.md"
-content_sha256 = "9a5155b411d09f4b15ce18cbee1a8e4814f078883854a24e1ac188f7c303293d"
-areas = ["verification"]
-authority_levels = ["internal_governance"]
-owners = ["verification"]
-freshness = "current"
-visibility = "internal"
-oracle_usable = false
-classification_basis = "explicit_review"
-conflict_disposition = "not_oracle_authority"
-checklist_staleness = "active_current"
-removed_behavior_disposition = "not_oracle_authority"
-last_reviewed = "2026-07-21"
-
-[[document_reviews]]
-schema_version = 1
 document_id = "SPEC_DOC_3EE0D3981D21BBBA5F1D2517"
 path = "docs/public/examples/test-and-debug.md"
 content_sha256 = "838f8cb4e7781c190e7c36647519628e7a16ec7a3dc247e19a00a3c510ea63ff"
@@ -6443,23 +6426,6 @@ last_reviewed = "2026-07-19"
 
 [[document_reviews]]
 schema_version = 1
-document_id = "SPEC_DOC_F12D1448A8DD9FF646DDEEDF"
-path = "docs/internal/testing/checklists/plc-verification-program/code-spec-coverage-plan.md"
-content_sha256 = "e3322e4ddaae60c481da4eb48caba4c2b7caa7c79b9b8ea2f58950d310cee795"
-areas = ["verification"]
-authority_levels = ["reviewed_decision"]
-owners = ["verification"]
-freshness = "current"
-visibility = "internal"
-oracle_usable = true
-classification_basis = "registered_metadata"
-conflict_disposition = "registered_conflicts_reviewed"
-checklist_staleness = "active_current"
-removed_behavior_disposition = "reviewed_current"
-last_reviewed = "2026-07-21"
-
-[[document_reviews]]
-schema_version = 1
 document_id = "SPEC_DOC_F13DC4D1070FECCFE0D7A7A8"
 path = "docs/internal/testing/checklists/plc-verification-program/broad-remote-gate-producer.md"
 content_sha256 = "f694baba80757a824b711e9da617b1229e58f852743171de9bd445c6feb449cb"
@@ -6832,7 +6798,6 @@ checklist_staleness = "not_applicable"
 removed_behavior_disposition = "reviewed_current"
 last_reviewed = "2026-07-26"
 
-
 [[document_reviews]]
 schema_version = 1
 document_id = "SPEC_DOC_51577978FA8129FCC683675F"
@@ -6849,7 +6814,6 @@ conflict_disposition = "registered_conflicts_reviewed"
 checklist_staleness = "not_applicable"
 removed_behavior_disposition = "reviewed_current"
 last_reviewed = "2026-07-26"
-
 
 [[document_reviews]]
 schema_version = 1
@@ -6868,7 +6832,6 @@ checklist_staleness = "not_applicable"
 removed_behavior_disposition = "reviewed_current"
 last_reviewed = "2026-07-26"
 
-
 [[document_reviews]]
 schema_version = 1
 document_id = "SPEC_DOC_15EE2543BB10BB8A0A7131B1"
@@ -6886,7 +6849,6 @@ checklist_staleness = "not_applicable"
 removed_behavior_disposition = "reviewed_current"
 last_reviewed = "2026-07-26"
 
-
 [[document_reviews]]
 schema_version = 1
 document_id = "SPEC_DOC_0BA82F5468DB13538671D6C3"
@@ -6903,7 +6865,6 @@ conflict_disposition = "registered_conflicts_reviewed"
 checklist_staleness = "not_applicable"
 removed_behavior_disposition = "reviewed_current"
 last_reviewed = "2026-07-26"
-
 
 [[document_reviews]]
 schema_version = 1
