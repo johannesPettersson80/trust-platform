@@ -395,7 +395,14 @@ def _validate_mutation_program_contract(
     invariants = _load_invariants(root, failures)
     for index, row in enumerate(shards):
         _validate_shard(root, row, index, invariants, failures)
-    if skip_execution_artifacts:
+    try:
+        json.dumps(program, sort_keys=True, separators=(",", ":"), allow_nan=False)
+        artifact_inputs_usable = True
+    except (TypeError, ValueError) as exc:
+        failures.append(f"mutation program contains a non-JSON-compatible value: {exc}")
+        artifact_inputs_usable = False
+    compare_survivors_to_artifacts = not skip_execution_artifacts and artifact_inputs_usable
+    if not compare_survivors_to_artifacts:
         legacy_survivor_ids: set[tuple[str, str]] = set()
         focused_survivor_ids: set[tuple[str, str]] = set()
     else:
@@ -409,13 +416,19 @@ def _validate_mutation_program_contract(
     _validate_survivor_resolutions(
         root,
         program.get("survivor_resolutions"),
-        None if skip_execution_artifacts else legacy_survivor_ids | focused_survivor_ids,
+        legacy_survivor_ids | focused_survivor_ids if compare_survivors_to_artifacts else None,
         {
             (shard.get("id"), mutation.get("id"))
             for shard in shards
             if isinstance(shard, Mapping)
-            for mutation in shard.get("mutations", [])
+            and isinstance(shard.get("id"), str)
+            for mutation in (
+                shard.get("mutations")
+                if isinstance(shard.get("mutations"), list)
+                else []
+            )
             if isinstance(mutation, Mapping)
+            and isinstance(mutation.get("id"), str)
         },
         failures,
     )

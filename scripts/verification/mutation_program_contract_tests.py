@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import datetime
 import json
 import unittest
 from types import SimpleNamespace
@@ -293,6 +294,24 @@ class MutationProgramContractTests(unittest.TestCase):
         except Exception as exc:  # pragma: no cover
             self.fail(f"hostile shard ID raised {type(exc).__name__}: {exc}")
         self.assertTrue(failures)
+        corrupted = copy.deepcopy(self.program)
+        corrupted["shards"][2]["mutations"] = None
+        try:
+            failures = validate_mutation_program_for_shard_execution(
+                ROOT,
+                corrupted,
+                "MUTATION_SHARD_HIR_DIAGNOSTICS_001",
+            )
+        except Exception as exc:  # pragma: no cover
+            self.fail(f"hostile mutations value raised {type(exc).__name__}: {exc}")
+        self.assertTrue(any("mutations must be an array" in item for item in failures), failures)
+        corrupted = copy.deepcopy(self.program)
+        corrupted["shards"][2]["mutations"][0]["replacement"] = datetime.date(2026, 8, 13)
+        try:
+            failures = validate_mutation_program_contract(ROOT, corrupted)
+        except Exception as exc:  # pragma: no cover
+            self.fail(f"hostile TOML-native value raised {type(exc).__name__}: {exc}")
+        self.assertTrue(any("non-JSON-compatible" in item for item in failures), failures)
 
     def test_partial_scanner_duplicate_ids_fail_closed(self) -> None:
         fact = SimpleNamespace(
