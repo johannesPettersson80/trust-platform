@@ -63,6 +63,8 @@ package "Runtime Core" as runtimeCore #LightGreen {
     component "harness/initializer.rs\n(default + aggregate materialization)" as initializerService
     component "HIR SymbolTable.initializer_catalog\n(source ranges + InitializerId handles)" as hirInitCatalog
     component "program_model::InitializerCatalog\n(lowered Expr records)" as runtimeInitCatalog
+    component "trust-runtime-core::numeric::kind\nNumericKind + closed widening matrix" as coreNumericKind
+    component "trust-runtime-core::numeric\nexecution-domain conversions" as coreNumericConversions
     runtime ..> runtimeOnlineChange : hot-reload contract owner
     runtimeOnlineChange --> runtimeRestart : prepare before bytecode replacement
     runtimeOnlineChange --> runtimeRetainSnapshot : validate against prepared storage
@@ -77,6 +79,7 @@ package "Runtime Core" as runtimeCore #LightGreen {
     runtime --> runtimeInitCatalog : owns lowered catalog
     hirInitCatalog ..> runtimeInitCatalog : compile-time lowering copies/ translates defaults
     initializerService --> runtimeInitCatalog : reads TYPE/member defaults
+    coreNumericConversions --> coreNumericKind : target kind identity
 }
 
 package "Execution Engine" as backendPkg #LightYellow {
