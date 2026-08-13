@@ -371,6 +371,32 @@ class CodeSpecAuthorityReuseTests(unittest.TestCase):
             with self.subTest(module=module):
                 self.assertIn(module, gate)
 
+    def test_runtime_apply_authority_uses_exact_implementation_paths(self) -> None:
+        invariant = tomllib.loads(
+            Path(
+                "verification/invariants/runtime_safety/"
+                "RT_COMM_APPLY_MUTATION_001.toml"
+            ).read_text(encoding="utf-8")
+        )
+
+        self.assertEqual(
+            [
+                "crates/trust-runtime/src/control/comm_handlers/apply.rs",
+                "crates/trust-runtime/src/control/comm_handlers/apply/io_file.rs",
+                "crates/trust-runtime/src/control/comm_handlers/apply/runtime_file.rs",
+                (
+                    "crates/trust-runtime/src/control/comm_handlers/apply/"
+                    "runtime_file/path_policy.rs"
+                ),
+                "crates/trust-runtime/src/control/comm_handlers/apply/validation.rs",
+            ],
+            sorted(
+                source_ref
+                for source_ref in invariant["source_refs"]
+                if source_ref.startswith("crates/")
+            ),
+        )
+
     def test_implemented_authority_remains_reusable_after_identity_move(self) -> None:
         implemented = invariant()
         implemented["status"] = "implemented"
