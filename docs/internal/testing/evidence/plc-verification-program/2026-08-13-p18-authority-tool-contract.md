@@ -168,3 +168,30 @@ and diagram drift pass. The final source-bound report at `24ff8fdc` is
 The gate invariant remains `S0`; this batch does not claim source-bound native
 execution, GitHub job artifacts, transitive product proof, or the final remote
 candidate gate.
+
+## Gate-route provider authority
+
+The provider introduced six new behavior-bearing facts. An expected focused
+red proved its source path was absent from the recoverable authority contract;
+the paired green binds it to
+`VERIFICATION_CODE_SPEC_REFRESH_QUARANTINE_001`. Proposal generation after the
+29 entrypoint promotions then exposed a lifecycle error: a completed specified
+entrypoint was treated as a missing route. A second expected red and paired
+green make an exact already-specified entrypoint a no-op while still failing on
+missing or duplicate identities.
+
+The provider body refresh application is
+`sha256:ea1b6c68c7a0597bae86545fec1dc544586a92a26c0f486dbe41af21d97f24ee`.
+At the clean `344ef76b` checkpoint, the complete authority proposal contains
+the unchanged prior 24 groups plus one singular six-fact provider group. An
+independent audit verified the exact source, authority, test, risk, report,
+proposal, and selection bindings. The atomic six-fact application is
+`sha256:a26633853c8c69c62cb54196171ea6029cceb7419f0e8047501a2e7eacfbf5ff`;
+commit `047462ae` records the authority checkpoint.
+
+The final report is
+`sha256:98f737bca512e8468693b42adc889fe1321cfd769abe2499672e21375532ea7a`:
+17,497 facts, zero findings, 13,689 `spec_gap`, and 3,548 `specified`. The
+focused gate-route, authority-reuse, gate-inventory, and catalog-reassignment
+suites pass 40/40 and diagram drift is zero. This still closes only P18-003
+authority debt for the selected facts.
