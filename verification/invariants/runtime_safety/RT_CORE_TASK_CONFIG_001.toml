@@ -1,0 +1,39 @@
+schema_version = 1
+id = "RT_CORE_TASK_CONFIG_001"
+title = "Portable task configuration retains exact scheduling associations"
+area = "runtime_safety"
+risk = "safety_critical"
+status = "planned"
+owner = "trust-runtime"
+last_reviewed = "2026-08-13"
+claim = "A portable task configuration retains the supplied task name, periodic interval, optional SINGLE input, priority, ordered program associations, and function-block instance associations without normalization or loss."
+proof_level = "S0"
+contract_kind = "decision_table"
+source_refs = ["docs/specs/10-runtime-semantics.md", "crates/trust-runtime-core/src/task/config.rs"]
+tests = []
+gates = ["pr"]
+evidence_refs = []
+spec_gap_refs = []
+missing = ["cataloged_test", "focused_execution_evidence", "assertion_reachability", "mutation_sensitivity", "broad_remote_gate"]
+
+[spec]
+status = "specified"
+source_refs = ["SPEC_RUNTIME_SEMANTICS_001"]
+
+[oracle]
+kind = "trust_contract"
+ref = "SPEC_RUNTIME_SEMANTICS_001#4-3-task-scheduling-periodic-event"
+
+[[behavior]]
+partition = { equals = "PERIODIC_AND_EVENT_CONFIGURATION_FIELDS" }
+case_family = "happy_path"
+oracle_ref = "SPEC_RUNTIME_SEMANTICS_001#4-3-task-scheduling-periodic-event"
+outcome = "accept_value"
+no_partial_apply = true
+delta = { target = "set_to_expected", siblings = "unchanged", retain = "unchanged", process_image = "unchanged", diagnostics = "none", status = "unchanged" }
+rationale = "Construction retains the exact supplied name, interval, SINGLE input, priority, ordered program list, and function-block instance list so later scheduling observes the reviewed configuration rather than a normalized or partial projection."
+
+[[coverage.cells]]
+dimension = "happy_path"
+state = "gap_open"
+rationale = "The historical focused unit test asserts every configuration field, but its accepted catalog authority must be reassigned from the stale bytecode helper invariant before this cell can claim coverage."
