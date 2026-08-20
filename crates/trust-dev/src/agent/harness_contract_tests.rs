@@ -229,8 +229,7 @@ fn source_selection_preserves_explicit_file_order() {
 
 #[test]
 fn cycle_step_defaults_to_one_and_preserves_explicit_zero() {
-    let defaulted: HarnessExecuteStep =
-        serde_json::from_value(json!({"op": "cycle"})).unwrap();
+    let defaulted: HarnessExecuteStep = serde_json::from_value(json!({"op": "cycle"})).unwrap();
     let explicit_zero: HarnessExecuteStep =
         serde_json::from_value(json!({"op": "cycle", "count": 0})).unwrap();
 
@@ -349,14 +348,7 @@ fn empty_watch_snapshot_has_stable_camel_case_shape() {
 
 #[test]
 fn successful_result_omits_failures_and_satisfies_accounting() {
-    let result = build_harness_execute_result(
-        2,
-        3,
-        4,
-        4,
-        empty_watch_snapshot(),
-        Vec::new(),
-    );
+    let result = build_harness_execute_result(2, 3, 4, 4, empty_watch_snapshot(), Vec::new());
     let value = serde_json::to_value(result).unwrap();
 
     assert_eq!(value["sourceCount"], 2);
@@ -379,8 +371,18 @@ fn assertion_failures_are_counted_as_evaluated_and_failed() {
         4,
         empty_watch_snapshot(),
         vec![
-            failure("assertion_failed", None, Some(bool_value(true)), Some(bool_value(false))),
-            failure("assertion_failed", None, Some(bool_value(false)), Some(bool_value(true))),
+            failure(
+                "assertion_failed",
+                None,
+                Some(bool_value(true)),
+                Some(bool_value(false)),
+            ),
+            failure(
+                "assertion_failed",
+                None,
+                Some(bool_value(false)),
+                Some(bool_value(true)),
+            ),
         ],
     );
     let value = serde_json::to_value(result).unwrap();
@@ -601,9 +603,7 @@ fn execute_does_not_mutate_the_stateful_loaded_harness() {
         )
         .unwrap();
     server
-        .harness_cycle(
-            serde_json::from_value(json!({"count": 1, "watch": []})).unwrap(),
-        )
+        .harness_cycle(serde_json::from_value(json!({"count": 1, "watch": []})).unwrap())
         .unwrap();
 
     let isolated = server
@@ -622,9 +622,7 @@ fn execute_does_not_mutate_the_stateful_loaded_harness() {
     );
 
     let persistent = server
-        .harness_get_output(
-            serde_json::from_value(json!({"name": "output"})).unwrap(),
-        )
+        .harness_get_output(serde_json::from_value(json!({"name": "output"})).unwrap())
         .unwrap();
     assert_eq!(persistent["value"], bool_value(true));
 }
@@ -636,19 +634,13 @@ fn stateful_methods_before_load_preserve_not_loaded_error() {
 
     let errors = [
         server
-            .harness_cycle(
-                serde_json::from_value(json!({"count": 1, "watch": []})).unwrap(),
-            )
+            .harness_cycle(serde_json::from_value(json!({"count": 1, "watch": []})).unwrap())
             .unwrap_err(),
         server
-            .harness_get_output(
-                serde_json::from_value(json!({"name": "q"})).unwrap(),
-            )
+            .harness_get_output(serde_json::from_value(json!({"name": "q"})).unwrap())
             .unwrap_err(),
         server
-            .harness_advance_time(
-                serde_json::from_value(json!({"duration_ms": 1})).unwrap(),
-            )
+            .harness_advance_time(serde_json::from_value(json!({"duration_ms": 1})).unwrap())
             .unwrap_err(),
     ];
 

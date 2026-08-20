@@ -116,9 +116,7 @@ impl DebugAdapter {
                 Ok(args) => args,
                 Err(_) => {
                     return DispatchOutcome {
-                        responses: vec![
-                            self.error_response(&request, "invalid launch arguments")
-                        ],
+                        responses: vec![self.error_response(&request, "invalid launch arguments")],
                         ..DispatchOutcome::default()
                     };
                 }
@@ -389,9 +387,7 @@ impl DebugAdapter {
                 Ok(args) => args,
                 Err(_) => {
                     return DispatchOutcome {
-                        responses: vec![
-                            self.error_response(&request, "invalid attach arguments")
-                        ],
+                        responses: vec![self.error_response(&request, "invalid attach arguments")],
                         ..DispatchOutcome::default()
                     };
                 }

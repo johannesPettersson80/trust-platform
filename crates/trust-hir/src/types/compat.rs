@@ -65,9 +65,7 @@ impl TypeRegistry {
             Some(Type::Any) => true,
             Some(Type::AnyDerived) => source.is_derived(),
             Some(Type::AnyElementary) => source.is_elementary(),
-            Some(Type::AnyMagnitude) => {
-                family_source.is_numeric() || family_source.is_duration()
-            }
+            Some(Type::AnyMagnitude) => family_source.is_numeric() || family_source.is_duration(),
             Some(Type::AnyInt) => family_source.is_integer(),
             Some(Type::AnyUnsigned) => family_source.is_unsigned(),
             Some(Type::AnySigned) => family_source.is_signed(),

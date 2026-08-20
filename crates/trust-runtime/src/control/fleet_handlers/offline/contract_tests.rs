@@ -160,9 +160,8 @@ fn serialized(project: &TestProject) -> Value {
 #[test]
 fn fleet_offline_contract_missing_runtime_file_is_an_error() {
     let project = TestProject::new("missing-runtime");
-    let error = build_project_fleet_topology(project.path())
-        .err()
-        .expect("missing runtime must fail");
+    let error =
+        build_project_fleet_topology(project.path()).expect_err("missing runtime must fail");
     assert!(error.contains("failed to load runtime.toml"), "{error}");
 }
 
@@ -170,9 +169,8 @@ fn fleet_offline_contract_missing_runtime_file_is_an_error() {
 fn fleet_offline_contract_malformed_runtime_file_is_an_error() {
     let project = TestProject::new("malformed-runtime");
     project.write("runtime.toml", "[resource\nname = 1");
-    let error = build_project_fleet_topology(project.path())
-        .err()
-        .expect("malformed runtime must fail");
+    let error =
+        build_project_fleet_topology(project.path()).expect_err("malformed runtime must fail");
     assert!(error.contains("failed to load runtime.toml"), "{error}");
 }
 
@@ -193,9 +191,8 @@ fn fleet_offline_contract_malformed_present_io_file_is_an_error() {
     let project = TestProject::new("malformed-io");
     project.write("runtime.toml", runtime_toml(""));
     project.write("io.toml", "[io]\ndrivers = 42");
-    let error = build_project_fleet_topology(project.path())
-        .err()
-        .expect("malformed io.toml must fail");
+    let error =
+        build_project_fleet_topology(project.path()).expect_err("malformed io.toml must fail");
     assert!(error.contains("failed to load io.toml"), "{error}");
 }
 
@@ -368,9 +365,8 @@ config_path = "ads.toml"
 "#,
         ),
     );
-    let error = build_project_fleet_topology(project.path())
-        .err()
-        .expect("missing ADS sidecar must fail");
+    let error =
+        build_project_fleet_topology(project.path()).expect_err("missing ADS sidecar must fail");
     assert!(error.contains("runtime.ads.enabled=true"), "{error}");
     assert!(error.contains("ads.toml"), "{error}");
 }
@@ -442,9 +438,8 @@ config_path = "opcua_client.toml"
 "#,
         ),
     );
-    let error = build_project_fleet_topology(project.path())
-        .err()
-        .expect("missing OPC UA sidecar must fail");
+    let error =
+        build_project_fleet_topology(project.path()).expect_err("missing OPC UA sidecar must fail");
     assert!(
         error.contains("runtime.opcua_client.enabled=true"),
         "{error}"
@@ -533,9 +528,8 @@ unknown_field = true
 "#
         ),
     );
-    let error = build_project_fleet_topology(project.path())
-        .err()
-        .expect("malformed sidecar must fail");
+    let error =
+        build_project_fleet_topology(project.path()).expect_err("malformed sidecar must fail");
     assert!(error.contains("failed to parse"), "{error}");
     assert!(!error.contains(secret), "{error}");
 }
@@ -560,8 +554,7 @@ config_path = "{}"
         ),
     );
     let error = build_project_fleet_topology(project.path())
-        .err()
-        .expect("absolute sidecar must fail closed");
+        .expect_err("absolute sidecar must fail closed");
     assert!(
         error.contains("project") || error.contains("relative") || error.contains("confined"),
         "{error}"

@@ -18,8 +18,7 @@ fn compile_error(source: &str) -> String {
 
 #[test]
 fn pou_member_access_public_class_field_method_and_property_execute() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 CLASS Device
 VAR PUBLIC
     Stored : INT;
@@ -41,15 +40,13 @@ DeviceInstance.Stored := INT#2;
 DeviceInstance.Value := INT#7;
 ResultValue := DeviceInstance.Read() + DeviceInstance.Value;
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("ResultValue"), Some(Value::Int(14)));
 }
 
 #[test]
 fn pou_member_access_protected_class_members_execute_through_derived_wrapper() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 CLASS Base
 VAR PROTECTED
     Stored : INT;
@@ -76,15 +73,13 @@ VAR
 END_VAR
 ResultValue := DeviceInstance.Exercise();
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("ResultValue"), Some(Value::Int(14)));
 }
 
 #[test]
 fn pou_member_access_private_class_members_execute_inside_owner() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 CLASS Vault
 VAR PRIVATE
     Stored : INT;
@@ -105,15 +100,13 @@ VAR
 END_VAR
 ResultValue := VaultInstance.Exercise();
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("ResultValue"), Some(Value::Int(7)));
 }
 
 #[test]
 fn pou_member_access_internal_class_members_execute_in_same_namespace() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 NAMESPACE Cell
 CLASS Device
 VAR INTERNAL
@@ -134,8 +127,7 @@ END_PROGRAM
 END_NAMESPACE
 PROGRAM Main
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(
         harness.get_output("Cell.Worker.ResultValue"),
         Some(Value::Int(8))
@@ -144,8 +136,7 @@ END_PROGRAM
 
 #[test]
 fn pou_member_access_public_override_dispatches_derived_method() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 CLASS Base
 METHOD PUBLIC Read : INT
 Read := INT#1;
@@ -163,15 +154,13 @@ VAR
 END_VAR
 ResultValue := DeviceInstance.Read();
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("ResultValue"), Some(Value::Int(9)));
 }
 
 #[test]
 fn pou_member_access_protected_override_dispatches_through_public_wrapper() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 CLASS Base
 METHOD PROTECTED Read : INT
 Read := INT#1;
@@ -192,15 +181,13 @@ VAR
 END_VAR
 ResultValue := DeviceInstance.Exercise();
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("ResultValue"), Some(Value::Int(6)));
 }
 
 #[test]
 fn pou_member_access_internal_override_dispatches_in_declaring_namespace() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 NAMESPACE Cell
 CLASS Base
 METHOD INTERNAL Read : INT
@@ -223,15 +210,13 @@ VAR
 END_VAR
 ResultValue := DeviceInstance.Exercise();
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("ResultValue"), Some(Value::Int(5)));
 }
 
 #[test]
 fn pou_member_access_default_fb_members_execute_through_derived_wrapper() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 FUNCTION_BLOCK Base
 VAR
     Stored : INT;
@@ -253,15 +238,13 @@ VAR
 END_VAR
 ResultValue := DeviceInstance.Exercise();
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("ResultValue"), Some(Value::Int(4)));
 }
 
 #[test]
 fn pou_member_access_public_fb_method_executes_from_program() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 FUNCTION_BLOCK Device
 VAR PUBLIC
     Stored : INT;
@@ -282,15 +265,13 @@ END_VAR
 DeviceInstance.Stored := INT#2;
 ResultValue := DeviceInstance.Add(INT#5);
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("ResultValue"), Some(Value::Int(7)));
 }
 
 #[test]
 fn pou_member_access_fb_output_is_readable_after_execution() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 FUNCTION_BLOCK Producer
 VAR_OUTPUT
     Value : INT;
@@ -305,15 +286,13 @@ END_VAR
 ProducerInstance();
 ResultValue := ProducerInstance.Value;
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("ResultValue"), Some(Value::Int(8)));
 }
 
 #[test]
 fn pou_member_access_fb_input_is_readable_after_call_binding() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 FUNCTION_BLOCK Consumer
 VAR_INPUT
     Value : INT;
@@ -327,15 +306,13 @@ END_VAR
 ConsumerInstance(Value := INT#11);
 ResultValue := ConsumerInstance.Value;
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("ResultValue"), Some(Value::Int(11)));
 }
 
 #[test]
 fn pou_member_access_fb_in_out_mutates_only_through_call_binding() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 FUNCTION_BLOCK Bump
 VAR_IN_OUT
     Value : INT;
@@ -351,15 +328,13 @@ END_VAR
 BumpInstance(Value := Stored);
 ResultValue := Stored;
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("ResultValue"), Some(Value::Int(5)));
 }
 
 #[test]
 fn pou_member_access_public_interface_dispatch_reaches_concrete_method() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 INTERFACE IReadable
 METHOD Read : INT
 END_METHOD
@@ -378,15 +353,13 @@ END_VAR
 Contract := DeviceInstance;
 ResultValue := Contract.Read();
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("ResultValue"), Some(Value::Int(12)));
 }
 
 #[test]
 fn pou_member_access_internal_interface_implementation_dispatches_via_public_contract() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 NAMESPACE Cell
 INTERFACE IReadable
 METHOD Read : INT
@@ -409,8 +382,7 @@ END_PROGRAM
 END_NAMESPACE
 PROGRAM Main
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(
         harness.get_output("Cell.Worker.ResultValue"),
         Some(Value::Int(13))
@@ -419,8 +391,7 @@ END_PROGRAM
 
 #[test]
 fn pou_member_access_storage_then_visibility_order_lowers_public_state() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 CLASS Device
 VAR RETAIN PUBLIC
     Stored : INT := INT#3;
@@ -433,15 +404,13 @@ VAR
 END_VAR
 ResultValue := DeviceInstance.Stored;
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("ResultValue"), Some(Value::Int(3)));
 }
 
 #[test]
 fn pou_member_access_visibility_then_storage_order_lowers_public_state() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 CLASS Device
 VAR PUBLIC RETAIN
     Stored : INT := INT#4;
@@ -454,8 +423,7 @@ VAR
 END_VAR
 ResultValue := DeviceInstance.Stored;
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("ResultValue"), Some(Value::Int(4)));
 }
 

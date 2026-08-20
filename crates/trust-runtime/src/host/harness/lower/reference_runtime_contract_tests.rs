@@ -127,7 +127,10 @@ fn reference_runtime_copied_references_compare_equal() {
 
 #[test]
 fn reference_runtime_null_read_fault_preserves_assignment_destination() {
-    let mut harness = TestHarness::from_source("PROGRAM Main\nVAR r : REF_TO INT; result : INT := 7; END_VAR\nresult := r^;\nEND_PROGRAM").expect("null read fixture must compile");
+    let mut harness = TestHarness::from_source(
+        "PROGRAM Main\nVAR r : REF_TO INT; result : INT := 7; END_VAR\nresult := r^;\nEND_PROGRAM",
+    )
+    .expect("null read fixture must compile");
     let cycle = harness.cycle();
     assert_eq!(cycle.errors, [RuntimeError::NullReference]);
     assert_eq!(harness.try_get_output("result").unwrap(), Value::Int(7));
@@ -135,7 +138,10 @@ fn reference_runtime_null_read_fault_preserves_assignment_destination() {
 
 #[test]
 fn reference_runtime_null_write_fault_preserves_unrelated_storage() {
-    let mut harness = TestHarness::from_source("PROGRAM Main\nVAR p : POINTER TO INT; result : INT := 7; END_VAR\np^ := 9;\nEND_PROGRAM").expect("null write fixture must compile");
+    let mut harness = TestHarness::from_source(
+        "PROGRAM Main\nVAR p : POINTER TO INT; result : INT := 7; END_VAR\np^ := 9;\nEND_PROGRAM",
+    )
+    .expect("null write fixture must compile");
     let cycle = harness.cycle();
     assert_eq!(cycle.errors, [RuntimeError::NullReference]);
     assert_eq!(harness.try_get_output("result").unwrap(), Value::Int(7));

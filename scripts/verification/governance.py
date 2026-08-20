@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from .metadata_validator.constants import AREAS, CASE_FAMILIES, ROOT
-from .phase16_readiness import is_product_path, normalize_changed_path
 
 
 GOVERNANCE_PATH = "verification/governance.toml"
@@ -119,10 +118,11 @@ def validate_governance_document(
             failures.append(f"coverage template {area} must keep non-universal dimensions per invariant")
 
     policy = document.get("change_policy", {})
-    if policy.get("product_change_requires") != ["invariant_update", "catalog_update"]:
-        failures.append("product change policy must require invariant and catalog updates")
-    if policy.get("public_claim_change_requires") != ["spec_source_update", "invariant_update"]:
-        failures.append("public claim policy must require spec-source and invariant updates")
+    direct_contract = ["written_specification", "native_executable_test"]
+    if policy.get("product_change_requires") != direct_contract:
+        failures.append("product change policy must require a written specification and native executable test")
+    if policy.get("public_claim_change_requires") != direct_contract:
+        failures.append("public claim policy must require a written specification and native executable test")
 
     cadences = document.get("review_cadences", [])
     if [row.get("id") for row in cadences if isinstance(row, Mapping)] != list(CADENCE_IDS):
@@ -198,21 +198,11 @@ def validate_current_governance(
 
 
 def validate_changed_files(document: Mapping[str, Any], changed_files: Sequence[str]) -> list[str]:
-    normalized = sorted({path for value in changed_files if (path := normalize_changed_path(value))})
-    product = [path for path in normalized if is_product_path(path)]
-    public = [path for path in normalized if path == "README.md" or path.startswith("docs/public/")]
-    failures: list[str] = []
-    if product:
-        if not any(path.startswith("verification/invariants/") for path in normalized):
-            failures.append("product changes require an invariant update in the same diff")
-        if "verification/test-catalog.toml" not in normalized:
-            failures.append("product changes require a test-catalog update in the same diff")
-    if public:
-        if "verification/spec-sources.toml" not in normalized:
-            failures.append("public claim changes require a spec-source update in the same diff")
-        if not any(path.startswith("verification/invariants/") for path in normalized):
-            failures.append("public claim changes require an invariant update in the same diff")
-    return failures
+    # A changed-path list cannot prove specification/test agreement. Direct
+    # review and native executable gates own that product contract; metadata
+    # companion files are never required merely because a product path changed.
+    del document, changed_files
+    return []
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -138,14 +138,8 @@ fn registry_iteration_contains_exactly_live_bijection() {
 fn project_updates_same_key_without_changing_file_identity() {
     let mut project = Project::new();
     let key = SourceKey::from_virtual("main.st");
-    let first = project.set_source_text(
-        key.clone(),
-        "PROGRAM First\nEND_PROGRAM\n".to_owned(),
-    );
-    let second = project.set_source_text(
-        key.clone(),
-        "PROGRAM Second\nEND_PROGRAM\n".to_owned(),
-    );
+    let first = project.set_source_text(key.clone(), "PROGRAM First\nEND_PROGRAM\n".to_owned());
+    let second = project.set_source_text(key.clone(), "PROGRAM Second\nEND_PROGRAM\n".to_owned());
 
     assert_eq!(first, second);
     assert_eq!(project.file_id_for_key(&key), Some(first));
@@ -154,8 +148,16 @@ fn project_updates_same_key_without_changing_file_identity() {
         project.database().source_text(first).as_str(),
         "PROGRAM Second\nEND_PROGRAM\n"
     );
-    assert!(project.database().file_symbols(first).lookup("Second").is_some());
-    assert!(project.database().file_symbols(first).lookup("First").is_none());
+    assert!(project
+        .database()
+        .file_symbols(first)
+        .lookup("Second")
+        .is_some());
+    assert!(project
+        .database()
+        .file_symbols(first)
+        .lookup("First")
+        .is_none());
 }
 
 #[test]
@@ -166,14 +168,22 @@ fn project_remove_source_clears_registry_and_database_products() {
         key.clone(),
         "PROGRAM Main\nVAR value : INT; END_VAR\nEND_PROGRAM\n".to_owned(),
     );
-    assert!(project.database().file_symbols(file).lookup("Main").is_some());
+    assert!(project
+        .database()
+        .file_symbols(file)
+        .lookup("Main")
+        .is_some());
 
     assert_eq!(project.remove_source(&key), Some(file));
 
     assert_eq!(project.file_id_for_key(&key), None);
     assert_eq!(project.key_for_file_id(file), None);
     assert_eq!(project.database().source_text(file).as_str(), "");
-    assert!(project.database().file_symbols(file).lookup("Main").is_none());
+    assert!(project
+        .database()
+        .file_symbols(file)
+        .lookup("Main")
+        .is_none());
     assert!(project.database().diagnostics(file).is_empty());
 }
 
@@ -181,10 +191,8 @@ fn project_remove_source_clears_registry_and_database_products() {
 fn project_remove_absent_source_preserves_live_sources() {
     let mut project = Project::new();
     let live_key = SourceKey::from_virtual("live.st");
-    let live_file = project.set_source_text(
-        live_key.clone(),
-        "PROGRAM Live\nEND_PROGRAM\n".to_owned(),
-    );
+    let live_file =
+        project.set_source_text(live_key.clone(), "PROGRAM Live\nEND_PROGRAM\n".to_owned());
 
     assert_eq!(
         project.remove_source(&SourceKey::from_virtual("missing.st")),

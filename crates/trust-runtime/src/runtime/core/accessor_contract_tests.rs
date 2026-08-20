@@ -29,15 +29,13 @@ fn accessors_resource_identity_preserves_configured_spelling() {
 fn accessors_storage_registry_and_initializer_views_share_live_state() {
     let mut runtime = Runtime::new();
     runtime.storage_mut().set_global("Counter", Value::DInt(7));
-    let user_type = runtime
-        .registry_mut()
-        .register(
-            "BatchCount",
-            Type::Alias {
-                name: "BatchCount".into(),
-                target: TypeId::DINT,
-            },
-        );
+    let user_type = runtime.registry_mut().register(
+        "BatchCount",
+        Type::Alias {
+            name: "BatchCount".into(),
+            target: TypeId::DINT,
+        },
+    );
 
     let initializer_id = {
         let (registry, initializers) = runtime.registry_and_initializer_catalog_mut();
@@ -47,7 +45,10 @@ fn accessors_storage_registry_and_initializer_views_share_live_state() {
         id
     };
 
-    assert_eq!(runtime.storage().get_global("Counter"), Some(&Value::DInt(7)));
+    assert_eq!(
+        runtime.storage().get_global("Counter"),
+        Some(&Value::DInt(7))
+    );
     assert_eq!(runtime.registry().lookup("BATCHCOUNT"), Some(user_type));
     assert_eq!(
         runtime.initializer_catalog().type_default(user_type),
@@ -82,10 +83,7 @@ fn accessors_declaration_maps_preserve_values_and_replace_case_only_keys() {
 
     assert_eq!(runtime.functions().len(), 1);
     assert_eq!(runtime.functions()["MIX"].name, "mIX");
-    assert_eq!(
-        runtime.function_blocks().len(),
-        builtin_function_blocks + 1
-    );
+    assert_eq!(runtime.function_blocks().len(), builtin_function_blocks + 1);
     assert_eq!(runtime.function_blocks()["LATCH"].name, "lATCH");
     assert_eq!(runtime.classes().len(), 1);
     assert_eq!(runtime.classes()["CELL"].name, "cELL");
@@ -233,10 +231,7 @@ fn accessors_io_health_publication_replaces_snapshot_in_driver_order() {
         },
     }]));
     runtime.set_io_health_sink(Some(sink.clone()));
-    runtime.add_io_driver(
-        "Primary",
-        Box::new(HealthDriver(IoDriverHealth::Ok)),
-    );
+    runtime.add_io_driver("Primary", Box::new(HealthDriver(IoDriverHealth::Ok)));
     runtime.add_io_driver(
         "Backup",
         Box::new(HealthDriver(IoDriverHealth::Degraded {
@@ -267,10 +262,7 @@ fn accessors_removing_io_health_sink_stops_publication() {
     let mut runtime = Runtime::new();
     let sink = Arc::new(Mutex::new(Vec::new()));
     runtime.set_io_health_sink(Some(sink.clone()));
-    runtime.add_io_driver(
-        "Driver",
-        Box::new(HealthDriver(IoDriverHealth::Ok)),
-    );
+    runtime.add_io_driver("Driver", Box::new(HealthDriver(IoDriverHealth::Ok)));
     runtime.update_io_health();
     assert_eq!(sink.lock().unwrap().len(), 1);
 
@@ -291,7 +283,10 @@ fn accessors_empty_ads_lifecycle_and_hash_projection_are_stable() {
 
     runtime.set_ads_deployed_config_hash(Some("sha256:ads".to_string()));
     assert_eq!(
-        runtime.ads_status_report().deployed_ads_config_hash.as_deref(),
+        runtime
+            .ads_status_report()
+            .deployed_ads_config_hash
+            .as_deref(),
         Some("sha256:ads")
     );
     runtime.shutdown_ads().unwrap();
@@ -350,7 +345,9 @@ fn accessors_cycle_and_time_projection_return_exact_runtime_state() {
 #[test]
 fn accessors_var_access_map_preserves_exact_binding_identity() {
     let mut runtime = Runtime::new();
-    runtime.storage_mut().set_global("Data", Value::Word(0x1234));
+    runtime
+        .storage_mut()
+        .set_global("Data", Value::Word(0x1234));
     let reference = runtime.storage().ref_for_global("Data").unwrap();
     runtime.access_map_mut().bind(
         "DataByte".into(),
@@ -371,10 +368,7 @@ fn accessors_using_resolution_honors_fb_method_override_and_fallback() {
     runtime.register_function_block(function_block(
         "Valve",
         &["ValveLib"],
-        &[
-            method("Open", &["MethodLib"]),
-            method("Close", &[]),
-        ],
+        &[method("Open", &["MethodLib"]), method("Close", &[])],
     ));
     let instance = runtime.storage_mut().create_instance("vAlVe");
 
@@ -411,10 +405,7 @@ fn accessors_using_resolution_honors_class_method_override_and_fallback() {
     runtime.register_class(class(
         "Axis",
         &["AxisLib"],
-        &[
-            method("Move", &["MotionLib"]),
-            method("Stop", &[]),
-        ],
+        &[method("Move", &["MotionLib"]), method("Stop", &[])],
     ));
     let instance = runtime.storage_mut().create_instance("aXiS");
 
@@ -576,7 +567,10 @@ fn accessors_var_access_partial_null_reference_is_atomic() {
         runtime.write_access("Missing", Value::Bool(true)),
         Err(error::RuntimeError::NullReference)
     );
-    assert_eq!(runtime.storage().get_global("Sentinel"), Some(&Value::DInt(9)));
+    assert_eq!(
+        runtime.storage().get_global("Sentinel"),
+        Some(&Value::DInt(9))
+    );
 }
 
 #[derive(Debug)]

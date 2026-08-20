@@ -7,6 +7,7 @@ mod const_utils;
 mod precollect;
 mod types;
 mod validation;
+mod variable_initializers;
 mod variables;
 
 pub(super) struct SymbolCollector<'a> {
@@ -50,6 +51,7 @@ impl<'a> SymbolCollector<'a> {
         self.phase_collect_symbols(root);
         self.phase_access_and_config(root);
         self.phase_resolve_types();
+        self.check_variable_initializer_constant_expressions(root);
         self.phase_global_links(root);
         self.phase_var_validation(root);
         self.phase_constants();
@@ -89,6 +91,7 @@ impl<'a> SymbolCollector<'a> {
     ) -> (SymbolTable, Vec<Diagnostic>) {
         let mut collector = Self::build(None);
         collector.table = table;
+        collector.check_variable_initializer_constant_expressions(root);
         collector.phase_access_and_config(root);
         collector.phase_var_validation_with_config_roots(root, project_roots);
         (collector.table, collector.diagnostics.finish())

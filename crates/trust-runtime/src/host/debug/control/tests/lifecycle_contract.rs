@@ -60,14 +60,7 @@ fn default_debug_control_has_the_same_initial_state_as_new() {
     let control = DebugControl::default();
     assert_eq!(
         state_snapshot(&control),
-        (
-            DebugMode::Running,
-            None,
-            Some(1),
-            None,
-            0,
-            false
-        )
+        (DebugMode::Running, None, Some(1), None, 0, false)
     );
 }
 
@@ -335,18 +328,9 @@ fn replacing_one_files_breakpoints_preserves_other_files_and_order() {
 #[test]
 fn repeated_breakpoint_replacement_advances_only_owning_file_generation() {
     let control = DebugControl::new();
-    control.set_breakpoints_for_file(
-        1,
-        vec![DebugBreakpoint::new(SourceLocation::new(1, 1, 2))],
-    );
-    control.set_breakpoints_for_file(
-        2,
-        vec![DebugBreakpoint::new(SourceLocation::new(2, 1, 2))],
-    );
-    control.set_breakpoints_for_file(
-        1,
-        vec![DebugBreakpoint::new(SourceLocation::new(1, 3, 4))],
-    );
+    control.set_breakpoints_for_file(1, vec![DebugBreakpoint::new(SourceLocation::new(1, 1, 2))]);
+    control.set_breakpoints_for_file(2, vec![DebugBreakpoint::new(SourceLocation::new(2, 1, 2))]);
+    control.set_breakpoints_for_file(1, vec![DebugBreakpoint::new(SourceLocation::new(1, 3, 4))]);
 
     assert_eq!(control.breakpoint_generation(1), Some(2));
     assert_eq!(control.breakpoint_generation(2), Some(1));
@@ -364,14 +348,8 @@ fn repeated_breakpoint_replacement_advances_only_owning_file_generation() {
 #[test]
 fn empty_replacement_removes_one_file_but_advances_its_generation() {
     let control = DebugControl::new();
-    control.set_breakpoints_for_file(
-        1,
-        vec![DebugBreakpoint::new(SourceLocation::new(1, 1, 2))],
-    );
-    control.set_breakpoints_for_file(
-        2,
-        vec![DebugBreakpoint::new(SourceLocation::new(2, 1, 2))],
-    );
+    control.set_breakpoints_for_file(1, vec![DebugBreakpoint::new(SourceLocation::new(1, 1, 2))]);
+    control.set_breakpoints_for_file(2, vec![DebugBreakpoint::new(SourceLocation::new(2, 1, 2))]);
     control.set_breakpoints_for_file(1, Vec::new());
 
     assert_eq!(control.breakpoint_generation(1), Some(2));
@@ -389,10 +367,7 @@ fn breakpoint_generation_saturates_instead_of_wrapping() {
             .breakpoint_generation
             .insert(1, u64::MAX);
     }
-    control.set_breakpoints_for_file(
-        1,
-        vec![DebugBreakpoint::new(SourceLocation::new(1, 1, 2))],
-    );
+    control.set_breakpoints_for_file(1, vec![DebugBreakpoint::new(SourceLocation::new(1, 1, 2))]);
 
     assert_eq!(control.breakpoint_generation(1), Some(u64::MAX));
     assert_eq!(control.breakpoints()[0].generation, u64::MAX);
@@ -401,10 +376,7 @@ fn breakpoint_generation_saturates_instead_of_wrapping() {
 #[test]
 fn clear_breakpoints_clears_generation_and_cycle_guard() {
     let control = DebugControl::new();
-    control.set_breakpoints_for_file(
-        1,
-        vec![DebugBreakpoint::new(SourceLocation::new(1, 1, 2))],
-    );
+    control.set_breakpoints_for_file(1, vec![DebugBreakpoint::new(SourceLocation::new(1, 1, 2))]);
     {
         let (lock, _) = &*control.state;
         let mut state = lock.lock().expect("debug state");
@@ -422,10 +394,7 @@ fn clear_breakpoints_clears_generation_and_cycle_guard() {
 #[test]
 fn begin_cycle_clears_only_the_duplicate_stop_guard() {
     let control = DebugControl::new();
-    control.set_breakpoints_for_file(
-        1,
-        vec![DebugBreakpoint::new(SourceLocation::new(1, 1, 2))],
-    );
+    control.set_breakpoints_for_file(1, vec![DebugBreakpoint::new(SourceLocation::new(1, 1, 2))]);
     {
         let (lock, _) = &*control.state;
         lock.lock()
@@ -438,12 +407,11 @@ fn begin_cycle_clears_only_the_duplicate_stop_guard() {
     assert_eq!(control.breakpoint_count(), 1);
     assert_eq!(control.breakpoint_generation(1), Some(1));
     let (lock, _) = &*control.state;
-    assert!(
-        lock.lock()
-            .expect("debug state")
-            .breakpoint_stops_this_cycle
-            .is_empty()
-    );
+    assert!(lock
+        .lock()
+        .expect("debug state")
+        .breakpoint_stops_this_cycle
+        .is_empty());
 }
 
 #[test]

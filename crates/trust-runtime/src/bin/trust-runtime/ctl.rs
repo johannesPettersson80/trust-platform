@@ -148,8 +148,8 @@ fn exchange_control_request<S: Write, R: BufRead>(
     if !response.ends_with('\n') {
         anyhow::bail!("control response missing newline terminator");
     }
-    let response = serde_json::from_str::<JsonValue>(response.trim_end())
-        .context("parse control response")?;
+    let response =
+        serde_json::from_str::<JsonValue>(response.trim_end()).context("parse control response")?;
     let request_id = request
         .get("id")
         .and_then(JsonValue::as_u64)
@@ -198,9 +198,7 @@ fn print_control_response(action: &ControlAction, response: &JsonValue) -> anyho
                 }
                 None => ("disabled", false),
             };
-            println!(
-                "state={state} fault={fault} rt_profile={rt_profile} rt_active={rt_active}"
-            );
+            println!("state={state} fault={fault} rt_profile={rt_profile} rt_active={rt_active}");
         }
         ControlAction::Health => {
             let ok = response
@@ -549,7 +547,10 @@ mod tests {
         let mut unterminated = std::io::Cursor::new(b"{\"id\":1,\"ok\":true}");
         let error = exchange_control_request(&mut output, &mut unterminated, &request)
             .expect_err("unterminated response must fail");
-        assert!(error.to_string().contains("newline terminator"), "{error:#}");
+        assert!(
+            error.to_string().contains("newline terminator"),
+            "{error:#}"
+        );
 
         for response in [
             b"{\"ok\":true}\n".as_slice(),
@@ -631,8 +632,12 @@ mod tests {
                 serde_json::from_str::<JsonValue>(request.trim_end()).expect("request JSON"),
                 json!({"id": 1, "type": "health", "auth": null})
             );
-            writeln!(stream, "{}", json!({"id": 1, "ok": true, "result": {"ok": true}}))
-                .expect("write Unix control response");
+            writeln!(
+                stream,
+                "{}",
+                json!({"id": 1, "ok": true, "result": {"ok": true}})
+            )
+            .expect("write Unix control response");
         });
 
         let response = send_control_request_value(
@@ -655,7 +660,8 @@ mod tests {
         use std::time::Instant;
 
         let listener = TcpListener::bind("127.0.0.1:0").expect("bind timeout control listener");
-        let endpoint = ControlEndpoint::Tcp(listener.local_addr().expect("timeout listener address"));
+        let endpoint =
+            ControlEndpoint::Tcp(listener.local_addr().expect("timeout listener address"));
         let (release_tx, release_rx) = mpsc::channel();
         let server = std::thread::spawn(move || {
             let (stream, _) = listener.accept().expect("accept timeout control request");

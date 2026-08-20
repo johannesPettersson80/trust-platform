@@ -55,8 +55,7 @@ fn common_numeric_kind_widens_compatible_values_and_rejects_mixed_sign() {
 
 #[test]
 fn common_bit_kind_uses_widest_width_and_zero_extends() {
-    let kind =
-        common_kind(&[Value::Byte(0xff), Value::DWord(0x100)]).expect("common bit kind");
+    let kind = common_kind(&[Value::Byte(0xff), Value::DWord(0x100)]).expect("common bit kind");
 
     assert_eq!(kind, CommonKind::Bit(32));
     assert_eq!(
@@ -98,10 +97,7 @@ fn time_common_kind_requires_the_identical_runtime_family() {
     .expect("TIME values share a family");
     assert_eq!(kind, CommonKind::Time(TimeKind::Time));
     assert_eq!(
-        common_kind(&[
-            Value::Time(Duration::ZERO),
-            Value::LTime(Duration::ZERO)
-        ]),
+        common_kind(&[Value::Time(Duration::ZERO), Value::LTime(Duration::ZERO)]),
         Err(RuntimeError::TypeMismatch)
     );
 }
@@ -140,14 +136,8 @@ fn floating_common_comparison_retains_ieee_nan_relations() {
     let nan = Value::LReal(f64::NAN);
     let kind = common_kind(std::slice::from_ref(&nan)).expect("LREAL common kind");
 
-    assert_eq!(
-        compare_common(&nan, &nan, &kind, CmpOp::Eq),
-        Ok(false)
-    );
-    assert_eq!(
-        compare_common(&nan, &nan, &kind, CmpOp::Ne),
-        Ok(true)
-    );
+    assert_eq!(compare_common(&nan, &nan, &kind, CmpOp::Eq), Ok(false));
+    assert_eq!(compare_common(&nan, &nan, &kind, CmpOp::Ne), Ok(true));
 }
 
 #[test]
@@ -224,11 +214,7 @@ fn duration_scaling_rejects_zero_non_finite_and_overflow() {
         Err(RuntimeError::Overflow)
     );
     assert_eq!(
-        scale_time(
-            Duration::from_nanos(i64::MAX),
-            &Value::LReal(2.0),
-            true
-        ),
+        scale_time(Duration::from_nanos(i64::MAX), &Value::LReal(2.0), true),
         Err(RuntimeError::Overflow)
     );
 }
@@ -239,11 +225,10 @@ fn custom_standard_library_registration_normalizes_names_and_metadata() {
     lib.register("echo", &["input"], first);
     lib.register_variadic_with_fixed("choose_last", &["selector"], "item", 0, 2, last);
 
-    assert_eq!(
-        lib.call("EcHo", &[Value::Int(7)]),
-        Ok(Value::Int(7))
-    );
-    let function = lib.get("CHOOSE_LAST").expect("registered variadic function");
+    assert_eq!(lib.call("EcHo", &[Value::Int(7)]), Ok(Value::Int(7)));
+    let function = lib
+        .get("CHOOSE_LAST")
+        .expect("registered variadic function");
     match &function.params {
         StdParams::Variadic {
             fixed,

@@ -374,13 +374,9 @@ fn execute_native_vm_function_block_call(
         .record_call_op(RegisterCallOpKind::FunctionBlockCallEntry);
     let out_bindings =
         bind_vm_function_block_arguments(runtime, module, caller_frame, pou_id, instance_id, args)?;
-    let edge_transaction = super::edge::EdgeInputTransaction::begin(
-        runtime,
-        module,
-        pou_id,
-        Some(instance_id),
-    )
-    .map_err(VmTrap::Runtime)?;
+    let edge_transaction =
+        super::edge::EdgeInputTransaction::begin(runtime, module, pou_id, Some(instance_id))
+            .map_err(VmTrap::Runtime)?;
     let execution_result = (|| -> Result<(), VmTrap> {
         if super::register_ir::try_execute_pou_with_register_ir_with_locals(
             runtime,

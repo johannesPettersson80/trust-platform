@@ -303,9 +303,9 @@ fn changed_write_points(
     state
         .write_generations
         .iter()
-        .filter_map(|(point_name, current)| {
-            (write_generation_baseline.get(point_name.as_str()).copied() != Some(*current))
-                .then(|| point_name.clone())
+        .filter(|&(point_name, current)| {
+            write_generation_baseline.get(point_name.as_str()).copied() != Some(*current)
         })
+        .map(|(point_name, _)| point_name.clone())
         .collect()
 }

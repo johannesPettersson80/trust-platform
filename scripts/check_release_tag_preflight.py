@@ -15,6 +15,17 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+try:
+    from scripts.release_evidence_contract import (
+        ReleaseEvidenceError,
+        decode_github_api_object,
+    )
+except ModuleNotFoundError:  # Direct `python scripts/...` execution.
+    from release_evidence_contract import (  # type: ignore[no-redef]
+        ReleaseEvidenceError,
+        decode_github_api_object,
+    )
+
 
 def fail(message: str) -> int:
     print(f"::error::{message}", file=sys.stderr)
@@ -59,8 +70,9 @@ def github_api_get(
     )
     try:
         with urllib.request.urlopen(req) as response:
-            body = response.read().decode("utf-8")
-            return response.status, json.loads(body) if body else {}
+            return response.status, decode_github_api_object(
+                response.read(), status=response.status, endpoint=path
+            )
     except urllib.error.HTTPError as exc:
         raw = exc.read().decode("utf-8", errors="replace")
         try:
@@ -71,12 +83,15 @@ def github_api_get(
 
 
 def ci_green_for_sha(repo: str, sha: str, token: str) -> tuple[bool, str]:
-    status, payload = github_api_get(
-        repo,
-        "/actions/workflows/ci.yml/runs",
-        token,
-        query={"head_sha": sha, "per_page": "100"},
-    )
+    try:
+        status, payload = github_api_get(
+            repo,
+            "/actions/workflows/ci.yml/runs",
+            token,
+            query={"head_sha": sha, "per_page": "100"},
+        )
+    except ReleaseEvidenceError as exc:
+        return False, str(exc)
     if status != 200:
         return False, f"GitHub API status {status}: {payload.get('message', 'unknown error')}"
 

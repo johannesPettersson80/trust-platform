@@ -71,11 +71,7 @@ mod tests {
             entries: vec!["PrimaryName".into(), "AliasName".into()],
         };
         let var_meta = VarMeta {
-            entries: vec![
-                variable(0, 7),
-                variable(1, 7),
-                variable(99, 8),
-            ],
+            entries: vec![variable(0, 7), variable(1, 7), variable(99, 8)],
         };
 
         let map = VmDebugMap::from_sections(&strings, Some(&var_meta), None, None);
@@ -96,18 +92,11 @@ mod tests {
             entries: vec!["src/main.st".into()],
         };
         let debug_map = DebugMap {
-            entries: vec![
-                source(3, 12, 0, 8, 4),
-                source(3, 13, 99, 9, 2),
-            ],
+            entries: vec![source(3, 12, 0, 8, 4), source(3, 13, 99, 9, 2)],
         };
 
-        let map =
-            VmDebugMap::from_sections(&strings, None, Some(&debug_strings), Some(&debug_map));
-        let source = map
-            .source_by_pc
-            .get(&(3, 12))
-            .expect("valid source entry");
+        let map = VmDebugMap::from_sections(&strings, None, Some(&debug_strings), Some(&debug_map));
+        let source = map.source_by_pc.get(&(3, 12)).expect("valid source entry");
         assert_eq!(source.file, "src/main.st");
         assert_eq!(source.line, 8);
         assert_eq!(source.column, 4);
@@ -129,13 +118,7 @@ mod tests {
         }
     }
 
-    fn source(
-        pou_id: u32,
-        code_offset: u32,
-        file_idx: u32,
-        line: u32,
-        column: u32,
-    ) -> DebugEntry {
+    fn source(pou_id: u32, code_offset: u32, file_idx: u32, line: u32, column: u32) -> DebugEntry {
         DebugEntry {
             pou_id,
             code_offset,

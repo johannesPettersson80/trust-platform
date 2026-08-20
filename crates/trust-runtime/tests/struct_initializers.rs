@@ -541,7 +541,7 @@ END_PROGRAM
 }
 
 #[test]
-fn function_local_initializers_can_read_vm_frame_params_and_prior_locals() {
+fn function_local_initializers_reject_runtime_frame_dependencies() {
     let source = r#"
 FUNCTION Probe : INT
 VAR_INPUT
@@ -562,10 +562,22 @@ observed := Probe(INT#5);
 END_PROGRAM
 "#;
 
-    let mut harness = TestHarness::from_source(source).expect("program should compile");
-    harness.cycle();
-
-    assert_eq!(harness.get_output("observed"), Some(Value::Int(10)));
+    let error = match TestHarness::from_source(source) {
+        Ok(_) => panic!("runtime-dependent declaration initializers must be rejected"),
+        Err(error) => error.to_string(),
+    };
+    assert!(
+        error.contains(
+            "variable initializer must be a literal or constant expression: mutable dependency 'seed'"
+        ),
+        "expected seed dependency rejection, got {error}"
+    );
+    assert!(
+        error.contains(
+            "variable initializer must be a literal or constant expression: mutable dependency 'first'"
+        ),
+        "expected prior-local dependency rejection, got {error}"
+    );
 }
 
 #[test]

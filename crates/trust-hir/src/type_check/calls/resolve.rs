@@ -440,9 +440,7 @@ impl<'a, 'b> ResolveCheckerRef<'a, 'b> {
         let Some(current) = self.checker.symbols.get(current_id) else {
             return false;
         };
-        if !matches!(current.kind, SymbolKind::Method { .. })
-            || current.parent != member.parent
-        {
+        if !matches!(current.kind, SymbolKind::Method { .. }) || current.parent != member.parent {
             return false;
         }
         matches!(

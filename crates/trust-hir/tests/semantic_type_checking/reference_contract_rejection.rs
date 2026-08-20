@@ -2,17 +2,26 @@ use crate::common::*;
 
 #[test]
 fn reference_contract_rejects_ref_without_argument() {
-    check_has_error("PROGRAM P\nVAR r : REF_TO INT; END_VAR\nr := REF();\nEND_PROGRAM", DiagnosticCode::WrongArgumentCount);
+    check_has_error(
+        "PROGRAM P\nVAR r : REF_TO INT; END_VAR\nr := REF();\nEND_PROGRAM",
+        DiagnosticCode::WrongArgumentCount,
+    );
 }
 
 #[test]
 fn reference_contract_rejects_ref_literal() {
-    check_has_error("PROGRAM P\nVAR r : REF_TO INT; END_VAR\nr := REF(1);\nEND_PROGRAM", DiagnosticCode::InvalidOperation);
+    check_has_error(
+        "PROGRAM P\nVAR r : REF_TO INT; END_VAR\nr := REF(1);\nEND_PROGRAM",
+        DiagnosticCode::InvalidOperation,
+    );
 }
 
 #[test]
 fn reference_contract_rejects_ref_computed_expression() {
-    check_has_error("PROGRAM P\nVAR x : INT; r : REF_TO INT; END_VAR\nr := REF(x + 1);\nEND_PROGRAM", DiagnosticCode::InvalidOperation);
+    check_has_error(
+        "PROGRAM P\nVAR x : INT; r : REF_TO INT; END_VAR\nr := REF(x + 1);\nEND_PROGRAM",
+        DiagnosticCode::InvalidOperation,
+    );
 }
 
 #[test]
@@ -37,17 +46,26 @@ fn reference_contract_rejects_ref_function_local() {
 
 #[test]
 fn reference_contract_rejects_ref_function_result() {
-    check_has_error("FUNCTION F : INT\nVAR r : REF_TO INT; END_VAR\nr := REF(F); RETURN 1;\nEND_FUNCTION", DiagnosticCode::InvalidOperation);
+    check_has_error(
+        "FUNCTION F : INT\nVAR r : REF_TO INT; END_VAR\nr := REF(F); RETURN 1;\nEND_FUNCTION",
+        DiagnosticCode::InvalidOperation,
+    );
 }
 
 #[test]
 fn reference_contract_rejects_adr_literal() {
-    check_has_error("PROGRAM P\nVAR p : POINTER TO INT; END_VAR\np := ADR(1);\nEND_PROGRAM", DiagnosticCode::InvalidOperation);
+    check_has_error(
+        "PROGRAM P\nVAR p : POINTER TO INT; END_VAR\np := ADR(1);\nEND_PROGRAM",
+        DiagnosticCode::InvalidOperation,
+    );
 }
 
 #[test]
 fn reference_contract_rejects_adr_computed_expression() {
-    check_has_error("PROGRAM P\nVAR x : INT; p : POINTER TO INT; END_VAR\np := ADR(x + 1);\nEND_PROGRAM", DiagnosticCode::InvalidOperation);
+    check_has_error(
+        "PROGRAM P\nVAR x : INT; p : POINTER TO INT; END_VAR\np := ADR(x + 1);\nEND_PROGRAM",
+        DiagnosticCode::InvalidOperation,
+    );
 }
 
 #[test]
@@ -62,22 +80,34 @@ fn reference_contract_rejects_adr_constant() {
 
 #[test]
 fn reference_contract_rejects_deref_integer() {
-    check_has_error("PROGRAM P\nVAR x : INT; y : INT; END_VAR\ny := x^;\nEND_PROGRAM", DiagnosticCode::TypeMismatch);
+    check_has_error(
+        "PROGRAM P\nVAR x : INT; y : INT; END_VAR\ny := x^;\nEND_PROGRAM",
+        DiagnosticCode::TypeMismatch,
+    );
 }
 
 #[test]
 fn reference_contract_rejects_deref_bool() {
-    check_has_error("PROGRAM P\nVAR x : BOOL; y : BOOL; END_VAR\ny := x^;\nEND_PROGRAM", DiagnosticCode::TypeMismatch);
+    check_has_error(
+        "PROGRAM P\nVAR x : BOOL; y : BOOL; END_VAR\ny := x^;\nEND_PROGRAM",
+        DiagnosticCode::TypeMismatch,
+    );
 }
 
 #[test]
 fn reference_contract_rejects_reference_target_type_mismatch() {
-    check_has_error("PROGRAM P\nVAR x : REAL; r : REF_TO INT; END_VAR\nr := REF(x);\nEND_PROGRAM", DiagnosticCode::IncompatibleAssignment);
+    check_has_error(
+        "PROGRAM P\nVAR x : REAL; r : REF_TO INT; END_VAR\nr := REF(x);\nEND_PROGRAM",
+        DiagnosticCode::IncompatibleAssignment,
+    );
 }
 
 #[test]
 fn reference_contract_rejects_pointer_target_type_mismatch() {
-    check_has_error("PROGRAM P\nVAR x : REAL; p : POINTER TO INT; END_VAR\np := ADR(x);\nEND_PROGRAM", DiagnosticCode::IncompatibleAssignment);
+    check_has_error(
+        "PROGRAM P\nVAR x : REAL; p : POINTER TO INT; END_VAR\np := ADR(x);\nEND_PROGRAM",
+        DiagnosticCode::IncompatibleAssignment,
+    );
 }
 
 #[test]
@@ -97,12 +127,18 @@ fn reference_contract_rejects_base_to_derived_ordinary_assignment() {
 
 #[test]
 fn reference_contract_rejects_attempt_with_scalar_target() {
-    check_has_error("PROGRAM P\nVAR x : INT; y : INT; END_VAR\nx ?= y;\nEND_PROGRAM", DiagnosticCode::TypeMismatch);
+    check_has_error(
+        "PROGRAM P\nVAR x : INT; y : INT; END_VAR\nx ?= y;\nEND_PROGRAM",
+        DiagnosticCode::TypeMismatch,
+    );
 }
 
 #[test]
 fn reference_contract_rejects_attempt_with_scalar_source() {
-    check_has_error("PROGRAM P\nVAR x : INT; r : REF_TO INT; END_VAR\nr ?= x;\nEND_PROGRAM", DiagnosticCode::TypeMismatch);
+    check_has_error(
+        "PROGRAM P\nVAR x : INT; r : REF_TO INT; END_VAR\nr ?= x;\nEND_PROGRAM",
+        DiagnosticCode::TypeMismatch,
+    );
 }
 
 #[test]
@@ -127,12 +163,18 @@ fn reference_contract_rejects_incompatible_pointer_attempt() {
 
 #[test]
 fn reference_contract_rejects_reference_var_in_out() {
-    check_has_error("FUNCTION F : INT\nVAR_IN_OUT r : REF_TO INT; END_VAR\nRETURN 1;\nEND_FUNCTION", DiagnosticCode::InvalidOperation);
+    check_has_error(
+        "FUNCTION F : INT\nVAR_IN_OUT r : REF_TO INT; END_VAR\nRETURN 1;\nEND_FUNCTION",
+        DiagnosticCode::InvalidOperation,
+    );
 }
 
 #[test]
 fn reference_contract_rejects_reference_addition() {
-    check_has_error("PROGRAM P\nVAR a : REF_TO INT; b : REF_TO INT; x : INT; END_VAR\nx := a + b;\nEND_PROGRAM", DiagnosticCode::TypeMismatch);
+    check_has_error(
+        "PROGRAM P\nVAR a : REF_TO INT; b : REF_TO INT; x : INT; END_VAR\nx := a + b;\nEND_PROGRAM",
+        DiagnosticCode::TypeMismatch,
+    );
 }
 
 #[test]

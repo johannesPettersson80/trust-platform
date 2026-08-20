@@ -1,12 +1,12 @@
 schema_version = 1
 id = "RUNTIME_BEHAVIOR_LOCKED_001"
-title = "Runtime behavior-locked claim maps to tests and evidence"
+title = "Runtime behavior-locked claim names direct contract authority"
 area = "release"
 risk = "false_status"
 status = "validated"
 owner = "docs"
 last_reviewed = "2026-07-18"
-claim = "The public claim that runtime behavior is locked by tests must map to explicit runtime invariants, suites, and durable evidence."
+claim = "The public runtime behavior-lock claim names written product specifications and direct native executable tests as authority, with proof class stated separately."
 proof_level = "G1"
 contract_kind = "protocol_trace"
 source_refs = ["README.md", "crates/trust-runtime/tests"]
@@ -35,9 +35,9 @@ case_family = "happy_path"
 oracle_ref = "SPEC_RELEASE_EVIDENCE_001#behavior-locked-claims"
 outcome = "accept_value"
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
-rationale = "The runtime behavior-lock claim resolves only explicit runtime invariant, test, suite, and durable evidence mappings."
+rationale = "The runtime behavior-lock claim uses direct written-specification and native-test authority; this row only reports that contract."
 
 [[coverage.cells]]
 dimension = "happy_path"
 state = "covered"
-rationale = "The narrowly scoped runtime mapping contract is covered by a current-contract lock comparison; it does not imply broad release validation."
+rationale = "The runtime public-claim wording is covered by a current-contract lock comparison; it does not make this metadata row product authority."

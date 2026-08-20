@@ -226,8 +226,7 @@ fn incremental_change_replaces_single_line_range() {
 
 #[test]
 fn incremental_change_replaces_multiline_range() {
-    let updated =
-        apply_content_changes("one\ntwo\nthree", &[ranged((0, 1), (2, 2), "X")]).unwrap();
+    let updated = apply_content_changes("one\ntwo\nthree", &[ranged((0, 1), (2, 2), "X")]).unwrap();
     assert_eq!(updated, "oXree");
 }
 
@@ -253,10 +252,7 @@ fn incremental_column_beyond_line_defaults_to_line_end() {
 fn sequential_ranges_use_text_from_preceding_change() {
     let updated = apply_content_changes(
         "ABC",
-        &[
-            ranged((0, 1), (0, 2), "123"),
-            ranged((0, 4), (0, 5), "Z"),
-        ],
+        &[ranged((0, 1), (0, 2), "123"), ranged((0, 4), (0, 5), "Z")],
     )
     .unwrap();
     assert_eq!(updated, "A123Z");
@@ -270,11 +266,8 @@ fn full_change_replaces_complete_document() {
 
 #[test]
 fn full_change_can_be_followed_by_incremental_change() {
-    let updated = apply_content_changes(
-        "old",
-        &[full("😀x\n"), ranged((0, 2), (0, 3), "y")],
-    )
-    .unwrap();
+    let updated =
+        apply_content_changes("old", &[full("😀x\n"), ranged((0, 2), (0, 3), "y")]).unwrap();
     assert_eq!(updated, "😀y\n");
 }
 
@@ -330,10 +323,7 @@ fn out_of_range_end_line_has_typed_stable_error() {
 fn reversed_same_line_range_is_rejected() {
     let error = apply_content_changes("ABC", &[ranged((0, 2), (0, 1), "X")]).unwrap_err();
     assert_eq!(error, ContentChangeError::ReversedRange);
-    assert_eq!(
-        error.to_string(),
-        "change range start is after its end"
-    );
+    assert_eq!(error.to_string(), "change range start is after its end");
 }
 
 #[test]
@@ -347,10 +337,7 @@ fn invalid_later_change_returns_no_partially_updated_document() {
     let original = "ABC";
     let result = apply_content_changes(
         original,
-        &[
-            ranged((0, 0), (0, 1), "X"),
-            ranged((9, 0), (9, 0), "Y"),
-        ],
+        &[ranged((0, 0), (0, 1), "X"), ranged((9, 0), (9, 0), "Y")],
     );
     assert_eq!(
         result,

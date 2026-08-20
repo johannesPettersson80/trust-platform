@@ -1,5 +1,5 @@
-use super::*;
 use super::input::{handle_prompt_confirm, handle_prompt_key};
+use super::*;
 
 use std::net::TcpListener;
 use std::sync::{Arc, Mutex};
@@ -67,8 +67,8 @@ fn scripted_client(
                 .expect("write scripted response");
         }
     });
-    let client =
-        ControlClient::connect(ControlEndpoint::Tcp(address), None).expect("connect scripted client");
+    let client = ControlClient::connect(ControlEndpoint::Tcp(address), None)
+        .expect("connect scripted client");
     (client, requests, server)
 }
 
@@ -159,11 +159,20 @@ fn prompt_suggestion_navigation_wraps_both_directions() {
             beginner: true,
         },
     ]);
-    assert_eq!(prompt.selected_suggestion().map(|entry| entry.cmd), Some("status"));
+    assert_eq!(
+        prompt.selected_suggestion().map(|entry| entry.cmd),
+        Some("status")
+    );
     prompt.move_suggestion(-1);
-    assert_eq!(prompt.selected_suggestion().map(|entry| entry.cmd), Some("info"));
+    assert_eq!(
+        prompt.selected_suggestion().map(|entry| entry.cmd),
+        Some("info")
+    );
     prompt.move_suggestion(1);
-    assert_eq!(prompt.selected_suggestion().map(|entry| entry.cmd), Some("status"));
+    assert_eq!(
+        prompt.selected_suggestion().map(|entry| entry.cmd),
+        Some("status")
+    );
 }
 
 #[test]
@@ -174,12 +183,8 @@ fn prompt_editing_preserves_utf8_character_boundaries() {
 
     handle_prompt_key(KeyEvent::from(KeyCode::Left), &mut client, &mut state)
         .expect("move left over ASCII character");
-    handle_prompt_key(
-        KeyEvent::from(KeyCode::Backspace),
-        &mut client,
-        &mut state,
-    )
-    .expect("remove one complete Unicode scalar");
+    handle_prompt_key(KeyEvent::from(KeyCode::Backspace), &mut client, &mut state)
+        .expect("remove one complete Unicode scalar");
 
     assert_eq!(state.prompt.input, "a");
     assert_eq!(state.prompt.cursor, 0);
@@ -191,8 +196,8 @@ fn status_projection_requires_string_state_and_uses_closed_defaults() {
     assert!(parse_status(&json!({})).is_none());
     assert!(parse_status(&json!({"result": {"state": 7}})).is_none());
 
-    let status = parse_status(&json!({"result": {"state": "running"}}))
-        .expect("minimal status response");
+    let status =
+        parse_status(&json!({"result": {"state": "running"}})).expect("minimal status response");
     assert_eq!(status.state, "running");
     assert_eq!(status.fault, "none");
     assert_eq!(status.resource, "resource");
@@ -231,11 +236,15 @@ fn io_projection_preserves_strings_and_json_scalar_spelling() {
         ]
     }));
     assert_eq!(
-        io.iter().map(|entry| entry.value.as_str()).collect::<Vec<_>>(),
+        io.iter()
+            .map(|entry| entry.value.as_str())
+            .collect::<Vec<_>>(),
         ["ready", "true", "17"]
     );
     assert_eq!(
-        io.iter().map(|entry| entry.address.as_str()).collect::<Vec<_>>(),
+        io.iter()
+            .map(|entry| entry.address.as_str())
+            .collect::<Vec<_>>(),
         ["MW0", "QX0.0", "MD2"]
     );
 }
@@ -252,7 +261,10 @@ fn event_projection_has_closed_level_mapping_and_preserves_order() {
         ]
     }));
     assert_eq!(
-        events.iter().map(|event| event.label.as_str()).collect::<Vec<_>>(),
+        events
+            .iter()
+            .map(|event| event.label.as_str())
+            .collect::<Vec<_>>(),
         ["A", "B", "C", "D", "E"]
     );
     assert_eq!(events[0].kind, EventKind::Fault);
@@ -390,7 +402,10 @@ fn alerts_retain_only_the_five_newest_entries() {
         .iter()
         .flat_map(|line| line.segments.iter().map(|(text, _)| text.as_str()))
         .collect::<Vec<_>>();
-    assert_eq!(text, ["alert-3", "alert-4", "alert-5", "alert-6", "alert-7"]);
+    assert_eq!(
+        text,
+        ["alert-3", "alert-4", "alert-5", "alert-6", "alert-7"]
+    );
 }
 
 #[test]
@@ -499,26 +514,19 @@ fn prompt_escape_and_control_c_return_to_inactive_normal_mode() {
 
 #[test]
 fn confirmation_accepts_only_yes_and_cancels_every_other_response() {
-    let (mut client, requests, server) =
-        scripted_client(vec![json!({"ok": true, "result": {}})]);
+    let (mut client, requests, server) = scripted_client(vec![json!({"ok": true, "result": {}})]);
     let mut state = state();
-    assert!(!handle_prompt_confirm(
-        "later",
-        ConfirmAction::Shutdown,
-        &mut client,
-        &mut state,
-    )
-    .expect("cancel shutdown"));
+    assert!(
+        !handle_prompt_confirm("later", ConfirmAction::Shutdown, &mut client, &mut state,)
+            .expect("cancel shutdown")
+    );
     assert!(output_text(&state).contains("Cancelled."));
     assert!(requests.lock().expect("lock request log").is_empty());
 
-    assert!(!handle_prompt_confirm(
-        " YES ",
-        ConfirmAction::RestartCold,
-        &mut client,
-        &mut state,
-    )
-    .expect("confirm cold restart"));
+    assert!(
+        !handle_prompt_confirm(" YES ", ConfirmAction::RestartCold, &mut client, &mut state,)
+            .expect("confirm cold restart")
+    );
     let captured = requests.lock().expect("lock request log");
     assert_eq!(captured.len(), 1);
     assert_eq!(captured[0]["type"], "restart");
@@ -552,7 +560,13 @@ fn fetch_transaction_uses_stable_order_ids_limit_and_auth() {
             .iter()
             .map(|request| request["type"].as_str().expect("request type"))
             .collect::<Vec<_>>(),
-        ["status", "tasks.stats", "io.list", "events.tail", "config.get"]
+        [
+            "status",
+            "tasks.stats",
+            "io.list",
+            "events.tail",
+            "config.get"
+        ]
     );
     assert_eq!(
         captured

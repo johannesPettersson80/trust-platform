@@ -89,9 +89,6 @@ impl SymbolCollector<'_> {
             ) {
                 self.check_required_default_expression(type_id, &expr);
             }
-            if !is_constant {
-                self.check_variable_initializer_constant_expression(type_id, &expr);
-            }
         }
 
         let direct_address = var_decl_direct_address(node);
@@ -383,48 +380,6 @@ impl SymbolCollector<'_> {
         }
     }
 
-    fn check_variable_initializer_constant_expression(
-        &mut self,
-        type_id: TypeId,
-        expr: &SyntaxNode,
-    ) {
-        let resolved = self.table.resolve_alias_type(type_id);
-        let Some(target) = self.table.type_by_id(resolved) else {
-            return;
-        };
-        if !target.is_integer() {
-            return;
-        }
-
-        let scopes = scope_chain_for_node(expr);
-        let mut guard = FxHashSet::default();
-        match self.try_eval_int_expr(expr, &scopes, &mut guard) {
-            Ok(_) => {}
-            Err(ConstEvalError::UndefinedName(name))
-                if self
-                    .table
-                    .resolve(name.as_str(), self.table.current_scope())
-                    .is_some() =>
-            {
-                self.diagnostics.error(
-                    DiagnosticCode::InvalidOperation,
-                    expr.text_range(),
-                    format!(
-                        "variable initializer must be a literal or constant expression: mutable dependency '{name}'"
-                    ),
-                );
-            }
-            Err(ConstEvalError::NotConstant) => {
-                self.diagnostics.error(
-                    DiagnosticCode::InvalidOperation,
-                    expr.text_range(),
-                    "variable initializer must be a literal or constant expression",
-                );
-            }
-            Err(err) => self.report_default_const_eval_error(err, expr.text_range()),
-        }
-    }
-
     fn check_required_aggregate_default(&mut self, type_id: TypeId, expr: &SyntaxNode) {
         let members = match self.table.type_by_id(type_id) {
             Some(Type::Struct { fields, .. }) => fields
@@ -523,15 +478,24 @@ impl SymbolCollector<'_> {
         }
         expr.children()
             .next()
-            .is_some_and(|child| {
-                matches!(
-                    child.kind(),
-                    SyntaxKind::Literal
-                        | SyntaxKind::NameRef
-                        | SyntaxKind::UnaryExpr
-                        | SyntaxKind::BinaryExpr
-                        | SyntaxKind::ParenExpr
-                )
+            .is_some_and(|child| match child.kind() {
+                SyntaxKind::Literal
+                | SyntaxKind::UnaryExpr
+                | SyntaxKind::BinaryExpr
+                | SyntaxKind::ParenExpr => true,
+                SyntaxKind::NameRef => first_ident_token(&child)
+                    .and_then(|token| self.table.resolve(token.text(), self.table.current_scope()))
+                    .and_then(|symbol_id| self.table.get(symbol_id))
+                    .is_none_or(|symbol| {
+                        !matches!(
+                            symbol.kind,
+                            SymbolKind::Function { .. }
+                                | SymbolKind::FunctionBlock
+                                | SymbolKind::Method { .. }
+                                | SymbolKind::Type
+                        )
+                    }),
+                _ => false,
             })
     }
 
@@ -645,7 +609,11 @@ impl SymbolCollector<'_> {
         }
     }
 
-    fn report_default_const_eval_error(&mut self, err: ConstEvalError, range: TextRange) {
+    pub(super) fn report_default_const_eval_error(
+        &mut self,
+        err: ConstEvalError,
+        range: TextRange,
+    ) {
         match err {
             ConstEvalError::CyclicDependency(name) => self.diagnostics.error(
                 DiagnosticCode::CyclicDependency,
@@ -837,11 +805,13 @@ impl SymbolCollector<'_> {
 }
 
 fn array_initializer_capacity(dimensions: &[(i64, i64)]) -> Option<u64> {
-    dimensions.iter().try_fold(1u64, |capacity, (lower, upper)| {
-        let length = i128::from(*upper)
-            .checked_sub(i128::from(*lower))?
-            .checked_add(1)?;
-        let length = u64::try_from(length).ok()?;
-        capacity.checked_mul(length)
-    })
+    dimensions
+        .iter()
+        .try_fold(1u64, |capacity, (lower, upper)| {
+            let length = i128::from(*upper)
+                .checked_sub(i128::from(*lower))?
+                .checked_add(1)?;
+            let length = u64::try_from(length).ok()?;
+            capacity.checked_mul(length)
+        })
 }

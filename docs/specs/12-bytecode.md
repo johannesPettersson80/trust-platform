@@ -122,6 +122,7 @@ configuration knobs:
 | Operand-stack values | 16,384 |
 | Active VM call frames | 1,024 |
 | Executed instructions in one top-level VM invocation | 1,000,000 |
+| Nested constant-payload type references | 64 |
 
 The encoded-container limit is checked before checksum calculation or section
 decoding. Count and decoded-instruction limits are checked before count-sized
@@ -279,6 +280,11 @@ struct AliasType {
 }
 ```
 
+Ordinary enumerated data types use `ENUM` and retain their closed, ordered
+variant set. Data types with named integer values use `ALIAS` to their declared
+integer base because they retain that base type's full value range and
+arithmetic behavior rather than forming a closed enumeration.
+
 Subrange payload:
 ```
 struct SubrangeType {
@@ -370,14 +376,31 @@ struct ConstEntry {
 Payload encoding follows the referenced type:
 - Integer/boolean: little-endian, natural size of the primitive.
 - REAL/LREAL: IEEE-754 binary32/binary64.
-- STRING/WSTRING: `u32 string_idx` (string table reference).
+- STRING/WSTRING: the complete entry payload is UTF-8/UTF-16LE text. When a
+  string value is nested in an aggregate constant, the aggregate child frame
+  supplies its payload boundary.
 - TIME/LTIME: `i64` nanoseconds.
 - DATE/TOD/DT: `i64` ticks in the runtime `DateTimeProfile` resolution.
 - LDATE/LTOD/LDT: `i64` nanoseconds.
-- REFERENCE: `u32 ref_idx` or `0xFFFFFFFF` for NULL.
-- ARRAY: `u32 elem_count` followed by `elem_count` element constant payloads.
-- STRUCT/UNION: `u32 field_count` followed by `field_count` field constant payloads in field order.
+- REFERENCE: `0xFFFFFFFF` for NULL. STBC 1.1 does not materialize a live
+  `REF_TABLE` identity from `CONST_POOL`; every other `u32` value is invalid.
+- ARRAY: `u32 elem_count` followed by `elem_count` child frames. Each child
+  frame is `u32 payload_len` plus that element's constant payload.
+  `ARRAY[*]` uses the sentinel bounds `(0, i64::MAX)` in `TYPE_TABLE` and has
+  exactly zero elements in `CONST_POOL`; the concrete caller shape is supplied
+  by call binding.
+- STRUCT/UNION: `u32 field_count` followed by one child frame per field in
+  declaration order. Each child frame is `u32 payload_len` plus that field's
+  constant payload.
 - ENUM: `i64` numeric value.
+
+Aggregate child framing is the canonical STBC 1.1 representation. Aggregate
+constants were not materializable by the earlier implementation, so this
+defines their first accepted wire representation without making an older
+unframed draft valid. Encoder, validator, and runtime materialization apply the
+same maximum of 64 nested alias, subrange, array, structure, and union type
+references. A deeper or cyclic type path rejects the complete candidate before
+apply.
 
 #### 6.4 REF_TABLE (0x0004)
 
@@ -468,7 +491,13 @@ struct ParamEntry {
 }
 
 `default_const_idx` is present in bytecode format `1.1`, which is the only
-supported minor version. Default values are applied only for `IN` parameters.
+supported minor version. It carries portable call-local defaults for function
+and method `IN` and `OUT` parameters. An interface type default remains NULL
+and therefore needs no constant entry. A class or function-block formal has no
+portable `CONST_POOL` default; a supplied actual is bound directly and omission
+cannot fabricate an instance constant. Function-block parameter defaults remain
+in instance storage and are not duplicated as call-local constants; the
+explicit `EN`/`ENO` execution-control defaults remain encoded.
 
 struct MethodEntry {
   u32 name_idx;
@@ -758,9 +787,9 @@ The validator enforces these module-wide contracts:
   kind assigned to that ID;
 - string, type, constant, reference, POU, variable, resource, I/O, retain, and
   debug indexes resolve inside their owning table;
-- array bounds are ordered, constant payloads are complete and compatible with
-  their declared type, and optional metadata agrees with the referenced POU or
-  storage declaration;
+- array bounds are ordered, constant payloads are complete, bounded to 64
+  nested type references, and compatible with their declared type, and
+  optional metadata agrees with the referenced POU or storage declaration;
 - POU IDs are unique, code ranges stay inside `POU_BODIES`, local-reference
   ranges are checked for arithmetic overflow, bounds, overlap, contiguous
   offsets, local location, and unique frame ownership;
@@ -885,8 +914,8 @@ The encoder projects source declarations as follows:
   classes, function blocks, and interfaces retain their declared type
   relationships in `TYPE_TABLE`;
 - class inheritance, method ownership, override slots, interface slots,
-  parameter directions, and input defaults retain their relationships in
-  `POU_INDEX` and `CONST_POOL`;
+  parameter directions, and call-local function/method parameter defaults
+  retain their relationships in `POU_INDEX` and `CONST_POOL`;
 - function and method return, parameter, and local slots occupy contiguous
   LOCAL `REF_TABLE` ranges, and their scoped names and declared types are
   emitted in `VAR_META`;

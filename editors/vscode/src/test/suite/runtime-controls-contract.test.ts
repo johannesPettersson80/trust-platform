@@ -321,6 +321,46 @@ suite("Managed local runtime model (Phase 9)", () => {
     assert.strictEqual(isManagedLifecycleSuccess("stop", "running"), false);
   });
 
+  test("managed starting state is shown as Starting with lifecycle action disabled", () => {
+    const starting = selectedRuntime({
+      snapshot: snap(),
+      remotes: [],
+      managed: [
+        {
+          name: "cell1",
+          controlEndpoint: "tcp://127.0.0.1:9902",
+          state: "starting",
+        },
+      ],
+      selectedId: "cell1",
+    });
+
+    assert.strictEqual(starting.status, "starting");
+    assert.strictEqual(starting.statusLabel, "Starting…");
+    assert.strictEqual(starting.primary.action, "none");
+    assert.strictEqual(starting.primary.enabled, false);
+  });
+
+  test("managed stopping state is shown as Stopping with lifecycle action disabled", () => {
+    const stopping = selectedRuntime({
+      snapshot: snap(),
+      remotes: [],
+      managed: [
+        {
+          name: "cell1",
+          controlEndpoint: "tcp://127.0.0.1:9902",
+          state: "stopping",
+        },
+      ],
+      selectedId: "cell1",
+    });
+
+    assert.strictEqual(stopping.status, "stopping");
+    assert.strictEqual(stopping.statusLabel, "Stopping…");
+    assert.strictEqual(stopping.primary.action, "none");
+    assert.strictEqual(stopping.primary.enabled, false);
+  });
+
   test("toManagedRuntimes merges fleet list + per-name status", () => {
     const list = {
       runtimes: [

@@ -114,10 +114,7 @@ fn token_mode_primary_token_grants_admin_and_is_forwarded() {
         None,
         AccessRole::Admin,
     );
-    assert_eq!(
-        result,
-        Ok((AccessRole::Admin, Some("primary".to_string())))
-    );
+    assert_eq!(result, Ok((AccessRole::Admin, Some("primary".to_string()))));
 }
 
 #[test]
@@ -285,28 +282,21 @@ fn authentication_denials_are_declared_as_json() {
     assert!(response_has_json_content_type(&auth_error_response(
         "unauthorized"
     )));
-    assert!(response_has_json_content_type(&auth_error_response("forbidden")));
+    assert!(response_has_json_content_type(&auth_error_response(
+        "forbidden"
+    )));
 }
 
 #[test]
 fn ide_session_header_name_is_ascii_case_insensitive() {
-    let request = request(
-        "127.0.0.1:4100",
-        &[("x-TrUsT-iDe-SeSsIoN", "session-17")],
-    );
+    let request = request("127.0.0.1:4100", &[("x-TrUsT-iDe-SeSsIoN", "session-17")]);
     assert_eq!(ide_session_token(&request).as_deref(), Some("session-17"));
 }
 
 #[test]
 fn ide_session_value_is_preserved_exactly() {
-    let request = request(
-        "127.0.0.1:4100",
-        &[("X-Trust-Ide-Session", " session-17 ")],
-    );
-    assert_eq!(
-        ide_session_token(&request).as_deref(),
-        Some(" session-17 ")
-    );
+    let request = request("127.0.0.1:4100", &[("X-Trust-Ide-Session", " session-17 ")]);
+    assert_eq!(ide_session_token(&request).as_deref(), Some(" session-17 "));
 }
 
 #[test]

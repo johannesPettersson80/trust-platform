@@ -8,11 +8,7 @@ use trust_hir::types::InitializerId;
 
 use crate::program_model::{ArgValue, CallArg};
 
-fn field(
-    name: &str,
-    type_id: TypeId,
-    default_initializer: Option<InitializerId>,
-) -> StructField {
+fn field(name: &str, type_id: TypeId, default_initializer: Option<InitializerId>) -> StructField {
     StructField {
         name: name.into(),
         type_id,
@@ -152,11 +148,7 @@ fn harness_initializer_contract_any_int_default_is_explicit_null() {
 fn harness_initializer_contract_unknown_type_fails_closed() {
     let registry = TypeRegistry::new();
     assert_eq!(
-        materialize(
-            &registry,
-            &InitializerCatalog::default(),
-            TypeId(u32::MAX)
-        ),
+        materialize(&registry, &InitializerCatalog::default(), TypeId(u32::MAX)),
         Err(RuntimeError::TypeMismatch)
     );
 }
@@ -319,7 +311,11 @@ fn harness_initializer_contract_struct_default_preserves_name_order_and_nested_d
     };
     assert_eq!(value.type_name(), "Outer");
     assert_eq!(
-        value.fields().keys().map(SmolStr::as_str).collect::<Vec<_>>(),
+        value
+            .fields()
+            .keys()
+            .map(SmolStr::as_str)
+            .collect::<Vec<_>>(),
         vec!["count", "inner"]
     );
     let Some(Value::Struct(inner)) = value.field("inner") else {
@@ -372,7 +368,8 @@ fn harness_initializer_contract_partial_array_uses_registered_element_default() 
 }
 
 #[test]
-fn harness_initializer_contract_array_override_rejects_nonarray_and_bad_element_but_ignores_excess() {
+fn harness_initializer_contract_array_override_rejects_nonarray_and_bad_element_but_ignores_excess()
+{
     let mut registry = TypeRegistry::new();
     let array = registry.register_array(TypeId::INT, vec![(1, 2)]);
     let catalog = InitializerCatalog::default();
@@ -410,13 +407,8 @@ fn harness_initializer_contract_struct_override_is_named_case_insensitive_and_re
     );
     let input = struct_value("input", &[("count", Value::SInt(7))]);
 
-    let Value::Struct(value) = coerce(
-        &registry,
-        &InitializerCatalog::default(),
-        input,
-        record,
-    )
-    .unwrap()
+    let Value::Struct(value) =
+        coerce(&registry, &InitializerCatalog::default(), input, record).unwrap()
     else {
         panic!("expected struct");
     };
@@ -457,13 +449,8 @@ fn harness_initializer_contract_union_override_is_named_case_insensitive_and_rec
     );
     let input = struct_value("input", &[("flag", Value::Bool(true))]);
 
-    let Value::Struct(value) = coerce(
-        &registry,
-        &InitializerCatalog::default(),
-        input,
-        choice,
-    )
-    .unwrap()
+    let Value::Struct(value) =
+        coerce(&registry, &InitializerCatalog::default(), input, choice).unwrap()
     else {
         panic!("expected union representation");
     };
@@ -475,8 +462,7 @@ fn harness_initializer_contract_union_override_is_named_case_insensitive_and_rec
 #[test]
 fn harness_initializer_contract_union_override_rejects_unknown_and_wrong_shape() {
     let mut registry = TypeRegistry::new();
-    let choice =
-        registry.register_union("Choice", vec![variant("Number", TypeId::INT, None)]);
+    let choice = registry.register_union("Choice", vec![variant("Number", TypeId::INT, None)]);
     let catalog = InitializerCatalog::default();
     assert_eq!(
         coerce(
@@ -515,8 +501,7 @@ fn harness_initializer_contract_evaluate_literal_then_applies_aggregate_override
         &expression,
         record,
     )
-    .unwrap()
-    else {
+    .unwrap() else {
         panic!("expected evaluated struct");
     };
     assert_eq!(value.field("Count"), Some(&Value::DInt(7)));
@@ -548,21 +533,11 @@ fn harness_initializer_contract_depth_boundary_is_inclusive_and_then_closed() {
         Err(RuntimeError::TypeMismatch)
     );
     assert_eq!(
-        coerce_initializer_value(
-            &ctx,
-            Value::SInt(1),
-            TypeId::INT,
-            MAX_INITIALIZER_DEPTH
-        ),
+        coerce_initializer_value(&ctx, Value::SInt(1), TypeId::INT, MAX_INITIALIZER_DEPTH),
         Ok(Value::Int(1))
     );
     assert_eq!(
-        coerce_initializer_value(
-            &ctx,
-            Value::SInt(1),
-            TypeId::INT,
-            MAX_INITIALIZER_DEPTH + 1
-        ),
+        coerce_initializer_value(&ctx, Value::SInt(1), TypeId::INT, MAX_INITIALIZER_DEPTH + 1),
         Err(RuntimeError::TypeMismatch)
     );
 }

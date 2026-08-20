@@ -239,9 +239,7 @@ fn expr_root_name(expr: &Expr) -> Option<&SmolStr> {
 fn lvalue_root_name(target: &LValue) -> Option<&SmolStr> {
     match target {
         LValue::Name(name) => Some(name),
-        LValue::Index { target, .. } | LValue::Field { target, .. } => {
-            lvalue_root_name(target)
-        }
+        LValue::Index { target, .. } | LValue::Field { target, .. } => lvalue_root_name(target),
         LValue::Deref(expr) => expr_root_name(expr),
     }
 }
@@ -251,8 +249,7 @@ fn is_simple_name(path: &str) -> bool {
     let Some(first) = chars.next() else {
         return false;
     };
-    (first == '_' || first.is_alphabetic())
-        && chars.all(|ch| ch == '_' || ch.is_alphanumeric())
+    (first == '_' || first.is_alphabetic()) && chars.all(|ch| ch == '_' || ch.is_alphanumeric())
 }
 
 #[cfg(test)]

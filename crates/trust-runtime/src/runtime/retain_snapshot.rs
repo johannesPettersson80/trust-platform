@@ -739,11 +739,8 @@ mod contract_tests {
         let scalar_array =
             ArrayValue::from_untyped_parts(vec![Value::DInt(1)], vec![(1, 1)]).unwrap();
         assert!(value_is_retainable(&Value::Array(Box::new(scalar_array))));
-        let reference_array = ArrayValue::from_untyped_parts(
-            vec![Value::Reference(None)],
-            vec![(1, 1)],
-        )
-        .unwrap();
+        let reference_array =
+            ArrayValue::from_untyped_parts(vec![Value::Reference(None)], vec![(1, 1)]).unwrap();
         assert!(!value_is_retainable(&Value::Array(Box::new(
             reference_array
         ))));
@@ -752,9 +749,7 @@ mod contract_tests {
             "State".into(),
             IndexMap::from([("Count".into(), Value::DInt(1))]),
         );
-        assert!(value_is_retainable(&Value::Struct(Arc::new(
-            scalar_struct
-        ))));
+        assert!(value_is_retainable(&Value::Struct(Arc::new(scalar_struct))));
         let instance_struct = StructValue::from_untyped_parts(
             "State".into(),
             IndexMap::from([(

@@ -120,8 +120,7 @@ fn rename_edits_apply_from_highest_offset_to_lowest() {
 
 #[test]
 fn insertion_and_deletion_edits_are_supported() {
-    let output =
-        apply_text_edits("abc", &[edit(0, 0, "x"), edit(1, 2, "")]).expect("edits");
+    let output = apply_text_edits("abc", &[edit(0, 0, "x"), edit(1, 2, "")]).expect("edits");
     assert_eq!(output, "xac");
 }
 

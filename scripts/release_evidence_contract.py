@@ -6,6 +6,7 @@ and GitHub access; tests and release workflows share these closed checks.
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
 from datetime import date
@@ -18,6 +19,27 @@ MAX_EXCEPTION_DAYS = 90
 
 class ReleaseEvidenceError(ValueError):
     """Release evidence violates the normative contract."""
+
+
+def decode_github_api_object(
+    body: bytes, *, status: int, endpoint: str
+) -> dict[str, Any]:
+    """Decode one successful GitHub response without leaking response content."""
+
+    if not body:
+        return {}
+    try:
+        text = body.decode("utf-8")
+        payload = json.loads(text)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ReleaseEvidenceError(
+            f"GitHub API endpoint {endpoint} returned HTTP {status} with malformed JSON"
+        ) from exc
+    if not isinstance(payload, dict):
+        raise ReleaseEvidenceError(
+            f"GitHub API endpoint {endpoint} returned HTTP {status} with a non-object JSON body"
+        )
+    return payload
 
 
 @dataclass(frozen=True)

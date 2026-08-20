@@ -58,7 +58,11 @@ fn builtin_name_lookup_is_ascii_case_insensitive_and_round_trips_canonical_names
     ];
 
     for (canonical, id) in cases {
-        assert_eq!(TypeId::from_builtin_name(canonical), Some(id), "{canonical}");
+        assert_eq!(
+            TypeId::from_builtin_name(canonical),
+            Some(id),
+            "{canonical}"
+        );
         assert_eq!(
             TypeId::from_builtin_name(&canonical.to_ascii_lowercase()),
             Some(id),
@@ -175,15 +179,11 @@ fn type_classification_partitions_cover_elementary_and_non_elementary_families()
         .iter()
         .all(Type::is_unsigned));
     assert!([Type::Real, Type::LReal].iter().all(Type::is_float));
-    assert!([
-        Type::Bool,
-        Type::Byte,
-        Type::Word,
-        Type::DWord,
-        Type::LWord
-    ]
-    .iter()
-    .all(Type::is_bit_string));
+    assert!(
+        [Type::Bool, Type::Byte, Type::Word, Type::DWord, Type::LWord]
+            .iter()
+            .all(Type::is_bit_string)
+    );
 
     assert!(Type::String { max_len: Some(7) }.is_string());
     assert!(Type::WString { max_len: None }.is_string());
@@ -375,9 +375,7 @@ fn array_dimension_wildcard_and_display_contract_is_exact() {
 #[test]
 fn initializer_catalog_uses_stable_insertion_order_and_explicit_type_defaults() {
     let mut catalog = InitializerCatalog::default();
-    let first = catalog.insert(InitializerRecord {
-        range: range(3, 8),
-    });
+    let first = catalog.insert(InitializerRecord { range: range(3, 8) });
     let second = catalog.insert(InitializerRecord {
         range: range(13, 21),
     });
@@ -386,7 +384,10 @@ fn initializer_catalog_uses_stable_insertion_order_and_explicit_type_defaults() 
     assert_eq!(second, InitializerId(1));
     assert_eq!(catalog.records().len(), 2);
     assert_eq!(catalog.records()[0].range, range(3, 8));
-    assert_eq!(catalog.get(second).map(|record| record.range), Some(range(13, 21)));
+    assert_eq!(
+        catalog.get(second).map(|record| record.range),
+        Some(range(13, 21))
+    );
     assert_eq!(catalog.get(InitializerId(2)), None);
     assert_eq!(catalog.type_default(TypeId(123)), None);
 
@@ -497,8 +498,14 @@ fn anonymous_constructed_type_names_are_deterministic_and_payloads_are_preserved
     );
     assert_eq!(registry.type_name(string).as_deref(), Some("STRING[17]"));
     assert_eq!(registry.type_name(wstring).as_deref(), Some("WSTRING[9]"));
-    assert_eq!(registry.type_name(pointer).as_deref(), Some("POINTER TO DINT"));
-    assert_eq!(registry.type_name(reference).as_deref(), Some("REF_TO BOOL"));
+    assert_eq!(
+        registry.type_name(pointer).as_deref(),
+        Some("POINTER TO DINT")
+    );
+    assert_eq!(
+        registry.type_name(reference).as_deref(),
+        Some("REF_TO BOOL")
+    );
     assert_eq!(
         registry.get(array),
         Some(&Type::Array {
@@ -536,7 +543,10 @@ fn unknown_constructed_targets_use_question_mark_names_without_becoming_builtin(
     let pointer = registry.register_pointer(unknown);
     let reference = registry.register_reference(unknown);
 
-    assert_eq!(registry.type_name(array).as_deref(), Some("ARRAY[1..1] OF ?"));
+    assert_eq!(
+        registry.type_name(array).as_deref(),
+        Some("ARRAY[1..1] OF ?")
+    );
     assert_eq!(registry.type_name(pointer).as_deref(), Some("POINTER TO ?"));
     assert_eq!(registry.type_name(reference).as_deref(), Some("REF_TO ?"));
     assert_eq!(registry.lookup("?"), None);
@@ -560,7 +570,10 @@ fn assignment_compatibility_accepts_only_accuracy_preserving_scalar_widening() {
         (TypeId::LWORD, TypeId::DWORD),
     ];
     for (target, source) in accepted {
-        assert!(registry.is_assignable(target, source), "{target:?} <- {source:?}");
+        assert!(
+            registry.is_assignable(target, source),
+            "{target:?} <- {source:?}"
+        );
     }
 
     let rejected = [
@@ -591,9 +604,9 @@ fn scalar_widening_primitive_matches_registry_conversion_policy() {
         (Type::LReal, Type::Real),
         (Type::DWord, Type::Word),
     ];
-    assert!(accepted.iter().all(|(target, source)| {
-        is_accuracy_preserving_implicit_conversion(target, source)
-    }));
+    assert!(accepted
+        .iter()
+        .all(|(target, source)| { is_accuracy_preserving_implicit_conversion(target, source) }));
 
     let rejected = [
         (Type::Int, Type::UInt),
@@ -602,9 +615,9 @@ fn scalar_widening_primitive_matches_registry_conversion_policy() {
         (Type::Word, Type::UInt),
         (Type::Time, Type::DInt),
     ];
-    assert!(rejected.iter().all(|(target, source)| {
-        !is_accuracy_preserving_implicit_conversion(target, source)
-    }));
+    assert!(rejected
+        .iter()
+        .all(|(target, source)| { !is_accuracy_preserving_implicit_conversion(target, source) }));
 }
 
 #[test]
@@ -630,7 +643,10 @@ fn generic_assignment_targets_cover_each_declared_type_family() {
         (TypeId::ANY_DATE, TypeId::LDT),
     ];
     for (target, source) in accepted {
-        assert!(registry.is_assignable(target, source), "{target:?} <- {source:?}");
+        assert!(
+            registry.is_assignable(target, source),
+            "{target:?} <- {source:?}"
+        );
     }
 
     let rejected = [

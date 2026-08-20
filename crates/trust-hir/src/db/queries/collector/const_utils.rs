@@ -33,10 +33,7 @@ pub(super) fn using_scopes_for_node(node: &SyntaxNode) -> Vec<Option<SmolStr>> {
                 matches!(child.kind(), SyntaxKind::Name | SyntaxKind::QualifiedName)
             }) {
                 if let Some((parts, _)) = qualified_name_parts(&name) {
-                    let parts = parts
-                        .into_iter()
-                        .map(|(part, _)| part)
-                        .collect::<Vec<_>>();
+                    let parts = parts.into_iter().map(|(part, _)| part).collect::<Vec<_>>();
                     scopes.push(Some(qualified_name_string(&parts)));
                 }
             }
@@ -47,8 +44,9 @@ pub(super) fn using_scopes_for_node(node: &SyntaxNode) -> Vec<Option<SmolStr>> {
 
 pub(super) fn qualified_const_parts(node: &SyntaxNode) -> Option<Vec<SmolStr>> {
     match node.kind() {
-        SyntaxKind::NameRef => first_ident_token(node)
-            .map(|token| vec![SmolStr::new(token.text())]),
+        SyntaxKind::NameRef => {
+            first_ident_token(node).map(|token| vec![SmolStr::new(token.text())])
+        }
         SyntaxKind::FieldExpr => {
             let mut parts = Vec::new();
             for token in node

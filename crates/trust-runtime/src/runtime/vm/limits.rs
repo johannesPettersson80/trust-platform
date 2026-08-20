@@ -94,10 +94,7 @@ mod tests {
             },
         )
         .expect_err("first local above the fixed limit must reject");
-        assert_eq!(
-            local_error.stable_code(),
-            StableErrorCode::VmBytecodeDecode
-        );
+        assert_eq!(local_error.stable_code(), StableErrorCode::VmBytecodeDecode);
         assert!(local_error.to_string().contains("local references"));
 
         let parameter_error = validate_materialization_limits(
@@ -120,7 +117,9 @@ mod tests {
             .expect_err("first local above the fixed limit must reject");
 
         assert_eq!(error.stable_code(), StableErrorCode::VmBytecodeDecode);
-        assert!(matches!(error, VmTrap::BytecodeDecode(message) if message.contains("local references")));
+        assert!(
+            matches!(error, VmTrap::BytecodeDecode(message) if message.contains("local references"))
+        );
     }
 
     fn reference() -> RefEntry {

@@ -217,8 +217,7 @@ fn docs_alias_propagates_a_normal_child_exit_code() {
     let root = unique_temp_dir("docs-child-exit");
     std::fs::create_dir_all(&root).expect("create child-exit test directory");
     let fake_trust_dev = root.join("trust-dev-exit");
-    std::fs::write(&fake_trust_dev, "#!/bin/sh\nexit 37\n")
-        .expect("write exiting trust-dev shim");
+    std::fs::write(&fake_trust_dev, "#!/bin/sh\nexit 37\n").expect("write exiting trust-dev shim");
     let mut permissions = std::fs::metadata(&fake_trust_dev)
         .expect("read shim metadata")
         .permissions();

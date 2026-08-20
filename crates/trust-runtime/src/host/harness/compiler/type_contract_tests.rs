@@ -458,13 +458,17 @@ END_PROGRAM
         .initializer_catalog()
         .type_default(phase)
         .expect("Phase type default");
-    assert!(matches!(
-        runtime.initializer_catalog().initializer(initializer),
-        Some(Expr::Literal(Value::Enum(value)))
-            if value.type_name() == "Phase"
-                && value.variant_name() == "Running"
-                && value.numeric_value() == 1
-    ), "{:?}", runtime.initializer_catalog().initializer(initializer));
+    assert!(
+        matches!(
+            runtime.initializer_catalog().initializer(initializer),
+            Some(Expr::Literal(Value::Enum(value)))
+                if value.type_name() == "Phase"
+                    && value.variant_name() == "Running"
+                    && value.numeric_value() == 1
+        ),
+        "{:?}",
+        runtime.initializer_catalog().initializer(initializer)
+    );
 }
 
 #[test]

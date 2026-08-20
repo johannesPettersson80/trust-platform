@@ -1,4 +1,4 @@
-"""Canonical discovery and execution for verification-tooling Python tests."""
+"""Canonical advisory discovery and execution for verification-tooling Python tests."""
 
 from __future__ import annotations
 

@@ -62,20 +62,18 @@ impl SymbolCollector<'_> {
             SyntaxKind::SizeOfExpr => self.try_eval_sizeof_int_expr(node, scopes, guard),
             SyntaxKind::NameRef | SyntaxKind::FieldExpr => {
                 let parts = qualified_const_parts(node).ok_or(ConstEvalError::NotConstant)?;
-                let name = parts
-                    .last()
-                    .cloned()
-                    .ok_or(ConstEvalError::NotConstant)?;
+                let name = parts.last().cloned().ok_or(ConstEvalError::NotConstant)?;
                 if parts.len() > 1 {
                     let scope = Some(qualified_name_string(&parts[..parts.len() - 1]));
-                    let resolved = self.try_resolve_const_value_for_scope(
-                        name.as_str(),
-                        &scope,
-                        guard,
-                    );
+                    let resolved =
+                        self.try_resolve_const_value_for_scope(name.as_str(), &scope, guard);
                     if matches!(resolved, Err(ConstEvalError::UndefinedName(_))) {
                         if let Some(symbol_id) = self.table.resolve_qualified(&parts) {
-                            if self.table.get(symbol_id).is_some_and(|symbol| !symbol.is_constant) {
+                            if self
+                                .table
+                                .get(symbol_id)
+                                .is_some_and(|symbol| !symbol.is_constant)
+                            {
                                 return Err(ConstEvalError::NotConstant);
                             }
                         }
@@ -341,6 +339,10 @@ impl SymbolCollector<'_> {
         let key = const_key(scope, name);
         if let Some(value) = self.const_values.get(&key) {
             return Ok(*value);
+        }
+        if let Some(value) = self.table.const_value(scope, name) {
+            self.const_values.insert(key, value);
+            return Ok(value);
         }
         let expr = self
             .const_exprs

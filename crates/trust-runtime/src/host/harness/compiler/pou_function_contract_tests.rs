@@ -68,8 +68,7 @@ END_PROGRAM
 
 #[test]
 fn pou_function_contract_local_and_temp_slots_are_per_call() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 FUNCTION Once : INT
 VAR
     localValue : INT;
@@ -89,16 +88,14 @@ END_VAR
 first := Once();
 second := Once();
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("first"), Some(Value::Int(11)));
     assert_eq!(harness.get_output("second"), Some(Value::Int(11)));
 }
 
 #[test]
 fn pou_function_contract_var_stat_persists_across_calls_and_cycles() {
-    let mut harness = run(
-        r#"
+    let mut harness = run(r#"
 FUNCTION Next : INT
 VAR_STAT
     count : INT;
@@ -114,8 +111,7 @@ END_VAR
 first := Next();
 second := Next();
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("first"), Some(Value::Int(1)));
     assert_eq!(harness.get_output("second"), Some(Value::Int(2)));
     let cycle = harness.cycle();
@@ -126,8 +122,7 @@ END_PROGRAM
 
 #[test]
 fn pou_function_contract_var_stat_storage_is_function_qualified() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 FUNCTION First : INT
 VAR_STAT
     count : INT;
@@ -150,8 +145,7 @@ END_VAR
 a := First();
 b := Second();
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("a"), Some(Value::Int(1)));
     assert_eq!(harness.get_output("b"), Some(Value::Int(11)));
     assert_eq!(
@@ -172,8 +166,7 @@ END_PROGRAM
 
 #[test]
 fn pou_function_contract_var_external_writes_existing_global() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 VAR_GLOBAL
     shared : INT;
 END_VAR
@@ -190,8 +183,7 @@ VAR
 END_VAR
 result := Bump();
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("result"), Some(Value::Int(1)));
     assert_eq!(
         harness.runtime().storage().get_global("shared"),
@@ -201,8 +193,7 @@ END_PROGRAM
 
 #[test]
 fn pou_function_contract_var_in_out_writes_caller_target() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 FUNCTION Bump : INT
 VAR_IN_OUT
     value : INT;
@@ -217,16 +208,14 @@ VAR
 END_VAR
 result := Bump(target);
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("target"), Some(Value::Int(6)));
     assert_eq!(harness.get_output("result"), Some(Value::Int(6)));
 }
 
 #[test]
 fn pou_function_contract_var_output_copies_back_to_target() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 FUNCTION Produce : INT
 VAR_OUTPUT
     outputValue : INT;
@@ -241,16 +230,14 @@ VAR
 END_VAR
 result := Produce(outputValue => target);
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("target"), Some(Value::Int(9)));
     assert_eq!(harness.get_output("result"), Some(Value::Int(1)));
 }
 
 #[test]
 fn pou_function_contract_omitted_defaulted_input_uses_initializer() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 FUNCTION Defaulted : INT
 VAR_INPUT
     value : INT := INT#7;
@@ -263,8 +250,7 @@ VAR
 END_VAR
 result := Defaulted();
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("result"), Some(Value::Int(7)));
 }
 
@@ -287,8 +273,7 @@ END_PROGRAM
 
 #[test]
 fn pou_function_contract_constant_local_is_available_to_body() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 FUNCTION Scale : INT
 VAR CONSTANT
     factor : INT := INT#4;
@@ -301,8 +286,7 @@ VAR
 END_VAR
 result := Scale();
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("result"), Some(Value::Int(12)));
 }
 
@@ -363,7 +347,10 @@ PROGRAM Main
 END_PROGRAM
 "#,
     );
-    assert!(error.contains("MissingType") || error.contains("unknown type"), "{error}");
+    assert!(
+        error.contains("MissingType") || error.contains("unknown type"),
+        "{error}"
+    );
 }
 
 #[test]
@@ -385,8 +372,7 @@ END_PROGRAM
 
 #[test]
 fn pou_function_contract_forward_call_resolves_predeclared_function() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 FUNCTION First : INT
 First := Second();
 END_FUNCTION
@@ -399,8 +385,7 @@ VAR
 END_VAR
 result := First();
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("result"), Some(Value::Int(12)));
 }
 

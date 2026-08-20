@@ -14,6 +14,7 @@ from unittest.mock import patch
 
 from scripts import check_release_tag_preflight as preflight
 from scripts import check_release_version_alignment as alignment
+from scripts.release_evidence_contract import ReleaseEvidenceError
 
 
 VERSION = "2.3.4"
@@ -458,6 +459,40 @@ class TagPreflightGitHubApiBoundaryTests(unittest.TestCase):
             )
         self.assertEqual(status, 200)
         self.assertEqual(payload, {})
+
+    def test_successful_malformed_or_non_object_body_is_a_stable_negative_result(self) -> None:
+        class Response:
+            status = 200
+
+            def __init__(self, body: bytes) -> None:
+                self.body = body
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def read(self) -> bytes:
+                return self.body
+
+        endpoint = "/actions/workflows/ci.yml/runs"
+        for body, reason in ((b"{", "malformed JSON"), (b"[]", "non-object")):
+            with self.subTest(body=body), patch.object(
+                preflight.urllib.request, "urlopen", return_value=Response(body)
+            ):
+                try:
+                    ok, message = preflight.ci_green_for_sha(
+                        "owner/repo", SHA, "secret"
+                    )
+                except ReleaseEvidenceError as exc:
+                    self.fail(f"release preflight leaked its response error: {exc}")
+                except Exception as exc:
+                    self.fail(f"release preflight leaked an unexpected exception: {exc}")
+                self.assertFalse(ok)
+                self.assertIn(endpoint, message)
+                self.assertIn("HTTP 200", message)
+                self.assertIn(reason, message)
 
 if __name__ == "__main__":
     unittest.main()

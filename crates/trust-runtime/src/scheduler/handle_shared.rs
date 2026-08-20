@@ -132,6 +132,11 @@ impl<C: Clock + Clone> ResourceControl<C> {
         self.clock.wake();
     }
 
+    #[cfg(test)]
+    pub(crate) fn stop_requested(&self) -> bool {
+        self.stop.load(Ordering::SeqCst)
+    }
+
     /// Current resource state.
     #[must_use]
     pub fn state(&self) -> ResourceState {

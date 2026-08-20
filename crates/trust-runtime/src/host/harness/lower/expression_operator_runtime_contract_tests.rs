@@ -10,12 +10,7 @@ fn operator_output(source: &str, name: &str) -> Value {
     harness.try_get_output(name).unwrap()
 }
 
-fn assert_operator_fault_preserves(
-    source: &str,
-    error: RuntimeError,
-    name: &str,
-    expected: Value,
-) {
+fn assert_operator_fault_preserves(source: &str, error: RuntimeError, name: &str, expected: Value) {
     let mut harness = TestHarness::from_source(source)
         .unwrap_or_else(|compile_error| panic!("fault fixture must compile: {compile_error}"));
     let cycle = harness.cycle();
@@ -25,42 +20,90 @@ fn assert_operator_fault_preserves(
 
 #[test]
 fn expression_operator_runtime_applies_multiplication_before_addition() {
-    assert_eq!(operator_output("PROGRAM Main\nVAR result : INT; END_VAR\nresult := 2 + 3 * 4;\nEND_PROGRAM", "result"), Value::Int(14));
+    assert_eq!(
+        operator_output(
+            "PROGRAM Main\nVAR result : INT; END_VAR\nresult := 2 + 3 * 4;\nEND_PROGRAM",
+            "result"
+        ),
+        Value::Int(14)
+    );
 }
 
 #[test]
 fn expression_operator_runtime_parentheses_override_precedence() {
-    assert_eq!(operator_output("PROGRAM Main\nVAR result : INT; END_VAR\nresult := (2 + 3) * 4;\nEND_PROGRAM", "result"), Value::Int(20));
+    assert_eq!(
+        operator_output(
+            "PROGRAM Main\nVAR result : INT; END_VAR\nresult := (2 + 3) * 4;\nEND_PROGRAM",
+            "result"
+        ),
+        Value::Int(20)
+    );
 }
 
 #[test]
 fn expression_operator_runtime_subtraction_is_left_associative() {
-    assert_eq!(operator_output("PROGRAM Main\nVAR result : INT; END_VAR\nresult := 20 - 5 - 2;\nEND_PROGRAM", "result"), Value::Int(13));
+    assert_eq!(
+        operator_output(
+            "PROGRAM Main\nVAR result : INT; END_VAR\nresult := 20 - 5 - 2;\nEND_PROGRAM",
+            "result"
+        ),
+        Value::Int(13)
+    );
 }
 
 #[test]
 fn expression_operator_runtime_division_is_left_associative() {
-    assert_eq!(operator_output("PROGRAM Main\nVAR result : INT; END_VAR\nresult := 20 / 5 / 2;\nEND_PROGRAM", "result"), Value::Int(2));
+    assert_eq!(
+        operator_output(
+            "PROGRAM Main\nVAR result : INT; END_VAR\nresult := 20 / 5 / 2;\nEND_PROGRAM",
+            "result"
+        ),
+        Value::Int(2)
+    );
 }
 
 #[test]
 fn expression_operator_runtime_integer_division_truncates_positive_toward_zero() {
-    assert_eq!(operator_output("PROGRAM Main\nVAR result : INT; END_VAR\nresult := 7 / 3;\nEND_PROGRAM", "result"), Value::Int(2));
+    assert_eq!(
+        operator_output(
+            "PROGRAM Main\nVAR result : INT; END_VAR\nresult := 7 / 3;\nEND_PROGRAM",
+            "result"
+        ),
+        Value::Int(2)
+    );
 }
 
 #[test]
 fn expression_operator_runtime_integer_division_truncates_negative_toward_zero() {
-    assert_eq!(operator_output("PROGRAM Main\nVAR result : INT; END_VAR\nresult := -7 / 3;\nEND_PROGRAM", "result"), Value::Int(-2));
+    assert_eq!(
+        operator_output(
+            "PROGRAM Main\nVAR result : INT; END_VAR\nresult := -7 / 3;\nEND_PROGRAM",
+            "result"
+        ),
+        Value::Int(-2)
+    );
 }
 
 #[test]
 fn expression_operator_runtime_modulo_tracks_positive_dividend() {
-    assert_eq!(operator_output("PROGRAM Main\nVAR result : INT; END_VAR\nresult := 7 MOD 3;\nEND_PROGRAM", "result"), Value::Int(1));
+    assert_eq!(
+        operator_output(
+            "PROGRAM Main\nVAR result : INT; END_VAR\nresult := 7 MOD 3;\nEND_PROGRAM",
+            "result"
+        ),
+        Value::Int(1)
+    );
 }
 
 #[test]
 fn expression_operator_runtime_modulo_tracks_negative_dividend() {
-    assert_eq!(operator_output("PROGRAM Main\nVAR result : INT; END_VAR\nresult := -7 MOD 3;\nEND_PROGRAM", "result"), Value::Int(-1));
+    assert_eq!(
+        operator_output(
+            "PROGRAM Main\nVAR result : INT; END_VAR\nresult := -7 MOD 3;\nEND_PROGRAM",
+            "result"
+        ),
+        Value::Int(-1)
+    );
 }
 
 #[test]
@@ -75,7 +118,13 @@ fn expression_operator_runtime_real_widening_uses_lreal() {
 
 #[test]
 fn expression_operator_runtime_integer_power_extension_returns_int() {
-    assert_eq!(operator_output("PROGRAM Main\nVAR result : INT; END_VAR\nresult := INT#2 ** INT#3;\nEND_PROGRAM", "result"), Value::Int(8));
+    assert_eq!(
+        operator_output(
+            "PROGRAM Main\nVAR result : INT; END_VAR\nresult := INT#2 ** INT#3;\nEND_PROGRAM",
+            "result"
+        ),
+        Value::Int(8)
+    );
 }
 
 #[test]
@@ -125,7 +174,13 @@ fn expression_operator_runtime_bitwise_xor_preserves_value_width() {
 
 #[test]
 fn expression_operator_runtime_bitwise_not_preserves_value_width() {
-    assert_eq!(operator_output("PROGRAM Main\nVAR result : BYTE; END_VAR\nresult := NOT BYTE#16#F0;\nEND_PROGRAM", "result"), Value::Byte(0x0f));
+    assert_eq!(
+        operator_output(
+            "PROGRAM Main\nVAR result : BYTE; END_VAR\nresult := NOT BYTE#16#F0;\nEND_PROGRAM",
+            "result"
+        ),
+        Value::Byte(0x0f)
+    );
 }
 
 #[test]

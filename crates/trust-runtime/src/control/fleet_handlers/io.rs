@@ -14,10 +14,9 @@ pub(super) fn driver_health_for_config<'a>(
     index: usize,
     driver: &str,
 ) -> Option<&'a IoDriverStatus> {
-    let wanted_protocol = protocol_from_driver_name(driver);
     io_health
         .iter()
-        .filter(|status| protocol_from_driver_name(status.name.as_str()) == wanted_protocol)
+        .filter(|status| same_driver_name(status.name.as_str(), driver))
         .nth(index)
 }
 

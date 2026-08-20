@@ -4,6 +4,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use smol_str::SmolStr;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum ControlAfterResponse {
+    StopResource,
+}
+
 #[derive(Debug, Deserialize)]
 pub(super) struct ControlRequest {
     pub(super) id: u64,
@@ -27,6 +32,8 @@ pub(crate) struct ControlResponse {
     pub(super) error_code: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     audit_id: Option<String>,
+    #[serde(skip)]
+    pub(super) after_response: Option<ControlAfterResponse>,
 }
 
 impl ControlResponse {
@@ -38,6 +45,19 @@ impl ControlResponse {
             error: None,
             error_code: None,
             audit_id: None,
+            after_response: None,
+        }
+    }
+
+    pub(super) fn shutdown(id: u64) -> Self {
+        Self {
+            id,
+            ok: true,
+            result: Some(json!({"status": "stopping"})),
+            error: None,
+            error_code: None,
+            audit_id: None,
+            after_response: Some(ControlAfterResponse::StopResource),
         }
     }
 
@@ -49,6 +69,7 @@ impl ControlResponse {
             error: Some(error),
             error_code: None,
             audit_id: None,
+            after_response: None,
         }
     }
 
@@ -60,6 +81,7 @@ impl ControlResponse {
             error: Some(error),
             error_code: Some(error_code.to_string()),
             audit_id: None,
+            after_response: None,
         }
     }
 

@@ -18,11 +18,13 @@ from pathlib import Path
 try:
     from scripts.release_evidence_contract import (
         ReleaseEvidenceError,
+        decode_github_api_object,
         validate_release_publication,
     )
 except ModuleNotFoundError:  # Direct `python scripts/...` execution.
     from release_evidence_contract import (  # type: ignore[no-redef]
         ReleaseEvidenceError,
+        decode_github_api_object,
         validate_release_publication,
     )
 
@@ -88,8 +90,9 @@ def github_api_get(
     )
     try:
         with urllib.request.urlopen(req) as response:
-            body = response.read().decode("utf-8")
-            return response.status, json.loads(body) if body else {}
+            return response.status, decode_github_api_object(
+                response.read(), status=response.status, endpoint=path
+            )
     except urllib.error.HTTPError as exc:
         raw = exc.read().decode("utf-8", errors="replace")
         try:
@@ -104,7 +107,7 @@ def fail(message: str) -> int:
     return 1
 
 
-def main() -> int:
+def _main() -> int:
     parser = argparse.ArgumentParser(
         description=(
             "Fail CI when a workspace version bump on main/master is missing matching "
@@ -332,6 +335,13 @@ def main() -> int:
         f"workflow={run_url}"
     )
     return 0
+
+
+def main() -> int:
+    try:
+        return _main()
+    except ReleaseEvidenceError as exc:
+        return fail(str(exc))
 
 
 if __name__ == "__main__":

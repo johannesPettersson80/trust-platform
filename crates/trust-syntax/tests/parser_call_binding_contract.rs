@@ -12,7 +12,10 @@ fn assert_call_parses(source: &str) {
 
 fn assert_call_rejected(source: &str) {
     let parsed = parse(source);
-    assert!(!parsed.ok(), "expected malformed call source to be rejected");
+    assert!(
+        !parsed.ok(),
+        "expected malformed call source to be rejected"
+    );
 }
 
 #[test]
@@ -47,9 +50,7 @@ fn call_parser_accepts_named_in_out_assignment() {
 
 #[test]
 fn call_parser_accepts_reordered_formal_arguments() {
-    assert_call_parses(
-        "PROGRAM P\nRun(third := c, first := a, second => b);\nEND_PROGRAM",
-    );
+    assert_call_parses("PROGRAM P\nRun(third := c, first := a, second => b);\nEND_PROGRAM");
 }
 
 #[test]
@@ -69,7 +70,9 @@ fn call_parser_accepts_named_en_and_eno() {
 
 #[test]
 fn call_parser_accepts_nested_call_actuals() {
-    assert_call_parses("PROGRAM P\nresult := Outer(first := Inner(value), second := Next());\nEND_PROGRAM");
+    assert_call_parses(
+        "PROGRAM P\nresult := Outer(first := Inner(value), second := Next());\nEND_PROGRAM",
+    );
 }
 
 #[test]

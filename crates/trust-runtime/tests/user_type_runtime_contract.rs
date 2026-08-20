@@ -18,87 +18,75 @@ fn array_elements(harness: &TestHarness, name: &str) -> Vec<Value> {
 
 #[test]
 fn user_type_runtime_ordinary_enum_defaults_to_first_literal() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 TYPE Color : (Red, Green, Blue); END_TYPE
 PROGRAM Main
 VAR color : Color; isRed : BOOL; END_VAR
 isRed := color = Color#Red;
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("isRed"), Some(Value::Bool(true)));
 }
 
 #[test]
 fn user_type_runtime_ordinary_enum_uses_explicit_type_default() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 TYPE Color : (Red, Green, Blue) := Blue; END_TYPE
 PROGRAM Main
 VAR color : Color; isBlue : BOOL; END_VAR
 isBlue := color = Color#Blue;
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("isBlue"), Some(Value::Bool(true)));
 }
 
 #[test]
 fn user_type_runtime_enum_assignment_preserves_declared_identity() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 TYPE Color : (Red, Green, Blue); END_TYPE
 PROGRAM Main
 VAR color : Color; isGreen : BOOL; END_VAR
 color := Color#Green;
 isGreen := color = Color#Green;
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("isGreen"), Some(Value::Bool(true)));
 }
 
 #[test]
 fn user_type_runtime_named_values_retain_integer_base_range() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 TYPE Signal : INT (Low := 1, High := 2); END_TYPE
 PROGRAM Main
 VAR signal : Signal; result : INT; END_VAR
 signal := 27;
 result := signal + Signal#High;
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("result"), Some(Value::Int(29)));
 }
 
 #[test]
 fn user_type_runtime_subrange_without_initializer_defaults_to_lower_bound() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 TYPE Limited : INT (4..6); END_TYPE
 PROGRAM Main
 VAR value : Limited; observed : INT; END_VAR
 observed := value;
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("observed"), Some(Value::Int(4)));
 }
 
 #[test]
 fn user_type_runtime_subrange_uses_explicit_type_default() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 TYPE Limited : INT (4..6) := 5; END_TYPE
 PROGRAM Main
 VAR value : Limited; observed : INT; END_VAR
 observed := value;
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("observed"), Some(Value::Int(5)));
 }
 
@@ -165,9 +153,8 @@ END_PROGRAM
 
 #[test]
 fn user_type_runtime_partial_array_initializer_default_fills_rightmost_values() {
-    let harness = run(
-        "PROGRAM Main\nVAR values : ARRAY[1..4] OF INT := [1, 2]; END_VAR\nEND_PROGRAM",
-    );
+    let harness =
+        run("PROGRAM Main\nVAR values : ARRAY[1..4] OF INT := [1, 2]; END_VAR\nEND_PROGRAM");
     assert_eq!(
         array_elements(&harness, "values"),
         [Value::Int(1), Value::Int(2), Value::Int(0), Value::Int(0)]
@@ -176,9 +163,8 @@ fn user_type_runtime_partial_array_initializer_default_fills_rightmost_values() 
 
 #[test]
 fn user_type_runtime_excess_array_initializer_ignores_rightmost_values() {
-    let harness = run(
-        "PROGRAM Main\nVAR values : ARRAY[1..2] OF INT := [1, 2, 3, 4]; END_VAR\nEND_PROGRAM",
-    );
+    let harness =
+        run("PROGRAM Main\nVAR values : ARRAY[1..2] OF INT := [1, 2, 3, 4]; END_VAR\nEND_PROGRAM");
     assert_eq!(
         array_elements(&harness, "values"),
         [Value::Int(1), Value::Int(2)]
@@ -187,9 +173,8 @@ fn user_type_runtime_excess_array_initializer_ignores_rightmost_values() {
 
 #[test]
 fn user_type_runtime_zero_repetition_contributes_no_elements() {
-    let harness = run(
-        "PROGRAM Main\nVAR values : ARRAY[1..2] OF INT := [0(9), 1, 2]; END_VAR\nEND_PROGRAM",
-    );
+    let harness =
+        run("PROGRAM Main\nVAR values : ARRAY[1..2] OF INT := [0(9), 1, 2]; END_VAR\nEND_PROGRAM");
     assert_eq!(
         array_elements(&harness, "values"),
         [Value::Int(1), Value::Int(2)]
@@ -198,9 +183,8 @@ fn user_type_runtime_zero_repetition_contributes_no_elements() {
 
 #[test]
 fn user_type_runtime_nested_repetition_expands_in_source_order() {
-    let harness = run(
-        "PROGRAM Main\nVAR values : ARRAY[1..8] OF INT := [2(2(1, 2))]; END_VAR\nEND_PROGRAM",
-    );
+    let harness =
+        run("PROGRAM Main\nVAR values : ARRAY[1..8] OF INT := [2(2(1, 2))]; END_VAR\nEND_PROGRAM");
     assert_eq!(
         array_elements(&harness, "values"),
         [
@@ -218,8 +202,7 @@ fn user_type_runtime_nested_repetition_expands_in_source_order() {
 
 #[test]
 fn user_type_runtime_multidimensional_initializer_varies_rightmost_index_fastest() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 PROGRAM Main
 VAR
     values : ARRAY[1..2, 10..11] OF INT := [1, 2, 3, 4];
@@ -230,8 +213,7 @@ b := values[1, 11];
 c := values[2, 10];
 d := values[2, 11];
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("a"), Some(Value::Int(1)));
     assert_eq!(harness.get_output("b"), Some(Value::Int(2)));
     assert_eq!(harness.get_output("c"), Some(Value::Int(3)));
@@ -240,23 +222,20 @@ END_PROGRAM
 
 #[test]
 fn user_type_runtime_whole_array_assignment_is_an_independent_copy() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 PROGRAM Main
 VAR source : ARRAY[1..2] OF INT := [1, 2]; target : ARRAY[1..2] OF INT; observed : INT; END_VAR
 target := source;
 source[1] := 9;
 observed := target[1];
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("observed"), Some(Value::Int(1)));
 }
 
 #[test]
 fn user_type_runtime_whole_structure_assignment_is_an_independent_copy() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 TYPE Point : STRUCT x : INT; y : INT; END_STRUCT; END_TYPE
 PROGRAM Main
 VAR source : Point := (x := 1, y := 2); target : Point; observed : INT; END_VAR
@@ -264,8 +243,7 @@ target := source;
 source.x := 9;
 observed := target.x;
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("observed"), Some(Value::Int(1)));
 }
 
@@ -306,36 +284,31 @@ END_PROGRAM
 
 #[test]
 fn user_type_runtime_array_of_enum_defaults_each_element_to_first_literal() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 TYPE Color : (Red, Green); END_TYPE
 PROGRAM Main
 VAR values : ARRAY[1..2] OF Color; bothRed : BOOL; END_VAR
 bothRed := (values[1] = Color#Red) AND (values[2] = Color#Red);
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("bothRed"), Some(Value::Bool(true)));
 }
 
 #[test]
 fn user_type_runtime_array_of_subrange_defaults_each_element_to_lower_bound() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 TYPE Limited : INT (4..6); END_TYPE
 PROGRAM Main
 VAR values : ARRAY[1..2] OF Limited; sum : INT; END_VAR
 sum := values[1] + values[2];
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("sum"), Some(Value::Int(8)));
 }
 
 #[test]
 fn user_type_runtime_structure_initializer_precedence_is_recursive() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 TYPE
 Inner : STRUCT value : INT := 1; flag : BOOL := TRUE; END_STRUCT;
 DefaultInner : Inner := (value := 2);
@@ -347,8 +320,7 @@ observed := value.nested.value;
 flag := value.nested.flag;
 other := value.other;
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("observed"), Some(Value::Int(4)));
     assert_eq!(harness.get_output("flag"), Some(Value::Bool(true)));
     assert_eq!(harness.get_output("other"), Some(Value::Int(3)));
@@ -356,40 +328,35 @@ END_PROGRAM
 
 #[test]
 fn user_type_runtime_union_materializes_every_variant_default() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 TYPE Choice : UNION count : INT := 7; ready : BOOL := TRUE; END_UNION; END_TYPE
 PROGRAM Main
 VAR value : Choice; count : INT; ready : BOOL; END_VAR
 count := value.count;
 ready := value.ready;
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("count"), Some(Value::Int(7)));
     assert_eq!(harness.get_output("ready"), Some(Value::Bool(true)));
 }
 
 #[test]
 fn user_type_runtime_union_partial_initializer_preserves_omitted_variant_default() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 TYPE Choice : UNION count : INT := 1; ready : BOOL := TRUE; END_UNION; END_TYPE
 PROGRAM Main
 VAR value : Choice := (count := 9); count : INT; ready : BOOL; END_VAR
 count := value.count;
 ready := value.ready;
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("count"), Some(Value::Int(9)));
     assert_eq!(harness.get_output("ready"), Some(Value::Bool(true)));
 }
 
 #[test]
 fn user_type_runtime_union_variant_write_does_not_alias_other_variants() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 TYPE Choice : UNION wide : DWORD := DWORD#16#AABBCCDD; low : WORD := WORD#16#1234; END_UNION; END_TYPE
 PROGRAM Main
 VAR value : Choice; observedWide : DWORD; observedLow : WORD; END_VAR
@@ -397,22 +364,17 @@ value.low := WORD#16#5678;
 observedWide := value.wide;
 observedLow := value.low;
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(
         harness.get_output("observedWide"),
         Some(Value::DWord(0xAABBCCDD))
     );
-    assert_eq!(
-        harness.get_output("observedLow"),
-        Some(Value::Word(0x5678))
-    );
+    assert_eq!(harness.get_output("observedLow"), Some(Value::Word(0x5678)));
 }
 
 #[test]
 fn user_type_runtime_whole_union_assignment_is_an_independent_copy() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 TYPE Choice : UNION count : INT; ready : BOOL; END_UNION; END_TYPE
 PROGRAM Main
 VAR
@@ -427,19 +389,14 @@ source.ready := FALSE;
 observedCount := target.count;
 observedReady := target.ready;
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("observedCount"), Some(Value::Int(1)));
-    assert_eq!(
-        harness.get_output("observedReady"),
-        Some(Value::Bool(true))
-    );
+    assert_eq!(harness.get_output("observedReady"), Some(Value::Bool(true)));
 }
 
 #[test]
 fn user_type_runtime_overlap_fields_share_backing_storage() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 TYPE Overlay : STRUCT OVERLAP
     wide AT %B0 : DWORD;
     low AT %B0 : WORD;
@@ -452,8 +409,7 @@ value.low := WORD#16#1234;
 observed := value.low;
 observedWide := value.wide;
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("observed"), Some(Value::Word(0x1234)));
     assert_eq!(
         harness.get_output("observedWide"),

@@ -26,8 +26,8 @@ mod errors;
 mod frames;
 mod limits;
 mod local_init;
-mod register_ir;
 mod reference_attempt;
+mod register_ir;
 mod stack;
 mod type_policy;
 
@@ -259,10 +259,10 @@ impl VmModule {
                 if function_ids.insert(key.clone(), entry.id).is_some() {
                     return Err(invalid_bytecode(format!("duplicate FUNCTION name '{key}'")));
                 }
-            } else if matches!(entry.kind, PouKind::Class) {
-                if class_ids.insert(key.clone(), entry.id).is_some() {
-                    return Err(invalid_bytecode(format!("duplicate CLASS name '{key}'")));
-                }
+            } else if matches!(entry.kind, PouKind::Class)
+                && class_ids.insert(key.clone(), entry.id).is_some()
+            {
+                return Err(invalid_bytecode(format!("duplicate CLASS name '{key}'")));
             }
 
             if let Some(class_meta) = &entry.class_meta {
@@ -529,19 +529,16 @@ mod tests {
     use super::*;
 
     use crate::bytecode::{
-        BytecodeVersion, ConstPool, MethodEntry, PouClassMeta, PouEntry, PouIndex, RefSegment as
-            BytecodeRefSegment, Section, TypeTable, VarMetaEntry, SUPPORTED_MAJOR_VERSION,
-        SUPPORTED_MINOR_VERSION,
+        BytecodeVersion, ConstPool, MethodEntry, PouClassMeta, PouEntry, PouIndex,
+        RefSegment as BytecodeRefSegment, Section, TypeTable, VarMetaEntry,
+        SUPPORTED_MAJOR_VERSION, SUPPORTED_MINOR_VERSION,
     };
     use crate::error::StableErrorCode;
     use trust_hir::TypeId;
 
     #[test]
     fn vm_module_materialization_requires_every_execution_section() {
-        let complete = bytecode_module(
-            vec!["Main".into()],
-            vec![pou(1, 0, PouKind::Program)],
-        );
+        let complete = bytecode_module(vec!["Main".into()], vec![pou(1, 0, PouKind::Program)]);
 
         for required in [
             SectionId::StringTable,
@@ -629,10 +626,7 @@ mod tests {
     fn vm_module_materialization_rejects_duplicate_pou_ids_and_kind_names() {
         let duplicate_id = bytecode_module(
             vec!["First".into(), "Second".into()],
-            vec![
-                pou(1, 0, PouKind::Program),
-                pou(1, 1, PouKind::Function),
-            ],
+            vec![pou(1, 0, PouKind::Program), pou(1, 1, PouKind::Function)],
         );
         let error = VmModule::from_bytecode(&duplicate_id)
             .expect_err("one POU id cannot identify two declarations");
@@ -641,10 +635,7 @@ mod tests {
 
         let duplicate_name = bytecode_module(
             vec!["Main".into(), "mAiN".into()],
-            vec![
-                pou(1, 0, PouKind::Program),
-                pou(2, 1, PouKind::Program),
-            ],
+            vec![pou(1, 0, PouKind::Program), pou(2, 1, PouKind::Program)],
         );
         let error = VmModule::from_bytecode(&duplicate_name)
             .expect_err("one case-insensitive kind name cannot identify two POUs");
@@ -741,11 +732,7 @@ mod tests {
         ));
 
         assert!(matches!(
-            decode_vm_ref(
-                &reference(RefLocation::Local, 21, 5, Vec::new()),
-                &strings
-            )
-            .unwrap(),
+            decode_vm_ref(&reference(RefLocation::Local, 21, 5, Vec::new()), &strings).unwrap(),
             VmRef::Local {
                 owner_frame_id: 21,
                 offset: 5,
@@ -765,19 +752,11 @@ mod tests {
             }
         ));
         assert!(matches!(
-            decode_vm_ref(
-                &reference(RefLocation::Retain, 55, 7, Vec::new()),
-                &strings
-            )
-            .unwrap(),
+            decode_vm_ref(&reference(RefLocation::Retain, 55, 7, Vec::new()), &strings).unwrap(),
             VmRef::Retain { offset: 7, .. }
         ));
 
-        for (owner, area) in [
-            (0, IoArea::Input),
-            (1, IoArea::Output),
-            (2, IoArea::Memory),
-        ] {
+        for (owner, area) in [(0, IoArea::Input), (1, IoArea::Output), (2, IoArea::Memory)] {
             assert!(matches!(
                 decode_vm_ref(
                     &reference(RefLocation::Io, owner, 8, Vec::new()),
@@ -873,11 +852,7 @@ mod tests {
             path: RefPath::new(),
         }];
 
-        for code in [
-            vec![0x00],
-            vec![0xff],
-            vec![0x20, 0x00, 0x00],
-        ] {
+        for code in [vec![0x00], vec![0xff], vec![0x20, 0x00, 0x00]] {
             let entry = pou_entry(code.len());
             assert_eq!(infer_primary_instance_owner(&entry, &code, &refs), None);
         }
@@ -944,10 +919,7 @@ mod tests {
                 SectionId::PouIndex,
                 SectionData::PouIndex(PouIndex { entries: pous }),
             ),
-            section(
-                SectionId::PouBodies,
-                SectionData::PouBodies(Vec::new()),
-            ),
+            section(SectionId::PouBodies, SectionData::PouBodies(Vec::new())),
         ];
         module
     }

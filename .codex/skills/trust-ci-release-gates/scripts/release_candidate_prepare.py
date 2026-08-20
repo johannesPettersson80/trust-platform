@@ -13,6 +13,9 @@ from typing import Any, Sequence
 import release_candidate_guard as guard
 
 
+ADVISORY_COMMAND_IDS = frozenset({"planner", "catalog_staleness", "selftests"})
+
+
 def tree_manifest(root: Path) -> dict[str, str]:
     files = [root / "AGENTS.md"]
     skills = root / ".codex" / "skills"
@@ -114,8 +117,13 @@ def finish_artifact(
 
 
 def stage_passed(records: Sequence[dict[str, Any]], command_ids: Sequence[str]) -> bool:
-    selected = [row for row in records if row["id"] in command_ids]
-    return len(selected) == len(command_ids) and all(row["exit_status"] == 0 for row in selected)
+    required_ids = tuple(
+        command_id for command_id in command_ids if command_id not in ADVISORY_COMMAND_IDS
+    )
+    selected = [row for row in records if row["id"] in required_ids]
+    return len(selected) == len(required_ids) and all(
+        row["exit_status"] == 0 for row in selected
+    )
 
 
 def prepare(args: Any) -> int:

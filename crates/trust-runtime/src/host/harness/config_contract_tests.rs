@@ -791,8 +791,7 @@ END_CONFIGURATION
 "#,
     );
     assert!(
-        error.to_ascii_lowercase().contains("unknown")
-            && error.contains("DEADLINE"),
+        error.to_ascii_lowercase().contains("unknown") && error.contains("DEADLINE"),
         "{error}"
     );
 }
@@ -810,8 +809,7 @@ END_CONFIGURATION
 "#,
     );
     assert!(
-        error.to_ascii_lowercase().contains("duplicate")
-            && error.contains("PRIORITY"),
+        error.to_ascii_lowercase().contains("duplicate") && error.contains("PRIORITY"),
         "{error}"
     );
 }
@@ -1080,7 +1078,10 @@ END_RESOURCE
 END_CONFIGURATION
 "#,
     );
-    assert_eq!(runtime.storage().get_global("Shared"), Some(&Value::DInt(18)));
+    assert_eq!(
+        runtime.storage().get_global("Shared"),
+        Some(&Value::DInt(18))
+    );
     assert_eq!(
         runtime
             .storage()
@@ -1203,10 +1204,7 @@ END_CONFIGURATION
 "#,
     );
     assert_eq!(runtime.storage().get_global("Base"), Some(&Value::Int(3)));
-    assert_eq!(
-        runtime.storage().get_global("Middle"),
-        Some(&Value::Int(5))
-    );
+    assert_eq!(runtime.storage().get_global("Middle"), Some(&Value::Int(5)));
     assert_eq!(
         runtime.storage().get_global("ResultValue"),
         Some(&Value::Int(20))
@@ -1312,7 +1310,9 @@ END_CONFIGURATION
     );
     assert!(runtime.globals().contains_key("ConfigurationValue"));
     assert!(runtime.globals().contains_key("ResourceValue"));
-    assert!(!runtime.globals().contains_key("CellConfiguration.ConfigurationValue"));
+    assert!(!runtime
+        .globals()
+        .contains_key("CellConfiguration.ConfigurationValue"));
     assert!(!runtime.globals().contains_key("CellResource.ResourceValue"));
 }
 
@@ -1338,10 +1338,7 @@ END_RESOURCE
 END_CONFIGURATION
 "#,
     );
-    assert_eq!(
-        runtime.globals()["Retained"].retain,
-        RetainPolicy::Retain
-    );
+    assert_eq!(runtime.globals()["Retained"].retain, RetainPolicy::Retain);
     assert_eq!(
         runtime.globals()["Reinitialized"].retain,
         RetainPolicy::NonRetain

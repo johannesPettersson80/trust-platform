@@ -15,7 +15,8 @@ TYPE
         u1 : INT;
         u2 : BOOL;
     END_UNION;
-    MyEnum : (Red := 1, Green := 2, Blue := 3) INT;
+    MyEnum : (Red := 1, Green := 2, Blue := 3);
+    MyNamed : INT (Low := 1, High := 2);
     MyRef : REF_TO INT;
 END_TYPE
 
@@ -27,6 +28,7 @@ VAR
     st : MyStruct;
     un : MyUnion;
     enum_val : MyEnum;
+    named_val : MyNamed;
     rf : MyRef;
 END_VAR
 END_PROGRAM
@@ -102,6 +104,14 @@ END_PROGRAM
         assert_eq!(variants[2].value, 3);
     } else {
         panic!("expected enum type data");
+    }
+
+    let named_value = find_type(types, strings, "MyNamed");
+    assert_eq!(named_value.kind, TypeKind::Alias);
+    if let TypeData::Alias { target_type_id } = &named_value.data {
+        expect_primitive(types, *target_type_id, 7);
+    } else {
+        panic!("expected named-value alias type data");
     }
 
     let alias = find_type(types, strings, "MyAlias");

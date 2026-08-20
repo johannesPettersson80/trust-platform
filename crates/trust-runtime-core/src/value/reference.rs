@@ -142,8 +142,8 @@ fn parse_access_index(text: &str) -> Option<u8> {
 #[cfg(test)]
 mod tests {
     use super::{
-        PartialAccess, RefPath, RefSegment, array_offset_i64, checked_array_offset_i64,
-        parse_partial_access, ref_indices_from_iter, single_ref_index,
+        array_offset_i64, checked_array_offset_i64, parse_partial_access, ref_indices_from_iter,
+        single_ref_index, PartialAccess, RefPath, RefSegment,
     };
     use crate::error::RuntimeError;
     use alloc::vec;

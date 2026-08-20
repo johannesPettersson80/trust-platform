@@ -28,16 +28,15 @@ fn load_counter() -> HarnessAutomation {
     automation
 }
 
-fn assert_invalid_argument<T: Debug>(
-    result: Result<T, HarnessAutomationError>,
-    expected: &str,
-) {
+fn assert_invalid_argument<T: Debug>(result: Result<T, HarnessAutomationError>, expected: &str) {
     let error = result.expect_err("expected invalid argument");
     let HarnessAutomationError::InvalidArgument(message) = error else {
         panic!("expected invalid argument, got {error:?}");
     };
     assert!(
-        message.to_ascii_lowercase().contains(&expected.to_ascii_lowercase()),
+        message
+            .to_ascii_lowercase()
+            .contains(&expected.to_ascii_lowercase()),
         "expected {message:?} to contain {expected:?}"
     );
 }
@@ -55,7 +54,7 @@ fn assert_roundtrip(value: Value) {
 fn harness_protocol_contract_automation_starts_unloaded() {
     let automation = HarnessAutomation::new();
     assert!(!automation.is_loaded());
-    assert_eq!(HarnessAutomation::default().is_loaded(), false);
+    assert!(!HarnessAutomation::default().is_loaded());
 }
 
 #[test]
@@ -167,10 +166,7 @@ END_PROGRAM
 "#
         .to_string()])
         .unwrap_err();
-    assert!(matches!(
-        error,
-        HarnessAutomationError::RuntimeCycle { .. }
-    ));
+    assert!(matches!(error, HarnessAutomationError::RuntimeCycle { .. }));
     assert!(automation.is_loaded());
     assert_eq!(
         automation.get_output("counter").unwrap().value,
@@ -187,25 +183,17 @@ fn harness_protocol_contract_zero_count_cycle_is_passive() {
 
     assert_eq!(snapshot.cycle_count, 1);
     assert_eq!(snapshot.elapsed_ms, 0);
-    assert_eq!(
-        snapshot.values["counter"].value,
-        Some(Value::DInt(1))
-    );
+    assert_eq!(snapshot.values["counter"].value, Some(Value::DInt(1)));
 }
 
 #[test]
 fn harness_protocol_contract_cycle_advances_before_each_cycle() {
     let mut automation = load_counter();
-    let snapshot = automation
-        .cycle(3, 7, &["counter".to_string()])
-        .unwrap();
+    let snapshot = automation.cycle(3, 7, &["counter".to_string()]).unwrap();
 
     assert_eq!(snapshot.cycle_count, 4);
     assert_eq!(snapshot.elapsed_ms, 21);
-    assert_eq!(
-        snapshot.values["counter"].value,
-        Some(Value::DInt(4))
-    );
+    assert_eq!(snapshot.values["counter"].value, Some(Value::DInt(4)));
 }
 
 #[test]
@@ -234,10 +222,7 @@ fn harness_protocol_contract_maximum_millisecond_duration_is_accepted() {
 #[test]
 fn harness_protocol_contract_oversize_cycle_duration_is_rejected_without_mutation() {
     let mut automation = load_counter();
-    assert_invalid_argument(
-        automation.cycle(1, MAX_DURATION_MILLIS + 1, &[]),
-        "dt_ms",
-    );
+    assert_invalid_argument(automation.cycle(1, MAX_DURATION_MILLIS + 1, &[]), "dt_ms");
     let state = automation.snapshot(&[]).unwrap();
     assert_eq!(state.cycle_count, 1);
     assert_eq!(state.elapsed_ms, 0);
@@ -259,13 +244,7 @@ fn harness_protocol_contract_oversize_advance_duration_is_rejected_without_mutat
 fn harness_protocol_contract_oversize_run_until_duration_is_rejected_before_match() {
     let mut automation = load_counter();
     assert_invalid_argument(
-        automation.run_until(
-            "counter",
-            Value::DInt(1),
-            MAX_DURATION_MILLIS + 1,
-            0,
-            &[],
-        ),
+        automation.run_until("counter", Value::DInt(1), MAX_DURATION_MILLIS + 1, 0, &[]),
         "dt_ms",
     );
     let state = automation.snapshot(&[]).unwrap();
@@ -287,19 +266,16 @@ fn harness_protocol_contract_snapshot_is_passive_sorted_and_entry_local() {
     assert_eq!(snapshot.cycle_count, 1);
     assert_eq!(snapshot.elapsed_ms, 0);
     assert_eq!(
-        snapshot.values.keys().map(String::as_str).collect::<Vec<_>>(),
+        snapshot
+            .values
+            .keys()
+            .map(String::as_str)
+            .collect::<Vec<_>>(),
         vec!["counter", "missing"]
     );
+    assert_eq!(snapshot.values["counter"].value, Some(Value::DInt(1)));
     assert_eq!(
-        snapshot.values["counter"].value,
-        Some(Value::DInt(1))
-    );
-    assert_eq!(
-        snapshot.values["missing"]
-            .error
-            .as_ref()
-            .unwrap()
-            .code(),
+        snapshot.values["missing"].error.as_ref().unwrap().code(),
         "unresolved_name"
     );
 }
@@ -308,13 +284,7 @@ fn harness_protocol_contract_snapshot_is_passive_sorted_and_entry_local() {
 fn harness_protocol_contract_run_until_prechecks_current_value() {
     let mut automation = load_counter();
     let summary = automation
-        .run_until(
-            "counter",
-            Value::DInt(1),
-            10,
-            5,
-            &["counter".to_string()],
-        )
+        .run_until("counter", Value::DInt(1), 10, 5, &["counter".to_string()])
         .unwrap();
 
     assert_eq!(summary.name, "counter");
@@ -355,10 +325,7 @@ fn harness_protocol_contract_run_until_timeout_commits_completed_work() {
     let snapshot = automation.snapshot(&["counter".to_string()]).unwrap();
     assert_eq!(snapshot.cycle_count, 3);
     assert_eq!(snapshot.elapsed_ms, 10);
-    assert_eq!(
-        snapshot.values["counter"].value,
-        Some(Value::DInt(3))
-    );
+    assert_eq!(snapshot.values["counter"].value, Some(Value::DInt(3)));
 }
 
 #[test]
@@ -406,10 +373,7 @@ fn harness_protocol_contract_untyped_primitives_decode_deterministically() {
         Value::String("text".into())
     );
     assert_eq!(decode_json_value(&JsonValue::Null).unwrap(), Value::Null);
-    assert_eq!(
-        decode_json_value(&json!(1.5)).unwrap(),
-        Value::LReal(1.5)
-    );
+    assert_eq!(decode_json_value(&json!(1.5)).unwrap(), Value::LReal(1.5));
 }
 
 #[test]
@@ -672,12 +636,7 @@ fn harness_protocol_contract_empty_untyped_array_is_rejected() {
 fn harness_protocol_contract_typed_array_roundtrips_dimensions_and_elements() {
     let value = Value::Array(Box::new(
         ArrayValue::from_untyped_parts(
-            vec![
-                Value::Int(1),
-                Value::Int(2),
-                Value::Int(3),
-                Value::Int(4),
-            ],
+            vec![Value::Int(1), Value::Int(2), Value::Int(3), Value::Int(4)],
             vec![(-1, 0), (3, 4)],
         )
         .unwrap(),
@@ -709,15 +668,11 @@ fn harness_protocol_contract_typed_array_requires_elements_and_exact_shape() {
         "elements",
     );
     assert_invalid_argument(
-        decode_json_value(
-            &json!({"type": "ARRAY", "dimensions": [[0, 1]], "elements": [1]}),
-        ),
+        decode_json_value(&json!({"type": "ARRAY", "dimensions": [[0, 1]], "elements": [1]})),
         "element count",
     );
     assert_invalid_argument(
-        decode_json_value(
-            &json!({"type": "ARRAY", "dimensions": [[2, 1]], "elements": []}),
-        ),
+        decode_json_value(&json!({"type": "ARRAY", "dimensions": [[2, 1]], "elements": []})),
         "invalid array",
     );
 }

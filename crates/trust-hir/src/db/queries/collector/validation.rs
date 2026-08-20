@@ -69,9 +69,7 @@ impl SymbolCollector<'_> {
         let children = match self.table.type_by_id(current) {
             Some(Type::Alias { target, .. }) => vec![*target],
             Some(Type::Array { element, .. }) => vec![*element],
-            Some(Type::Struct { fields, .. }) => {
-                fields.iter().map(|field| field.type_id).collect()
-            }
+            Some(Type::Struct { fields, .. }) => fields.iter().map(|field| field.type_id).collect(),
             Some(Type::Union { variants, .. }) => {
                 variants.iter().map(|variant| variant.type_id).collect()
             }
@@ -215,17 +213,12 @@ impl SymbolCollector<'_> {
     }
 
     pub(super) fn check_var_block_modifiers(&mut self, root: &SyntaxNode) {
-        for block in root
-            .descendants()
-            .filter(|n| {
-                matches!(
-                    n.kind(),
-                    SyntaxKind::VarBlock
-                        | SyntaxKind::VarAccessBlock
-                        | SyntaxKind::VarConfigBlock
-                )
-            })
-        {
+        for block in root.descendants().filter(|n| {
+            matches!(
+                n.kind(),
+                SyntaxKind::VarBlock | SyntaxKind::VarAccessBlock | SyntaxKind::VarConfigBlock
+            )
+        }) {
             let modifiers = var_block_modifiers(&block);
             let qualifier = var_qualifier_from_block(&block);
 
@@ -256,7 +249,10 @@ impl SymbolCollector<'_> {
             if matches!(
                 block.kind(),
                 SyntaxKind::VarAccessBlock | SyntaxKind::VarConfigBlock
-            ) && (modifiers.constant || modifiers.retain.is_some() || modifiers.non_retain.is_some() || modifiers.persistent.is_some())
+            ) && (modifiers.constant
+                || modifiers.retain.is_some()
+                || modifiers.non_retain.is_some()
+                || modifiers.persistent.is_some())
             {
                 self.diagnostics.error(
                     DiagnosticCode::InvalidOperation,
@@ -310,10 +306,9 @@ impl SymbolCollector<'_> {
                     owner,
                     Some(SyntaxKind::Program | SyntaxKind::FunctionBlock | SyntaxKind::Class)
                 ),
-                VarQualifier::Input | VarQualifier::Output => matches!(
-                    owner,
-                    Some(SyntaxKind::Program | SyntaxKind::FunctionBlock)
-                ),
+                VarQualifier::Input | VarQualifier::Output => {
+                    matches!(owner, Some(SyntaxKind::Program | SyntaxKind::FunctionBlock))
+                }
                 _ => false,
             };
 
@@ -500,9 +495,10 @@ impl SymbolCollector<'_> {
             }
         }
 
-        for member in root.descendants().filter(|node| {
-            matches!(node.kind(), SyntaxKind::Method | SyntaxKind::Property)
-        }) {
+        for member in root
+            .descendants()
+            .filter(|node| matches!(node.kind(), SyntaxKind::Method | SyntaxKind::Property))
+        {
             let access = explicit_visibility_tokens(&member);
             let Some((_, range)) = access.first().copied() else {
                 continue;

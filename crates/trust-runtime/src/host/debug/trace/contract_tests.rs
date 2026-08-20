@@ -141,6 +141,5 @@ fn trace_file_open_failure_is_nonfatal() {
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
-    assert!(String::from_utf8_lossy(&output.stderr)
-        .contains("[trust-runtime][debug] message"));
+    assert!(String::from_utf8_lossy(&output.stderr).contains("[trust-runtime][debug] message"));
 }

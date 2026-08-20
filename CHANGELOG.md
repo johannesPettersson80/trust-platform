@@ -6,37 +6,18 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
-- Focused verification traces now consume each per-test LLVM export once and
-  bind the validated trace, raw profiles, executables, tools, requested test
-  identities, and covered sources into a reusable authentication receipt, so
-  mapping generation can revalidate the frozen evidence without repeating the
-  complete coverage reconstruction. Shared test executables are also hashed
-  and snapshotted once per unique binary instead of once per test identity.
-- Verification focused traces now preserve each test's closed Cargo target and
-  module prefix, separate default-feature and no-default-feature shards, and
-  resolve exact duplicate terminal test names without widening execution to a
-  package or workspace test set.
 - Specify runtime clock dispatch name/error identity and deterministic LSP
   diagnostic-override collision precedence, including canonical-key priority
   and alias-only lexical ordering.
-- Verification assertion inventories now digest-bind declared repository input
-  trees, validate generated outputs below explicit temporary roots, and
-  classify the fixed Linux process-status observation without trusting dynamic,
-  escaping, symbolic-link, or arbitrary report paths. The parser example
-  corpus test also fails instead of silently skipping a missing tree and now
-  parses all checked-in examples.
-- Freeze the OpenOT ST conformance inputs inside the runtime test fixture
-  closure and make the fenced capstone reconciliation assertions explicit, so
-  exact verification remains commit-bound instead of depending on mutable
-  sibling-checkout source and opaque helper assertions.
+- The parser example-corpus test now fails when the checked-in example tree is
+  missing and parses every checked-in example instead of silently skipping the
+  suite.
 - Specify the nine shipped tutorial files as executable compile contracts and
   lock the blinker, traffic-light, and motor-starter examples to their reviewed
   clean-cycle timing and I/O sequences.
 - Specify the native browser-analysis and WebAssembly JSON adapter boundary for
-  reviewed native-result parity, opaque virtual document identity, full-set
-  replacement, and explicit JSON success and failure projections; add a closed
-  exact-test profile and semantic assignment lock for the 15 functional MP010
-  parity tests while leaving latency and memory evidence separate.
+  native-result parity, opaque virtual document identity, full-set replacement,
+  and explicit JSON success and failure projections.
 - Specify the runtime variable-storage contract for instance-field resolution,
   declared layouts, reference-helper equivalence, cache invalidation,
   copy-on-write nested updates, and checked extreme array bounds.
@@ -67,21 +48,62 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   fail-closed import diagnostics, migration and CODESYS metadata, reviewed
   vendor shims, and Allen-Bradley/Siemens adapter artifact contracts.
 
-Target release: `v0.24.61`
+Target release: `v0.24.62`
 
 ### Fixed
 
+- Write the correlated runtime control acknowledgement before applying an
+  accepted shutdown stop signal, preventing managed fleet stop from losing its
+  response while the runtime process exits under load.
+- Update the VS Code dependency lock to patched `brace-expansion` and `js-yaml`
+  releases after their high-severity denial-of-service advisories.
+- Keep malformed numeric candidates such as a real literal with a trailing dot
+  as one fail-closed lexer error instead of publishing a valid numeric prefix.
+- Preserve the stable `E106` invalid-identifier diagnostic when malformed
+  identifier candidates are rejected directly by the lexer, instead of
+  degrading the editor diagnostic to a generic parser error.
+- Keep function-block parameter defaults in instance storage while encoding
+  recursive function/method call-local `IN` and `OUT` defaults, including
+  fixed and wildcard arrays, structs, unions, nested strings, and NULL
+  references. Constant validation now shares one bounded recursion policy and
+  rejects malformed aggregate frames and non-NULL reference identities, while
+  supplied interface and object-instance formals no longer fail bytecode
+  publication merely because no portable implicit constant exists.
+- Publish uniquely resolved cross-file enum values into their enclosing scope
+  so later program initializers can use them, while preserving ambiguity for
+  colliding variants from distinct enum types.
+- Preserve enum identity for unqualified `CASE` labels in bytecode lowering so
+  both VM execution paths select the matching branch without weakening
+  same-named constant shadowing.
+- Keep same-named fleet runtimes, endpoints, configured mesh peers, and links
+  distinct across hosts and containers when Devices & Connections combines
+  legacy schema-v2/v3/v4 snapshots, while failing closed only for ambiguous
+  references and preserving unrelated topology.
+- Clamp LSP telemetry duration milliseconds at `u64::MAX` instead of wrapping
+  an overflowing duration into a small, misleading latency value.
+- Document the external-diagnostic JSON input contract, including trimmed,
+  case-insensitive string severities and numeric LSP severities.
+- Reject mutable BOOL, REAL, STRING, and aggregate-member dependencies in
+  explicit variable initializers instead of applying the constant-expression
+  rule only to direct integer initializers.
+- Preserve the IEC reference-declaration exception so `REF_TO` variables may
+  initialize from `REF(...)` of eligible existing storage while retaining the
+  canonical REF lvalue, type, visibility, and lifetime diagnostics.
+- Publish stable `C001`-`C005` LSP configuration diagnostics for unreadable or
+  malformed files, unknown standard-library profiles and workspace visibility,
+  invalid positive bounds, and ignored invalid severity overrides; E303/E304
+  explainers now link to their actual IEC array/range clauses.
+- Keep project source discovery inside the supported `.st`/`.pou` set after
+  resolving contained symbolic links, while retaining deterministic canonical
+  identity for valid contained aliases.
+- Preserve runtime link health detail in Devices & Connections and render
+  degraded/error links with distinct warning/error tones plus an accessible
+  hover/focus explanation.
 - Release tag and version-evidence guards now fail closed unless an annotated
   tag resolves to the exact release commit, CI and Release runs match the exact
   event, branch, and SHA with usable URLs, API collections are well formed,
-  and published asset names are unique.
-- Focused verification trace documents now validate the bound per-test
-  no-default-feature mode instead of rejecting the producer-authentic field
-  during final schema validation after successful execution.
-- Focused verification coverage tracing now resolves closed Rust target
-  profiles before generic package heuristics and preserves their module
-  prefixes, so binary-owned LSP tests and duplicate terminal test names map to
-  the exact nextest identities instead of being rejected as unresolved.
+  successful API responses are top-level objects with stable endpoint/status
+  diagnostics instead of tracebacks, and published asset names are unique.
 - HIR temporal arithmetic now implements the complete documented IEC 61131-3
   Table 35 operand/result matrix and rejects swapped, cross-family, and other
   unlisted temporal combinations at the operator boundary.
@@ -120,12 +142,6 @@ Target release: `v0.24.61`
 - Debug breakpoints now emit at most one stop per breakpoint identity within a
   runtime scan, preventing overlapping debug-map entries from repeatedly
   stopping the same scan while preserving breakpoint re-hits on later scans.
-- Verification assertion extraction now selects the owning Rust Cargo target,
-  includes `cfg(test)` module sources, and follows visibility-valid local,
-  named, glob, restricted, and transitive re-exports while keeping ordinary
-  product execution and ambiguous targets outside delegated test proof; WASM
-  parity fixtures remain compile-time bound into the reviewed oracle digest
-  closure.
 - Runtime bytecode documentation now matches the executable STBC 1.1 opcode
   set and specifies source-to-section, resource/process-image, variable
   metadata, and validation contracts used by the existing encoder and runtime.
@@ -138,9 +154,6 @@ Target release: `v0.24.61`
   of silently widening values such as `ULINT` to `REAL`; representable untyped
   numeric literals retain their valid contextual operand or overloaded-argument
   type.
-- Verification assertion extraction now recognizes closed path aliases under
-  a test-created temporary root as generated output while keeping dynamic,
-  absolute, parent-escaping, reassigned, and report-derived reads unresolved.
 - OSCAT: decimal rounding, random helpers, array shuffle, random generators,
   and dew-point relative-humidity conversion now preserve their declared
   `INT`/`REAL` types instead of failing at runtime when generic `LIMIT`
@@ -173,14 +186,6 @@ Target release: `v0.24.61`
   array bounds, while nonconstant integer indexes are no longer rejected
   solely because their declared subrange extends beyond those bounds; their
   actual computed value remains bounds-checked at runtime.
-- verification: focused test-catalog mapping now authenticates live Rust
-  module/include topology and the complete assertion/oracle source closure,
-  retaining that closure after catalog acceptance so helper or fixture changes
-  cannot leave a stale mapping marked fresh; acceptance closes only
-  catalog-awaiting coverage cells and preserves existing proof or non-catalog
-  debt classifications, while large accepted batches update catalog,
-  denominator, and invariant links once per file instead of reparsing each
-  growing ledger once per test.
 - VS Code: Devices & Connections now keeps established degraded and failed
   links solid while using semantic health styling, and renders configured-only
   links dashed so line style consistently represents topology proof.
@@ -418,10 +423,6 @@ Target release: `v0.24.61`
 - verification: the runtime communications fuzz gate now selects the live WAN
   allowlist smoke module instead of exiting successfully after running zero
   tests; bounded campaigns also reject any zero-test Cargo filter.
-- verification: normative IEC and product-specification documents now traverse
-  the enforcing metadata route, while docs-only planning recognizes the single
-  repository metadata gate across all changed product areas instead of
-  demanding duplicate area-local metadata validators.
 - trust-ads-server: restored the command-dispatch cargo-fuzz target after the
   symbol snapshot interface moved to shared `Arc` ownership, so all registered
   ADS fuzz targets compile and execute under the bounded campaign.
@@ -542,24 +543,15 @@ Target release: `v0.24.61`
 
 ### Added
 
-- The VS Code extension test harness now accepts an opt-in
-  `TRUST_VSCODE_TEST_GREP` regular expression for exact Phase 18 execution
-  campaigns, emits optional commit-bound per-test JSON evidence, and preserves
-  the unfiltered `npm test` default.
-- Verification assertion extraction now follows reachable unambiguous
-  same-file TypeScript helpers with cycle protection and assertion
-  de-duplication instead of leaving executed helper oracles unresolved.
-- verification: add a parser-backed production code-to-spec denominator for
-  Rust, shipped TypeScript/JavaScript, and verification tooling, with exact
-  reviewed mappings, delete-only debt, machine-resolved risk acknowledgements,
-  canonical reports, and changed-code enforcement through the existing
-  verification planner and workflow.
+- The VS Code extension test harness now supports opt-in
+  `TRUST_VSCODE_TEST_GREP` filtering and optional per-test JSON output while
+  preserving the unfiltered `npm test` default.
 
 - verification: added direct cargo-fuzz targets for HIR lowering, PLCopen XML,
   bytecode containers, runtime configuration, LSP incremental edits, and HMI
-  payloads; linked all conformance cases, added direct runtime-anomaly tests,
-  and resolved six obsolete test skips, including retirement of a capture for
-  a runtime command that is intentionally hidden from the command palette.
+  payloads; added direct runtime-anomaly tests; and resolved six obsolete test
+  skips, including retirement of a capture for a runtime command that is
+  intentionally hidden from the command palette.
 - release: added digest-bound artifact provenance and result-derived
   conformance status assets, plus release checks binding the workspace version,
   tag, successful workflow, required assets, and GitHub Latest pointer.
@@ -567,10 +559,8 @@ Target release: `v0.24.61`
   added product-path malformed-bytecode case execution, and promoted the
   existing owner, reference, call, jump, stack, schema, checksum, and version
   rejection checks from quarantine into the regular test suite.
-- trust-runtime: added focused automatic-restart storage coverage and cataloged
-  the existing runtime panic-containment and bounded Modbus slow-device tests;
-  broader restart, latency, and reload-migration cases remain explicit
-  verification debt.
+- trust-runtime: added focused automatic-restart storage tests alongside the
+  existing runtime panic-containment and bounded Modbus slow-device tests.
 - trust-runtime: added a Viewer-gated `connectors.status` control surface that
   projects process-image I/O driver health and ADS client/server status into
   the shared connector status schema without changing the existing

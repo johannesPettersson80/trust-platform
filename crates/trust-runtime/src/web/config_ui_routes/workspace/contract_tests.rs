@@ -136,8 +136,7 @@ fn workspace_loader_accepts_runtime_at_selected_root() {
     )
     .expect("write runtime");
 
-    let workspace =
-        load_workspace_model(&Some(fixture.root.clone())).expect("load root runtime");
+    let workspace = load_workspace_model(&Some(fixture.root.clone())).expect("load root runtime");
     assert_eq!(workspace.root, fixture.root);
     assert_eq!(workspace.runtimes.len(), 1);
     assert_eq!(workspace.runtimes[0].runtime_id, "root_runtime");
@@ -187,8 +186,7 @@ fn workspace_loader_sorts_runtimes_by_id() {
 #[test]
 fn workspace_loader_rejects_an_empty_workspace() {
     let fixture = TempWorkspace::new("empty");
-    let error =
-        load_workspace_model(&Some(fixture.root.clone())).expect_err("empty workspace");
+    let error = load_workspace_model(&Some(fixture.root.clone())).expect_err("empty workspace");
     assert!(error.to_string().contains("no runtime.toml found"));
 }
 
@@ -256,8 +254,7 @@ fn matching_revision_allows_validated_replacement() {
     std::fs::write(&path, "old").expect("write old");
     let expected = text_revision("old");
 
-    let revision =
-        write_config_file(&path, "new", Some(&expected), accept_text).expect("replace");
+    let revision = write_config_file(&path, "new", Some(&expected), accept_text).expect("replace");
     assert_eq!(revision, text_revision("new"));
     assert_eq!(std::fs::read_to_string(&path).expect("read"), "new");
 }
@@ -318,7 +315,13 @@ fn structured_text_path_is_trimmed_relative_and_case_insensitive() {
 
 #[test]
 fn structured_text_path_rejects_empty_absolute_and_parent_paths() {
-    for raw in ["", " ", "/tmp/main.st", "../main.st", "nested/../../main.st"] {
+    for raw in [
+        "",
+        " ",
+        "/tmp/main.st",
+        "../main.st",
+        "nested/../../main.st",
+    ] {
         assert!(normalize_st_relative_path(raw).is_err(), "{raw:?}");
     }
 }
@@ -333,8 +336,7 @@ fn structured_text_path_rejects_other_extensions() {
 #[test]
 fn absent_project_io_file_projects_safe_loopback_default() {
     let fixture = TempWorkspace::new("default-io");
-    let response =
-        load_project_io_config_response(&fixture.root).expect("default I/O projection");
+    let response = load_project_io_config_response(&fixture.root).expect("default I/O projection");
     assert_eq!(response.driver, "loopback");
     assert_eq!(response.source, "default");
     assert!(!response.use_system_io);
@@ -401,8 +403,11 @@ fn project_state_revision_changes_with_exact_runtime_text() {
     let runtime_root = fixture.runtime("line", "line");
     std::fs::write(runtime_root.join("io.toml"), "").expect("write I/O");
     std::fs::create_dir_all(runtime_root.join("src")).expect("create src");
-    std::fs::write(runtime_root.join("src/main.st"), "PROGRAM Main\nEND_PROGRAM\n")
-        .expect("write ST");
+    std::fs::write(
+        runtime_root.join("src/main.st"),
+        "PROGRAM Main\nEND_PROGRAM\n",
+    )
+    .expect("write ST");
 
     let first_workspace =
         load_workspace_model(&Some(fixture.root.clone())).expect("first workspace");

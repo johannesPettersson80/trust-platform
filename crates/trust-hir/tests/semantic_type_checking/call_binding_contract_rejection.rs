@@ -138,7 +138,10 @@ fn call_binding_contract_rejects_unknown_named_parameter() {
 
 #[test]
 fn call_binding_contract_rejects_incomplete_positional_call() {
-    rejected("z := Transfer(x, y, z);", DiagnosticCode::WrongArgumentCount);
+    rejected(
+        "z := Transfer(x, y, z);",
+        DiagnosticCode::WrongArgumentCount,
+    );
 }
 
 #[test]

@@ -11,7 +11,7 @@ use verification_cases::{
 const TEST_ID: &str = "TEST_RUNTIME_INTEGER_I64_NORMALIZATION_TRACE_001";
 const CASE_FILE: &str = "verification/cases/runtime_safety/RT_INTEGER_I64_NORMALIZATION_001.toml";
 const CASE_FILE_DIGEST: &str =
-    "sha256:76a97c9098d244c7305fdc620e304fdfa96dc1406282001718d0a041fcead2c4";
+    "sha256:0b5068f16dc48ced664f4fa1fe7dbffc26b976db80bc4546be483691b359dfa4";
 
 #[test]
 fn integer_i64_normalization_cases() {

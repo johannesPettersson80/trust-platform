@@ -20,9 +20,7 @@ impl IoDriver for RegistryContractDriver {
     }
 }
 
-fn registry_contract_create(
-    _params: &toml::Value,
-) -> Result<Box<dyn IoDriver>, RuntimeError> {
+fn registry_contract_create(_params: &toml::Value) -> Result<Box<dyn IoDriver>, RuntimeError> {
     REGISTRY_CONTRACT_CREATE_COUNT.fetch_add(1, Ordering::SeqCst);
     Ok(Box::new(RegistryContractDriver))
 }
@@ -76,7 +74,10 @@ fn registry_contract_none_is_trimmed_case_insensitive_and_parameter_independent(
     .into();
     for name in ["none", " NONE ", "NoNe"] {
         registry.validate(name, &arbitrary).expect("none validates");
-        assert!(registry.build(name, &arbitrary).expect("none builds").is_none());
+        assert!(registry
+            .build(name, &arbitrary)
+            .expect("none builds")
+            .is_none());
     }
 }
 
@@ -161,11 +162,9 @@ fn registry_contract_missing_alias_target_never_creates_entry() {
     registry.register_alias("ghost", "missing-target");
 
     assert!(!registry.entries.contains_key("ghost"));
-    assert!(
-        registry
-            .validate("ghost", &registry_contract_empty_params())
-            .is_err()
-    );
+    assert!(registry
+        .validate("ghost", &registry_contract_empty_params())
+        .is_err());
 }
 
 #[test]
@@ -184,12 +183,10 @@ fn registry_contract_empty_and_none_registration_do_not_enter_enumeration() {
     );
 
     assert_eq!(registry.canonical_driver_names(), vec!["valid".to_string()]);
-    assert!(
-        registry
-            .build("none", &registry_contract_empty_params())
-            .expect("reserved none")
-            .is_none()
-    );
+    assert!(registry
+        .build("none", &registry_contract_empty_params())
+        .expect("reserved none")
+        .is_none());
 }
 
 #[test]

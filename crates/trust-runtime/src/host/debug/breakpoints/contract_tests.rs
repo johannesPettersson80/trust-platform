@@ -38,14 +38,7 @@ fn matched(
     logs: &mut Vec<DebugLog>,
     location: SourceLocation,
 ) -> Option<(u64, BreakpointCycleKey)> {
-    matches_breakpoint(
-        breakpoints,
-        stopped,
-        logs,
-        None,
-        &location,
-        &mut None,
-    )
+    matches_breakpoint(breakpoints, stopped, logs, None, &location, &mut None)
 }
 
 #[test]
@@ -71,12 +64,7 @@ fn touching_half_open_spans_do_not_overlap() {
         SourceLocation::new(1, 20, 30),
     ] {
         assert_eq!(
-            matched(
-                &mut breakpoints,
-                &HashSet::new(),
-                &mut Vec::new(),
-                location
-            ),
+            matched(&mut breakpoints, &HashSet::new(), &mut Vec::new(), location),
             None
         );
     }
@@ -165,22 +153,11 @@ fn hit_count_increments_before_hit_condition_evaluation() {
     let location = SourceLocation::new(1, 10, 20);
 
     assert_eq!(
-        matched(
-            &mut breakpoints,
-            &HashSet::new(),
-            &mut Vec::new(),
-            location
-        ),
+        matched(&mut breakpoints, &HashSet::new(), &mut Vec::new(), location),
         None
     );
     assert_eq!(breakpoints[0].hits, 1);
-    assert!(matched(
-        &mut breakpoints,
-        &HashSet::new(),
-        &mut Vec::new(),
-        location
-    )
-    .is_some());
+    assert!(matched(&mut breakpoints, &HashSet::new(), &mut Vec::new(), location).is_some());
     assert_eq!(breakpoints[0].hits, 2);
 }
 
@@ -404,7 +381,10 @@ fn log_value_boolean_string_and_character_forms_are_stable() {
     assert_eq!(format_log_value(&Value::Bool(true)), "TRUE");
     assert_eq!(format_log_value(&Value::Bool(false)), "FALSE");
     assert_eq!(format_log_value(&Value::String("text".into())), "text");
-    assert_eq!(format_log_value(&Value::WString("wide".to_string())), "wide");
+    assert_eq!(
+        format_log_value(&Value::WString("wide".to_string())),
+        "wide"
+    );
     assert_eq!(format_log_value(&Value::Char(b'A')), "A");
     assert_eq!(format_log_value(&Value::WChar('å' as u16)), "å");
     assert_eq!(format_log_value(&Value::WChar(0xD800)), "?");

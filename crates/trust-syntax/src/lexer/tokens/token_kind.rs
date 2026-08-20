@@ -456,10 +456,7 @@ pub enum TokenKind {
     TypedLiteralPrefix,
     #[regex(r"%[IQM]\*")]
     #[regex(r"%[IQM][XBWDL]?[0-9]+(\.[0-9]+)*")]
-    #[regex(
-        r"%[XBWDL][0-9]+(_?[0-9]+)*(\.[0-9]+(_?[0-9]+)*)*",
-        ignore(case)
-    )]
+    #[regex(r"%[XBWDL][0-9]+(_?[0-9]+)*(\.[0-9]+(_?[0-9]+)*)*", ignore(case))]
     DirectAddress,
     #[regex(r"[A-Za-z_][A-Za-z0-9_]*")]
     Ident,

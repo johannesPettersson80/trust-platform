@@ -102,7 +102,9 @@ fn user_type_contract_partial_array_initializer_emits_cardinality_warning() {
         "PROGRAM Main\nVAR values : ARRAY[1..3] OF INT := [1, 2]; END_VAR\nEND_PROGRAM",
     );
     assert!(
-        warnings.iter().any(|message| is_array_cardinality_warning(message)),
+        warnings
+            .iter()
+            .any(|message| is_array_cardinality_warning(message)),
         "partial initializer must warn about default fill: {warnings:?}"
     );
 }
@@ -113,7 +115,9 @@ fn user_type_contract_excess_array_initializer_emits_cardinality_warning() {
         "PROGRAM Main\nVAR values : ARRAY[1..2] OF INT := [1, 2, 3]; END_VAR\nEND_PROGRAM",
     );
     assert!(
-        warnings.iter().any(|message| is_array_cardinality_warning(message)),
+        warnings
+            .iter()
+            .any(|message| is_array_cardinality_warning(message)),
         "excess initializer must warn about ignored values: {warnings:?}"
     );
 }

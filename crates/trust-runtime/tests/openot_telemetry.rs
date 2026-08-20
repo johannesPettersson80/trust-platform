@@ -2973,7 +2973,7 @@ fn write_authoring_showcase_artifacts(
         format!("{definition_json}\n"),
     )?;
 
-    write_reactor_readme(&reactor_dir, &text)?;
+    write_reactor_readme(reactor_dir, &text)?;
 
     Ok(())
 }

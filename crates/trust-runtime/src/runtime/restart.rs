@@ -74,10 +74,8 @@ impl Runtime {
                         if !retain_on_warm(var.retain) {
                             continue;
                         }
-                        let phase_name = edge_phase_storage_name(
-                            program.name.as_str(),
-                            input.name.as_str(),
-                        );
+                        let phase_name =
+                            edge_phase_storage_name(program.name.as_str(), input.name.as_str());
                         let Some(value) = self
                             .storage
                             .get_instance_var(*id, phase_name.as_str())
@@ -86,11 +84,7 @@ impl Runtime {
                             continue;
                         };
                         if value_is_retainable(&value) {
-                            retained_program_vars.push((
-                                program.name.clone(),
-                                phase_name,
-                                value,
-                            ));
+                            retained_program_vars.push((program.name.clone(), phase_name, value));
                         }
                     }
                 }

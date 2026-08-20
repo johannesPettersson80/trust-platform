@@ -134,7 +134,10 @@ fn lvalue_writes_preserve_duplicates_frame_and_arrival_order() {
     let writes = control.drain_lvalue_writes();
     assert_eq!(writes.len(), 3);
     assert_eq!(writes[0].frame_id, None);
-    assert_eq!(writes[0].target.root_name().map(|name| name.as_str()), Some("value"));
+    assert_eq!(
+        writes[0].target.root_name().map(|name| name.as_str()),
+        Some("value")
+    );
     assert_eq!(writes[0].value, Value::LInt(1));
     assert_eq!(writes[1].frame_id, Some(FrameId(7)));
     assert_eq!(writes[1].value, Value::LInt(2));
@@ -306,10 +309,7 @@ fn runtime_mutation_clear_removes_every_queue_and_force() {
 #[test]
 fn clearing_runtime_mutations_preserves_unrelated_debug_state() {
     let control = DebugControl::new();
-    control.set_breakpoints_for_file(
-        1,
-        vec![DebugBreakpoint::new(SourceLocation::new(1, 1, 2))],
-    );
+    control.set_breakpoints_for_file(1, vec![DebugBreakpoint::new(SourceLocation::new(1, 1, 2))]);
     control.pause_thread(7);
     control.push_runtime_event(RuntimeEvent::Fault {
         error: "fault".into(),

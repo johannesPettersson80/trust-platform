@@ -10,7 +10,7 @@ use verification_cases::{
 const TEST_ID: &str = "TEST_RUNTIME_TASK_READINESS_TRACE_001";
 const CASE_FILE: &str = "verification/cases/runtime_safety/RT_TASK_READINESS_001.toml";
 const CASE_FILE_DIGEST: &str =
-    "sha256:ee200d7df31c1f80acbd550a76fc28ac80ffb638339383f46b51e86e2aeaa8fe";
+    "sha256:d1332083c4028808c0b3a798a46db0d0f6f9e08f632ad166326189de19b86fac";
 
 #[test]
 fn task_readiness_cases() {

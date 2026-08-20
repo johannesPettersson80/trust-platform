@@ -11,7 +11,10 @@ fn accepted(source: &str) {
 }
 
 fn rejected(source: &str) {
-    assert!(!parse(source).ok(), "expected malformed generic type syntax");
+    assert!(
+        !parse(source).ok(),
+        "expected malformed generic type syntax"
+    );
 }
 
 #[test]

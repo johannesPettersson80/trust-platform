@@ -28,6 +28,12 @@ The graph nests **Host → Runtime → Endpoint**:
   As you add devices, Modbus, MQTT, OPC UA, and other endpoints appear here, and the external systems they
   link out to render as connected nodes.
 
+Runtime and resource names do not have to be globally unique. If two hosts or
+containers both run a runtime named `RESOURCE`, Devices & Connections keeps
+their endpoints, configured mesh peers, link health, and link detail attached
+to the correct owner. This also applies when older topology snapshots are
+combined; internal identity normalization is never shown as a product label.
+
 The footer summarizes the topology (**1 host · 1 runtime · 1 endpoint**).
 
 ## Toolbar

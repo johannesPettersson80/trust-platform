@@ -1,10 +1,10 @@
 //! Raspberry Pi GPIO driver (configurable backend).
 
+use std::collections::HashSet;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
-use std::collections::HashSet;
 
 use smol_str::SmolStr;
 #[cfg(target_os = "linux")]
@@ -352,18 +352,14 @@ fn parse_line(table: &toml::Table) -> Result<u32, RuntimeError> {
         let line = value
             .as_integer()
             .and_then(|line| u32::try_from(line).ok())
-            .ok_or_else(|| {
-                invalid_gpio("gpio entry requires 'line' (BCM) as a nonnegative u32")
-            })?;
+            .ok_or_else(|| invalid_gpio("gpio entry requires 'line' (BCM) as a nonnegative u32"))?;
         return Ok(line);
     }
     if let Some(value) = table.get("pin") {
         let line = value
             .as_integer()
             .and_then(|line| u32::try_from(line).ok())
-            .ok_or_else(|| {
-                invalid_gpio("gpio entry requires 'pin' alias as a nonnegative u32")
-            })?;
+            .ok_or_else(|| invalid_gpio("gpio entry requires 'pin' alias as a nonnegative u32"))?;
         return Ok(line);
     }
     Err(invalid_gpio("gpio entry requires 'line' (BCM)"))

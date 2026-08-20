@@ -206,7 +206,9 @@ fn ctl_returns_nonzero_for_malformed_success_results() {
     for (action, response, expected_error) in cases {
         let (endpoint, request_rx, server) = spawn_control_server(response);
         let output = run_ctl(&["--endpoint", &endpoint, action]);
-        let _request = request_rx.recv().expect("captured malformed-result request");
+        let _request = request_rx
+            .recv()
+            .expect("captured malformed-result request");
         server.join().expect("malformed-result control server");
 
         assert!(
@@ -266,7 +268,9 @@ fn ctl_target_resolution_enforces_endpoint_and_token_precedence() {
         .env("TRUST_CTL_TOKEN", "environment-token")
         .output()
         .expect("run ctl with explicit target");
-    let explicit_request = explicit_request_rx.recv().expect("captured explicit request");
+    let explicit_request = explicit_request_rx
+        .recv()
+        .expect("captured explicit request");
     explicit_server.join().expect("explicit control server");
     assert!(
         explicit_output.status.success(),

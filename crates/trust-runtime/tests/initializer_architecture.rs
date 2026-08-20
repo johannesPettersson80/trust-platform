@@ -133,6 +133,9 @@ fn runtime_initializer_service_is_the_source_level_funnel() {
     let allowed = [
         root.join("crates/trust-runtime/src/host/harness/coerce.rs"),
         root.join("crates/trust-runtime/src/host/harness/initializer.rs"),
+        // Direct unit coverage for the coercion primitive is compiled only
+        // through coerce.rs under cfg(test); it is not a production caller.
+        root.join("crates/trust-runtime/src/host/harness/coerce_contract_tests.rs"),
     ];
 
     for path in rust_files_under("crates/trust-runtime/src") {

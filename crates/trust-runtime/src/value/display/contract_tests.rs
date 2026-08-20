@@ -107,10 +107,7 @@ fn structured_text_string_quoting_escapes_dollars_and_quotes_in_order() {
 
 #[test]
 fn narrow_and_wide_strings_use_same_payload_escaping_with_distinct_prefix() {
-    assert_eq!(
-        format_user_value(&Value::String("a$'b".into())),
-        "'a$$$'b'"
-    );
+    assert_eq!(format_user_value(&Value::String("a$'b".into())), "'a$$$'b'");
     assert_eq!(
         format_user_value(&Value::WString("a$'b".into())),
         "W'a$$$'b'"
@@ -121,10 +118,7 @@ fn narrow_and_wide_strings_use_same_payload_escaping_with_distinct_prefix() {
 fn char_and_wchar_render_quoted_scalars_and_invalid_wchar_is_question_mark() {
     assert_eq!(format_user_value(&Value::Char(b'A')), "'A'");
     assert_eq!(format_user_value(&Value::Char(b'\'')), "'$''");
-    assert_eq!(
-        format_user_value(&Value::WChar('Ω' as u16)),
-        "W'Ω'"
-    );
+    assert_eq!(format_user_value(&Value::WChar('Ω' as u16)), "W'Ω'");
     assert_eq!(format_user_value(&Value::WChar(0xD800)), "W'?'");
 }
 
@@ -160,10 +154,7 @@ fn reference_instance_and_null_states_have_nonaddress_diagnostic_text() {
         path: RefPath::new(),
     };
 
-    assert_eq!(
-        format_user_value(&Value::Reference(Some(reference))),
-        "REF"
-    );
+    assert_eq!(format_user_value(&Value::Reference(Some(reference))), "REF");
     assert_eq!(format_user_value(&Value::Reference(None)), "NULL_REF");
     assert_eq!(
         format_user_value(&Value::Instance(InstanceId(42))),

@@ -143,7 +143,7 @@ fn declared_type_policy_trace_cases() {
     run_policy_cases(
         "TEST_VM_DECLARED_TYPE_TRACE_001",
         "verification/cases/bytecode_vm/VM_SEAM_DECLARED_TYPE_001.toml",
-        "sha256:41a1dc41aabfcd9a7315cb008d93a12ab3a8f8703bb2618b0d44863c4594097c",
+        "sha256:6a9ce7a1a4885787c6d4da925abdb01f1ca8c4279da3c4d68665fd014b7544cc",
         run_declared_type_case,
     );
 }
@@ -153,7 +153,7 @@ fn bounded_string_policy_trace_cases() {
     run_policy_cases(
         "TEST_VM_STRING_BOUND_TRACE_001",
         "verification/cases/bytecode_vm/VM_SEAM_STRING_BOUND_001.toml",
-        "sha256:f90d321c7b18b0fb5595ff14b2f0a158bc993e0f675cc543ddd8b2c35808f8a3",
+        "sha256:1824d7ca9494ef19a1d834cc7234f225492a7326255d10f96efc7429370ee63a",
         run_string_bound_case,
     );
 }
@@ -163,7 +163,7 @@ fn subrange_policy_trace_cases() {
     run_policy_cases(
         "TEST_VM_SUBRANGE_TRACE_001",
         "verification/cases/bytecode_vm/VM_SEAM_SUBRANGE_001.toml",
-        "sha256:bcd6a67c26ca66012be0124e7506402a9e38fa22a2217103ba3a75b451cb31f6",
+        "sha256:b4fa0c17e297089eb1aca2c83e7a4b9b134a53865e37c2518340737dcf877466",
         run_subrange_case,
     );
 }

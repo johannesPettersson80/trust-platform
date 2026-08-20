@@ -1,5 +1,5 @@
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use super::*;
 
@@ -49,11 +49,11 @@ fn workspace_path_uses_forward_slash_projection() {
 
 #[test]
 fn empty_workspace_path_requires_explicit_root_permission() {
+    assert_eq!(normalize_workspace_path(" \t ", true).expect("root"), "");
     assert_eq!(
-        normalize_workspace_path(" \t ", true).expect("root"),
-        ""
+        normalize_workspace_path("", false).unwrap_err().kind(),
+        IdeErrorKind::InvalidInput
     );
-    assert_eq!(normalize_workspace_path("", false).unwrap_err().kind(), IdeErrorKind::InvalidInput);
 }
 
 #[test]

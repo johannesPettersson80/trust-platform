@@ -104,7 +104,7 @@ pub(super) fn apply_setting(
 ) -> anyhow::Result<SettingApplyResult> {
     let mut restart_required = false;
     let mut ok = true;
-    let mut message = "Saved.".to_string();
+    let message;
 
     match key {
         SettingKey::PlcName => {
@@ -234,7 +234,9 @@ fn apply_control_setting(
         return SettingApplyResult {
             ok: false,
             restart_required: false,
-            message: result.error.unwrap_or_else(|| "request rejected".to_string()),
+            message: result
+                .error
+                .unwrap_or_else(|| "request rejected".to_string()),
         };
     }
     if let Some(root) = state.bundle_root.as_ref() {

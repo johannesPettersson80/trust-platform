@@ -108,15 +108,17 @@ fn extensible_arithmetic_folds_left_and_enforces_minimum_arity() {
     assert_eq!(
         lib.call(
             "ADD",
-            &[Value::DInt(1), Value::DInt(2), Value::DInt(3), Value::DInt(4)]
+            &[
+                Value::DInt(1),
+                Value::DInt(2),
+                Value::DInt(3),
+                Value::DInt(4)
+            ]
         ),
         Ok(Value::DInt(10))
     );
     assert_eq!(
-        lib.call(
-            "MUL",
-            &[Value::LInt(2), Value::LInt(3), Value::LInt(4)]
-        ),
+        lib.call("MUL", &[Value::LInt(2), Value::LInt(3), Value::LInt(4)]),
         Ok(Value::LInt(24))
     );
     assert!(matches!(
@@ -266,7 +268,11 @@ fn bitwise_variadics_widen_zero_extend_and_mask() {
     assert_eq!(
         lib.call(
             "OR",
-            &[Value::Byte(0x0f), Value::Word(0x0f00), Value::DWord(0x10000)]
+            &[
+                Value::Byte(0x0f),
+                Value::Word(0x0f00),
+                Value::DWord(0x10000)
+            ]
         ),
         Ok(Value::DWord(0x10f0f))
     );
@@ -284,11 +290,11 @@ fn bitwise_variadics_widen_zero_extend_and_mask() {
 fn bitwise_not_flips_only_the_declared_width() {
     let lib = library();
 
-    assert_eq!(lib.call("NOT", &[Value::Bool(true)]), Ok(Value::Bool(false)));
     assert_eq!(
-        lib.call("NOT", &[Value::Byte(0x0f)]),
-        Ok(Value::Byte(0xf0))
+        lib.call("NOT", &[Value::Bool(true)]),
+        Ok(Value::Bool(false))
     );
+    assert_eq!(lib.call("NOT", &[Value::Byte(0x0f)]), Ok(Value::Byte(0xf0)));
     assert_eq!(
         lib.call("NOT", &[Value::Word(0x00ff)]),
         Ok(Value::Word(0xff00))
@@ -300,17 +306,11 @@ fn sel_uses_bool_gate_and_common_numeric_type() {
     let lib = library();
 
     assert_eq!(
-        lib.call(
-            "SEL",
-            &[Value::Bool(false), Value::Int(7), Value::DInt(9)]
-        ),
+        lib.call("SEL", &[Value::Bool(false), Value::Int(7), Value::DInt(9)]),
         Ok(Value::DInt(7))
     );
     assert_eq!(
-        lib.call(
-            "SEL",
-            &[Value::Bool(true), Value::Int(7), Value::DInt(9)]
-        ),
+        lib.call("SEL", &[Value::Bool(true), Value::Int(7), Value::DInt(9)]),
         Ok(Value::DInt(9))
     );
     assert_eq!(
@@ -324,10 +324,7 @@ fn min_max_and_limit_compare_all_values_in_one_common_type() {
     let lib = library();
 
     assert_eq!(
-        lib.call(
-            "MIN",
-            &[Value::Int(5), Value::DInt(-2), Value::DInt(7)]
-        ),
+        lib.call("MIN", &[Value::Int(5), Value::DInt(-2), Value::DInt(7)]),
         Ok(Value::DInt(-2))
     );
     assert_eq!(
@@ -338,10 +335,7 @@ fn min_max_and_limit_compare_all_values_in_one_common_type() {
         Ok(Value::LReal(8.5))
     );
     assert_eq!(
-        lib.call(
-            "LIMIT",
-            &[Value::Int(0), Value::DInt(12), Value::Int(10)]
-        ),
+        lib.call("LIMIT", &[Value::Int(0), Value::DInt(12), Value::Int(10)]),
         Ok(Value::DInt(10))
     );
 }
@@ -375,7 +369,10 @@ fn mux_is_zero_based_and_reports_both_out_of_range_directions() {
         })
     ));
     assert!(matches!(
-        lib.call("MUX", &[Value::Int(2), inputs[0].clone(), inputs[1].clone()]),
+        lib.call(
+            "MUX",
+            &[Value::Int(2), inputs[0].clone(), inputs[1].clone()]
+        ),
         Err(RuntimeError::IndexOutOfBounds {
             index: 2,
             lower: 0,
@@ -434,10 +431,7 @@ fn comparison_widens_bit_strings_and_rejects_incompatible_families() {
     assert_eq!(
         lib.call(
             "LT",
-            &[
-                Value::String("alpha".into()),
-                Value::String("beta".into())
-            ]
+            &[Value::String("alpha".into()), Value::String("beta".into())]
         ),
         Ok(Value::Bool(true))
     );
@@ -596,10 +590,7 @@ fn find_reports_first_unicode_element_position_or_zero() {
     assert_eq!(
         lib.call(
             "FIND",
-            &[
-                Value::String("ÄBCBC".into()),
-                Value::String("BC".into())
-            ]
+            &[Value::String("ÄBCBC".into()), Value::String("BC".into())]
         ),
         Ok(Value::Int(2))
     );
@@ -646,7 +637,10 @@ fn internal_string_limit_counts_elements_and_rejects_negative_capacity() {
 fn bool_assertions_return_null_or_stable_failures() {
     let lib = library();
 
-    assert_eq!(lib.call("ASSERT_TRUE", &[Value::Bool(true)]), Ok(Value::Null));
+    assert_eq!(
+        lib.call("ASSERT_TRUE", &[Value::Bool(true)]),
+        Ok(Value::Null)
+    );
     assert_eq!(
         lib.call("ASSERT_FALSE", &[Value::Bool(false)]),
         Ok(Value::Null)
@@ -696,11 +690,8 @@ fn relational_assertion_failures_use_user_value_text() {
     );
     assert_eq!(
         assertion_message(
-            lib.call(
-                "ASSERT_NOT_EQUAL",
-                &[Value::Bool(true), Value::Bool(true)]
-            )
-            .expect_err("equal values must fail")
+            lib.call("ASSERT_NOT_EQUAL", &[Value::Bool(true), Value::Bool(true)])
+                .expect_err("equal values must fail")
         ),
         "ASSERT_NOT_EQUAL failed: values should differ, left TRUE, right TRUE"
     );

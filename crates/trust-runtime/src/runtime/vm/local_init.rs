@@ -45,10 +45,7 @@ fn initialize_declared_locals_direct(
     let mut slot = 0usize;
 
     if let Some((_, return_type)) = plan.return_slot() {
-        if matches!(
-            initialized_frame.locals.get(slot),
-            Some(Value::Null) | None
-        ) {
+        if matches!(initialized_frame.locals.get(slot), Some(Value::Null) | None) {
             if let Some(slot_ref) = initialized_frame.locals.get_mut(slot) {
                 let (return_name, _) = plan
                     .return_slot()
@@ -616,23 +613,26 @@ mod tests {
             frame_owner: "Counter".into(),
             params: Vec::new(),
             locals: Vec::new(),
-            static_locals: vec![local(
-                "Calls",
-                Some(Expr::Literal(Value::DInt(1))),
-            )],
+            static_locals: vec![local("Calls", Some(Expr::Literal(Value::DInt(1))))],
             return_slot: ("Counter".into(), TypeId::DINT),
         };
         let mut frame = frame_with_slots(1);
 
         initialize_declared_locals_direct(&mut runtime, &plan, &mut frame).unwrap();
         let key = static_storage_name(&"Counter".into(), &"Calls".into());
-        assert_eq!(runtime.storage().get_global(key.as_str()), Some(&Value::DInt(1)));
+        assert_eq!(
+            runtime.storage().get_global(key.as_str()),
+            Some(&Value::DInt(1))
+        );
 
         runtime
             .storage_mut()
             .set_global(key.clone(), Value::DInt(9));
         initialize_declared_locals_direct(&mut runtime, &plan, &mut frame).unwrap();
-        assert_eq!(runtime.storage().get_global(key.as_str()), Some(&Value::DInt(9)));
+        assert_eq!(
+            runtime.storage().get_global(key.as_str()),
+            Some(&Value::DInt(9))
+        );
     }
 
     #[test]
@@ -662,9 +662,12 @@ mod tests {
     #[test]
     fn vm_instance_type_detection_follows_aliases_and_rejects_other_types() {
         let mut runtime = crate::Runtime::new();
-        let class = runtime
-            .registry_mut()
-            .register("Motor", Type::Class { name: "Motor".into() });
+        let class = runtime.registry_mut().register(
+            "Motor",
+            Type::Class {
+                name: "Motor".into(),
+            },
+        );
         let class_alias = runtime.registry_mut().register(
             "MotorAlias",
             Type::Alias {

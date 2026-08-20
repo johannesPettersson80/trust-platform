@@ -691,10 +691,10 @@ X := Arr2D[5];      // ERROR: Missing dimension (expected 2)
 X := Arr2D[1,2,3];  // ERROR: Too many dimensions (expected 2)
 ```
 
-An integer-literal index outside a fixed dimension is an `InvalidArrayIndex`
-preparation error. A computed integer index is checked at runtime. A failed
-read or write reports the bounds error before producing a value or mutating
-the array.
+A statically known integer constant-expression outside a fixed dimension is an
+`InvalidArrayIndex` preparation error. A computed integer index is checked at
+runtime. A failed read or write reports the bounds error before producing a
+value or mutating the array.
 
 ### 7.3 Array Initializer Cardinality
 

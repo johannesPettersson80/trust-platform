@@ -6,10 +6,7 @@ fn diagnostics_for(sources: &[&str], file: usize) -> Vec<Diagnostic> {
     for (index, source) in sources.iter().enumerate() {
         database.set_source_text(FileId(index as u32), (*source).to_owned());
     }
-    database
-        .diagnostics(FileId(file as u32))
-        .as_ref()
-        .clone()
+    database.diagnostics(FileId(file as u32)).as_ref().clone()
 }
 
 fn warnings(source: &str) -> Vec<Diagnostic> {
@@ -65,11 +62,9 @@ END_PROGRAM
         DiagnosticCode::UnusedVariable,
     );
 
-    assert!(
-        messages
-            .iter()
-            .all(|message| !message.contains("LocalValue") && !message.contains("Scratch"))
-    );
+    assert!(messages
+        .iter()
+        .all(|message| !message.contains("LocalValue") && !message.contains("Scratch")));
 }
 
 #[test]
@@ -182,11 +177,9 @@ END_CONFIGURATION
         DiagnosticCode::UnusedPou,
     );
 
-    assert!(
-        messages
-            .iter()
-            .all(|message| message != "unused program 'Main'")
-    );
+    assert!(messages
+        .iter()
+        .all(|message| message != "unused program 'Main'"));
 }
 
 #[test]
@@ -204,11 +197,9 @@ END_PROGRAM
         DiagnosticCode::UnusedPou,
     );
 
-    assert!(
-        messages
-            .iter()
-            .all(|message| message != "unused function 'Calculate'")
-    );
+    assert!(messages
+        .iter()
+        .all(|message| message != "unused function 'Calculate'"));
 }
 
 #[test]
@@ -224,11 +215,9 @@ END_PROGRAM
         DiagnosticCode::UnusedPou,
     );
 
-    assert!(
-        messages
-            .iter()
-            .all(|message| message != "unused function block 'Controller'")
-    );
+    assert!(messages
+        .iter()
+        .all(|message| message != "unused function block 'Controller'"));
 }
 
 #[test]
@@ -259,11 +248,9 @@ END_PROGRAM
         .map(|diagnostic| diagnostic.message)
         .collect::<Vec<_>>();
 
-    assert!(
-        messages
-            .iter()
-            .all(|message| message != "unused variable 'InputSignal'")
-    );
+    assert!(messages
+        .iter()
+        .all(|message| message != "unused variable 'InputSignal'"));
 }
 
 #[test]
@@ -287,11 +274,9 @@ END_PROGRAM
         .map(|diagnostic| diagnostic.message)
         .collect::<Vec<_>>();
 
-    assert!(
-        messages
-            .iter()
-            .all(|message| message != "unused function 'Calculate'")
-    );
+    assert!(messages
+        .iter()
+        .all(|message| message != "unused function 'Calculate'"));
 }
 
 #[test]
@@ -353,11 +338,9 @@ END_FUNCTION
         .map(|diagnostic| diagnostic.message)
         .collect::<Vec<_>>();
 
-    assert!(
-        imported_messages
-            .iter()
-            .all(|message| !message.contains("Calculate"))
-    );
+    assert!(imported_messages
+        .iter()
+        .all(|message| !message.contains("Calculate")));
 }
 
 #[test]

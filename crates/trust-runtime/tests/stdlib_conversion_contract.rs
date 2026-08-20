@@ -99,10 +99,7 @@ fn real_to_integer_rounds_ties_to_even_for_positive_and_negative_values() {
 fn truncation_forms_truncate_toward_zero_and_require_real_input() {
     let lib = library();
 
-    assert_eq!(
-        lib.call("TRUNC", &[Value::Real(3.9)]),
-        Ok(Value::DInt(3))
-    );
+    assert_eq!(lib.call("TRUNC", &[Value::Real(3.9)]), Ok(Value::DInt(3)));
     assert_eq!(
         lib.call("TRUNC_INT", &[Value::LReal(-3.9)]),
         Ok(Value::Int(-3))
@@ -233,7 +230,11 @@ fn non_finite_real_values_and_bit_payloads_are_rejected() {
         ("DWORD_TO_REAL", Value::DWord(f32::NEG_INFINITY.to_bits())),
         ("LWORD_TO_LREAL", Value::LWord(f64::NAN.to_bits())),
     ] {
-        assert_eq!(lib.call(name, &[value]), Err(RuntimeError::Overflow), "{name}");
+        assert_eq!(
+            lib.call(name, &[value]),
+            Err(RuntimeError::Overflow),
+            "{name}"
+        );
     }
 }
 
@@ -242,10 +243,7 @@ fn integer_text_accepts_whitespace_separators_radix_and_digit_sign() {
     let lib = library();
 
     assert_eq!(
-        lib.call(
-            "STRING_TO_DINT",
-            &[Value::String("  16#7_FF  ".into())]
-        ),
+        lib.call("STRING_TO_DINT", &[Value::String("  16#7_FF  ".into())]),
         Ok(Value::DInt(2047))
     );
     assert_eq!(
@@ -344,10 +342,7 @@ fn time_dword_extension_uses_checked_whole_milliseconds() {
         Ok(Value::DWord(1))
     );
     assert_eq!(
-        lib.call(
-            "TIME_TO_DWORD",
-            &[Value::Time(Duration::from_millis(-1))]
-        ),
+        lib.call("TIME_TO_DWORD", &[Value::Time(Duration::from_millis(-1))]),
         Err(RuntimeError::Overflow)
     );
     assert_eq!(
@@ -441,9 +436,9 @@ fn bcd_round_trip_covers_each_storage_width() {
         (
             "ULINT_TO_BCD_LWORD",
             "LWORD_BCD_TO_ULINT",
-            Value::ULInt(123_456_789_012_3456),
+            Value::ULInt(1_234_567_890_123_456),
             Value::LWord(0x1234_5678_9012_3456),
-            Value::ULInt(123_456_789_012_3456),
+            Value::ULInt(1_234_567_890_123_456),
         ),
     ] {
         assert_eq!(lib.call(encode, &[input]), Ok(packed.clone()), "{encode}");
@@ -469,7 +464,10 @@ fn bcd_encoding_checks_digit_capacity_and_decoding_rejects_bad_nibbles() {
 fn is_valid_accepts_only_real_families_and_reports_finiteness() {
     let lib = library();
 
-    assert_eq!(lib.call("IS_VALID", &[Value::Real(1.0)]), Ok(Value::Bool(true)));
+    assert_eq!(
+        lib.call("IS_VALID", &[Value::Real(1.0)]),
+        Ok(Value::Bool(true))
+    );
     assert_eq!(
         lib.call("IS_VALID", &[Value::Real(f32::NAN)]),
         Ok(Value::Bool(false))
@@ -494,10 +492,7 @@ fn is_valid_bcd_checks_every_nibble_for_each_declared_width() {
         Value::DWord(0x9999_9999),
         Value::LWord(0x9999_9999_9999_9999),
     ] {
-        assert_eq!(
-            lib.call("IS_VALID_BCD", &[value]),
-            Ok(Value::Bool(true))
-        );
+        assert_eq!(lib.call("IS_VALID_BCD", &[value]), Ok(Value::Bool(true)));
     }
     for value in [
         Value::Byte(0xa0),
@@ -505,10 +500,7 @@ fn is_valid_bcd_checks_every_nibble_for_each_declared_width() {
         Value::DWord(0xa000_0000),
         Value::LWord(0xa000_0000_0000_0000),
     ] {
-        assert_eq!(
-            lib.call("IS_VALID_BCD", &[value]),
-            Ok(Value::Bool(false))
-        );
+        assert_eq!(lib.call("IS_VALID_BCD", &[value]), Ok(Value::Bool(false)));
     }
 }
 
@@ -520,7 +512,10 @@ fn standard_library_lookup_and_parameter_metadata_are_case_insensitive() {
     match &fixed.params {
         StdParams::Fixed(parameters) => {
             assert_eq!(
-                parameters.iter().map(|name| name.as_str()).collect::<Vec<_>>(),
+                parameters
+                    .iter()
+                    .map(|name| name.as_str())
+                    .collect::<Vec<_>>(),
                 ["EXPECTED", "ACTUAL", "DELTA"]
             );
         }

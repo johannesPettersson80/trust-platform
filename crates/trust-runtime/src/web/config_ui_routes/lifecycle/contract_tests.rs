@@ -1,7 +1,9 @@
+#[cfg(unix)]
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use super::*;
 
+#[cfg(unix)]
 static NEXT_SOCKET: AtomicU64 = AtomicU64::new(1);
 
 #[test]
@@ -44,10 +46,7 @@ fn listening_tcp_control_endpoint_is_online() {
 #[test]
 fn endpoint_probe_trims_outer_whitespace() {
     let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind listener");
-    let endpoint = format!(
-        " \t tcp://{} \n",
-        listener.local_addr().expect("address")
-    );
+    let endpoint = format!(" \t tcp://{} \n", listener.local_addr().expect("address"));
     assert!(control_endpoint_online(&endpoint));
 }
 

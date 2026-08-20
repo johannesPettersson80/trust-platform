@@ -24,11 +24,7 @@ fn array_value() -> ArrayValue {
     .expect("array")
 }
 
-fn io_entry(
-    name: Option<&str>,
-    address: &str,
-    value: IoSnapshotValue,
-) -> IoSnapshotEntry {
+fn io_entry(name: Option<&str>, address: &str, value: IoSnapshotValue) -> IoSnapshotEntry {
     IoSnapshotEntry {
         name: name.map(Into::into),
         address: IoAddress::parse(address).expect("address"),
@@ -107,10 +103,7 @@ fn variable_handles_start_at_one_and_preserve_kind() {
         handles.get(globals),
         Some(VariableHandle::Globals)
     ));
-    assert!(matches!(
-        handles.get(retain),
-        Some(VariableHandle::Retain)
-    ));
+    assert!(matches!(handles.get(retain), Some(VariableHandle::Retain)));
     assert!(handles.get(0).is_none());
     assert!(handles.get(4).is_none());
 }
@@ -221,8 +214,7 @@ fn scalar_variable_has_no_expandable_reference() {
 fn null_and_null_reference_are_not_expandable() {
     let mut handles = DebugVariableHandles::new();
     let null = variable_from_value(&mut handles, "null".into(), Value::Null, None);
-    let null_ref =
-        variable_from_value(&mut handles, "ref".into(), Value::Reference(None), None);
+    let null_ref = variable_from_value(&mut handles, "ref".into(), Value::Reference(None), None);
 
     assert_eq!(null.variables_reference, 0);
     assert_eq!(null_ref.variables_reference, 0);
@@ -383,10 +375,7 @@ fn io_projection_prefers_symbol_name_over_address() {
     assert_eq!(variables.len(), 1);
     assert_eq!(variables[0].name, "motor_enable");
     assert_eq!(variables[0].value, "Bool(true)");
-    assert_eq!(
-        variables[0].evaluate_name.as_deref(),
-        Some("motor_enable")
-    );
+    assert_eq!(variables[0].evaluate_name.as_deref(), Some("motor_enable"));
     assert_eq!(variables[0].variables_reference, 0);
 }
 

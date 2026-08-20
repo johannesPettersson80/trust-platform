@@ -3,7 +3,11 @@ use common::*;
 
 fn accepted(source: &str) {
     let parsed = parse(source);
-    assert!(parsed.ok(), "expected type source to parse: {:?}", parsed.errors());
+    assert!(
+        parsed.ok(),
+        "expected type source to parse: {:?}",
+        parsed.errors()
+    );
 }
 
 fn rejected(source: &str) {
@@ -57,16 +61,12 @@ fn user_type_parser_accepts_nested_array_repetition_initializer() {
 
 #[test]
 fn user_type_parser_accepts_structure_members_and_defaults() {
-    accepted(
-        "TYPE Point : STRUCT x : INT := 1; y : INT := 2; END_STRUCT; END_TYPE",
-    );
+    accepted("TYPE Point : STRUCT x : INT := 1; y : INT := 2; END_STRUCT; END_TYPE");
 }
 
 #[test]
 fn user_type_parser_accepts_relative_structure_fields() {
-    accepted(
-        "TYPE Packet : STRUCT head AT %B0 : INT; flag AT %X2.0 : BOOL; END_STRUCT; END_TYPE",
-    );
+    accepted("TYPE Packet : STRUCT head AT %B0 : INT; flag AT %X2.0 : BOOL; END_STRUCT; END_TYPE");
 }
 
 #[test]
@@ -78,9 +78,7 @@ fn user_type_parser_accepts_overlap_structure() {
 
 #[test]
 fn user_type_parser_accepts_union_variants_and_defaults() {
-    accepted(
-        "TYPE Choice : UNION count : INT := 1; ready : BOOL := TRUE; END_UNION; END_TYPE",
-    );
+    accepted("TYPE Choice : UNION count : INT := 1; ready : BOOL := TRUE; END_UNION; END_TYPE");
 }
 
 #[test]

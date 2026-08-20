@@ -81,10 +81,7 @@ fn field_lookup_uses_exact_stored_spelling_and_rejects_wrong_aggregate_kind() {
         None
     );
     assert_eq!(
-        read_value_path_borrowed(
-            &Value::DInt(7),
-            &[RefSegment::Field("Exact".into())]
-        ),
+        read_value_path_borrowed(&Value::DInt(7), &[RefSegment::Field("Exact".into())]),
         None
     );
 }
@@ -93,17 +90,9 @@ fn field_lookup_uses_exact_stored_spelling_and_rejects_wrong_aggregate_kind() {
 fn array_path_rejects_wrong_arity_bounds_and_nonarray_target() {
     let root = array(vec![Value::Int(10), Value::Int(11)], vec![(5, 6)]);
 
-    for indices in [
-        Vec::new(),
-        vec![5, 6],
-        vec![4],
-        vec![7],
-    ] {
+    for indices in [Vec::new(), vec![5, 6], vec![4], vec![7]] {
         assert_eq!(
-            read_value_path_borrowed(
-                &root,
-                &[RefSegment::Index(ref_indices_from_iter(indices))]
-            ),
+            read_value_path_borrowed(&root, &[RefSegment::Index(ref_indices_from_iter(indices))]),
             None
         );
     }
@@ -153,15 +142,9 @@ fn traversal_stops_when_an_intermediate_segment_does_not_exist() {
 
 #[test]
 fn borrowed_traversal_does_not_synthesize_string_character_values() {
-    for value in [
-        Value::String("AB".into()),
-        Value::WString("AB".into()),
-    ] {
+    for value in [Value::String("AB".into()), Value::WString("AB".into())] {
         assert_eq!(
-            read_value_path_borrowed(
-                &value,
-                &[RefSegment::Index(ref_indices_from_iter([1]))]
-            ),
+            read_value_path_borrowed(&value, &[RefSegment::Index(ref_indices_from_iter([1]))]),
             None
         );
     }
@@ -182,11 +165,8 @@ fn field_then_empty_tail_returns_the_stored_field_by_reference() {
         panic!("expected structure");
     };
     let stored = structure.field("value").expect("stored field");
-    let borrowed = read_value_path_borrowed(
-        &root,
-        &[RefSegment::Field("value".into())],
-    )
-    .expect("field borrow");
+    let borrowed = read_value_path_borrowed(&root, &[RefSegment::Field("value".into())])
+        .expect("field borrow");
 
     assert!(std::ptr::eq(borrowed, stored));
 }

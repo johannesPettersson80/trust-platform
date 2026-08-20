@@ -3588,8 +3588,8 @@ Every solicited loopback reply must be an ADS response frame whose source and
 target AMS Net IDs and ports are the exact reverse of the request and whose
 command and invoke ID match the request before its payload is trusted.
 
-Invariant `RT_ADS_SERVER_DOCTOR_TRUTH_001`: every passing server Doctor step
-and every verified evidence field is derived from the running server's live
+Every passing server Doctor step and every verified evidence field is derived
+from the running server's live
 state or from complete, nonblank, endpoint-correlated external/loopback proof;
 missing, zero, truncated, request-direction, or endpoint-mismatched input fails
 closed without manufacturing health, verification, or success.
@@ -4180,6 +4180,12 @@ authentication rejection, malformed envelope, oversized response, mismatched
 response ID, or missing Boolean `ok` is a command error and must not be
 flattened to `stopped`. Failure to read or parse the managed project's control
 credential is likewise an error. The PID file is advisory process metadata.
+
+A successful `shutdown` request prepares and writes its complete correlated
+control response before it signals the resource stop. The stop signal remains
+part of the accepted request and is applied immediately after the response
+write attempt; process teardown must not race the operator-visible
+acknowledgement off the control connection.
 
 `status` and `logs` are read-only and do not create `.trust-runtime` state when
 it is absent. Log tailing retains only the requested final lines in memory

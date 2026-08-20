@@ -10,7 +10,9 @@ use trust_hir::types::{StructField, UnionVariant};
 fn assert_compile_error<T: Debug>(result: Result<T, CompileError>, expected: &str) {
     let message = result.expect_err("expected direct I/O error").to_string();
     assert!(
-        message.to_ascii_lowercase().contains(&expected.to_ascii_lowercase()),
+        message
+            .to_ascii_lowercase()
+            .contains(&expected.to_ascii_lowercase()),
         "expected {message:?} to contain {expected:?}"
     );
 }
@@ -93,14 +95,10 @@ fn harness_io_contract_alias_subrange_and_enum_use_storage_width() {
             upper: 10,
         },
     );
-    let enumeration =
-        registry.register_enum("Mode", TypeId::BYTE, vec![("Auto".into(), 1)]);
+    let enumeration = registry.register_enum("Mode", TypeId::BYTE, vec![("Auto".into(), 1)]);
 
     assert_eq!(io_size_for_type(alias, &registry).unwrap(), IoSize::DWord);
-    assert_eq!(
-        io_size_for_type(subrange, &registry).unwrap(),
-        IoSize::Word
-    );
+    assert_eq!(io_size_for_type(subrange, &registry).unwrap(), IoSize::Word);
     assert_eq!(
         io_size_for_type(enumeration, &registry).unwrap(),
         IoSize::Byte
@@ -194,21 +192,8 @@ fn harness_io_contract_relative_field_addresses_preserve_offsets() {
 #[test]
 fn harness_io_contract_field_address_grammar_is_case_sensitive_and_closed() {
     for text in [
-        "",
-        "X0",
-        "%",
-        "%x0",
-        "%b0",
-        "%X",
-        "%X.",
-        "%X1.",
-        "%X.1",
-        "%X1.8",
-        "%X1.2.3",
-        "%B",
-        "%B1.0",
-        "%Z0",
-        "%IX",
+        "", "X0", "%", "%x0", "%b0", "%X", "%X.", "%X1.", "%X.1", "%X1.8", "%X1.2.3", "%B",
+        "%B1.0", "%Z0", "%IX",
     ] {
         assert_compile_error(parse_field_address(text), "invalid");
     }
@@ -276,7 +261,12 @@ fn harness_io_contract_offset_arithmetic_rejects_every_overflow() {
         "offset overflow",
     );
     assert_compile_error(
-        offset_address(&IoAddress::parse("%QW0").unwrap(), u64::MAX, IoSize::Word, 0),
+        offset_address(
+            &IoAddress::parse("%QW0").unwrap(),
+            u64::MAX,
+            IoSize::Word,
+            0,
+        ),
         "offset overflow",
     );
 }
@@ -285,15 +275,7 @@ fn harness_io_contract_offset_arithmetic_rejects_every_overflow() {
 fn harness_io_contract_primitive_binding_preserves_reference_width_and_type() {
     let registry = TypeRegistry::new();
     let mut out = Vec::new();
-    collect_io_bindings(
-        &registry,
-        TypeId::DINT,
-        reference(),
-        5,
-        0,
-        &mut out,
-    )
-    .unwrap();
+    collect_io_bindings(&registry, TypeId::DINT, reference(), 5, 0, &mut out).unwrap();
     assert_eq!(out.len(), 1);
     assert_eq!(out[0].reference, reference());
     assert_eq!(out[0].offset_bytes, 5);
@@ -306,14 +288,7 @@ fn harness_io_contract_primitive_binding_preserves_reference_width_and_type() {
 fn harness_io_contract_nonbool_leaf_rejects_bit_offset() {
     let registry = TypeRegistry::new();
     assert_compile_error(
-        collect_io_bindings(
-            &registry,
-            TypeId::WORD,
-            reference(),
-            0,
-            1,
-            &mut Vec::new(),
-        ),
+        collect_io_bindings(&registry, TypeId::WORD, reference(), 0, 1, &mut Vec::new()),
         "bit offset only allowed for bool",
     );
 }
@@ -326,7 +301,9 @@ fn harness_io_contract_array_binding_is_row_major_with_declared_indices() {
     collect_io_bindings(&registry, array, reference(), 0, 0, &mut out).unwrap();
 
     assert_eq!(
-        out.iter().map(|binding| binding.offset_bytes).collect::<Vec<_>>(),
+        out.iter()
+            .map(|binding| binding.offset_bytes)
+            .collect::<Vec<_>>(),
         vec![0, 2, 4, 6]
     );
     assert_eq!(
@@ -393,19 +370,10 @@ fn harness_io_contract_union_variants_overlay_unless_explicitly_offset() {
 #[test]
 fn harness_io_contract_absolute_nested_field_is_rejected_with_base_binding() {
     let mut registry = TypeRegistry::new();
-    let structure = registry.register_struct(
-        "Record",
-        vec![field("flag", TypeId::BOOL, Some("%IX0.0"))],
-    );
+    let structure =
+        registry.register_struct("Record", vec![field("flag", TypeId::BOOL, Some("%IX0.0"))]);
     assert_compile_error(
-        collect_io_bindings(
-            &registry,
-            structure,
-            reference(),
-            0,
-            0,
-            &mut Vec::new(),
-        ),
+        collect_io_bindings(&registry, structure, reference(), 0, 0, &mut Vec::new()),
         "absolute direct address not allowed",
     );
 }
@@ -425,14 +393,7 @@ fn harness_io_contract_bounded_string_binding_and_unsupported_leaves_are_closed(
     let pointer = registry.register_pointer(TypeId::INT);
     for type_id in [unbounded, wstring, pointer] {
         assert_compile_error(
-            collect_io_bindings(
-                &registry,
-                type_id,
-                reference(),
-                0,
-                0,
-                &mut Vec::new(),
-            ),
+            collect_io_bindings(&registry, type_id, reference(), 0, 0, &mut Vec::new()),
             if type_id == unbounded {
                 "requires string"
             } else {

@@ -1,23 +1,18 @@
 # truST PLC Verification Program
 
-Status: reviewed. External review returned `clear-with-edits` (Fable,
-2026-07-08); required edits are folded and verified, and the review gate in
-`implementation-board.md` is cleared. Phase 1 may start under the policy stop
-gates.
+Status: corrective closeout. The historical Phase 1-16 program completed on
+2026-07-19. Current work follows the direct written-specification to native-test
+audit on the Phase 18 correction board; the historical metadata gates below do
+not sequence product work.
 
 Created: 2026-07-07. Split into focused documents: 2026-07-08.
 
 ## Purpose
 
-The goal is not "more tests." The goal is that every important truST product
-claim is traceable to:
-
-1. a written specification or explicit spec gap,
-2. an invariant,
-3. a test or proof plan,
-4. a suite/gate,
-5. durable evidence,
-6. a release/public-claim status.
+The goal is not more metadata. Every important truST product behavior must have
+a written specification and a native executable test at the closest practical
+boundary. Additional metadata may route existing tooling, but it cannot create
+product requirements or substitute for either artifact.
 
 If a claim creates or changes a user-facing workflow, the user story or public
 workflow is part of the written specification. It must describe the actor,
@@ -55,22 +50,21 @@ This is a SQLite-style proof discipline adapted to PLC risk:
 
 ## Implementation Order
 
-The program must start with specifications, not tests.
+The program must start with specifications, then native executable tests.
 
 1. Create the verification skeleton.
 2. Inventory specification/oracle sources.
 3. Create the required-specification matrix so each canonical area has explicit
    required spec tags, owners, authority expectations, and source/gap refs.
-4. Add structured invariants with `contract_kind` and behavior rows before new
-   feature or bug-fix tests are authored. If the work creates a user story or
-   public workflow, specify that workflow first or record a spec gap.
-5. Let the planner derive required test classes and case families from metadata;
-   missing behavior rows become spec gaps.
-6. Inventory existing tests.
-7. Classify spec gaps separately from test gaps.
-8. Run the bytecode/VM pilot first.
-9. Broaden to runtime safety, IEC/HIR, protocols, editor/UI, release, and
-   hardware lab only after the pilot produces useful reports.
+4. Read the native assertions that already exercise each specified behavior.
+5. Record a missing specification only when expected behavior is absent or
+   ambiguous in the owning product contract.
+6. Record a missing test only when the specification is precise and no native
+   executable assertion reaches it.
+7. For a proven defect, preserve the focused assertion failure before the
+   minimal product fix and rerun the same test green.
+8. Use inventories, planners, and catalogs only as search or routing aids; their
+   state cannot create product work.
 
 Most important safety area:
 
@@ -95,7 +89,7 @@ Why this pilot:
 - exercises spec-source inventory, invariant mapping, coverage gaps, ignored
   protective tests, and validator/report self-tests.
 
-Spec-first planner pilot:
+Historical planner/proof tooling (accepted Phase 1-16 only):
 
 - `plan_tests.py` reports required proof from committed metadata and fails
   closed on unmapped files, uninventoried areas, unknown risk, or missing
@@ -111,7 +105,7 @@ Spec-first planner pilot:
   hardware reconnect stay out of v1 case generation until the Phase 8
   fault-injection harness exists.
 
-## Current Status
+## Historical Closure Status
 
 External review (Fable, 2026-07-08) returned `clear-with-edits`. Required
 edits are folded and verified; the verdict, fold verification, baseline
@@ -121,16 +115,9 @@ The later spec-first planner amendment review is folded in the same evidence
 root. Phase 1 implementation is unblocked after these document-only fixes, but
 the policy stop gates still control every implementation row.
 
-Still binding during implementation:
-
-- the stop gates in `policy.md`,
-- no test moves before the catalog proves destination and runner
-  (`VERIF-STOP-002`),
-- nothing is marked `validated` without tests, evidence, and closed safety
-  coverage cells,
-- no runtime/compiler/LSP behavior changes in control-plane Phases 0-15;
-  Phase 16 product work remains blocked until its readiness rows close and then
-  follows the spec/red/fix/green/gate discipline in `execution-slice-001.md`.
+Those historical metadata gates no longer sequence current product work. The
+current route is the direct specification-and-native-test audit on the Phase 18
+correction board.
 
 ## Storage Summary
 
@@ -145,7 +132,8 @@ fuzz/**                      Fuzz targets and minimized corpora.
 scripts/**                   Gate runners, report renderers, validators.
 ```
 
-Verification metadata lives under the future `verification/` control plane:
+Historical verification metadata lives under the existing `verification/`
+control plane:
 
 ```text
 verification/

@@ -171,10 +171,7 @@ fn case_statement_preserves_branch_and_label_order_without_normalizing_ranges() 
         selector: Expr::Name("selector".into()),
         branches: vec![
             (
-                vec![
-                    CaseLabel::Single(Value::Int(5)),
-                    CaseLabel::Range(9, 3),
-                ],
+                vec![CaseLabel::Single(Value::Int(5)), CaseLabel::Range(9, 3)],
                 vec![Stmt::Exit { location: None }],
             ),
             (

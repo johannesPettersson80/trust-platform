@@ -3,10 +3,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use super::*;
 
-const CERT_PEM: &[u8] =
-    include_bytes!("../../../tests/fixtures/tls/server-cert.pem");
-const KEY_PEM: &[u8] =
-    include_bytes!("../../../tests/fixtures/tls/server-key.pem");
+const CERT_PEM: &[u8] = include_bytes!("../../../tests/fixtures/tls/server-cert.pem");
+const KEY_PEM: &[u8] = include_bytes!("../../../tests/fixtures/tls/server-key.pem");
 
 static NEXT_DIR: AtomicU64 = AtomicU64::new(1);
 
@@ -140,16 +138,15 @@ fn disabled_tls_loading_is_inert_without_paths_or_project_root() {
 #[test]
 fn enabled_tls_requires_certificate_path_before_file_access() {
     let config = config(TlsMode::SelfManaged, None, Some("key.pem"), None);
-    let error = load_tls_materials(&config, Some(Path::new("/project")))
-        .expect_err("missing certificate");
+    let error =
+        load_tls_materials(&config, Some(Path::new("/project"))).expect_err("missing certificate");
     assert!(error_text(error).contains("missing tls cert_path"));
 }
 
 #[test]
 fn enabled_tls_requires_private_key_path_before_file_access() {
     let config = config(TlsMode::SelfManaged, Some("cert.pem"), None, None);
-    let error =
-        load_tls_materials(&config, Some(Path::new("/project"))).expect_err("missing key");
+    let error = load_tls_materials(&config, Some(Path::new("/project"))).expect_err("missing key");
     assert!(error_text(error).contains("missing tls key_path"));
 }
 
@@ -163,11 +160,8 @@ fn relative_tls_path_requires_project_root() {
 #[test]
 fn relative_tls_path_resolves_lexically_against_project_root() {
     assert_eq!(
-        resolve_tls_path(
-            Path::new("certs/server.pem"),
-            Some(Path::new("/project"))
-        )
-        .expect("resolve relative"),
+        resolve_tls_path(Path::new("certs/server.pem"), Some(Path::new("/project")))
+            .expect("resolve relative"),
         PathBuf::from("/project/certs/server.pem")
     );
 }
@@ -175,8 +169,7 @@ fn relative_tls_path_resolves_lexically_against_project_root() {
 #[test]
 fn absolute_tls_path_is_preserved_without_project_root() {
     assert_eq!(
-        resolve_tls_path(Path::new("/etc/trust/server.pem"), None)
-            .expect("resolve absolute"),
+        resolve_tls_path(Path::new("/etc/trust/server.pem"), None).expect("resolve absolute"),
         PathBuf::from("/etc/trust/server.pem")
     );
 }
@@ -199,7 +192,10 @@ fn tls_material_loading_reads_relative_certificate_key_and_ca() {
         .expect("enabled materials");
     assert_eq!(loaded.cert_path, root.join("cert.pem"));
     assert_eq!(loaded.key_path, root.join("key.pem"));
-    assert_eq!(loaded.ca_path.as_deref(), Some(root.join("ca.pem").as_path()));
+    assert_eq!(
+        loaded.ca_path.as_deref(),
+        Some(root.join("ca.pem").as_path())
+    );
     assert_eq!(loaded.certificate_pem, CERT_PEM);
     assert_eq!(loaded.private_key_pem, KEY_PEM);
     assert_eq!(loaded.ca_pem, CERT_PEM);
@@ -239,9 +235,8 @@ fn certificate_read_failure_identifies_role_and_resolved_path() {
         None,
     );
 
-    let text = error_text(
-        load_tls_materials(&config, Some(&root)).expect_err("missing certificate"),
-    );
+    let text =
+        error_text(load_tls_materials(&config, Some(&root)).expect_err("missing certificate"));
     assert!(text.contains("read tls cert"));
     assert!(text.contains(root.join("missing-cert.pem").to_string_lossy().as_ref()));
     let _ = std::fs::remove_dir_all(root);
@@ -258,8 +253,7 @@ fn private_key_read_failure_identifies_role_and_resolved_path() {
         None,
     );
 
-    let text =
-        error_text(load_tls_materials(&config, Some(&root)).expect_err("missing key"));
+    let text = error_text(load_tls_materials(&config, Some(&root)).expect_err("missing key"));
     assert!(text.contains("read tls key"));
     assert!(text.contains(root.join("missing-key.pem").to_string_lossy().as_ref()));
     let _ = std::fs::remove_dir_all(root);
@@ -277,8 +271,7 @@ fn ca_read_failure_identifies_role_and_resolved_path() {
         Some("missing-ca.pem"),
     );
 
-    let text =
-        error_text(load_tls_materials(&config, Some(&root)).expect_err("missing ca"));
+    let text = error_text(load_tls_materials(&config, Some(&root)).expect_err("missing ca"));
     assert!(text.contains("read tls ca"));
     assert!(text.contains(root.join("missing-ca.pem").to_string_lossy().as_ref()));
     let _ = std::fs::remove_dir_all(root);
@@ -319,8 +312,7 @@ fn certificate_parser_rejects_empty_noncertificate_and_truncated_pem() {
         b"plain text".as_slice(),
         b"-----BEGIN CERTIFICATE-----\nAAAA\n".as_slice(),
     ] {
-        let text =
-            error_text(parse_pem_certs(pem, "owned label").expect_err("invalid cert"));
+        let text = error_text(parse_pem_certs(pem, "owned label").expect_err("invalid cert"));
         assert!(text.contains("parse owned label"));
     }
 }
@@ -340,8 +332,8 @@ fn private_key_parser_accepts_fixture_and_rejects_invalid_material() {
 
 #[test]
 fn rustls_server_config_accepts_matching_fixture_material() {
-    let config = rustls_server_config(&materials(CERT_PEM, KEY_PEM, CERT_PEM))
-        .expect("server config");
+    let config =
+        rustls_server_config(&materials(CERT_PEM, KEY_PEM, CERT_PEM)).expect("server config");
     assert_eq!(Arc::strong_count(&config), 1);
 }
 
@@ -351,27 +343,25 @@ fn rustls_server_config_rejects_empty_certificate_and_invalid_key() {
         rustls_server_config(&materials(b"", KEY_PEM, CERT_PEM)).expect_err("empty cert");
     assert!(error_text(empty_cert).contains("no certificates found"));
 
-    let invalid_key = rustls_server_config(&materials(CERT_PEM, b"invalid", CERT_PEM))
-        .expect_err("invalid key");
+    let invalid_key =
+        rustls_server_config(&materials(CERT_PEM, b"invalid", CERT_PEM)).expect_err("invalid key");
     assert!(error_text(invalid_key).contains("parse tls private key"));
 }
 
 #[test]
 fn rustls_client_config_accepts_fixture_trust_root() {
-    let config = rustls_client_config(&materials(CERT_PEM, KEY_PEM, CERT_PEM))
-        .expect("client config");
+    let config =
+        rustls_client_config(&materials(CERT_PEM, KEY_PEM, CERT_PEM)).expect("client config");
     assert_eq!(Arc::strong_count(&config), 1);
 }
 
 #[test]
 fn rustls_client_config_rejects_empty_and_malformed_ca() {
-    let empty = rustls_client_config(&materials(CERT_PEM, KEY_PEM, b""))
-        .expect_err("empty ca");
+    let empty = rustls_client_config(&materials(CERT_PEM, KEY_PEM, b"")).expect_err("empty ca");
     assert!(error_text(empty).contains("no certificates found"));
 
-    let malformed =
-        rustls_client_config(&materials(CERT_PEM, KEY_PEM, b"plain text"))
-            .expect_err("malformed ca");
+    let malformed = rustls_client_config(&materials(CERT_PEM, KEY_PEM, b"plain text"))
+        .expect_err("malformed ca");
     assert!(error_text(malformed).contains("parse tls ca certificate"));
 }
 

@@ -166,7 +166,7 @@ impl TelemetrySink {
     }
 
     fn record(&mut self, event: &'static str, duration: Duration) {
-        let duration_ms = duration.as_millis() as u64;
+        let duration_ms = u64::try_from(duration.as_millis()).unwrap_or(u64::MAX);
         self.metrics.entry(event).or_default().record(duration_ms);
         self.pending_events = self.pending_events.saturating_add(1);
     }

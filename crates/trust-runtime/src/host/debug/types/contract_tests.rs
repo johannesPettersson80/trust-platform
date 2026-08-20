@@ -334,7 +334,10 @@ fn runtime_event_variants_preserve_exact_payloads_and_identity() {
     assert_ne!(events[0], events[1]);
     assert!(matches!(
         &events[4],
-        RuntimeEvent::TaskOverrun { missed: u64::MAX, .. }
+        RuntimeEvent::TaskOverrun {
+            missed: u64::MAX,
+            ..
+        }
     ));
     assert!(matches!(
         &events[9],

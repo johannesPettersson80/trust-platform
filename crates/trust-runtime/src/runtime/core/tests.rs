@@ -72,9 +72,7 @@ fn runtime_core_program_registration_materializes_and_publishes_instance() {
 #[test]
 fn runtime_core_task_registration_preserves_single_sample_and_thread_ids() {
     let mut runtime = Runtime::new();
-    runtime
-        .storage_mut()
-        .set_global("Start", Value::Bool(true));
+    runtime.storage_mut().set_global("Start", Value::Bool(true));
     runtime.register_task(task("Fast", Some("Start"), &["Main"]));
 
     assert_eq!(runtime.task_thread_ids.get("Fast"), Some(&1));
@@ -110,9 +108,7 @@ fn runtime_core_background_thread_is_allocated_only_for_unscheduled_programs() {
 #[test]
 fn runtime_core_task_timing_reset_preserves_threads_and_clears_history() {
     let mut runtime = Runtime::new();
-    runtime
-        .storage_mut()
-        .set_global("Start", Value::Bool(true));
+    runtime.storage_mut().set_global("Start", Value::Bool(true));
     runtime.register_task(task("Fast", Some("Start"), &[]));
     runtime.task_state.get_mut("Fast").unwrap().overrun_count = 9;
     let thread_id = runtime.task_thread_ids["Fast"];
@@ -183,7 +179,13 @@ fn runtime_core_metadata_snapshot_isolated_from_later_runtime_mutation() {
 fn runtime_core_virtual_file_labels_are_closed_and_unsigned() {
     assert_eq!(parse_virtual_file_label("file_0"), Some(0));
     assert_eq!(parse_virtual_file_label("file_4294967295"), Some(u32::MAX));
-    for invalid in ["file_", "file_-1", "FILE_7", "path/file_7", "file_4294967296"] {
+    for invalid in [
+        "file_",
+        "file_-1",
+        "FILE_7",
+        "path/file_7",
+        "file_4294967296",
+    ] {
         assert_eq!(parse_virtual_file_label(invalid), None, "{invalid}");
     }
 }
@@ -256,11 +258,7 @@ fn runtime_core_debug_evaluation_rejects_missing_frame_without_write() {
         Err(error::RuntimeError::InvalidFrame(u32::MAX))
     );
     assert_eq!(
-        runtime.write_lvalue(
-            &LValue::Name("x".into()),
-            Value::DInt(9),
-            Some(missing)
-        ),
+        runtime.write_lvalue(&LValue::Name("x".into()), Value::DInt(9), Some(missing)),
         Err(error::RuntimeError::InvalidFrame(u32::MAX))
     );
     assert_eq!(runtime.storage().get_global("x"), Some(&Value::DInt(3)));
@@ -279,16 +277,17 @@ fn runtime_core_var_access_reads_and_writes_direct_and_partial_bindings() {
     runtime
         .access_map_mut()
         .bind("Whole".into(), reference.clone(), None);
-    runtime.access_map_mut().bind(
-        "Ready".into(),
-        reference,
-        Some(PartialAccess::Bit(2)),
-    );
+    runtime
+        .access_map_mut()
+        .bind("Ready".into(), reference, Some(PartialAccess::Bit(2)));
 
     assert_eq!(runtime.read_access("Whole"), Some(Value::Byte(4)));
     assert_eq!(runtime.read_access("Ready"), Some(Value::Bool(true)));
     runtime.write_access("Ready", Value::Bool(false)).unwrap();
-    assert_eq!(runtime.storage().get_global("Status"), Some(&Value::Byte(0)));
+    assert_eq!(
+        runtime.storage().get_global("Status"),
+        Some(&Value::Byte(0))
+    );
     runtime.write_access("Whole", Value::Byte(9)).unwrap();
     assert_eq!(runtime.read_access("Whole"), Some(Value::Byte(9)));
 }
@@ -301,11 +300,9 @@ fn runtime_core_var_access_failures_preserve_storage() {
         .storage()
         .ref_for_global("Status")
         .expect("status reference");
-    runtime.access_map_mut().bind(
-        "InvalidBit".into(),
-        reference,
-        Some(PartialAccess::Bit(8)),
-    );
+    runtime
+        .access_map_mut()
+        .bind("InvalidBit".into(), reference, Some(PartialAccess::Bit(8)));
     runtime.access_map_mut().bind(
         "MissingTarget".into(),
         ValueRef {
@@ -331,7 +328,10 @@ fn runtime_core_var_access_failures_preserve_storage() {
         runtime.write_access("MissingTarget", Value::Byte(1)),
         Err(error::RuntimeError::NullReference)
     );
-    assert_eq!(runtime.storage().get_global("Status"), Some(&Value::Byte(4)));
+    assert_eq!(
+        runtime.storage().get_global("Status"),
+        Some(&Value::Byte(4))
+    );
 }
 
 #[test]

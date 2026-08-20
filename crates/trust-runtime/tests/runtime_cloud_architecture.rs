@@ -103,7 +103,24 @@ fn runtime_cloud_proxy_routes_are_policy_first_adapters() {
         source_path,
         dispatch_section,
         "map_action_to_control_request(&action)",
-        "dispatch_control_request(",
+        "prepare_control_request(",
+    );
+    let completion_section = &dispatch_section[marker_index(
+        source_path,
+        dispatch_section,
+        "let mut deferred_control_responses",
+    )..];
+    assert_marker_before(
+        source_path,
+        completion_section,
+        "prepare_control_request(",
+        "write_then_complete_control_requests(",
+    );
+    assert_marker_before(
+        source_path,
+        completion_section,
+        "write_then_complete_control_requests(",
+        "request.respond(response)",
     );
 
     let source_path = "src/web/runtime_cloud_routes/control_proxy.rs";
@@ -120,7 +137,24 @@ fn runtime_cloud_proxy_routes_are_policy_first_adapters() {
         source_path,
         control_proxy_section,
         "runtime_cloud_preflight_for_action(",
-        "dispatch_control_request(",
+        "prepare_control_request(",
+    );
+    let completion_section = &control_proxy_section[marker_index(
+        source_path,
+        control_proxy_section,
+        "let mut deferred_control_response",
+    )..];
+    assert_marker_before(
+        source_path,
+        completion_section,
+        "prepare_control_request(",
+        "write_then_complete_control_requests(",
+    );
+    assert_marker_before(
+        source_path,
+        completion_section,
+        "write_then_complete_control_requests(",
+        "request.respond(response)",
     );
 
     let source_path = "src/web/runtime_cloud_routes/io_proxy.rs";

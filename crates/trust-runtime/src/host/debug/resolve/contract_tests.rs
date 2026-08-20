@@ -51,10 +51,7 @@ fn breakpoint_resolution_rejects_line_beyond_source() {
 #[test]
 fn breakpoint_resolution_ignores_other_file_ids() {
     let source = "one\ntwo";
-    let statements = [
-        SourceLocation::new(2, 0, 3),
-        SourceLocation::new(2, 4, 7),
-    ];
+    let statements = [SourceLocation::new(2, 0, 3), SourceLocation::new(2, 4, 7)];
     assert_eq!(
         resolve_breakpoint_location(source, 1, &statements, 0, 0),
         None

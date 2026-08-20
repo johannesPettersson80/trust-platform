@@ -68,8 +68,7 @@ END_PROGRAM
 
 #[test]
 fn pou_object_contract_fb_var_persists_across_calls_and_cycles() {
-    let mut harness = run(
-        r#"
+    let mut harness = run(r#"
 FUNCTION_BLOCK Counter
 VAR_OUTPUT
     count : INT;
@@ -87,8 +86,7 @@ first := counter.count;
 counter();
 second := counter.count;
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("first"), Some(Value::Int(1)));
     assert_eq!(harness.get_output("second"), Some(Value::Int(2)));
     harness.cycle();
@@ -98,8 +96,7 @@ END_PROGRAM
 
 #[test]
 fn pou_object_contract_separate_fb_instances_do_not_share_state() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 FUNCTION_BLOCK Counter
 VAR_OUTPUT
     count : INT;
@@ -119,16 +116,14 @@ secondCounter();
 first := firstCounter.count;
 second := secondCounter.count;
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("first"), Some(Value::Int(2)));
     assert_eq!(harness.get_output("second"), Some(Value::Int(1)));
 }
 
 #[test]
 fn pou_object_contract_fb_temp_resets_for_each_call() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 FUNCTION_BLOCK Counter
 VAR_OUTPUT
     outputValue : INT;
@@ -148,15 +143,13 @@ counter();
 counter();
 result := counter.outputValue;
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("result"), Some(Value::Int(2)));
 }
 
 #[test]
 fn pou_object_contract_omitted_fb_input_reuses_last_stored_value() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 FUNCTION_BLOCK Echo
 VAR_INPUT
     value : INT := INT#2;
@@ -177,16 +170,14 @@ first := echo.outputValue;
 echo();
 second := echo.outputValue;
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("first"), Some(Value::Int(7)));
     assert_eq!(harness.get_output("second"), Some(Value::Int(7)));
 }
 
 #[test]
 fn pou_object_contract_first_omitted_fb_input_uses_declared_default() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 FUNCTION_BLOCK Echo
 VAR_INPUT
     value : INT := INT#6;
@@ -204,15 +195,13 @@ END_VAR
 echo();
 result := echo.outputValue;
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("result"), Some(Value::Int(6)));
 }
 
 #[test]
 fn pou_object_contract_fb_var_external_mutates_existing_global() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 VAR_GLOBAL
     shared : INT;
 END_VAR
@@ -228,8 +217,7 @@ VAR
 END_VAR
 bump();
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(
         harness.runtime().storage().get_global("shared"),
         Some(&Value::Int(1))
@@ -238,8 +226,7 @@ END_PROGRAM
 
 #[test]
 fn pou_object_contract_fb_extends_function_block_and_super_dispatches() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 FUNCTION_BLOCK Base
 VAR PUBLIC
     count : INT := INT#10;
@@ -260,8 +247,7 @@ VAR
 END_VAR
 result := derived.ReadBase();
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("result"), Some(Value::Int(10)));
 }
 
@@ -317,8 +303,7 @@ END_PROGRAM
 
 #[test]
 fn pou_object_contract_class_extends_base_fields() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 CLASS Base
 VAR PUBLIC
     baseValue : INT := INT#1;
@@ -336,15 +321,13 @@ VAR
 END_VAR
 result := object.baseValue + object.childValue;
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("result"), Some(Value::Int(3)));
 }
 
 #[test]
 fn pou_object_contract_class_method_mutates_owning_instance() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 CLASS Counter
 VAR PUBLIC
     value : INT;
@@ -365,15 +348,13 @@ END_VAR
 counter.Add(INT#2);
 result := counter.Add(INT#3);
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("result"), Some(Value::Int(5)));
 }
 
 #[test]
 fn pou_object_contract_method_static_is_isolated_per_instance() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 CLASS Counter
 METHOD PUBLIC Next : INT
 VAR_STAT
@@ -394,8 +375,7 @@ firstCounter.Next();
 first := firstCounter.Next();
 second := secondCounter.Next();
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("first"), Some(Value::Int(2)));
     assert_eq!(harness.get_output("second"), Some(Value::Int(1)));
 }
@@ -442,8 +422,7 @@ END_PROGRAM
 
 #[test]
 fn pou_object_contract_property_assignment_and_read_call_accessors() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 CLASS Device
 VAR PRIVATE
     stored : INT;
@@ -465,15 +444,13 @@ END_VAR
 device.Level := INT#9;
 result := device.Level;
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("result"), Some(Value::Int(9)));
 }
 
 #[test]
 fn pou_object_contract_interface_dispatch_reaches_concrete_method() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 INTERFACE ICounter
 METHOD Next : INT
 END_METHOD
@@ -496,12 +473,8 @@ END_VAR
 P := Impl;
 ResultValue := P.Next();
 END_PROGRAM
-"#,
-    );
-    assert_eq!(
-        harness.get_output("ResultValue"),
-        Some(Value::Int(1))
-    );
+"#);
+    assert_eq!(harness.get_output("ResultValue"), Some(Value::Int(1)));
 }
 
 #[test]
@@ -531,8 +504,7 @@ END_PROGRAM
 
 #[test]
 fn pou_object_contract_program_var_persists_and_temp_resets_each_cycle() {
-    let mut harness = run(
-        r#"
+    let mut harness = run(r#"
 PROGRAM Main
 VAR
     StoredValue : INT;
@@ -544,23 +516,15 @@ StoredValue := StoredValue + INT#1;
 TempValue := TempValue + INT#1;
 StoredValue := StoredValue + TempValue;
 END_PROGRAM
-"#,
-    );
-    assert_eq!(
-        harness.get_output("StoredValue"),
-        Some(Value::Int(2))
-    );
+"#);
+    assert_eq!(harness.get_output("StoredValue"), Some(Value::Int(2)));
     harness.cycle();
-    assert_eq!(
-        harness.get_output("StoredValue"),
-        Some(Value::Int(4))
-    );
+    assert_eq!(harness.get_output("StoredValue"), Some(Value::Int(4)));
 }
 
 #[test]
 fn pou_object_contract_program_global_is_lifted_and_external_is_not_duplicated() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 VAR_GLOBAL
     shared : INT := INT#3;
 END_VAR
@@ -573,8 +537,7 @@ VAR_EXTERNAL
 END_VAR
 shared := shared + programGlobal;
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(
         harness.runtime().storage().get_global("shared"),
         Some(&Value::Int(7))

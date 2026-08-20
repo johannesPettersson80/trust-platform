@@ -55,9 +55,7 @@ pub(super) fn var_block_kind(node: &SyntaxNode) -> Result<VarBlockKind, CompileE
     Err(CompileError::new("invalid VAR block"))
 }
 
-pub(super) fn var_block_qualifiers(
-    node: &SyntaxNode,
-) -> Result<VarBlockQualifiers, CompileError> {
+pub(super) fn var_block_qualifiers(node: &SyntaxNode) -> Result<VarBlockQualifiers, CompileError> {
     let mut qualifiers = VarBlockQualifiers::default();
     let mut qualifier_count = 0usize;
     for element in node.children_with_tokens() {
@@ -107,9 +105,7 @@ pub(super) fn validate_retention_policy(
     qualifiers: VarBlockQualifiers,
     retained_sections: &[VarBlockKind],
 ) -> Result<(), CompileError> {
-    if qualifiers.retain != crate::RetainPolicy::Unspecified
-        && !retained_sections.contains(&kind)
-    {
+    if qualifiers.retain != crate::RetainPolicy::Unspecified && !retained_sections.contains(&kind) {
         return Err(CompileError::new(format!(
             "retention qualifier is not allowed on this {owner} variable section"
         )));

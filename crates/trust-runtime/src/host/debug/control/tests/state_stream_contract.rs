@@ -164,6 +164,7 @@ fn last_stop_query_returns_an_owned_copy() {
 
     let mut copy = control.last_stop().expect("last stop");
     copy.reason = DebugStopReason::Pause;
+    assert_eq!(copy.reason, DebugStopReason::Pause);
     assert_eq!(
         control.last_stop().expect("last stop").reason,
         DebugStopReason::Entry

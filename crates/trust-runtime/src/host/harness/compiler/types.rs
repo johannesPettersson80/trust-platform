@@ -181,14 +181,8 @@ fn lower_type_decl_node(
                     .ok_or_else(|| CompileError::new("missing type name"))?;
                 let (base, values) = lower_enum_def(&child, &mut ctx)?;
                 let type_id = reserved_type_id(ctx.registry, &name)?;
-                ctx.registry.replace(
-                    type_id,
-                    trust_hir::Type::Enum {
-                        name,
-                        base,
-                        values,
-                    },
-                );
+                ctx.registry
+                    .replace(type_id, trust_hir::Type::Enum { name, base, values });
                 if child
                     .children()
                     .any(|node| node.kind() == SyntaxKind::TypeRef)

@@ -34,8 +34,7 @@ fn provenance_contract_canonical_and_alias_driver_names_share_labels() {
         ("ether-cat", "EtherCAT process image"),
         ("ecat", "EtherCAT process image"),
     ] {
-        let driver =
-            provenance_contract_driver(name, true, provenance_contract_empty_params());
+        let driver = provenance_contract_driver(name, true, provenance_contract_empty_params());
         assert_eq!(
             io_source_label_for_driver_address(&driver, &input).as_deref(),
             Some(expected),
@@ -55,8 +54,7 @@ fn provenance_contract_memory_is_internal_for_every_driver_family() {
         "ethercat",
         "unknown-driver",
     ] {
-        let driver =
-            provenance_contract_driver(name, true, provenance_contract_empty_params());
+        let driver = provenance_contract_driver(name, true, provenance_contract_empty_params());
         assert_eq!(
             io_source_label_for_driver_address(&driver, &memory).as_deref(),
             Some("Internal memory"),
@@ -76,19 +74,13 @@ fn provenance_contract_modbus_uses_directional_base_and_word_offset() {
     for name in ["modbus-tcp", " MODBUS_TCP "] {
         let driver = provenance_contract_driver(name, true, params.clone());
         assert_eq!(
-            io_source_label_for_driver_address(
-                &driver,
-                &provenance_contract_address("%IW6")
-            )
-            .as_deref(),
+            io_source_label_for_driver_address(&driver, &provenance_contract_address("%IW6"))
+                .as_deref(),
             Some("Modbus 10.0.0.5:1502 · input reg 103")
         );
         assert_eq!(
-            io_source_label_for_driver_address(
-                &driver,
-                &provenance_contract_address("%QW8")
-            )
-            .as_deref(),
+            io_source_label_for_driver_address(&driver, &provenance_contract_address("%QW8"))
+                .as_deref(),
             Some("Modbus 10.0.0.5:1502 · output reg 204")
         );
     }
@@ -96,40 +88,27 @@ fn provenance_contract_modbus_uses_directional_base_and_word_offset() {
 
 #[test]
 fn provenance_contract_modbus_and_mqtt_defaults_are_directional() {
-    let modbus =
-        provenance_contract_driver("modbus-tcp", true, provenance_contract_empty_params());
+    let modbus = provenance_contract_driver("modbus-tcp", true, provenance_contract_empty_params());
     assert_eq!(
-        io_source_label_for_driver_address(
-            &modbus,
-            &provenance_contract_address("%IX2.0")
-        )
-        .as_deref(),
+        io_source_label_for_driver_address(&modbus, &provenance_contract_address("%IX2.0"))
+            .as_deref(),
         Some("Modbus configured endpoint · input reg 1")
     );
     assert_eq!(
-        io_source_label_for_driver_address(
-            &modbus,
-            &provenance_contract_address("%QX4.0")
-        )
-        .as_deref(),
+        io_source_label_for_driver_address(&modbus, &provenance_contract_address("%QX4.0"))
+            .as_deref(),
         Some("Modbus configured endpoint · output reg 2")
     );
 
     let mqtt = provenance_contract_driver("mqtt", true, provenance_contract_empty_params());
     assert_eq!(
-        io_source_label_for_driver_address(
-            &mqtt,
-            &provenance_contract_address("%IX0.0")
-        )
-        .as_deref(),
+        io_source_label_for_driver_address(&mqtt, &provenance_contract_address("%IX0.0"))
+            .as_deref(),
         Some("MQTT topic trust/io/in")
     );
     assert_eq!(
-        io_source_label_for_driver_address(
-            &mqtt,
-            &provenance_contract_address("%QX0.0")
-        )
-        .as_deref(),
+        io_source_label_for_driver_address(&mqtt, &provenance_contract_address("%QX0.0"))
+            .as_deref(),
         Some("MQTT topic trust/io/out")
     );
 }
@@ -138,11 +117,8 @@ fn provenance_contract_modbus_and_mqtt_defaults_are_directional() {
 fn provenance_contract_gpio_projects_absolute_process_image_bit() {
     let driver = provenance_contract_driver("gpio", true, provenance_contract_empty_params());
     assert_eq!(
-        io_source_label_for_driver_address(
-            &driver,
-            &provenance_contract_address("%QX3.5")
-        )
-        .as_deref(),
+        io_source_label_for_driver_address(&driver, &provenance_contract_address("%QX3.5"))
+            .as_deref(),
         Some("GPIO line 29")
     );
 }
@@ -192,11 +168,7 @@ fn provenance_contract_memory_remains_internal_with_zero_or_many_drivers() {
     for drivers in [
         Vec::new(),
         vec![
-            provenance_contract_driver(
-                "simulated",
-                true,
-                provenance_contract_empty_params(),
-            ),
+            provenance_contract_driver("simulated", true, provenance_contract_empty_params()),
             provenance_contract_driver("mqtt", true, provenance_contract_empty_params()),
         ],
     ] {
@@ -209,17 +181,11 @@ fn provenance_contract_memory_remains_internal_with_zero_or_many_drivers() {
 
 #[test]
 fn provenance_contract_unknown_driver_label_is_readable_but_not_health_claim() {
-    let driver = provenance_contract_driver(
-        "custom-field_bus",
-        true,
-        provenance_contract_empty_params(),
-    );
+    let driver =
+        provenance_contract_driver("custom-field_bus", true, provenance_contract_empty_params());
     assert_eq!(
-        io_source_label_for_driver_address(
-            &driver,
-            &provenance_contract_address("%IX0.0")
-        )
-        .as_deref(),
+        io_source_label_for_driver_address(&driver, &provenance_contract_address("%IX0.0"))
+            .as_deref(),
         Some("Custom Field Bus I/O driver")
     );
 }

@@ -1,5 +1,5 @@
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use super::*;
 
@@ -73,11 +73,11 @@ fn default_resource_name_uses_final_component_and_sanitizes_punctuation() {
 
 #[test]
 fn json_to_toml_preserves_supported_scalar_shapes() {
-    assert_eq!(json_to_toml(&Value::Null), toml::Value::String(String::new()));
     assert_eq!(
-        json_to_toml(&json!(true)),
-        toml::Value::Boolean(true)
+        json_to_toml(&Value::Null),
+        toml::Value::String(String::new())
     );
+    assert_eq!(json_to_toml(&json!(true)), toml::Value::Boolean(true));
     assert_eq!(json_to_toml(&json!(-17)), toml::Value::Integer(-17));
     assert_eq!(json_to_toml(&json!(17)), toml::Value::Integer(17));
     assert_eq!(json_to_toml(&json!(1.5)), toml::Value::Float(1.5));
@@ -136,7 +136,10 @@ fn driver_names_are_trimmed_and_all_entries_are_enabled() {
     let payload = request(
         None,
         None,
-        Some(vec![driver("  loopback  ", None), driver(" simulated ", None)]),
+        Some(vec![
+            driver("  loopback  ", None),
+            driver(" simulated ", None),
+        ]),
     );
     let configs = driver_configs_from_payload(&payload).expect("drivers");
     assert_eq!(configs[0].name.as_str(), "loopback");
@@ -180,11 +183,7 @@ fn driver_params_preserve_nested_object() {
 #[test]
 fn non_object_driver_params_are_rejected() {
     for params in [json!(null), json!(17), json!("text"), json!([1, 2])] {
-        let payload = request(
-            None,
-            None,
-            Some(vec![driver("loopback", Some(params))]),
-        );
+        let payload = request(None, None, Some(vec![driver("loopback", Some(params))]));
         assert!(driver_configs_from_payload(&payload).is_err());
     }
 }
@@ -200,12 +199,9 @@ fn legacy_driver_requires_trimmed_nonempty_name() {
 
 #[test]
 fn legacy_driver_params_must_be_object() {
-    assert!(driver_configs_from_payload(&request(
-        Some("loopback"),
-        Some(json!([1, 2])),
-        None
-    ))
-    .is_err());
+    assert!(
+        driver_configs_from_payload(&request(Some("loopback"), Some(json!([1, 2])), None)).is_err()
+    );
 }
 
 #[test]
@@ -265,10 +261,7 @@ fn safe_state_value_projection_covers_boolean_integer_and_bit_string_widths() {
         (crate::value::Value::Byte(255), "255"),
         (crate::value::Value::Word(65_535), "65535"),
         (crate::value::Value::DWord(u32::MAX), "4294967295"),
-        (
-            crate::value::Value::LWord(u64::MAX),
-            "18446744073709551615",
-        ),
+        (crate::value::Value::LWord(u64::MAX), "18446744073709551615"),
     ];
     for (value, expected) in cases {
         assert_eq!(format_io_safe_state_value(&value), expected);
@@ -317,11 +310,7 @@ fn project_io_file_takes_precedence_in_load_response() {
 #[test]
 fn saving_project_io_writes_validated_configuration() {
     let fixture = TempProject::new("save-project");
-    let mut payload = request(
-        None,
-        None,
-        Some(vec![driver("loopback", Some(json!({})))]),
-    );
+    let mut payload = request(None, None, Some(vec![driver("loopback", Some(json!({})))]));
     payload.safe_state = Some(vec![IoSafeStateEntry {
         address: "%QX0.0".to_string(),
         value: "FALSE".to_string(),

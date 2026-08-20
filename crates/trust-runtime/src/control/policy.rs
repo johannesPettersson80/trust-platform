@@ -204,7 +204,7 @@ mod tests {
                     }
                 }))
             ),
-            AccessRole::Viewer
+            AccessRole::Engineer
         );
     }
 

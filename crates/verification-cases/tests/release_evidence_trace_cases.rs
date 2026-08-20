@@ -57,7 +57,7 @@ fn runtime_behavior_lock_trace_cases() {
     run_release_trace(
         "TEST_RUNTIME_BEHAVIOR_LOCK_TRACE_001",
         "verification/cases/release/RUNTIME_BEHAVIOR_LOCKED_001.toml",
-        "sha256:8e23fed1b9e4c73d6d957d212a09349fa599504b09b4e7c45b3a3cec70ee49c6",
+        "sha256:a9191accaa6526929c3bc9d9a504787a42fbff514c694baf9a8f84fb357c3040",
     );
 }
 
@@ -66,7 +66,7 @@ fn debug_behavior_lock_trace_cases() {
     run_release_trace(
         "TEST_DEBUG_BEHAVIOR_LOCK_TRACE_001",
         "verification/cases/editor_safety/DEBUG_BEHAVIOR_LOCKED_001.toml",
-        "sha256:64266f6e91405f76c745df851468d493e7e1ab06b83e275fe692c3b28163b8a4",
+        "sha256:a4629fce647fc2a1c0badfac29b009a8188857737308bb9f428203fd394dfc34",
     );
 }
 

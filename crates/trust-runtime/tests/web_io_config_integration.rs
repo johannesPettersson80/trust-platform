@@ -70,3 +70,5 @@ mod web_io_config_integration_part_19;
 mod web_io_config_integration_part_20;
 #[path = "web_io_config_integration/web_io_config_integration_part_21.rs"]
 mod web_io_config_integration_part_21;
+#[path = "web_io_config_integration/web_io_config_integration_part_22.rs"]
+mod web_io_config_integration_part_22;

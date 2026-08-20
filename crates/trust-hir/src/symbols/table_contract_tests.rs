@@ -1,7 +1,5 @@
 use super::*;
-use crate::semantic::{
-    DeclarationKind, DeclarationReferenceKind, SemanticOutcome, SemanticRole,
-};
+use crate::semantic::{DeclarationKind, DeclarationReferenceKind, SemanticOutcome, SemanticRole};
 use crate::symbols::{SymbolOrigin, VarQualifier};
 use crate::types::{InitializerRecord, StructField, UnionVariant};
 use text_size::{TextRange, TextSize};
@@ -217,12 +215,7 @@ fn qualified_resolution_traverses_namespaces_only() {
     let mut table = SymbolTable::new();
     let outer = add_namespace(&mut table, "Outer", range(1, 2));
     let outer_scope = table.push_scope(ScopeKind::Namespace, Some(outer));
-    let mut inner_symbol = symbol(
-        "Inner",
-        SymbolKind::Namespace,
-        TypeId::VOID,
-        range(3, 4),
-    );
+    let mut inner_symbol = symbol("Inner", SymbolKind::Namespace, TypeId::VOID, range(3, 4));
     inner_symbol.parent = Some(outer);
     let inner = table.add_symbol(inner_symbol);
     let inner_scope = table.push_scope(ScopeKind::Namespace, Some(inner));
@@ -314,26 +307,15 @@ fn local_name_range_index_is_exact_and_excludes_imported_symbols() {
         table.lookup_by_name_range("LOCAL", local_range),
         Some(local)
     );
-    assert_eq!(
-        table.lookup_by_name_range("Local", range(10, 19)),
-        None
-    );
+    assert_eq!(table.lookup_by_name_range("Local", range(10, 19)), None);
 
-    let mut imported_symbol = symbol(
-        "Imported",
-        SymbolKind::Constant,
-        TypeId::INT,
-        range(30, 40),
-    );
+    let mut imported_symbol = symbol("Imported", SymbolKind::Constant, TypeId::INT, range(30, 40));
     imported_symbol.origin = Some(SymbolOrigin {
         file_id: FileId(9),
         symbol_id: SymbolId(77),
     });
     table.add_symbol_raw(imported_symbol);
-    assert_eq!(
-        table.lookup_by_name_range("Imported", range(30, 40)),
-        None
-    );
+    assert_eq!(table.lookup_by_name_range("Imported", range(30, 40)), None);
 }
 
 #[test]
@@ -509,11 +491,7 @@ fn enum_value_resolution_distinguishes_missing_single_and_ambiguous() {
         EnumValueResolution::NotFound
     );
 
-    table.register_enum_type(
-        "Status",
-        TypeId::INT,
-        vec![(SmolStr::new("RED"), 9)],
-    );
+    table.register_enum_type("Status", TypeId::INT, vec![(SmolStr::new("RED"), 9)]);
     assert_eq!(
         table.resolve_enum_value_by_name("RED"),
         EnumValueResolution::Ambiguous
@@ -525,10 +503,7 @@ fn enum_value_resolution_distinguishes_missing_single_and_ambiguous() {
 fn constant_lookup_normalizes_scope_and_name() {
     let mut table = SymbolTable::new();
     let mut values = FxHashMap::default();
-    values.insert(
-        (Some(SmolStr::new("Motor")), SmolStr::new("Limit")),
-        42,
-    );
+    values.insert((Some(SmolStr::new("Motor")), SmolStr::new("Limit")), 42);
     values.insert((None, SmolStr::new("Global")), 7);
     table.set_const_values(values);
 
@@ -576,7 +551,10 @@ fn extends_and_implements_references_resolve_and_reject_wrong_kind() {
         vec![SmolStr::new("Runnable"), SmolStr::new("NotAType")],
     );
 
-    assert_eq!(table.extends_name(derived).map(SmolStr::as_str), Some("Base"));
+    assert_eq!(
+        table.extends_name(derived).map(SmolStr::as_str),
+        Some("Base")
+    );
     assert_eq!(
         table.implements_names(derived).map(|names| names.len()),
         Some(2)
@@ -607,12 +585,7 @@ fn extends_and_implements_references_resolve_and_reject_wrong_kind() {
 #[test]
 fn oop_reference_without_owner_scope_is_classified_not_global_fallback() {
     let mut table = SymbolTable::new();
-    table.add_symbol(symbol(
-        "Base",
-        SymbolKind::Class,
-        TypeId::VOID,
-        range(1, 2),
-    ));
+    table.add_symbol(symbol("Base", SymbolKind::Class, TypeId::VOID, range(1, 2)));
     let owner = table.add_symbol(symbol(
         "Owner",
         SymbolKind::Class,
@@ -623,7 +596,9 @@ fn oop_reference_without_owner_scope_is_classified_not_global_fallback() {
 
     assert_eq!(table.resolve_oop_reference_for_owner(owner, "Base"), None);
     assert!(matches!(
-        table.extends_reference(owner).map(|record| record.outcome().clone()),
+        table
+            .extends_reference(owner)
+            .map(|record| record.outcome().clone()),
         Some(SemanticOutcome::InvariantViolation { .. })
     ));
 }
@@ -676,12 +651,7 @@ fn alias_resolution_follows_chain_and_reports_self_cycle() {
 #[test]
 fn hierarchy_member_resolution_prefers_derived_and_stops_on_cycle() {
     let mut table = SymbolTable::new();
-    let base = table.add_symbol(symbol(
-        "Base",
-        SymbolKind::Class,
-        TypeId::VOID,
-        range(1, 2),
-    ));
+    let base = table.add_symbol(symbol("Base", SymbolKind::Class, TypeId::VOID, range(1, 2)));
     table.ensure_scope_for_owner(base, ScopeKind::Class);
     let mut base_member = symbol(
         "Run",
@@ -827,12 +797,7 @@ fn declaration_catalog_preserves_qualified_scope_and_import_source_identity() {
 #[test]
 fn declaration_catalog_retains_classified_inheritance_references() {
     let mut table = SymbolTable::new();
-    let base = table.add_symbol(symbol(
-        "Base",
-        SymbolKind::Class,
-        TypeId::VOID,
-        range(1, 2),
-    ));
+    let base = table.add_symbol(symbol("Base", SymbolKind::Class, TypeId::VOID, range(1, 2)));
     table.ensure_scope_for_owner(base, ScopeKind::Class);
     let derived = table.add_symbol(symbol(
         "Derived",
@@ -875,12 +840,7 @@ fn cyclic_parent_chain_is_omitted_from_declaration_catalog() {
         TypeId::VOID,
         range(1, 2),
     ));
-    let mut second_symbol = symbol(
-        "Second",
-        SymbolKind::Class,
-        TypeId::VOID,
-        range(3, 4),
-    );
+    let mut second_symbol = symbol("Second", SymbolKind::Class, TypeId::VOID, range(3, 4));
     second_symbol.parent = Some(first);
     let second = table.add_symbol_raw(second_symbol);
     table.get_mut(first).expect("first symbol").parent = Some(second);
@@ -909,7 +869,10 @@ fn iteration_and_length_include_every_retained_symbol_identity() {
 
     assert_eq!(table.len(), before + 2);
     assert_ne!(first, second);
-    let ids = table.iter().map(|symbol| symbol.id).collect::<FxHashSet<_>>();
+    let ids = table
+        .iter()
+        .map(|symbol| symbol.id)
+        .collect::<FxHashSet<_>>();
     assert!(ids.contains(&first));
     assert!(ids.contains(&second));
     assert_eq!(table.lookup("DUPLICATE"), Some(first));

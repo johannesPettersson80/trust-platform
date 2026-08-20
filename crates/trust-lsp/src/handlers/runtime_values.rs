@@ -287,10 +287,8 @@ pub(crate) fn fetch_runtime_inline_values(
                     return None;
                 }
             }
-            "instances" => {
-                if instances_ref.replace(scope.variables_reference).is_some() {
-                    return None;
-                }
+            "instances" if instances_ref.replace(scope.variables_reference).is_some() => {
+                return None;
             }
             _ => {}
         }

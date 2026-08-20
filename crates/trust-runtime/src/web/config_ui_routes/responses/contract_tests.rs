@@ -18,10 +18,7 @@ fn has_json_content_type(response: &Response<std::io::Cursor<Vec<u8>>>) -> bool 
 fn json_response_preserves_requested_status_and_exact_body() {
     let response = json_response(202, json!({"ok": true, "value": [1, 2, 3]}));
     assert_eq!(response.status_code(), StatusCode(202));
-    assert_eq!(
-        body(response),
-        json!({"ok": true, "value": [1, 2, 3]})
-    );
+    assert_eq!(body(response), json!({"ok": true, "value": [1, 2, 3]}));
 }
 
 #[test]

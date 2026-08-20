@@ -1,8 +1,15 @@
 # Verification Program Policy
 
-This document owns the rules of the truST PLC verification program. It should
-stay stable and readable. Machine-readable schema details live in
-`metadata-model.md`; implementation rows live in `implementation-board.md`.
+> **Historical Phase 0-16 record.** This document no longer owns or sequences
+> current product work. Any invariant, planner, catalog, mapping, or evidence
+> requirement below describes the retired verification campaign. Current work
+> follows the direct `written specification -> native executable test` contract
+> in `phase18-zero-debt-execution-board.md`.
+
+This document records the former rules of the truST PLC verification program.
+It remains stable and readable as historical context. Machine-readable schema
+details live in `metadata-model.md`; historical implementation rows live in
+`implementation-board.md`.
 
 ## Scope
 

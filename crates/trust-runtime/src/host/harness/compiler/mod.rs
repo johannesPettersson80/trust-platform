@@ -2,8 +2,8 @@
 
 #![allow(missing_docs)]
 
-mod config;
 mod action_profile;
+mod config;
 mod dependency_prelude;
 mod edge;
 mod model;
@@ -19,15 +19,15 @@ mod action_profile_contract_tests;
 #[path = "generic_type_profile_contract_tests.rs"]
 mod generic_type_profile_contract_tests;
 
+pub(super) use action_profile::contains_textual_action;
 pub(super) use config::{
     lower_configuration, lower_root_global_var_blocks, resolve_program_type_name,
 };
-pub(super) use action_profile::contains_textual_action;
-pub(super) use edge::collect_edge_declarations;
 pub(super) use dependency_prelude::{
-    predeclare_project_types, resolve_project_global_constants, resolve_pou_local_constants,
+    predeclare_project_types, resolve_pou_local_constants, resolve_project_global_constants,
     validate_project_aliases,
 };
+pub(super) use edge::collect_edge_declarations;
 pub(super) use model::{
     AccessDecl, AccessPart, AccessPath, ConfigInit, GlobalInit, LoweringContext, LoweringInputs,
     ProgramInstanceConfig, ResolvedAccess, WildcardRequirement,

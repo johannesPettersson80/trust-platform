@@ -928,9 +928,11 @@ fn simulation_plan_rejects_zero_cli_scale() {
 fn simulation_plan_preserves_project_model_when_cli_enables_it() {
     let mut bundle =
         bundle_with_backend(trust_runtime::execution_backend::ExecutionBackend::BytecodeVm);
-    let mut config = trust_runtime::simulation::SimulationConfig::default();
-    config.time_scale = 7;
-    config.enabled = false;
+    let config = trust_runtime::simulation::SimulationConfig {
+        time_scale: 7,
+        enabled: false,
+        ..Default::default()
+    };
     bundle.simulation = Some(config);
 
     let plan = super::build_simulation_plan(Some(&bundle), true, 1)

@@ -210,7 +210,10 @@ mod tests {
             (TypeId::LWORD, Value::LWord(0)),
             (TypeId::TIME, Value::Time(Duration::ZERO)),
             (TypeId::LTIME, Value::LTime(Duration::ZERO)),
-            (TypeId::DATE, Value::Date(DateValue::new(profile.epoch.ticks()))),
+            (
+                TypeId::DATE,
+                Value::Date(DateValue::new(profile.epoch.ticks())),
+            ),
             (TypeId::LDATE, Value::LDate(LDateValue::new(0))),
             (TypeId::TOD, Value::Tod(TimeOfDayValue::new(0))),
             (TypeId::LTOD, Value::LTod(LTimeOfDayValue::new(0))),
@@ -287,10 +290,7 @@ mod tests {
                 .iter()
                 .map(|(name, value)| (name.as_str(), value))
                 .collect::<vec::Vec<_>>(),
-            vec![
-                ("count", &Value::DInt(0)),
-                ("enabled", &Value::Bool(false))
-            ]
+            vec![("count", &Value::DInt(0)), ("enabled", &Value::Bool(false))]
         );
 
         let choice = registry.register_union(
@@ -330,8 +330,7 @@ mod tests {
             TypeId::INT,
             vec![("Manual".into(), 7), ("Auto".into(), 9)],
         );
-        let Value::Enum(mode) =
-            default_value_for_type_id(mode, &registry, &profile).expect("enum")
+        let Value::Enum(mode) = default_value_for_type_id(mode, &registry, &profile).expect("enum")
         else {
             panic!("enum must retain the enum runtime tag");
         };

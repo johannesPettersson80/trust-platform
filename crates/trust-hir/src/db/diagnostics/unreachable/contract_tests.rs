@@ -34,7 +34,11 @@ fn boolean_constant_folder_handles_literals_case_and_parentheses() {
         ("(((TRUE)))", Some(true)),
         ("((FALSE))", Some(false)),
     ] {
-        assert_eq!(const_bool_expr(&first_expression(source)), expected, "{source}");
+        assert_eq!(
+            const_bool_expr(&first_expression(source)),
+            expected,
+            "{source}"
+        );
     }
 }
 
@@ -49,7 +53,11 @@ fn boolean_constant_folder_handles_not_and_binary_operators() {
         ("FALSE XOR TRUE", Some(true)),
         ("NOT (TRUE AND FALSE)", Some(true)),
     ] {
-        assert_eq!(const_bool_expr(&first_expression(source)), expected, "{source}");
+        assert_eq!(
+            const_bool_expr(&first_expression(source)),
+            expected,
+            "{source}"
+        );
     }
 }
 
@@ -74,20 +82,17 @@ END_FUNCTION
     );
 
     assert_eq!(diagnostics.len(), 2);
-    assert!(
-        diagnostics
-            .iter()
-            .all(|diagnostic| diagnostic.message == "unreachable statement")
-    );
+    assert!(diagnostics
+        .iter()
+        .all(|diagnostic| diagnostic.message == "unreachable statement"));
     assert!(diagnostics[0].range.start() < diagnostics[1].range.start());
 }
 
 #[test]
 fn exit_continue_and_jump_are_statement_list_terminators() {
     for terminator in ["EXIT;", "CONTINUE;", "JMP done;"] {
-        let source = format!(
-            "PROGRAM Main\nVAR x : INT; END_VAR\n{terminator}\nx := 1;\nEND_PROGRAM\n"
-        );
+        let source =
+            format!("PROGRAM Main\nVAR x : INT; END_VAR\n{terminator}\nx := 1;\nEND_PROGRAM\n");
         assert_eq!(warnings(&source).len(), 1, "{terminator}");
     }
 }

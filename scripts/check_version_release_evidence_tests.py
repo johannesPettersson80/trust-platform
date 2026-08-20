@@ -187,6 +187,29 @@ version = "0.24.99"
 """
         self.assertEqual(guard.workspace_version_from_toml(content), "0.24.99")
 
+    def test_success_payload_shape_error_is_a_stable_guard_failure(self) -> None:
+        endpoint = "/actions/workflows/release.yml/runs"
+
+        def malformed_api(
+            _repo: str,
+            path: str,
+            _token: str,
+            _query: dict[str, str] | None = None,
+        ) -> tuple[int, dict]:
+            raise ReleaseEvidenceError(
+                f"GitHub API endpoint {path} returned HTTP 200 with malformed JSON"
+            )
+
+        try:
+            code, stdout, stderr = MainHarness(api=malformed_api).run()
+        except Exception as exc:
+            self.fail(f"version release guard leaked its response error: {exc}")
+        self.assertEqual(code, 1)
+        self.assertIn("::error::", stderr)
+        self.assertIn(endpoint, stderr)
+        self.assertIn("HTTP 200", stderr)
+        self.assertNotIn("Traceback", stdout + stderr)
+
     def test_workspace_version_parser_rejects_missing_or_wrong_shaped_value(self) -> None:
         for content in [
             "[package]\nversion = \"1.0.0\"\n",
@@ -459,6 +482,39 @@ class GitHubApiBoundaryTests(unittest.TestCase):
             )
         self.assertEqual(status, 200)
         self.assertEqual(payload, {})
+
+    def test_successful_malformed_or_non_object_body_requires_an_object(self) -> None:
+        class Response:
+            status = 200
+
+            def __init__(self, body: bytes) -> None:
+                self.body = body
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def read(self) -> bytes:
+                return self.body
+
+        endpoint = "/releases/latest"
+        for body, reason in ((b"{", "malformed JSON"), (b"[]", "non-object")):
+            with self.subTest(body=body), patch.object(
+                guard.urllib.request, "urlopen", return_value=Response(body)
+            ):
+                try:
+                    guard.github_api_get("owner/repo", endpoint, "secret")
+                except ReleaseEvidenceError as exc:
+                    message = str(exc)
+                except Exception as exc:
+                    self.fail(f"wrong response exception escaped: {exc}")
+                else:
+                    self.fail("successful malformed GitHub body was accepted")
+                self.assertIn(endpoint, message)
+                self.assertIn("HTTP 200", message)
+                self.assertIn(reason, message)
 
 
 if __name__ == "__main__":

@@ -7,7 +7,7 @@ use verification_cases::{
 
 const ENCODER_CASE_FILE: &str = "verification/cases/bytecode_vm/VM_SEAM_ENC_001.toml";
 const ENCODER_CASE_DIGEST: &str =
-    "sha256:203f59d36f0260e643132c4a96c1fa12f1c3efe7445ca3591ba760ce138ce6c3";
+    "sha256:e8b6b6a66e785c6bf7ffdf64fb7980c8a62c143c9169dc873e878b7322156f51";
 const ENCODER_TEST_ID: &str = "TEST_VM_ENCODER_FAIL_CLOSED_TRACE_001";
 
 #[test]

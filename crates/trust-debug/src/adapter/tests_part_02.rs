@@ -7,6 +7,19 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+fn initialize_adapter_for_launch(adapter: &mut DebugAdapter, seq: u32) {
+    let outcome = adapter.dispatch_request(Request {
+        seq,
+        message_type: MessageType::Request,
+        command: "initialize".to_string(),
+        arguments: Some(serde_json::to_value(InitializeArguments::default()).unwrap()),
+    });
+    assert_eq!(outcome.responses.len(), 1);
+    let response: Response<InitializeResponseBody> =
+        serde_json::from_value(outcome.responses[0].clone()).unwrap();
+    assert!(response.success, "initialize must succeed before launch");
+}
+
 #[test]
 fn dispatch_set_expression_force_supports_output_and_memory_io() {
     let mut runtime = Runtime::new();
@@ -580,6 +593,7 @@ params = { address = "127.0.0.1:1502", unit_id = 1, input_start = 0, output_star
     .unwrap();
 
     let mut adapter = DebugAdapter::new(DebugSession::new(Runtime::new()));
+    initialize_adapter_for_launch(&mut adapter, 9);
     let mut additional = BTreeMap::new();
     additional.insert(
         "program".to_string(),
@@ -778,6 +792,7 @@ fn launch_fails_when_control_server_endpoint_is_already_in_use() {
 
     let runtime = Runtime::new();
     let mut adapter = DebugAdapter::new(DebugSession::new(runtime));
+    initialize_adapter_for_launch(&mut adapter, 19);
     let mut additional = BTreeMap::new();
     additional.insert(
         "program".to_string(),
@@ -1032,6 +1047,7 @@ fn launch_debug_control_session(
     endpoint: &str,
     auth: &str,
 ) {
+    initialize_adapter_for_launch(adapter, 9);
     let mut additional = BTreeMap::new();
     additional.insert(
         "program".to_string(),

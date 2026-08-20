@@ -391,9 +391,7 @@ fn transition_pointer_pair(
 ) -> anyhow::Result<(PointerState, PointerState)> {
     let old_current = pointer_state(current_link)?;
     let old_previous = pointer_state(previous_link)?;
-    if let Err(error) = set_pointer_state(current_link, new_current) {
-        return Err(error);
-    }
+    set_pointer_state(current_link, new_current)?;
     if let Err(error) = set_pointer_state(previous_link, new_previous) {
         if let Err(restore_error) =
             restore_pointer_pair(current_link, &old_current, previous_link, &old_previous)

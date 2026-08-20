@@ -163,8 +163,7 @@ fn harness_api_contract_module_and_bytes_builds_are_equivalent() {
 #[test]
 fn harness_api_contract_single_source_module_helpers_are_equivalent() {
     let direct = bytecode_module_from_source(counter_source()).unwrap();
-    let with_path =
-        bytecode_module_from_source_with_path(counter_source(), "src/main.st").unwrap();
+    let with_path = bytecode_module_from_source_with_path(counter_source(), "src/main.st").unwrap();
     assert_same_executable_sections(&direct, &with_path);
     assert_ne!(
         direct.section(SectionId::DebugStringTable),

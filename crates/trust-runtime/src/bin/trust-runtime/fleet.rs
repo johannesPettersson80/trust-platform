@@ -228,8 +228,12 @@ fn validate_manifest(manifest: &FleetManifest) -> anyhow::Result<()> {
                     runtime.control_endpoint
                 )
             })?;
-        if let ControlEndpoint::Tcp(address) = endpoint {
-            validate_manifest_port(address.port(), &mut ports)?;
+        match endpoint {
+            ControlEndpoint::Tcp(address) => {
+                validate_manifest_port(address.port(), &mut ports)?;
+            }
+            #[cfg(unix)]
+            ControlEndpoint::Unix(_) => {}
         }
         validate_manifest_port(runtime.web_port, &mut ports)?;
     }

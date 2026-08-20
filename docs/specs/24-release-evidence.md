@@ -102,6 +102,12 @@ never included in diagnostic output. HTTP error bodies are decoded when
 possible; malformed or empty bodies still produce a stable status-bearing
 failure.
 
+Each nonempty GitHub HTTP 200 response body must decode to a top-level JSON
+object. Malformed JSON or a non-object top level produces one stable failure
+that names the request endpoint and actual HTTP status, emits no traceback, and
+cannot contribute release evidence. An empty HTTP 200 body retains empty-object
+decoding and therefore remains subject to the endpoint's required-field checks.
+
 The release at the exact tag must exist, be published, non-draft, and
 non-prerelease. GitHub `releases/latest` must name the same tag. Release asset
 names are nonempty and unique, and must include `SHA256SUMS`,
@@ -143,6 +149,10 @@ gaps. Expected artifacts and unexecuted cases are inputs, not passing proof.
 
 ## Behavior-Locked Claims
 
-“Behavior locked” applies only to invariants with explicit test, suite, and
-durable evidence mappings. It is not a repository-wide claim and does not imply
-release validation or IEC conformance.
+“Behavior locked” means that the claimed behavior has a written product
+specification and a direct native executable test. Environment-specific proof
+classes such as hardware or browser acceptance are stated separately.
+Verification invariants, catalogs, suites, and durable evidence may report that
+contract, but they neither establish product behavior nor deny an otherwise
+agreeing specification-and-test pair. A behavior-lock claim does not by itself
+imply release validation or IEC conformance.

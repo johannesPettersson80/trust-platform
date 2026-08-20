@@ -665,8 +665,7 @@ fn timeout(scope: &DiscoverScope) -> Duration {
         scope
             .timeout_ms
             .unwrap_or(DEFAULT_TIMEOUT_MS)
-            .max(1)
-            .min(MAX_TIMEOUT_MS),
+            .clamp(1, MAX_TIMEOUT_MS),
     )
 }
 

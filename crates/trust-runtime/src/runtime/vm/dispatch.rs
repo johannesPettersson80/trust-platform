@@ -23,8 +23,8 @@ use super::dispatch_refs::{
 use super::dispatch_sizeof::{sizeof_error_to_runtime, sizeof_type_from_table};
 use super::errors::VmTrap;
 use super::frames::{ensure_global_call_depth, FrameStack};
-use super::register_ir::{try_execute_pou_with_register_ir, RegisterExecutionOutcome};
 use super::reference_attempt::apply_reference_attempt;
+use super::register_ir::{try_execute_pou_with_register_ir, RegisterExecutionOutcome};
 use super::stack::OperandStack;
 use super::VmModule;
 
@@ -168,12 +168,8 @@ fn execute_pou(
     pou_id: u32,
     entry_instance: Option<InstanceId>,
 ) -> Result<(), RuntimeError> {
-    let edge_transaction = super::edge::EdgeInputTransaction::begin(
-        runtime,
-        module,
-        pou_id,
-        entry_instance,
-    )?;
+    let edge_transaction =
+        super::edge::EdgeInputTransaction::begin(runtime, module, pou_id, entry_instance)?;
     let result = (|| -> Result<(), RuntimeError> {
         match try_execute_pou_with_register_ir(runtime, module, pou_id, entry_instance)? {
             RegisterExecutionOutcome::Executed => Ok(()),
@@ -624,14 +620,8 @@ pub(super) fn execute_pou_stack_with_locals(
                 let frame = frames
                     .current()
                     .ok_or_else(|| VmTrap::CallStackUnderflow.into_runtime_error())?;
-                let value = apply_reference_attempt(
-                    runtime,
-                    module,
-                    frame,
-                    value,
-                    target_type_idx,
-                )
-                .map_err(VmTrap::into_runtime_error)?;
+                let value = apply_reference_attempt(runtime, module, frame, value, target_type_idx)
+                    .map_err(VmTrap::into_runtime_error)?;
                 operand_stack
                     .push(value)
                     .map_err(VmTrap::into_runtime_error)?;
@@ -719,9 +709,7 @@ mod tests {
         assert!(should_check_stack_deadline(0));
         assert!(!should_check_stack_deadline(1));
         assert!(should_check_stack_deadline(STACK_DEADLINE_CHECK_STRIDE));
-        assert!(should_check_stack_deadline(
-            STACK_DEADLINE_CHECK_STRIDE * 2
-        ));
+        assert!(should_check_stack_deadline(STACK_DEADLINE_CHECK_STRIDE * 2));
     }
 
     #[test]
@@ -742,7 +730,10 @@ mod tests {
         assert_eq!(decode_partial_access(0x101), Ok(PartialAccess::Byte(1)));
         assert_eq!(decode_partial_access(0x202), Ok(PartialAccess::Word(2)));
         assert_eq!(decode_partial_access(0x303), Ok(PartialAccess::DWord(3)));
-        assert_eq!(decode_partial_access(0x400), Err(RuntimeError::TypeMismatch));
+        assert_eq!(
+            decode_partial_access(0x400),
+            Err(RuntimeError::TypeMismatch)
+        );
 
         assert_eq!(
             partial_access_error_to_runtime(PartialAccessError::IndexOutOfBounds {

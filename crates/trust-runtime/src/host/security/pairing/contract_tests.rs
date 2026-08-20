@@ -55,15 +55,16 @@ fn generated_tokens_encode_exact_random_byte_width_without_padding() {
     for _ in 0..16 {
         let token = generate_token();
         assert_eq!(
-            URL_SAFE_NO_PAD.decode(token.as_bytes()).expect("decode token").len(),
+            URL_SAFE_NO_PAD
+                .decode(token.as_bytes())
+                .expect("decode token")
+                .len(),
             TOKEN_BYTES
         );
         assert!(!token.contains('='));
-        assert!(
-            token
-                .bytes()
-                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
-        );
+        assert!(token
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_')));
     }
 }
 
@@ -113,7 +114,9 @@ fn malformed_pairing_file_grants_no_token_authority() {
     fs::create_dir_all(path.parent().expect("parent")).expect("create parent");
     fs::write(&path, b"{ definitely not json").expect("write malformed file");
 
-    assert!(load_tokens(&path).expect("malformed is fail-closed").is_empty());
+    assert!(load_tokens(&path)
+        .expect("malformed is fail-closed")
+        .is_empty());
     let store = PairingStore::with_clock(path.clone(), Arc::new(|| 1_000));
     assert!(!store.validate("anything"));
     assert!(store.list().is_empty());
@@ -185,7 +188,10 @@ fn expiry_pruning_is_inclusive_at_exact_expiry_second() {
     ];
     assert!(prune_expired_tokens(&mut tokens, 100));
     assert_eq!(
-        tokens.iter().map(|entry| entry.id.as_str()).collect::<Vec<_>>(),
+        tokens
+            .iter()
+            .map(|entry| entry.id.as_str())
+            .collect::<Vec<_>>(),
         ["boundary", "future"]
     );
     assert!(!prune_expired_tokens(&mut tokens, 100));
@@ -205,7 +211,10 @@ fn starting_pairing_uses_exact_ttl_and_replaces_pending_session() {
     let second = store.start_pairing();
     assert_eq!(second.expires_at, 1_001 + PAIRING_CODE_TTL_SECS);
     let guard = store.state.lock().expect("pairing state");
-    assert_eq!(guard.pending.as_ref().map(|pending| pending.code.as_str()), Some(second.code.as_str()));
+    assert_eq!(
+        guard.pending.as_ref().map(|pending| pending.code.as_str()),
+        Some(second.code.as_str())
+    );
     assert_eq!(
         guard.pending.as_ref().map(|pending| pending.expires_at),
         Some(second.expires_at)
@@ -503,11 +512,7 @@ fn persisted_pairing_file_is_mode_0600() {
 
     let path = temp_path("mode");
     save_tokens(&path, &[token("one", "secret", 1_000, 2_000)]).expect("save tokens");
-    let mode = fs::metadata(&path)
-        .expect("metadata")
-        .permissions()
-        .mode()
-        & 0o777;
+    let mode = fs::metadata(&path).expect("metadata").permissions().mode() & 0o777;
     assert_eq!(mode, 0o600);
     cleanup(&path);
 }

@@ -44,6 +44,14 @@ Referencing an ordinary mutable variable from another variable initializer is
 rejected; declaring the referenced value in a `VAR CONSTANT` section makes the
 same supported expression a valid initializer.
 
+Reference variables have the IEC 61131-3 Ed.3 section 6.4.4.10.2 exception:
+their initial value may be `NULL` or `REF(...)` naming an already-declared
+eligible variable, function-block instance, or class instance. The referenced
+storage is not treated as a constant-expression dependency; ordinary `REF()`
+lvalue, type, lifetime, and visibility checks still apply. This exception is
+specific to a reference-typed declaration and does not permit another mutable
+value expression in an initializer.
+
 Within one accepted declaration scope, textual declaration order is not
 constant-dependency order. truST discovers the constants visible from that
 scope, resolves their case-insensitive dependency graph, and evaluates an
@@ -66,8 +74,10 @@ does not define repository source-unit order. The source-order-independent
 dependency graph is the truST project-assembly contract specified further in
 `10-runtime-semantics.md` section 7.10; it is not an IEC deviation.
 
-For the reviewed integer-initializer diagnostic slice, truST reports category
-`E202` with the stable message:
+For an explicit variable initializer that is not a literal, constant
+expression, or the reference-initialization form above, including elementary
+and aggregate initializers, truST reports category `E202` with the stable
+message prefix:
 
 ```text
 variable initializer must be a literal or constant expression

@@ -34,12 +34,7 @@ fn assert_json_content_type(response: &Response<std::io::Cursor<Vec<u8>>>) {
     }));
 }
 
-fn accepted_policy(
-    remote: &str,
-    headers: &[(&str, &str)],
-    tls: bool,
-    require_json: bool,
-) -> bool {
+fn accepted_policy(remote: &str, headers: &[(&str, &str)], tls: bool, require_json: bool) -> bool {
     api_post_policy_check(&request(remote, headers, ""), tls, require_json).is_ok()
 }
 
@@ -123,12 +118,8 @@ fn required_json_content_type_accepts_media_type_parameters() {
 
 #[test]
 fn required_json_content_type_rejects_missing_header() {
-    let response = api_post_policy_check(
-        &request("127.0.0.1:4100", &[], ""),
-        false,
-        true,
-    )
-    .expect_err("missing media type");
+    let response = api_post_policy_check(&request("127.0.0.1:4100", &[], ""), false, true)
+        .expect_err("missing media type");
     assert_eq!(response.status_code(), StatusCode(415));
     assert_json_content_type(&response);
     assert_eq!(
@@ -272,10 +263,7 @@ fn opaque_null_origin_is_denied() {
     )
     .expect_err("opaque origin");
     assert_eq!(response.status_code(), StatusCode(403));
-    assert_eq!(
-        response_json(response)["denial_code"],
-        "permission_denied"
-    );
+    assert_eq!(response_json(response)["denial_code"], "permission_denied");
 }
 
 #[test]

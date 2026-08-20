@@ -1,8 +1,14 @@
 # Test Taxonomy
 
-This document owns the testing matrix: which code changes require which proof,
-what each test class must prove, what coverage dimensions mean, and which
-malformed inputs must be considered.
+> **Historical Phase 0-16 record.** This taxonomy does not prescribe current
+> product work or make invariant, planner, catalog, or evidence state blocking.
+> Current test selection starts from the owning written product specification
+> and its native executable tests as defined by
+> `phase18-zero-debt-execution-board.md`.
+
+This document records the retired campaign testing matrix: which code changes
+were assigned which proof, what each test class meant, and which malformed
+inputs were inventoried.
 
 ## Code Area to Minimum Test Matrix
 

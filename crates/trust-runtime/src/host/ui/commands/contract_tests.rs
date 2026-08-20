@@ -97,8 +97,8 @@ fn scripted_client(
                 .expect("write command response");
         }
     });
-    let client =
-        ControlClient::connect(ControlEndpoint::Tcp(address), None).expect("connect command client");
+    let client = ControlClient::connect(ControlEndpoint::Tcp(address), None)
+        .expect("connect command client");
     (client, requests, server)
 }
 
@@ -233,8 +233,7 @@ fn settings_selection_is_one_based_and_invalid_choice_retains_mode() {
     assert_eq!(state.prompt.mode, PromptMode::SettingsSelect);
     assert!(output_text(&state).contains("Invalid choice."));
 
-    assert!(!handle_settings_select("1", &mut client, &mut state)
-        .expect("select first setting"));
+    assert!(!handle_settings_select("1", &mut client, &mut state).expect("select first setting"));
     assert_eq!(
         state.prompt.mode,
         PromptMode::SettingsValue(SettingKey::PlcName)
@@ -293,8 +292,7 @@ fn live_setting_does_not_report_saved_after_control_rejection() {
 
 #[test]
 fn restart_setting_does_not_open_restart_path_after_control_rejection() {
-    let (mut client, _, server) =
-        scripted_client(vec![json!({"ok": false, "error": "read only"})]);
+    let (mut client, _, server) = scripted_client(vec![json!({"ok": false, "error": "read only"})]);
     let mut state = state();
     let result = apply_setting(SettingKey::ControlMode, "rw", &mut client, &mut state)
         .expect("apply control mode");
@@ -325,10 +323,9 @@ fn beginner_mode_blocks_non_beginner_command_before_mutation() {
     let (mut client, requests, server) = scripted_client(Vec::new());
     let mut state = state();
     state.beginner_mode = true;
-    state.alerts.push_back(PromptLine::plain(
-        "retain",
-        Style::default().fg(COLOR_INFO),
-    ));
+    state
+        .alerts
+        .push_back(PromptLine::plain("retain", Style::default().fg(COLOR_INFO)));
     execute_command("/clear", &mut client, &mut state).expect("block advanced clear");
     assert_eq!(state.alerts.len(), 1);
     assert!(output_text(&state).contains("Beginner mode"));
@@ -402,17 +399,12 @@ fn force_marker_changes_only_after_successful_control_response() {
         json!({"ok": true, "result": {}}),
     ]);
     let mut state = io_state();
-    handle_io_command(
-        vec!["force", "QX0.0", "true"],
-        &mut client,
-        &mut state,
-    )
-    .expect("rejected force");
+    handle_io_command(vec!["force", "QX0.0", "true"], &mut client, &mut state)
+        .expect("rejected force");
     assert!(!state.forced_io.contains("QX0.0"));
     assert!(output_text(&state).contains("denied"));
 
-    handle_io_command(vec!["force", "QW2", "17"], &mut client, &mut state)
-        .expect("accepted force");
+    handle_io_command(vec!["force", "QW2", "17"], &mut client, &mut state).expect("accepted force");
     assert!(state.forced_io.contains("QW2"));
     assert!(output_text(&state).contains("I/O forced."));
     finish_client(client, server);
@@ -428,11 +420,9 @@ fn unforce_marker_is_retained_until_control_response_succeeds() {
     state.forced_io.insert("QX0.0".to_string());
     state.forced_io.insert("QW2".to_string());
 
-    handle_io_command(vec!["unforce", "QX0.0"], &mut client, &mut state)
-        .expect("rejected unforce");
+    handle_io_command(vec!["unforce", "QX0.0"], &mut client, &mut state).expect("rejected unforce");
     assert!(state.forced_io.contains("QX0.0"));
-    handle_io_command(vec!["unforce", "QW2"], &mut client, &mut state)
-        .expect("accepted unforce");
+    handle_io_command(vec!["unforce", "QW2"], &mut client, &mut state).expect("accepted unforce");
     assert!(!state.forced_io.contains("QW2"));
     finish_client(client, server);
 }

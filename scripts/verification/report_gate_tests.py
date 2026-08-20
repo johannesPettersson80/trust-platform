@@ -11,6 +11,7 @@ from pathlib import Path
 from scripts.verification.report_gate import (
     CommandResult,
     DEFAULT_OUTPUT_DIR,
+    VerificationReport,
     build_report,
     changed_files_from_git,
     find_uncataloged_tests,
@@ -143,6 +144,35 @@ path = "crates/trust-runtime/tests/known.rs"
 
         self.assertEqual(missing, ["crates/trust-runtime/tests/new_case.rs"])
 
+    def test_malformed_catalog_remains_advisory_in_strict_report(self) -> None:
+        results = [
+            CommandResult("verification_focused_tests", ["focused"], 1, "", "metadata red"),
+            CommandResult("verification_metadata_gate", ["metadata"], 1, "", "catalog red"),
+            CommandResult("phase16_readiness", ["readiness"], 0, "", ""),
+            CommandResult("verification_governance", ["governance"], 0, "", ""),
+            CommandResult("plan_tests", ["plan"], 4, '{"verdict":"unmapped"}\n', ""),
+        ]
+
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            catalog = root / "verification/test-catalog.toml"
+            catalog.parent.mkdir(parents=True)
+            catalog.write_text("[[tests]\n", encoding="utf-8")
+            try:
+                report = build_report(
+                    root=root,
+                    changed_files=["crates/trust-runtime/tests/new_case.rs"],
+                    intent="bugfix",
+                    baseline="HEAD~1",
+                    command_runner=lambda _command: results.pop(0),
+                    enforcing=True,
+                )
+            except Exception as exc:  # The production boundary must not escape metadata errors.
+                self.fail(f"strict report let advisory catalog parsing escape: {exc}")
+
+        self.assertEqual(report.uncataloged_tests, ["crates/trust-runtime/tests/new_case.rs"])
+        self.assertEqual(report_exit_code(report, strict=True), 0)
+
     def test_build_report_is_report_only_when_gate_and_planner_fail(self) -> None:
         results = [
             CommandResult("verification_focused_tests", ["focused"], 1, "tests failed", ""),
@@ -169,13 +199,13 @@ path = "crates/trust-runtime/tests/known.rs"
             )
 
         self.assertEqual(report_exit_code(report, strict=False), 0)
-        self.assertEqual(report_exit_code(report, strict=True), 1)
+        self.assertEqual(report_exit_code(report, strict=True), 0)
         self.assertEqual(report.planner_exit_code, 3)
         self.assertEqual(report.uncataloged_tests, ["crates/trust-runtime/tests/new_case.rs"])
         self.assertEqual(report.commands[2].name, "phase16_readiness")
         self.assertIn("report-only", render_markdown(report))
 
-    def test_enforcing_report_is_labeled_and_fails_on_red_commands(self) -> None:
+    def test_enforcing_report_keeps_planner_findings_advisory(self) -> None:
         results = [
             CommandResult("verification_focused_tests", ["focused"], 0, "ok", ""),
             CommandResult("verification_metadata_gate", ["gate"], 0, "ok", ""),
@@ -199,10 +229,10 @@ path = "crates/trust-runtime/tests/known.rs"
             )
 
         self.assertEqual(report.mode, "enforcing")
-        self.assertEqual(report_exit_code(report, strict=True), 1)
+        self.assertEqual(report_exit_code(report, strict=True), 0)
         rendered = render_markdown(report)
         self.assertIn("Mode: `enforcing`", rendered)
-        self.assertIn("blocks merge", rendered)
+        self.assertIn("Planner and catalog observations are advisory", rendered)
 
     def test_non_bytecode_test_class_debt_is_visible_but_not_a_false_block(self) -> None:
         results = [
@@ -236,9 +266,74 @@ path = "crates/trust-runtime/tests/known.rs"
             )
 
         self.assertEqual(report_exit_code(report, strict=True), 0)
-        self.assertIn("advisory outside the bytecode/VM test-class ratchet", render_markdown(report))
+        self.assertIn("Planner finding: advisory maintenance information", render_markdown(report))
 
-    def test_bytecode_test_class_debt_and_global_planner_findings_block(self) -> None:
+    def test_each_verification_maintenance_command_failure_remains_nonblocking(self) -> None:
+        for command_name in ("verification_focused_tests", "verification_metadata_gate"):
+            with self.subTest(command_name=command_name):
+                report = VerificationReport(
+                    mode="enforcing",
+                    intent="bugfix",
+                    baseline=None,
+                    changed_files=[],
+                    commands=[CommandResult(command_name, [command_name], 1, "", "red")],
+                    planner_exit_code=None,
+                    planner_json=None,
+                    uncataloged_tests=[],
+                )
+
+                self.assertEqual(report_exit_code(report, strict=True), 0)
+
+    def test_each_advisory_command_failure_remains_nonblocking(self) -> None:
+        for command_name in ("phase16_readiness", "verification_governance", "plan_tests"):
+            with self.subTest(command_name=command_name):
+                report = VerificationReport(
+                    mode="enforcing",
+                    intent="bugfix",
+                    baseline=None,
+                    changed_files=[],
+                    commands=[CommandResult(command_name, [command_name], 1, "", "red")],
+                    planner_exit_code=1 if command_name == "plan_tests" else None,
+                    planner_json=None,
+                    uncataloged_tests=[],
+                )
+
+                self.assertEqual(report_exit_code(report, strict=True), 0)
+
+    def test_unknown_red_command_fails_closed(self) -> None:
+        report = VerificationReport(
+            mode="enforcing",
+            intent="bugfix",
+            baseline=None,
+            changed_files=[],
+            commands=[CommandResult("unexpected_gate", ["unexpected"], 1, "", "red")],
+            planner_exit_code=None,
+            planner_json=None,
+            uncataloged_tests=[],
+        )
+
+        self.assertEqual(report_exit_code(report, strict=True), 1)
+
+    def test_enforcing_report_describes_python_verification_as_advisory_not_native(self) -> None:
+        report = VerificationReport(
+            mode="enforcing",
+            intent="bugfix",
+            baseline=None,
+            changed_files=[],
+            commands=[
+                CommandResult("verification_focused_tests", ["focused"], 1, "", "red"),
+                CommandResult("verification_metadata_gate", ["metadata"], 1, "", "red"),
+            ],
+            planner_exit_code=None,
+            planner_json=None,
+            uncataloged_tests=[],
+        )
+
+        rendered = render_markdown(report)
+        self.assertIn("verification-tooling and metadata commands are advisory", rendered)
+        self.assertNotIn("focused native", rendered)
+
+    def test_all_planner_findings_are_visible_but_advisory(self) -> None:
         base = {
             "areas": ["bytecode_vm"],
             "verdict": "missing_tests",
@@ -249,7 +344,7 @@ path = "crates/trust-runtime/tests/known.rs"
             "uninventoried_areas": [],
         }
         report = _report_with_planner(base, planner_exit=2)
-        self.assertEqual(report_exit_code(report, strict=True), 1)
+        self.assertEqual(report_exit_code(report, strict=True), 0)
 
         for field, value in (
             ("spec_gaps", ["SPEC_GAP_X"]),
@@ -262,8 +357,23 @@ path = "crates/trust-runtime/tests/known.rs"
                 payload[field] = value
                 self.assertEqual(
                     report_exit_code(_report_with_planner(payload, planner_exit=3), strict=True),
-                    1,
+                    0,
                 )
+
+    def test_uncataloged_changed_test_is_visible_but_advisory(self) -> None:
+        report = VerificationReport(
+            mode="enforcing",
+            intent="bugfix",
+            baseline=None,
+            changed_files=["crates/trust-runtime/tests/new_case.rs"],
+            commands=[CommandResult("verification_focused_tests", ["focused"], 0, "ok", "")],
+            planner_exit_code=None,
+            planner_json=None,
+            uncataloged_tests=["crates/trust-runtime/tests/new_case.rs"],
+        )
+
+        self.assertEqual(report_exit_code(report, strict=True), 0)
+        self.assertIn("Planner and catalog observations are advisory", render_markdown(report))
 
     def test_build_report_routes_product_paths_through_phase16_readiness(self) -> None:
         commands: list[list[str]] = []

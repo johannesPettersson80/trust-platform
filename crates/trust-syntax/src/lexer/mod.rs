@@ -80,11 +80,9 @@ impl<'src> Iterator for Lexer<'src> {
         let mut kind = kind.unwrap_or(TokenKind::Error);
         let mut end = span.end;
 
-        if let Some(candidate_len) = malformed_candidate_len(
-            kind,
-            &self.source[span.start..],
-            span.end - span.start,
-        ) {
+        if let Some(candidate_len) =
+            malformed_candidate_len(kind, &self.source[span.start..], span.end - span.start)
+        {
             let consumed = span.end - span.start;
             if candidate_len > consumed {
                 self.inner.bump(candidate_len - consumed);
@@ -101,11 +99,7 @@ impl<'src> Iterator for Lexer<'src> {
     }
 }
 
-fn malformed_candidate_len(
-    kind: TokenKind,
-    source: &str,
-    consumed: usize,
-) -> Option<usize> {
+fn malformed_candidate_len(kind: TokenKind, source: &str, consumed: usize) -> Option<usize> {
     if matches!(kind, TokenKind::Ident | TokenKind::Error) {
         let candidate_len = identifier_candidate_len(source);
         if candidate_len > 0 && !valid_ascii_identifier(&source[..candidate_len]) {
@@ -179,7 +173,10 @@ fn valid_ascii_identifier(candidate: &str) -> bool {
     if !first.is_ascii_alphabetic() && *first != b'_' {
         return false;
     }
-    if bytes.iter().any(|byte| !byte.is_ascii_alphanumeric() && *byte != b'_') {
+    if bytes
+        .iter()
+        .any(|byte| !byte.is_ascii_alphanumeric() && *byte != b'_')
+    {
         return false;
     }
     if *first == b'_' {
@@ -200,7 +197,10 @@ fn based_integer_candidate_len(source: &str) -> Option<usize> {
         .map(str::len)?;
     let bytes = source.as_bytes();
     let mut end = prefix_len;
-    if bytes.get(end).is_some_and(|byte| matches!(byte, b'+' | b'-')) {
+    if bytes
+        .get(end)
+        .is_some_and(|byte| matches!(byte, b'+' | b'-'))
+    {
         end += 1;
     }
     while bytes
@@ -253,9 +253,15 @@ fn decimal_candidate_len(source: &str) -> usize {
         {
             end += 1;
         }
-        if bytes.get(end).is_some_and(|byte| matches!(byte, b'e' | b'E')) {
+        if bytes
+            .get(end)
+            .is_some_and(|byte| matches!(byte, b'e' | b'E'))
+        {
             end += 1;
-            if bytes.get(end).is_some_and(|byte| matches!(byte, b'+' | b'-')) {
+            if bytes
+                .get(end)
+                .is_some_and(|byte| matches!(byte, b'+' | b'-'))
+            {
                 end += 1;
             }
             while bytes
@@ -301,7 +307,9 @@ fn valid_separated_digits(value: &str) -> bool {
         && !value.starts_with('_')
         && !value.ends_with('_')
         && !value.contains("__")
-        && value.bytes().all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
 }
 
 fn temporal_prefix_len(source: &str) -> usize {
@@ -337,9 +345,7 @@ fn temporal_candidate_len(source: &str) -> usize {
     let prefix_len = temporal_prefix_len(source);
     let mut end = prefix_len;
     for byte in source.as_bytes().iter().skip(prefix_len) {
-        if byte.is_ascii_alphanumeric()
-            || matches!(byte, b'_' | b'.' | b':' | b'-' | b'+')
-        {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'.' | b':' | b'-' | b'+') {
             end += 1;
         } else {
             break;

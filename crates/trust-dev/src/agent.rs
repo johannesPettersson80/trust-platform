@@ -13,11 +13,11 @@ use trust_runtime::harness::{
 };
 use trust_runtime::RestartMode;
 
-#[path = "agent/harness.rs"]
-mod harness;
 #[cfg(test)]
 #[path = "agent/contract_tests.rs"]
 mod contract_tests;
+#[path = "agent/harness.rs"]
+mod harness;
 const JSON_RPC_VERSION: &str = "2.0";
 const ERROR_PATH_OUTSIDE_WORKSPACE: i32 = -32001;
 const ERROR_IO: i32 = -32002;
@@ -83,10 +83,7 @@ impl AgentServer {
         };
         let response_id = json_rpc_response_id(&value);
         if let Err(message) = validate_json_rpc_envelope(&value) {
-            return JsonRpcResponse::error(
-                response_id,
-                JsonRpcError::new(-32600, message, None),
-            );
+            return JsonRpcResponse::error(response_id, JsonRpcError::new(-32600, message, None));
         }
 
         match serde_json::from_value::<JsonRpcRequest>(value) {
@@ -111,9 +108,9 @@ impl AgentServer {
                 ));
             }
         }
-        let resolved = existing
-            .canonicalize()
-            .map_err(|_| AgentCommandError::path_outside_workspace(&relative.display().to_string()))?;
+        let resolved = existing.canonicalize().map_err(|_| {
+            AgentCommandError::path_outside_workspace(&relative.display().to_string())
+        })?;
         if !resolved.starts_with(&self.workspace_root) {
             return Err(AgentCommandError::path_outside_workspace(
                 &relative.display().to_string(),
@@ -473,9 +470,7 @@ fn normalize_workspace_path(path: &str) -> Result<PathBuf, AgentCommandError> {
         || path
             .as_bytes()
             .get(1..3)
-            .is_some_and(|prefix| {
-                prefix[0] == b':' && (prefix[1] == b'/' || prefix[1] == b'\\')
-            })
+            .is_some_and(|prefix| prefix[0] == b':' && (prefix[1] == b'/' || prefix[1] == b'\\'))
     {
         return Err(AgentCommandError::path_outside_workspace(path));
     }
@@ -523,10 +518,7 @@ fn validate_json_rpc_envelope(value: &JsonValue) -> Result<(), String> {
     let object = value
         .as_object()
         .ok_or_else(|| "Invalid Request: JSON-RPC envelope must be an object.".to_string())?;
-    if !object
-        .get("jsonrpc")
-        .is_some_and(JsonValue::is_string)
-    {
+    if !object.get("jsonrpc").is_some_and(JsonValue::is_string) {
         return Err("Invalid Request: jsonrpc must be a string.".to_string());
     }
     if !object.get("method").is_some_and(JsonValue::is_string) {

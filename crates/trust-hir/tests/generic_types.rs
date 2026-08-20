@@ -115,11 +115,7 @@ fn any_contains_every_concrete_derived_shape() {
     let array = registry.register_array(TypeId::INT, vec![(0, 2)]);
     let structure = registry.register_struct("Packet", Vec::new());
     let union = registry.register_union("Choice", Vec::new());
-    let enumeration = registry.register_enum(
-        "State",
-        TypeId::INT,
-        vec![(SmolStr::new("Idle"), 0)],
-    );
+    let enumeration = registry.register_enum("State", TypeId::INT, vec![(SmolStr::new("Idle"), 0)]);
     let pointer = registry.register_pointer(TypeId::INT);
     let reference = registry.register_reference(TypeId::INT);
     let function_block = registry.register(
@@ -213,8 +209,7 @@ fn any_elementary_contains_all_and_only_elementary_leaves() {
         ],
     );
     let structure = registry.register_struct("Packet", Vec::new());
-    let enumeration =
-        registry.register_enum("State", TypeId::INT, vec![(SmolStr::new("Idle"), 0)]);
+    let enumeration = registry.register_enum("State", TypeId::INT, vec![(SmolStr::new("Idle"), 0)]);
     let subrange = register_subrange(&mut registry, "Count", TypeId::INT);
     assert_excludes(
         &registry,
@@ -229,8 +224,7 @@ fn any_derived_contains_non_alias_derived_shapes_but_not_subranges() {
     let array = registry.register_array(TypeId::INT, vec![(0, 1)]);
     let structure = registry.register_struct("Packet", Vec::new());
     let union = registry.register_union("Choice", Vec::new());
-    let enumeration =
-        registry.register_enum("State", TypeId::INT, vec![(SmolStr::new("Idle"), 0)]);
+    let enumeration = registry.register_enum("State", TypeId::INT, vec![(SmolStr::new("Idle"), 0)]);
     let pointer = registry.register_pointer(TypeId::INT);
     let reference = registry.register_reference(TypeId::INT);
     let subrange = register_subrange(&mut registry, "Count", TypeId::INT);
@@ -264,12 +258,7 @@ fn any_magnitude_contains_numeric_and_duration_families_only() {
     assert_excludes(
         &registry,
         TypeId::ANY_MAGNITUDE,
-        &[
-            TypeId::BOOL,
-            TypeId::LWORD,
-            TypeId::DATE,
-            TypeId::STRING,
-        ],
+        &[TypeId::BOOL, TypeId::LWORD, TypeId::DATE, TypeId::STRING],
     );
 }
 
@@ -304,8 +293,7 @@ fn any_int_contains_signed_unsigned_and_subranges_but_not_enum() {
     let mut registry = TypeRegistry::new();
     let signed_range = register_subrange(&mut registry, "SignedRange", TypeId::DINT);
     let unsigned_range = register_subrange(&mut registry, "UnsignedRange", TypeId::UDINT);
-    let enumeration =
-        registry.register_enum("State", TypeId::INT, vec![(SmolStr::new("Idle"), 0)]);
+    let enumeration = registry.register_enum("State", TypeId::INT, vec![(SmolStr::new("Idle"), 0)]);
     assert_members(
         &registry,
         TypeId::ANY_INT,
@@ -371,11 +359,7 @@ fn signed_and_unsigned_generic_families_preserve_subrange_base() {
 #[test]
 fn any_real_contains_real_widths_only() {
     let registry = TypeRegistry::new();
-    assert_members(
-        &registry,
-        TypeId::ANY_REAL,
-        &[TypeId::REAL, TypeId::LREAL],
-    );
+    assert_members(&registry, TypeId::ANY_REAL, &[TypeId::REAL, TypeId::LREAL]);
     assert_excludes(
         &registry,
         TypeId::ANY_REAL,
@@ -396,16 +380,8 @@ fn any_duration_contains_time_widths_without_becoming_numeric_or_date() {
         TypeId::ANY_DURATION,
         &[TypeId::INT, TypeId::DATE, TypeId::TOD, TypeId::DT],
     );
-    assert_excludes(
-        &registry,
-        TypeId::ANY_NUM,
-        &[TypeId::TIME, TypeId::LTIME],
-    );
-    assert_excludes(
-        &registry,
-        TypeId::ANY_DATE,
-        &[TypeId::TIME, TypeId::LTIME],
-    );
+    assert_excludes(&registry, TypeId::ANY_NUM, &[TypeId::TIME, TypeId::LTIME]);
+    assert_excludes(&registry, TypeId::ANY_DATE, &[TypeId::TIME, TypeId::LTIME]);
 }
 
 #[test]
@@ -436,23 +412,14 @@ fn any_chars_partitions_string_and_character_families() {
     assert_members(
         &registry,
         TypeId::ANY_CHARS,
-        &[
-            TypeId::STRING,
-            TypeId::WSTRING,
-            TypeId::CHAR,
-            TypeId::WCHAR,
-        ],
+        &[TypeId::STRING, TypeId::WSTRING, TypeId::CHAR, TypeId::WCHAR],
     );
     assert_members(
         &registry,
         TypeId::ANY_STRING,
         &[TypeId::STRING, TypeId::WSTRING],
     );
-    assert_members(
-        &registry,
-        TypeId::ANY_CHAR,
-        &[TypeId::CHAR, TypeId::WCHAR],
-    );
+    assert_members(&registry, TypeId::ANY_CHAR, &[TypeId::CHAR, TypeId::WCHAR]);
     assert_excludes(
         &registry,
         TypeId::ANY_STRING,
@@ -471,11 +438,7 @@ fn bounded_strings_keep_their_generic_string_family() {
     let mut registry = TypeRegistry::new();
     let narrow = registry.register_string_with_length(7);
     let wide = registry.register_wstring_with_length(11);
-    assert_members(
-        &registry,
-        TypeId::ANY_ELEMENTARY,
-        &[narrow, wide],
-    );
+    assert_members(&registry, TypeId::ANY_ELEMENTARY, &[narrow, wide]);
     assert_members(&registry, TypeId::ANY_CHARS, &[narrow, wide]);
     assert_members(&registry, TypeId::ANY_STRING, &[narrow, wide]);
     assert_excludes(&registry, TypeId::ANY_CHAR, &[narrow, wide]);
@@ -512,11 +475,7 @@ fn directly_derived_alias_inherits_ultimate_elementary_generic_family() {
     let text = register_alias(&mut registry, "Text", TypeId::STRING);
     let date = register_alias(&mut registry, "DateAlias", TypeId::LDATE);
 
-    assert_members(
-        &registry,
-        TypeId::ANY_SIGNED,
-        &[signed, signed_chain],
-    );
+    assert_members(&registry, TypeId::ANY_SIGNED, &[signed, signed_chain]);
     assert_members(&registry, TypeId::ANY_INT, &[signed, signed_chain]);
     assert_members(&registry, TypeId::ANY_NUM, &[signed, signed_chain]);
     assert_members(&registry, TypeId::ANY_STRING, &[text]);
@@ -586,16 +545,8 @@ fn enumeration_is_any_derived_not_any_integer_despite_integer_base() {
     let enumeration =
         registry.register_enum("State", TypeId::UDINT, vec![(SmolStr::new("Idle"), 0)]);
     assert_members(&registry, TypeId::ANY_DERIVED, &[enumeration]);
-    assert_excludes(
-        &registry,
-        TypeId::ANY_INT,
-        &[enumeration],
-    );
-    assert_excludes(
-        &registry,
-        TypeId::ANY_UNSIGNED,
-        &[enumeration],
-    );
+    assert_excludes(&registry, TypeId::ANY_INT, &[enumeration]);
+    assert_excludes(&registry, TypeId::ANY_UNSIGNED, &[enumeration]);
     assert_excludes(&registry, TypeId::ANY_NUM, &[enumeration]);
 }
 

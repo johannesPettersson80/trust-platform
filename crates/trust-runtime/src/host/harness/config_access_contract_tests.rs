@@ -76,7 +76,9 @@ END_CONFIGURATION
     )
     .expect("global-root access must compile");
     assert_eq!(harness.get_access("Alias"), Some(Value::Int(5)));
-    harness.set_access("Alias", Value::Int(8)).expect("write alias");
+    harness
+        .set_access("Alias", Value::Int(8))
+        .expect("write alias");
     assert_eq!(
         harness.runtime().storage().get_global("Shared"),
         Some(&Value::Int(8))

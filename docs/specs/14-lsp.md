@@ -224,7 +224,8 @@ Initial explainer coverage:
 | E106 | IEC 61131-3 Ed.3 §6.1.2 | `docs/specs/01-lexical-elements.md` |
 | E201/E202/E203 | IEC 61131-3 Ed.3 §7.3.2 | `docs/specs/05-expressions.md` |
 | E301/E302 | IEC 61131-3 Ed.3 §7.3.1 | `docs/specs/09-semantic-rules.md` |
-| E303/E304 | IEC 61131-3 Ed.3 §6.2.6 | `docs/specs/02-data-types.md` |
+| E303 | IEC 61131-3 Ed.3 §6.4.4.5.1 | `docs/specs/09-semantic-rules.md` |
+| E304 | IEC 61131-3 Ed.3 §6.4.2; §6.4.4.3–6.4.4.5 | `docs/specs/02-data-types.md` |
 | W004 | IEC 61131-3 Ed.3 §7.3.3.3.3 | `docs/specs/06-statements.md` |
 | W005 | IEC 61131-3 Ed.3 §6.4.2 | `docs/specs/02-data-types.md` |
 | W008/W009 | Tooling quality lint (non-IEC) | `docs/specs/09-semantic-rules.md` |
@@ -789,6 +790,16 @@ The stable resolver codes are:
 
 ##### Configuration normalization and bounded values
 
+Configuration diagnostics use a stable `C` namespace:
+
+- `C001`: the selected configuration file cannot be read or parsed;
+- `C002`: an unknown standard-library profile fell back to `full`;
+- `C003`: a configured numeric bound was outside its documented domain, or
+  the throttle tuple was incoherent, and normalization fell back to a safe
+  documented value or tuple;
+- `C004`: an unknown workspace visibility fell back to `public`; and
+- `C005`: a diagnostic severity override has a blank code or unknown severity and was ignored.
+
 Configuration filename precedence is `trust-lsp.toml`, then
 `.trust-lsp.toml`, then `trustlsp.toml`. An absent file produces the documented
 defaults. A present unreadable or malformed file is not partially applied:
@@ -816,9 +827,11 @@ Indexing optional budgets, memory budgets, and telemetry `flush_every` are
 positive when present. Invalid zero values use their documented defaults or
 become unbounded as appropriate and emit a configuration diagnostic.
 `evict_to_percent` is normalized to `1..=100`. Throttle delays satisfy
-`idle <= max` and `active <= max`; the activity window is positive. Invalid
+`idle <= active <= max`; the activity window is positive. Invalid
 relations use the corresponding default tuple atomically so one bad field
-cannot create an incoherent mix. Disabling the cache makes
+cannot create an incoherent mix. An out-of-range eviction percentage or an
+incoherent throttle tuple emits `C003` so this replacement is visible to the
+user. Disabling the cache makes
 `index_cache_dir()` return none even when a path is configured.
 
 Workspace visibility is case-insensitive `public`, `private`, or `hidden`;
@@ -948,12 +961,13 @@ unreadable, malformed, or schema-invalid document contributes nothing rather
 than partially applying entries. Each entry must select a target using `uri`
 when present, otherwise a path resolved against the project root; invalid URIs
 and entries for another document are ignored. LSP ranges are zero-based and
-preserved exactly. Severity accepts case-insensitive
-`error|warning|info|information|hint` or numeric LSP values `1..=4`; absent or
-invalid severity defaults to warning. Source defaults to `external`. String
-codes remain strings. Optional fix data preserves its title, replacement text,
-and optional replacement range. File and entry declaration order determine
-diagnostic order.
+preserved exactly. String severity values are trimmed before
+ASCII-case-insensitive matching and accept
+`error|warning|info|information|hint`. Numeric severity values accept LSP
+values `1..=4`. An absent or invalid severity defaults to warning. Source
+defaults to `external`. String codes remain strings. Optional fix data
+preserves its title, replacement text, and optional replacement range. File and
+entry declaration order determine diagnostic order.
 
 Telemetry is disabled unless explicitly opted in and records only aggregate
 event identities and duration statistics. The event vocabulary is stable and

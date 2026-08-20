@@ -45,9 +45,12 @@ deterministic and review-locked. It does not:
 - resolve a test name to a unique source file;
 - prove IEC conformance or any IEC language semantic claim.
 
-IEC product proof requires separate specification, invariant, catalog, oracle,
-execution, and evidence bindings. This governance inventory cannot substitute
-for any of them.
+IEC product authority is the written product specification paired with a native
+executable test that directly asserts the specified behavior. This governance
+inventory may describe additional maintenance and execution history, but its
+invariant, catalog, oracle, or evidence records cannot create product work,
+reject an otherwise valid specification-and-test change, or substitute for the
+native assertion.
 
 ## Reachable assertion-helper closure
 

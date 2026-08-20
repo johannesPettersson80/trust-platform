@@ -10,13 +10,13 @@ permissions:
 
 jobs:
   verification-report:
-    name: Verification enforcing gate
+    name: Verification strict report
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - name: Run enforcing verification gate
+      - name: Run strict advisory verification report
         shell: bash
         run: |
           set -euo pipefail

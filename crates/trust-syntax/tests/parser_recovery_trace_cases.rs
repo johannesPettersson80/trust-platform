@@ -9,7 +9,7 @@ use verification_cases::{
 const TEST_ID: &str = "TEST_IEC_PARSER_RECOVERY_TRACE_001";
 const CASE_FILE: &str = "verification/cases/compiler_iec/IEC_PARSE_RECOVER_001.toml";
 const CASE_FILE_DIGEST: &str =
-    "sha256:8c8e53c23951b9199ba1f203bb63a5522edc9678274582bffc6f28348644fda5";
+    "sha256:0d457588bb3bd67e14836dc3f055252bdc8bf157fa4be227c032d524f11b4092";
 
 #[test]
 fn parser_recovery_trace_cases() {
@@ -61,12 +61,10 @@ fn run_parser_case(case: &CaseRecord, probe: &mut ParserProbe) -> Result<CaseExe
         .any(|diagnostic| diagnostic.contains(expected_diagnostic));
     let structure_preserved = match scenario {
         "MISSING_INNER_TERMINATOR_AT_OUTER_BOUNDARY" => {
-            outer_boundaries_preserved(&diagnostics)
-                && assignment_count(&parsed) == 2
+            outer_boundaries_preserved(&diagnostics) && assignment_count(&parsed) == 2
         }
         "MISSING_INNER_TERMINATOR_AT_OUTER_BOUNDARY_ONLY" => {
-            outer_boundaries_preserved(&diagnostics)
-                && assignment_count(&parsed) == 1
+            outer_boundaries_preserved(&diagnostics) && assignment_count(&parsed) == 1
         }
         _ => true,
     };
@@ -186,9 +184,9 @@ fn parser_fixture(scenario: &str) -> Result<(String, &'static str), String> {
 }
 
 fn outer_boundaries_preserved(diagnostics: &[String]) -> bool {
-    diagnostics.iter().all(|diagnostic| {
-        diagnostic != "expected END_IF" && diagnostic != "expected END_PROGRAM"
-    })
+    diagnostics
+        .iter()
+        .all(|diagnostic| diagnostic != "expected END_IF" && diagnostic != "expected END_PROGRAM")
 }
 
 fn assignment_count(parsed: &trust_syntax::parser::Parse) -> usize {

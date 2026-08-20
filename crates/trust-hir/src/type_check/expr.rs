@@ -350,17 +350,10 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
         )
     }
 
-    fn temporal_arithmetic_result(
-        &self,
-        op: BinaryOp,
-        lhs: TypeId,
-        rhs: TypeId,
-    ) -> Option<TypeId> {
+    fn temporal_arithmetic_result(&self, op: BinaryOp, lhs: TypeId, rhs: TypeId) -> Option<TypeId> {
         match (op, lhs, rhs) {
             (BinaryOp::Add | BinaryOp::Sub, TypeId::TIME, TypeId::TIME) => Some(TypeId::TIME),
-            (BinaryOp::Add | BinaryOp::Sub, TypeId::LTIME, TypeId::LTIME) => {
-                Some(TypeId::LTIME)
-            }
+            (BinaryOp::Add | BinaryOp::Sub, TypeId::LTIME, TypeId::LTIME) => Some(TypeId::LTIME),
             (BinaryOp::Add | BinaryOp::Sub, TypeId::TOD, TypeId::TIME) => Some(TypeId::TOD),
             (BinaryOp::Add | BinaryOp::Sub, TypeId::LTOD, TypeId::LTIME) => Some(TypeId::LTOD),
             (BinaryOp::Add | BinaryOp::Sub, TypeId::DT, TypeId::TIME) => Some(TypeId::DT),
@@ -470,9 +463,11 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
     ) {
         let lhs = self.checker.resolve_subrange_base(lhs);
         let rhs = self.checker.resolve_subrange_base(rhs);
-        if matches!(op, BinaryOp::Lt | BinaryOp::LtEq | BinaryOp::Gt | BinaryOp::GtEq)
-            && (self.checker.is_reference_like_type(lhs)
-                || self.checker.is_reference_like_type(rhs))
+        if matches!(
+            op,
+            BinaryOp::Lt | BinaryOp::LtEq | BinaryOp::Gt | BinaryOp::GtEq
+        ) && (self.checker.is_reference_like_type(lhs)
+            || self.checker.is_reference_like_type(rhs))
         {
             self.checker.diagnostics.error(
                 DiagnosticCode::TypeMismatch,

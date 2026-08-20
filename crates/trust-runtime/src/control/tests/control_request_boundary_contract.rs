@@ -12,6 +12,50 @@ fn control_request(
 }
 
 #[test]
+fn shutdown_prepares_success_before_signalling_resource_stop() {
+    let state = hmi_test_state("PROGRAM Main END_PROGRAM");
+
+    let response = program_handlers::handle_shutdown(41, &state);
+
+    assert!(response.ok, "shutdown response must be successful");
+    assert!(
+        !state.resource.stop_requested(),
+        "resource stop must remain deferred until the response write boundary"
+    );
+}
+
+#[test]
+fn web_shutdown_dispatch_defers_resource_stop_until_transport_completion() {
+    let state = hmi_test_state("PROGRAM Main END_PROGRAM");
+
+    let response = dispatch_web_control_request_port(
+        json!({"id": 42, "type": "shutdown"}),
+        &state,
+        Some("web"),
+        None,
+    );
+    assert!(response.ok, "web shutdown response must be successful");
+    let mut responses = [response];
+    let serialized = write_then_complete_web_control_responses_port(
+        &mut responses,
+        &state,
+        |responses| {
+            assert!(
+                !state.resource.stop_requested(),
+                "web dispatch must not stop the resource before the response write boundary"
+            );
+            serde_json::to_value(&responses[0]).expect("serialized web response")
+        },
+    );
+    assert_eq!(serialized["id"], json!(42));
+    assert_eq!(serialized["result"]["status"], json!("stopping"));
+    assert!(
+        state.resource.stop_requested(),
+        "transport completion must apply the deferred resource stop"
+    );
+}
+
+#[test]
 fn access_capabilities_are_exact_for_each_role() {
     for (role, mutation_allowed, reason) in [
         (
@@ -343,6 +387,7 @@ END_PROGRAM
 
     let mut root = hmi_asset_project_root_port(&state).expect("project root");
     let mut name = runtime_resource_name_port(&state);
+    assert_eq!(name, "RESOURCE_A");
     root.push("changed");
     name = SmolStr::new("CHANGED");
 

@@ -402,6 +402,42 @@ package, or end-to-end evidence.
   external-system, and link identities. A runtime MUST NOT also appear as an
   external system, unrelated external systems remain visible, and every
   emitted link endpoint MUST name an emitted node.
+- At the display ingress, the extension clones and normalizes every topology
+  response without mutating the received payload. The same idempotent
+  normalization applies whether the canvas receives one response or merges
+  several responses; adding or removing an overlay or peer MUST NOT change the
+  identity scheme. Each container is scoped by `(host_id, container_id)`, and
+  every runtime is scoped by its lossless owner tuple
+  `(host_id, optional container_id, runtime_id)`. That tuple scopes the
+  runtime's endpoints and its configured mesh externals. Each link endpoint is
+  resolved independently; the normalized link identity includes the raw link
+  identity and every uniquely resolved endpoint-owner tuple. Shared-system IDs
+  remain global, while each `used_by` runtime reference is rewritten to its
+  unique owner tuple. Tuple encoding MUST be injective; display sanitization,
+  case folding, or a truncated hash cannot establish identity. The normalized
+  clone replaces wire IDs only inside the merge/render model; names, addresses,
+  state, detail, security, and other product values remain unchanged.
+- This normalization applies to supported topology schema versions 2, 3, and
+  4, including older payloads with unscoped `external:mesh:<index>` identities
+  and links without IDs. Version 2 links receive a lossless scoped identity;
+  version 3/4 link IDs are scoped rather than trusted as globally unique.
+  Exact endpoint containment on either end of a link identifies that endpoint's
+  owning runtime; `source` metadata may corroborate but cannot override
+  containment. A global shared or external endpoint that is not contained by a
+  runtime retains its global identity unless it is a configured mesh external
+  paired with a uniquely owned runtime endpoint. A link whose two endpoint
+  references resolve uniquely to different runtimes is valid and retains both
+  owner tuples; ambiguity exists only when an individual reference has zero or
+  multiple plausible owned targets where an owned target is required.
+  Equal container names, resource names, endpoint IDs, link IDs, or
+  configuration indexes under different hosts or containers MUST NOT collapse
+  nodes, redirect links, duplicate handles, or hide status/detail. Repeated
+  snapshots from the same complete owner deduplicate. If a runtime or endpoint
+  reference has more than one possible owner in one response, the extension
+  retains the unambiguous host/runtime projection but omits every affected link
+  instead of guessing. It also omits an affected configured-mesh external and
+  removes an ambiguous runtime reference from shared-system `used_by`; unrelated
+  links, external systems, and shared systems remain visible.
 - Merging fleet snapshots uses the highest input schema version, unions hosts
   and runtimes by identity, deduplicates links and external systems by
   identity, and unions each shared system's `used_by` set. Configured and live

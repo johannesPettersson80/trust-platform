@@ -70,14 +70,8 @@ fn gpio_contract_rejects_wrong_collection_and_entry_shapes() {
 #[test]
 fn gpio_contract_requires_address_and_physical_line() {
     for (text, expected) in [
-        (
-            "inputs = [{ line = 1 }]",
-            "gpio entry missing 'address'",
-        ),
-        (
-            "outputs = [{ address = \"%QX0.0\" }]",
-            "requires 'line'",
-        ),
+        ("inputs = [{ line = 1 }]", "gpio entry missing 'address'"),
+        ("outputs = [{ address = \"%QX0.0\" }]", "requires 'line'"),
         (
             "inputs = [{ address = 7, line = 1 }]",
             "gpio entry missing 'address'",
@@ -283,7 +277,10 @@ fn gpio_contract_empty_driver_construction_does_not_open_default_chardev() {
     driver.read_inputs(&mut []).unwrap();
     driver.write_outputs(&[]).unwrap();
     assert!(matches!(driver.health(), IoDriverHealth::Ok));
-    assert_eq!(format!("{driver:?}"), "GpioDriver { inputs: 0, outputs: 0 }");
+    assert_eq!(
+        format!("{driver:?}"),
+        "GpioDriver { inputs: 0, outputs: 0 }"
+    );
 }
 
 #[test]
@@ -306,10 +303,7 @@ fn gpio_contract_bit_helpers_reject_byte_and_bit_bounds_without_panicking() {
     assert_error_contains(read_bit(&[0], 0, 8), "bit");
 
     let mut empty = [];
-    assert_error_contains(
-        write_bit(&mut empty, 0, 0, true),
-        "outside input buffer",
-    );
+    assert_error_contains(write_bit(&mut empty, 0, 0, true), "outside input buffer");
     let mut byte = [0b1010_1010];
     assert_error_contains(write_bit(&mut byte, 0, 8, true), "bit");
     assert_eq!(byte, [0b1010_1010]);
@@ -372,10 +366,7 @@ fn gpio_contract_chip_collection_handles_missing_and_invalid_roots() {
     let mut lines = Vec::new();
     collect_gpiochip_lines(&missing, &mut lines).unwrap();
     assert!(lines.is_empty());
-    assert_error_contains(
-        collect_gpiochip_lines(&file, &mut lines),
-        "gpio enumerate",
-    );
+    assert_error_contains(collect_gpiochip_lines(&file, &mut lines), "gpio enumerate");
 }
 
 #[test]
@@ -386,7 +377,10 @@ fn gpio_contract_sysfs_backend_configures_existing_input_and_output_files() {
     let mut backend = SysfsBackend::new(root.path().to_path_buf());
 
     backend.configure_input(17).unwrap();
-    assert_eq!(fs::read_to_string(root.path().join("gpio17/direction")).unwrap(), "in");
+    assert_eq!(
+        fs::read_to_string(root.path().join("gpio17/direction")).unwrap(),
+        "in"
+    );
 
     backend.configure_output(27, true).unwrap();
     assert_eq!(
@@ -410,7 +404,10 @@ fn gpio_contract_sysfs_export_and_exact_input_values_are_fail_closed() {
     fs::write(root.path().join("export"), "").unwrap();
     let mut backend = SysfsBackend::new(root.path().to_path_buf());
     backend.ensure_exported(22).unwrap();
-    assert_eq!(fs::read_to_string(root.path().join("export")).unwrap(), "22");
+    assert_eq!(
+        fs::read_to_string(root.path().join("export")).unwrap(),
+        "22"
+    );
 
     make_sysfs_line(root.path(), 17);
     let value_path = root.path().join("gpio17/value");
@@ -429,10 +426,7 @@ fn gpio_contract_input_handoff_maps_inversion_and_preserves_other_bits() {
     let backend = ScriptedBackend::with_reads([Ok(true), Ok(true)]);
     let mut driver = driver(
         backend,
-        vec![
-            input(17, 0, 0, false, 0),
-            input(18, 0, 1, true, 0),
-        ],
+        vec![input(17, 0, 0, false, 0), input(18, 0, 1, true, 0)],
         Vec::new(),
     );
     let mut image = [0b1010_1010];
@@ -454,8 +448,7 @@ fn gpio_contract_debounce_retains_then_accepts_changed_state() {
     driver.read_inputs(&mut image).unwrap();
     assert_eq!(image, [0], "change before debounce delay is retained");
 
-    driver.inputs[0].last_change =
-        Some(Instant::now() - StdDuration::from_millis(20));
+    driver.inputs[0].last_change = Some(Instant::now() - StdDuration::from_millis(20));
     driver.read_inputs(&mut image).unwrap();
     assert_eq!(image, [1], "stable change after debounce delay is accepted");
 }
@@ -467,10 +460,7 @@ fn gpio_contract_output_handoff_inverts_and_suppresses_unchanged_levels() {
     let mut driver = driver(
         backend,
         Vec::new(),
-        vec![
-            output(27, 0, 0, false),
-            output(28, 0, 1, true),
-        ],
+        vec![output(27, 0, 0, false), output(28, 0, 1, true)],
     );
 
     driver.write_outputs(&[0b0000_0001]).unwrap();
@@ -479,12 +469,7 @@ fn gpio_contract_output_handoff_inverts_and_suppresses_unchanged_levels() {
 
     assert_eq!(
         writes.lock().unwrap().as_slice(),
-        &[
-            (27, true),
-            (28, true),
-            (27, false),
-            (28, false),
-        ]
+        &[(27, true), (28, true), (27, false), (28, false),]
     );
 }
 
@@ -506,17 +491,10 @@ fn gpio_contract_failed_output_is_retried_and_health_recovers() {
 
 #[test]
 fn gpio_contract_read_failure_short_circuits_and_later_success_recovers_health() {
-    let backend = ScriptedBackend::with_reads([
-        Err("first read"),
-        Ok(true),
-        Ok(false),
-    ]);
+    let backend = ScriptedBackend::with_reads([Err("first read"), Ok(true), Ok(false)]);
     let mut driver = driver(
         backend,
-        vec![
-            input(17, 0, 0, false, 0),
-            input(18, 0, 1, false, 0),
-        ],
+        vec![input(17, 0, 0, false, 0), input(18, 0, 1, false, 0)],
         Vec::new(),
     );
     let mut image = [0u8];
@@ -610,13 +588,7 @@ fn driver(
     }
 }
 
-fn input(
-    line: u32,
-    byte: usize,
-    bit: u8,
-    invert: bool,
-    debounce_ms: u64,
-) -> GpioInput {
+fn input(line: u32, byte: usize, bit: u8, invert: bool, debounce_ms: u64) -> GpioInput {
     GpioInput {
         line,
         byte,
@@ -642,10 +614,7 @@ fn gpio_params(text: &str) -> toml::Value {
     toml::from_str(text).expect("valid TOML fixture")
 }
 
-fn assert_error_contains<T: std::fmt::Debug>(
-    result: Result<T, RuntimeError>,
-    expected: &str,
-) {
+fn assert_error_contains<T: std::fmt::Debug>(result: Result<T, RuntimeError>, expected: &str) {
     let error = result.expect_err("expected GPIO error");
     assert!(
         error.to_string().contains(expected),
@@ -667,10 +636,7 @@ struct TempTree {
 impl TempTree {
     fn new(prefix: &str) -> Self {
         let sequence = TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed);
-        let path = std::env::temp_dir().join(format!(
-            "{prefix}-{}-{sequence}",
-            std::process::id()
-        ));
+        let path = std::env::temp_dir().join(format!("{prefix}-{}-{sequence}", std::process::id()));
         fs::create_dir_all(&path).expect("create temp tree");
         Self { path }
     }

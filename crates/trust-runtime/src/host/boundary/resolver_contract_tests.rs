@@ -185,10 +185,7 @@ fn boundary_resolver_contract_struct_field_read_uses_program_root() {
     harness
         .try_set_input("packet.count", Value::Int(23))
         .expect("field write");
-    assert_eq!(
-        harness.try_get_output("packet.count"),
-        Ok(Value::Int(23))
-    );
+    assert_eq!(harness.try_get_output("packet.count"), Ok(Value::Int(23)));
 }
 
 #[test]
@@ -200,14 +197,8 @@ fn boundary_resolver_contract_struct_field_write_changes_only_selected_field() {
     harness
         .try_set_input("packet.count", Value::Int(31))
         .expect("count write");
-    assert_eq!(
-        harness.try_get_output("packet.flag"),
-        Ok(Value::Bool(true))
-    );
-    assert_eq!(
-        harness.try_get_output("packet.count"),
-        Ok(Value::Int(31))
-    );
+    assert_eq!(harness.try_get_output("packet.flag"), Ok(Value::Bool(true)));
+    assert_eq!(harness.try_get_output("packet.count"), Ok(Value::Int(31)));
 }
 
 #[test]
@@ -343,10 +334,7 @@ fn boundary_resolver_contract_partial_byte_read_and_write_preserve_other_byte() 
     harness
         .try_set_input("wordValue.%B1", Value::Byte(0xAB))
         .expect("partial byte write");
-    assert_eq!(
-        harness.try_get_output("wordValue"),
-        Ok(Value::Word(0xAB34))
-    );
+    assert_eq!(harness.try_get_output("wordValue"), Ok(Value::Word(0xAB34)));
 }
 
 #[test]
@@ -355,10 +343,7 @@ fn boundary_resolver_contract_partial_bit_write_preserves_other_bits() {
     harness
         .try_set_input("wordValue.%X0", Value::Bool(true))
         .expect("partial bit write");
-    assert_eq!(
-        harness.try_get_output("wordValue"),
-        Ok(Value::Word(0x1235))
-    );
+    assert_eq!(harness.try_get_output("wordValue"), Ok(Value::Word(0x1235)));
 }
 
 #[test]

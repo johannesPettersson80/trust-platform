@@ -10,7 +10,7 @@ use verification_cases::{
 const TEST_ID: &str = "TEST_RUNTIME_RETAIN_SNAPSHOT_INSERT_TRACE_001";
 const CASE_FILE: &str = "verification/cases/runtime_safety/RT_RETAIN_SNAPSHOT_INSERT_001.toml";
 const CASE_FILE_DIGEST: &str =
-    "sha256:d49c380eed600a367208997ef2b31482526eaa802e121e14a63cbd185fad014d";
+    "sha256:b834b8923ac48e8f74660a88a4031d88653a35fde1c567aaa5ffb558c61bd097";
 
 #[test]
 fn retain_snapshot_insert_cases() {

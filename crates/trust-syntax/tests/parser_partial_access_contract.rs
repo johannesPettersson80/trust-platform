@@ -11,7 +11,10 @@ fn accepted(source: &str) {
 }
 
 fn rejected(source: &str) {
-    assert!(!parse(source).ok(), "expected malformed partial-access syntax");
+    assert!(
+        !parse(source).ok(),
+        "expected malformed partial-access syntax"
+    );
 }
 
 #[test]
@@ -84,13 +87,9 @@ fn partial_access_parser_preserves_field_expression_nodes() {
         "PROGRAM Main\nVAR value : DWORD; byte_value : BYTE; END_VAR\nbyte_value := value.%B2;\nEND_PROGRAM",
     );
     assert!(parsed.ok(), "{:?}", parsed.errors());
-    assert!(parsed
-        .syntax()
-        .descendants()
-        .any(|node| {
-            node.kind() == SyntaxKind::FieldExpr
-                && node.text().to_string().trim() == "value.%B2"
-        }));
+    assert!(parsed.syntax().descendants().any(|node| {
+        node.kind() == SyntaxKind::FieldExpr && node.text().to_string().trim() == "value.%B2"
+    }));
 }
 
 #[test]

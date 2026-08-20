@@ -29,6 +29,7 @@ impl fmt::Display for ConstExprError {
 
 impl std::error::Error for ConstExprError {}
 
+#[cfg(test)]
 pub(crate) fn eval_const_expr(
     expr: &Expr,
     profile: &DateTimeProfile,
@@ -96,14 +97,7 @@ fn eval_array_initializer_elements(
 ) -> Result<Vec<Value>, ConstExprError> {
     let mut values = Vec::new();
     for expr in elements {
-        eval_array_initializer_element(
-            profile,
-            registry,
-            resolve_name,
-            expr,
-            &mut values,
-            0,
-        )?;
+        eval_array_initializer_element(profile, registry, resolve_name, expr, &mut values, 0)?;
     }
     Ok(values)
 }

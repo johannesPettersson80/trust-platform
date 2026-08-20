@@ -8,19 +8,18 @@ FUNCTION_BLOCK Box
     VAR_OUTPUT
         OutputValue : INT;
     END_VAR
-    VAR_IN_OUT
-        LinkedValue : INT;
-    END_VAR
-    VAR_TEMP
-        Scratch : INT;
-    END_VAR
-
     PROPERTY Value : INT
     SET
     END_SET
     END_PROPERTY
 
     METHOD Update
+        VAR_IN_OUT
+            LinkedValue : INT;
+        END_VAR
+        VAR_TEMP
+            Scratch : INT;
+        END_VAR
         Scratch := INT#1;
         LinkedValue := Scratch;
         OutputValue := LinkedValue;

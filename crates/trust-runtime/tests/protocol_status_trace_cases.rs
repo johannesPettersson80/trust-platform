@@ -19,7 +19,7 @@ use verification_cases::{
 const TEST_ID: &str = "TEST_CONNECTOR_STATUS_TRUTH_TRACE_001";
 const CASE_FILE: &str = "verification/cases/protocols/PROTO_STATUS_TRUTH_001.toml";
 const CASE_FILE_DIGEST: &str =
-    "sha256:39e449f0b4495f45a700d9a3ef2b30d5c02a1dd13b7220113bdd08e22b5b3a16";
+    "sha256:621664ed187d39e300c8f42e8638ac814fc90ef3cd4780c7358e87c0eff7e179";
 const UI_TEST_ID: &str = "TEST_UI_CONNECTOR_STATUS_TRACE_001";
 const UI_CASE_FILE: &str = "verification/cases/hmi_ui/UI_STATUS_001.toml";
 const UI_CASE_FILE_DIGEST: &str =

@@ -11,14 +11,15 @@ fn accepted(source: &str) {
 }
 
 fn rejected(source: &str) {
-    assert!(!parse(source).ok(), "expected malformed string-index syntax");
+    assert!(
+        !parse(source).ok(),
+        "expected malformed string-index syntax"
+    );
 }
 
 #[test]
 fn string_index_parser_accepts_read_expression() {
-    accepted(
-        "PROGRAM Main\nVAR text : STRING[8]; ch : CHAR; END_VAR\nch := text[1];\nEND_PROGRAM",
-    );
+    accepted("PROGRAM Main\nVAR text : STRING[8]; ch : CHAR; END_VAR\nch := text[1];\nEND_PROGRAM");
 }
 
 #[test]
@@ -60,13 +61,9 @@ fn string_index_parser_preserves_index_expression_node() {
         "PROGRAM Main\nVAR text : STRING[8]; ch : CHAR; END_VAR\nch := text[2];\nEND_PROGRAM",
     );
     assert!(parsed.ok(), "{:?}", parsed.errors());
-    assert!(parsed
-        .syntax()
-        .descendants()
-        .any(|node| {
-            node.kind() == SyntaxKind::IndexExpr
-                && node.text().to_string().trim() == "text[2]"
-        }));
+    assert!(parsed.syntax().descendants().any(|node| {
+        node.kind() == SyntaxKind::IndexExpr && node.text().to_string().trim() == "text[2]"
+    }));
 }
 
 #[test]
@@ -83,9 +80,7 @@ fn string_index_parser_rejects_trailing_comma() {
 
 #[test]
 fn string_index_parser_rejects_missing_closing_bracket() {
-    rejected(
-        "PROGRAM Main\nVAR text : STRING[8]; ch : CHAR; END_VAR\nch := text[1;\nEND_PROGRAM",
-    );
+    rejected("PROGRAM Main\nVAR text : STRING[8]; ch : CHAR; END_VAR\nch := text[1;\nEND_PROGRAM");
 }
 
 #[test]

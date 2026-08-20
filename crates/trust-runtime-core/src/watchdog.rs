@@ -402,7 +402,6 @@ mod tests {
         assert!(FaultPolicy::parse("degrade").is_err());
     }
 
-    // RT_WATCHDOG_PORTABLE_CONFIG_MODEL_001
     #[test]
     fn configuration_parsers_cover_complete_tokens_and_exact_invalid_text() {
         for (text, expected) in [
@@ -443,7 +442,6 @@ mod tests {
         );
     }
 
-    // RT_WATCHDOG_PORTABLE_CONFIG_MODEL_001
     #[test]
     fn subsystem_defaults_and_fault_info_preserve_inert_identity() {
         for watchdog in [WatchdogSubsystem::new(), WatchdogSubsystem::default()] {

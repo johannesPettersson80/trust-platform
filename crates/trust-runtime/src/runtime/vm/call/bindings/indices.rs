@@ -26,8 +26,8 @@ pub(super) fn resolve_vm_arg_indices(
     }
 
     let mut indices = vec![None; params.len()];
-    for index in 0..positional_count {
-        indices[index] = Some(index);
+    for (index, slot) in indices.iter_mut().enumerate().take(positional_count) {
+        *slot = Some(index);
     }
     for (arg_index, arg) in args.iter().enumerate().skip(positional_count) {
         let name = arg
@@ -44,7 +44,11 @@ pub(super) fn resolve_vm_arg_indices(
         };
         if indices[param_index].is_some() {
             return Err(VmTrap::InvalidNativeCall(
-                format!("duplicate argument for parameter '{}'", params[param_index].name).into(),
+                format!(
+                    "duplicate argument for parameter '{}'",
+                    params[param_index].name
+                )
+                .into(),
             ));
         }
         indices[param_index] = Some(arg_index);

@@ -6,7 +6,7 @@ use trust_runtime::error::RuntimeError;
 use trust_runtime::memory::VariableStorage;
 use trust_runtime::stdlib::fbs::{
     builtin_kind, builtin_kind_uppercase, execute_builtin_in_storage, standard_function_blocks,
-    BuiltinFbKind, Ctd, Ctu, Ctud, FTrig, Rs, RTrig, Sr, Tof, Ton, Tp,
+    BuiltinFbKind, Ctd, Ctu, Ctud, FTrig, RTrig, Rs, Sr, Tof, Ton, Tp,
 };
 use trust_runtime::value::{Duration, Value};
 
@@ -264,24 +264,23 @@ fn storage_counter_preserves_generic_integer_family_and_edge_memory() {
         assert!(storage.set_instance_var(instance, name, value));
     }
 
-    execute_builtin_in_storage(
-        &mut storage,
-        Duration::ZERO,
-        instance,
-        BuiltinFbKind::Ctu,
-    )
-    .expect("first CTU edge");
-    assert_eq!(storage.get_instance_var(instance, "CV"), Some(&Value::DInt(1)));
-    assert_eq!(storage.get_instance_var(instance, "Q"), Some(&Value::Bool(false)));
+    execute_builtin_in_storage(&mut storage, Duration::ZERO, instance, BuiltinFbKind::Ctu)
+        .expect("first CTU edge");
+    assert_eq!(
+        storage.get_instance_var(instance, "CV"),
+        Some(&Value::DInt(1))
+    );
+    assert_eq!(
+        storage.get_instance_var(instance, "Q"),
+        Some(&Value::Bool(false))
+    );
 
-    execute_builtin_in_storage(
-        &mut storage,
-        Duration::ZERO,
-        instance,
-        BuiltinFbKind::Ctu,
-    )
-    .expect("held CU");
-    assert_eq!(storage.get_instance_var(instance, "CV"), Some(&Value::DInt(1)));
+    execute_builtin_in_storage(&mut storage, Duration::ZERO, instance, BuiltinFbKind::Ctu)
+        .expect("held CU");
+    assert_eq!(
+        storage.get_instance_var(instance, "CV"),
+        Some(&Value::DInt(1))
+    );
 }
 
 #[test]
@@ -299,16 +298,17 @@ fn storage_counter_type_mismatch_does_not_publish_outputs() {
     }
 
     assert_eq!(
-        execute_builtin_in_storage(
-            &mut storage,
-            Duration::ZERO,
-            instance,
-            BuiltinFbKind::Ctu,
-        ),
+        execute_builtin_in_storage(&mut storage, Duration::ZERO, instance, BuiltinFbKind::Ctu,),
         Err(RuntimeError::TypeMismatch)
     );
-    assert_eq!(storage.get_instance_var(instance, "CV"), Some(&Value::Int(0)));
-    assert_eq!(storage.get_instance_var(instance, "Q"), Some(&Value::Bool(false)));
+    assert_eq!(
+        storage.get_instance_var(instance, "CV"),
+        Some(&Value::Int(0))
+    );
+    assert_eq!(
+        storage.get_instance_var(instance, "Q"),
+        Some(&Value::Bool(false))
+    );
 }
 
 #[test]
@@ -384,11 +384,7 @@ fn timers_normalize_non_positive_presets_to_zero() {
 fn active_timer_uses_current_preset_on_every_step() {
     let mut timer = Ton::new();
 
-    let partial = timer.step(
-        true,
-        Duration::from_millis(10),
-        Duration::from_millis(6),
-    );
+    let partial = timer.step(true, Duration::from_millis(10), Duration::from_millis(6));
     assert!(!partial.q);
     let shortened = timer.step(true, Duration::from_millis(5), Duration::ZERO);
     assert!(shortened.q);
@@ -511,13 +507,8 @@ fn storage_timer_preserves_ltime_output_family() {
         assert!(storage.set_instance_var(instance, name, value));
     }
 
-    execute_builtin_in_storage(
-        &mut storage,
-        Duration::ZERO,
-        instance,
-        BuiltinFbKind::Ton,
-    )
-    .expect("first LTIME timer call");
+    execute_builtin_in_storage(&mut storage, Duration::ZERO, instance, BuiltinFbKind::Ton)
+        .expect("first LTIME timer call");
     execute_builtin_in_storage(
         &mut storage,
         Duration::from_millis(2),
@@ -526,7 +517,10 @@ fn storage_timer_preserves_ltime_output_family() {
     )
     .expect("second LTIME timer call");
 
-    assert_eq!(storage.get_instance_var(instance, "Q"), Some(&Value::Bool(true)));
+    assert_eq!(
+        storage.get_instance_var(instance, "Q"),
+        Some(&Value::Bool(true))
+    );
     assert_eq!(
         storage.get_instance_var(instance, "ET"),
         Some(&Value::LTime(Duration::from_millis(2)))
@@ -555,6 +549,12 @@ fn storage_timer_type_mismatch_does_not_publish_outputs() {
         ),
         Err(RuntimeError::TypeMismatch)
     );
-    assert_eq!(storage.get_instance_var(instance, "Q"), Some(&Value::Bool(false)));
-    assert_eq!(storage.get_instance_var(instance, "ET"), Some(&Value::Int(0)));
+    assert_eq!(
+        storage.get_instance_var(instance, "Q"),
+        Some(&Value::Bool(false))
+    );
+    assert_eq!(
+        storage.get_instance_var(instance, "ET"),
+        Some(&Value::Int(0))
+    );
 }

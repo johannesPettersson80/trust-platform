@@ -10,7 +10,7 @@ use verification_cases::{
 const TEST_ID: &str = "TEST_RUNTIME_FAULT_STATE_CLEAR_TRACE_001";
 const CASE_FILE: &str = "verification/cases/runtime_safety/RT_FAULT_STATE_CLEAR_001.toml";
 const CASE_FILE_DIGEST: &str =
-    "sha256:eba7f46c61be3a09205fe289f6de07cf92ebce3953cd849a5b60b66c854e8f0f";
+    "sha256:c460f6eebcb67abcbc6e6ac481c7d07c468339391b81d302f75087f5ccb57f8c";
 
 #[test]
 fn fault_state_clear_cases() {

@@ -2,12 +2,12 @@ use smol_str::SmolStr;
 
 use crate::error::RuntimeError;
 use crate::memory::{FrameId, InstanceId, MemoryLocation};
+#[cfg(test)]
+use crate::value::write_value_path;
 use crate::value::{
     materialize_value_path, read_value_path_borrowed, single_ref_index, string_element_position,
     RefSegment, Value, ValueRef,
 };
-#[cfg(test)]
-use crate::value::write_value_path;
 #[cfg(test)]
 use crate::value::{ref_indices_from_iter, RefPath};
 
@@ -142,16 +142,13 @@ pub(super) fn store_ref(
             }
         }
         VmRef::Global { offset, path } => {
-            if runtime
-                .storage
-                .write_by_ref_parts_typed(
-                    &runtime.registry,
-                    MemoryLocation::Global,
-                    *offset,
-                    path,
-                    value,
-                )
-            {
+            if runtime.storage.write_by_ref_parts_typed(
+                &runtime.registry,
+                MemoryLocation::Global,
+                *offset,
+                path,
+                value,
+            ) {
                 Ok(())
             } else {
                 Err(VmTrap::NullReference)
@@ -169,10 +166,13 @@ pub(super) fn store_ref(
         _ => {
             let frame = frames.current().ok_or(VmTrap::CallStackUnderflow)?;
             let (location, offset, path) = runtime_access_target(reference, frame)?;
-            if runtime
-                .storage
-                .write_by_ref_parts_typed(&runtime.registry, location, offset, path, value)
-            {
+            if runtime.storage.write_by_ref_parts_typed(
+                &runtime.registry,
+                location,
+                offset,
+                path,
+                value,
+            ) {
                 Ok(())
             } else {
                 Err(VmTrap::NullReference)

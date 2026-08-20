@@ -26,27 +26,15 @@ pub struct PlcopenImportReport {
     pub applied_library_shims: Vec<PlcopenLibraryShimApplication>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum PlcopenImportGlobalVarMode {
+    #[default]
     NativeVendorParity,
     StrictIecAdapter,
 }
 
-impl Default for PlcopenImportGlobalVarMode {
-    fn default() -> Self {
-        Self::NativeVendorParity
-    }
-}
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct PlcopenImportOptions {
     pub global_var_mode: PlcopenImportGlobalVarMode,
-}
-
-impl Default for PlcopenImportOptions {
-    fn default() -> Self {
-        Self {
-            global_var_mode: PlcopenImportGlobalVarMode::default(),
-        }
-    }
 }

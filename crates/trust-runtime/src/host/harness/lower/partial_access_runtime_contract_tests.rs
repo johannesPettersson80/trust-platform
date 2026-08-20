@@ -11,8 +11,7 @@ fn run(source: &str) -> TestHarness {
 
 #[test]
 fn partial_access_runtime_reads_all_bit_string_projection_kinds() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 PROGRAM Main
 VAR
     byteValue : BYTE := BYTE#16#81;
@@ -31,8 +30,7 @@ wordHighByte := wordValue.%B1;
 dwordHighWord := dwordValue.%W1;
 lwordHighDword := lwordValue.%D1;
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("byteLowBit"), Some(Value::Bool(true)));
     assert_eq!(harness.get_output("byteHighBit"), Some(Value::Bool(true)));
     assert_eq!(harness.get_output("wordHighByte"), Some(Value::Byte(0xAB)));
@@ -59,10 +57,7 @@ fn partial_access_runtime_byte_write_changes_only_selected_byte() {
     let harness = run(
         "PROGRAM Main\nVAR value : DWORD := DWORD#16#12345678; END_VAR\nvalue.%B2 := BYTE#16#AB;\nEND_PROGRAM",
     );
-    assert_eq!(
-        harness.get_output("value"),
-        Some(Value::DWord(0x12AB_5678))
-    );
+    assert_eq!(harness.get_output("value"), Some(Value::DWord(0x12AB_5678)));
 }
 
 #[test]
@@ -89,32 +84,28 @@ fn partial_access_runtime_dword_write_changes_only_selected_dword() {
 
 #[test]
 fn partial_access_runtime_alias_chain_retains_projection_layout() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 TYPE Status : WORD; MoreStatus : Status; END_TYPE
 PROGRAM Main
 VAR value : MoreStatus := MoreStatus#16#8000; high : BOOL; END_VAR
 high := value.%X15;
 value.%B0 := BYTE#16#AA;
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("high"), Some(Value::Bool(true)));
     assert_eq!(harness.get_output("value"), Some(Value::Word(0x80AA)));
 }
 
 #[test]
 fn partial_access_runtime_nested_structure_array_write_updates_owner() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 TYPE Packet : STRUCT values : ARRAY[0..1] OF DWORD; END_STRUCT; END_TYPE
 PROGRAM Main
 VAR packet : Packet := (values := [DWORD#0, DWORD#16#12345678]); result : DWORD; END_VAR
 packet.values[1].%W1 := WORD#16#ABCD;
 result := packet.values[1];
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(
         harness.get_output("result"),
         Some(Value::DWord(0xABCD_5678))
@@ -123,23 +114,20 @@ END_PROGRAM
 
 #[test]
 fn partial_access_runtime_pointer_projection_writes_referent() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 PROGRAM Main
 VAR value : WORD := WORD#16#1200; value_ptr : POINTER TO WORD; result : WORD; END_VAR
 value_ptr := ADR(value);
 value_ptr^.%B0 := BYTE#16#34;
 result := value;
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("result"), Some(Value::Word(0x1234)));
 }
 
 #[test]
 fn partial_access_runtime_var_in_out_projection_writes_caller() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 FUNCTION SetHighByte : BOOL
 VAR_IN_OUT value : WORD; END_VAR
 value.%B1 := BYTE#16#AB;
@@ -150,23 +138,20 @@ VAR value : WORD := WORD#16#1234; result : WORD; END_VAR
 SetHighByte(value := value);
 result := value;
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("result"), Some(Value::Word(0xAB34)));
 }
 
 #[test]
 fn partial_access_runtime_case_insensitive_and_unprefixed_bit_forms_match() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 PROGRAM Main
 VAR value : WORD; same : BOOL; END_VAR
 value.%x0 := TRUE;
 value.15 := TRUE;
 same := value.%X0 AND value.%X15 AND (value = WORD#16#8001);
 END_PROGRAM
-"#,
-    );
+"#);
     assert_eq!(harness.get_output("same"), Some(Value::Bool(true)));
 }
 

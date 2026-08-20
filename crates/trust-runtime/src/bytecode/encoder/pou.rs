@@ -9,6 +9,7 @@ use crate::bytecode::{
 use crate::program_model::{ClassDef, FunctionBlockDef, FunctionDef, MethodDef, Param};
 use crate::value::Value;
 use trust_hir::symbols::ParamDirection;
+use trust_hir::{Type, TypeId};
 
 use super::util::{normalize_name, to_u32};
 use super::{BytecodeEncoder, BytecodeError, CodegenContext, LocalScope};

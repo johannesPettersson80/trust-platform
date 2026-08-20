@@ -5,9 +5,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering as AtomicOrdering};
 
 use serde_json::json;
-use tower_lsp::lsp_types::{
-    CallHierarchyItem, Position, Range, SymbolKind,
-};
+use tower_lsp::lsp_types::{CallHierarchyItem, Position, Range, SymbolKind};
 use trust_hir::SourceDatabase;
 
 static TEMP_SEQUENCE: AtomicU64 = AtomicU64::new(1);
@@ -18,7 +16,10 @@ fn state_contract_new_and_default_start_empty_with_closed_capabilities() {
         assert!(state.documents().is_empty());
         assert!(state.workspace_folders().is_empty());
         assert!(state.workspace_configs().is_empty());
-        assert_eq!(state.primary_workspace_config().map(|config| config.root), None);
+        assert_eq!(
+            state.primary_workspace_config().map(|config| config.root),
+            None
+        );
         assert_eq!(state.config(), Value::Null);
         assert!(!state.work_done_progress());
         assert!(!state.diagnostic_refresh_supported());
@@ -126,10 +127,7 @@ fn state_contract_primary_workspace_uses_highest_priority_and_root_replacement()
     replacement.workspace.priority = 12;
     state.set_workspace_config(first_uri, replacement);
     assert_eq!(state.workspace_configs().len(), 2);
-    assert_eq!(
-        state.primary_workspace_config().unwrap().root,
-        first.path()
-    );
+    assert_eq!(state.primary_workspace_config().unwrap().root, first.path());
     assert!(state
         .workspace_configs()
         .iter()
@@ -165,7 +163,9 @@ fn state_contract_workspace_uri_match_uses_deepest_registered_root() {
     assert!(state
         .workspace_config_for_uri(&file_uri(&outside.path().join("None.st")))
         .is_none());
-    assert!(state.library_docs_for_uri(&file_uri(outside.path())).is_none());
+    assert!(state
+        .library_docs_for_uri(&file_uri(outside.path()))
+        .is_none());
 }
 
 #[test]
@@ -178,10 +178,7 @@ fn state_contract_unknown_update_is_a_complete_no_op() {
     state.update_document(&uri, 3, "PROGRAM Ghost\nEND_PROGRAM\n".to_string());
 
     assert!(state.get_document(&uri).is_none());
-    assert_eq!(
-        state.project.read().sources().iter().count(),
-        source_count
-    );
+    assert_eq!(state.project.read().sources().iter().count(), source_count);
     assert_eq!(state.document_generation(), generation);
 }
 
@@ -195,11 +192,7 @@ fn state_contract_update_does_not_promote_a_closed_indexed_document() {
         .expect("index closed document");
     let generation = state.document_generation();
 
-    state.update_document(
-        &uri,
-        9,
-        "PROGRAM Unsolicited\nEND_PROGRAM\n".to_string(),
-    );
+    state.update_document(&uri, 9, "PROGRAM Unsolicited\nEND_PROGRAM\n".to_string());
 
     let document = state.get_document(&uri).expect("closed document remains");
     assert!(!document.is_open);
@@ -236,10 +229,7 @@ fn state_contract_indexing_does_not_replace_identical_closed_or_open_content() {
     assert_eq!(opened_id, indexed_id);
     let open_generation = state.document_generation();
     assert_eq!(
-        state.index_document(
-            uri.clone(),
-            "PROGRAM StaleDisk\nEND_PROGRAM\n".to_string()
-        ),
+        state.index_document(uri.clone(), "PROGRAM StaleDisk\nEND_PROGRAM\n".to_string()),
         None
     );
     let document = state.get_document(&uri).unwrap();
@@ -273,10 +263,7 @@ fn state_contract_document_and_file_id_lookups_are_bidirectional() {
     assert_ne!(first_id, second_id);
     assert_eq!(state.uri_for_file_id(first_id), Some(first_uri.clone()));
     assert_eq!(state.uri_for_file_id(second_id), Some(second_uri.clone()));
-    assert_eq!(
-        state.document_for_file_id(first_id).unwrap().uri,
-        first_uri
-    );
+    assert_eq!(state.document_for_file_id(first_id).unwrap().uri, first_uri);
     assert_eq!(
         state.document_for_file_id(second_id).unwrap().uri,
         second_uri
@@ -293,22 +280,12 @@ fn state_contract_file_ids_for_config_are_scoped_to_indexing_roots() {
     let outside_uri = file_uri(&outside.path().join("Outside.st"));
     let virtual_uri = Url::parse("untitled:virtual").unwrap();
     let inside_id = state
-        .index_document_deferred_budget(
-            inside_uri,
-            "PROGRAM Inside END_PROGRAM".to_string(),
-        )
+        .index_document_deferred_budget(inside_uri, "PROGRAM Inside END_PROGRAM".to_string())
         .unwrap();
     state
-        .index_document_deferred_budget(
-            outside_uri,
-            "PROGRAM Outside END_PROGRAM".to_string(),
-        )
+        .index_document_deferred_budget(outside_uri, "PROGRAM Outside END_PROGRAM".to_string())
         .unwrap();
-    state.open_document(
-        virtual_uri,
-        1,
-        "PROGRAM Virtual END_PROGRAM".to_string(),
-    );
+    state.open_document(virtual_uri, 1, "PROGRAM Virtual END_PROGRAM".to_string());
 
     let ids = state.file_ids_for_config(&ProjectConfig::load(root.path()));
     assert_eq!(ids.len(), 1);
@@ -335,11 +312,17 @@ fn state_contract_generation_clears_both_call_hierarchy_caches() {
     state.store_call_hierarchy_outgoing("symbol".to_string(), vec![outgoing_call()]);
     let generation = state.document_generation();
     assert_eq!(
-        state.cached_call_hierarchy_incoming("symbol").unwrap().len(),
+        state
+            .cached_call_hierarchy_incoming("symbol")
+            .unwrap()
+            .len(),
         1
     );
     assert_eq!(
-        state.cached_call_hierarchy_outgoing("symbol").unwrap().len(),
+        state
+            .cached_call_hierarchy_outgoing("symbol")
+            .unwrap()
+            .len(),
         1
     );
 
@@ -410,11 +393,18 @@ fn state_contract_semantic_token_cache_replaces_only_with_current_ticket() {
     assert_eq!(first_id, "1");
     let mut detached = state.semantic_tokens_cache(&uri).unwrap();
     detached.tokens.clear();
-    assert_eq!(state.semantic_tokens_cache(&uri).unwrap().tokens, first_tokens);
+    assert_eq!(
+        state.semantic_tokens_cache(&uri).unwrap().tokens,
+        first_tokens
+    );
 
     let second_ticket = state.begin_semantic_request();
     assert!(state
-        .store_semantic_tokens(uri.clone(), vec![semantic_token(9, 9, 9, 9, 9)], first_ticket)
+        .store_semantic_tokens(
+            uri.clone(),
+            vec![semantic_token(9, 9, 9, 9, 9)],
+            first_ticket
+        )
         .is_none());
     assert_eq!(
         state.semantic_tokens_cache(&uri).unwrap().result_id,
@@ -426,7 +416,10 @@ fn state_contract_semantic_token_cache_replaces_only_with_current_ticket() {
         .store_semantic_tokens(uri.clone(), second_tokens.clone(), second_ticket)
         .unwrap();
     assert_eq!(second_id, "2");
-    assert_eq!(state.semantic_tokens_cache(&uri).unwrap().tokens, second_tokens);
+    assert_eq!(
+        state.semantic_tokens_cache(&uri).unwrap().tokens,
+        second_tokens
+    );
 }
 
 #[test]
@@ -459,10 +452,7 @@ fn state_contract_diagnostic_cache_keys_identity_by_both_hashes() {
     assert!(state
         .store_diagnostics(uri.clone(), 99, 99, current - 1)
         .is_none());
-    assert_eq!(
-        state.diagnostic_result_id(&uri),
-        Some(diagnostics_changed)
-    );
+    assert_eq!(state.diagnostic_result_id(&uri), Some(diagnostics_changed));
 }
 
 #[test]
@@ -479,11 +469,7 @@ fn state_contract_activity_transitions_from_never_recorded_to_elapsed_age() {
 fn state_contract_database_view_tracks_document_sources() {
     let state = ServerState::new();
     let uri = Url::parse("untitled:database-view").unwrap();
-    let file_id = state.open_document(
-        uri.clone(),
-        1,
-        "PROGRAM Main\nEND_PROGRAM\n".to_string(),
-    );
+    let file_id = state.open_document(uri.clone(), 1, "PROGRAM Main\nEND_PROGRAM\n".to_string());
 
     state.with_database(|database| {
         assert_eq!(
@@ -492,11 +478,7 @@ fn state_contract_database_view_tracks_document_sources() {
         );
     });
     state.remove_document(&uri).unwrap();
-    assert!(state
-        .project
-        .read()
-        .key_for_file_id(file_id)
-        .is_none());
+    assert!(state.project.read().key_for_file_id(file_id).is_none());
 }
 
 fn semantic_token(
@@ -557,10 +539,7 @@ struct TempTree {
 impl TempTree {
     fn new(prefix: &str) -> Self {
         let sequence = TEMP_SEQUENCE.fetch_add(1, AtomicOrdering::Relaxed);
-        let path = std::env::temp_dir().join(format!(
-            "{prefix}-{}-{sequence}",
-            std::process::id()
-        ));
+        let path = std::env::temp_dir().join(format!("{prefix}-{}-{sequence}", std::process::id()));
         fs::create_dir_all(&path).expect("create temp tree");
         Self { path }
     }

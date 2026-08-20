@@ -1,12 +1,12 @@
 schema_version = 1
 id = "DEBUG_BEHAVIOR_LOCKED_001"
-title = "Debugger behavior-locked claim maps to tests and evidence"
+title = "Debugger behavior-locked claim names direct contract authority"
 area = "editor_safety"
 risk = "false_status"
 status = "validated"
 owner = "trust-debug"
 last_reviewed = "2026-07-18"
-claim = "The public claim that debugger behavior is locked by tests must map to debug invariants, suites, and durable evidence."
+claim = "The public debugger behavior-lock claim names written product specifications and direct native executable tests as authority, with proof class stated separately."
 proof_level = "G1"
 contract_kind = "protocol_trace"
 source_refs = ["README.md", "docs/specs/13-debug-adapter.md", "crates/trust-debug"]
@@ -35,9 +35,9 @@ case_family = "happy_path"
 oracle_ref = "SPEC_RELEASE_EVIDENCE_001#behavior-locked-claims"
 outcome = "accept_value"
 delta = { target = "set_to_expected", siblings = "unchanged", retain = "not_applicable", process_image = "not_applicable", diagnostics = "none", status = "unchanged" }
-rationale = "The debugger behavior-lock claim resolves only explicit debugger invariant, test, suite, and durable evidence mappings."
+rationale = "The debugger behavior-lock claim uses direct written-specification and native-test authority; this row only reports that contract."
 
 [[coverage.cells]]
 dimension = "happy_path"
 state = "covered"
-rationale = "The narrowly scoped debugger mapping contract is covered by a current-contract lock comparison; it does not imply broad release validation."
+rationale = "The debugger public-claim wording is covered by a current-contract lock comparison; it does not make this metadata row product authority."

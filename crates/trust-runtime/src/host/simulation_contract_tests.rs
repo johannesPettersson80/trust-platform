@@ -38,14 +38,18 @@ fn simulation_contract_optional_and_required_file_loading_are_path_qualified() {
     assert!(SimulationConfig::load_optional(&missing).unwrap().is_none());
 
     let error = SimulationConfig::load(&missing).unwrap_err();
-    assert!(error.to_string().contains(missing.to_string_lossy().as_ref()));
+    assert!(error
+        .to_string()
+        .contains(missing.to_string_lossy().as_ref()));
     assert!(error
         .to_string()
         .contains("failed to read simulation config"));
 
     let directory = root.path().join("directory");
     fs::create_dir_all(&directory).unwrap();
-    assert!(SimulationConfig::load_optional(&directory).unwrap().is_none());
+    assert!(SimulationConfig::load_optional(&directory)
+        .unwrap()
+        .is_none());
 }
 
 #[test]
@@ -62,32 +66,39 @@ fn simulation_contract_malformed_toml_is_rejected_with_path() {
 #[test]
 fn simulation_contract_file_activation_inference_and_explicit_disable_are_stable() {
     assert!(!load_text("").enabled);
-    assert!(load_text(
-        r#"
+    assert!(
+        load_text(
+            r#"
 [[couplings]]
 source = "%QX0.0"
 target = "%IX0.0"
 "#
-    )
-    .enabled);
-    assert!(load_text(
-        r#"
+        )
+        .enabled
+    );
+    assert!(
+        load_text(
+            r#"
 [[disturbances]]
 at_ms = 1
 target = "%IX0.0"
 value = "TRUE"
 "#
-    )
-    .enabled);
-    assert!(!load_text(
-        r#"
+        )
+        .enabled
+    );
+    assert!(
+        !load_text(
+            r#"
 [physics]
 enabled = true
 "#
-    )
-    .enabled);
-    assert!(load_text(
-        r#"
+        )
+        .enabled
+    );
+    assert!(
+        load_text(
+            r#"
 [physics]
 enabled = true
 [[physics.joints]]
@@ -96,18 +107,21 @@ kind = "revolute"
 enable_source = "%QX0.0"
 feedback_target = "%IW0"
 "#
-    )
-    .enabled);
-    assert!(!load_text(
-        r#"
+        )
+        .enabled
+    );
+    assert!(
+        !load_text(
+            r#"
 [simulation]
 enabled = false
 [[couplings]]
 source = "%QX0.0"
 target = "%IX0.0"
 "#
-    )
-    .enabled);
+        )
+        .enabled
+    );
 }
 
 #[test]
@@ -223,12 +237,12 @@ fn simulation_contract_io_literal_parsing_is_width_checked() {
         (IoSize::Byte, "0xFF", Value::Byte(u8::MAX)),
         (IoSize::Word, "65535", Value::Word(u16::MAX)),
         (IoSize::DWord, "0xFFFFFFFF", Value::DWord(u32::MAX)),
-        (IoSize::LWord, "18446744073709551615", Value::LWord(u64::MAX)),
         (
-            IoSize::Bytes(4),
-            "'test'",
-            Value::String("test".into()),
+            IoSize::LWord,
+            "18446744073709551615",
+            Value::LWord(u64::MAX),
         ),
+        (IoSize::Bytes(4), "'test'", Value::String("test".into())),
     ] {
         assert_eq!(parse_io_value(text, size).unwrap(), expected);
     }
@@ -376,10 +390,7 @@ feedback_target = "%IW0"
     assert_eq!(physics.encoder_counts_per_radian, 1000.0);
     assert_eq!(physics.joints[0].velocity_rad_per_s, 0.0);
     assert_eq!(physics.joints[0].lower_rad, 0.0);
-    assert_eq!(
-        physics.joints[0].upper_rad,
-        std::f64::consts::FRAC_PI_2
-    );
+    assert_eq!(physics.joints[0].upper_rad, std::f64::consts::FRAC_PI_2);
     assert_eq!(physics.joints[0].encoder_counts_per_radian, 1000.0);
 }
 
@@ -638,7 +649,11 @@ fn simulation_contract_numeric_coupling_coercion_is_width_checked() {
             Value::LWord(u64::from(u32::MAX)),
             Value::DWord(u32::MAX),
         ),
-        (IoSize::LWord, Value::ULInt(u64::MAX), Value::LWord(u64::MAX)),
+        (
+            IoSize::LWord,
+            Value::ULInt(u64::MAX),
+            Value::LWord(u64::MAX),
+        ),
     ] {
         assert_eq!(coerce_to_size(&source, size).unwrap(), expected);
     }
@@ -774,8 +789,14 @@ fn simulation_contract_equal_due_effects_preserve_coupling_order() {
     let source_b = IoAddress::parse("%QX0.1").unwrap();
     let target = IoAddress::parse("%IX0.0").unwrap();
     let mut runtime = Runtime::new();
-    runtime.io_mut().write(&source_a, Value::Bool(true)).unwrap();
-    runtime.io_mut().write(&source_b, Value::Bool(false)).unwrap();
+    runtime
+        .io_mut()
+        .write(&source_a, Value::Bool(true))
+        .unwrap();
+    runtime
+        .io_mut()
+        .write(&source_b, Value::Bool(false))
+        .unwrap();
     let mut controller = SimulationController::new(SimulationConfig {
         enabled: true,
         couplings: vec![
@@ -936,7 +957,9 @@ fn simulation_contract_failed_delayed_write_becomes_runtime_fault() {
         .apply_pre_cycle(Duration::ZERO, &mut runtime)
         .unwrap_err();
     assert!(matches!(error, RuntimeError::SimulationFault(_)));
-    assert!(error.to_string().contains("simulation delayed effect failed"));
+    assert!(error
+        .to_string()
+        .contains("simulation delayed effect failed"));
     assert!(runtime.faulted());
 }
 
@@ -1022,9 +1045,10 @@ fn load_text_result(text: &str) -> Result<SimulationConfig, RuntimeError> {
 fn assert_error_contains<T: Debug>(result: Result<T, RuntimeError>, expected: &str) {
     let error = result.expect_err("expected simulation error");
     assert!(
-        error.to_string().to_ascii_lowercase().contains(
-            expected.to_ascii_lowercase().as_str()
-        ),
+        error
+            .to_string()
+            .to_ascii_lowercase()
+            .contains(expected.to_ascii_lowercase().as_str()),
         "expected error containing {expected:?}, got {error}"
     );
 }
@@ -1036,10 +1060,7 @@ struct TempTree {
 impl TempTree {
     fn new(prefix: &str) -> Self {
         let sequence = TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed);
-        let path = std::env::temp_dir().join(format!(
-            "{prefix}-{}-{sequence}",
-            std::process::id()
-        ));
+        let path = std::env::temp_dir().join(format!("{prefix}-{}-{sequence}", std::process::id()));
         fs::create_dir_all(&path).expect("create temp tree");
         Self { path }
     }

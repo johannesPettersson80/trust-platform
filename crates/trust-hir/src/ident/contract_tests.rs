@@ -42,17 +42,7 @@ fn valid_identifier_matrix_covers_each_allowed_ascii_position() {
 
 #[test]
 fn invalid_start_end_and_repeated_underscore_matrix_is_rejected() {
-    for name in [
-        "",
-        "_",
-        "__",
-        "__A",
-        "A__B",
-        "A___B",
-        "A_",
-        "1A",
-        "9_value",
-    ] {
+    for name in ["", "_", "__", "__A", "A__B", "A___B", "A_", "1A", "9_value"] {
         assert!(!is_valid_identifier(name), "{name:?}");
     }
 }

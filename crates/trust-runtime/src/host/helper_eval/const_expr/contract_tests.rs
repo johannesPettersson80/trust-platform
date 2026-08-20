@@ -75,14 +75,10 @@ fn resolver_receives_one_exact_qualified_constant_name() {
     };
     let observed = RefCell::new(Vec::new());
 
-    let value = eval_const_expr_with_resolver(
-        &expression,
-        &DateTimeProfile::default(),
-        &|name| {
-            observed.borrow_mut().push(name.to_owned());
-            (name == "Constants.Limits.High").then_some(Value::DInt(77))
-        },
-    )
+    let value = eval_const_expr_with_resolver(&expression, &DateTimeProfile::default(), &|name| {
+        observed.borrow_mut().push(name.to_owned());
+        (name == "Constants.Limits.High").then_some(Value::DInt(77))
+    })
     .expect("qualified constant should resolve");
 
     assert_eq!(value, Value::DInt(77));
@@ -114,10 +110,7 @@ fn indexed_and_dereferenced_paths_are_not_constant_names() {
     assert_eq!(qualified_const_name(&indexed), None);
     assert_eq!(qualified_const_name(&dereferenced), None);
     assert_unsupported(eval_const_expr(&indexed, &DateTimeProfile::default()));
-    assert_unsupported(eval_const_expr(
-        &dereferenced,
-        &DateTimeProfile::default(),
-    ));
+    assert_unsupported(eval_const_expr(&dereferenced, &DateTimeProfile::default()));
 }
 
 #[test]
@@ -128,10 +121,7 @@ fn runtime_only_expression_forms_are_rejected_as_constants() {
         Expr::Ref(LValue::Name("x".into())),
         Expr::StructInitializer(vec![("x".into(), Expr::Literal(Value::Int(1)))]),
     ] {
-        assert_unsupported(eval_const_expr(
-            &expression,
-            &DateTimeProfile::default(),
-        ));
+        assert_unsupported(eval_const_expr(&expression, &DateTimeProfile::default()));
     }
 }
 
@@ -192,10 +182,7 @@ fn array_repeat_re_evaluates_each_group_in_source_order() {
     let expression = Expr::ArrayInitializer(vec![
         repeat(
             Value::USInt(2),
-            vec![
-                Expr::Name("First".into()),
-                Expr::Name("Second".into()),
-            ],
+            vec![Expr::Name("First".into()), Expr::Name("Second".into())],
         ),
         Expr::Name("Tail".into()),
     ]);
@@ -210,8 +197,7 @@ fn array_repeat_re_evaluates_each_group_in_source_order() {
             _ => None,
         },
     )
-    .expect("repeat should resolve every value")
-    else {
+    .expect("repeat should resolve every value") else {
         panic!("expected array");
     };
 
@@ -271,10 +257,7 @@ fn negative_and_host_unrepresentable_repeat_counts_are_rejected() {
     for count in [Value::LInt(-1), Value::ULInt(u64::MAX)] {
         let expression =
             Expr::ArrayInitializer(vec![repeat(count, vec![Expr::Literal(Value::Int(1))])]);
-        assert_unsupported(eval_const_expr(
-            &expression,
-            &DateTimeProfile::default(),
-        ));
+        assert_unsupported(eval_const_expr(&expression, &DateTimeProfile::default()));
     }
 }
 
@@ -300,11 +283,10 @@ fn named_repeat_argument_is_rejected_before_element_evaluation() {
     }]);
     let resolver_called = Cell::new(false);
 
-    let result =
-        eval_const_expr_with_resolver(&expression, &DateTimeProfile::default(), &|_| {
-            resolver_called.set(true);
-            Some(Value::Int(9))
-        });
+    let result = eval_const_expr_with_resolver(&expression, &DateTimeProfile::default(), &|_| {
+        resolver_called.set(true);
+        Some(Value::Int(9))
+    });
 
     assert_unsupported(result);
     assert!(!resolver_called.get());
@@ -320,10 +302,7 @@ fn target_argument_in_repeat_group_is_not_a_constant_value() {
         }],
     }]);
 
-    assert_unsupported(eval_const_expr(
-        &expression,
-        &DateTimeProfile::default(),
-    ));
+    assert_unsupported(eval_const_expr(&expression, &DateTimeProfile::default()));
 }
 
 #[test]

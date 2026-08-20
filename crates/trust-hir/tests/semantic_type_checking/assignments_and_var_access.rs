@@ -369,7 +369,7 @@ PROGRAM Test
     arr[4] := 1;
 END_PROGRAM
 "#,
-        DiagnosticCode::OutOfRange,
+        DiagnosticCode::InvalidArrayIndex,
     );
 }
 

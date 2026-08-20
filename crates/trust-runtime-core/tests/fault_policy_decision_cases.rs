@@ -10,7 +10,7 @@ use verification_cases::{
 const TEST_ID: &str = "TEST_RUNTIME_FAULT_POLICY_DECISION_TRACE_001";
 const CASE_FILE: &str = "verification/cases/runtime_safety/RT_FAULT_POLICY_DECISION_001.toml";
 const CASE_FILE_DIGEST: &str =
-    "sha256:0a1b09240a7a0b3ea38a922dcaee0b09c7eb9879b08bcb7cd29087f02099354a";
+    "sha256:def9623c89e584a0f72286e070d1ca7590e7cf60815bacf12cf9ee70bef684f0";
 
 #[test]
 fn fault_policy_decision_cases() {

@@ -149,7 +149,7 @@ fn assert_invalid_authority_preserves_state(
         target_net_id: AmsNetId::new(target_net_id),
         host: "unused.invalid".to_string(),
         ams_port,
-        local_net_id: local_net_id.map(|value| AmsNetId::new(value)),
+        local_net_id: local_net_id.map(AmsNetId::new),
         security: AdsSecurityPolicy {
             transport: TransportSecurity::Plain,
             auto_add_route: false,
@@ -315,7 +315,7 @@ fn connect_accepts_canonical_authority_and_reaches_connector() {
             target_net_id: AmsNetId::new("5.23.91.12.1.1"),
             host: "unused.invalid".to_string(),
             ams_port: 851,
-            local_net_id: local_net_id.map(|value| AmsNetId::new(value)),
+            local_net_id: local_net_id.map(AmsNetId::new),
             security: AdsSecurityPolicy {
                 transport: TransportSecurity::Plain,
                 auto_add_route: false,

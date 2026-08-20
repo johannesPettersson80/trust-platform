@@ -155,7 +155,7 @@ pub(crate) fn run_test_json(
 }
 
 fn compile_test_runtime(project_root: &Path, tests: &[DiscoveredTest]) -> anyhow::Result<Runtime> {
-    let compile_sources = collect_project_source_files(&project_root, None)?;
+    let compile_sources = collect_project_source_files(project_root, None)?;
     let extra_program_instances = tests
         .iter()
         .filter(|case| matches!(case.kind, TestKind::Program))

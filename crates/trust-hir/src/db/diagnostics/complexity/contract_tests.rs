@@ -151,7 +151,9 @@ END_PROGRAM
     );
     let (_, points) = cyclomatic_complexity(&program);
 
-    assert!(points.windows(2).all(|pair| pair[0].start() < pair[1].start()));
+    assert!(points
+        .windows(2)
+        .all(|pair| pair[0].start() < pair[1].start()));
 }
 
 #[test]
@@ -206,12 +208,10 @@ fn warning_retains_at_most_first_three_related_decision_points() {
             .collect::<Vec<_>>(),
         expected_points[..MAX_RELATED_POINTS]
     );
-    assert!(
-        warning
-            .related
-            .iter()
-            .all(|related| related.message == "Decision point")
-    );
+    assert!(warning
+        .related
+        .iter()
+        .all(|related| related.message == "Decision point"));
 }
 
 #[test]
@@ -222,9 +222,7 @@ fn separate_pous_receive_independent_complexity_diagnostics() {
     let second_body = repeated_ifs(15)
         .replace("PROGRAM Main", "PROGRAM Second")
         .replace("END_PROGRAM", "");
-    let source = format!(
-        "{first_body}\nEND_PROGRAM\n{second_body}\nEND_PROGRAM\n"
-    );
+    let source = format!("{first_body}\nEND_PROGRAM\n{second_body}\nEND_PROGRAM\n");
     let diagnostics = complexity_diagnostics(&source);
     let messages = diagnostics
         .iter()

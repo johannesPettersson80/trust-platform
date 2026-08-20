@@ -2,37 +2,51 @@ use crate::common::*;
 
 #[test]
 fn expression_operator_accepts_same_type_signed_arithmetic() {
-    check_no_errors("PROGRAM P\nVAR a : DINT; r : DINT; END_VAR\nr := a + a - a * a / DINT#1;\nEND_PROGRAM");
+    check_no_errors(
+        "PROGRAM P\nVAR a : DINT; r : DINT; END_VAR\nr := a + a - a * a / DINT#1;\nEND_PROGRAM",
+    );
 }
 
 #[test]
 fn expression_operator_accepts_same_type_unsigned_arithmetic() {
-    check_no_errors("PROGRAM P\nVAR a : UDINT; r : UDINT; END_VAR\nr := a + a - a * a / UDINT#1;\nEND_PROGRAM");
+    check_no_errors(
+        "PROGRAM P\nVAR a : UDINT; r : UDINT; END_VAR\nr := a + a - a * a / UDINT#1;\nEND_PROGRAM",
+    );
 }
 
 #[test]
 fn expression_operator_accepts_signed_accuracy_preserving_widening() {
-    check_no_errors("PROGRAM P\nVAR a : INT; b : DINT; r : DINT; END_VAR\nr := a + b;\nEND_PROGRAM");
+    check_no_errors(
+        "PROGRAM P\nVAR a : INT; b : DINT; r : DINT; END_VAR\nr := a + b;\nEND_PROGRAM",
+    );
 }
 
 #[test]
 fn expression_operator_accepts_unsigned_accuracy_preserving_widening() {
-    check_no_errors("PROGRAM P\nVAR a : UINT; b : ULINT; r : ULINT; END_VAR\nr := a + b;\nEND_PROGRAM");
+    check_no_errors(
+        "PROGRAM P\nVAR a : UINT; b : ULINT; r : ULINT; END_VAR\nr := a + b;\nEND_PROGRAM",
+    );
 }
 
 #[test]
 fn expression_operator_accepts_real_to_lreal_widening() {
-    check_no_errors("PROGRAM P\nVAR a : REAL; b : LREAL; r : LREAL; END_VAR\nr := a + b;\nEND_PROGRAM");
+    check_no_errors(
+        "PROGRAM P\nVAR a : REAL; b : LREAL; r : LREAL; END_VAR\nr := a + b;\nEND_PROGRAM",
+    );
 }
 
 #[test]
 fn expression_operator_accepts_exact_integer_to_real_widening() {
-    check_no_errors("PROGRAM P\nVAR a : INT; b : REAL; r : REAL; END_VAR\nr := a + b;\nEND_PROGRAM");
+    check_no_errors(
+        "PROGRAM P\nVAR a : INT; b : REAL; r : REAL; END_VAR\nr := a + b;\nEND_PROGRAM",
+    );
 }
 
 #[test]
 fn expression_operator_accepts_exact_dint_to_lreal_widening() {
-    check_no_errors("PROGRAM P\nVAR a : DINT; b : LREAL; r : LREAL; END_VAR\nr := a + b;\nEND_PROGRAM");
+    check_no_errors(
+        "PROGRAM P\nVAR a : DINT; b : LREAL; r : LREAL; END_VAR\nr := a + b;\nEND_PROGRAM",
+    );
 }
 
 #[test]

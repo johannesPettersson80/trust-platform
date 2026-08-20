@@ -160,6 +160,64 @@ fn project_source_discovery_rejects_symlink_escape() {
     );
 }
 
+#[cfg(unix)]
+#[test]
+fn project_source_discovery_rejects_symlink_escape_before_target_extension_filtering() {
+    use std::os::unix::fs::symlink;
+
+    let project = TestProject::new("source-symlink-unsupported-escape");
+    let outside = TestProject::new("source-symlink-unsupported-escape-outside");
+    outside.write("secret.txt", "not structured text");
+    symlink(
+        outside.root.join("secret.txt"),
+        project.root.join("src/escape.st"),
+    )
+    .expect("create escaping source symlink");
+
+    let error = collect_project_source_paths(&project.root, None)
+        .expect_err("every escaping source alias must fail before target filtering");
+
+    assert!(
+        error
+            .to_string()
+            .contains("does not live under project root"),
+        "{error:#}"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn project_source_discovery_accepts_contained_source_symlink() {
+    use std::os::unix::fs::symlink;
+
+    let project = TestProject::new("contained-source-symlink");
+    project.write("shared/target.st", &valid_program("Target"));
+    symlink("../shared/target.st", project.root.join("src/alias.st"))
+        .expect("create contained source symlink");
+
+    let paths = collect_project_source_paths(&project.root, None).expect("discover sources");
+
+    assert_eq!(paths, vec!["shared/target.st"]);
+}
+
+#[cfg(unix)]
+#[test]
+fn project_source_discovery_ignores_source_alias_to_unsupported_target() {
+    use std::os::unix::fs::symlink;
+
+    let project = TestProject::new("unsupported-source-symlink-target");
+    project.write("src/target.txt", "not structured text");
+    symlink("target.txt", project.root.join("src/alias.st"))
+        .expect("create unsupported source symlink");
+
+    let paths = collect_project_source_paths(&project.root, None).expect("discover sources");
+
+    assert!(
+        paths.is_empty(),
+        "unsupported target was analyzed: {paths:?}"
+    );
+}
+
 #[test]
 fn diagnostics_rejects_content_without_path() {
     let project = TestProject::new("diagnostics-content-path");

@@ -29,6 +29,16 @@ fn collect_config_diagnostics(
     let config_path = uri_to_path(uri);
     let config = ProjectConfig::from_contents(&root, config_path, content);
     let mut diagnostics = Vec::new();
+    for issue in crate::config::configuration_issues(content) {
+        diagnostics.push(Diagnostic {
+            range: find_name_range(content, &issue.subject),
+            severity: Some(DiagnosticSeverity::WARNING),
+            code: Some(NumberOrString::String(issue.code.to_string())),
+            source: Some("truST".to_string()),
+            message: issue.message,
+            ..Default::default()
+        });
+    }
     for issue in &config.dependency_resolution_issues {
         let range = find_name_range(content, issue.dependency.as_str());
         diagnostics.push(Diagnostic {

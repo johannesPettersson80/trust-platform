@@ -215,8 +215,10 @@ fn boundary_error_contract_runtime_undefined_program_maps_to_unbound_program() {
 
 #[test]
 fn boundary_error_contract_runtime_undefined_field_uses_complete_caller_path() {
-    let error =
-        BoundaryError::from_runtime("payload.missing", RuntimeError::UndefinedField("missing".into()));
+    let error = BoundaryError::from_runtime(
+        "payload.missing",
+        RuntimeError::UndefinedField("missing".into()),
+    );
     assert_eq!(
         error,
         BoundaryError::UnresolvedName {

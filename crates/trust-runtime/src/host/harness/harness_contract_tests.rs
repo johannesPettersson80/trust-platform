@@ -106,7 +106,9 @@ fn harness_lifecycle_contract_runtime_accessors_share_one_runtime() {
     let before = harness.runtime() as *const Runtime;
     let mutable = harness.runtime_mut() as *mut Runtime as *const Runtime;
     assert_eq!(before, mutable);
-    harness.runtime_mut().set_current_time(Duration::from_millis(7));
+    harness
+        .runtime_mut()
+        .set_current_time(Duration::from_millis(7));
     assert_eq!(harness.runtime().current_time(), Duration::from_millis(7));
     assert_eq!(
         harness.into_runtime().current_time(),
@@ -218,7 +220,8 @@ fn harness_lifecycle_contract_symbolic_boundary_is_fail_closed() {
     harness.try_set_input("input", Value::Bool(true)).unwrap();
     assert_eq!(harness.try_get_output("input"), Ok(Value::Bool(true)));
     assert_eq!(
-        harness.try_set_input("missing", Value::Bool(true))
+        harness
+            .try_set_input("missing", Value::Bool(true))
             .unwrap_err()
             .code(),
         "unresolved_name"

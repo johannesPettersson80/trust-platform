@@ -61,6 +61,8 @@ export interface NCRuntime {
   name: string;
   mode: string;
   health: string;
+  // Authoritative managed lifecycle state, kept separate from semantic health/tone.
+  lifecycleState?: string;
   detail: string;
   // Per-runtime control endpoint (remote runtimes only; the local simulator has none).
   controlEndpoint?: string;
@@ -101,6 +103,7 @@ export interface NCLink {
   protocol: string;
   role: string;
   status: string;
+  detail?: string;
   secure: boolean;
   dimmed?: boolean;
 }

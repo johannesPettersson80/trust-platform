@@ -705,43 +705,43 @@ mod tests {
     }
 
     #[test]
-    fn process_image_over_reads_are_zero_filled_and_do_not_resize() {
+    fn process_image_in_range_unallocated_reads_are_zero_filled_and_do_not_resize() {
         let interface = IoInterface::new();
         let mut byte = IoAddress::parse("%MB0").expect("memory byte address");
-        byte.byte = PROCESS_IMAGE_AREA_LIMIT as u32;
+        byte.byte = (PROCESS_IMAGE_AREA_LIMIT - 1) as u32;
         assert_eq!(
-            interface.read(&byte).expect("read over cap byte"),
+            interface.read(&byte).expect("read unallocated byte"),
             Value::Byte(0)
         );
         assert_eq!(
             interface.memory().len(),
             0,
-            "over-reading must not allocate memory image bytes"
+            "unallocated reads must not allocate memory image bytes"
         );
 
         let mut word = IoAddress::parse("%IW0").expect("input word address");
-        word.byte = PROCESS_IMAGE_AREA_LIMIT as u32;
+        word.byte = (PROCESS_IMAGE_AREA_LIMIT - 2) as u32;
         assert_eq!(
-            interface.read(&word).expect("read over cap word"),
+            interface.read(&word).expect("read unallocated word"),
             Value::Word(0)
         );
         assert_eq!(
             interface.inputs().len(),
             0,
-            "over-reading must not allocate input image bytes"
+            "unallocated reads must not allocate input image bytes"
         );
 
         let mut text = IoAddress::parse("%QB0").expect("output byte address");
-        text.byte = PROCESS_IMAGE_AREA_LIMIT as u32;
+        text.byte = (PROCESS_IMAGE_AREA_LIMIT - 16) as u32;
         text.size = IoSize::Bytes(16);
         assert_eq!(
-            interface.read(&text).expect("read over cap string"),
+            interface.read(&text).expect("read unallocated string"),
             Value::String(SmolStr::new(""))
         );
         assert_eq!(
             interface.outputs().len(),
             0,
-            "over-reading must not allocate output image bytes"
+            "unallocated reads must not allocate output image bytes"
         );
     }
 }

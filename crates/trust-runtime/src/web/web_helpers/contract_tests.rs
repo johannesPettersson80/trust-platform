@@ -67,10 +67,7 @@ fn web_url_preserves_ipv4_authority() {
 
 #[test]
 fn web_url_brackets_ipv6_authority() {
-    assert_eq!(
-        format_web_url("[::1]:8080", false),
-        "http://[::1]:8080"
-    );
+    assert_eq!(format_web_url("[::1]:8080", false), "http://[::1]:8080");
 }
 
 #[test]

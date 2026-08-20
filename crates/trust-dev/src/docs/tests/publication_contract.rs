@@ -87,7 +87,10 @@ fn docs_markdown_renders_diagnostics_and_complete_item_metadata() {
         "- First detail.",
         "- Second detail.",
     ] {
-        assert!(markdown.contains(expected), "missing {expected:?}\n{markdown}");
+        assert!(
+            markdown.contains(expected),
+            "missing {expected:?}\n{markdown}"
+        );
     }
 }
 
@@ -220,10 +223,7 @@ END_PROGRAM
 
 #[test]
 fn docs_command_markdown_format_writes_only_markdown() {
-    let project = project_with_source(
-        "markdown-only",
-        "PROGRAM Main\nEND_PROGRAM\n",
-    );
+    let project = project_with_source("markdown-only", "PROGRAM Main\nEND_PROGRAM\n");
     let output = project.join("generated");
     std::fs::create_dir_all(&output).expect("create output");
     contract_write(&output.join("api.html"), "keep html");
@@ -267,10 +267,7 @@ fn docs_command_html_format_writes_only_html() {
 
 #[test]
 fn docs_command_both_rolls_back_when_second_artifact_cannot_publish() {
-    let project = project_with_source(
-        "both-rollback",
-        "PROGRAM Main\nEND_PROGRAM\n",
-    );
+    let project = project_with_source("both-rollback", "PROGRAM Main\nEND_PROGRAM\n");
     let output = project.join("generated");
     std::fs::create_dir_all(&output).expect("create output");
     contract_write(&output.join("api.md"), "old markdown");
@@ -294,10 +291,7 @@ fn docs_command_both_rolls_back_when_second_artifact_cannot_publish() {
 fn docs_command_rejects_output_symlink_without_following() {
     use std::os::unix::fs::symlink;
 
-    let project = project_with_source(
-        "output-symlink",
-        "PROGRAM Main\nEND_PROGRAM\n",
-    );
+    let project = project_with_source("output-symlink", "PROGRAM Main\nEND_PROGRAM\n");
     let output = project.join("generated");
     std::fs::create_dir_all(&output).expect("create output");
     let outside = project.join("outside.md");
@@ -321,19 +315,12 @@ fn docs_command_rejects_output_symlink_without_following() {
 
 #[test]
 fn docs_command_valid_empty_api_index_is_deterministic() {
-    let project = project_with_source(
-        "empty-api",
-        "CONFIGURATION Plant\nEND_CONFIGURATION\n",
-    );
+    let project = project_with_source("empty-api", "CONFIGURATION Plant\nEND_CONFIGURATION\n");
     let first = project.join("first");
     let second = project.join("second");
 
-    run_docs(
-        Some(project.clone()),
-        Some(first.clone()),
-        DocsFormat::Both,
-    )
-    .expect("first empty API generation");
+    run_docs(Some(project.clone()), Some(first.clone()), DocsFormat::Both)
+        .expect("first empty API generation");
     run_docs(
         Some(project.clone()),
         Some(second.clone()),
@@ -357,10 +344,7 @@ fn docs_command_valid_empty_api_index_is_deterministic() {
 
 #[test]
 fn docs_command_successful_both_publishes_exact_complete_set() {
-    let project = project_with_source(
-        "complete-set",
-        "PROGRAM Main\nEND_PROGRAM\n",
-    );
+    let project = project_with_source("complete-set", "PROGRAM Main\nEND_PROGRAM\n");
     let output = project.join("deep/generated");
 
     run_docs(
@@ -426,10 +410,7 @@ END_PROGRAM
 
 #[test]
 fn docs_command_output_root_file_fails_without_changing_it() {
-    let project = project_with_source(
-        "output-root-file",
-        "PROGRAM Main\nEND_PROGRAM\n",
-    );
+    let project = project_with_source("output-root-file", "PROGRAM Main\nEND_PROGRAM\n");
     let output = project.join("generated");
     contract_write(&output, "output root sentinel");
 

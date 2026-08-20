@@ -242,10 +242,7 @@ END_CONFIGURATION
             .and_then(parse_unsigned_int_literal),
         Some(7)
     );
-    assert!(matches!(
-        fields.single_expr.as_ref().and_then(literal_kind),
-        None
-    ));
+    assert!(fields.single_expr.as_ref().and_then(literal_kind).is_none());
     assert!(matches!(
         fields.interval_expr.as_ref().and_then(literal_kind),
         Some(LiteralKind::Time)

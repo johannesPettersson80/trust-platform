@@ -589,11 +589,7 @@ impl SymbolCollector<'_> {
         }
     }
 
-    fn check_enum_value_ranges(
-        &mut self,
-        base_type: TypeId,
-        values: &[(SmolStr, i64, TextRange)],
-    ) {
+    fn check_enum_value_ranges(&mut self, base_type: TypeId, values: &[(SmolStr, i64, TextRange)]) {
         let resolved = self.table.resolve_alias_type(base_type);
         let bounds = match self.table.type_by_id(resolved) {
             Some(Type::SInt) => Some((i64::from(i8::MIN), i64::from(i8::MAX))),
@@ -911,7 +907,10 @@ impl SymbolCollector<'_> {
                             if self
                                 .table
                                 .resolve(name.as_str(), self.table.current_scope())
-                                .is_some() => Some(name),
+                                .is_some() =>
+                        {
+                            Some(name)
+                        }
                         _ => None,
                     };
                     if let Some(name) = mutable_name {
@@ -1249,7 +1248,10 @@ fn subrange_contains_star(node: &SyntaxNode) -> bool {
 fn relative_address_bit_interval(address: &str, bit_width: u128) -> Option<(u128, u128)> {
     let address = address.strip_prefix('%')?;
     let (unit, offset) = address.split_at(1);
-    if !matches!(unit, "X" | "x" | "B" | "b" | "W" | "w" | "D" | "d" | "L" | "l") {
+    if !matches!(
+        unit,
+        "X" | "x" | "B" | "b" | "W" | "w" | "D" | "d" | "L" | "l"
+    ) {
         return None;
     }
     let (byte, bit) = match offset.split_once('.') {

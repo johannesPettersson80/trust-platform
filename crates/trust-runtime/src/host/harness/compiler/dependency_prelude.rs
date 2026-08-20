@@ -38,9 +38,7 @@ pub(crate) fn predeclare_project_types(
                 let raw = super::super::util::node_text(&name_node);
                 let name = qualify_with_namespaces(&declaration, &raw);
                 if registry.lookup(name.as_str()).is_some() {
-                    return Err(CompileError::new(format!(
-                        "duplicate type name '{name}'"
-                    )));
+                    return Err(CompileError::new(format!("duplicate type name '{name}'")));
                 }
                 reserved.push(registry.reserve(name));
             }
@@ -151,8 +149,10 @@ pub(crate) fn resolve_pou_local_constants(
         .filter(|child| child.kind() == SyntaxKind::VarBlock)
     {
         let kind = var_block_kind(&var_block)?;
-        if !matches!(kind, VarBlockKind::Var | VarBlockKind::Stat | VarBlockKind::Temp)
-            || !var_block_qualifiers(&var_block)?.constant
+        if !matches!(
+            kind,
+            VarBlockKind::Var | VarBlockKind::Stat | VarBlockKind::Temp
+        ) || !var_block_qualifiers(&var_block)?.constant
         {
             continue;
         }
@@ -185,7 +185,8 @@ pub(crate) fn resolve_pou_local_constants(
             match evaluate_constant(&declaration, ctx) {
                 Ok(value) => {
                     for name in &declaration.names {
-                        ctx.compile_time_consts.insert_local(name.as_str(), value.clone());
+                        ctx.compile_time_consts
+                            .insert_local(name.as_str(), value.clone());
                     }
                     progress = true;
                 }

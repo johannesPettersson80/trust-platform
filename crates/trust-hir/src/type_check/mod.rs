@@ -29,6 +29,7 @@ mod validation;
 
 pub(crate) use literals::string_literal_info;
 pub use ops::{BinaryOp, UnaryOp};
+pub(crate) use standard::is_standard_function_name;
 
 fn non_value_role(kind: &SymbolKind) -> Option<&'static str> {
     match kind {

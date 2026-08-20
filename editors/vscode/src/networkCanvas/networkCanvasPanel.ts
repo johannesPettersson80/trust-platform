@@ -284,7 +284,7 @@ async function refreshNetworkCanvasPanel(): Promise<void> {
         const shouldPreserveProjectOverlay = offlineTopology !== undefined;
         lastTopology = shouldPreserveProjectOverlay
           ? mergeFleetTopologies([liveTopology, offlineTopology])
-          : liveTopology;
+          : mergeFleetTopologies([liveTopology]);
       }
     } catch (error) {
       topologyError =
@@ -318,9 +318,10 @@ async function refreshNetworkCanvasPanel(): Promise<void> {
     topologyError = topologyError ? `${topologyError}; ${peerError}` : peerError;
   }
 
-  const displayTopology = peerTopology
-    ? mergeFleetTopologies([lastTopology, peerTopology])
-    : lastTopology;
+  const displayTopology =
+    lastTopology || peerTopology
+      ? mergeFleetTopologies([lastTopology, peerTopology])
+      : undefined;
 
   const model = buildNetworkCanvasModel(
     modelInputForSnapshot(currentStage, snapshot, {

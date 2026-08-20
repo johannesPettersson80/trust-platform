@@ -562,7 +562,8 @@ impl SymbolTable {
     /// Returns whether the type is an explicit-base named integer value type.
     #[must_use]
     pub fn is_named_value_type(&self, type_id: TypeId) -> bool {
-        self.named_value_types.contains(&self.resolve_alias_type(type_id))
+        self.named_value_types
+            .contains(&self.resolve_alias_type(type_id))
     }
 
     /// Marks a structured type as an IEC `STRUCT OVERLAP` declaration.

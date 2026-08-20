@@ -156,9 +156,7 @@ pub(crate) fn write_value_path_typed(
                 array
                     .elements_mut()
                     .get_mut(offset)
-                    .map(|element| {
-                        write_value_path_typed(element, &path[1..], value, registry)
-                    })
+                    .map(|element| write_value_path_typed(element, &path[1..], value, registry))
                     .unwrap_or(false)
             }
             Value::String(text) => write_string_path(text, indices, value, false)
@@ -348,17 +346,17 @@ fn overlap_value_from_bits(
         Value::LReal(_) => Value::LReal(f64::from_bits(u64::from_le_bytes(bytes))),
         Value::Char(_) => Value::Char(bytes[0]),
         Value::WChar(_) => Value::WChar(u16::from_le_bytes(bytes[..2].try_into().ok()?)),
-        Value::Time(_) => Value::Time(super::Duration::from_nanos(i64::from(
-            i32::from_le_bytes(bytes[..4].try_into().ok()?),
-        ))),
+        Value::Time(_) => Value::Time(super::Duration::from_nanos(i64::from(i32::from_le_bytes(
+            bytes[..4].try_into().ok()?,
+        )))),
         Value::LTime(_) => Value::LTime(super::Duration::from_nanos(i64::from_le_bytes(bytes))),
         Value::Date(_) => Value::Date(super::DateValue::new(i64::from(i32::from_le_bytes(
             bytes[..4].try_into().ok()?,
         )))),
         Value::LDate(_) => Value::LDate(super::LDateValue::new(i64::from_le_bytes(bytes))),
-        Value::Tod(_) => Value::Tod(super::TimeOfDayValue::new(i64::from(
-            i32::from_le_bytes(bytes[..4].try_into().ok()?),
-        ))),
+        Value::Tod(_) => Value::Tod(super::TimeOfDayValue::new(i64::from(i32::from_le_bytes(
+            bytes[..4].try_into().ok()?,
+        )))),
         Value::LTod(_) => Value::LTod(super::LTimeOfDayValue::new(i64::from_le_bytes(bytes))),
         Value::Dt(_) => Value::Dt(super::DateTimeValue::new(i64::from(i32::from_le_bytes(
             bytes[..4].try_into().ok()?,

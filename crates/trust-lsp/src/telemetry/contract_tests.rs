@@ -141,7 +141,8 @@ fn metric_count_and_total_saturate() {
 #[test]
 fn duration_conversion_clamps_instead_of_wrapping() {
     let mut sink = TelemetrySink::new(PathBuf::from("unused.jsonl"), 10);
-    sink.record("hover", Duration::MAX);
+    let duration = Duration::from_secs(u64::MAX / 1000 + 1);
+    sink.record("hover", duration);
     let metric = sink.metrics.get("hover").expect("hover metric");
     assert_eq!(metric.total_ms, u64::MAX);
     assert_eq!(metric.min_ms, u64::MAX);

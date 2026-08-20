@@ -19,7 +19,7 @@ use verification_cases::{
 const TEST_ID: &str = "TEST_RUNTIME_SAFE_STATE_HANDOFF_001";
 const CASE_FILE: &str = "verification/cases/runtime_safety/RT_SAFE_STOP_001.toml";
 const CASE_FILE_DIGEST: &str =
-    "sha256:99b5a4339efba12053aff211d24457afe899752e71ce213909e0ec1f6a4eaecf";
+    "sha256:5e3004dc8ff7a4aead90899d3a995f0dbd38bf6ce335c0d637e4a30cd9e636bb";
 
 #[test]
 fn safe_state_handoff_trace_cases() {

@@ -275,7 +275,7 @@ token boundary that parser and tooling consumers may rely on.
 | Complete direct addresses such as `%IX0.0`, `%QW10`, `%MD100`, `%IB5` | One `DirectAddress` token |
 | Incomplete direct addresses `%I*`, `%Q*`, `%M*` | One `DirectAddress` token; lexical recognition does not make the form contextually valid outside the uses permitted by `docs/specs/03-variables.md` section 5 |
 | `//...` up to but excluding its line terminator, and `(* ... *)` through its matching terminator | One `LineComment` or `BlockComment` token, respectively; both are parser trivia |
-| `1..5`, `1.0`, and `1.` | `IntLiteral`, `DotDot`, `IntLiteral`; `RealLiteral`; and `IntLiteral`, `Dot`, respectively |
+| `1..5`, `1.0`, and malformed `1.` | `IntLiteral`, `DotDot`, `IntLiteral`; `RealLiteral`; and one `Error`, respectively |
 | Integer, real, duration, narrow-string, and wide-string forms defined in sections 7 through 10 | The corresponding `IntLiteral`, `RealLiteral`, `TimeLiteral`, `StringLiteral`, or `WideStringLiteral` token |
 | Typed numeric or Boolean forms such as `INT#-123` and `BOOL#TRUE` | A `TypedLiteralPrefix` followed by the separately emitted payload tokens: `Minus`, `IntLiteral` or `KwTrue`, respectively |
 | Date, time-of-day, and combined date-and-time forms defined in section 11 | One `DateLiteral`, `TimeOfDayLiteral`, or `DateAndTimeLiteral` token, respectively |

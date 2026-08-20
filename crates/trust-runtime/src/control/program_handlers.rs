@@ -58,9 +58,8 @@ pub(super) fn handle_step(id: u64, state: &ControlState, kind: StepKind) -> Cont
     ControlResponse::ok(id, json!({"status": "stepping"}))
 }
 
-pub(super) fn handle_shutdown(id: u64, state: &ControlState) -> ControlResponse {
-    state.resource.stop();
-    ControlResponse::ok(id, json!({"status": "stopping"}))
+pub(super) fn handle_shutdown(id: u64, _state: &ControlState) -> ControlResponse {
+    ControlResponse::shutdown(id)
 }
 
 pub(super) fn handle_restart(

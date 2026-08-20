@@ -1804,14 +1804,14 @@ locator_kind = "tracked_file"
 path = "README.md"
 version = "current"
 last_reviewed = "2026-07-17"
-claim_text = "Runtime + debugger: pre-1.0; only explicitly mapped invariants are behavior-locked by tests and durable evidence"
+claim_text = "Runtime + debugger: pre-1.0; behavior claims are locked by their written product specifications and direct native executable tests, with proof class stated separately where environment-specific evidence is required"
 surface_ref = "README.md"
 covers = [
   "behavior_locked_public_claim",
   "test_suite_truth",
 ]
 known_limitations = [
-  "The claim applies only to listed invariant/test/evidence mappings and does not imply release validation or IEC conformance.",
+  "The claim does not imply release validation or IEC conformance, and environment-specific proof remains separate.",
 ]
 conflicts_with = []
 

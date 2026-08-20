@@ -27,7 +27,9 @@ fn reference_parser_accepts_pointer_to_elementary_type() {
 
 #[test]
 fn reference_parser_accepts_pointer_to_array_type() {
-    assert_reference_parses("PROGRAM P\nVAR p : POINTER TO ARRAY[0..3] OF BYTE; END_VAR\nEND_PROGRAM");
+    assert_reference_parses(
+        "PROGRAM P\nVAR p : POINTER TO ARRAY[0..3] OF BYTE; END_VAR\nEND_PROGRAM",
+    );
 }
 
 #[test]
@@ -37,17 +39,23 @@ fn reference_parser_accepts_nested_pointer_type() {
 
 #[test]
 fn reference_parser_accepts_ref_call() {
-    assert_reference_parses("PROGRAM P\nVAR x : INT; r : REF_TO INT; END_VAR\nr := REF(x);\nEND_PROGRAM");
+    assert_reference_parses(
+        "PROGRAM P\nVAR x : INT; r : REF_TO INT; END_VAR\nr := REF(x);\nEND_PROGRAM",
+    );
 }
 
 #[test]
 fn reference_parser_accepts_adr_call() {
-    assert_reference_parses("PROGRAM P\nVAR x : INT; p : POINTER TO INT; END_VAR\np := ADR(x);\nEND_PROGRAM");
+    assert_reference_parses(
+        "PROGRAM P\nVAR x : INT; p : POINTER TO INT; END_VAR\np := ADR(x);\nEND_PROGRAM",
+    );
 }
 
 #[test]
 fn reference_parser_accepts_dereference_read() {
-    assert_reference_parses("PROGRAM P\nVAR p : POINTER TO INT; x : INT; END_VAR\nx := p^;\nEND_PROGRAM");
+    assert_reference_parses(
+        "PROGRAM P\nVAR p : POINTER TO INT; x : INT; END_VAR\nx := p^;\nEND_PROGRAM",
+    );
 }
 
 #[test]
@@ -57,7 +65,9 @@ fn reference_parser_accepts_dereference_write() {
 
 #[test]
 fn reference_parser_accepts_nested_dereference() {
-    assert_reference_parses("PROGRAM P\nVAR p : POINTER TO POINTER TO INT; x : INT; END_VAR\nx := p^^;\nEND_PROGRAM");
+    assert_reference_parses(
+        "PROGRAM P\nVAR p : POINTER TO POINTER TO INT; x : INT; END_VAR\nx := p^^;\nEND_PROGRAM",
+    );
 }
 
 #[test]

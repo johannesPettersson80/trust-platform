@@ -6,8 +6,11 @@ description: CI and release-gate hardening workflow for truST, including exact p
 # trust-ci-release-gates
 
 Use this skill when updating CI workflows, release-gate checks, cross-platform test stability, or local pre-push verification scripts.
-Use `trust-test-authoring` first for planner, catalog, invariant, and red-green/behavior-lock
-routing. This skill owns CI parity, gate wiring, artifact evidence, and release enforcement.
+Use `trust-test-authoring` first for the written-specification, native-test, and
+red-green/behavior-lock route. Planner, catalog, invariant, and evidence tools
+are nonblocking maintenance reports; they cannot create product work or reject
+an otherwise valid specification-and-test change. This skill owns CI parity,
+gate wiring, artifact evidence, and release enforcement.
 
 ## Test-first rule
 
@@ -30,9 +33,11 @@ push-and-repair attempts.
      prepare --remote-worktree '<clean exact-SHA trust-builder worktree>'
    ```
 
-   Preparation runs bootstrap parity, complete-diff planning, catalog staleness, the focused
-   verification suite, metadata/self-tests, the exact strict PR gate, and final remote broad
-   gates. Any commit, base movement, missing command, or dirty checkout invalidates the artifact.
+   Preparation records complete-diff planning, catalog staleness, and verification
+   self-tests as advisory maintenance. Required acceptance remains bootstrap parity,
+   a clean exact candidate and base, diff integrity, the strict report runner, the
+   applicable native product gates, and final remote broad gates. Any commit, base
+   movement, missing required command, or dirty checkout invalidates the artifact.
 2. Push the frozen candidate once. The installed pre-push hook rejects a release-sensitive push
    without a passing artifact for the exact head and current base.
 3. Wait for every required GitHub check. Before editing after a red candidate, collect the whole

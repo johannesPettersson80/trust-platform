@@ -36,13 +36,7 @@ fn read(
     current_instance: Option<InstanceId>,
     target: &LValue,
 ) -> Result<Value, RuntimeError> {
-    read_storage_lvalue(
-        storage,
-        &registry(),
-        &profile(),
-        current_instance,
-        target,
-    )
+    read_storage_lvalue(storage, &registry(), &profile(), current_instance, target)
 }
 
 fn write(
@@ -212,10 +206,7 @@ fn unknown_name_write_creates_no_storage_in_any_area() {
 #[test]
 fn qualified_field_write_targets_exact_existing_storage_name_first() {
     let mut storage = VariableStorage::new();
-    storage.set_global(
-        "Config",
-        structure("Config", &[("Value", Value::DInt(10))]),
-    );
+    storage.set_global("Config", structure("Config", &[("Value", Value::DInt(10))]));
     storage.set_global("Config.Value", Value::DInt(20));
     let target = LValue::Field {
         target: Box::new(LValue::Name("Config".into())),
@@ -272,14 +263,8 @@ fn array_write_honors_multidimensional_lower_bounds_and_preserves_siblings() {
 fn invalid_array_arity_type_and_bounds_leave_storage_unchanged() {
     let original = array(vec![Value::Int(10), Value::Int(11)], vec![(5, 6)]);
     let cases = [
-        (
-            Vec::new(),
-            RuntimeError::TypeMismatch,
-        ),
-        (
-            vec![Value::Bool(true)],
-            RuntimeError::TypeMismatch,
-        ),
+        (Vec::new(), RuntimeError::TypeMismatch),
+        (vec![Value::Bool(true)], RuntimeError::TypeMismatch),
         (
             vec![Value::Int(7)],
             RuntimeError::IndexOutOfBounds {
@@ -473,10 +458,7 @@ fn partial_access_write_changes_only_selected_bits() {
     };
 
     write(&mut storage, None, &target, Value::Bool(true)).expect("bit write");
-    assert_eq!(
-        storage.get_global("bits"),
-        Some(&Value::Byte(0b1010_0010))
-    );
+    assert_eq!(storage.get_global("bits"), Some(&Value::Byte(0b1010_0010)));
 }
 
 #[test]
@@ -491,11 +473,7 @@ fn invalid_partial_access_write_is_atomic() {
                 upper: 7,
             },
         ),
-        (
-            "%B0",
-            Value::Bool(true),
-            RuntimeError::TypeMismatch,
-        ),
+        ("%B0", Value::Bool(true), RuntimeError::TypeMismatch),
     ];
     for (field, value, expected) in cases {
         let mut storage = VariableStorage::new();
@@ -512,10 +490,7 @@ fn invalid_partial_access_write_is_atomic() {
             ),
             Err(expected)
         );
-        assert_eq!(
-            storage.get_global("bits"),
-            Some(&Value::Byte(0b1010_0000))
-        );
+        assert_eq!(storage.get_global("bits"), Some(&Value::Byte(0b1010_0000)));
     }
 }
 
@@ -551,10 +526,7 @@ fn dereference_write_distinguishes_empty_nonreference_and_stale_values() {
     let reference = storage.ref_for_global("x").expect("reference");
 
     for (expression, expected) in [
-        (
-            literal(Value::Reference(None)),
-            RuntimeError::NullReference,
-        ),
+        (literal(Value::Reference(None)), RuntimeError::NullReference),
         (literal(Value::DInt(1)), RuntimeError::TypeMismatch),
     ] {
         assert_eq!(
@@ -625,9 +597,7 @@ fn retain_only_name_can_be_written_but_cannot_be_ref_target() {
         write(
             &mut storage,
             None,
-            &LValue::Deref(Box::new(Expr::Ref(LValue::Name(
-                "retained".into()
-            )))),
+            &LValue::Deref(Box::new(Expr::Ref(LValue::Name("retained".into())))),
             Value::Int(3)
         ),
         Err(RuntimeError::UndefinedVariable("retained".into()))
@@ -647,15 +617,15 @@ fn integer_index_normalization_rejects_unsigned_host_overflow() {
         index_to_i64(Value::LWord(u64::MAX)),
         Err(RuntimeError::Overflow)
     );
-    assert_eq!(index_to_i64(Value::Bool(true)), Err(RuntimeError::TypeMismatch));
+    assert_eq!(
+        index_to_i64(Value::Bool(true)),
+        Err(RuntimeError::TypeMismatch)
+    );
 }
 
 #[test]
 fn array_offset_preserves_exact_error_partitions() {
-    assert_eq!(
-        array_offset(&[(5, 6)], &[Value::Int(6)]),
-        Ok(1)
-    );
+    assert_eq!(array_offset(&[(5, 6)], &[Value::Int(6)]), Ok(1));
     assert_eq!(
         array_offset(&[(5, 6)], &[]),
         Err(RuntimeError::TypeMismatch)

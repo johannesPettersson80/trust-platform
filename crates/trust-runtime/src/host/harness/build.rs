@@ -86,7 +86,10 @@ pub(super) fn build_runtime_from_source_files(
     let mut runtime = Runtime::new();
     let profile = runtime.profile();
     let mut statement_locations: Vec<Vec<SourceLocation>> = vec![Vec::new(); sources.len()];
-    let syntaxes = parses.iter().map(|parse| parse.syntax()).collect::<Vec<_>>();
+    let syntaxes = parses
+        .iter()
+        .map(|parse| parse.syntax())
+        .collect::<Vec<_>>();
     let type_ids = super::predeclare_project_types(&syntaxes, runtime.registry_mut())?;
 
     for idx in 0..parses.len() {
@@ -436,11 +439,8 @@ fn remap_program_access_instances(
             continue;
         };
         for program in programs {
-            let type_name = super::resolve_program_type_name(
-                program_defs,
-                &program.type_name,
-                using,
-            )?;
+            let type_name =
+                super::resolve_program_type_name(program_defs, &program.type_name, using)?;
             if owner.eq_ignore_ascii_case(type_name.as_str()) {
                 *owner = program.name.clone();
                 break;

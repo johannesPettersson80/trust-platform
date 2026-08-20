@@ -29,7 +29,7 @@ use verification_cases::{
 const TEST_ID: &str = "TEST_VM_RESOURCE_LIMIT_CASES_001";
 const CASE_FILE: &str = "verification/cases/bytecode_vm/VM_SEAM_DETERMINISM_LIMITS_001.toml";
 const CASE_FILE_DIGEST: &str =
-    "sha256:2f824eabeed68ec5f224d64f9c7bc5e866ec1bd4095e7346c8d61a3410c2ee5f";
+    "sha256:b1b2e994813b9b089d6386964ddf6134949d623bb1b60064075b2a5f38d24289";
 
 const EXECUTION_BUDGET_SOURCE: &str = r#"
 PROGRAM Main

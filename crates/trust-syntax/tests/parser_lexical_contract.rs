@@ -76,9 +76,7 @@ fn lexical_parser_accepts_date_time_aliases_and_fraction_separators() {
 
 #[test]
 fn lexical_parser_keeps_shape_valid_calendar_error_for_later_validation() {
-    accepted(
-        "PROGRAM Main\nVAR value : DATE; END_VAR\nvalue := D#2023-02-29;\nEND_PROGRAM",
-    );
+    accepted("PROGRAM Main\nVAR value : DATE; END_VAR\nvalue := D#2023-02-29;\nEND_PROGRAM");
 }
 
 #[test]

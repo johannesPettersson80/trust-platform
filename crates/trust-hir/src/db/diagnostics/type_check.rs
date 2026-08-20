@@ -52,12 +52,10 @@ pub(in crate::db) fn type_check_file(
 }
 
 fn diagnose_duplicate_actions(root: &SyntaxNode, diagnostics: &mut DiagnosticBuilder) {
-    for owner in root.descendants().filter(|node| {
-        matches!(
-            node.kind(),
-            SyntaxKind::Program | SyntaxKind::FunctionBlock
-        )
-    }) {
+    for owner in root
+        .descendants()
+        .filter(|node| matches!(node.kind(), SyntaxKind::Program | SyntaxKind::FunctionBlock))
+    {
         let mut seen = FxHashMap::default();
         for action in owner.descendants().filter(|node| {
             node.kind() == SyntaxKind::Action

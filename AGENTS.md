@@ -171,7 +171,8 @@ applicable, and lexer/parser tests or snapshots.
 
 - Use `trust-test-authoring` for bug fixes, features, refactors, malformed-input tests, runtime
   safety, VS Code behavior, hardware claims, docs-only verification, and supply-chain/release
-  claims. Its planner, catalog, and proof route is mandatory once `VERIF-P16-007` closes.
+  claims. Its written-specification and native-test route is mandatory; planner,
+  catalog, and proof metadata are never product authority.
 - Use `trust-release-hygiene` whenever a task includes any of: commit preparation, changelog updates, version bump requests, release readiness, or user-facing runtime/CLI behavior changes.
 - Use `trust-remote-builder` whenever a task requires compile, test, clippy, npm, VS Code extension, or release-gate proof that can run on the shared CPU builder.
 - Use `st-lsp-solid` for all runtime/LSP/IDE/CLI implementation or refactor tasks that change structure, ownership, boundaries, or large files.
@@ -364,43 +365,36 @@ applicable, and lexer/parser tests or snapshots.
 
 ## PLC Verification Program
 
-- The SQLite-style PLC verification program is active at
-  `docs/internal/testing/checklists/plc-verification-program-checklist.md`.
-- Its active zero-debt completion board is
+- Use `.codex/skills/trust-test-authoring/SKILL.md` for the mandatory
+  specification-first and test-first execution route.
+- Product work is established only by an observable behavior, its written
+  specification, and its native executable test. Invariant status, catalog
+  linkage, denominator disposition, evidence freshness, proof level, mutation
+  result, scanner fact, file count, or function count cannot create product work
+  or override direct specification-and-test evidence.
+- The corrective post-closure audit lives at
   `docs/internal/testing/checklists/plc-verification-program/phase18-zero-debt-execution-board.md`.
-  Follow its current row, dependency order, invalidation rules, and stop gates;
-  do not start unrelated product-feature work while Phase 18 is open.
-- Use `.codex/skills/trust-test-authoring/SKILL.md` for the mandatory execution route.
-- Run `python3 scripts/plan_tests.py --intent <intent> --changed <every-changed-path>` before new
-  feature, behavior, or product-test changes and rerun it against the complete changed-path set
-  before push. Exit codes 2 (`missing_tests`), 3 (`spec_gap`), and 4 (`unmapped`) block that feature
-  push; passing focused or broad tests do not override the planner.
-- Run `python3 scripts/check_test_catalog_staleness.py` before push so every cataloged identity is
-  still bound to the live scanner fact. For every new test, inspect its scanner identity and either
-  map it in `verification/test-catalog.toml` or explicitly queue the denominator review; never
-  treat an absent catalog row as proof that no test or specification is missing.
-- Register every new or changed proof-bearing test in `verification/test-catalog.toml`; keep its
-  invariant, oracle, suite, case file, and evidence bindings current.
+  It may contain only directly confirmed missing specifications, missing native
+  tests, behavior defects, or explicit external/manual contract boundaries.
+- Planner, catalog, denominator, evidence, and proof tools may be used for
+  archaeology or nonblocking maintenance. They are not prerequisites for a
+  product change and cannot reject a change whose written specification and
+  native executable test directly agree.
 - For VS Code changes, also run `python3 scripts/check_vscode_test_registration.py`; for hardware
-  or protocol features, catalog and execute the named device-in-the-loop case on the real reviewed
-  topology before push, and retain its machine-readable artifact. A simulator or unit test does
-  not replace that hardware case.
+  or protocol features, execute the specified device-in-the-loop case on the real reviewed
+  topology before push. A simulator or unit test does not replace that hardware case.
 - Preserve an expected assertion red before a bug fix and paired green afterward. Use behavior-lock
   evidence for refactor-only work. Do not count compile, harness, dependency, timeout, or unrelated
   failures as red evidence.
-- The pull-request verification workflow is enforcing. Do not remove `--strict`, weaken its
-  read-only permissions, bypass uncataloged-test rejection, or convert planner/spec findings into
-  passing proof.
-- A `spec_gap` or `registered_backlog` code fact remains unspecified, and a
-  `reviewed_nonmapping`, ignored, skipped, filtered-out, unrun, or zero-test fact remains unproved.
-  Ownership, inventory, a structural mapping, or a passing broad suite cannot retire that debt.
-- For each Phase 18 slice, establish specification and invariant authority, map/remove existing
-  tests and add/execute missing tests, validate the complete bidirectional chain, then prove dynamic
-  reachability and assertion strength. Run the one final broad candidate milestone only at
-  `VERIF-P18-016` after the preceding zero-debt rows close.
-- Follow the active board and stop gates. Do not move tests before the catalog permits it, implement
-  a runner before its checklist row is unblocked, or invent behavior where the specification is
-  missing or ambiguous.
+- Pull-request workflows must enforce native tests and specification drift
+  checks. Verification metadata may be reported for maintenance, but it must
+  not reject a change solely because a native test lacks a catalog mapping.
+- Never derive product work from `reviewed_nonmapping`, ignored, skipped,
+  filtered-out, unrun, zero-test, or other metadata state. Inspect the owning
+  written specification and native assertions directly.
+- Do not invent behavior where the specification is missing or ambiguous.
+  Specify first, add the smallest native test next, and change production only
+  after an honest focused assertion failure.
 
 ## IEC-First Rules
 

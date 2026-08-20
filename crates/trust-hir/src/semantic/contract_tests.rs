@@ -62,8 +62,8 @@ fn qualified_name_requires_at_least_one_nonempty_part() {
 
 #[test]
 fn qualified_name_preserves_parts_case_and_ignores_empty_separators() {
-    let qualified = QualifiedName::from_dotted(".Plant..Line.Controller.")
-        .expect("normalized qualified name");
+    let qualified =
+        QualifiedName::from_dotted(".Plant..Line.Controller.").expect("normalized qualified name");
 
     assert_eq!(
         qualified.parts(),
@@ -98,16 +98,10 @@ fn source_identity_round_trips_file_and_exact_range() {
 
 #[test]
 fn scope_path_round_trips_scope_and_owner_chain_order() {
-    let path = ScopePath::new(
-        ScopeId(7),
-        vec![SymbolId(1), SymbolId(4), SymbolId(9)],
-    );
+    let path = ScopePath::new(ScopeId(7), vec![SymbolId(1), SymbolId(4), SymbolId(9)]);
 
     assert_eq!(path.scope_id(), ScopeId(7));
-    assert_eq!(
-        path.owners(),
-        &[SymbolId(1), SymbolId(4), SymbolId(9)]
-    );
+    assert_eq!(path.owners(), &[SymbolId(1), SymbolId(4), SymbolId(9)]);
 }
 
 #[test]
@@ -185,7 +179,10 @@ fn declaration_record_accessors_return_every_constructor_field() {
 
     assert_eq!(record.symbol_id(), SymbolId(8));
     assert_eq!(record.qualified_name().display(), "Plant.Controller.Speed");
-    assert_eq!(record.source(), SourceIdentity::new(FileId(3), range(11, 16)));
+    assert_eq!(
+        record.source(),
+        SourceIdentity::new(FileId(3), range(11, 16))
+    );
     assert_eq!(record.type_id(), TypeId::LREAL);
     assert_eq!(record.kind(), DeclarationKind::Variable);
     assert_eq!(record.role(), SemanticRole::Value);

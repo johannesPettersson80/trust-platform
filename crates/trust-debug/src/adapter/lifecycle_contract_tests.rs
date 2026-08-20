@@ -84,7 +84,11 @@ fn internal_messages(events: &[Value]) -> Vec<String> {
         .map(event)
         .filter(|event| event.event == "trustDebugInternal")
         .filter_map(|event| event.body)
-        .filter_map(|body| body.get("message").and_then(Value::as_str).map(str::to_owned))
+        .filter_map(|body| {
+            body.get("message")
+                .and_then(Value::as_str)
+                .map(str::to_owned)
+        })
         .collect()
 }
 
@@ -109,7 +113,10 @@ fn initialize(adapter: &mut DebugAdapter) {
 fn invalid_control_launch(seq: u32) -> Request<Value> {
     launch_request(
         seq,
-        &[("controlEndpoint", Value::String("not-a-control-endpoint".into()))],
+        &[(
+            "controlEndpoint",
+            Value::String("not-a-control-endpoint".into()),
+        )],
     )
 }
 
@@ -250,11 +257,7 @@ fn malformed_attach_arguments_fail_without_becoming_pending() {
     let mut adapter = adapter();
     initialize(&mut adapter);
 
-    let outcome = adapter.dispatch_request(request(
-        41,
-        "attach",
-        Some(Value::Array(Vec::new())),
-    ));
+    let outcome = adapter.dispatch_request(request(41, "attach", Some(Value::Array(Vec::new()))));
 
     assert_one_failed_response(&outcome, 41, "attach");
     assert!(!adapter.launch_state.has_pending_launch());
@@ -306,8 +309,11 @@ fn second_launch_fails_and_cannot_replace_first_pending_launch() {
     let duplicate = adapter.dispatch_request(invalid_control_launch(61));
     assert_one_failed_response(&duplicate, 61, "launch");
 
-    let configured =
-        adapter.dispatch_request(request(62, "configurationDone", Some(Value::Object(Default::default()))));
+    let configured = adapter.dispatch_request(request(
+        62,
+        "configurationDone",
+        Some(Value::Object(Default::default())),
+    ));
     assert_eq!(configured.responses.len(), 2);
     assert_eq!(response(&configured.responses[0]).request_seq, 62);
     assert_eq!(
@@ -439,9 +445,7 @@ fn first_non_configuration_request_force_starts_the_exact_pending_request_once()
     assert!(internal_messages(&outcome.events)
         .iter()
         .any(|message| message.contains("configurationDone missing")));
-    assert!(adapter
-        .maybe_force_start_after_timeout("threads")
-        .is_none());
+    assert!(adapter.maybe_force_start_after_timeout("threads").is_none());
 }
 
 #[test]

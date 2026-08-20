@@ -320,17 +320,23 @@ memory_budget_mb = 0
 #[test]
 fn eviction_target_is_clamped_to_positive_minimum() {
     let project = ConfigProject::new("eviction-minimum");
-    let indexing = project.config("[indexing]\nevict_to_percent = 0").indexing;
-    assert_eq!(indexing.evict_to_percent, 1);
+    for raw in [0, -1] {
+        let indexing = project
+            .config(&format!("[indexing]\nevict_to_percent = {raw}"))
+            .indexing;
+        assert_eq!(indexing.evict_to_percent, 1, "raw value {raw}");
+    }
 }
 
 #[test]
 fn eviction_target_is_clamped_to_one_hundred() {
     let project = ConfigProject::new("eviction-maximum");
-    let indexing = project
-        .config("[indexing]\nevict_to_percent = 255")
-        .indexing;
-    assert_eq!(indexing.evict_to_percent, 100);
+    for raw in [101, 255, 256] {
+        let indexing = project
+            .config(&format!("[indexing]\nevict_to_percent = {raw}"))
+            .indexing;
+        assert_eq!(indexing.evict_to_percent, 100, "raw value {raw}");
+    }
 }
 
 #[test]

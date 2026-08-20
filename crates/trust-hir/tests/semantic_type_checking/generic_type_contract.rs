@@ -6,9 +6,7 @@ fn assert_generic_declaration_rejected(source: &str) {
 
 #[test]
 fn generic_contract_rejects_any_local_storage() {
-    assert_generic_declaration_rejected(
-        "PROGRAM Main\nVAR value : ANY; END_VAR\nEND_PROGRAM",
-    );
+    assert_generic_declaration_rejected("PROGRAM Main\nVAR value : ANY; END_VAR\nEND_PROGRAM");
 }
 
 #[test]
@@ -55,9 +53,7 @@ fn generic_contract_rejects_any_elementary_external_storage() {
 
 #[test]
 fn generic_contract_rejects_any_num_function_result() {
-    assert_generic_declaration_rejected(
-        "FUNCTION Generic : ANY_NUM\nGeneric := 0;\nEND_FUNCTION",
-    );
+    assert_generic_declaration_rejected("FUNCTION Generic : ANY_NUM\nGeneric := 0;\nEND_FUNCTION");
 }
 
 #[test]
@@ -74,23 +70,17 @@ fn generic_contract_rejects_any_derived_struct_member() {
 
 #[test]
 fn generic_contract_rejects_any_char_array_element() {
-    assert_generic_declaration_rejected(
-        "TYPE GenericArray : ARRAY[0..1] OF ANY_CHAR; END_TYPE",
-    );
+    assert_generic_declaration_rejected("TYPE GenericArray : ARRAY[0..1] OF ANY_CHAR; END_TYPE");
 }
 
 #[test]
 fn generic_contract_rejects_any_duration_pointer_target() {
-    assert_generic_declaration_rejected(
-        "TYPE GenericPointer : POINTER TO ANY_DURATION; END_TYPE",
-    );
+    assert_generic_declaration_rejected("TYPE GenericPointer : POINTER TO ANY_DURATION; END_TYPE");
 }
 
 #[test]
 fn generic_contract_rejects_any_magnitude_reference_target() {
-    assert_generic_declaration_rejected(
-        "TYPE GenericReference : REF_TO ANY_MAGNITUDE; END_TYPE",
-    );
+    assert_generic_declaration_rejected("TYPE GenericReference : REF_TO ANY_MAGNITUDE; END_TYPE");
 }
 
 #[test]

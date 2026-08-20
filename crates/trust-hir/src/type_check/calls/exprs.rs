@@ -156,9 +156,7 @@ impl<'a, 'b> CallChecker<'a, 'b> {
         let field_name = self.checker.resolve_ref().get_name_from_ref(member);
 
         if field_name.is_none() {
-            if let Some(outcome) =
-                self.infer_partial_bit_access_outcome(base_type, base, member)
-            {
+            if let Some(outcome) = self.infer_partial_bit_access_outcome(base_type, base, member) {
                 return outcome;
             }
             return self.checker.unknown_type_outcome(member.text_range());
@@ -385,7 +383,6 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                     expr.text_range(),
                     format!("{kind} index {value_int} outside bounds {lower}..{upper}"),
                 );
-                return;
             }
         }
     }

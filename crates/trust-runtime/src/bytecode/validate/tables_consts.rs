@@ -73,7 +73,7 @@ fn validate_const_payload(types: &TypeTable, entry: &ConstEntry) -> Result<(), B
             index: type_id,
         })?;
     let mut reader = BytecodeReader::new(payload);
-    validate_const_payload_entry(types, entry, &mut reader)?;
+    validate_const_payload_entry(types, entry, &mut reader, 0)?;
     if reader.remaining() != 0 {
         return Err(BytecodeError::InvalidSection("const payload length".into()));
     }
@@ -84,7 +84,13 @@ fn validate_const_payload_entry(
     types: &TypeTable,
     entry: &TypeEntry,
     reader: &mut BytecodeReader<'_>,
+    depth: u8,
 ) -> Result<(), BytecodeError> {
+    if depth > crate::bytecode::BYTECODE_MAX_CONST_NESTING {
+        return Err(BytecodeError::InvalidSection(
+            "const type recursion overflow".into(),
+        ));
+    }
     match &entry.data {
         TypeData::Primitive { prim_id, .. } => match prim_id {
             1 => {
@@ -134,8 +140,17 @@ fn validate_const_payload_entry(
                 return Err(BytecodeError::InvalidSection("unknown primitive".into()));
             }
         },
-        TypeData::Array { elem_type_id, .. } => {
+        TypeData::Array { elem_type_id, dims } => {
             let count = reader.read_u32()? as usize;
+            let expected = const_array_element_count(dims)?;
+            if count != expected {
+                return Err(BytecodeError::InvalidSection(
+                    format!(
+                        "array constant count mismatch: expected {expected}, got {count}"
+                    )
+                    .into(),
+                ));
+            }
             let elem = types.entries.get(*elem_type_id as usize).ok_or_else(|| {
                 BytecodeError::InvalidIndex {
                     kind: "type".into(),
@@ -143,7 +158,7 @@ fn validate_const_payload_entry(
                 }
             })?;
             for _ in 0..count {
-                validate_const_payload_entry(types, elem, reader)?;
+                validate_const_child_payload(types, elem, reader, depth + 1)?;
             }
         }
         TypeData::Struct { fields } | TypeData::Union { fields } => {
@@ -160,7 +175,7 @@ fn validate_const_payload_entry(
                     index: field.type_id,
                 }
             })?;
-                validate_const_payload_entry(types, field_type, reader)?;
+                validate_const_child_payload(types, field_type, reader, depth + 1)?;
             }
         }
         TypeData::Enum { .. } => {
@@ -173,7 +188,7 @@ fn validate_const_payload_entry(
                     index: *target_type_id,
                 }
             })?;
-            validate_const_payload_entry(types, target, reader)?;
+            validate_const_payload_entry(types, target, reader, depth + 1)?;
         }
         TypeData::Subrange { base_type_id, .. } => {
             let base = types.entries.get(*base_type_id as usize).ok_or_else(|| {
@@ -182,10 +197,14 @@ fn validate_const_payload_entry(
                     index: *base_type_id,
                 }
             })?;
-            validate_const_payload_entry(types, base, reader)?;
+            validate_const_payload_entry(types, base, reader, depth + 1)?;
         }
         TypeData::Reference { .. } => {
-            reader.read_u32()?;
+            if reader.read_u32()? != u32::MAX {
+                return Err(BytecodeError::InvalidSection(
+                    "REFERENCE const payload must encode NULL".into(),
+                ));
+            }
         }
         _ => {
             return Err(BytecodeError::InvalidSection(
@@ -194,6 +213,44 @@ fn validate_const_payload_entry(
         }
     }
     Ok(())
+}
+
+fn validate_const_child_payload(
+    types: &TypeTable,
+    entry: &TypeEntry,
+    reader: &mut BytecodeReader<'_>,
+    depth: u8,
+) -> Result<(), BytecodeError> {
+    let len = reader.read_u32()? as usize;
+    let payload = reader.read_bytes(len)?;
+    let mut child = BytecodeReader::new(payload);
+    validate_const_payload_entry(types, entry, &mut child, depth)?;
+    if child.remaining() != 0 {
+        return Err(BytecodeError::InvalidSection(
+            "const child payload length".into(),
+        ));
+    }
+    Ok(())
+}
+
+fn const_array_element_count(dims: &[(i64, i64)]) -> Result<usize, BytecodeError> {
+    if dims
+        .iter()
+        .any(|(lower, upper)| *lower == 0 && *upper == i64::MAX)
+    {
+        return Ok(0);
+    }
+    let mut count = 1_i128;
+    for (lower, upper) in dims {
+        if lower > upper {
+            return Err(BytecodeError::InvalidSection("invalid array bounds".into()));
+        }
+        count = count
+            .checked_mul(i128::from(*upper) - i128::from(*lower) + 1)
+            .ok_or_else(|| BytecodeError::InvalidSection("array constant size overflow".into()))?;
+    }
+    usize::try_from(count)
+        .map_err(|_| BytecodeError::InvalidSection("array constant size overflow".into()))
 }
 
 fn validate_ref_table(strings: &StringTable, table: &RefTable) -> Result<(), BytecodeError> {

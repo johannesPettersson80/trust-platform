@@ -67,7 +67,9 @@ fn normalize_live_target(raw: &str) -> Result<String, RuntimeError> {
             return Err(RuntimeError::InvalidConfig("invalid IPv6 target".into()));
         };
         if bracket == 1 {
-            return Err(RuntimeError::InvalidConfig("target must include host".into()));
+            return Err(RuntimeError::InvalidConfig(
+                "target must include host".into(),
+            ));
         }
         let suffix = &authority[bracket + 1..];
         if suffix.is_empty() {

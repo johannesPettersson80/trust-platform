@@ -23,10 +23,7 @@ fn boundary_entry_contract_error_contains_exact_error_only() {
 #[test]
 fn boundary_entry_contract_is_ok_tracks_status() {
     assert!(BoundaryEntry::ok(Value::Bool(true)).is_ok());
-    assert!(!BoundaryEntry::error(BoundaryError::InternalFailure {
-        context: "test"
-    })
-    .is_ok());
+    assert!(!BoundaryEntry::error(BoundaryError::InternalFailure { context: "test" }).is_ok());
 }
 
 #[test]

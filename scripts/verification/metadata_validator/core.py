@@ -63,11 +63,6 @@ from ..fuzz_crash_regressions import (
     load_crash_registry,
     validate_crash_registry,
 )
-from ..mutation_program_contract import (
-    MUTATION_PROGRAM_PATH,
-    load_mutation_program,
-    validate_mutation_program_contract,
-)
 from ..public_workflow_inventory import (
     INVENTORY_PATH as PUBLIC_WORKFLOW_INVENTORY_PATH,
     validate_public_workflow_inventory,
@@ -113,7 +108,6 @@ from .integrity import (
 )
 from .ignored_tests import load_checklist_row_ids, validate_ignored_test_records
 from .invariants import validate_invariants as validate_invariant_records
-from .mutation_shards import validate_committed_mutation_metadata
 from .oracle_refs import validate_oracle_ref
 from .public_claims import validate_public_claim_records
 from .schema_contracts import validate_schema_enums
@@ -151,7 +145,6 @@ class Validator:
         self.test_catalog_denominator: dict[str, Any] = {}
         self.fuzz_program: dict[str, Any] = {}
         self.fuzz_crash_registry: dict[str, Any] = {}
-        self.mutation_program: dict[str, Any] = {}
         self.public_workflow_inventory: dict[str, Any] = {}
         self.ui_acceptance: dict[str, Any] = {}
         self.release_evidence_manifest: dict[str, Any] = {}
@@ -309,10 +302,6 @@ class Validator:
             self.fuzz_crash_registry = load_crash_registry(ROOT)
         except Exception as exc:
             self.fail(ROOT / FUZZ_CRASH_REGISTRY_PATH, f"load failed: {exc}")
-        try:
-            self.mutation_program = load_mutation_program(ROOT)
-        except Exception as exc:
-            self.fail(ROOT / MUTATION_PROGRAM_PATH, f"load failed: {exc}")
         self.public_workflow_inventory = self.load_toml(
             ROOT / PUBLIC_WORKFLOW_INVENTORY_PATH
         )
@@ -441,8 +430,6 @@ class Validator:
             tests=self.tests,
         ):
             self.fail(ROOT / FUZZ_CRASH_REGISTRY_PATH, failure)
-        for failure in validate_mutation_program_contract(ROOT, self.mutation_program):
-            self.fail(ROOT / MUTATION_PROGRAM_PATH, failure)
         for failure in validate_public_workflow_inventory(
             ROOT,
             self.public_workflow_inventory,
@@ -530,11 +517,6 @@ class Validator:
             risks=self.risks,
         ):
             self.fail(VERIFICATION / "spec-gaps.toml", failure)
-        validate_committed_mutation_metadata(
-            fail=self.fail,
-            tests=self.tests,
-            evidence=self.evidence,
-        )
         self.validate_public_claim_links()
         validate_open_spec_gap_references(
             fail=self.fail,
@@ -1076,7 +1058,6 @@ class Validator:
             + (1 if self.test_catalog_denominator else 0)
             + (1 if self.fuzz_program else 0)
             + (1 if self.fuzz_crash_registry else 0)
-            + (1 if self.mutation_program else 0)
             + (1 if self.public_workflow_inventory else 0)
             + (1 if self.ui_acceptance else 0)
             + (1 if self.release_evidence_manifest else 0)

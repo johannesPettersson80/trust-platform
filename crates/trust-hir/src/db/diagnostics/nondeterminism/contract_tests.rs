@@ -8,10 +8,7 @@ fn diagnostics_for(sources: &[&str], file: usize) -> Vec<Diagnostic> {
     for (index, source) in sources.iter().enumerate() {
         database.set_source_text(FileId(index as u32), (*source).to_owned());
     }
-    database
-        .diagnostics(FileId(file as u32))
-        .as_ref()
-        .clone()
+    database.diagnostics(FileId(file as u32)).as_ref().clone()
 }
 
 fn warnings(source: &str, code: DiagnosticCode) -> Vec<Diagnostic> {
@@ -224,18 +221,7 @@ fn input_and_output_address_spaces_are_case_insensitive() {
 #[test]
 fn memory_other_and_malformed_addresses_are_not_external_io() {
     for address in [
-        "",
-        "%",
-        "I0.0",
-        "Q0.0",
-        "%M",
-        "%MX0.0",
-        "%MB1",
-        "%MW2",
-        "%MD3",
-        "%ML4",
-        "%G0",
-        " %  I0.0",
+        "", "%", "I0.0", "Q0.0", "%M", "%MX0.0", "%MB1", "%MW2", "%MD3", "%ML4", "%G0", " %  I0.0",
     ] {
         assert!(
             !is_io_address(address),

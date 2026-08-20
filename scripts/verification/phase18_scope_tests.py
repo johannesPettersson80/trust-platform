@@ -1,4 +1,4 @@
-"""Regression tests for the corrected Phase 18 verification scope."""
+"""Regression tests for the post-closure specification-and-test audit scope."""
 
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ class Phase18ScopeTests(unittest.TestCase):
         blanket = sorted(value for value in ids if value.startswith("SPEC_GAP_P17_HISTORICAL_CODE_"))
         self.assertEqual([], blanket, f"blanket code gaps remain: {blanket}")
 
-    def test_phase18_is_a_post_closure_behavior_delta(self) -> None:
+    def test_phase18_is_a_direct_specification_and_native_test_audit(self) -> None:
         closure = (
             ROOT
             / "docs/internal/testing/evidence/plc-verification-program/2026-07-19/p16-final-closure.md"
@@ -42,38 +42,56 @@ class Phase18ScopeTests(unittest.TestCase):
             / "docs/internal/testing/checklists/plc-verification-program/phase18-zero-debt-execution-board.md"
         ).read_text()
         self.assertIn("Post-Closure Behavior Delta", board)
+        self.assertIn("written specification -> native executable test", board)
+        self.assertIn("`already_covered`", board)
+        self.assertIn("`missing_spec`", board)
+        self.assertIn("`missing_test`", board)
+        self.assertIn("`behavior_defect`", board)
+        self.assertIn("`external_manual`", board)
         self.assertNotIn("every behavior-bearing code fact", board)
         self.assertNotIn("Eliminate all 4,233 current `reviewed_nonmapping`", board)
+        for false_gap in (
+            "IEC_PROJECT_EXAMPLE_CONFORMANCE_001",
+            "RT_CONNECTOR_REPORT_PROJECTION_001",
+            "RT_EXECUTION_LANGUAGE_CONFORMANCE_001",
+            "RT_HOST_SECURITY_WEB_CONFORMANCE_001",
+            "RT_STDLIB_CORE_HELPER_002",
+            "RT_STDLIB_FB_RUNTIME_002",
+        ):
+            with self.subTest(false_gap=false_gap):
+                self.assertNotIn(false_gap, board)
 
-    def test_behavior_invariants_have_specs_and_only_reviewed_mapping_debt(self) -> None:
-        missing_specifications: list[str] = []
-        missing_tests: list[str] = []
-        for path in sorted((ROOT / "verification/invariants").glob("*/*.toml")):
-            invariant = tomllib.loads(path.read_text())
-            invariant_id = invariant["id"]
-            spec = invariant.get("spec", {})
-            if spec.get("status") != "specified" or not spec.get("source_refs"):
-                missing_specifications.append(invariant_id)
-            if not invariant.get("tests"):
-                missing_tests.append(invariant_id)
+    def test_metadata_state_cannot_create_product_work(self) -> None:
+        board = (
+            ROOT
+            / "docs/internal/testing/checklists/plc-verification-program/phase18-zero-debt-execution-board.md"
+        ).read_text()
+        self.assertIn("cannot create a behavior-ledger row", board)
+        for forbidden_work_generator in (
+            "Freeze deterministic case and mutation inputs",
+            "promote an invariant",
+            "current targeted proof is required",
+            "invariant-to-test authority debts",
+        ):
+            with self.subTest(forbidden=forbidden_work_generator):
+                self.assertNotIn(forbidden_work_generator, board)
 
-        self.assertEqual(
-            [],
-            missing_specifications,
-            f"invariants without written specification authority: {missing_specifications}",
-        )
-        self.assertEqual(
-            [
-                "IEC_PROJECT_EXAMPLE_CONFORMANCE_001",
-                "RT_CONNECTOR_REPORT_PROJECTION_001",
-                "RT_EXECUTION_LANGUAGE_CONFORMANCE_001",
-                "RT_HOST_SECURITY_WEB_CONFORMANCE_001",
-                "RT_STDLIB_CORE_HELPER_002",
-                "RT_STDLIB_FB_RUNTIME_002",
-            ],
-            sorted(missing_tests),
-            f"unexpected invariant-to-test debt: {missing_tests}",
-        )
+    def test_retired_artifact_campaigns_are_not_active_metadata_gates(self) -> None:
+        core = (
+            ROOT / "scripts/verification/metadata_validator/core.py"
+        ).read_text()
+        for retired_gate in (
+            "validate_mutation_program_contract(ROOT",
+            "validate_committed_mutation_metadata(",
+        ):
+            with self.subTest(retired_gate=retired_gate):
+                self.assertNotIn(retired_gate, core)
+        self.assertIn("validate_ui_acceptance_document(", core)
+        self.assertIn("changed_paths_since_evidence(", core)
+
+        metadata_gate = (ROOT / "scripts/verification_metadata_gate.sh").read_text()
+        self.assertNotIn("gen_cases.py", metadata_gate)
+        self.assertNotIn("gen_cases_v2.py", metadata_gate)
 
 
 if __name__ == "__main__":

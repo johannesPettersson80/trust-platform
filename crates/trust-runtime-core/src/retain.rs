@@ -123,7 +123,11 @@ mod tests {
         let snapshot = RetainSnapshot::from_values(values.clone());
         assert_eq!(snapshot.values(), &values);
         assert_eq!(
-            snapshot.values().keys().map(SmolStr::as_str).collect::<Vec<_>>(),
+            snapshot
+                .values()
+                .keys()
+                .map(SmolStr::as_str)
+                .collect::<Vec<_>>(),
             ["Motor", "motor", "Nested"]
         );
 

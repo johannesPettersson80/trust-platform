@@ -149,11 +149,7 @@ fn inherited_instance_field_precedes_global_and_retain_names() {
 #[test]
 fn missing_name_returns_exact_undefined_variable() {
     assert_eq!(
-        evaluate(
-            &VariableStorage::new(),
-            None,
-            &Expr::Name("missing".into())
-        ),
+        evaluate(&VariableStorage::new(), None, &Expr::Name("missing".into())),
         Err(RuntimeError::UndefinedVariable("missing".into()))
     );
 }
@@ -204,10 +200,7 @@ fn this_and_super_fail_closed_for_missing_or_stale_context() {
 #[test]
 fn exact_qualified_storage_name_precedes_aggregate_field_fallback() {
     let mut storage = VariableStorage::new();
-    storage.set_global(
-        "Config",
-        structure("Config", &[("Value", Value::DInt(10))]),
-    );
+    storage.set_global("Config", structure("Config", &[("Value", Value::DInt(10))]));
     storage.set_global("Config.Value", Value::DInt(20));
     let expression = Expr::Field {
         target: Box::new(Expr::Name("Config".into())),
@@ -220,10 +213,7 @@ fn exact_qualified_storage_name_precedes_aggregate_field_fallback() {
 #[test]
 fn field_chain_falls_back_to_structure_when_qualified_name_is_absent() {
     let mut storage = VariableStorage::new();
-    storage.set_global(
-        "Config",
-        structure("Config", &[("Value", Value::DInt(10))]),
-    );
+    storage.set_global("Config", structure("Config", &[("Value", Value::DInt(10))]));
     let expression = Expr::Field {
         target: Box::new(Expr::Name("Config".into())),
         field: "Value".into(),
@@ -261,11 +251,7 @@ fn partial_field_access_preserves_value_and_bounds_errors() {
         Ok(Value::Bool(true))
     );
     assert_eq!(
-        read_field(
-            &VariableStorage::new(),
-            Value::Byte(0),
-            &"%X8".into()
-        ),
+        read_field(&VariableStorage::new(), Value::Byte(0), &"%X8".into()),
         Err(RuntimeError::IndexOutOfBounds {
             index: 8,
             lower: 0,
@@ -273,11 +259,7 @@ fn partial_field_access_preserves_value_and_bounds_errors() {
         })
     );
     assert_eq!(
-        read_field(
-            &VariableStorage::new(),
-            Value::Bool(false),
-            &"%B0".into()
-        ),
+        read_field(&VariableStorage::new(), Value::Bool(false), &"%B0".into()),
         Err(RuntimeError::TypeMismatch)
     );
 }
@@ -295,7 +277,11 @@ fn structure_initializer_preserves_order_and_values() {
     };
 
     assert_eq!(
-        value.fields().keys().map(SmolStr::as_str).collect::<Vec<_>>(),
+        value
+            .fields()
+            .keys()
+            .map(SmolStr::as_str)
+            .collect::<Vec<_>>(),
         ["Second", "First"]
     );
     assert_eq!(value.field("Second"), Some(&Value::Int(2)));
@@ -328,8 +314,7 @@ fn array_repeat_expands_source_order_and_zero_group_contributes_nothing() {
         literal(Value::Int(0)),
         vec![positional(literal(Value::Int(99)))],
     );
-    let expression =
-        Expr::ArrayInitializer(vec![zero, repeated, literal(Value::Int(3))]);
+    let expression = Expr::ArrayInitializer(vec![zero, repeated, literal(Value::Int(3))]);
 
     let Value::Array(value) =
         evaluate(&VariableStorage::new(), None, &expression).expect("array initializer")
@@ -453,20 +438,11 @@ fn multidimensional_array_index_honors_inclusive_lower_bounds() {
 
 #[test]
 fn array_index_reports_arity_type_and_bounds_partitions() {
-    let target = array(
-        vec![Value::Int(10), Value::Int(11)],
-        vec![(5, 6)],
-    );
+    let target = array(vec![Value::Int(10), Value::Int(11)], vec![(5, 6)]);
 
     let cases = [
-        (
-            Vec::new(),
-            RuntimeError::TypeMismatch,
-        ),
-        (
-            vec![Value::Bool(true)],
-            RuntimeError::TypeMismatch,
-        ),
+        (Vec::new(), RuntimeError::TypeMismatch),
+        (vec![Value::Bool(true)], RuntimeError::TypeMismatch),
         (
             vec![Value::Int(7)],
             RuntimeError::IndexOutOfBounds {
@@ -548,11 +524,7 @@ fn ref_name_uses_local_instance_then_global_but_not_retain_storage() {
     let mut retained_only = VariableStorage::new();
     retained_only.set_retain("r", Value::Int(4));
     assert_eq!(
-        evaluate(
-            &retained_only,
-            None,
-            &Expr::Ref(LValue::Name("r".into()))
-        ),
+        evaluate(&retained_only, None, &Expr::Ref(LValue::Name("r".into()))),
         Err(RuntimeError::UndefinedVariable("r".into()))
     );
 }
@@ -570,11 +542,7 @@ fn ref_index_validates_path_and_dereferences_selected_element() {
     });
 
     assert_eq!(
-        evaluate(
-            &storage,
-            None,
-            &Expr::Deref(Box::new(reference.clone()))
-        ),
+        evaluate(&storage, None, &Expr::Deref(Box::new(reference.clone()))),
         Ok(Value::Int(20))
     );
 
@@ -602,9 +570,7 @@ fn dereference_distinguishes_valid_empty_nonreference_and_stale_values() {
         evaluate(
             &storage,
             None,
-            &Expr::Deref(Box::new(literal(Value::Reference(Some(
-                reference.clone()
-            )))))
+            &Expr::Deref(Box::new(literal(Value::Reference(Some(reference.clone())))))
         ),
         Ok(Value::DInt(5))
     );
@@ -649,11 +615,7 @@ fn sizeof_uses_registry_and_maps_unknown_or_unsized_types() {
     );
     for type_id in [TypeId(900_201), TypeId::STRING] {
         assert_eq!(
-            evaluate(
-                &storage,
-                None,
-                &Expr::SizeOf(SizeOfTarget::Type(type_id))
-            ),
+            evaluate(&storage, None, &Expr::SizeOf(SizeOfTarget::Type(type_id))),
             Err(RuntimeError::TypeMismatch)
         );
     }
@@ -905,7 +867,10 @@ fn integer_index_normalization_accepts_all_supported_tags() {
         index_to_i64(Value::LWord(u64::MAX)),
         Err(RuntimeError::Overflow)
     );
-    assert_eq!(index_to_i64(Value::Bool(true)), Err(RuntimeError::TypeMismatch));
+    assert_eq!(
+        index_to_i64(Value::Bool(true)),
+        Err(RuntimeError::TypeMismatch)
+    );
 }
 
 #[test]

@@ -9,10 +9,7 @@ fn diagnostics_for(sources: &[&str], file: usize) -> Vec<Diagnostic> {
     for (index, source) in sources.iter().enumerate() {
         database.set_source_text(FileId(index as u32), (*source).to_owned());
     }
-    database
-        .diagnostics(FileId(file as u32))
-        .as_ref()
-        .clone()
+    database.diagnostics(FileId(file as u32)).as_ref().clone()
 }
 
 fn hazards(source: &str) -> Vec<Diagnostic> {
@@ -25,11 +22,9 @@ fn hazards(source: &str) -> Vec<Diagnostic> {
 fn assert_hazard(source: &str) {
     let found = hazards(source);
     assert!(!found.is_empty(), "expected shared-global hazard");
-    assert!(
-        found
-            .iter()
-            .all(|diagnostic| diagnostic.severity == DiagnosticSeverity::Warning)
-    );
+    assert!(found
+        .iter()
+        .all(|diagnostic| diagnostic.severity == DiagnosticSeverity::Warning));
 }
 
 fn assert_no_hazard(source: &str) {
@@ -229,10 +224,7 @@ fn write_and_read_on_different_tasks_is_a_hazard() {
 
 #[test]
 fn writes_on_two_tasks_are_a_hazard() {
-    assert_hazard(&two_task_source(
-        "Shared := 1;",
-        "Shared := 2;",
-    ));
+    assert_hazard(&two_task_source("Shared := 1;", "Shared := 2;"));
 }
 
 #[test]
@@ -445,11 +437,9 @@ END_CONFIGURATION
         .collect::<Vec<_>>();
 
     assert_eq!(owner_hazards.len(), 1);
-    assert!(
-        diagnostics_for(&sources, 1)
-            .iter()
-            .all(|diagnostic| diagnostic.code != DiagnosticCode::SharedGlobalTaskHazard)
-    );
+    assert!(diagnostics_for(&sources, 1)
+        .iter()
+        .all(|diagnostic| diagnostic.code != DiagnosticCode::SharedGlobalTaskHazard));
 }
 
 #[test]
@@ -539,14 +529,12 @@ PROGRAM ReaderTwo VAR x : INT; END_VAR x := Shared; END_PROGRAM
     let global_start = source.find("Shared : INT").expect("global declaration") as u32;
 
     assert_eq!(u32::from(warning.range.start()), global_start);
-    assert!(warning.message.contains(
-        "multiple tasks (Conf/R/Alpha, Conf/R/Bravo, Conf/R/Echo, +1 more)"
-    ));
-    assert!(
-        warning
-            .message
-            .contains("writes in (Conf/R/Alpha, Conf/R/Zulu)")
-    );
+    assert!(warning
+        .message
+        .contains("multiple tasks (Conf/R/Alpha, Conf/R/Bravo, Conf/R/Echo, +1 more)"));
+    assert!(warning
+        .message
+        .contains("writes in (Conf/R/Alpha, Conf/R/Zulu)"));
     assert_eq!(warning.related.len(), 2);
     assert!(warning.related.iter().all(|related| {
         related.message.starts_with("TASK 'Conf/R/")

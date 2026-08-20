@@ -4,14 +4,16 @@ use std::fmt::Debug;
 use std::sync::Arc;
 
 use crate::value::{
-    ArrayValue, DateTimeValue, DateValue, Duration, LDateTimeValue, LDateValue,
-    LTimeOfDayValue, TimeOfDayValue,
+    ArrayValue, DateTimeValue, DateValue, Duration, LDateTimeValue, LDateValue, LTimeOfDayValue,
+    TimeOfDayValue,
 };
 
 fn assert_compile_error<T: Debug>(result: Result<T, CompileError>, expected: &str) {
     let message = result.expect_err("expected coercion error").to_string();
     assert!(
-        message.to_ascii_lowercase().contains(&expected.to_ascii_lowercase()),
+        message
+            .to_ascii_lowercase()
+            .contains(&expected.to_ascii_lowercase()),
         "expected {message:?} to contain {expected:?}"
     );
 }
@@ -142,7 +144,11 @@ fn harness_coerce_contract_unsigned_sources_preserve_mathematical_value() {
 #[test]
 fn harness_coerce_contract_unsigned_destinations_check_width() {
     for (type_id, maximum, above) in [
-        (TypeId::USINT, Value::ULInt(u8::MAX as u64), u8::MAX as u64 + 1),
+        (
+            TypeId::USINT,
+            Value::ULInt(u8::MAX as u64),
+            u8::MAX as u64 + 1,
+        ),
         (
             TypeId::UINT,
             Value::ULInt(u16::MAX as u64),
@@ -155,10 +161,7 @@ fn harness_coerce_contract_unsigned_destinations_check_width() {
         ),
     ] {
         assert!(coerce_value_to_type(maximum, type_id).is_ok());
-        assert_compile_error(
-            coerce_value_to_type(Value::ULInt(above), type_id),
-            "out of",
-        );
+        assert_compile_error(coerce_value_to_type(Value::ULInt(above), type_id), "out of");
     }
 }
 
@@ -250,10 +253,7 @@ fn harness_coerce_contract_real_rejects_nonfinite_values() {
         Value::LReal(f64::INFINITY),
         Value::LReal(f64::NEG_INFINITY),
     ] {
-        assert_compile_error(
-            coerce_value_to_type(source, TypeId::LREAL),
-            "finite",
-        );
+        assert_compile_error(coerce_value_to_type(source, TypeId::LREAL), "finite");
     }
 }
 
@@ -492,12 +492,7 @@ fn harness_coerce_contract_array_rejects_wrong_shape_category_and_ignores_excess
     let array_type = registry.register_array(TypeId::INT, vec![(1, 2)]);
     let profile = DateTimeProfile::default();
     assert_compile_error(
-        coerce_initializer_value_to_type(
-            Value::Int(1),
-            array_type,
-            &registry,
-            &profile,
-        ),
+        coerce_initializer_value_to_type(Value::Int(1), array_type, &registry, &profile),
         "expected array",
     );
     let excess = Value::Array(Box::new(
@@ -537,10 +532,7 @@ fn harness_coerce_contract_struct_defaults_omissions_and_canonicalizes_names() {
             .iter()
             .map(|(name, value)| (name.as_str(), value))
             .collect::<Vec<_>>(),
-        vec![
-            ("Count", &Value::DInt(7)),
-            ("Enabled", &Value::Bool(false))
-        ]
+        vec![("Count", &Value::DInt(7)), ("Enabled", &Value::Bool(false))]
     );
 }
 
@@ -559,12 +551,7 @@ fn harness_coerce_contract_struct_rejects_unknown_field_and_nonaggregate_input()
         "unknown aggregate field",
     );
     assert_compile_error(
-        coerce_initializer_value_to_type(
-            Value::Int(1),
-            record,
-            &registry,
-            &profile,
-        ),
+        coerce_initializer_value_to_type(Value::Int(1), record, &registry, &profile),
         "expected struct",
     );
 }
@@ -574,7 +561,10 @@ fn harness_coerce_contract_union_defaults_omissions_and_canonicalizes_names() {
     let mut registry = TypeRegistry::new();
     let choice = registry.register_union(
         "Choice",
-        vec![variant("Number", TypeId::INT), variant("Flag", TypeId::BOOL)],
+        vec![
+            variant("Number", TypeId::INT),
+            variant("Flag", TypeId::BOOL),
+        ],
     );
     let profile = DateTimeProfile::default();
 
@@ -584,8 +574,7 @@ fn harness_coerce_contract_union_defaults_omissions_and_canonicalizes_names() {
         &registry,
         &profile,
     )
-    .unwrap()
-    else {
+    .unwrap() else {
         panic!("expected union representation");
     };
     assert_eq!(value.type_name(), "Choice");
@@ -608,12 +597,7 @@ fn harness_coerce_contract_union_rejects_unknown_field_and_nonaggregate_input() 
         "unknown aggregate field",
     );
     assert_compile_error(
-        coerce_initializer_value_to_type(
-            Value::Int(1),
-            choice,
-            &registry,
-            &profile,
-        ),
+        coerce_initializer_value_to_type(Value::Int(1), choice, &registry, &profile),
         "expected union",
     );
 }

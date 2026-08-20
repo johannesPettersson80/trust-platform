@@ -109,6 +109,39 @@ END_PROGRAM
 }
 
 #[test]
+fn unqualified_enum_case_label_respects_same_named_constant_shadowing() {
+    let source = r#"
+TYPE Phase : (IDLE, RUNNING, DONE)
+END_TYPE
+
+PROGRAM Main
+VAR CONSTANT
+    RUNNING : Phase := Phase#DONE;
+END_VAR
+VAR
+    state : Phase := Phase#DONE;
+    selected : DINT := 0;
+END_VAR
+CASE state OF
+    RUNNING: selected := 20;
+ELSE
+    selected := 99;
+END_CASE;
+END_PROGRAM
+"#;
+
+    let mut harness = TestHarness::from_source(source).expect("compile harness");
+    let result = harness.cycle();
+    assert!(
+        result.errors.is_empty(),
+        "unexpected runtime errors: {:?}",
+        result.errors
+    );
+
+    assert_eq!(harness.get_output("selected"), Some(Value::DInt(20)));
+}
+
+#[test]
 fn unqualified_enum_assignment_respects_same_named_local_shadowing() {
     let source = r#"
 TYPE Phase : (IDLE, RUNNING, DONE)

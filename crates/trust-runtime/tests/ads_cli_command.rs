@@ -566,7 +566,9 @@ fn spawn_control_server(
             .expect("set ADS control write timeout");
         let mut reader = BufReader::new(stream.try_clone().expect("clone ADS control stream"));
         let mut line = String::new();
-        reader.read_line(&mut line).expect("read ADS control request");
+        reader
+            .read_line(&mut line)
+            .expect("read ADS control request");
         let request = serde_json::from_str(line.trim_end()).expect("parse ADS control request");
         request_tx.send(request).expect("send captured ADS request");
         writeln!(stream, "{}", serde_json::to_string(&response).unwrap())

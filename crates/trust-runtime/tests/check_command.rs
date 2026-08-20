@@ -57,7 +57,11 @@ fn run_check(project: &std::path::Path) -> Output {
 
 fn run_check_with_args(project: &std::path::Path, args: &[&str]) -> Output {
     let mut command = Command::new(env!("CARGO_BIN_EXE_trust-runtime"));
-    command.arg("check").arg("--project").arg(project).args(args);
+    command
+        .arg("check")
+        .arg("--project")
+        .arg(project)
+        .args(args);
     command.output().expect("run trust-runtime check")
 }
 
@@ -104,7 +108,9 @@ END_PROGRAM
     assert_eq!(payload["warnings"], 0);
     assert_eq!(
         payload["source_count"].as_u64(),
-        payload["sources"].as_array().map(|sources| sources.len() as u64)
+        payload["sources"]
+            .as_array()
+            .map(|sources| sources.len() as u64)
     );
     assert!(payload["bytecode_size"].as_u64().unwrap_or_default() > 0);
     assert_eq!(
@@ -283,7 +289,10 @@ END_FUNCTION
     assert_eq!(payload["command"], "check");
     assert_eq!(payload["ok"], true);
     assert_eq!(payload["source_count"], 2);
-    assert_eq!(payload["resolved_dependencies"], serde_json::json!(["LibA"]));
+    assert_eq!(
+        payload["resolved_dependencies"],
+        serde_json::json!(["LibA"])
+    );
     assert_eq!(
         payload["dependency_roots"]
             .as_array()

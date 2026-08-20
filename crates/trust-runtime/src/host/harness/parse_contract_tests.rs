@@ -15,8 +15,7 @@ fn harness_parse_contract_watch_trims_whitespace_and_one_semicolon() {
         DateTimeProfile::default(),
         &[],
     )
-    .unwrap()
-    else {
+    .unwrap() else {
         panic!("expected name");
     };
     assert_eq!(name, "value");
@@ -26,13 +25,8 @@ fn harness_parse_contract_watch_trims_whitespace_and_one_semicolon() {
 fn harness_parse_contract_watch_rejects_empty_and_invalid_syntax() {
     for expression in ["", " ", ";", "1 +", "(", "value["] {
         assert!(
-            parse_debug_expression(
-                expression,
-                &mut registry(),
-                DateTimeProfile::default(),
-                &[],
-            )
-            .is_err(),
+            parse_debug_expression(expression, &mut registry(), DateTimeProfile::default(), &[],)
+                .is_err(),
             "{expression:?} must fail"
         );
     }
@@ -41,13 +35,7 @@ fn harness_parse_contract_watch_rejects_empty_and_invalid_syntax() {
 #[test]
 fn harness_parse_contract_watch_lowers_literals_names_and_binary_expressions() {
     assert!(matches!(
-        parse_debug_expression(
-            "INT#7",
-            &mut registry(),
-            DateTimeProfile::default(),
-            &[],
-        )
-        .unwrap(),
+        parse_debug_expression("INT#7", &mut registry(), DateTimeProfile::default(), &[],).unwrap(),
         Expr::Literal(Value::Int(7))
     ));
     assert!(matches!(
@@ -78,8 +66,8 @@ fn harness_parse_contract_watch_lowers_literals_names_and_binary_expressions() {
 #[test]
 fn harness_parse_contract_pure_stdlib_call_names_are_case_insensitive() {
     for name in [
-        "abs", "MIN", "Max", "limit", "SEL", "mux", "sqrt", "LN", "LOG", "EXP", "sin",
-        "COS", "tan", "ASIN", "acos", "ATAN", "atan2", "LEN",
+        "abs", "MIN", "Max", "limit", "SEL", "mux", "sqrt", "LN", "LOG", "EXP", "sin", "COS",
+        "tan", "ASIN", "acos", "ATAN", "atan2", "LEN",
     ] {
         assert!(is_allowed_watch_call(name), "{name}");
     }
@@ -103,13 +91,8 @@ fn harness_parse_contract_user_and_qualified_calls_are_not_allowed() {
 fn harness_parse_contract_watch_accepts_reviewed_pure_calls() {
     for expression in ["ABS(INT#-7)", "INT_TO_DINT(INT#7)", "MAX(INT#1, INT#2)"] {
         assert!(
-            parse_debug_expression(
-                expression,
-                &mut registry(),
-                DateTimeProfile::default(),
-                &[],
-            )
-            .is_ok(),
+            parse_debug_expression(expression, &mut registry(), DateTimeProfile::default(), &[],)
+                .is_ok(),
             "{expression}"
         );
     }
@@ -118,14 +101,10 @@ fn harness_parse_contract_watch_accepts_reviewed_pure_calls() {
 #[test]
 fn harness_parse_contract_watch_rejects_user_and_method_calls() {
     for expression in ["DoThing()", "fb.Run()", "obj.child.Execute(INT#1)"] {
-        let error = parse_debug_expression(
-            expression,
-            &mut registry(),
-            DateTimeProfile::default(),
-            &[],
-        )
-        .unwrap_err()
-        .to_string();
+        let error =
+            parse_debug_expression(expression, &mut registry(), DateTimeProfile::default(), &[])
+                .unwrap_err()
+                .to_string();
         assert!(error.contains("side-effect free"), "{error}");
     }
 }
@@ -138,8 +117,7 @@ fn harness_parse_contract_lvalue_trims_whitespace_and_one_semicolon() {
         DateTimeProfile::default(),
         &[],
     )
-    .unwrap()
-    else {
+    .unwrap() else {
         panic!("expected name target");
     };
     assert_eq!(name, "target");
@@ -149,13 +127,8 @@ fn harness_parse_contract_lvalue_trims_whitespace_and_one_semicolon() {
 fn harness_parse_contract_lvalue_rejects_empty_and_invalid_syntax() {
     for expression in ["", " ", ";", "value + 1", "(", "items["] {
         assert!(
-            parse_debug_lvalue(
-                expression,
-                &mut registry(),
-                DateTimeProfile::default(),
-                &[],
-            )
-            .is_err(),
+            parse_debug_lvalue(expression, &mut registry(), DateTimeProfile::default(), &[],)
+                .is_err(),
             "{expression:?} must fail"
         );
     }
@@ -198,14 +171,10 @@ fn harness_parse_contract_lvalue_lowers_name_field_and_index_paths() {
 #[test]
 fn harness_parse_contract_lvalue_rejects_call_in_target() {
     for expression in ["GetTarget()", "fb.GetTarget().value"] {
-        let error = parse_debug_lvalue(
-            expression,
-            &mut registry(),
-            DateTimeProfile::default(),
-            &[],
-        )
-        .unwrap_err()
-        .to_string();
+        let error =
+            parse_debug_lvalue(expression, &mut registry(), DateTimeProfile::default(), &[])
+                .unwrap_err()
+                .to_string();
         assert!(error.contains("side-effect free"), "{error}");
     }
 }

@@ -357,7 +357,6 @@ resolution_status = "closed"
 resolution_source_ref = "SPEC_BYTECODE_FORMAT_001"
 closeout_evidence = ["EVID_VM_STABLE_ERROR_MODEL_BATCH_VALIDATION_20260716"]
 last_reviewed = "2026-07-17"
-
 [[spec_gaps]]
 schema_version = 1
 id = "SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001"
@@ -462,13 +461,13 @@ last_reviewed = "2026-07-18"
 [[spec_gaps]]
 schema_version = 1
 id = "SPEC_GAP_BEHAVIOR_LOCKED_PUBLIC_CLAIM_001"
-title = "Behavior-locked public claim needs verification traceability"
+title = "Behavior-locked public claim needs direct contract authority"
 area = "release"
 risk = "false_status"
 owner = "docs"
 status = "spec_gap"
 gap_class = "public_claim_unproven"
-blocking_question = "Which runtime and debugger behaviors are locked by which tests, suites, and durable evidence?"
+blocking_question = "Does the public wording bind behavior claims to written specifications and direct native executable tests without making verification metadata authoritative?"
 affected_invariants = [
   "RUNTIME_BEHAVIOR_LOCKED_001",
   "DEBUG_BEHAVIOR_LOCKED_001",
@@ -1042,38 +1041,3 @@ resolution_status = "closed"
 resolution_source_ref = "SPEC_RELEASE_EVIDENCE_001"
 closeout_evidence = ["EVID_RELEASE_VERSION_CHAIN_GAP_CLOSEOUT_20260717"]
 last_reviewed = "2026-07-17"
-
-[[spec_gaps]]
-schema_version = 1
-id = "SPEC_GAP_CURRENT_DT_CLOCK_BOUNDARY_001"
-title = "CURRENT_DT compiler/runtime authority boundary is incomplete"
-area = "compiler_iec"
-risk = "wrong_result"
-owner = "language"
-status = "spec_gap"
-gap_class = "ambiguous_behavior"
-blocking_question = "Which compiler-area invariant and direct test backlinks authorize runtime_clock_value and is_runtime_clock_name without duplicating the reviewed runtime-safety authority?"
-affected_invariants = [
-  "RT_CURRENT_DT_HOST_CLOCK_002",
-  "RT_HOST_SOURCE_LOWERING_002",
-  "RT_STDLIB_CORE_HELPER_002",
-  "TRUST_CURRENT_DT_HOST_CLOCK_001",
-  "TRUST_RUNTIME_CLOCK_DISPATCH_001",
-]
-affected_tests = [
-  "TEST_AUTO_24BE0B70F92996B0861C",
-  "TEST_AUTO_273B479C1D5E8194D509",
-  "TEST_AUTO_28BF8A3C9D90B1CC2BC7",
-  "TEST_AUTO_476BEA614D8DE1A430DE",
-  "TEST_AUTO_536ACBF598E9855E95F2",
-  "TEST_AUTO_89EB14244F339DD685FA",
-  "TEST_AUTO_A5F5AB123BC69F1C083B",
-  "TEST_AUTO_AE85D008FFF41EAFED54",
-  "TEST_AUTO_D891A923639E5713E568",
-  "TEST_AUTO_E8BA58019CCAC4C9FC0B",
-  "TEST_AUTO_FE8A497DAC9EA3D5A0B4",
-]
-candidate_spec_sources = ["SPEC_IEC_STANDARD_FUNCTIONS_001", "SPEC_RUNTIME_ENGINE_001"]
-resolution_status = "test_mapped"
-closeout_evidence = []
-last_reviewed = "2026-08-12"

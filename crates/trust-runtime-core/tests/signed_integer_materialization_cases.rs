@@ -12,7 +12,7 @@ const TEST_ID: &str = "TEST_RUNTIME_SIGNED_INTEGER_MATERIALIZATION_TRACE_001";
 const CASE_FILE: &str =
     "verification/cases/runtime_safety/RT_SIGNED_INTEGER_MATERIALIZATION_001.toml";
 const CASE_FILE_DIGEST: &str =
-    "sha256:eacff93189df0af63914f4d21801eed3a5ae413e8e9b42270cff2120796e6053";
+    "sha256:77f497d45102f17517ae0eba6e154b54e3861d5796082c1e2bacb0a423efc52d";
 
 #[test]
 fn signed_integer_materialization_cases() {

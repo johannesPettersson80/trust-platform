@@ -201,9 +201,7 @@ fn action_parser_rejects_namespace_scope_declaration() {
 
 #[test]
 fn action_parser_rejects_function_owned_declaration() {
-    rejected(
-        "FUNCTION Calculate : INT\nACTION Reset:\nEND_ACTION\nCalculate := 0;\nEND_FUNCTION",
-    );
+    rejected("FUNCTION Calculate : INT\nACTION Reset:\nEND_ACTION\nCalculate := 0;\nEND_FUNCTION");
 }
 
 #[test]
@@ -213,9 +211,7 @@ fn action_parser_rejects_class_owned_declaration() {
 
 #[test]
 fn action_parser_rejects_method_owned_declaration() {
-    rejected(
-        "CLASS Controller\nMETHOD Run\nACTION Reset:\nEND_ACTION\nEND_METHOD\nEND_CLASS",
-    );
+    rejected("CLASS Controller\nMETHOD Run\nACTION Reset:\nEND_ACTION\nEND_METHOD\nEND_CLASS");
 }
 
 #[test]

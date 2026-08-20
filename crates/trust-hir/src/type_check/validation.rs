@@ -146,9 +146,10 @@ impl<'a> TypeChecker<'a> {
             self.symbols
                 .get(owner)
                 .is_some_and(|owner_symbol| matches!(owner_symbol.kind, SymbolKind::FunctionBlock))
-                && !self.resolve_ref().current_class_owner().is_some_and(|current| {
-                    self.resolve_ref().is_same_or_derived(current, owner)
-                })
+                && !self
+                    .resolve_ref()
+                    .current_class_owner()
+                    .is_some_and(|current| self.resolve_ref().is_same_or_derived(current, owner))
         }) {
             self.diagnostics.error(
                 DiagnosticCode::InvalidOperation,

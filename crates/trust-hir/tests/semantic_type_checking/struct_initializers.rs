@@ -393,9 +393,7 @@ END_TYPE
     let type_id = symbols
         .lookup_registered_type_name("Limited")
         .expect("Limited type");
-    let Type::Alias { name, target } = symbols
-        .type_by_id(type_id)
-        .expect("Limited definition")
+    let Type::Alias { name, target } = symbols.type_by_id(type_id).expect("Limited definition")
     else {
         panic!("expected directly-derived alias");
     };

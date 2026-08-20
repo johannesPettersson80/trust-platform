@@ -123,8 +123,9 @@ pub(super) fn handle_post_control_proxy(
         return;
     }
 
+    let mut deferred_control_response = None;
     let response = if target_runtime == local_runtime {
-        let control_response = dispatch_control_request(
+        let control_response = prepare_control_request(
             control_payload,
             ctx.control_state,
             Some("runtime-cloud-proxy"),
@@ -143,7 +144,12 @@ pub(super) fn handle_post_control_proxy(
                 )
                 .with_status_code(StatusCode(502))
                 .with_header(Header::from_bytes("Content-Type", "application/json").unwrap());
-                let _ = request.respond(response);
+                let mut control_responses = [control_response];
+                let _ = write_then_complete_control_requests(
+                    &mut control_responses,
+                    ctx.control_state,
+                    |_| request.respond(response),
+                );
                 return;
             }
         };
@@ -161,6 +167,7 @@ pub(super) fn handle_post_control_proxy(
             ))
             .unwrap_or(serde_json::Value::String("transport_failure".to_string()));
         }
+        deferred_control_response = Some(control_response);
         Response::from_string(value.to_string())
             .with_header(Header::from_bytes("Content-Type", "application/json").unwrap())
     } else if let Some(url) = runtime_cloud_target_control_url(
@@ -236,5 +243,13 @@ pub(super) fn handle_post_control_proxy(
         .with_header(Header::from_bytes("Content-Type", "application/json").unwrap())
     };
 
-    let _ = request.respond(response);
+    if let Some(control_response) = deferred_control_response {
+        let mut control_responses = [control_response];
+        let _ =
+            write_then_complete_control_requests(&mut control_responses, ctx.control_state, |_| {
+                request.respond(response)
+            });
+    } else {
+        let _ = request.respond(response);
+    }
 }

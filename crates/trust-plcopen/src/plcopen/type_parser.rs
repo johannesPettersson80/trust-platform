@@ -193,7 +193,7 @@ fn parse_struct_type_expression(struct_node: roxmltree::Node<'_, '_>) -> Option<
         is_element_named_ci(*child, "variable") || is_element_named_ci(*child, "member")
     }) {
         field_count += 1;
-        let Some(name) = attribute_ci(variable, "name")
+        let name = attribute_ci(variable, "name")
             .or_else(|| {
                 variable
                     .children()
@@ -201,24 +201,18 @@ fn parse_struct_type_expression(struct_node: roxmltree::Node<'_, '_>) -> Option<
                     .and_then(extract_text_content)
             })
             .map(|raw| raw.trim().to_string())
-            .filter(|value| !value.is_empty())
-        else {
-            return None;
-        };
+            .filter(|value| !value.is_empty())?;
         if !is_valid_st_identifier(&name)
             || !seen_names.insert(name.to_ascii_lowercase())
         {
             return None;
         }
-        let Some(var_type) = first_child_element_ci(variable, "type")
+        let var_type = first_child_element_ci(variable, "type")
             .and_then(parse_type_expression_container)
             .or_else(|| {
                 first_child_element_ci(variable, "baseType")
                     .and_then(parse_type_expression_container)
-            })
-        else {
-            return None;
-        };
+            })?;
         let initializer = first_child_element_ci(variable, "initialValue")
             .and_then(parse_initial_value)
             .map_or_else(String::new, |value| format!(" := {value}"));
@@ -248,13 +242,10 @@ fn parse_enum_type_expression(enum_node: roxmltree::Node<'_, '_>) -> Option<Stri
         .filter(|child| is_element_named_ci(*child, "value"))
     {
         value_count += 1;
-        let Some(name) = attribute_ci(value, "name")
+        let name = attribute_ci(value, "name")
             .or_else(|| extract_text_content(value))
             .map(|raw| raw.trim().to_string())
-            .filter(|raw| !raw.is_empty())
-        else {
-            return None;
-        };
+            .filter(|raw| !raw.is_empty())?;
         if !is_valid_st_identifier(&name)
             || !seen_names.insert(name.to_ascii_lowercase())
         {

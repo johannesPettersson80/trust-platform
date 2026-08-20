@@ -78,7 +78,7 @@ impl<'a> TypeChecker<'a> {
         )
     }
 
-    pub(super) fn is_assignable(&self, target: TypeId, source: TypeId) -> bool {
+    pub(crate) fn is_assignable(&self, target: TypeId, source: TypeId) -> bool {
         let target = self.resolve_alias_type(target);
         let source = self.resolve_alias_type(source);
         if target == source {

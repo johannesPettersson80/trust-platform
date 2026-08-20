@@ -50,13 +50,12 @@ mod tests {
     fn mesh_snapshot_resolves_case_insensitively_and_preserves_canonical_order() {
         let mut runtime = Runtime::new();
         runtime.storage_mut().set_global("Pressure", Value::DInt(7));
-        runtime.storage_mut().set_global("Enabled", Value::Bool(true));
+        runtime
+            .storage_mut()
+            .set_global("Enabled", Value::Bool(true));
 
-        let snapshot = runtime.snapshot_globals(&[
-            "enabled".into(),
-            "missing".into(),
-            "PRESSURE".into(),
-        ]);
+        let snapshot =
+            runtime.snapshot_globals(&["enabled".into(), "missing".into(), "PRESSURE".into()]);
         let entries = snapshot.iter().collect::<Vec<_>>();
 
         assert_eq!(entries.len(), 2);
@@ -75,7 +74,10 @@ mod tests {
 
         runtime.apply_mesh_updates(&updates);
 
-        assert_eq!(runtime.storage().get_global("Pressure"), Some(&Value::DInt(9)));
+        assert_eq!(
+            runtime.storage().get_global("Pressure"),
+            Some(&Value::DInt(9))
+        );
         assert_eq!(runtime.storage().get_global("pressure"), None);
         assert_eq!(runtime.storage().get_global("Unknown"), None);
     }

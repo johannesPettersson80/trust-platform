@@ -262,7 +262,10 @@ impl AgentServer {
                     "inline_sources must not contain blank text.",
                 ));
             }
-            return Ok(inline_sources.iter().map(|source| source.text.clone()).collect());
+            return Ok(inline_sources
+                .iter()
+                .map(|source| source.text.clone())
+                .collect());
         }
 
         if let Some(files) = params.files.as_ref() {
@@ -430,10 +433,7 @@ fn apply_harness_execute_step(
     Ok(())
 }
 
-fn validate_cycle_bounds(
-    count: u32,
-    dt_ms: Option<i64>,
-) -> Result<(), HarnessAutomationError> {
+fn validate_cycle_bounds(count: u32, dt_ms: Option<i64>) -> Result<(), HarnessAutomationError> {
     if count == 0 {
         return Err(HarnessAutomationError::InvalidArgument(
             "cycle count must be greater than zero".to_string(),

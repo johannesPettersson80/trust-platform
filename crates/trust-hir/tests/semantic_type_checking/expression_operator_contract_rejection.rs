@@ -2,67 +2,106 @@ use crate::common::*;
 
 #[test]
 fn expression_operator_rejects_signed_unsigned_arithmetic() {
-    check_has_error("PROGRAM P\nVAR a : INT; b : UINT; r : INT; END_VAR\nr := a + b;\nEND_PROGRAM", DiagnosticCode::TypeMismatch);
+    check_has_error(
+        "PROGRAM P\nVAR a : INT; b : UINT; r : INT; END_VAR\nr := a + b;\nEND_PROGRAM",
+        DiagnosticCode::TypeMismatch,
+    );
 }
 
 #[test]
 fn expression_operator_rejects_signed_unsigned_comparison() {
-    check_has_error("PROGRAM P\nVAR a : DINT; b : UDINT; r : BOOL; END_VAR\nr := a < b;\nEND_PROGRAM", DiagnosticCode::TypeMismatch);
+    check_has_error(
+        "PROGRAM P\nVAR a : DINT; b : UDINT; r : BOOL; END_VAR\nr := a < b;\nEND_PROGRAM",
+        DiagnosticCode::TypeMismatch,
+    );
 }
 
 #[test]
 fn expression_operator_rejects_dint_real_accuracy_loss() {
-    check_has_error("PROGRAM P\nVAR a : DINT; b : REAL; r : REAL; END_VAR\nr := a + b;\nEND_PROGRAM", DiagnosticCode::TypeMismatch);
+    check_has_error(
+        "PROGRAM P\nVAR a : DINT; b : REAL; r : REAL; END_VAR\nr := a + b;\nEND_PROGRAM",
+        DiagnosticCode::TypeMismatch,
+    );
 }
 
 #[test]
 fn expression_operator_rejects_lint_lreal_accuracy_loss() {
-    check_has_error("PROGRAM P\nVAR a : LINT; b : LREAL; r : LREAL; END_VAR\nr := a + b;\nEND_PROGRAM", DiagnosticCode::TypeMismatch);
+    check_has_error(
+        "PROGRAM P\nVAR a : LINT; b : LREAL; r : LREAL; END_VAR\nr := a + b;\nEND_PROGRAM",
+        DiagnosticCode::TypeMismatch,
+    );
 }
 
 #[test]
 fn expression_operator_rejects_ulint_real_without_common_type() {
-    check_has_error("PROGRAM P\nVAR a : ULINT; b : REAL; r : REAL; END_VAR\nr := a + b;\nEND_PROGRAM", DiagnosticCode::TypeMismatch);
+    check_has_error(
+        "PROGRAM P\nVAR a : ULINT; b : REAL; r : REAL; END_VAR\nr := a + b;\nEND_PROGRAM",
+        DiagnosticCode::TypeMismatch,
+    );
 }
 
 #[test]
 fn expression_operator_rejects_bool_addition() {
-    check_has_error("PROGRAM P\nVAR a : BOOL; r : BOOL; END_VAR\nr := a + a;\nEND_PROGRAM", DiagnosticCode::TypeMismatch);
+    check_has_error(
+        "PROGRAM P\nVAR a : BOOL; r : BOOL; END_VAR\nr := a + a;\nEND_PROGRAM",
+        DiagnosticCode::TypeMismatch,
+    );
 }
 
 #[test]
 fn expression_operator_rejects_string_subtraction() {
-    check_has_error("PROGRAM P\nVAR a : STRING; r : STRING; END_VAR\nr := a - a;\nEND_PROGRAM", DiagnosticCode::TypeMismatch);
+    check_has_error(
+        "PROGRAM P\nVAR a : STRING; r : STRING; END_VAR\nr := a - a;\nEND_PROGRAM",
+        DiagnosticCode::TypeMismatch,
+    );
 }
 
 #[test]
 fn expression_operator_rejects_real_modulo() {
-    check_has_error("PROGRAM P\nVAR a : REAL; r : REAL; END_VAR\nr := a MOD a;\nEND_PROGRAM", DiagnosticCode::TypeMismatch);
+    check_has_error(
+        "PROGRAM P\nVAR a : REAL; r : REAL; END_VAR\nr := a MOD a;\nEND_PROGRAM",
+        DiagnosticCode::TypeMismatch,
+    );
 }
 
 #[test]
 fn expression_operator_rejects_bool_unary_minus() {
-    check_has_error("PROGRAM P\nVAR a : BOOL; r : BOOL; END_VAR\nr := -a;\nEND_PROGRAM", DiagnosticCode::TypeMismatch);
+    check_has_error(
+        "PROGRAM P\nVAR a : BOOL; r : BOOL; END_VAR\nr := -a;\nEND_PROGRAM",
+        DiagnosticCode::TypeMismatch,
+    );
 }
 
 #[test]
 fn expression_operator_rejects_integer_not() {
-    check_has_error("PROGRAM P\nVAR a : INT; r : INT; END_VAR\nr := NOT a;\nEND_PROGRAM", DiagnosticCode::TypeMismatch);
+    check_has_error(
+        "PROGRAM P\nVAR a : INT; r : INT; END_VAR\nr := NOT a;\nEND_PROGRAM",
+        DiagnosticCode::TypeMismatch,
+    );
 }
 
 #[test]
 fn expression_operator_rejects_integer_and() {
-    check_has_error("PROGRAM P\nVAR a : INT; r : INT; END_VAR\nr := a AND a;\nEND_PROGRAM", DiagnosticCode::TypeMismatch);
+    check_has_error(
+        "PROGRAM P\nVAR a : INT; r : INT; END_VAR\nr := a AND a;\nEND_PROGRAM",
+        DiagnosticCode::TypeMismatch,
+    );
 }
 
 #[test]
 fn expression_operator_rejects_bool_bit_string_and() {
-    check_has_error("PROGRAM P\nVAR a : BOOL; b : BYTE; r : BYTE; END_VAR\nr := a AND b;\nEND_PROGRAM", DiagnosticCode::TypeMismatch);
+    check_has_error(
+        "PROGRAM P\nVAR a : BOOL; b : BYTE; r : BYTE; END_VAR\nr := a AND b;\nEND_PROGRAM",
+        DiagnosticCode::TypeMismatch,
+    );
 }
 
 #[test]
 fn expression_operator_rejects_narrow_wide_string_comparison() {
-    check_has_error("PROGRAM P\nVAR a : STRING; b : WSTRING; r : BOOL; END_VAR\nr := a = b;\nEND_PROGRAM", DiagnosticCode::TypeMismatch);
+    check_has_error(
+        "PROGRAM P\nVAR a : STRING; b : WSTRING; r : BOOL; END_VAR\nr := a = b;\nEND_PROGRAM",
+        DiagnosticCode::TypeMismatch,
+    );
 }
 
 #[test]
@@ -72,22 +111,34 @@ fn expression_operator_rejects_struct_comparison() {
 
 #[test]
 fn expression_operator_rejects_numeric_chained_comparison() {
-    check_has_error("PROGRAM P\nVAR a : INT; b : INT; c : INT; r : BOOL; END_VAR\nr := a < b < c;\nEND_PROGRAM", DiagnosticCode::TypeMismatch);
+    check_has_error(
+        "PROGRAM P\nVAR a : INT; b : INT; c : INT; r : BOOL; END_VAR\nr := a < b < c;\nEND_PROGRAM",
+        DiagnosticCode::TypeMismatch,
+    );
 }
 
 #[test]
 fn expression_operator_rejects_out_of_range_contextual_unsigned_literal() {
-    check_has_error("PROGRAM P\nVAR a : USINT; r : USINT; END_VAR\nr := a + 256;\nEND_PROGRAM", DiagnosticCode::TypeMismatch);
+    check_has_error(
+        "PROGRAM P\nVAR a : USINT; r : USINT; END_VAR\nr := a + 256;\nEND_PROGRAM",
+        DiagnosticCode::TypeMismatch,
+    );
 }
 
 #[test]
 fn expression_operator_rejects_typed_cross_width_narrowing_result() {
-    check_has_error("PROGRAM P\nVAR a : INT; b : DINT; r : INT; END_VAR\nr := a + b;\nEND_PROGRAM", DiagnosticCode::IncompatibleAssignment);
+    check_has_error(
+        "PROGRAM P\nVAR a : INT; b : DINT; r : INT; END_VAR\nr := a + b;\nEND_PROGRAM",
+        DiagnosticCode::IncompatibleAssignment,
+    );
 }
 
 #[test]
 fn expression_operator_rejects_string_exponentiation() {
-    check_has_error("PROGRAM P\nVAR a : STRING; r : STRING; END_VAR\nr := a ** INT#2;\nEND_PROGRAM", DiagnosticCode::TypeMismatch);
+    check_has_error(
+        "PROGRAM P\nVAR a : STRING; r : STRING; END_VAR\nr := a ** INT#2;\nEND_PROGRAM",
+        DiagnosticCode::TypeMismatch,
+    );
 }
 
 #[test]
@@ -102,12 +153,18 @@ fn expression_operator_rejects_array_comparison() {
 
 #[test]
 fn expression_operator_rejects_bit_string_arithmetic() {
-    check_has_error("PROGRAM P\nVAR a : WORD; r : WORD; END_VAR\nr := a + a;\nEND_PROGRAM", DiagnosticCode::TypeMismatch);
+    check_has_error(
+        "PROGRAM P\nVAR a : WORD; r : WORD; END_VAR\nr := a + a;\nEND_PROGRAM",
+        DiagnosticCode::TypeMismatch,
+    );
 }
 
 #[test]
 fn expression_operator_rejects_real_bitwise_or() {
-    check_has_error("PROGRAM P\nVAR a : REAL; r : REAL; END_VAR\nr := a OR a;\nEND_PROGRAM", DiagnosticCode::TypeMismatch);
+    check_has_error(
+        "PROGRAM P\nVAR a : REAL; r : REAL; END_VAR\nr := a OR a;\nEND_PROGRAM",
+        DiagnosticCode::TypeMismatch,
+    );
 }
 
 #[test]

@@ -2,7 +2,9 @@ use crate::common::*;
 
 #[test]
 fn reference_contract_accepts_ref_of_program_variable() {
-    check_no_errors("PROGRAM P\nVAR x : INT; r : REF_TO INT; END_VAR\nr := REF(x); r^ := 1;\nEND_PROGRAM");
+    check_no_errors(
+        "PROGRAM P\nVAR x : INT; r : REF_TO INT; END_VAR\nr := REF(x); r^ := 1;\nEND_PROGRAM",
+    );
 }
 
 #[test]
@@ -22,7 +24,9 @@ fn reference_contract_accepts_ref_of_structure_field() {
 
 #[test]
 fn reference_contract_accepts_adr_of_program_variable() {
-    check_no_errors("PROGRAM P\nVAR x : INT; p : POINTER TO INT; END_VAR\np := ADR(x); p^ := 1;\nEND_PROGRAM");
+    check_no_errors(
+        "PROGRAM P\nVAR x : INT; p : POINTER TO INT; END_VAR\np := ADR(x); p^ := 1;\nEND_PROGRAM",
+    );
 }
 
 #[test]
@@ -62,7 +66,9 @@ fn reference_contract_accepts_nested_pointer_dereference() {
 
 #[test]
 fn reference_contract_accepts_null_reference_default() {
-    check_no_errors("PROGRAM P\nVAR r : REF_TO INT; END_VAR\nIF r = NULL THEN ; END_IF;\nEND_PROGRAM");
+    check_no_errors(
+        "PROGRAM P\nVAR r : REF_TO INT; END_VAR\nIF r = NULL THEN ; END_IF;\nEND_PROGRAM",
+    );
 }
 
 #[test]
@@ -72,7 +78,9 @@ fn reference_contract_accepts_null_pointer_assignment() {
 
 #[test]
 fn reference_contract_accepts_reference_null_inequality() {
-    check_no_errors("PROGRAM P\nVAR r : REF_TO INT; b : BOOL; END_VAR\nb := r <> NULL;\nEND_PROGRAM");
+    check_no_errors(
+        "PROGRAM P\nVAR r : REF_TO INT; b : BOOL; END_VAR\nb := r <> NULL;\nEND_PROGRAM",
+    );
 }
 
 #[test]
@@ -132,7 +140,9 @@ fn reference_contract_accepts_interface_to_class_reference_downcast_attempt() {
 
 #[test]
 fn reference_contract_accepts_write_through_input_pointer() {
-    check_no_errors("FUNCTION_BLOCK F\nVAR_INPUT p : POINTER TO INT; END_VAR\np^ := 7;\nEND_FUNCTION_BLOCK");
+    check_no_errors(
+        "FUNCTION_BLOCK F\nVAR_INPUT p : POINTER TO INT; END_VAR\np^ := 7;\nEND_FUNCTION_BLOCK",
+    );
 }
 
 #[test]

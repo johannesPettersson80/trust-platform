@@ -143,17 +143,14 @@ fn eval_vm_local_expr(ctx: &VmLocalExprContext<'_>, expr: &Expr) -> Result<Value
             let left_value = eval_vm_local_expr(ctx, left)?;
             if matches!(
                 op,
-                crate::program_model::BinaryOp::And
-                    | crate::program_model::BinaryOp::AndThen
-            )
-                && matches!(left_value, Value::Bool(false))
+                crate::program_model::BinaryOp::And | crate::program_model::BinaryOp::AndThen
+            ) && matches!(left_value, Value::Bool(false))
             {
                 return Ok(Value::Bool(false));
             }
             if matches!(
                 op,
-                crate::program_model::BinaryOp::Or
-                    | crate::program_model::BinaryOp::OrElse
+                crate::program_model::BinaryOp::Or | crate::program_model::BinaryOp::OrElse
             ) && matches!(left_value, Value::Bool(true))
             {
                 return Ok(Value::Bool(true));
@@ -956,7 +953,10 @@ mod tests {
             }),
             field: "Leaf".into(),
         };
-        assert_eq!(call_target_name(&nested).as_deref(), Some("Root.Child.Leaf"));
+        assert_eq!(
+            call_target_name(&nested).as_deref(),
+            Some("Root.Child.Leaf")
+        );
         assert_eq!(
             qualified_field_expr_name(&nested).as_deref(),
             Some("Root.Child.Leaf")
@@ -1006,10 +1006,7 @@ mod tests {
     fn vm_local_slot_lookup_is_case_insensitive_and_uses_frame_order() {
         let plan = VmPouInitPlan::Function {
             frame_owner: "Compute".into(),
-            params: vec![
-                param("InputA"),
-                param("InputB"),
-            ],
+            params: vec![param("InputA"), param("InputB")],
             locals: vec![local("Working"), local("ResultCopy")],
             static_locals: Vec::new(),
             return_slot: ("Compute".into(), TypeId::DINT),

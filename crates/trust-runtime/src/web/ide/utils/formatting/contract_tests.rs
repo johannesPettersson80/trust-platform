@@ -19,7 +19,8 @@ fn nonempty_document_receives_exactly_one_terminal_newline() {
 
 #[test]
 fn formatter_uses_two_spaces_per_nested_level() {
-    let source = "PROGRAM Main\nVAR\nx : INT;\nEND_VAR\nIF x > 0 THEN\nx := x - 1;\nEND_IF\nEND_PROGRAM";
+    let source =
+        "PROGRAM Main\nVAR\nx : INT;\nEND_VAR\nIF x > 0 THEN\nx := x - 1;\nEND_IF\nEND_PROGRAM";
     assert_eq!(
         format_structured_text_document(source),
         "PROGRAM Main\n  VAR\n    x : INT;\n  END_VAR\n  IF x > 0 THEN\n    x := x - 1;\n  END_IF\nEND_PROGRAM\n"

@@ -11,7 +11,7 @@ use verification_cases::{
 const TEST_ID: &str = "TEST_PLCOPEN_IMPORT_TRACE_001";
 const CASE_FILE: &str = "verification/cases/plcopen_devtools/PLCO_IMPORT_001.toml";
 const CASE_FILE_DIGEST: &str =
-    "sha256:8eaef792fcfa9bb5708ca06c488821f78036cb72a52d6d88b8df32946d142690";
+    "sha256:2bbdb29f758134480af4d2a6f69e67c6d6c479d3532d2288bfab96d9d5c48437";
 static NEXT_TEMP: AtomicU64 = AtomicU64::new(0);
 
 #[test]

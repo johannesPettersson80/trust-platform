@@ -33,8 +33,7 @@ fn compile_error(files: &[(&str, &str)]) -> String {
 
 #[test]
 fn pou_initializer_dependency_function_input_uses_later_local_constant() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 FUNCTION ReadDefault : INT
 VAR_INPUT
     Value : INT := Base;
@@ -50,16 +49,14 @@ VAR_OUTPUT
 END_VAR
 Observed := ReadDefault();
 END_PROGRAM
-"#,
-    );
+"#);
 
     assert_eq!(harness.get_output("Observed"), Some(Value::Int(7)));
 }
 
 #[test]
 fn pou_initializer_dependency_function_output_uses_later_local_constant() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 FUNCTION Produce : INT
 VAR_OUTPUT
     Produced : INT := InitialValue;
@@ -78,16 +75,14 @@ VAR_OUTPUT
 END_VAR
 Ignored := Produce(Produced => Observed);
 END_PROGRAM
-"#,
-    );
+"#);
 
     assert_eq!(harness.get_output("Observed"), Some(Value::Int(11)));
 }
 
 #[test]
 fn pou_initializer_dependency_function_automatic_locals_use_later_constants() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 FUNCTION Calculate : INT
 VAR
     LocalValue : INT := Base;
@@ -107,16 +102,14 @@ VAR_OUTPUT
 END_VAR
 Observed := Calculate();
 END_PROGRAM
-"#,
-    );
+"#);
 
     assert_eq!(harness.get_output("Observed"), Some(Value::Int(10)));
 }
 
 #[test]
 fn pou_initializer_dependency_function_static_uses_later_constant_once() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 FUNCTION Next : INT
 VAR_STAT
     Counter : INT := InitialValue;
@@ -135,8 +128,7 @@ END_VAR
 First := Next();
 Second := Next();
 END_PROGRAM
-"#,
-    );
+"#);
 
     assert_eq!(harness.get_output("First"), Some(Value::Int(9)));
     assert_eq!(harness.get_output("Second"), Some(Value::Int(10)));
@@ -144,8 +136,7 @@ END_PROGRAM
 
 #[test]
 fn pou_initializer_dependency_method_input_and_local_use_later_constants() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 CLASS Calculator
 METHOD PUBLIC Read : INT
 VAR_INPUT
@@ -170,16 +161,14 @@ VAR_OUTPUT
 END_VAR
 Observed := Instance.Read();
 END_PROGRAM
-"#,
-    );
+"#);
 
     assert_eq!(harness.get_output("Observed"), Some(Value::Int(7)));
 }
 
 #[test]
 fn pou_initializer_dependency_function_block_sections_share_complete_graph() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 FUNCTION_BLOCK Accumulate
 VAR_INPUT
     Increment : INT := DefaultStep;
@@ -211,8 +200,7 @@ END_VAR
 Instance();
 Observed := Instance.Total;
 END_PROGRAM
-"#,
-    );
+"#);
 
     assert_eq!(harness.get_output("Observed"), Some(Value::Int(25)));
 }
@@ -350,8 +338,7 @@ END_PROGRAM
 
 #[test]
 fn pou_initializer_dependency_using_import_selects_namespace_constant() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 NAMESPACE Limits
 VAR_GLOBAL CONSTANT
     DefaultValue : INT := INT#17;
@@ -370,16 +357,14 @@ VAR_OUTPUT
 END_VAR
 Observed := Read();
 END_PROGRAM
-"#,
-    );
+"#);
 
     assert_eq!(harness.get_output("Observed"), Some(Value::Int(17)));
 }
 
 #[test]
 fn pou_initializer_dependency_same_leaf_local_constants_remain_pou_local() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 FUNCTION First : INT
 VAR_INPUT
     Value : INT := Limit;
@@ -406,8 +391,7 @@ END_VAR
 FirstValue := First();
 SecondValue := Second();
 END_PROGRAM
-"#,
-    );
+"#);
 
     assert_eq!(harness.get_output("FirstValue"), Some(Value::Int(2)));
     assert_eq!(harness.get_output("SecondValue"), Some(Value::Int(5)));
@@ -415,8 +399,7 @@ END_PROGRAM
 
 #[test]
 fn pou_initializer_dependency_lookup_is_case_insensitive() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 FUNCTION Read : INT
 VAR_INPUT
     Value : INT := defaultvalue;
@@ -432,16 +415,14 @@ VAR_OUTPUT
 END_VAR
 Observed := Read();
 END_PROGRAM
-"#,
-    );
+"#);
 
     assert_eq!(harness.get_output("Observed"), Some(Value::Int(19)));
 }
 
 #[test]
 fn pou_initializer_dependency_reverse_multi_hop_graph_is_resolved() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 FUNCTION Read : INT
 VAR_INPUT
     Value : INT := Top;
@@ -459,16 +440,14 @@ VAR_OUTPUT
 END_VAR
 Observed := Read();
 END_PROGRAM
-"#,
-    );
+"#);
 
     assert_eq!(harness.get_output("Observed"), Some(Value::Int(7)));
 }
 
 #[test]
 fn pou_initializer_dependency_multi_name_output_gets_independent_initialized_slots() {
-    let harness = run(
-        r#"
+    let harness = run(r#"
 FUNCTION Produce : INT
 VAR_OUTPUT
     First, Second : INT := InitialValue;
@@ -489,8 +468,7 @@ VAR_OUTPUT
 END_VAR
 Ignored := Produce(First => FirstObserved, Second => SecondObserved);
 END_PROGRAM
-"#,
-    );
+"#);
 
     assert_eq!(harness.get_output("FirstObserved"), Some(Value::Int(5)));
     assert_eq!(harness.get_output("SecondObserved"), Some(Value::Int(4)));
@@ -514,9 +492,7 @@ END_PROGRAM
 
     let lower = error.to_ascii_lowercase();
     assert!(
-        lower.contains("var_in_out")
-            || lower.contains("initializer")
-            || lower.contains("expected"),
+        lower.contains("var_in_out") || lower.contains("initializer") || lower.contains("expected"),
         "{error}"
     );
 }

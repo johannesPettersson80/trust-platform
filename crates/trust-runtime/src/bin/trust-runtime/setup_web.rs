@@ -678,7 +678,7 @@ mod tests {
         assert!(root.join("program.stbc").is_file());
         assert!(root.join("src").join("main.st").is_file());
         assert!(root.join("src").join("config.st").is_file());
-        let runtime = trust_runtime::config::RuntimeConfig::load(&root.join("runtime.toml"))
+        let runtime = trust_runtime::config::RuntimeConfig::load(root.join("runtime.toml"))
             .expect("load configured runtime.toml");
         assert_eq!(runtime.resource_name, "setup_web_plc");
         assert_eq!(runtime.cycle_interval.as_millis(), 25);

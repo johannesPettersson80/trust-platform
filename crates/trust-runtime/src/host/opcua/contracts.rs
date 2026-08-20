@@ -434,7 +434,7 @@ fn valid_opc_tcp_endpoint(value: &str) -> bool {
         .strip_prefix("opc.tcp://")
         .map(|remainder| {
             let authority_end = remainder
-                .find(|character| matches!(character, '/' | '?' | '#'))
+                .find(['/', '?', '#'])
                 .unwrap_or(remainder.len());
             &remainder[..authority_end]
         })

@@ -12,3 +12,5 @@ pub const BYTECODE_MAX_LOCALS_PER_POU: usize = 65_536;
 pub const BYTECODE_MAX_PARAMETERS_PER_POU: usize = 1_024;
 /// Maximum arguments carried by one native-call instruction.
 pub const BYTECODE_MAX_NATIVE_ARGUMENTS: usize = 1_024;
+/// Maximum nested type references while validating or materializing one constant payload.
+pub const BYTECODE_MAX_CONST_NESTING: u8 = 64;

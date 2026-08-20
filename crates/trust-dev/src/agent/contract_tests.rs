@@ -134,10 +134,7 @@ fn missing_method_is_invalid_envelope_not_parse_error() {
     let workspace = TestWorkspace::new("missing-method");
     let mut server = workspace.server();
 
-    let response = failure(
-        server.handle_line(r#"{"jsonrpc":"2.0","id":8}"#),
-        -32600,
-    );
+    let response = failure(server.handle_line(r#"{"jsonrpc":"2.0","id":8}"#), -32600);
 
     assert_eq!(response["id"], 8);
 }
@@ -258,13 +255,13 @@ fn describe_is_complete_duplicate_free_and_transport_bound() {
     let workspace = TestWorkspace::new("describe");
     let mut server = workspace.server();
 
-    let response = success(server.handle_line(&request(
-        json!(40),
-        "agent.describe",
-        Some(json!({})),
-    )));
+    let response =
+        success(server.handle_line(&request(json!(40), "agent.describe", Some(json!({})))));
     let result = &response["result"];
-    assert_eq!(result["workspace_root"], workspace.root.display().to_string());
+    assert_eq!(
+        result["workspace_root"],
+        workspace.root.display().to_string()
+    );
     assert_eq!(result["transport"], "stdio");
     assert_eq!(result["framing"], "jsonl");
 
@@ -274,7 +271,10 @@ fn describe_is_complete_duplicate_free_and_transport_bound() {
         .iter()
         .map(|value| value.as_str().expect("method string"))
         .collect::<Vec<_>>();
-    let unique = methods.iter().copied().collect::<std::collections::BTreeSet<_>>();
+    let unique = methods
+        .iter()
+        .copied()
+        .collect::<std::collections::BTreeSet<_>>();
     assert_eq!(unique.len(), methods.len(), "duplicate method in describe");
     assert_eq!(
         unique,
@@ -319,10 +319,7 @@ fn workspace_read_returns_normalized_relative_path_and_exact_text() {
     )));
 
     assert_eq!(response["result"]["path"], "src/main.st");
-    assert_eq!(
-        response["result"]["text"],
-        "PROGRAM Main\nEND_PROGRAM\n"
-    );
+    assert_eq!(response["result"]["text"], "PROGRAM Main\nEND_PROGRAM\n");
 }
 
 #[test]
@@ -388,10 +385,7 @@ fn workspace_write_without_parent_creation_is_fail_closed() {
     );
 
     assert!(!workspace.root.join("missing").exists());
-    assert_eq!(
-        response["error"]["data"]["path"],
-        "missing/parent/main.st"
-    );
+    assert_eq!(response["error"]["data"]["path"], "missing/parent/main.st");
 }
 
 #[test]
@@ -492,10 +486,7 @@ fn workspace_read_rejects_symlink_escape() {
         -32001,
     );
 
-    assert_eq!(
-        response["error"]["data"]["kind"],
-        "path_outside_workspace"
-    );
+    assert_eq!(response["error"]["data"]["kind"], "path_outside_workspace");
     assert_eq!(response["error"]["data"]["path"], "escape/secret.st");
 }
 
@@ -522,10 +513,7 @@ fn workspace_write_rejects_symlink_escape_before_mutation() {
         -32001,
     );
 
-    assert_eq!(
-        response["error"]["data"]["kind"],
-        "path_outside_workspace"
-    );
+    assert_eq!(response["error"]["data"]["kind"], "path_outside_workspace");
     assert!(!outside.root.join("created").exists());
 }
 

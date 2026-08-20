@@ -1,8 +1,7 @@
 use super::*;
 
 fn collect_one(text: &str) -> (ApiItem, Vec<DocDiagnostic>) {
-    let (mut items, diagnostics) =
-        collect_api_items(&[contract_source("src/contract.st", text)]);
+    let (mut items, diagnostics) = collect_api_items(&[contract_source("src/contract.st", text)]);
     assert_eq!(items.len(), 1, "expected one API item: {items:#?}");
     (items.remove(0), diagnostics)
 }
@@ -89,10 +88,7 @@ fn docs_discovery_is_recursive_literal_and_deterministic() {
 fn docs_discovery_treats_glob_metacharacters_in_root_literally() {
     let outer = contract_temp_dir("root-glob");
     let project = outer.join("project[one]*");
-    contract_write(
-        &project.join("src/main.st"),
-        "PROGRAM Main\nEND_PROGRAM\n",
-    );
+    contract_write(&project.join("src/main.st"), "PROGRAM Main\nEND_PROGRAM\n");
 
     let sources = load_sources(&project, &project.join("src"))
         .expect("literal root with glob metacharacters");
@@ -188,10 +184,7 @@ END_INTERFACE
 
     assert!(diagnostics.is_empty(), "{diagnostics:#?}");
     assert_eq!(
-        items
-            .iter()
-            .map(|item| item.kind)
-            .collect::<Vec<_>>(),
+        items.iter().map(|item| item.kind).collect::<Vec<_>>(),
         [
             ApiItemKind::Program,
             ApiItemKind::TestProgram,
@@ -234,7 +227,11 @@ END_NAMESPACE
             .iter()
             .map(|item| item.qualified_name.as_str())
             .collect::<Vec<_>>(),
-        ["Cell.Tools.Motor", "Cell.Tools.Motor.Start", "Cell.Tools.Motor.Speed"]
+        [
+            "Cell.Tools.Motor",
+            "Cell.Tools.Motor.Start",
+            "Cell.Tools.Motor.Speed"
+        ]
     );
 }
 
@@ -498,15 +495,21 @@ END_PROGRAM
         [2, 4, 5, 5, 6, 7, 8]
     );
     let messages = diagnostic_messages(&diagnostics);
-    assert!(messages.iter().any(|message| message.contains("malformed @param")));
-    assert!(messages.iter().any(|message| message.contains("missing description")));
+    assert!(messages
+        .iter()
+        .any(|message| message.contains("malformed @param")));
+    assert!(messages
+        .iter()
+        .any(|message| message.contains("missing description")));
     assert!(messages
         .iter()
         .any(|message| message.contains("does not match any declared parameter")));
     assert!(messages
         .iter()
         .any(|message| message.contains("@return used on non-returning")));
-    assert!(messages.iter().any(|message| message.contains("unknown documentation tag")));
+    assert!(messages
+        .iter()
+        .any(|message| message.contains("unknown documentation tag")));
 }
 
 #[test]

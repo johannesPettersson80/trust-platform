@@ -463,9 +463,6 @@ fn collect_source_paths(
             continue;
         }
         let path = canonicalize_or_self(&path);
-        if !path.is_file() {
-            continue;
-        }
         let relative = path.strip_prefix(project_root).with_context(|| {
             format!(
                 "source '{}' does not live under project root '{}'",
@@ -473,6 +470,9 @@ fn collect_source_paths(
                 project_root.display()
             )
         })?;
+        if !path.is_file() || !is_structured_text_source(&path) {
+            continue;
+        }
         paths.insert(relative.to_string_lossy().replace('\\', "/"));
     }
     Ok(())

@@ -121,10 +121,7 @@ END_PROGRAM
         ["Base", "Derived"]
     );
     assert!(function.locals.iter().all(|var| var.constant));
-    assert!(function
-        .locals
-        .iter()
-        .all(|var| var.initializer.is_some()));
+    assert!(function.locals.iter().all(|var| var.initializer.is_some()));
 }
 
 #[test]
@@ -154,12 +151,10 @@ END_PROGRAM
             .collect::<Vec<_>>(),
         ["First", "Second", "Third"]
     );
-    assert!(function.locals.iter().all(|var| {
-        matches!(
-            var.initializer.as_ref(),
-            Some(Expr::Literal(Value::Int(6)))
-        )
-    }));
+    assert!(function
+        .locals
+        .iter()
+        .all(|var| { matches!(var.initializer.as_ref(), Some(Expr::Literal(Value::Int(6)))) }));
 }
 
 #[test]
@@ -568,10 +563,7 @@ END_PROGRAM
 "#,
     );
     let program = runtime.programs().values().next().expect("Main program");
-    assert!(program
-        .vars
-        .iter()
-        .all(|var| var.name != "ProgramGlobal"));
+    assert!(program.vars.iter().all(|var| var.name != "ProgramGlobal"));
     let global = &runtime.globals()["ProgramGlobal"];
     assert_eq!(global.type_id, TypeId::DINT);
     assert_eq!(global.retain, RetainPolicy::Retain);
@@ -706,10 +698,7 @@ PROGRAM Main
 END_PROGRAM
 "#,
     );
-    assert_eq!(
-        runtime.globals()["Retained"].retain,
-        RetainPolicy::Retain
-    );
+    assert_eq!(runtime.globals()["Retained"].retain, RetainPolicy::Retain);
     assert_eq!(
         runtime.globals()["Reinitialized"].retain,
         RetainPolicy::NonRetain
@@ -749,10 +738,7 @@ PROGRAM Main
 END_PROGRAM
 "#,
     );
-    assert_eq!(
-        runtime.storage().get_global("Base"),
-        Some(&Value::Int(4))
-    );
+    assert_eq!(runtime.storage().get_global("Base"), Some(&Value::Int(4)));
     assert_eq!(
         runtime.storage().get_global("Derived"),
         Some(&Value::Int(7))

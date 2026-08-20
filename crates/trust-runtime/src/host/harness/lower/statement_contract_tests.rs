@@ -672,7 +672,10 @@ Done: result := INT#1;
 END_PROGRAM
 "#,
     );
-    assert!(error.contains("unsupported C5 edge-case lowering path"), "{error}");
+    assert!(
+        error.contains("unsupported C5 edge-case lowering path"),
+        "{error}"
+    );
 }
 
 #[test]

@@ -6,11 +6,13 @@ use std::path::{Component, Path, PathBuf};
 use tower_lsp::lsp_types::DiagnosticSeverity;
 
 mod deps;
+mod diagnostics;
 mod git;
 mod load;
 mod lockfile;
 
 use deps::{parse_project_dependencies, resolve_manifest_dependencies};
+pub(crate) use diagnostics::configuration_issues;
 use git::{resolve_git_revision, run_git_command, validate_git_source_policy};
 use lockfile::{
     dependency_lock_path, dependency_lock_version, load_dependency_lock, sanitize_for_path,
@@ -303,7 +305,7 @@ struct IndexingSection {
     cache: Option<bool>,
     cache_dir: Option<String>,
     memory_budget_mb: Option<usize>,
-    evict_to_percent: Option<u8>,
+    evict_to_percent: Option<i64>,
     throttle_idle_ms: Option<u64>,
     throttle_active_ms: Option<u64>,
     throttle_max_ms: Option<u64>,
@@ -608,7 +610,7 @@ impl From<IndexingSection> for IndexingConfig {
             memory_budget_mb: (section.memory_budget_mb != Some(0))
                 .then_some(section.memory_budget_mb)
                 .flatten(),
-            evict_to_percent: section.evict_to_percent.unwrap_or(80).clamp(1, 100),
+            evict_to_percent: section.evict_to_percent.unwrap_or(80).clamp(1, 100) as u8,
             throttle_idle_ms: if coherent {
                 throttle_idle_ms
             } else {

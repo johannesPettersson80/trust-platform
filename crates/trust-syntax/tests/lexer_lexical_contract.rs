@@ -43,7 +43,9 @@ fn assert_rejected_candidate(source: &str, forbidden: &[TokenKind]) {
 
 #[test]
 fn lexical_contract_accepts_iec_identifier_forms() {
-    for source in ["IW215", "LIM_SW_5", "LimSw5", "abcd", "ab_Cd", "_MAIN", "_12V7"] {
+    for source in [
+        "IW215", "LIM_SW_5", "LimSw5", "abcd", "ab_Cd", "_MAIN", "_12V7",
+    ] {
         assert_single(source, TokenKind::Ident);
     }
 }
@@ -136,7 +138,10 @@ fn lexical_contract_line_comment_stops_before_form_feed() {
     let tokens = lex_with_text("// comment\u{000c}PROGRAM");
     assert_eq!(tokens[0].0.kind, TokenKind::LineComment);
     assert_eq!(tokens[0].1, "// comment");
-    assert_eq!(kinds("// comment\u{000c}PROGRAM"), vec![TokenKind::KwProgram]);
+    assert_eq!(
+        kinds("// comment\u{000c}PROGRAM"),
+        vec![TokenKind::KwProgram]
+    );
 }
 
 #[test]
@@ -165,7 +170,9 @@ fn lexical_contract_alternative_delimiters_are_text_inside_other_comment_family(
             .count(),
         2
     );
-    assert!(tokens.iter().all(|(token, _)| token.kind != TokenKind::Error));
+    assert!(tokens
+        .iter()
+        .all(|(token, _)| token.kind != TokenKind::Error));
 }
 
 #[test]
@@ -355,7 +362,12 @@ fn lexical_contract_rejects_duration_exponent() {
 
 #[test]
 fn lexical_contract_accepts_date_prefix_aliases() {
-    for source in ["D#1984-06-25", "DATE#1984-06-25", "LD#1984-06-25", "LDATE#1984-06-25"] {
+    for source in [
+        "D#1984-06-25",
+        "DATE#1984-06-25",
+        "LD#1984-06-25",
+        "LDATE#1984-06-25",
+    ] {
         assert_single(source, TokenKind::DateLiteral);
     }
 }

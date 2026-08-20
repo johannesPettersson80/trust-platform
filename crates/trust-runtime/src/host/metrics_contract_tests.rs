@@ -164,10 +164,7 @@ fn cycle_window_retains_exactly_the_most_recent_512_samples() {
 
     let snapshot = window.snapshot();
 
-    assert_eq!(
-        snapshot.window_samples,
-        CYCLE_LATENCY_WINDOW_SIZE as u64
-    );
+    assert_eq!(snapshot.window_samples, CYCLE_LATENCY_WINDOW_SIZE as u64);
     assert_eq!(snapshot.p50_ms, 1.0);
     assert_eq!(snapshot.p95_ms, 1.0);
     assert_eq!(snapshot.p99_ms, 1.0);
@@ -254,9 +251,7 @@ fn task_rows_are_sorted_by_exact_name_independent_of_insertion_order() {
 
     assert_eq!(
         names,
-        vec![
-            "Alpha", "Bravo", "Charlie", "Echo", "Foxtrot", "Hotel", "Mike", "Zulu"
-        ]
+        vec!["Alpha", "Bravo", "Charlie", "Echo", "Foxtrot", "Hotel", "Mike", "Zulu"]
     );
 }
 
@@ -325,11 +320,7 @@ fn repeated_call_identity_aggregates_without_merging_other_kind() {
 #[test]
 fn calls_without_cycle_samples_remain_visible_with_zero_percentages() {
     let mut metrics = RuntimeMetrics::new();
-    metrics.record_call(
-        "program",
-        &SmolStr::new("MAIN"),
-        duration_ms(3),
-    );
+    metrics.record_call("program", &SmolStr::new("MAIN"), duration_ms(3));
 
     let snapshot = metrics.snapshot();
     let call = &snapshot.profiling.calls[0];
@@ -348,16 +339,8 @@ fn contributor_percentages_use_average_and_last_cycle_denominators() {
     let mut metrics = RuntimeMetrics::new();
     metrics.record_cycle(duration_ms(10));
     metrics.record_cycle(duration_ms(20));
-    metrics.record_call(
-        "program",
-        &SmolStr::new("MAIN"),
-        duration_ms(3),
-    );
-    metrics.record_call(
-        "program",
-        &SmolStr::new("MAIN"),
-        duration_ms(5),
-    );
+    metrics.record_call("program", &SmolStr::new("MAIN"), duration_ms(3));
+    metrics.record_call("program", &SmolStr::new("MAIN"), duration_ms(5));
 
     let top = metrics.snapshot().profiling.top_contributors.remove(0);
 
@@ -371,11 +354,7 @@ fn contributor_percentages_use_average_and_last_cycle_denominators() {
 fn contributor_percentages_are_not_clamped_to_one_hundred() {
     let mut metrics = RuntimeMetrics::new();
     metrics.record_cycle(duration_ms(1));
-    metrics.record_call(
-        "program",
-        &SmolStr::new("MAIN"),
-        duration_ms(3),
-    );
+    metrics.record_call("program", &SmolStr::new("MAIN"), duration_ms(3));
 
     let top = metrics.snapshot().profiling.top_contributors.remove(0);
 
@@ -416,18 +395,10 @@ fn top_contributors_are_limited_to_five_and_ties_use_key_order() {
 fn disabling_profiling_clears_calls_and_ignores_disabled_records() {
     let mut metrics = RuntimeMetrics::new();
     metrics.record_cycle(duration_ms(10));
-    metrics.record_call(
-        "program",
-        &SmolStr::new("Before"),
-        duration_ms(2),
-    );
+    metrics.record_call("program", &SmolStr::new("Before"), duration_ms(2));
 
     metrics.set_profiling_enabled(false);
-    metrics.record_call(
-        "program",
-        &SmolStr::new("Ignored"),
-        duration_ms(9),
-    );
+    metrics.record_call("program", &SmolStr::new("Ignored"), duration_ms(9));
     let disabled = metrics.snapshot();
     assert!(!disabled.profiling.enabled);
     assert!(disabled.profiling.calls.is_empty());
@@ -442,11 +413,7 @@ fn disabling_profiling_clears_calls_and_ignores_disabled_records() {
 #[test]
 fn idempotent_enabled_toggle_preserves_existing_profile_samples() {
     let mut metrics = RuntimeMetrics::new();
-    metrics.record_call(
-        "program",
-        &SmolStr::new("MAIN"),
-        duration_ms(2),
-    );
+    metrics.record_call("program", &SmolStr::new("MAIN"), duration_ms(2));
 
     metrics.set_profiling_enabled(true);
 
@@ -480,11 +447,7 @@ fn profiling_toggle_does_not_reset_cycle_task_fault_or_overrun_metrics() {
 fn repeated_snapshots_are_observational_except_for_monotonic_uptime() {
     let mut metrics = RuntimeMetrics::new();
     metrics.record_cycle(duration_ms(5));
-    metrics.record_call(
-        "program",
-        &SmolStr::new("MAIN"),
-        duration_ms(2),
-    );
+    metrics.record_call("program", &SmolStr::new("MAIN"), duration_ms(2));
 
     let first = metrics.snapshot();
     let second = metrics.snapshot();

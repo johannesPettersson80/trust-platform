@@ -90,8 +90,7 @@ fn live_target_rejects_multiple_terminal_slashes() {
 
 #[test]
 fn empty_live_manager_snapshot_has_stable_shape() {
-    let snapshot =
-        config_ui_live_targets_snapshot_with_guard(&ConfigUiLiveManagerState::default());
+    let snapshot = config_ui_live_targets_snapshot_with_guard(&ConfigUiLiveManagerState::default());
     assert_eq!(
         snapshot,
         json!({

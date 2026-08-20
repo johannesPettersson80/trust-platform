@@ -4,8 +4,8 @@
 
 use crate::error::RuntimeError;
 use crate::numeric::{
-    NumericKind, numeric_kind, signed_from_i128, to_f64, to_i64, to_u64, unsigned_from_u128,
-    wider_numeric,
+    numeric_kind, signed_from_i128, to_f64, to_i64, to_u64, unsigned_from_u128, wider_numeric,
+    NumericKind,
 };
 use crate::value::{
     DateTimeProfile, DateTimeValue, DateValue, Duration, LDateTimeValue, LDateValue,
@@ -19,7 +19,7 @@ include!("ops/numeric_arith.rs");
 
 #[cfg(test)]
 mod tests {
-    use super::{BinaryOp, UnaryOp, apply_binary, apply_unary};
+    use super::{apply_binary, apply_unary, BinaryOp, UnaryOp};
     use crate::error::RuntimeError;
     use crate::value::{
         DateTimeError, DateTimeProfile, DateTimeValue, DateValue, Duration, LDateTimeValue,
@@ -456,12 +456,18 @@ mod tests {
     fn date_time_ordering_requires_matching_runtime_families() {
         let profile = DateTimeProfile::default();
         let ordered_pairs = [
-            (Value::Time(Duration::from_nanos(1)), Value::Time(Duration::from_nanos(2))),
+            (
+                Value::Time(Duration::from_nanos(1)),
+                Value::Time(Duration::from_nanos(2)),
+            ),
             (
                 Value::LTime(Duration::from_nanos(1)),
                 Value::LTime(Duration::from_nanos(2)),
             ),
-            (Value::Date(DateValue::new(1)), Value::Date(DateValue::new(2))),
+            (
+                Value::Date(DateValue::new(1)),
+                Value::Date(DateValue::new(2)),
+            ),
             (
                 Value::LDate(LDateValue::new(1)),
                 Value::LDate(LDateValue::new(2)),

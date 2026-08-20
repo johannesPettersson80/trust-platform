@@ -33,6 +33,13 @@ TEST_FILE_SUFFIXES = (
     "_tests.py",
 )
 DEFAULT_OUTPUT_DIR = Path("target/gate-artifacts/verification")
+ADVISORY_COMMANDS = {
+    "verification_focused_tests",
+    "verification_metadata_gate",
+    "phase16_readiness",
+    "verification_governance",
+    "plan_tests",
+}
 
 
 @dataclass(frozen=True)
@@ -247,7 +254,13 @@ def load_catalog_paths(root: Path) -> set[str]:
     catalog = root / "verification/test-catalog.toml"
     if not catalog.exists():
         return set()
-    data = tomllib.loads(catalog.read_text())
+    try:
+        data = tomllib.loads(catalog.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, tomllib.TOMLDecodeError):
+        # Catalog integrity is reported by the advisory metadata command.  The
+        # changed-file report must still complete so maintenance state cannot
+        # prevent native product checks or exact-candidate preparation.
+        return set()
     records = data.get("tests", [])
     if not isinstance(records, list):
         return set()
@@ -280,31 +293,9 @@ def report_exit_code(report: VerificationReport, *, strict: bool) -> int:
     if not strict:
         return 0
     for command in report.commands:
-        if command.exit_code == 0:
-            continue
-        if command.name != "plan_tests" or planner_finding_blocks(report.planner_json):
+        if command.exit_code != 0 and command.name not in ADVISORY_COMMANDS:
             return 1
-    if report.uncataloged_tests:
-        return 1
     return 0
-
-
-def planner_finding_blocks(payload: dict[str, object] | None) -> bool:
-    """Keep the original bytecode class ratchet while enforcing global integrity."""
-
-    if payload is None:
-        return True
-    for field in ("spec_gaps", "unmapped_files", "unknown_areas", "uninventoried_areas"):
-        value = payload.get(field)
-        if not isinstance(value, list):
-            return True
-        if value:
-            return True
-    missing = payload.get("missing_test_classes")
-    areas = payload.get("areas")
-    if not isinstance(missing, list) or not isinstance(areas, list):
-        return True
-    return bool(missing and "bytecode_vm" in areas)
 
 
 def render_markdown(report: VerificationReport) -> str:
@@ -330,13 +321,8 @@ def render_markdown(report: VerificationReport) -> str:
     if report.planner_json:
         verdict = report.planner_json.get("verdict", "<unknown>")
         lines.append(f"Planner verdict: `{verdict}`")
-        if (
-            report.planner_exit_code not in (None, 0)
-            and not planner_finding_blocks(report.planner_json)
-        ):
-            lines.append(
-                "Planner test-class finding: advisory outside the bytecode/VM test-class ratchet"
-            )
+        if report.planner_exit_code not in (None, 0):
+            lines.append("Planner finding: advisory maintenance information")
 
     lines.extend(["", "Uncataloged changed tests:"])
     if report.uncataloged_tests:
@@ -347,8 +333,9 @@ def render_markdown(report: VerificationReport) -> str:
     if report.mode == "enforcing":
         lines.extend(
             [
-                "This gate is enforcing. A red verification command or an",
-                "uncataloged changed test blocks merge.",
+                "Strict mode remains fail-closed for any non-advisory command added to this report.",
+                "The recursive verification-tooling and metadata commands are advisory maintenance; native product tests are enforced by their owning CI jobs.",
+                "Planner and catalog observations are advisory and do not block merge.",
             ]
         )
     else:

@@ -97,12 +97,52 @@ class ReleaseCandidateGuardTests(unittest.TestCase):
             "\n".join(candidate_prepare.bootstrap_failures(destination, canonical)),
         )
 
-    def test_failed_cheap_preflight_blocks_the_next_stage(self) -> None:
+    def test_metadata_maintenance_is_advisory_but_candidate_integrity_blocks(self) -> None:
         records = [
             {"id": "bootstrap", "exit_status": 0},
+            {"id": "clean", "exit_status": 0},
+            {"id": "base_ancestor", "exit_status": 0},
+            {"id": "diff_check", "exit_status": 0},
             {"id": "planner", "exit_status": 4},
+            {"id": "catalog_staleness", "exit_status": 1},
+            {"id": "selftests", "exit_status": 1},
         ]
-        self.assertFalse(candidate_prepare.stage_passed(records, ("bootstrap", "planner")))
+        self.assertTrue(
+            candidate_prepare.stage_passed(
+                records,
+                (
+                    "bootstrap",
+                    "clean",
+                    "base_ancestor",
+                    "diff_check",
+                    "planner",
+                    "catalog_staleness",
+                    "selftests",
+                ),
+            )
+        )
+
+        artifact = self.passing_artifact()
+        by_id = {row["id"]: row for row in artifact["commands"]}
+        for command_id in ("planner", "catalog_staleness", "selftests"):
+            row = by_id.get(command_id)
+            if row is None:
+                row = {
+                    "id": command_id,
+                    "command": command_id,
+                    "exit_status": 1,
+                    "output_sha256": "0" * 64,
+                    "duration_ms": 1,
+                    "scope": "local",
+                }
+                artifact["commands"].append(row)
+            row["exit_status"] = 1
+        self.assertEqual(guard.validate_artifact(self.repo, artifact, self.head), [])
+
+        records[0]["exit_status"] = 1
+        self.assertFalse(
+            candidate_prepare.stage_passed(records, ("bootstrap", "diff_check"))
+        )
 
     def test_stale_head_and_base_are_rejected(self) -> None:
         artifact = self.passing_artifact()

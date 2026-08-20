@@ -16,18 +16,18 @@ class SkillRoutingTests(unittest.TestCase):
 
         self.assertLessEqual(len(text.splitlines()), 180)
         for marker in (
-            "scripts/plan_tests.py",
-            "scripts/prove.py red",
-            "scripts/prove.py green",
-            "spec_gap",
+            "written specification",
+            "native executable test",
             "behavior-lock",
             "hardware",
             "docs/internal/testing/checklists/plc-verification-program",
-            "phase18-zero-debt-execution-board.md",
-            "reviewed_nonmapping",
+            "Never derive product work",
+            "Planner, catalog, denominator, and evidence tooling",
+            "nonblocking maintenance and cannot invent product requirements or tests",
         ):
             with self.subTest(marker=marker):
                 self.assertIn(marker, text)
+        self.assertNotIn("scripts/plan_tests.py", text)
 
     def test_agents_and_domain_skills_route_behavior_changes_to_shared_contract(self) -> None:
         expected = {
@@ -44,8 +44,11 @@ class SkillRoutingTests(unittest.TestCase):
             with self.subTest(path=relative):
                 self.assertIn(marker, (ROOT / relative).read_text())
         agents = (ROOT / "AGENTS.md").read_text()
-        self.assertIn("phase18-zero-debt-execution-board.md", agents)
-        self.assertIn("reviewed_nonmapping", agents)
+        self.assertIn("written specification", agents)
+        self.assertIn("native executable test", agents)
+        self.assertIn("cannot create product work", agents)
+        self.assertNotIn("`unmapped`) block", agents)
+        self.assertNotIn("uncataloged-test rejection", agents)
 
     def test_skill_metadata_routes_the_eight_reviewed_scenarios(self) -> None:
         text = (ROOT / ".codex/skills/trust-test-authoring/SKILL.md").read_text()

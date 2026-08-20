@@ -345,7 +345,7 @@ fn fleet_host_contract_same_host_rejects_missing_or_different_group() {
     assert!(!same_host_by_discovery(
         "runtime-a",
         &peer_without_group,
-        &[peer_without_group.clone()]
+        std::slice::from_ref(&peer_without_group)
     ));
 
     let mut peer = discovery_entry("peer-id", "peer", Vec::new(), 1);

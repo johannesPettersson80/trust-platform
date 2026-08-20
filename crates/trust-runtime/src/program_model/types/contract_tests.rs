@@ -132,16 +132,28 @@ fn function_preserves_ordered_parameter_local_import_and_body_groups() {
     assert_eq!(function.name, "Compute");
     assert_eq!(function.return_type, TypeId::LINT);
     assert_eq!(
-        function.params.iter().map(|item| item.name.as_str()).collect::<Vec<_>>(),
+        function
+            .params
+            .iter()
+            .map(|item| item.name.as_str())
+            .collect::<Vec<_>>(),
         ["first", "second"]
     );
     assert_eq!(
-        function.locals.iter().map(|item| item.name.as_str()).collect::<Vec<_>>(),
+        function
+            .locals
+            .iter()
+            .map(|item| item.name.as_str())
+            .collect::<Vec<_>>(),
         ["local_a", "local_b"]
     );
     assert_eq!(function.static_locals[0].name, "static_a");
     assert_eq!(
-        function.using.iter().map(SmolStr::as_str).collect::<Vec<_>>(),
+        function
+            .using
+            .iter()
+            .map(SmolStr::as_str)
+            .collect::<Vec<_>>(),
         ["First.Space", "Second.Space"]
     );
     assert_eq!(function.body.len(), 2);
@@ -245,7 +257,11 @@ fn class_preserves_base_variables_imports_and_methods_in_order() {
     assert_eq!(class.name, "Derived");
     assert_eq!(class.base.as_deref(), Some("Base"));
     assert_eq!(
-        class.vars.iter().map(|item| item.name.as_str()).collect::<Vec<_>>(),
+        class
+            .vars
+            .iter()
+            .map(|item| item.name.as_str())
+            .collect::<Vec<_>>(),
         ["first", "second"]
     );
     assert_eq!(
@@ -253,7 +269,11 @@ fn class_preserves_base_variables_imports_and_methods_in_order() {
         ["Z.Space", "A.Space"]
     );
     assert_eq!(
-        class.methods.iter().map(|item| item.name.as_str()).collect::<Vec<_>>(),
+        class
+            .methods
+            .iter()
+            .map(|item| item.name.as_str())
+            .collect::<Vec<_>>(),
         ["Open", "Close"]
     );
 }
@@ -271,7 +291,11 @@ fn interface_preserves_base_imports_and_method_order_without_variables() {
     assert_eq!(interface.name, "DerivedInterface");
     assert_eq!(interface.base.as_deref(), Some("BaseInterface"));
     assert_eq!(
-        interface.using.iter().map(SmolStr::as_str).collect::<Vec<_>>(),
+        interface
+            .using
+            .iter()
+            .map(SmolStr::as_str)
+            .collect::<Vec<_>>(),
         ["First", "Second"]
     );
     assert_eq!(

@@ -41,8 +41,16 @@ class MutationProgramContractTests(unittest.TestCase):
             [len(row["mutations"]) for row in self.program["shards"]],
         )
 
-    def test_live_contract_is_valid_and_recursively_closed(self) -> None:
-        self.assertEqual([], validate_mutation_program_contract(ROOT, self.program))
+    def test_live_manifest_and_source_execution_preflights_are_valid(self) -> None:
+        for shard_id in REQUIRED_SHARD_IDS[1:5]:
+            self.assertEqual(
+                [],
+                validate_mutation_program_for_shard_execution(
+                    ROOT,
+                    self.program,
+                    shard_id,
+                ),
+            )
         schema = json.loads((ROOT / MUTATION_PROGRAM_SCHEMA_PATH).read_text())
         self.assertFalse(schema["additionalProperties"])
         for definition in schema["$defs"].values():
@@ -345,18 +353,13 @@ class MutationProgramContractTests(unittest.TestCase):
                     self.fail(f"hostile legacy report raised {type(exc).__name__}: {exc}")
             self.assertTrue(failures)
 
-    def test_full_metadata_validator_owns_the_manifest_contract(self) -> None:
-        from .metadata_validator.core import Validator
+    def test_manifest_contract_remains_available_as_standalone_advisory_tooling(self) -> None:
+        corrupted = {**self.program, "proof_posture": "release_proof"}
 
-        validator = Validator()
-        validator.load_records()
-        with mock.patch.object(
-            validator,
-            "mutation_program",
-            {**validator.mutation_program, "proof_posture": "release_proof"},
-        ):
-            validator.validate()
-        self.assertTrue(any("proof posture" in item.message for item in validator.failures))
+        self.assertIn(
+            "proof posture",
+            "\n".join(validate_mutation_program_contract(ROOT, corrupted)),
+        )
 
     def test_manifest_paths_are_stable(self) -> None:
         self.assertEqual("verification/mutation-program.toml", MUTATION_PROGRAM_PATH)
