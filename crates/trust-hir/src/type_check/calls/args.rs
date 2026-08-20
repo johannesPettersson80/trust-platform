@@ -1,5 +1,4 @@
 use super::super::standard::is_execution_param;
-use super::super::*;
 use super::*;
 
 impl<'a, 'b> CallChecker<'a, 'b> {

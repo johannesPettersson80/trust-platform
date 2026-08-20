@@ -52,6 +52,9 @@ Target release: `v0.24.62`
 
 ### Fixed
 
+- trust-runtime: Hardware settings now keep the driver panel reachable in the
+  scrollable settings surface, and control authentication tokens use masked
+  password input instead of being displayed as plain text.
 - ci/vscode: the exact-SHA release-candidate guard now runs Extension Host
   tests under Xvfb, and rendered Live Values layout proof discovers installed
   Chromium and Google Chrome executables without a builder-specific override.
